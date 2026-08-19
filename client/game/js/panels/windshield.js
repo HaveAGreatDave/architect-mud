@@ -816,9 +816,24 @@ export function paintWindshield(id, view) {
   // view you're actually flying, so you aim from any angle instead of being snapped dead-astern
   // mid-burst. A yanked camera the instant you pull the trigger is the one thing a gun run can't
   // afford — you lose the target you were tracking at the exact moment you shoot at it.
+  // ── THE DETACHED CAMERA ─────────────────────────────────────────────────────
+  // A chase camera is described relative to the craft: orbit it, dolly it, and it is still bolted
+  // to the thing it is watching. `freeCam` is the other kind — a world position, its own aim, and
+  // no relationship to where the vehicle is pointed. It only exists in the EXTERNAL view (there is
+  // nothing to detach from inside a cockpit) and it is entirely a presentation state: nothing here
+  // is told to the server, and the vehicle carries on being driven by whoever is driving it.
+  //
+  // Everything below reads `fcam` rather than branching on it twice — the orbit terms are still
+  // computed (they are cheap and the reset needs them), they simply stop being what the camera is.
+  const fcam = ext ? (v.freeCam || null) : null;
   const extOrbit = ext ? (v.extYaw || 0) + RENDER_TUNE.chaseYaw : 0;
+  // ⚠ A FREE CAMERA'S YAW IS ITS OWN, NOT AN OFFSET FROM THE CRAFT'S. Orbit yaw is added to the
+  // vehicle's heading, which is what makes it an orbit — turn the truck and the camera swings with
+  // it. Detached, that is precisely the behaviour you do not want: you place the shot, the rig
+  // drives through it, and the framing holds still.
   const yawOff = (v.viewYaw || (v.side ? 90 : 0)) + extOrbit;
-  const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
+  const vw = fcam ? { ...v, heading: fcam.yaw || 0 }
+    : yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
   const phase = v.phase || 'cruise';
   // A hero event OUTRANKS the ordinary weather type for everything visual: when
@@ -878,7 +893,15 @@ export function paintWindshield(id, view) {
   // swings the camera down onto the deck, where the same reasoning applies anyway.
   const lowFrac = clamp((restPitch - extPitch) / Math.max(0.05, restPitch - groundPitch), 0, 1);
   const orbRcam = orbR * (1 + topFrac * 1.4 + lowFrac * 0.5);
-  const chase = ext ? { back: orbRcam * Math.cos(extPitch), up: orbRcam * Math.sin(extPitch) } : null;   // camera on the arc: tiles behind / world-z above the craft
+  // The camera on the arc (tiles behind / world-z above the craft) — or, detached, a world offset
+  // and an absolute eye height, which is exactly the vocabulary makeCam grew for it. `back` and
+  // `up` are zeroed rather than left set: the free position is the whole answer, and a residual
+  // chase term underneath it would drag the shot back toward the vehicle as it turned.
+  const chase = ext
+    ? (fcam
+      ? { back: 0, up: 0, fx: fcam.x || 0, fy: fcam.y || 0, ez: fcam.z != null ? fcam.z : 0.4 }
+      : { back: orbRcam * Math.cos(extPitch), up: orbRcam * Math.sin(extPitch) })
+    : null;
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   // Continuous ground↔air crossfade weight (0 = fully on the deck, 1 = fully airborne).
@@ -959,7 +982,15 @@ export function paintWindshield(id, view) {
   // craft — otherwise it just dollies up and the plane slides down the frame. We solve the horizon that
   // lands the own ship at a FIXED screen position for the current arc angle.
   let horizonY = st.horizon;
-  if (ext && chase) {   // NOT gated on v.firing — pulling the trigger must not re-solve the framing
+  // ⚠ A DETACHED CAMERA MUST NOT SOLVE ITS HORIZON TO FRAME THE CRAFT — that solve is the whole
+  // definition of a chase cam, and it also divides by `chase.back`, which is zero here. Pitch is
+  // simply the camera's own: the horizon is where the view axis crosses the screen, so a pitch of θ
+  // moves it by the projection depth times tan θ. Clamped generously rather than tightly — pointing
+  // a camera at the sky or straight down is a thing you are allowed to do with this.
+  if (fcam) {
+    const D = H * 0.55;
+    horizonY = clamp(H * 0.5 + D * Math.tan(clamp(fcam.pitch || 0, -1.35, 1.35)), -H * 6, H * 7);
+  } else if (ext && chase) {   // NOT gated on v.firing — pulling the trigger must not re-solve the framing
     const D = H * 0.55;                                        // = focal, makeCam's vertical projection scale
     const baseWz = ownShipBaseWz({ EHbase: EHbaseC, R: v.map ? (v.map.length - 1) / 2 : 0 }, v);
     if (v.hideOwnShip) {

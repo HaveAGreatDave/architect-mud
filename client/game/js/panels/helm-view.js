@@ -12,6 +12,7 @@
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup } from './windshield.js';
+import { createFreeCam, FREECAM_HINT } from './freecam.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
 // standalone/embed context that can't provide it (or fails to load it) still runs on opts
@@ -154,6 +155,10 @@ function makeBoatAudio() {
 
 export function openHelmChase(container, opts = {}) {
   ensureWindshieldStyles();
+  // ⚠ PER HELM, not module-scoped like the cab's and the sim's. A wheelhouse can be opened and
+  // destroyed repeatedly in one session and each one owns its own listeners, so a shared camera
+  // would be stowed by whichever view closed first.
+  const freeCam = createFreeCam();
   const id = 'helm-chase-' + Math.random().toString(36).slice(2, 8);
   container.innerHTML = windshieldHTML(id, 'ECHELON · AFT');
 
@@ -230,6 +235,7 @@ export function openHelmChase(container, opts = {}) {
   function frame(now) {
     if (!st.alive) return;
     const dt = Math.min(0.05, (now - st.last) / 1000); st.last = now;
+    st.lastDt = dt;   // the camera flies on the same clock she does
     // The whole per-frame body is guarded. This loop reschedules itself only at the very END, and the
     // renderer (paintWindshield) has no internal try/catch — so a SINGLE throw anywhere in here (e.g. a
     // transient non-finite coord reaching a canvas gradient, which throws) would never reach the
@@ -345,6 +351,7 @@ export function openHelmChase(container, opts = {}) {
     // near side-on view; pulled back lifts toward top-down. The ship holds screen-centre regardless
     // (windshield hideOwnShip compensation). Resting/console framing still drives extZoom via setRestZoom.
     st.extPitch = pitchForZoom(st.extZoom);
+    freeCam.step(st.lastDt || 0.016);
 
     paintWindshield(id, {
       external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1, frameY: st.frameY,
@@ -352,6 +359,7 @@ export function openHelmChase(container, opts = {}) {
       height: 0, speed: st.spd, hour, moon, weather, wxField: field, seaScroll: st.seaScroll || 0, contacts,
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
+      freeCam: freeCam.view(),
     });
 
     } catch (e) {
@@ -360,6 +368,39 @@ export function openHelmChase(container, opts = {}) {
     st.raf = requestAnimationFrame(frame);
   }
   st.raf = requestAnimationFrame(frame);
+
+  // ── THE CAMERA OFF ITS MOUNT ──────────────────────────────────────────────
+  // The wheelhouse had no keyboard at all — she is steered with the wheel widget and the verbs —
+  // so this is the one panel of the three where the listener is new rather than borrowed. It is
+  // deliberately the ONLY thing it listens for: everything that is not the camera's is left to fall
+  // through to whatever the page would have done with it.
+  //
+  // ⚠ AND SHE HOLDS HER COURSE, which costs nothing here — a yacht under way already holds heading
+  // and speed until somebody tells her otherwise, so unlike the cab and the cockpit there is no
+  // input to release. That asymmetry is the reason the hold lives in the panels and not in the
+  // shared module: three vehicles, three genuinely different sentences.
+  function onHelmKey(e) {
+    if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
+    const k = (e.key || '').toLowerCase();
+    const down = e.type === 'keydown';
+    if (k === 'o' && down && !e.repeat) {
+      const on = freeCam.toggle({ yaw: st.heading || 0, z: 0.6 });
+      const hint = container.querySelector('.helm-freecam-hint');
+      if (on && !hint) {
+        const el = document.createElement('div');
+        el.className = 'helm-freecam-hint'; el.textContent = FREECAM_HINT;
+        el.style.cssText = 'position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;'
+          + 'font-size:11px;letter-spacing:0.6px;color:#dfe6ef;background:rgba(8,11,15,0.62);padding:4px 12px;'
+          + 'border-radius:11px;border:1px solid rgba(255,255,255,0.16);pointer-events:none;white-space:nowrap';
+        container.appendChild(el);
+      } else if (!on) hint?.remove();
+      e.preventDefault();
+      return;
+    }
+    if (freeCam.onKey(k, down)) e.preventDefault();
+  }
+  window.addEventListener('keydown', onHelmKey);
+  window.addEventListener('keyup', onHelmKey);
 
   const busy = () => st.sailing || st.heading !== st.headingTarget;
 
@@ -499,6 +540,12 @@ export function openHelmChase(container, opts = {}) {
     // framing can be dialled in from the console and the winning numbers baked into REST.
     pose() { return { yaw: +st.extYaw.toFixed(1), pitch: +st.extPitch.toFixed(3), zoom: +st.extZoom.toFixed(3), frameY: st.frameY == null ? null : +st.frameY.toFixed(3) }; },
     setPose(p = {}) { if (p.yaw != null) st.extYaw = ((p.yaw % 360) + 360) % 360; if (p.pitch != null) st.extPitch = p.pitch; if (p.zoom != null) st.extZoom = p.zoom; if (p.frameY !== undefined) st.frameY = (p.frameY == null ? null : Math.max(0.15, Math.min(0.8, p.frameY))); return this.pose(); },
-    destroy() { st.alive = false; cancelAnimationFrame(st.raf); audio.stop(); disposeWindshield(id); container.innerHTML = ''; },
+    destroy() {
+      st.alive = false; cancelAnimationFrame(st.raf); audio.stop(); disposeWindshield(id);
+      // The camera is stowed with the view, and its keys with it — see the same note in closeCab.
+      freeCam.close();
+      window.removeEventListener('keydown', onHelmKey); window.removeEventListener('keyup', onHelmKey);
+      container.innerHTML = '';
+    },
   };
 }

@@ -22,6 +22,7 @@ import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
+import { createFreeCam } from './freecam.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
 // auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
@@ -149,6 +150,9 @@ const GROUND_LEAD = 3.5, CLIMB_SEC = 9, BANK_ANGLE = 25, CLIMB_PITCH = 6, CRUISE
 // Release either key and the view drops back to the default side window.
 let _paxView = 'side';       // 'side' | 'forward' | 'rear'
 let _paxKeyHandlers = null;  // [onKeyDown, onKeyUp] once bound, so we can unbind cleanly
+// One detached camera for the sim, module-scoped beside the rest of the flight state — see
+// freecam.js for why it lives in its own file rather than three times over.
+const freeCam = createFreeCam();
 
 function updatePaxViewTag() {
   const tag = document.getElementById('ck-pax-viewtag'); if (!tag) return;
@@ -2932,6 +2936,25 @@ export function openFlightSim(opts = {}) {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
     const k = (e.key || '').toLowerCase();
+    // ── THE CAMERA OFF ITS MOUNT ────────────────────────────────────────────
+    // Handled AHEAD of the `KEYS` allowlist rather than inside it, because most of what the camera
+    // flies on (WASD, the arrows) is either absent from that set or bound to something else — and
+    // adding them to it would mean the aircraft's own handler had to learn to ignore them again a
+    // few lines later. One gate, at the top, before anything else reads the key.
+    //
+    // ⚠ AND IT HOLDS THE AIRCRAFT, which is not the same as freezing it. The stick and pedals are
+    // about to belong to the camera, so their key inputs are released: the aeroplane flies on its
+    // trim at the throttle it had, straight and level, which is what you want to photograph. It
+    // keeps flying — you can lose it off the edge of your own shot, and that is correct.
+    if (k === 'o' && !e.repeat && F.external) {
+      e.preventDefault();
+      const on = freeCam.toggle({ yaw: (F.hdg || 0) + (F.extOrbit || 0), z: 0.55 });
+      if (on) { F.throttleKey = 0; F.pedalKey = 0; F.firing = false; }
+      fsimToast(on ? '◎ FREE CAMERA — WASD move, arrows look, O to stow' : '◎ CHASE CAMERA');
+      return;
+    }
+    if (freeCam.onKey(k, true)) { e.preventDefault(); return; }
+    if (freeCam.active) return;   // detached: the airframe hears nothing
     if (!KEYS.has(k)) return;
     e.preventDefault();
     switch (k) {
@@ -2965,6 +2988,7 @@ export function openFlightSim(opts = {}) {
   };
   const onKeyUp = (e) => {
     const k = (e.key || '').toLowerCase();
+    if (freeCam.onKey(k, false)) return;
     if (k === 'a' || k === 'z') F.throttleKey = 0;
     else if (k === ',' || k === '.' || k === 'x' || k === 'c') F.pedalKey = 0;   // release pedal → centres
     else if (k === 'q' || k === 'e' || k === 's') setView(0);      // release hold-to-look → forward
@@ -3760,6 +3784,7 @@ function fsimFrame(now) {
   // The dive computer commands the elevator AFTER the spring and BEFORE the model — so a hand on
   // the yoke (which holds yokeDrag, skipping the spring above) is the last word, and everything
   // downstream sees one ordinary elevator input. See toggleDiveAuto.
+  freeCam.step(dt);   // the camera flies on the same clock the aircraft does
   if (F.diveAuto && !F.yokeDrag) F.flyDiveAuto(F.s, input, dt);
   else if (F.diveAuto && F.yokeDrag) { F.diveAuto = null; fsimToast('◇ DIVE COMPUTER OFF — you have it'); }
   // The button follows the state rather than the click, because the state changes on its own —
@@ -4531,7 +4556,7 @@ function fsimFrame(now) {
     // Prop/rotor spin is driven by engine RPM (spooled fraction of throttle → reacts to the
     // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
     // the ramp and winds up with the throttle instead of only spinning once she's moving.
-    external: F.external, extZoom: F.extZoom || 1, cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: F.livery, enginePct: d.rpm,
+    external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: F.livery, enginePct: d.rpm,
     engineOn: F.engineOn, landingLight: F.landingLight,   // nav/strobe/beacon die with the engine; landing lamps add a bright forward set
     panelLight: F.nightLight,   // PANEL switch → richer warm instrument glow reflected up onto the lower canopy
 

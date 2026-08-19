@@ -19,6 +19,7 @@
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
+import { createFreeCam, FREECAM_HINT } from './freecam.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
@@ -228,6 +229,24 @@ const CAB_GATE = [
 ];
 
 let st = null;
+// ONE CAMERA, MODULE-SCOPED, because there is exactly one cab — `st` above is a singleton for the
+// same reason. It deliberately outlives a single `openCab`: nothing here is worth persisting across
+// a dismount, and `closeCab` puts it away, but keeping it beside `st` means the key handler and the
+// paint call reach the same object without threading it through either.
+const freeCam = createFreeCam();
+// The hint strip, mounted and unmounted with the mode. It is one line of text over the glass rather
+// than a control panel on purpose: a camera you are using to take a picture should be covering as
+// little of the picture as possible.
+function paintFreeCamHint() {
+  const host = st?.container?.querySelector('.cab-wrap') || st?.container;
+  if (!host) return;
+  host.querySelector('.cab-freecam-hint')?.remove();
+  if (!freeCam.active) return;
+  const el = document.createElement('div');
+  el.className = 'cab-freecam-hint';
+  el.textContent = FREECAM_HINT;
+  host.appendChild(el);
+}
 
 export function isCabActive() { return !!st; }
 
@@ -1474,6 +1493,35 @@ export function openCab(ctx = {}) {
     if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
     const k = e.key.toLowerCase();
     const down = e.type === 'keydown';
+    // ── THE CAMERA OFF ITS MOUNT ────────────────────────────────────────────
+    // `O` for observer, which is free on all three panels that render a windshield — the cab alone
+    // already spends twenty-six keys, so this was chosen by elimination rather than by mnemonic.
+    // It only means anything in the external view: there is nothing to detach from behind the glass.
+    //
+    // ⚠ AND IT HOLDS THE TRUCK. The wheel and the throttle are about to belong to the camera, so
+    // whatever the driver was doing with them is latched: the throttle to whatever speed it had, the
+    // wheel to centre. Without that the rig keeps its last input forever — a truck detached from its
+    // camera mid-corner would spiral off the road while you photographed it, which is a bug wearing
+    // a feature's coat. Cruise is the machinery for exactly this and already exists, so it is used
+    // rather than a second speed-hold nobody else knows about.
+    if (k === 'o' && down && !e.repeat && st.external) {
+      const on = freeCam.toggle({ yaw: (st.sim.heading || 0) + (st.extYaw || 0), z: 0.5 });
+      if (on) {
+        st.freeHold = { cruise: st.cruise };
+        if (st.sim.speed >= 5.5 && !st.dry && !st.broken && st.sim.gear > 0) setCruise(st.sim.speed);
+        st.input.steer = 0; st.input.throttle = 0; st.input.brake = 0;
+      } else {
+        // Handing it back exactly as it was found. A driver who was NOT on cruise before must not
+        // discover they are on it after, which is the sort of thing you only notice at a junction.
+        if (!st.freeHold?.cruise) setCruise(null);
+        st.freeHold = null;
+      }
+      paintFreeCamHint();
+      return;
+    }
+    // While it is detached the camera owns its keys and the truck hears none of them.
+    if (freeCam.onKey(k, down)) return;
+    if (freeCam.active) return;
     if (k === 'a') st.input.throttle = down ? 1 : 0;
     // Z is the flight sim's throttle-DOWN key and the brake here, which is the same gesture in a
     // vehicle with no reverse thrust. SPACE is an alias for it because it is the key every hand
@@ -2652,6 +2700,9 @@ function frame(now) {
         st.input.throttle = Math.max(0, Math.min(1, (st.cruise - st.sim.speed) * 0.18));
       }
     }
+    // The camera flies on the same clock the truck does, and BEFORE the frame is painted, so a held
+    // key moves it this frame rather than next one.
+    freeCam.step(dt);
     autoShift(dt);
     // THE SPRING BRAKES, applied where a foot would be — see setPark. Written AFTER cruise (which
     // it cancels on the way on) and after the automatic, and before `step`, so it is the last word
@@ -2903,6 +2954,8 @@ function frame(now) {
       // Shoulder-checks are suppressed in the chase camera, which is already showing you what they
       // are for — and yawing a third-person view off the vehicle it is following is just lost.
       viewYaw: st.external ? 0 : (st.viewYaw || 0),
+      // Off its mount. Null every other frame, which is what keeps the chase path untouched.
+      freeCam: freeCam.view(),
       // ⚠ TWO SPEEDS, AND THEY ARE NOT THE SAME NUMBER. `speed` is NORMALISED (0..1 of a nominal
       // 68 mph) because that is what the world renderer wants — it drives motion blur, road rush,
       // wind noise, none of which are in mph. `mph` is the real figure, and it exists because the
@@ -3152,6 +3205,10 @@ function ensureCabStyles() {
      by the truck you are actually in rather than by one amber that every rung shared. */
   .cab-readout b{font-size:22px;color:var(--cab-glow,#e8c07a);font-variant-numeric:tabular-nums}
   .cab-readout span{font-size:9px;letter-spacing:.14em;color:#7c848f}
+  .cab-freecam-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:6;
+    font-size:11px;letter-spacing:0.6px;color:#dfe6ef;background:rgba(8,11,15,0.62);
+    padding:4px 12px;border-radius:11px;border:1px solid rgba(255,255,255,0.16);
+    pointer-events:none;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
   .cab-surface.s-dirt{color:#c8b083}
   .cab-surface.s-shoulder{color:#d8a24e}
   .cab-surface.s-offroad{color:#d2603f}
@@ -3992,6 +4049,10 @@ export function closeCab() {
   // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
   // driver who parked in fullscreen would be left with no log and no command box.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');
+  // The camera goes back on its mount with the cab. Not merely tidiness: it holds a key set, and a
+  // dismount while a movement key is down would leave that key latched for the next drive.
+  freeCam.close();
+  st.freeHold = null;
   suppressWeatherFx(false, 'cab');
   cancelAnimationFrame(st.raf);
   stopEngineAudio();                                 // the diesel does not idle on in an empty room

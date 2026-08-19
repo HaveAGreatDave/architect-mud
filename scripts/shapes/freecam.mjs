@@ -88,3 +88,51 @@ console.log(`  ${bad ? '✗' : '✓'} freecam — ${checks} projections bit-iden
 console.log(`  ${drift < 1e-9 ? '✓' : '✗'} a free offset down the heading matches the old scalar (max drift ${drift.toExponential(2)})`);
 console.log(`  ${moved === HEADINGS.length ? '✓' : '✗'} a lateral offset moves the camera (${moved}/${HEADINGS.length} headings)`);
 if (bad || drift >= 1e-9 || moved !== HEADINGS.length) process.exit(1);
+
+// ── The controller itself ───────────────────────────────────────────────────
+// Pure logic, no DOM, so it is worth asserting rather than eyeballing in a cab.
+import { createFreeCam } from '../../client/game/js/panels/freecam.js';
+
+let cbad = 0;
+const ck = (ok, what) => { if (!ok) { cbad++; console.log(`  ✗ ${what}`); } };
+
+const fc = createFreeCam();
+// ⚠ THE ONE THAT MATTERS. Every key it owns is a driving control somewhere — W/S is the cab's
+// throttle, A/D the wheel — so an INACTIVE camera must consume nothing at all. If this ever
+// returns true while closed, pressing W in a truck moves a camera instead of opening the rack.
+ck(fc.onKey('w', true) === false, 'a closed camera consumes no keys');
+ck(fc.view() === null, 'a closed camera contributes no view');
+
+fc.open({ yaw: 90, z: 1 });
+ck(fc.active, 'it opens');
+ck(fc.onKey('w', true) === true, 'an open camera takes its own keys');
+ck(fc.onKey('k', true) === false, '…and leaves everything else alone');
+
+// Forward is (sin, −cos) in the frame makeCam reads — the same two expressions the projection is
+// built from. At yaw 90 that is +x and no y, which is the cheapest possible statement of it.
+// ⚠ Stepped in real frames rather than one big dt: `step` clamps dt to 0.1s so a hitched frame
+// cannot teleport the camera across the map, which means a single step(1) moves a tenth of what
+// the arithmetic suggests. Ten frames of it is the honest way to ask this question.
+const before = { ...fc.view() };
+for (let i = 0; i < 10; i++) fc.step(0.1);
+const after = fc.view();
+ck(after.x > before.x + 0.5 && Math.abs(after.y - before.y) < 1e-6, 'W at yaw 90 drives +x and only +x');
+
+fc.onKey('w', false);
+fc.onKey('arrowright', true);
+const yaw0 = fc.view().yaw; fc.step(0.5);
+ck(fc.view().yaw > yaw0, 'the look keys turn it');
+
+// A stuck key is the failure that has no way out from inside the cab: the camera drifts and nothing
+// the player presses stops it. Closing must drop the whole set.
+fc.close(); fc.open({});
+const p0 = { ...fc.view() }; fc.step(1);
+ck(Math.abs(fc.view().x - p0.x) < 1e-9 && Math.abs(fc.view().yaw - p0.yaw) < 1e-9, 'reopening does not inherit held keys');
+
+fc.onKey('r', true); fc.step(1);
+ck(fc.view().z > p0.z, 'E/R lifts it');
+fc.close();
+ck(!fc.active && fc.view() === null, 'it closes');
+
+console.log(`  ${cbad ? '✗' : '✓'} freecam controller — ${cbad} problem(s)`);
+if (cbad) process.exit(1);
