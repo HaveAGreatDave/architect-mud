@@ -178,3 +178,33 @@ ck(fm.view().roll === 0, 'reopening levels the horizon');
 
 console.log(`  ${cbad ? '✗' : '✓'} freecam mouse + roll — ${cbad} problem(s) total`);
 if (cbad) process.exit(1);
+
+// ── Turning in place ────────────────────────────────────────────────────────
+// The control that was missing: A/D strafe, so the camera could be MOVED sideways and, without
+// reaching for the arrows, never TURNED. Q/E now yaw — and must do it WITHOUT moving the camera,
+// which is the whole difference between turning and strafing.
+const ft = createFreeCam();
+ft.open({ yaw: 0, z: 1 });
+const t0 = { ...ft.view() };
+ft.onKey('e', true); for (let i = 0; i < 5; i++) ft.step(0.1);
+const t1 = ft.view();
+ck(t1.yaw > t0.yaw, 'E turns right');
+ck(Math.abs(t1.x - t0.x) < 1e-9 && Math.abs(t1.y - t0.y) < 1e-9 && Math.abs(t1.z - t0.z) < 1e-9,
+  '…in place, without moving the camera an inch');
+ft.onKey('e', false);
+ft.onKey('q', true); for (let i = 0; i < 10; i++) ft.step(0.1);
+// ⚠ Compared as a WRAPPED difference, not with `<`. Yaw is normalised into [0,360), so turning
+// left past zero lands at 329 and reads as "greater than" the 31 it started from. A test that got
+// this wrong would demand the code stop normalising, which is the wrong end to fix it at.
+const dq = ((ft.view().yaw - t1.yaw + 540) % 360) - 180;
+ck(dq < 0, 'Q turns left');
+// R/F keep up-down on their own now that Q/E have been reassigned off it.
+ft.onKey('q', false);
+const u0 = ft.view().z;
+ft.onKey('r', true); for (let i = 0; i < 5; i++) ft.step(0.1);
+ck(ft.view().z > u0, 'R still lifts');
+ft.onKey('r', false); ft.onKey('f', true); for (let i = 0; i < 10; i++) ft.step(0.1);
+ck(ft.view().z < u0, 'F still drops');
+
+console.log(`  ${cbad ? '✗' : '✓'} freecam turn-in-place — ${cbad} problem(s) total`);
+if (cbad) process.exit(1);

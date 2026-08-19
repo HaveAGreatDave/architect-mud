@@ -106,8 +106,13 @@ export function createFreeCam() {
     step(dt) {
       if (!st.on) return;
       const d = Math.min(0.1, Math.max(0, dt));
-      if (held('arrowleft')) st.yaw -= LOOK * d;
-      if (held('arrowright')) st.yaw += LOOK * d;
+      // TURNING IN PLACE, and it is the control this was missing. A/D strafe — which is the WASD
+      // convention and worth keeping — so the camera could be MOVED left and right and, on the
+      // keyboard alone, not TURNED. The arrows always could, but a hand on WASD does not want to
+      // leave it to aim, and "arrows look" read as pitch rather than as yaw. Q/E cost nothing to
+      // reassign: they were a second way to go up and down, and R/F already does that.
+      if (held('arrowleft') || held('q')) st.yaw -= LOOK * d;
+      if (held('arrowright') || held('e')) st.yaw += LOOK * d;
       if (held('arrowup')) st.pitch = Math.min(PITCH_LIM, st.pitch + LOOK * DEG * d);
       if (held('arrowdown')) st.pitch = Math.max(-PITCH_LIM, st.pitch - LOOK * DEG * d);
       // ROLL, on Z and X. The third rotation, and the only one a chase camera never had — it holds
@@ -135,8 +140,8 @@ export function createFreeCam() {
       if (held('s')) go(-sp, 0, 0);
       if (held('d')) go(0, sp, 0);
       if (held('a')) go(0, -sp, 0);
-      if (held('r') || held('e')) go(0, 0, sp);
-      if (held('f') || held('q')) go(0, 0, -sp);
+      if (held('r')) go(0, 0, sp);
+      if (held('f')) go(0, 0, -sp);
       // It may go under the road — briefly, and on purpose, because a low shot looking up at a rig
       // is worth having and the ground is not solid to a camera. What it may not do is fall forever.
       st.z = Math.max(-0.6, Math.min(40, st.z));
@@ -150,7 +155,7 @@ export function createFreeCam() {
 
 // The one line of chrome all three panels show while it is on. Kept here so the wording is the same
 // in a cab, a cockpit and a wheelhouse — three copies of a hint is three things to update.
-export const FREECAM_HINT = 'FREE CAM · drag to look · wheel dolly · WASD move · E/Q up-down · Z/X roll · SHIFT fast · O exit';
+export const FREECAM_HINT = 'FREE CAM · drag to look · WASD move · Q/E turn · R/F up-down · Z/X roll · wheel dolly · SHIFT fast · O exit';
 
 // ── BINDING IT TO A SURFACE ──────────────────────────────────────────────────
 // The three panels each already own pointer gestures on their glass — the cockpit's yoke drag and

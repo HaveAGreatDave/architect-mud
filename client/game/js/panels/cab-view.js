@@ -1524,7 +1524,11 @@ export function openCab(ctx = {}) {
       return;
     }
     // While it is detached the camera owns its keys and the truck hears none of them.
-    if (freeCam.onKey(k, down)) return;
+    // ⚠ AND IT EATS THE EVENT. Without this the arrows keep their default and SCROLL THE PAGE
+    // underneath a camera that is turning perfectly well — the view jumps, the turn is lost in it,
+    // and the control reads as dead. A key this owns is a key nothing else gets, including the
+    // browser.
+    if (freeCam.onKey(k, down)) { e.preventDefault(); return; }
     if (freeCam.active) return;
     if (k === 'a') st.input.throttle = down ? 1 : 0;
     // Z is the flight sim's throttle-DOWN key and the brake here, which is the same gesture in a
