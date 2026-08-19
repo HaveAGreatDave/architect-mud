@@ -1524,6 +1524,19 @@ export default async function regress({ run, check, getPlayer }) {
         !rigOf(player) && /answers to/i.test(wrong?.message || ''), wrong?.message?.slice(0, 45));
       const picked = await run('drive scrapper');
       check('…while naming one takes THAT one', rigOf(player)?.typeId === 'scrapper', rigOf(player)?.typeId);
+      // ── PARKING INSIDE A DEPOT LEAVES YOU ABLE TO DRIVE OUT OF IT ──────────
+      // The reported symptom is that the yard screen's CLIMB IN buttons do nothing after you park
+      // in a shed, while the identical buttons work if you walked in — so the two ways of arriving
+      // at one screen disagree about where you are standing. `drive` mounts you INSIDE the shed
+      // (mountSpot), which is a different tile from the bay you bought in, and `park` leaves you
+      // on it: whatever the panel offers from there has to actually run from there.
+      const parkedIn = await run('park');
+      check('parking inside a depot gets you out of the cab', !rigOf(player), parkedIn?.message?.slice(0, 40));
+      const zoneAfterPark = player.current_zone;
+      const backIn = await run('drive scrapper');
+      check('…and the truck you just parked can be driven again from where you stand',
+        rigOf(player)?.typeId === 'scrapper',
+        `at ${zoneAfterPark} → ${backIn?.message?.slice(0, 70)}`);
       await run('park');
 
       // ── AND EACH ONE IS PAINTED SEPARATELY ────────────────────────────────
