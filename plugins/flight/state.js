@@ -1083,7 +1083,11 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // the words are worked out where the road is (which limb, how far, which way the arrow points)
   // and the renderer only paints them. Nothing in the client computes a distance.
   const sgn = cell.flags?.road_sign || undefined;
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
+  // `wr` — this tarmac is unmaintained. One bit, set only by the void corridor
+  // (plugins/trucking/corridor.js): sun-bleached and sand-drifted, its paint half gone, patched and
+  // cracked. Every baked world tile leaves it undefined and paints exactly as it always did.
+  const wr = cell.flags?.road_wear ? 1 : undefined;
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

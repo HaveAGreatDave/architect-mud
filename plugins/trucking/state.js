@@ -43,19 +43,25 @@ const TANK_TILES = 1050;
 // The window radius pushed to the cab. Flight uses 36 because a plane at altitude sees a long way;
 // a truck's eye height is a metre and a half and the fog closes at ~15 tiles, so a smaller window
 // carries everything the renderer can draw and cuts the payload to about a fifth.
-// How far the cab can see, as a window radius. 16 → 22, and the ceiling on it is BANDWIDTH rather
-// than anything visual: this is a square, so the cost is (2r+1)² cells of JSON — 1,089 at 16, 2,025
-// at 22, and 4,761 if it were raised to match the renderer's own 34-tile draw limit. `pushCab` only
-// sends on a centre-tile change or once a second, and a truck at 68 mph crosses a tile slightly
-// slower than that, so this is about one payload a second either way; nearly doubling it is worth a
-// visibly longer road, quadrupling it is not.
+// How far the cab can see, as a window radius. 16 → 22 → 30, and the ceiling on it is BANDWIDTH
+// rather than anything visual: this is a square, so the cost is (2r+1)² cells of JSON. MEASURED on
+// a corridor window rather than guessed, because the guess is badly wrong in the interesting
+// direction — almost every cell out here is a real one. The verge runs to OFFROAD_R (24 tiles), so
+// a window of this size is nearly all corridor and hardly any of the cheap `{kind:'air'}`:
+// 2,025 cells ≈ 109 KB at 22, 3,721 ≈ 158 KB at 30, 4,761 ≈ 183 KB at the renderer's own 34-tile
+// draw limit. `pushCab` only sends on a centre-tile change or once a second, and a truck at 68 mph
+// crosses a tile slightly slower than that, so this is about one payload a second either way.
 //
-// ⚠ THE RENDERER NOW DERIVES ITS FAR LIMIT FROM THIS, so the number is free to move without
-// anything popping (windshield.js, drawWorldObjects). That was NOT true before: the draw limit was
-// a constant 34 while this was 16, so every building crossed into view at the window's edge at full
-// opacity, eighteen tiles inside where the haze fade lives. Raising this is now a view-distance
-// decision and only that.
-export const CAB_RADIUS = 22;
+// 30 is where it lands because 29 tiles of road is a hair under everything the renderer can draw
+// (VISIBLE_FAR_F is 34 and the haze eats the last few), so the extra 25 KB buys the whole of the
+// remaining view and going further buys nothing you could see.
+//
+// ⚠ THE RENDERER DERIVES ITS FAR LIMIT FROM THIS, so the number is free to move without anything
+// popping (windshield.js — drawWorldObjects for the buildings, drawGroundSurfaces for the road
+// itself). That was NOT true before: the draw limit was a constant 34 while this was 16, so every
+// building crossed into view at the window's edge at full opacity, eighteen tiles inside where the
+// haze fade lives. Raising this is now a view-distance decision and only that.
+export const CAB_RADIUS = 30;
 
 // Telemetry cadence guard. The client reports ~4×/s; anything faster is either a broken client or
 // somebody trying to buy odometer with request volume, and either way the clamp below handles it.
@@ -94,15 +100,31 @@ export function topTilesPerSec() { return (TOP_SPEED_MPH / TILE_MPH) * CLAMP_SLA
 //
 // Anchored, they are the same frame, and the swap becomes a lie by omission: a driver pulling out
 // of Coldwater's south rim saw the city vanish the instant the road began, because everything
-// off the corridor's own band answered `null` and `mapWindow` painted it as air. Now the corridor
-// answers FIRST — it owns the tarmac, the verge, the signs and the wrecks — and anything it does
-// not claim falls through to the world that was always there. So the basin recedes in the mirrors
-// and the Reach comes up out of the haze ahead, with no work done by either of them.
+// off the corridor's own band answered `null` and `mapWindow` painted it as air. So the two are
+// composed — the corridor owns the tarmac, the verge, the signs and the wrecks, and everything
+// else is the world that was always there. The basin recedes in the mirrors and the Reach comes up
+// out of the haze ahead, with no work done by either of them.
+//
+// ⚠ THE REAL WORLD WINS, AND THE ORDER USED TO BE THE OTHER WAY ROUND. It read
+// `road(x, y) || surfaceAt(x, y)`, which is the intuitive order and it DELETED COLDWATER. The
+// corridor claims every tile within OFFROAD_R (24) of a centreline — that is what makes driving off
+// the road driving rather than a stall — and the three limbs out of a void all leave from the SAME
+// rim tile, heading south, east and west. A tile twenty tiles inside the basin is barely off the
+// east limb's centreline and only a hair along it, so `locate` answered, and forty-eight tiles of
+// the city's southern edge came back as synthesised hardpan. Driving out you never saw it, because
+// it was behind you; you saw it the moment you turned round and drove home, and the basin was gone.
+//
+// Composed the other way there is nothing to special-case: the corridor is a road across ground the
+// world does not place, so wherever the world DOES place a tile, that tile is the answer. The rim
+// you leave from is a real street and renders as one; the waste past it has no rows at all and the
+// road has it to itself. Nothing here is load-bearing for the DRIVE — the odometer, the node and
+// the collision all read `locate` and `rig.route`, never this window (see corridorLocate), so this
+// decides what you SEE and only that.
 export function providerFor(rig) {
   if (rig.leg === 'city') return surfaceAt;
   const road = corridorProvider(rig.route);
   if (!rig.route?.anchored) return road;   // legacy local frame — the world is genuinely elsewhere
-  return (x, y) => road(x, y) || surfaceAt(x, y);
+  return (x, y) => surfaceAt(x, y) || road(x, y);
 }
 
 // A rig exists only while somebody is driving one. Mounted in the CITY — the crossing is joined
@@ -427,9 +449,15 @@ export function passSign(player, rig) {
   const passed = signsBetween(rig.route, from, rig.s).filter((g) => !rig.signSeen?.has(g.s));
   if (!passed.length) return false;
   rig.signSeen = rig.signSeen || new Set();
+  // WHICH FACE YOU READ IS A FACT ABOUT YOU, NOT ABOUT THE BOARD. Running back toward the origin
+  // you go past the far side of the post, where the same places sit at the same distances and every
+  // arrow points somewhere else — so the log rung picks its rows the same way the windscreen picks
+  // its face, and neither of them recomputes an arrow. Older routes carry no `back`; falling back to
+  // the front is the pre-existing behaviour rather than a blank board.
+  const rev = rig.s < from;
   for (const g of passed) {
     rig.signSeen.add(g.s);
-    const rows = g.rows.map(r => `<b>${r.n}</b> <span class="text-dim">${r.m} miles, ${ARROW_WORDS[r.a] || 'straight on'}</span>`).join('\n  ');
+    const rows = ((rev && g.back) || g.rows).map(r => `<b>${r.n}</b> <span class="text-dim">${r.m} miles, ${ARROW_WORDS[r.a] || 'straight on'}</span>`).join('\n  ');
     sendToPlayer(player.id, {
       type: 'emote',
       message: '<span class="text-dim">A board goes by on the shoulder, green under the dust, still bolted to its legs:</span>\n  ' + rows,

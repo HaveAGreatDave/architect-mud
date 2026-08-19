@@ -460,13 +460,18 @@ function arrowFrom(hdg, vx, vy) {
 // tidiness: there is no cutting across out here (see `route`), so a board naming a town you can no
 // longer reach is a board that lies. The ORIGIN is on every board, because the one route that is
 // always available is the one behind you.
-function rowsAt(route, s, dests, kind) {
-  const hdg = corridorPos(route, s, 0).heading;
+// ⚠ `hdg` IS A PARAMETER BECAUSE THE BOARD HAS TWO FACES. The distances on a sign are a property
+// of the ROAD — how far along it a place is — and are the same whichever way you are pointing. The
+// ARROWS are not: `a` is measured relative to the driver's own heading, so the identical row read
+// from the other side of the board wants a different arrow. Passing the heading in is what lets one
+// function author both faces without either of them being a special case of the other.
+function rowsAt(route, s, dests, kind, hdg = null) {
   const here = corridorPos(route, s, 0);
+  const hd = hdg == null ? here.heading : hdg;
   const rows = [];
   const aim = (r, target) => {
     const p = corridorPos(r, target, 0);
-    return arrowFrom(hdg, p.x - here.x, p.y - here.y);
+    return arrowFrom(hd, p.x - here.x, p.y - here.y);
   };
   const onTrunk = s <= route.trunkL;
   // Scaled with the road, for the same reason the bends are: a junction arrow aimed 210 tiles
@@ -515,8 +520,16 @@ function signsFor(route, dests) {
       // three or four identical boards in a row, which reads as a mistake rather than as a sign.
       // So the post is snapped to its tile ONCE, at build time, and the lookup is an equality.
       const at2 = corridorPos(route, p.s, SIGN_OFF);
+      // BOTH FACES, AUTHORED HERE. A real motorway board is blank galvanised steel on the back
+      // because the other carriageway has boards of its own; this road has one lane each way and one
+      // post, so a driver running back toward the origin was passing a board they could not read —
+      // and the renderer, mapping the same lettering onto a quad seen from behind, drew it mirrored.
+      // The back is the same places at the same distances (a distance along the road does not care
+      // which way you face) with the arrows re-measured against the reversed heading, which is the
+      // only part of a row that is about the DRIVER rather than about the road.
       return { s: p.s, kind: p.kind, x: Math.round(at2.x), y: Math.round(at2.y), deg: at2.heading,
-        rows: rowsAt(route, p.s, dests, p.kind) };
+        rows: rowsAt(route, p.s, dests, p.kind),
+        back: rowsAt(route, p.s, dests, p.kind, (at2.heading + 180) % 360) };
     })
     .filter((p) => p.rows.length);
 }
@@ -529,9 +542,16 @@ function signsFor(route, dests) {
 // a whole slab of road per tick — so a proximity test would have the cab reading every board and
 // the text rung stepping straight over most of them. Asking what was PASSED is the same question
 // at both rates.
+//
+// ⚠ AND THE SWEEP IS UNSIGNED. It used to return nothing at all when `to < from`, which quietly
+// meant a driver running back toward the origin passed every board on the road without one of them
+// reaching the log — the boards existed only for traffic going one way, on a road that has always
+// been drivable both. The RANGE is order-agnostic; which face was read is the caller's business
+// (see passSign), because that is a fact about the driver and not about the road.
 export function signsBetween(route, from, to) {
-  if (!(to > from)) return [];
-  return (route?.signs || []).filter((g) => g.s > from && g.s <= to);
+  const lo = Math.min(from, to), hi = Math.max(from, to);
+  if (!(hi > lo)) return [];
+  return (route?.signs || []).filter((g) => g.s > lo && g.s <= hi);
 }
 // The eight arrows, as words — the same order `arrowFrom` returns, shared by the text rung and by
 // anything that has to say an arrow out loud.
@@ -754,12 +774,21 @@ export function corridorAt(route, x, y) {
   // paint sits on the real centreline rather than on whichever tile happens to be drawing it.
   // `road_w` is the paved half-width, so the marking spacing is derived here rather than being a
   // second copy of this file's numbers living in the renderer.
+  //
+  // ⚠ `road_wear` IS ONE AUTHORED FACT, NOT A TEXTURE. Nobody has resurfaced this road since the
+  // thing that emptied the basin, and it has to LOOK like that or the void reads as a municipal
+  // street somebody laid across a desert. The alternative — shipping per-tile crack/patch/drift
+  // detail from here — would be authoring a texture over the wire at 3,700 cells a push, and worse,
+  // it would put the appearance of the road in two places the first time anybody retunes it. So the
+  // road states that it is unmaintained, ONCE, and the renderer derives the whole worn look from
+  // that plus the tile's own world coordinates (windshield.js, wornAsphalt). Coldwater's streets
+  // never set it and are pixel-identical.
   const deg = ((hit.leg.deg % 360) + 360) % 360;
   const PAVED = 1.2, SHOULDER = 2.4;
   if (at < PAVED) {
     return { id, name: 'The Highway', danger,
       flags: { terrain: 'road', icon: roadIcon(hit), road_deg: deg, road_t: +t.toFixed(3), road_w: PAVED,
-        corridor_s: s, corridor_node: node } };
+        road_wear: 1, corridor_s: s, corridor_node: node } };
   }
   // The shoulder — graded dirt. `dirt_road` is what earns it the renderer's packed-dirt look
   // (ft:'dust'), so drifting onto it is visible before any penalty text fires.
@@ -789,8 +818,10 @@ export function corridorAt(route, x, y) {
   const g = (route.signs || []).find(k => k.x === x && k.y === y);
   if (g) {
     // `face` is the road's own heading at the post; the renderer turns the panel 180° from it,
-    // because a sign is only ever read by somebody coming the other way.
-    flags.road_sign = { rows: g.rows, face: g.deg, kind: g.kind };
+    // because the front of a sign is read by somebody coming the other way. `back` is the same
+    // board seen from the far side — the renderer picks between the two off which side of the panel
+    // the camera is on, and works out neither of them.
+    flags.road_sign = { rows: g.rows, back: g.back, face: g.deg, kind: g.kind };
     return { id, name: 'A Roadside Sign', danger, flags };
   }
   const wreck = wrecksOn(route).find(w => Math.abs(w.s - s) < 1.6 && Math.abs(t - w.side * w.off) < 0.7);

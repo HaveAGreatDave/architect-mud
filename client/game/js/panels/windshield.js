@@ -8911,6 +8911,54 @@ function drawVehicleGround(ctx, P, c, sun, now = 0) {
         lit * (0.45 + mag * 0.75), jit);
     }
   }
+  // ── 4) THE HEADLAMPS, THROWN DOWN THE ROAD ────────────────────────────────
+  //
+  // The cab has thrown a beam since the first night run — but that one (drawHeadlightBeam) is built
+  // in the CAMERA's frame, because it is the light you drive BY. It belongs to whoever is looking,
+  // not to a truck. So every rig seen from outside — your own in the chase view, and every other
+  // rig on the corridor — had two lit lenses and no light: headlamps that illuminated nothing,
+  // which after dark is the one thing a headlamp is for.
+  //
+  // This pair is built from the lamp STATIONS in the mesh's own coordinates, exactly as the lifter
+  // cones above are, so it turns, leans and pitches with the vehicle for free and needs no heading
+  // of its own. It is here rather than in the lamp block at the bottom of the caller for the reason
+  // that governs this whole function: light that lands on the road goes UNDER the thing standing on
+  // it, and the bodywork then masks its own beam by paint order alone.
+  //
+  // ⚠ NOT ARTICULATED, deliberately — unlike every other station in this file. Headlamps are on the
+  // tractor. Running them through the hinge would swing the beam with the trailer, which is exactly
+  // the bug the tail lamps had, arrived at from the opposite direction.
+  const beamOn = c.heads !== undefined ? !!c.heads : !!c.landing;
+  const gloom = clamp(((sun?.night || 0) - 0.15) / 0.85, 0, 1);
+  if (beamOn && gloom > 0.04 && c.lights !== false && (vl.head || []).length) {
+    ctx.globalCompositeOperation = 'lighter';
+    // Reach and spread in the VEHICLE's own units. A lamp throws a fixed distance down a real road,
+    // and the truck's own footprint is the only scale in this function that is not the camera's —
+    // so this is right for a bobtail, for a loaded rig, and at any zoom, with nothing to tune.
+    const len = Math.max(2.4, (f1 - f0) * 2.6), SEG = 7;
+    for (const lp of vl.head) {
+      const w0 = span * 0.55, w1 = w0 + len * 0.28;   // opens out down the road, as a beam does
+      for (let i = 0; i < SEG; i++) {
+        const t0 = i / SEG, t1 = (i + 1) / SEG;
+        // Quadratic in t, so the segments are dense near the bumper where the brightness gradient
+        // is steepest and banding would otherwise show. Same curve the cab's own beam uses.
+        const a0 = lp[0] + len * t0 * t0, a1 = lp[0] + len * t1 * t1;
+        const e0 = w0 + (w1 - w0) * t0, e1 = w0 + (w1 - w0) * t1;
+        // Inverse-square-ish falloff — bright at the bumper, gone by the far end. It is what makes
+        // this read as a lamp rather than as a painted wedge lying on the tarmac.
+        const a = 0.30 * gloom * (1 - t0) * (1 - t0);
+        if (a < 0.004) continue;
+        const q = [P([a0, lp[1] - e0, 0.004]), P([a0, lp[1] + e0, 0.004]),
+                   P([a1, lp[1] + e1, 0.004]), P([a1, lp[1] - e1, 0.004])];
+        if (q.some((k) => k.f <= 0.08)) continue;
+        // Warm tungsten, and deliberately not white: a white pool on grey tarmac reads as fog.
+        ctx.fillStyle = `rgba(255,242,206,${a.toFixed(3)})`;
+        ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy);
+        for (let k = 1; k < 4; k++) ctx.lineTo(q[k].sx, q[k].sy);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
   ctx.restore();
 }
 
@@ -10103,6 +10151,17 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R;
   const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
   const nite = sky ? sky.night : 0;
+  // ── THE DRAW DISTANCE IS THE DATA YOU HAVE, NOT A CONSTANT THAT HOPES ──────
+  // The same derivation drawWorldObjects runs, and it was missing here — which is why, on a haul,
+  // the BUILDINGS ghosted up out of the haze exactly as intended while the ROAD they stand beside
+  // ended in a hard diagonal line at the edge of the window, well inside where the fade lives. A
+  // pilot never saw it (a 36-tile window is bigger than the 34-tile view, so the constant bit
+  // first). A driver saw nothing else, because out on the corridor the road IS the ground.
+  const winR = (map.length - 1) / 2;
+  const FAR = Math.min(VISIBLE_FAR_F, Math.max(6, winR - 1));
+  // The window's centre tile in WORLD coordinates. Anything that varies per tile and has to stay
+  // put has to be hashed off this — see the worn-road dressing below.
+  const wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   // For the runway PAPI (glideslope lights) + windsocks drawn at each threshold below.
   const acAlt = v.landGuide?.alt ?? ((v.height || 0) ** 2 * 3000);   // aircraft altitude (ft)
   const windKt = v.wind || 0, windDeg = v.windVec?.dir ?? 250;
@@ -10121,18 +10180,34 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     // in the chase camera (which sits `back` tiles behind the craft).
     const rawF = (x, y) => (x - (cam.ex || 0)) * cam.sinh - (y - (cam.ey || 0)) * cam.cosh;
     const cf = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]].map(([a, b]) => rawF(dx + a, dy + b));
-    if (cf.every(z => z <= 0.06) || f > VISIBLE_FAR_F) continue;
+    if (cf.every(z => z <= 0.06) || f > FAR) continue;
     // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
-    // haze at the horizon instead of a hard line snapping in.
-    ctx.globalAlpha = baseAlpha * clamp((VISIBLE_FAR_F - f) / 6, 0, 1);
+    // haze at the horizon instead of a hard line snapping in. The fade reaches zero AT the limit,
+    // whatever the limit turns out to be, so no window size can leave an edge behind.
+    ctx.globalAlpha = baseAlpha * clamp((FAR - f) / 6, 0, 1);
     const corner = (sx, sy) => cam.proj(dx + sx * 0.5, dy + sy * 0.5, 0);
     const P0 = corner(-1, -1), P1 = corner(1, -1), P2 = corner(1, 1), P3 = corner(-1, 1);
     // Solid fill — hard, opaque, no fade. Runway concrete reads a touch lighter than road tar.
     // A `ft:'dust'` field paints as graded dirt instead: warm ochre with a cheap per-tile jitter
     // between three close shades, so a bush strip reads patchy/scuffed rather than smooth concrete.
     const dust = c.ft === 'dust';   // graded dirt look — a lawless field strip OR a dirt_road tile
+    // ⚠ PER-TILE VARIATION IS HASHED OFF THE WORLD, NEVER OFF THE WINDOW. `rx`/`ry` are indices
+    // into a window that travels with you, so `(rx * 7 + ry * 13) % 3` — which is what the dust
+    // shade below used to be — re-rolls every tile every time the window recentres: the ground
+    // crawls and shimmers under you as you drive, worst at exactly the speed you spend most of a
+    // haul at. The world coordinate does not move, so neither does anything keyed off it.
+    const wx = wcx + (rx - R), wy = wcy + (ry - R);
+    // AN UNMAINTAINED ROAD. `wr` is one bit off the corridor (plugins/trucking/corridor.js) saying
+    // nobody has resurfaced this since the basin emptied; everything that makes it LOOK that way is
+    // derived here, from the tile's own world position. No city street sets it.
+    const worn = !dust && surf === 'road' && !!c.wr;
     const DUST = ['#6f5b39', '#67532f', '#786541'];
-    ctx.fillStyle = dust ? DUST[(rx * 7 + ry * 13) % 3] : surf === 'field' ? '#3a3e46' : '#2b2f36';
+    // Sun-bleached tar: browner and paler than fresh asphalt (#2b2f36), and never quite the same
+    // twice, because a road that has been patched for decades is not one colour.
+    const WORN = ['#3a3730', '#413d34', '#35322c', '#443f35'];
+    ctx.fillStyle = dust ? DUST[Math.floor(_vn2h(wx, wy) * 3) % 3]
+      : worn ? WORN[Math.floor(_vn2h(wx, wy) * 4) % 4]
+      : surf === 'field' ? '#3a3e46' : '#2b2f36';
     ctx.beginPath(); ctx.moveTo(P0.sx, P0.sy); ctx.lineTo(P1.sx, P1.sy); ctx.lineTo(P2.sx, P2.sy); ctx.lineTo(P3.sx, P3.sy); ctx.closePath(); ctx.fill();
     // Hard kerb edge: stroke each boundary that faces a non-matching surface.
     const nN = kindOf(at(rx, ry - 1)) === surf, nS = kindOf(at(rx, ry + 1)) === surf;
@@ -10173,7 +10248,51 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
       ctx.fillStyle = style; ctx.beginPath();
       ctx.moveTo(c0.sx, c0.sy); ctx.lineTo(c1.sx, c1.sy); ctx.lineTo(c2.sx, c2.sy); ctx.lineTo(c3.sx, c3.sy); ctx.closePath(); ctx.fill();
     };
-    const dashedA = (A, off, hw, aLo, aHi, step, len, style) => { for (let a = aLo; a < aHi; a += step) stripeA(A, off, hw, a, Math.min(aHi, a + len), style); };
+    // ⚠ ON A WORN ROAD A DASH IS SOMETIMES SIMPLY MISSING, and that sells "nobody has repainted
+    // this" better than any amount of alpha does: a faded line is still a line somebody maintains,
+    // and a broken one is not. Hashed off where the dash IS in the world, so the gaps hold still
+    // while you drive past them instead of twinkling.
+    const dashedA = (A, off, hw, aLo, aHi, step, len, style) => {
+      for (let a = aLo, i = 0; a < aHi; a += step, i++) {
+        if (worn && _vn2h(wx * 13 + i, wy * 17 + off * 41) < 0.36) continue;
+        stripeA(A, off, hw, a, Math.min(aHi, a + len), style);
+      }
+    };
+    // ── THE WORN-ROAD DRESSING, IN TWO PASSES ─────────────────────────────────
+    // The order is the story. Patches and cracks are IN the surface, so they go down before what is
+    // left of the paint; the sand is ON it, blown off the verge, so it goes over the top and
+    // half-buries the lines. Both are hashed off the world tile — a patch is a place on the road,
+    // not a place on your screen — and both are drawn with the same `stripeA` the markings use, in
+    // the road's own frame, so they follow a bend without knowing bends exist.
+    const wornUnder = (A) => {
+      const h = (k) => _vn2h(wx * 19 + k, wy * 23 + k * 3);
+      // A tar patch over an old failure, on about a third of the tiles. Darker than the road it is
+      // laid on, because fresh tar always is, and never repainted afterwards.
+      if (h(1) < 0.34) {
+        const a0 = (h(3) - 0.5) * 1.2;
+        stripeA(A, ROFF + (h(2) - 0.5) * 0.8 * RK, (0.05 + h(4) * 0.09) * RK, a0, a0 + 0.25 + h(5) * 0.4, 'rgba(16,17,19,0.55)');
+      }
+      // Cracks: long, thin, roughly along the run, which is how a road fails under axle loads.
+      for (let k = 0; k < 2; k++) {
+        if (h(6 + k * 4) > 0.55) continue;
+        const a0 = (h(8 + k * 4) - 0.5) * 1.4;
+        stripeA(A, ROFF + (h(7 + k * 4) - 0.5) * 0.9 * RK, 0.007 * RK, a0, a0 + 0.5 + h(9 + k * 4) * 0.6, 'rgba(12,12,14,0.6)');
+      }
+    };
+    const wornOver = (A) => {
+      const h = (k) => _vn2h(wx * 29 + k * 7, wy * 31 + k);
+      // Sand off the verge, heaviest at the edges of the carriageway and thinning inward — the
+      // shape wind actually leaves. A drift down the crown instead would read as a second road.
+      for (const s of [-1, 1]) {
+        const w = 0.05 + h(s > 0 ? 1 : 2) * 0.13;               // in half-road units: 0.5 is the edge
+        stripeA(A, ROFF + s * (0.5 - w) * RK, w * RK, -RSPAN, RSPAN, `rgba(126,106,68,${(0.16 + h(s > 0 ? 3 : 4) * 0.2).toFixed(3)})`);
+      }
+      // …and now and then a tongue of it right across, where something has funnelled it over.
+      if (h(5) < 0.18) {
+        const a0 = (h(6) - 0.5) * 1.2;
+        stripeA(A, ROFF, 0.5 * RK, a0, a0 + 0.18 + h(7) * 0.22, 'rgba(132,112,72,0.26)');
+      }
+    };
     if (dust) {
       // Graded dirt: no paint, no PAPI, no edge lights — just two worn wheel-rut tracks scuffed
       // along the run and a patchy centre drag. Reads as beaten dirt, not paved. A frontier
@@ -10208,7 +10327,11 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
       // Road markings driven by the piece's connections (c.rd from the map icon), so a straight,
       // a turn, a T-junction and a crossroads each read as what they are. Fall back to the
       // same-surface neighbours when a tile has no icon (a bare artery).
-      const LANE = 'rgba(232,234,238,0.8)', YEL = 'rgba(230,200,74,0.9)';
+      // Paint that has not been renewed in a very long time: sun-bleached, thinned by grit, and
+      // (via dashedA above) missing outright in places. Same lines in the same places — this road
+      // was built to the same standard as any other, it has just been left.
+      const LANE = worn ? 'rgba(206,202,186,0.30)' : 'rgba(232,234,238,0.8)';
+      const YEL = worn ? 'rgba(204,176,88,0.38)' : 'rgba(230,200,74,0.9)';
       const dirs = c.rd || (nsN && ewN ? 'nesw' : (ewN && !nsN) ? 'ew' : 'ns');
       // A tile with its own heading is always a through-lane, whatever its fallback icon says: a
       // curve is a straight road that happens to be pointing somewhere between two compass letters,
@@ -10273,9 +10396,15 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
             stripeA(A, o - s * WALK_HW, 0.012, -RSPAN, RSPAN, KERB);
           }
         } else {
-          if (!offAxis) pavement(A, -RSPAN, RSPAN);
+          // A HIGHWAY HAS A SHOULDER, NOT A KERB. The pavement band is a city thing — it exists so
+          // the street-actor pass has somewhere to stand people (see VERGE) — and laying one down
+          // the side of the corridor puts a footpath and a kerbstone along a road nobody has walked
+          // on in years. The graded dirt either side is what reads as the edge out there.
+          if (!offAxis && !worn) pavement(A, -RSPAN, RSPAN);
+          if (worn) wornUnder(A);
           dashedA(A, ROFF - 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE); dashedA(A, ROFF + 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE);
           stripeA(A, ROFF - 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL); stripeA(A, ROFF + 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL);
+          if (worn) wornOver(A);
         }
       } else {   // stub / turn / T / crossroads: mark each connected arm from the centre out to its edge
         // A JUNCTION IS A HOLE IN THE PAVEMENT, not a crossing of it. Each arm's bands run from
@@ -16043,17 +16172,28 @@ const SIGN_Z0 = 0.60, SIGN_Z1 = 1.18;   // panel bottom and top, world-z (a gate
 // row by 45° a step. Head, then the shaft, as one closed path.
 const SIGN_ARROW = [[0, -0.62], [0.44, -0.06], [0.18, -0.06], [0.18, 0.58], [-0.18, 0.58], [-0.18, -0.06], [-0.44, -0.06]];
 function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha) {
-  const rows = (sgn?.rows || []).slice(0, 4);
-  if (!rows.length) return;
-  const th = (Number(sgn.face) || 0) * Math.PI / 180;
+  const th = (Number(sgn?.face) || 0) * Math.PI / 180;
   // The board faces the traffic, so its normal is the road's heading REVERSED. Map-space heading
   // vectors are [sin θ, −cos θ] here, the same convention the curved-road markings use (see `RA`
   // in drawGroundSurfaces) and the same one corridor.js integrates along.
   const E = [-Math.sin(th), Math.cos(th)];
+  // ── WHICH SIDE OF THE BOARD YOU ARE ON ────────────────────────────────────
+  // The panel is one quad and the lettering is mapped onto it, so seen from behind it came out
+  // MIRRORED — a board you could read only by holding a mirror up to the windscreen, on a road you
+  // can drive in both directions. Two things fix it together, and neither is a second sign: the
+  // panel-local across-axis is negated so the text runs left-to-right for whoever is actually
+  // looking, and the rows swap to the back set the server authored for the reverse heading (see
+  // signsFor in plugins/trucking/corridor.js) so the ARROWS mean what they say too. Mirroring
+  // alone would give you a legible board pointing every destination the wrong way round.
+  const behind = ((cam.ex || 0) - dx) * E[0] + ((cam.ey || 0) - dy) * E[1] < 0;
+  const rows = ((behind && sgn?.back) || sgn?.rows || []).slice(0, 4);
+  if (!rows.length) return;
+  const S = behind ? -1 : 1;
   const half = foot * 1.12;
   const dn = night > 0.4 ? 1 : 0;
-  // World point at (u across ∈ [−1,1], v down ∈ [0,1]) on the panel face.
-  const P = (u, v) => cam.proj(dx + E[1] * half * u, dy - E[0] * half * u, SIGN_Z1 - (SIGN_Z1 - SIGN_Z0) * v);
+  // World point at (u across ∈ [−1,1], v down ∈ [0,1]) on the panel face — `u` measured to the
+  // RIGHT of whoever is reading it, which is the whole of the fix above.
+  const P = (u0, v) => { const u = u0 * S; return cam.proj(dx + E[1] * half * u, dy - E[0] * half * u, SIGN_Z1 - (SIGN_Z1 - SIGN_Z0) * v); };
   const quad = (u0, u1, v0, v1) => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
   const face = quad(-1, 1, 0, 1);
   if (face.some(p => p.f <= 0.12)) return;

@@ -7,13 +7,13 @@
 // fake and individually meaningless. What has to hold is that an odometer reading turns into the
 // right void room, every time, for a whole haul.
 import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
-import { mapWindow } from '../flight/state.js';
+import { mapWindow, surfaceAt, bounds as worldBounds } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
+  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -412,6 +412,19 @@ export default async function regress({ run, check, getPlayer }) {
     check('every arrow is one of the eight, so nothing renders a rotation off the end of the table',
       r.signs.every(g => g.rows.every(row => ARROW_WORDS[row.a] !== undefined)));
 
+    // 6b. BOTH FACES OF THE BOARD. This road has one lane each way and one post, so a driver
+    // running home passed a board they could not read — and the renderer, mapping one set of
+    // lettering onto a quad seen from behind, drew it MIRRORED. The distances are a property of the
+    // road and do not change; the arrows are measured from the driver's heading and all do.
+    check('every board carries a back face as well as a front',
+      r.signs.every(g => g.back?.length === g.rows.length));
+    check('…naming the same places at the same distances', r.signs.every(g =>
+      g.back.every((row, i) => row.n === g.rows[i].n && row.m === g.rows[i].m)));
+    check('…with the arrows re-measured for a driver facing the other way',
+      r.signs.some(g => g.back.some((row, i) => row.a !== g.rows[i].a)));
+    check('…and every back arrow is one of the eight too',
+      r.signs.every(g => g.back.every(row => ARROW_WORDS[row.a] !== undefined)));
+
     // 7. THE BOARD REACHES THE LOG. Swept, not proximity-tested — the text rung covers a slab of
     // road per tick and a proximity test would step straight over most of the boards it passes.
     check('a board a whole tick of road wide is still passed, not stepped over',
@@ -419,6 +432,11 @@ export default async function regress({ run, check, getPlayer }) {
     check('a board is passed exactly once as the odometer sweeps the whole road',
       r.signs.every(g => signsBetween(r, g.s - 0.5, g.s + 0.5).length === 1));
     check('nothing is passed by standing still', signsBetween(r, 400, 400).length === 0);
+    // ⚠ AND THE SWEEP IS UNSIGNED. It answered nothing at all when the odometer went DOWN, so a
+    // driver running back toward the origin passed every board on the road without one of them
+    // reaching the log — boards that existed for traffic going one way, on a two-way road.
+    check('a board is passed driving back down the road too',
+      signsBetween(r, gate.s + 0.5, gate.s - 0.5).length === 1);
 
     // 8. THE RENDER SEAM, for the board specifically. The rows have to survive deriveSurfaceCell or
     // they are a server-side fact nobody can read.
@@ -427,6 +445,45 @@ export default async function regress({ run, check, getPlayer }) {
     check('a board survives the trip through mapWindow as a mark with its rows on it',
       win[2][2].mark === 'sign' && win[2][2].sgn?.rows?.length === g0.rows.length,
       JSON.stringify(win[2][2].mark));
+    check('…carrying BOTH faces, so the renderer picks one rather than mirroring one',
+      win[2][2].sgn?.back?.length === g0.rows.length);
+  }
+
+  // ── 1b. THE REAL WORLD OUTRANKS THE SYNTHESISED ONE ────────────────────────
+  // The bug this exists for deleted Coldwater Basin. The corridor claims every tile within
+  // OFFROAD_R of a centreline — that is what makes driving off the road driving rather than a
+  // stall — and the three limbs out of a void all leave from the SAME rim tile, heading three
+  // different ways. So a tile twenty tiles INSIDE the basin sits barely along the east limb and
+  // well within its verge, `locate` answered, and the composite provider painted the city's
+  // southern edge as synthesised hardpan. You never saw it driving out, because it was behind you.
+  // You saw it the instant you turned round and drove home, and the basin was gone.
+  //
+  // Needs the world (unlike section 1): the whole point is what happens where real tiles exist.
+  {
+    const b = worldBounds();
+    let real = null;
+    for (let y = b.miny; y <= b.maxy && !real; y++) {
+      for (let x = b.minx; x <= b.maxx; x++) { const c = surfaceAt(x, y); if (c) { real = { x, y, c }; break; } }
+    }
+    if (!real) check('a world tile exists to test the provider against', false);
+    else {
+      // Anchored so the road STARTS on that real tile — the sharpest form of the case, because the
+      // road's own origin is the one tile it most wants to pave.
+      const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, null,
+        { x0: real.x, y0: real.y, x1: real.x, y1: real.y + 300 });
+      const at = providerFor({ leg: 'corridor', route: r });
+      check('the corridor never paints over a tile the world actually places',
+        at(real.x, real.y)?.id === real.c.id, String(at(real.x, real.y)?.id));
+      // …and it still owns everything the world does not place, or the fix would have traded one
+      // missing world for a missing road.
+      let paved = null, probes = 0;
+      for (let s = 1; s <= r.L && !paved; s++) {
+        const p = corridorPos(r, s, 0), px = Math.round(p.x), py = Math.round(p.y);
+        if (!surfaceAt(px, py)) { paved = at(px, py); probes = s; }
+      }
+      check('…and still owns the waste, where the world places nothing',
+        paved?.flags?.terrain === 'road', `${paved?.flags?.terrain || 'no unplaced tile on the route'} at s=${probes}`);
+    }
   }
 
   // ── 2. The render seam ─────────────────────────────────────────────────────
@@ -439,6 +496,11 @@ export default async function regress({ run, check, getPlayer }) {
     const centre = win[4][4];
     check('the corridor renders through the SAME mapWindow the flight sim uses',
       centre.road === 1 && !!centre.rd, JSON.stringify(centre));
+    // Nobody has resurfaced this road since the basin emptied, and the renderer derives the whole
+    // worn look (bleached tar, sand drift, dead paint, patches) from this one bit. A city street
+    // never carries it, which is what keeps every other road in the game pixel-identical.
+    check('the highway ships stamped unmaintained, and the stamp survives the render seam',
+      centre.wr === 1, String(centre.wr));
     check('a straight highway renders straight, not as a crossroads',
       centre.rd === 'ns' || centre.rd === 'ew', centre.rd);
     // Sample beyond the OFF-ROAD limit, not merely beyond the tarmac: the verge is drivable ground

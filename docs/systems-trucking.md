@@ -57,8 +57,16 @@ tile looks like. Road auto-tiling, lane markings, biome, buildings, fog and the 
 for free and stay correct when somebody improves the renderer without knowing trucking exists.
 
 The seam is one parameter: **`mapWindow(a, radius, at = surfaceAt)`**. Flight passes `surfaceAt`,
-trucking passes a provider that consults the corridor **and then falls through to `surfaceAt`** —
-see the coordinate note below for why that fall-through is now both possible and necessary.
+trucking passes a provider that composes the world with the corridor — see the coordinate note
+below for why that composition is now both possible and necessary, and which way round it goes.
+
+#### What the road LOOKS like, and where all three answers live
+
+| question | answer | why there |
+|---|---|---|
+| **how far can you see it?** | `CAB_RADIUS` (30) in state.js; `drawGroundSurfaces` derives its far limit from `(map.length − 1) / 2` | The buildings already derived their draw distance from the window (`drawWorldObjects`); the **ground pass did not**, so on a haul the towers ghosted up out of the haze exactly as intended while the road they stand beside **ended in a hard diagonal line at the edge of the window**. A pilot never saw it — a 36-tile window is bigger than the 34-tile view, so the constant bit first. A driver saw nothing else, because out there the road *is* the ground. Both now fade to zero **at** whatever limit the data actually supports, so the radius is a free view-distance dial. ⚠ It is a square, and out here almost every cell is a real one (the verge runs to `OFFROAD_R`), so the cost is **measured, not guessed**: ≈109 KB at 22, ≈158 KB at 30, ≈183 KB at the renderer's own 34-tile ceiling, one payload a second |
+| **why does it look unmaintained?** | `flags.road_wear` on the paved band → `wr` on the cell → `drawGroundSurfaces` | Nobody has resurfaced this since the basin emptied, and it has to *look* like that or the void reads as a municipal street laid across a desert. **One authored bit, everything else derived**: sun-bleached tar, sand drifting in off the verge, tar patches, cracks, paint that is thinned *and missing outright in places* — a faded line still reads as a line somebody maintains, and a broken one does not. Shipping the detail per tile would be authoring a texture over the wire at 3,700 cells a push and would put the road's appearance in two places. **A highway also gets no kerb and no pavement band** — that is a city thing the street-actor pass stands people on. ⚠ Every scrap of variation is hashed off the tile's **world** coordinate, never its index in the window: the window travels with you, so a window-relative hash makes the ground crawl and shimmer as you drive (which is what the older dirt-road shade jitter was doing) |
+| **why do the headlamps light nothing?** | they do now — `drawVehicleGround` §4 | `drawHeadlightBeam` has thrown a beam down the tarmac since the first night run, but it is built in the **camera's** frame: it is the light you drive *by*, and it belongs to whoever is looking rather than to a truck. So every rig seen from outside — yours in the chase view, and every other rig on the corridor — had two lit lenses and no light. The new pair is built from the lamp **stations** in the mesh's own coordinates, exactly as the lifter cones are, so it turns and leans with the vehicle for free; it is painted **before** the model, like everything else on the road, so the bodywork masks its own beam by paint order. ⚠ Deliberately **not** run through the articulation frame, unlike every other station in that file — headlamps are on the tractor, and hinging them would swing the beam with the trailer |
 
 ### 1a. The road is laid in REAL WORLD COORDINATES
 
@@ -78,9 +86,22 @@ other. One frame fixes that, and it pays for itself immediately in two places:
   `surfaceAt` — the only honest thing to do while the road was somewhere else, since the world's
   tiles were in a different frame. Same frame, and that swap becomes a lie by omission: everything
   off the corridor's own band answered `null` and `mapWindow` painted it as air, so the city
-  vanished the instant the road began. The corridor now answers **first** — it owns the tarmac, the
-  verge, the signs and the wrecks — and anything it does not claim falls through. The basin recedes
-  in the mirrors and the Reach comes up out of the haze, with no work done by either of them.
+  vanished the instant the road began. The two are composed instead — the corridor owns the tarmac,
+  the verge, the signs and the wrecks, and everything else is the world that was always there. The
+  basin recedes in the mirrors and the Reach comes up out of the haze, with no work done by either.
+
+  ⚠ **A REAL PLACED TILE WINS, and the order used to be the other way round.** `road(x, y) ||
+  surfaceAt(x, y)` is the intuitive composition and it **deleted Coldwater Basin**. The corridor
+  claims every tile within `OFFROAD_R` (24) of a centreline — that is what makes driving off the
+  road *driving* rather than a stall — and the three limbs out of a void all leave from the **same
+  rim tile**, heading south, east and west. A tile twenty tiles inside the basin is barely along the
+  east limb's centreline and well within its verge, so `locate` answered and forty-eight tiles of
+  the city's southern edge came back as synthesised hardpan. Driving out you never saw it, because
+  it was behind you; you saw it the moment you turned round and drove home. Composed the other way
+  there is nothing to special-case: the corridor is a road across ground the world does not place,
+  so wherever the world **does** place a tile that tile is the answer, and the waste past the rim
+  has no rows at all so the road has it to itself. Nothing about the drive reads this window — the
+  odometer, the node and the collision all go through `locate` — so it decides what you *see*.
 - **You can turn round.** See [the odometer](#the-odometer) — a road with a real near end has a real
   way back out of it.
 
@@ -194,6 +215,7 @@ one would be a board that lies.
 | **⚠ the junction board looks 210 tiles PAST the fork** | a board stands 16 tiles short of the junction, so an ordinary 80-tile look lands barely 60 tiles into a bend of radius 110 — the limbs have separated by about ten degrees, which rounds to the same arrow, and the board points every limb straight on. ⚠ **All four of those numbers now scale with the road** (`route.bendK`), because 210 tiles past a fork on a 99-tile road aims the arrow past the destination it is naming, and `SIGN_APART` at 40 collapses every board on the route into one |
 | **the arrow is drawn, not typed** | a glyph would depend on a monospace font having ↗ in it at a legible weight. It is a polygon in the board's own surface coordinates, so it leans and foreshortens with the panel exactly as the lettering does |
 | **a sign is a `mark`, not a `building_type`** | a panel on two legs has no mass worth extruding and nothing to occlude behind — and a building would enter the collision sweep, where a board on the verge becomes a thing that stops a truck |
+| **⚠ a board has TWO faces, authored server-side** | a real motorway board is blank steel on the back because the other carriageway has boards of its own. This road is one lane each way and one post, so a driver running home was passing a board they could not read — and the renderer, mapping one set of lettering onto a quad seen from behind, drew it **mirrored**. `signsFor` authors `back` as well as `rows`: the same places at the same distances (a distance along the road does not care which way you face) with **the arrows re-measured against the reversed heading**, which is the only part of a row that is about the driver rather than about the road. The renderer picks the face off which side of the panel the camera is on and negates the panel's across-axis so the text runs left-to-right for whoever is looking. Mirroring alone would give a legible board pointing every destination the wrong way |
 
 The rows travel to the client as `sgn` on the surface cell, exactly the way a forecourt's prices
 travel as `brd`: **nothing in the renderer works out a distance.** And the same rows reach the
@@ -205,6 +227,12 @@ only statement of how far anything is.
 and a text run covers a whole slab of road per tick, so a proximity test has the cab reading every
 board and the text rung stepping over most of them. `signsBetween(route, from, to)` asks what was
 *passed*, which is the same question at both rates.
+
+⚠ **…and the sweep is UNSIGNED.** It answered nothing at all when the odometer went *down*, so a
+driver running back toward the origin passed every board on the road without one of them reaching
+the log — boards that existed for traffic going one way, on a road that has always been drivable
+both. The range is order-agnostic now; **which face was read is the caller's business** (`passSign`
+picks `back` when `s` fell), because that is a fact about the driver and not about the road.
 
 One honest limitation, so nobody "fixes" it into a lie: where the leash forces every limb the same
 way out of the junction, the board really does point them all the same way, and they separate later.
