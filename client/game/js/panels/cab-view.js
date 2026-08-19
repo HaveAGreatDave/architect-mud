@@ -727,10 +727,23 @@ export function openCab(ctx = {}) {
       if (e.pointerId != null) el.setPointerCapture?.(e.pointerId);
       e.preventDefault();
     };
+    // ⚠ A POINTER RELEASE MAY ONLY END A PRESS A POINTER STARTED — and only the one that started
+    // it. The old test was `pid !== null && pid !== 'kb' && e.pointerId !== pid`, which reads as
+    // "not our finger, leave it held" and does the opposite in the one case that matters most:
+    // when the pedal is held from the KEYBOARD, `pid` is null (the key path writes `st.input`
+    // directly and never calls `on`), so the guard collapses to false and the window-level
+    // `pointerup` below zeroes the throttle. The effect was that ANY mouse click anywhere on the
+    // page — the middle button swinging the free camera, a click on the gear lever, anything —
+    // dropped the accelerator out from under a driver holding A, mid-corner, with no visible cause.
+    // The window listener is only a safety net for a press whose element-level release went
+    // missing, so it has no business ending a press it never saw begin. A keyboard release, a
+    // blur, or the panel tearing down all pass no pointer at all and still end it.
     const off = (e) => {
       if (!st) return;
-      // Not our finger: leave the control held. A keyboard release (no pointerId) always ends it.
-      if (e && e.pointerId != null && pid !== null && pid !== 'kb' && e.pointerId !== pid) return;
+      if (e && e.pointerId != null) {
+        if (pid === null || pid === 'kb') return;   // nothing pressed it with a pointer
+        if (e.pointerId !== pid) return;            // somebody else's finger
+      }
       pid = null; st.input[key] = 0; if (st.heldBy) st.heldBy[key] = 0; el.classList.remove("on");
     };
     el.addEventListener('pointerdown', on);
@@ -879,10 +892,19 @@ export function openCab(ctx = {}) {
   // Held STEERING buttons, for a touch device with no keyboard and no room to drag a wheel. They
   // drive the wheel widget's own `setHeld`, not a private angle — one wheel, three ways to turn it,
   // and the thing on screen is always the thing you are steering with.
+  // ⚠ Same pointer discipline the pedals run (see `hold`), and for the same reason: X/C and the
+  // arrows write `st.steerKey` straight from the key handler, so without it a stray click anywhere
+  // released a keyboard-held wheel in the middle of a bend.
   const steerHold = (sel, dir) => {
     const el = container.querySelector(sel);
-    const on = (e) => { st.steerKey = dir; st.wheel?.setHeld(dir); el.classList.add('on'); e.preventDefault(); };
-    const off = () => { if (!st) return; if (st.steerKey === dir) { st.steerKey = 0; st.wheel?.setHeld(0); } el.classList.remove('on'); };
+    let pid = null;
+    const on = (e) => { pid = e?.pointerId != null ? e.pointerId : 'kb'; st.steerKey = dir; st.wheel?.setHeld(dir); el.classList.add('on'); e.preventDefault(); };
+    const off = (e) => {
+      if (!st) return;
+      if (e && e.pointerId != null && (pid === null || pid === 'kb' || e.pointerId !== pid)) return;
+      pid = null;
+      if (st.steerKey === dir) { st.steerKey = 0; st.wheel?.setHeld(0); } el.classList.remove('on');
+    };
     el.addEventListener('pointerdown', on);
     el.addEventListener('pointerup', off);
     el.addEventListener('pointerleave', off);
@@ -898,10 +920,18 @@ export function openCab(ctx = {}) {
 
   // The look controls, on the same held-button machinery. `viewYaw` is degrees off the nose and 0
   // is forward, which is why the renderer's cab-interior gate reads `!v.viewYaw` — see windshield.
+  // Q/E/S write `st.viewYaw` from the key handler exactly as X/C write `st.steerKey`, so this needs
+  // the same guard — a click must not snap a held shoulder-check forward into a bend you cannot see.
   const lookHold = (sel, yaw) => {
     const el = container.querySelector(sel);
-    const on = (e) => { st.viewYaw = yaw; el.classList.add('on'); showViewTag(yaw); e.preventDefault(); };
-    const off = () => { if (!st) return; if (st.viewYaw === yaw) { st.viewYaw = 0; showViewTag(0); } el.classList.remove('on'); };
+    let pid = null;
+    const on = (e) => { pid = e?.pointerId != null ? e.pointerId : 'kb'; st.viewYaw = yaw; el.classList.add('on'); showViewTag(yaw); e.preventDefault(); };
+    const off = (e) => {
+      if (!st) return;
+      if (e && e.pointerId != null && (pid === null || pid === 'kb' || e.pointerId !== pid)) return;
+      pid = null;
+      if (st.viewYaw === yaw) { st.viewYaw = 0; showViewTag(0); } el.classList.remove('on');
+    };
     el.addEventListener('pointerdown', on);
     el.addEventListener('pointerup', off);
     el.addEventListener('pointerleave', off);
@@ -949,7 +979,11 @@ export function openCab(ctx = {}) {
     const isChrome = (e) => !!e.target?.closest?.('.cab-chrome,.cab-dmg,.cab-help');
     glass.addEventListener('pointerdown', (e) => {
       grabKeys();                                     // clicking the road is asking to drive — see grabKeys
-      if (isChrome(e) || e.button === 2) return;
+      // ⚠ THE PRIMARY BUTTON ONLY. This excluded the RIGHT button and said nothing about the
+      // MIDDLE one, so a middle-click on the windscreen silently took hold of the steering wheel —
+      // and in Chrome opened the autoscroll widget over the road at the same time. Neither is a
+      // gesture anybody asked for. Everything above button 0 is now inert on the glass.
+      if (isChrome(e) || e.button > 0) return;
       // THE BOSS IS A BUTTON, because on a truck it is. It is tested against the renderer's own
       // geometry (cabWheelHub) rather than a second copy of it, so the horn can never end up an
       // inch off the thing that looks like the horn. Not a grab: the angle delta at the centre of
@@ -1065,6 +1099,10 @@ export function openCab(ctx = {}) {
     glass.addEventListener('pointercancel', endDrag);
     addEventListener('pointerup', endDrag);
     winOff.push(endDrag);
+    // No middle-click autoscroll over the windscreen. The flight sim already refuses it inside its
+    // own view for the same reason (cockpit.js): the scroll widget lands on top of the road, eats
+    // the next click and cannot be dismissed without taking your hands off the truck.
+    glass.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
     // The dolly. External only — there is nothing to zoom in the cab, and a wheel event that did
     // nothing but eat the page scroll would be worse than one that is simply not bound.
     glass.addEventListener('wheel', (e) => {

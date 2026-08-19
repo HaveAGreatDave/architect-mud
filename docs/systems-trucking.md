@@ -1829,6 +1829,21 @@ throttle with one thumb and lifting the other off the wheel released the throttl
 finger anywhere on the glass ended the first one's press**, which is exactly "I cannot accelerate and
 steer at the same time". The press now records its pointer id and claims it with `setPointerCapture`.
 
+⚠ **…and a pointer release may only end a press a POINTER started** *(2026-08-19)*. The guard above
+read `pid !== null && pid !== 'kb' && e.pointerId !== pid` — "not our finger, leave it held" — and did
+the opposite in the case that matters most. A pedal held from the **keyboard** never calls `on` at
+all (the key handler writes `st.input` directly), so `pid` is null, the guard collapses to false, and
+the window-level `pointerup` net zeroed the throttle. **Any mouse click anywhere on the page dropped
+the accelerator out from under a driver holding A** — the middle button swinging the camera, a click
+on the gear lever, anything — mid-corner, with nothing on screen to explain it. That net exists only
+for a press whose element-level release went missing, so it has no business ending one it never saw
+begin; a keyboard release, a blur or the panel tearing down pass no pointer and still end it. The
+same guard now covers `steerHold` and `lookHold`, because X/C and Q/E/S write `st.steerKey` and
+`st.viewYaw` from the key handler in exactly the same way. Separately, the glass gesture is
+**primary-button only** (it excluded the right button and said nothing about the middle one, so a
+middle-click silently took hold of the wheel) and refuses Chrome's middle-click autoscroll, which the
+flight sim already refuses inside its own view.
+
 **Touch controls come back in the chase view** *(2026-08-15)*, on every device. Out there the wheel is
 not on screen to drag, the painted dash is behind the camera, and a pointer drag means orbit — so a
 desktop driver has no pointer route to steering at all. **The controls a cockpit made redundant stop
