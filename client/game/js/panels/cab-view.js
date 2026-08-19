@@ -325,6 +325,7 @@ export function openCab(ctx = {}) {
         <div class="cab-gps-hd">
           <b class="cab-gps-tabs">
             <button class="cab-gps-tab on" data-app="route">ROUTE</button>
+            <button class="cab-gps-tab" data-app="map">MAP</button>
             <button class="cab-gps-tab" data-app="damage">RIG</button>
           </b>
           <button class="cab-gps-pop" title="Pop out into its own window" aria-label="Pop out">&#9082;</button>
@@ -1977,7 +1978,139 @@ export function openCab(ctx = {}) {
     // otherwise unchanged — they paint the body, and the body does not care whether it is currently
     // sitting in the dash or in a floating window.
     st.gpsApp = 'route';
-    function renderGps() { return st.gpsApp === 'damage' ? renderDamageApp() : renderRoutePicker(); }
+    function renderGps() {
+      if (st.gpsApp === 'damage') return renderDamageApp();
+      if (st.gpsApp === 'map') return renderMapApp();
+      return renderRoutePicker();
+    }
+    st.renderMapApp = () => { if (st.gpsApp === 'map') renderMapApp(); };
+    // ── THE MAP ────────────────────────────────────────────────────────────────
+    // The GPS could name where you were going and how far it was, and could not show you where you
+    // WERE. Everything this draws was already on the wire and being spent on the windshield: the
+    // same `map` window the 3D view extrudes its buildings from, the same `s`/`L` the odometer is
+    // derived from, the same `routes` the picker lists. Nothing was added to the context for it,
+    // which is the whole reason it is worth having — a second position channel would be a second
+    // thing to disagree with the road.
+    //
+    // TWO ANSWERS, because "where am I" has two at any moment. In a city you want the streets
+    // around you, so it draws the window: north up, buildings solid, roads light, you in the
+    // middle. Out on the corridor a window of void road tells you nothing at all — every tile looks
+    // like the last one, which is the point of the void — so it draws the ROUTE instead, as a line
+    // from where you left to where you are aimed, with the nodes on it and you somewhere along.
+    function renderMapApp() {
+      const el = body(); if (!el) return;
+      const corridor = (st.L || 0) > 0 && (st.sim?.leg || st.leg) !== 'city';
+      el.innerHTML = '<canvas class="cab-gps-canvas" width="440" height="300"></canvas>'
+        + '<div class="cab-gps-legend"></div>';
+      const cv = el.querySelector('.cab-gps-canvas');
+      const leg = el.querySelector('.cab-gps-legend');
+      if (!cv || !cv.getContext) return;
+      const g = cv.getContext('2d');
+      g.clearRect(0, 0, cv.width, cv.height);
+      if (corridor) drawRouteStrip(g, cv, leg); else drawLocalMap(g, cv, leg);
+    }
+    // Colours are deliberately few and flat. This is an instrument, not a picture: what a driver
+    // needs off it in a glance is where the roads are and where the buildings are not.
+    const MAP_INK = { road: '#4d5560', bldg: '#20262e', water: '#1d3550', field: '#2c3a2e', land: '#2a2620', air: '#12151a' };
+    function cellInk(c) {
+      if (!c || c.kind === 'air') return MAP_INK.air;
+      if (c.bt) return MAP_INK.bldg;
+      if (c.road) return MAP_INK.road;
+      if (c.biome === 'water' || c.sub) return MAP_INK.water;
+      if (c.kind === 'field') return MAP_INK.field;
+      return MAP_INK.land;
+    }
+    function drawLocalMap(g, cv, leg) {
+      const rows = st.map;
+      if (!rows || !rows.length) { leg.innerHTML = '<span class="cab-routes-none">No fix.</span>'; return; }
+      const n = rows.length, px = Math.min(cv.width, cv.height) / n;
+      const ox = (cv.width - px * n) / 2, oy = (cv.height - px * n) / 2;
+      for (let r = 0; r < n; r++) for (let c = 0; c < rows[r].length; c++) {
+        g.fillStyle = cellInk(rows[r][c]);
+        g.fillRect(ox + c * px, oy + r * px, Math.ceil(px), Math.ceil(px));
+      }
+      // ⚠ THE TRUCK IS NOT AT THE CENTRE OF THE WINDOW, it is at its own fractional position inside
+      // the centre TILE — `mapX/mapY` are the window's rounded centre and `sim.x/y` are where the
+      // wheels are. Drawing it dead centre would be right three times out of four and visibly
+      // lagging the rest of the time, which on a map reads as the map being wrong.
+      const cx = ox + (n / 2 + ((st.sim?.x ?? st.mapX) - st.mapX)) * px;
+      const cy = oy + (n / 2 + ((st.sim?.y ?? st.mapY) - st.mapY)) * px;
+      const hd = ((st.sim?.heading ?? 0)) * Math.PI / 180;
+      g.save(); g.translate(cx, cy); g.rotate(hd);
+      g.fillStyle = '#e8b455'; g.strokeStyle = '#1a1d22'; g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(0, -9); g.lineTo(6, 7); g.lineTo(0, 4); g.lineTo(-6, 7); g.closePath();
+      g.fill(); g.stroke(); g.restore();
+      g.fillStyle = '#8c98a6'; g.font = '10px system-ui, sans-serif'; g.textAlign = 'left';
+      g.fillText('N', ox + 5, oy + 13);
+      leg.innerHTML = `<b>${Math.round(st.mapX)}, ${Math.round(st.mapY)}</b>`
+        + `<span class="td-dim"> · heading ${Math.round(st.sim?.heading ?? 0)}° · ${esc(String(st.input?.surface || 'road')).toUpperCase()}</span>`;
+    }
+    // The corridor, drawn as the thing it is: one line with a start, an end and you on it. `s`/`L`
+    // are the server's own numbers — the same pair the odometer is derived from — so the dot cannot
+    // drift from the mileage printed under it.
+    function drawRouteStrip(g, cv, leg) {
+      const L = Math.max(1, st.L || 1), s = Math.max(0, Math.min(L, st.s || 0));
+      const x0 = 34, x1 = cv.width - 34, y = cv.height / 2;
+      g.strokeStyle = '#39424e'; g.lineWidth = 10; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+      g.strokeStyle = '#c98f3c'; g.lineWidth = 10;
+      g.beginPath(); g.moveTo(x0, y); g.lineTo(x0 + (x1 - x0) * (s / L), y); g.stroke();
+      const nodes = Math.max(0, st.nodes || 0);
+      for (let i = 0; i <= nodes; i++) {
+        const px = x0 + (x1 - x0) * (nodes ? i / nodes : 0);
+        g.fillStyle = i <= (st.node || 0) ? '#e8b455' : '#5c6674';
+        g.beginPath(); g.arc(px, y, 3.5, 0, 6.2832); g.fill();
+      }
+      const dot = x0 + (x1 - x0) * (s / L);
+      g.fillStyle = '#f2f6fb'; g.strokeStyle = '#1a1d22'; g.lineWidth = 1.4;
+      g.beginPath(); g.arc(dot, y, 7, 0, 6.2832); g.fill(); g.stroke();
+      g.fillStyle = '#8c98a6'; g.font = '11px system-ui, sans-serif';
+      g.textAlign = 'left'; g.fillText('start', x0 - 8, y + 26);
+      g.textAlign = 'right'; g.fillText(destName() || 'the road', x1 + 8, y + 26);
+      // Miles, in the same unit the boards and the `route` verb use — see TILES_PER_MILE. A dash
+      // that disagreed with a sign the driver just passed would make both useless.
+      // ⚠ DERIVED FROM THE DESTINATION'S OWN MILEAGE, never counted here. The picker already prints
+      // a total for this road and the server already says how far along it you are, so the two
+      // together are the remaining distance — and it is the SAME total the driver read on the row
+      // they picked. A second mileage computed on the client is the one that ends up disagreeing
+      // with a board by the roadside.
+      const cur = st.routes?.dests?.find((d) => d.current) || st.routes?.dests?.find((d) => d.key === st.aim);
+      const total = cur?.miles;
+      const left = total != null ? Math.max(0, Math.round(total * (1 - s / L))) : null;
+      leg.innerHTML = `<b>${destName() || 'no fix'}</b>`
+        + `<span class="td-dim"> · node ${(st.node || 0) + 1} of ${(st.nodes || 0) + 1}`
+        + `${left != null ? ` · ${left} of ${total} miles to run` : ''}</span>`
+        + `<div class="cab-gps-instr">${nextInstruction()}</div>`;
+    }
+    // ── THE INSTRUCTION ────────────────────────────────────────────────────────
+    // Read off the ROAD, not off a route plan: `rdeg` is the corridor's own heading at the tile you
+    // are on — the same number the auto-tiler and the sign posts are struck from — so the dash can
+    // never tell you to bear left down a road that goes right. It is deliberately the tile you are
+    // ON rather than one some distance ahead: the window is centred on the truck, a lookahead would
+    // have to guess how far, and the bend radius is floored well above a tile (see MIN_RADIUS), so
+    // the road under you and the road just ahead of you cannot disagree by much.
+    //
+    // ⚠ And it says nothing at all when it has nothing to say. A GPS that repeats "continue
+    // straight" every second is one you stop reading, which is how you miss the one time it matters.
+    function nextInstruction() {
+      const rows = st.map;
+      if (!rows || !rows.length) return '';
+      const mid = rows[(rows.length - 1) / 2 | 0];
+      const cell = mid && mid[(mid.length - 1) / 2 | 0];
+      const rdeg = cell && cell.rdeg;
+      if (rdeg == null) return '<span class="td-dim">Off the road.</span>';
+      let d = ((rdeg - (st.sim?.heading ?? 0)) % 360 + 540) % 360 - 180;
+      const mag = Math.abs(d);
+      if (mag < 6) return '<span class="td-dim">Straight on.</span>';
+      const side = d > 0 ? 'right' : 'left';
+      if (mag < 18) return `<b>Bear ${side}.</b>`;
+      return `<b class="cab-gps-turn">Hold it ${side} — the road is going.</b>`;
+    }
+    function destName() {
+      const R = st.routes;
+      const cur = R?.dests?.find((d) => d.current) || R?.dests?.find((d) => d.key === st.aim);
+      return cur ? cur.heading : null;
+    }
     st.renderGps = renderGps;
     // The rig's condition, as a GPS page. Deliberately the SAME rows the damage card draws — it
     // reads `st.dmg`, the payload the server already pushes — because two renderings of one set of
@@ -2194,7 +2327,7 @@ export function cabContext(ctx) {
   if (ctx.condition != null) st.condition = ctx.condition;
   // The damage HUD repaints on the SERVER push, never in the frame loop — see renderDamage.
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
-  if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; }
+  if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; st.renderMapApp?.(); }
   // The street population, paired with the map. An empty list is a real answer, not an absent one —
   // see the same note in cockpit.js flightSimContext.
   if (ctx.actors !== undefined) st.actors = ctx.actors;
@@ -3205,6 +3338,11 @@ function ensureCabStyles() {
      by the truck you are actually in rather than by one amber that every rung shared. */
   .cab-readout b{font-size:22px;color:var(--cab-glow,#e8c07a);font-variant-numeric:tabular-nums}
   .cab-readout span{font-size:9px;letter-spacing:.14em;color:#7c848f}
+  .cab-gps-canvas{display:block;width:100%;height:auto;background:#0d1014;border-radius:6px;
+    border:1px solid rgba(255,255,255,0.09)}
+  .cab-gps-legend{margin-top:6px;font-size:12px;color:#dfe6ef;letter-spacing:0.3px}
+  .cab-gps-instr{margin-top:4px;font-size:13px;color:#e8eef6}
+  .cab-gps-turn{color:#e8b455}
   .cab-freecam-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:6;
     font-size:11px;letter-spacing:0.6px;color:#dfe6ef;background:rgba(8,11,15,0.62);
     padding:4px 12px;border-radius:11px;border:1px solid rgba(255,255,255,0.16);
