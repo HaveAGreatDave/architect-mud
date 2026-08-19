@@ -11,7 +11,7 @@ import { mapWindow, surfaceAt, bounds as worldBounds } from '../flight/state.js'
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
-  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS } from './corridor.js';
+  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
@@ -467,22 +467,38 @@ export default async function regress({ run, check, getPlayer }) {
     }
     if (!real) check('a world tile exists to test the provider against', false);
     else {
-      // Anchored so the road STARTS on that real tile — the sharpest form of the case, because the
-      // road's own origin is the one tile it most wants to pave.
+      // Anchored so the road STARTS on that real tile — the sharpest form of both halves, because
+      // its origin is the one tile the corridor most wants to pave and the one the world most
+      // obviously owns the ground around.
       const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, null,
         { x0: real.x, y0: real.y, x1: real.x, y1: real.y + 300 });
       const at = providerFor({ leg: 'corridor', route: r });
-      check('the corridor never paints over a tile the world actually places',
-        at(real.x, real.y)?.id === real.c.id, String(at(real.x, real.y)?.id));
-      // …and it still owns everything the world does not place, or the fix would have traded one
-      // missing world for a missing road.
-      let paved = null, probes = 0;
-      for (let s = 1; s <= r.L && !paved; s++) {
-        const p = corridorPos(r, s, 0), px = Math.round(p.x), py = Math.round(p.y);
-        if (!surfaceAt(px, py)) { paved = at(px, py); probes = s; }
+      // ── HALF ONE: the road is laid ON the world and wins ─────────────────────
+      // ⚠ THIS IS THE HALF THE FIRST FIX BROKE. Giving the world a blanket veto took the tarmac with
+      // it — a region's grid is placed ground for a long way past anything anybody would call a
+      // town, so a driver came off the end of the Coldwater road into open desert with no road on
+      // it at all, which is worse than the bug being fixed.
+      const on = corridorPos(r, 6, 0), onx = Math.round(on.x), ony = Math.round(on.y);
+      check('the corridor owns its own carriageway, over placed ground or not',
+        at(onx, ony)?.flags?.terrain === 'road', String(at(onx, ony)?.flags?.terrain));
+      check('…and that really is placed ground, or this case proves nothing',
+        !!surfaceAt(onx, ony), 'the probe fell outside the world grid');
+      // ── HALF TWO: the ground BESIDE it is filler, and loses ──────────────────
+      const side = corridorPos(r, 6, 12), sx = Math.round(side.x), sy = Math.round(side.y);
+      const w = surfaceAt(sx, sy);
+      check('…but never the ground beside it, where the world has placed some',
+        !w || at(sx, sy)?.id === w.id, String(at(sx, sy)?.id));
+      check('…and the corridor did claim that tile, so the case is not vacuous',
+        !!corridorAt(r, sx, sy) && !isCarriageway(corridorAt(r, sx, sy)));
+      // …and the filler still stands where the world places nothing, or the rule would have traded
+      // a painted-out basin for a road running through featureless air.
+      let fill = null, atS = 0;
+      for (let s = 1; s <= r.L && !fill; s++) {
+        const p = corridorPos(r, s, 12), px = Math.round(p.x), py = Math.round(p.y);
+        if (!surfaceAt(px, py) && corridorAt(r, px, py)) { fill = at(px, py); atS = s; }
       }
-      check('…and still owns the waste, where the world places nothing',
-        paved?.flags?.terrain === 'road', `${paved?.flags?.terrain || 'no unplaced tile on the route'} at s=${probes}`);
+      check('…and the verge is still synthesised out where the world places nothing',
+        !fill || /^corridor_/.test(String(fill.id)), `${fill?.id} at s=${atS}`);
     }
   }
 

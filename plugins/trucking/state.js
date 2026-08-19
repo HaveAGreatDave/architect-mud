@@ -22,7 +22,7 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
-  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS } from './corridor.js';
+  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
@@ -105,26 +105,37 @@ export function topTilesPerSec() { return (TOP_SPEED_MPH / TILE_MPH) * CLAMP_SLA
 // else is the world that was always there. The basin recedes in the mirrors and the Reach comes up
 // out of the haze ahead, with no work done by either of them.
 //
-// ⚠ THE REAL WORLD WINS, AND THE ORDER USED TO BE THE OTHER WAY ROUND. It read
-// `road(x, y) || surfaceAt(x, y)`, which is the intuitive order and it DELETED COLDWATER. The
-// corridor claims every tile within OFFROAD_R (24) of a centreline — that is what makes driving off
-// the road driving rather than a stall — and the three limbs out of a void all leave from the SAME
-// rim tile, heading south, east and west. A tile twenty tiles inside the basin is barely off the
-// east limb's centreline and only a hair along it, so `locate` answered, and forty-eight tiles of
-// the city's southern edge came back as synthesised hardpan. Driving out you never saw it, because
-// it was behind you; you saw it the moment you turned round and drove home, and the basin was gone.
+// ⚠ AND THE COMPOSITION IS PER-CLAIM, NOT ONE ORDER FOR EVERYTHING. Both of the obvious orders are
+// wrong, and each was shipped and found by driving.
 //
-// Composed the other way there is nothing to special-case: the corridor is a road across ground the
-// world does not place, so wherever the world DOES place a tile, that tile is the answer. The rim
-// you leave from is a real street and renders as one; the waste past it has no rows at all and the
-// road has it to itself. Nothing here is load-bearing for the DRIVE — the odometer, the node and
-// the collision all read `locate` and `rig.route`, never this window (see corridorLocate), so this
-// decides what you SEE and only that.
+// `road(x, y) || surfaceAt(x, y)` DELETED COLDWATER. The corridor claims every tile within
+// OFFROAD_R (24) of a centreline — that is what makes driving off the road driving rather than a
+// stall — and the three limbs out of a void all leave from the SAME rim tile, heading south, east
+// and west. A tile twenty tiles inside the basin is barely off the east limb's centreline and only
+// a hair along it, so `locate` answered, and forty-eight tiles of the city's southern edge came back
+// as synthesised hardpan. Driving out you never saw it; you saw it the moment you turned round.
+//
+// `surfaceAt(x, y) || road(x, y)` DELETED THE HIGHWAY. A region's grid is placed ground for a long
+// way past anything anybody would call a town, so handing the world an unconditional veto took the
+// tarmac away too — a driver came off the end of the Coldwater road into open desert with no road
+// on it at all, which is worse than the bug it was fixing.
+//
+// So the question is asked of the CELL rather than of the provider: a road is laid ON ground that
+// already exists and wins, and everything the corridor synthesises BESIDE the road is filler for
+// ground the world does not place and loses. See `isCarriageway`, which lives in corridor.js so the
+// two terrains that file chooses are not restated here.
+//
+// Nothing here is load-bearing for the DRIVE — the odometer, the node and the collision all read
+// `locate` and `rig.route`, never this window (see corridorLocate) — so this decides what you SEE.
 export function providerFor(rig) {
   if (rig.leg === 'city') return surfaceAt;
   const road = corridorProvider(rig.route);
   if (!rig.route?.anchored) return road;   // legacy local frame — the world is genuinely elsewhere
-  return (x, y) => surfaceAt(x, y) || road(x, y);
+  return (x, y) => {
+    const c = road(x, y);
+    if (c && isCarriageway(c)) return c;
+    return surfaceAt(x, y) || c;
+  };
 }
 
 // A rig exists only while somebody is driving one. Mounted in the CITY — the crossing is joined

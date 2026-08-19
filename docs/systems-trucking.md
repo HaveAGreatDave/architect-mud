@@ -90,18 +90,21 @@ other. One frame fixes that, and it pays for itself immediately in two places:
   the verge, the signs and the wrecks, and everything else is the world that was always there. The
   basin recedes in the mirrors and the Reach comes up out of the haze, with no work done by either.
 
-  ⚠ **A REAL PLACED TILE WINS, and the order used to be the other way round.** `road(x, y) ||
-  surfaceAt(x, y)` is the intuitive composition and it **deleted Coldwater Basin**. The corridor
-  claims every tile within `OFFROAD_R` (24) of a centreline — that is what makes driving off the
-  road *driving* rather than a stall — and the three limbs out of a void all leave from the **same
-  rim tile**, heading south, east and west. A tile twenty tiles inside the basin is barely along the
-  east limb's centreline and well within its verge, so `locate` answered and forty-eight tiles of
-  the city's southern edge came back as synthesised hardpan. Driving out you never saw it, because
-  it was behind you; you saw it the moment you turned round and drove home. Composed the other way
-  there is nothing to special-case: the corridor is a road across ground the world does not place,
-  so wherever the world **does** place a tile that tile is the answer, and the waste past the rim
-  has no rows at all so the road has it to itself. Nothing about the drive reads this window — the
-  odometer, the node and the collision all go through `locate` — so it decides what you *see*.
+  ⚠ **THE COMPOSITION IS PER-CLAIM, NOT ONE ORDER FOR EVERYTHING.** Both obvious orders are wrong,
+  and each shipped and was found by driving:
+
+  | order | what it deleted |
+  |---|---|
+  | `road(x, y) \|\| surfaceAt(x, y)` | **Coldwater Basin.** The corridor claims every tile within `OFFROAD_R` (24) of a centreline — that is what makes driving off the road *driving* rather than a stall — and the three limbs out of a void all leave from the **same rim tile**, heading south, east and west. A tile twenty tiles inside the basin is barely along the east limb's centreline and well within its verge, so `locate` answered and forty-eight tiles of the city's southern edge came back as synthesised hardpan. Driving out you never saw it, because it was behind you |
+  | `surfaceAt(x, y) \|\| road(x, y)` | **the highway.** A region's grid is placed ground for a long way past anything anybody would call a town, so a blanket veto took the tarmac with it: you came off the end of the Coldwater road into open desert with no road on it at all — worse than the bug it fixed |
+
+  So the question is asked of the **cell**, not of the provider. A corridor cell is one of two
+  completely different claims: the **carriageway** (tarmac and graded shoulder) is a road, and a road
+  is *laid on* ground that already exists, so it wins; everything else the corridor synthesises —
+  verge terrain, the roadside sheds, the wrecks, the boards — is **filler for ground the world does
+  not place**, and loses. `isCarriageway` lives in corridor.js so the two terrains that file chooses
+  are not restated by the caller. Nothing about the drive reads this window — the odometer, the node
+  and the collision all go through `locate` — so it decides what you *see*.
 - **You can turn round.** See [the odometer](#the-odometer) — a road with a real near end has a real
   way back out of it.
 

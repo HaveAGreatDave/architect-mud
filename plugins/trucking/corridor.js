@@ -880,6 +880,24 @@ function branchAt(route, x, y) {
   return null;
 }
 
+// ── THE ROAD ITSELF, versus THE GROUND BESIDE IT ─────────────────────────────
+// A corridor cell is one of two completely different claims, and the composite provider in state.js
+// has to tell them apart:
+//
+//   the CARRIAGEWAY — tarmac and graded shoulder. This is the road, and a road is laid ON ground
+//   that already exists. It wins over the world, or the highway is simply not there for however
+//   much of its run crosses a region's placed grid.
+//
+//   everything else — verge terrain, the roadside sheds, the wrecks, the boards. This is FILLER for
+//   ground the world does not place, and it must never overwrite ground the world does. It reaches
+//   OFFROAD_R (24 tiles) either side of every limb, which is how it came to paint out the southern
+//   edge of Coldwater.
+//
+// The predicate lives here rather than in state.js so the two terrains this file chooses are not
+// restated by a caller that would then drift from them.
+export const isCarriageway = (cell) =>
+  cell?.flags?.terrain === 'road' || cell?.flags?.terrain === 'dirt_road';
+
 // Bind a route to a provider with the (x, y) signature mapWindow wants. Pass the result straight
 // in as `at` — see plugins/flight/state.js mapWindow.
 export function corridorProvider(route) {
