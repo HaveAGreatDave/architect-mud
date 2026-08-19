@@ -24,6 +24,11 @@ const same = (a, b, what) => {
   checks++;
   if (!Object.is(a, b)) { bad++; if (bad <= 8) console.log(`  ✗ ${what}: ${a} !== ${b}`); }
 };
+// Same, but tolerating +0 vs -0 — see the ⚠ at its callsite.
+const sameNum = (a, b, what) => {
+  checks++;
+  if (a !== b) { bad++; if (bad <= 8) console.log(`  ✗ ${what}: ${a} !== ${b}`); }
+};
 
 for (const heading of HEADINGS) {
   const v = { heading, height: 0.3, map: null };
@@ -44,6 +49,18 @@ for (const heading of HEADINGS) {
       same(a.f, b.f, `projFL.f h=${heading} back=${back}`);
     }
     same(base.EH, withZero.EH, `EH h=${heading} up=${up}`);
+    // The eye position the depth sorts and backface culls now read instead of rebuilding it.
+    same(base.ex, withZero.ex, `ex h=${heading} back=${back}`);
+    same(base.ey, withZero.ey, `ey h=${heading} back=${back}`);
+    // …and it must equal what those fourteen sites used to compute for themselves.
+    // ⚠ Compared with === rather than Object.is, and that is the whole subtlety: adding the free
+    // offset NORMALISES A SIGNED ZERO. At heading 0 sinh is 0, so the old expression produced -0
+    // and `-0 + 0` is +0. Object.is separates those two and nothing else in JavaScript does —
+    // `x - -0` and `x - +0` are both x. Asserting identity here would fail on a difference that
+    // cannot reach a pixel, and the projections above (which DO use Object.is) already prove the
+    // part that can.
+    sameNum(base.ex, -back * Math.sin(heading * Math.PI / 180), `ex matches -back*sinh h=${heading}`);
+    sameNum(base.ey, back * Math.cos(heading * Math.PI / 180), `ey matches back*cosh h=${heading}`);
   }
 }
 

@@ -5909,11 +5909,17 @@ export function makeCam(W, horizonY, depth, v, chase) {
   // two multiply-adds they were. Both are exactly 0 when fx/fy are, which is what carries the
   // identity above through `projFL` as well as `proj`.
   const fFwd = fx * sinh - fy * cosh, fSide = fx * cosh + fy * sinh;
+  // WHERE THE EYE ACTUALLY IS, in world tiles, as ONE derivation. Fourteen places downstream — the
+  // depth sorts, the backface culls, the occlusion tests — each rebuilt this from `back` and the
+  // heading, which was correct for as long as the camera could only ever sit on the heading axis.
+  // It no longer can, and fourteen copies of an assumption is fourteen places to forget it.
+  // Identical to what each of them computed when the free offset is unused: `a - (-b)` is `a + b`.
+  const ex = -back * sinh + fx, ey = back * cosh + fy;
   // The chase offset shifts everything `back` tiles forward of the camera (f += back); lateral
   // is unchanged. up raises the eye height (EH), tipping the nose of the view down onto the craft.
   const proj = (dx, dy, wz) => { const bx = dx + back * sinh - fx, by = dy - back * cosh - fy; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
   const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa + back - fFwd); return { sx: cx + ((s - fSide) / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
-  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy, ex, ey };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -6145,7 +6151,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // Raw (unclamped) forward distance of a footprint point — the value proj() clamps to 0.06.
   // f is constant up a vertical edge (height-independent), so this is per footprint CORNER.
   const NEAR_CLIP = 0.08;   // trim walls to this near plane; above proj's 0.06 clamp so trimmed corners project stably
-  const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
+  const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
   const cf = cs.map(([a, c]) => rawF(dx + a, dy + c));
   const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz0));
   // Day↔night wall textures used to snap at a hard `night > 0.4` boolean (windows flipped from cool day
@@ -6306,7 +6312,7 @@ function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
 const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
 function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
   const NEAR = 0.08;
-  const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
+  const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
   const seg = (ax, ay, bx, by) => {
     const fa = rawF(ax, ay), fb = rawF(bx, by);
     if (fa < NEAR && fb < NEAR) return;
@@ -6460,7 +6466,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
   const litZ = Math.max(0.30, sun && sun.elev > 0.05 ? sun.elev : 0.55);
   const ll = Math.sqrt(litX * litX + litY * litY + litZ * litZ) || 1;
   const lx = litX / ll, ly = litY / ll, lz = litZ / ll;
-  const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
+  const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
 
   // cliff/plateau are ONE landform lit two ways (see BIOME_GROUND), so the SURFACE picks the
   // colour, not the tile: every top takes the caprock tone and every face the rim tone, with the
@@ -9020,7 +9026,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     const wv = wantLit ? (bw || dp.map(Wp)) : null;
     if (wv && wv.length >= 3) casters.push(wv);
     if (face.cen && haveN && trustOut && !bw && cullBackfaces) {
-      const ex = -cam.back * cam.sinh, ey = cam.back * cam.cosh, ez = cam.EH;
+      const ex = cam.ex, ey = cam.ey, ez = cam.EH;
       if (nx * (cx3 - ex) + ny * (cy3 - ey) + nz * (cz3 - ez) >= 0) continue;
     }
     let lm = 1;
@@ -10010,7 +10016,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     // and keep the tile while ANY corner is still ahead of the camera: a section straddling the near
     // plane just clamps its near edge off the bottom of the screen instead of vanishing. `back` folds
     // in the chase camera (which sits `back` tiles behind the craft).
-    const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
+    const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
     const cf = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]].map(([a, b]) => rawF(dx + a, dy + b));
     if (cf.every(z => z <= 0.06) || f > VISIBLE_FAR_F) continue;
     // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
@@ -11980,7 +11986,7 @@ function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
     push([[-0.10, 0.90, 0.07], [0.10, 0.90, 0.07], br, bl]); }  // jaw back
   // ── Shade + fill (matte weathered limestone), each face depth-queued via emitFace ──
   const KL = (() => { const v = [0.42, -0.34, 0.86], m = Math.hypot(v[0], v[1], v[2]); return [v[0] / m, v[1] / m, v[2] / m]; })();   // top-front key
-  const camPos = [-(cam.back || 0) * cam.sinh, (cam.back || 0) * cam.cosh, cam.EH];
+  const camPos = [cam.ex, cam.ey, cam.EH];
   const ctr = L(0, 0.1, 0.30);
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -16199,7 +16205,7 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
     const e = clamp(sun.elev, 0, 1), hz = Math.sqrt(Math.max(0, 1 - e * e)), m = Math.hypot(sun.dir[0] * hz, sun.dir[1] * hz, e) || 1;
     toSun = [sun.dir[0] * hz / m, sun.dir[1] * hz / m, e / m];
   }
-  const camPos = [-(cam.back || 0) * cam.sinh, (cam.back || 0) * cam.cosh, cam.EH];   // eye position in world
+  const camPos = [cam.ex, cam.ey, cam.EH];   // eye position in world
   const ctr = [dx, dy, 0.04 * SZ];   // hull centre — used to orient every face's normal outward
   // Which flank faces the camera (+ = starboard near). Railings/edge-lights on the FAR side would draw
   // over the opaque hull + superstructure (they're a flat overlay with no depth test), so we only draw
