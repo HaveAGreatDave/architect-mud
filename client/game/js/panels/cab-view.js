@@ -26,6 +26,7 @@ import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { truckLivery } from './aircraft3d.js';   // stored paint → renderer livery, the one conversion
 import { sendCmdSilent } from '../net.js';
+import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the one tiles→miles conversion, shared with the server
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { openTabletToChatTab } from './tablet-os.js';
 
@@ -485,6 +486,21 @@ export function openCab(ctx = {}) {
                  whole point of a horn is that the room hears it and you are not the room. -->
             <button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
 
+            <!-- ── THE HEADLIGHTS ──────────────────────────────────────────────
+                 A LATCHING rocker, and the reason it exists at all is that the lamps used to be
+                 a lie the renderer told on the driver's behalf: 'landingLight' was hardcoded true
+                 and the beam appeared whenever the renderer decided it was dark enough. That is a
+                 sensible default and it is not a control — there was no way to drive dark, no way
+                 to forget your lights, and nothing on the panel that said whether they were on.
+
+                 It DEFAULTS ON, because a rig runs lit and the old behaviour is the one nobody
+                 should have to rediscover; switching them off is now a thing you chose. The state
+                 rides the telemetry packet's lamp field (see the note on 'lamps' in the sync
+                 below), so it costs no query, no column and no new route — and other drivers see
+                 your actual lamps rather than an assumption about them. -->
+            <button class="cab-btn cab-rocker cab-heads on" aria-label="Headlights" aria-pressed="true"
+              title="Headlights (L) — beam on the road ahead. Other drivers see them."><i></i><u><span>LAMPS</span></u></button>
+
             <!-- CRUISE. A LATCHING switch, not a held one, and the only rocker on this panel whose
                  label is a NUMBER when it is on: what a driver wants back off cruise control is
                  confirmation of the speed it took, and the lamp alone cannot say that. -->
@@ -584,7 +600,7 @@ export function openCab(ctx = {}) {
     shiftCool: 0,
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
     s: ctx.s || 0, L: ctx.L || 1, node: ctx.node || 0, nodes: ctx.nodes || 1,
-    hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', wipers: 0,
+    hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', moon: ctx.moon, wind: ctx.wind || 0, wipers: 0,
     last: performance.now(), lastSync: 0, lastAudio: 0, raf: 0, hitCd: 0, prev: null, contacts: ctx.contacts || [],
     // Seeded from the sim's own starting gear, or the first frame reads as a shift and the box
     // clunks at a driver who has not touched it.
@@ -1415,6 +1431,11 @@ export function openCab(ctx = {}) {
   }
   tap('.cab-splitbtn', () => splitGear());
   tap('.cab-wipe', () => cycleWipers());
+  // THE HEADLIGHTS. Latching, defaults on (see the markup note), and purely local state — the
+  // telemetry packet carries it out on the next frame, so there is nothing to await and nothing to
+  // persist. Toggling repaints the rocker immediately rather than waiting for a server round trip,
+  // which is the same rule the instrument voices follow: your own control answers your own hand.
+  tap('.cab-heads', () => setHeads(!st.heads));
   // ── THE CORD IS OPEN FOR AS LONG AS YOU PULL IT ─────────────────────────────
   //
   // ⚠ YOUR OWN HORN NEVER WAITS FOR THE SERVER — the instruments' rule (systems-procedural-audio),
@@ -1459,6 +1480,7 @@ export function openCab(ctx = {}) {
     // reaches for to stop a moving thing, and a truck has no guns for it to conflict with (the
     // flight sim's Space is the trigger). Its default is a page scroll, so it must be eaten.
     else if (k === 'z') st.input.brake = down ? 1 : 0;
+    else if (k === 'l' && down) setHeads(!st.heads);
     // ── ⚠ THE CAB AND THE COCKPIT SHARE A KEYBOARD ────────────────────────────
     // These four moved so that a player who flies and drives is not learning two contradictory
     // maps for the same hand. The flight sim is the elder system and the one with more keys, so it
@@ -1797,6 +1819,26 @@ export function openCab(ctx = {}) {
     }
   }
   st.paintWipers = paintWipers;
+  // ── THE HEADLIGHT SWITCH ───────────────────────────────────────────────────
+  // Latching, on by default — see the rocker's markup for why the default is ON rather than OFF.
+  // Purely local: the sim reads `st.heads` for the beam and the telemetry packet carries it to the
+  // server for other drivers, so there is nothing to await here and nothing to persist.
+  if (st.heads === undefined) st.heads = true;
+  function setHeads(on) {
+    st.heads = !!on;
+    const el = container.querySelector('.cab-heads');
+    if (el) {
+      el.classList.toggle('on', st.heads);
+      // ⚠ THE <span>, NOT THE BUTTON. The rocker also holds its tell-tale lamp (`<i>`), and a
+      // textContent write on the button deletes it — which is exactly what happened the first time
+      // the wiper stalk became a rocker, two controls along.
+      const lbl = el.querySelector('span');
+      if (lbl) lbl.textContent = st.heads ? 'LAMPS' : 'DARK';
+      el.setAttribute('aria-pressed', st.heads ? 'true' : 'false');
+      el.setAttribute('aria-label', st.heads ? 'Headlights — on' : 'Headlights — off');
+    }
+  }
+  st.setHeads = setHeads;
   function cycleWipers() {
     st.wipers = ((st.wipers | 0) + 1) % 4;
     paintWipers();
@@ -1905,7 +1947,7 @@ export function openCab(ctx = {}) {
         const [cls, note] = REACH[d.reach] || REACH.ok;
         return `<button class="cab-route ${cls}${d.current ? ' on' : ''}" data-key="${esc(d.key)}">`
           + `<b>${esc(d.heading)}</b>`
-          + `<span class="cab-route-d">${d.tiles} tiles &middot; ${note}</span>`
+          + `<span class="cab-route-d">${d.miles} miles &middot; ${note}</span>`
           + `${d.current ? '<i>▸ running for this</i>' : ''}</button>`;
       }).join('');
       // The one thing the picker says on its own account, and it is a statement about the ROAD
@@ -2124,6 +2166,8 @@ export function cabContext(ctx) {
   if (ctx.fuel != null && !st.pumping) { st.fuel = Math.max(0, Math.min(1, ctx.fuel)); paintPumpBtn(st); paintFuelGauge(st); }
   if (ctx.broken !== undefined) st.broken = ctx.broken || null;
   if (ctx.hour != null) st.hour = ctx.hour;
+  if (ctx.moon != null) st.moon = ctx.moon;
+  if (ctx.wind != null) st.wind = ctx.wind;
   if (ctx.weather) {
     st.weather = ctx.weather;
     // Ask once, on the control itself. A driver who has never needed the stalk has no reason to
@@ -2430,6 +2474,18 @@ const SHIFT_DIP = 0.16;      // s — the pedal going in before the lever moves 
 const SHIFT_OUT = 0.20;      // s — out of the old gear, sat in neutral (the pause you can SEE)
 const SHIFT_IN = 0.22;       // s — across the gate and into the new slot
 const SHIFT_COOL = 0.45;     // s — how soon after one shift it will consider another
+// ⚠ THE FLOOR UNDER THE OVERRUN RULE, AND THE REASON IT HAS TO EXIST. "Never downshift off the
+// throttle" (see below) is right for a lift at cruise and fatal on the way to a stop — slowing down
+// is precisely when a driver goes DOWN the box, and written as a throttle gate ALONE the automatic
+// did nothing at all on a closed throttle: it sat in eighth from the bottom of the band (72 mph in
+// a Drayman) the whole way down to the stall speed of that gear (19), and then shut the engine off.
+// Which is the one failure a driver who switched the assist ON is least equipped to read.
+//
+// So under this the throttle stops being consulted. It sits well below `band[0]` (0.42), so an
+// ordinary lift never starts it walking down the box, and well above `STALL_RPM` (0.11) with a
+// whole ratio step (~1.3×) of headroom — one save lands back around 0.34, which is what lets the
+// chain run a gear at a time instead of needing to catch the whole box in one grab.
+const SAVE_RPM = 0.26;
 function autoShift(dt) {
   const seq = st.shiftSeq;
   if (seq) {
@@ -2464,7 +2520,14 @@ function autoShift(dt) {
   // you park, you select R, and the switch you never touched is gone by the time you pull away).
   // So both are inhibits, tested every tick and clearing themselves.
   if (st.dry || st.broken || st.sim.stalled || st.sim.gear < 0 || st.park) return;
-  if (st.shiftCool > 0) return;
+  // ⚠ AND THE COOLDOWN GATES A DECISION, NOT A RESCUE. `SHIFT_COOL` exists so the box does not hunt
+  // at a ratio boundary — but an engine already under `SAVE_RPM` is not a boundary case, it is out
+  // of revs, and a driver going down the box in front of a junction does not wait half a second
+  // between grabs. It still cannot overlap a shift (one at a time, above); it just stops pausing.
+  // Without the exemption the chain from eighth under full brakes arrives at second a tenth of a
+  // second late and stalls there, which is the same bug again three gears further down.
+  const saving = (st.sim.rpm || 0) < SAVE_RPM && st.sim.gear > 1;
+  if (st.shiftCool > 0 && !saving) return;
   // ⚠ WHICH GEAR IT WANTS IS `bestGear`, NOT A SECOND OPINION. That function already exists and the
   // cab already prints its answer as the suggested gear on the dash — so the automatic obeying it
   // means the light telling you what to do and the hand doing it can never disagree, which they
@@ -2488,8 +2551,10 @@ function autoShift(dt) {
   const rpm = st.sim.rpm || 0;                    // a fraction of redline — see truckReadout, which is what multiplies it by 100
   if (step1 > st.sim.gear) { if (rpm > hi) beginShift(step1); return; }
   // Not on the overrun: lifting off drops the revs, and a box that downshifted every time you came
-  // off the throttle would work its way down the gears the whole way down a hill.
-  if (rpm < lo && (st.input.throttle || 0) > 0.15) beginShift(step1);
+  // off the throttle would work its way down the gears the whole way down a hill. That rule only
+  // holds while the engine still has somewhere to fall, though — past `SAVE_RPM` it is out of room
+  // and the gear comes out whatever the right foot is doing.
+  if (saving || (rpm < lo && (st.input.throttle || 0) > 0.15)) beginShift(step1);
 }
 function beginShift(to) {
   st.shiftSeq = { to, phase: 'dip', t: 0 };
@@ -2840,13 +2905,19 @@ function frame(now) {
       // Taken straight off the sim, so a rig rolling forward with reverse selected is still being
       // pushed forward, and a stationary one fires neither end.
       drive: Math.max(-1, Math.min(1, (st.sim.speed || 0) / 68)),
-      heading: st.sim.heading, hour: st.hour, weather: st.weather,
+      heading: st.sim.heading, hour: st.hour, weather: st.weather, moon: st.moon, wind: st.wind,
       // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
       // and the renderer only throws the beam when the seeing is bad enough to want it (night OR
       // weather — see the gloom gate in paintWindshield). A driver in midday fog was the case that
       // made this necessary; before it, the one condition that needed lamps was the one that
       // couldn't have them.
-      landingLight: true,
+      // ⚠ WAS A HARDCODED `true`. The renderer still owns WHEN a beam is worth drawing (the gloom
+      // gate — night or filthy weather), but whether the lamps are ON is now the driver's, so this
+      // is the switch rather than an assumption about it.
+      landingLight: !!st.heads,
+      // Brake lamps, for the rig's own rear and for anyone behind. Taken off the same
+      // `st.input.brake` the retardation model reads, so the lamps cannot disagree with the pedal.
+      braking: (st.input.brake || 0) > 0.02 || !!st.park,
       wipers: st.wipers | 0,
       // The mirrors need the articulation angle — it is the only place it is visible. The
       // binnacle needs the same numbers the DOM readouts show, because they are the same
@@ -2878,8 +2949,16 @@ function frame(now) {
       legFrac: st.L ? Math.max(0, Math.min(1, st.s / st.L)) : 0,
       // The GPS screen. 'aim' is the route destKey the server sent; the distance left is derived
       // from the leg the cab is already driving rather than asked for a second time.
+      //
+      // ⚠ THE DIVISOR IS THE ONE CONVERSION, NOT A NUMBER THAT LOOKS ABOUT RIGHT. This was /12 —
+      // written before tiles-to-miles existed anywhere — while corridor.js has since declared
+      // TILES_PER_MILE = 3 and the sign boards, the 'route' verb and the GPS route picker all
+      // print against that. So the strip under the map read a QUARTER of what every other surface
+      // in the same cab said, which is precisely the failure the 'miles, not tiles' rule names: a
+      // board saying 240 while the dash says 60 means a driver cannot budget a tank against
+      // either. Imported rather than restated, so there is still exactly one of them.
       aim: st.aim || null,
-      legLeft: st.L ? Math.max(0, (st.L - st.s) / 12) : null,
+      legLeft: st.L ? Math.max(0, (st.L - st.s) / TILES_PER_MILE) : null,
       brakeTemp: r.brakeTemp, fading: r.fading, brakeGauge: kit.brakeTemp,
       lamps: {
         fuel: st.dry || (st.fuel ?? 1) < 0.15,
@@ -2933,7 +3012,12 @@ function frame(now) {
       // brake and walk away from a running truck), so rather than open a second channel for one
       // bit, it rides the dead field that was already in the packet at the same four-a-second
       // cadence. 1 = running, 0 = key off.
-      sendCmdSilent(`trucksync ${st.s.toFixed(2)} ${st.sim.stalled ? 0 : 1} ${Math.round(st.sim.heading)} ${Math.round(st.sim.speed)} ${st.sim.x.toFixed(3)} ${st.sim.y.toFixed(3)}`);
+      // ⚠ A SEVENTH SLOT: THE LAMPS, AS A BITFIELD. Same packet, same four-a-second cadence, no new
+      // route and nothing persisted — the identical trick the ignition bit plays in slot two. One
+      // integer carries every lamp the outside of this truck can show, so adding a third (indicators,
+      // one day) costs no packet change at all.
+      //   bit 0 = headlights   bit 1 = brake lamps
+      sendCmdSilent(`trucksync ${st.s.toFixed(2)} ${st.sim.stalled ? 0 : 1} ${Math.round(st.sim.heading)} ${Math.round(st.sim.speed)} ${st.sim.x.toFixed(3)} ${st.sim.y.toFixed(3)} ${(st.heads ? 1 : 0) | (((st.input.brake || 0) > 0.02 || st.park) ? 2 : 0)}`);
     }
   } catch (e) {
     // Same discipline as helm-view: the renderer has no internal try/catch, so one bad frame must

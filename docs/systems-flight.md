@@ -369,8 +369,36 @@ throttle, yoke, pedals, flap detent lever, trim):
   per-weather loop — rain/storm/snow/ash/fog — layered *beneath* the engine drone,
   gain scaled by wind, with the odd thunderclap in a storm). The same renderer feeds
   the pilot's canopy band, the passenger cabin window, and the Helm chase cam.
-  Time-of-day + weather ride in a `sky:{hour,weather,wind}` field on the gauge
-  payload (`state.js`, from `getEnvironmentState()`).
+  Time-of-day + weather ride in a `sky:{hour,moon,weather,wind}` field on the gauge
+  payload (`state.js`, from `getEnvironmentState()`). `hour` is **fractional** — the
+  palette blends between keyframes, so an integer made dusk arrive in 24 steps a day.
+- **The night sky** (windshield.js, the block after the sky gradient): everything up
+  there is anchored to a real **bearing + elevation** and projected through the same
+  `projSky` the sun and clouds use, so the whole dome **wheels overhead as you turn**
+  rather than being wallpaper. In depth order — **airglow** at the horizon, the
+  **galaxy** (points generated on a great circle perpendicular to a fixed galactic
+  pole, then tipped off it, which is what gives the band thickness and a believable
+  crossing angle on any heading), the **star field**, then **satellites** (steady, no
+  trail — which is exactly what separates one from a meteor) and **meteors** (on a
+  countdown, with a rare slower/brighter fireball). Three rules worth knowing before
+  you tune it. ⚠ **Magnitude is the point, not the count** — `m` is cubed, so most of
+  the 240 stars are barely there and a dozen carry the picture; a field of identical
+  dots reads as noise however many you draw. **Extinction is what stops it being
+  wallpaper** — a low star is seen through more air, so it dims *and warms* toward the
+  horizon and the sky thins out at the bottom as the real one does; faint stars also
+  scintillate harder than bright ones, which is the way round it works in air. And the
+  **moon is a phase, not a disc** (`drawMoon`) — the lit shape is the limb intersected
+  with a terminator **ellipse** of width `cos θ`, which is the only real geometry in
+  there and the reason a crescent's horns point the right way; earthshine paints the
+  unlit disc and is never skipped, because a moon that vanishes at new reads as a bug.
+  **A new moon lights nothing**: the same `illum` scales the halo, the cloud
+  silver-lining key and the water's specular path, so they can't disagree.
+  The phase itself is server-derived (`getMoonPhase` in `server/engine/environment.js`
+  — a synodic month over the world calendar, on the HUD payload beside `season`, so it
+  is **derived and never stored**) and every canopy in the world shows the same moon on
+  the same night. Omitting `moon` yields a plain full disc, i.e. the old behaviour.
+  Coverage: `viewRenderSmoke` sweeps the phase across a full month, because three of
+  the four terminator sweep-flag cases are unreachable at full.
 - **PFD** (`paintPFD`, cockpit.js:4186): a canvas primary flight display — banking/
   pitching attitude ball with a ±30° pitch ladder, **airspeed and altitude tapes**
   flanking it (airspeed marked with Vr/Vne/Vs0), a VSI bar, a digital heading box, a

@@ -14,27 +14,59 @@
 // world. So: road auto-tiling, lane markings, biome, extrusion, fog, all of it comes for free, and
 // stays correct when somebody improves the renderer without knowing this file exists.
 //
-// COORDINATE SPACE. The corridor has its own integer grid, origin at the gate. It is NOT world
-// space and never overlaps it — void rooms carry `grid_x: null`, so there is nothing to collide
-// with. A position is (s, t):
+// COORDINATE SPACE — REAL WORLD TILES. The road is laid between two actual zones: the rim tile the
+// driver left and the destination zone's own `grid_x`/`grid_y`. This used to be a private frame
+// ("origin at the gate, NOT world space, never overlaps it"), which was internally consistent and
+// made the truck the only thing in the game using those numbers — a pilot overhead, a walker in the
+// same crossing and a driver on the same road each had a different idea of where "here" was, and no
+// two of them could be converted into each other. They are one frame now, which is what lets the
+// windscreen show the basin receding behind you instead of blank air (see providerFor in state.js).
+//
+// A position is still (s, t):
 //   s = distance travelled along the route, in tiles, 0 → L
 //   t = lateral offset from the centreline, −R → +R
-// The truck's odometer IS `s`, which is why `s` is the value the server defends hardest.
+// The truck's odometer IS `s`, which is why `s` is the value the server defends hardest — though it
+// is no longer monotonic, because a truck can now turn round exactly as a walker always could.
+//
+// ⚠ `corridorFor` STILL BUILDS THE OLD LOCAL FRAME when handed no anchor, and a good deal of the
+// regress suite depends on that. Anchored and unanchored roads are the same code; only the origin,
+// the initial heading and the length differ.
 //
 // SEEDING. Every cell is a pure function of (voidKey, destKey, window, x, y) using the same
 // hashSeed/mulberry32 pair voidwalking seeds its rooms with, and the same weekly window. So
 // everyone driving this route this week drives the identical road, a relog regenerates it
 // byte-for-byte, and the regress suite can pin a window and get a fixed layout.
 //
-// NODES. `node = floor(s / TILES_PER_ROOM)` maps a point on the road back to the void room the
-// driver is standing in. Crossing a node boundary is the driving equivalent of a `move`, which is
-// what lets encounters, detours, traces and the crossing's player_flags all work untouched.
+// NODES. `nodeAt(route, s)` maps a point on the road back to the void room the driver is standing
+// in. Crossing a node boundary is the driving equivalent of a `move`, which is what lets
+// encounters, detours, traces and the crossing's player_flags all work untouched — and it fires in
+// EITHER direction now, which is the same thing that happens when a walker re-enters a room.
+// It was `floor(s / TILES_PER_ROOM)` written out in five files; a room is a fraction of the road's
+// real length now, so that division has one home. See roomLenOf below.
 
 // Kept in step with plugins/voidwalking (TILES_PER_ROOM = 90). It is not exported from there as a
 // public name, and importing the plugin for one integer would drag its whole boot in; the regress
 // suite asserts the two agree, so a change there fails here loudly rather than silently halving
 // the length of every haul.
 export const TILES_PER_ROOM = 90;
+
+// ── WHICH VOID ROOM AN ODOMETER READING IS IN ────────────────────────────────
+// This was `Math.floor(s / TILES_PER_ROOM)` written out in five places, which was fine while the
+// road's length was DEFINED as nodes × that constant — the division could not disagree with
+// anything. An anchored road is as long as the real gap, so the room length is now a property of
+// the route, and five copies of a division against a stale constant would put the cab, the text
+// rung, the renderer and the node-crossing handler in four different rooms.
+//
+// ⚠ CLAMPED AT BOTH ENDS, and the low end is not paranoia — backtracking means `s` can now be
+// driven to 0 and a touch below it through float error, and a negative node index reads off the
+// front of the chain as `undefined`.
+export function roomLenOf(route) { return route?.roomLen || TILES_PER_ROOM; }
+export function nodeAt(route, s, cap = route?.nodes) {
+  const n = Math.max(1, cap | 0);
+  return Math.max(0, Math.min(n - 1, Math.floor(s / roomLenOf(route))));
+}
+// The inverse — where a room STARTS, in tiles. Used to place a resumed rig back on the road.
+export function sOfNode(route, node) { return Math.max(0, node | 0) * roomLenOf(route); }
 
 // Half-width of the PAVED corridor, in tiles. Past this you are off the road — which is a thing you
 // may do (see OFFROAD_R below), not a thing that stops you. It is deliberately generous, because a
@@ -52,6 +84,22 @@ export const CORRIDOR_R = 6;
 // corridor is synthesised around a line and beyond some width there is no geometry to stand on.
 // Far enough out that reaching it is a decision rather than a wobble.
 export const OFFROAD_R = CORRIDOR_R * 4;
+
+// ── Tiles into miles ─────────────────────────────────────────────────────────
+// A distance a driver reads has to be in the units a driver thinks in, and until the signs went up
+// nothing out here ever had to say one out loud — the `route` verb printed TILES, which is an
+// engine unit that leaked into a player-facing line because nobody had needed another.
+//
+// THE CONVERSION MOVED TO client/shared/road-units.js AND IS RE-EXPORTED HERE, so every server-side
+// importer of it is unchanged. It had to move because the third surface that prints it — the GPS
+// strip on the dash — is drawn in the browser and could not import a server plugin, so it carried
+// its own `/12` and quietly printed a quarter of the real figure. See that file for the full note.
+// ⚠ IMPORTED AS WELL AS RE-EXPORTED, AND BOTH NAMES. `export … from` forwards a binding to this
+// module's consumers without putting it in this module's own scope — so `rowsAt` below, which
+// calls `milesOf` to word a sign, threw ReferenceError the first time a road was built WITH a
+// plan. Every test that passed no plan built no signs and never touched it.
+export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
+import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
 
 // ── Seeding (mirrors plugins/voidwalking) ────────────────────────────────────
 function hashSeed(str) {
@@ -106,6 +154,23 @@ const HOME_BIAS = 24;       // degrees — past here the next bend must turn bac
 
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 
+// How much longer than the straight line an anchored road is allowed to get before the builder
+// gives up and lands it. A real highway across open ground runs maybe 15-25% long; this is the
+// runaway cap, not the target — the leash decides the actual figure, and a road that hits this
+// bound is a road whose wander never converged, which the arrival tail then rescues.
+// ⚠ IT IS ALSO THE ONLY DIAL FOR "hauls are too short now". Raising it does not lengthen the road
+// on its own (the leash still homes); moving the regions apart is what lengthens a haul. See the
+// note on corridorFor.
+const MAX_SINUOSITY = 1.6;
+
+// Compass bearing of a vector in corridorFor's own convention (ux = sin θ, uy = −cos θ, so +y is
+// due south). Hoisted deliberately: `bearingOf` further down this file is a const arrow declared
+// AFTER corridorFor, so calling it from there would be a temporal-dead-zone throw at build time.
+function bearingDegOf(vx, vy) { return (Math.atan2(vx, -vy) * R2D + 360) % 360; }
+// Fold a degree difference into (−180, 180]. See the ⚠ in the build loop for why an anchored road
+// cannot do without this and the old fixed-nominal road could.
+function wrapDeg(d) { return ((d % 360) + 540) % 360 - 180; }
+
 // Build the route for one crossing. Pure: same arguments always give the same road.
 //   voidKey   region key the crossing leaves from (e.g. 'region_coldwater')
 //   destKey   destination limb key from that void's `dests` (e.g. 'reach')
@@ -122,28 +187,112 @@ const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 // else the whole way. So the trunk is seeded WITHOUT the destination and the limb with it, and a
 // leg is never allowed to straddle the boundary — which also puts a real bend at the junction,
 // because the limb opens on a jog.
-export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0) {
+//   plan      the crossing as a whole — { origin, dests: [{ key, name, nodes }] }, every limb of it
+//             including this one. See the note on `branches` below. Omitted (or null) builds a bare
+//             road: no sibling limbs, no signs. The recursive call that builds each sibling passes
+//             nothing, which is what stops this recursing forever.
+//   anchor    { x0, y0, x1, y1 } in REAL WORLD TILES — the rim tile the road leaves from and the
+//             tile it must arrive at. Omitted builds the legacy LOCAL frame: origin (0,0), heading
+//             due south, length nodes × TILES_PER_ROOM.
+//
+// ── WHY THE ROAD IS ANCHORED, AND WHAT IT COSTS ──────────────────────────────
+// The corridor used to be built in a frame of its own: start at (0,0), point due south, run for
+// exactly nodes × 90 tiles. That draws a perfectly good road and it makes the game disagree with
+// itself, because the truck was then the only thing in the world using those coordinates. A pilot
+// over the same waste, a walker in the same crossing and a driver on the same road each had a
+// different idea of where "here" was, and no two of them could be converted into each other.
+//
+// So the road is laid between two REAL tiles: the rim zone you drove off, and the destination
+// zone's own grid coordinate. One consequence is worth stating rather than discovering: THE ROAD
+// IS NOW AS LONG AS THE GAP ACTUALLY IS. Coldwater's south rim and the Reach are 95 tiles apart,
+// not the 720 that `length: 8` produced, so hauls are much shorter until the regions are moved
+// apart or MAX_SINUOSITY is dialled up. That is a tuning problem and is deliberately left as one —
+// a road that lies about where it is cannot be tuned into honesty first.
+//
+// ⚠ THE LEASH IS RE-CENTRED, NOT REMOVED, AND THAT IS WHAT MAKES THE ROAD ARRIVE. In the local
+// frame `off` was the heading's deviation from due south — a FIXED direction, which is precisely
+// why the road needed a fixed length to stop at. Anchored, `off` is the deviation from the bearing
+// to the TARGET, recomputed every segment. The existing HOME_BIAS/HOME_MAX rules then do the
+// homing for free: a road that has strayed past the bias must turn back toward the target, and
+// "toward the target" gets more specific the closer it gets. There is no separate convergence
+// term and no blend weight — the leash was always a homing device, it was just homing on a
+// compass point instead of on a place.
+export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, plan = null, anchor = null) {
+  const dests = plan?.dests || null;
   const n = Math.max(1, nodes | 0);
-  const L = n * TILES_PER_ROOM;
-  const trunkL = Math.max(0, Math.min(L, (trunkNodes | 0) * TILES_PER_ROOM));
+  const anch = anchor && [anchor.x0, anchor.y0, anchor.x1, anchor.y1].every(Number.isFinite)
+    && Math.hypot(anchor.x1 - anchor.x0, anchor.y1 - anchor.y0) >= SEG ? anchor : null;
+  // Unanchored keeps the exact legacy numbers, so every caller not yet taught about real
+  // coordinates — and every regress case built on the old frame — behaves as it always did.
+  // Anchored, the true length is not known until the road has been built, so `L` is a CAP while
+  // building and the real arc length is written back onto the route at the end.
+  const straight = anch ? Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0) : 0;
+  const L = anch ? straight * MAX_SINUOSITY : n * TILES_PER_ROOM;
+  // ── THE BENDS HAVE TO SCALE WITH THE ROAD ────────────────────────────────────
+  // ARC_MIN, STRAIGHT_MIN and MIN_RADIUS are absolute tile counts chosen for a 720-tile haul, where
+  // a 60-tile arc is a sweeper you barely notice. Anchored to the real gap, Coldwater→Reach is 95
+  // tiles — so ONE minimum arc was two thirds of the entire journey, the road thrashed from side to
+  // side, and it overran the sinuosity cap and had to be cut off and landed by the tail rather than
+  // arriving under its own steam. Same numbers, different road: the constants were never absolute,
+  // they were a proportion of a length that used to be fixed.
+  //
+  // ⚠ THE RADIUS FLOOR IS THE FOLD INVARIANT AND IS NOT NEGOTIABLE. Cells are classified by
+  // distance from the centreline out to OFFROAD_R, so a bend tighter than that band folds the verge
+  // through itself and `locate` hands out two answers for one tile — the odometer then jumps
+  // backwards through the fold. Scaling the radius down for a short road is fine; scaling it below
+  // the band is the one thing that breaks the geometry, so it is floored well clear of it.
+  const bendK = anch ? Math.max(0.15, Math.min(1, straight / (8 * TILES_PER_ROOM))) : 1;
+  const arcMin = ARC_MIN * bendK, arcVar = ARC_VAR * bendK;
+  const straightMin = STRAIGHT_MIN * bendK, straightVar = STRAIGHT_VAR * bendK;
+  const minRadius = Math.max(OFFROAD_R * 1.8, MIN_RADIUS * bendK);
+  const trunkL = Math.max(0, Math.min(L, anch
+    ? L * (Math.min(n, Math.max(0, trunkNodes | 0)) / n)   // the same FRACTION of the road, in real tiles
+    : (trunkNodes | 0) * TILES_PER_ROOM));
   const trunkRng = mulberry32(hashSeed(`${voidKey}|${window}|trunk`));
   const limbRng = mulberry32(hashSeed(`${voidKey}|${destKey}|${window}|corridor`));
   const legs = [];
-  let s = 0, x = 0, y = 0;
-  let hdg = 180;              // leave the gate heading down-corridor (due south, +y)
+  const bends = [];           // the s each ARC begins at — where the road changes direction (see signsFor)
+  let s = 0, x = anch ? anch.x0 : 0, y = anch ? anch.y0 : 0;
+  // Unanchored: due south, as it always was. Anchored: straight at the target — which is the same
+  // statement ("point down the corridor") made about a real place instead of a compass bearing.
+  let hdg = anch ? bearingDegOf(anch.x1 - anch.x0, anch.y1 - anch.y0) : 180;
   let hold = 0, kappa = 0;    // tiles left in the current straight-or-arc, and its curvature (°/tile)
   let forkedAt = -1;          // the s the fork bend was armed at, so it is armed exactly once
-  while (s < L) {
+  // ── ANCHORED, THE ROAD STOPS WHEN IT GETS THERE ──────────────────────────────
+  // Not when a tile count runs out: `L` is only a runaway cap (see MAX_SINUOSITY), and the real
+  // terminator is getting close enough that the wander has nothing left to contribute.
+  //
+  // ⚠ "CLOSE ENOUGH" IS THE TURN RADIUS, AND THAT IS GEOMETRY RATHER THAN TASTE. A curve cannot
+  // converge on a point tighter than the circle it is able to draw. Terminating at a fixed few
+  // tiles put the builder into a LIMIT CYCLE: the road homed beautifully to about eight tiles out
+  // and then orbited the destination for the rest of its budget, sweeping a full 360° of heading
+  // and never getting closer, because every correction it made was on a 43-tile radius around an
+  // 8-tile miss. It only ever arrived because the cap ran out and the tail below dragged it in —
+  // so every anchored road ended with a hard kink nothing had chosen.
+  //
+  // Once inside the radius the honest thing is to stop steering and run straight in, which is also
+  // what a real road does on the approach to somewhere.
+  const approach = Math.max(SEG, minRadius * 1.05);
+  const reached = () => anch && Math.hypot(anch.x1 - x, anch.y1 - y) <= approach;
+  while (s < L && !reached()) {
     const onTrunk = s < trunkL;
     const rng = onTrunk ? trunkRng : limbRng;
+    // The direction the leash is measured against. Unanchored that is due south for ever, which is
+    // what made the old road need a fixed length. Anchored it is the bearing to the target FROM
+    // WHERE WE NOW ARE, so every segment re-aims and the same leash becomes the homing.
+    const nominal = anch ? bearingDegOf(anch.x1 - x, anch.y1 - y) : 180;
     // THE FORK IS A BEND YOU CAN SEE FROM THE CAB. Every destination out of a void shares its first
     // `trunk` rooms, so the tarmac over them must be identical whichever way you are eventually
     // going — which means the trunk is seeded WITHOUT destKey and the limb WITH it, and no piece of
     // road may straddle the boundary. The old geometry marked the junction with a forced sideways
     // jog; a curve marks it with a forced hard-as-allowed sweeper in a destination-seeded direction,
     // so the two limbs visibly peel apart at the same tile rather than a room name changing.
-    const off = hdg - 180;   // how far the road currently points from due south
-    if (!onTrunk && trunkL > 0 && forkedAt < 0 && (L - s) > ARC_MIN) {
+    // How far the road currently points off the nominal. ⚠ WRAPPED, which a fixed nominal never
+    // needed: `hdg` stayed within a leash-width of 180 so a bare subtraction was safe. A nominal
+    // that moves can sit either side of the 0/360 seam, and an unwrapped difference there reads as
+    // ~350° off — the leash would slam the road round in the wrong direction at the seam.
+    const off = wrapDeg(hdg - nominal);
+    if (!onTrunk && trunkL > 0 && forkedAt < 0 && (L - s) > arcMin) {
       forkedAt = s;
       // ⚠ THE FORK ARC'S LENGTH MUST BE DESTINATION-SEEDED, NOT JUST ITS DIRECTION. Seeding only the
       // direction is the obvious way to write this and it does not work: where the leash forces the
@@ -152,7 +301,7 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0) {
       // the next straight lasts. They were still one road 200 tiles past the junction. Varying the
       // arc LENGTH per destination makes the two headings differ the moment the bend ends, so the
       // limbs part company at the fork whichever way each of them happens to turn.
-      hold = ARC_MIN + Math.floor(limbRng() * ARC_VAR);
+      hold = arcMin + Math.floor(limbRng() * arcVar);
       // The limb peels off hard, in a destination-seeded direction — unless that would breach the
       // leash, in which case it peels the other way. ⚠ The TIGHTNESS is seeded too, and that is what
       // actually guarantees the split: where the leash forces both limbs the same way, an identical
@@ -160,20 +309,22 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0) {
       // full void room past the junction. Different curvature means different headings from the
       // first segment, so the limbs splay apart at the fork itself whichever way each one turns.
       const away = Math.abs(off) > HOME_BIAS ? -Math.sign(off) : (limbRng() < 0.5 ? -1 : 1);
-      kappa = away * (1 / MIN_RADIUS) * R2D * (0.5 + limbRng() * 0.5);
+      kappa = away * (1 / minRadius) * R2D * (0.5 + limbRng() * 0.5);
+      bends.push({ s, fork: true });
     }
     if (hold <= 0) {
       // Straights and bends strictly alternate. Two arcs back to back is a chicane, and nobody
       // builds one of those across a waste.
       if (kappa === 0) {
-        hold = ARC_MIN + Math.floor(rng() * ARC_VAR);
+        hold = arcMin + Math.floor(rng() * arcVar);
         // Curvature is capped at the minimum-radius invariant and then softened at random, so most
         // bends are gentler than the tightest one the road is allowed to hold.
         const tightness = 0.35 + rng() * 0.65;
         const dir = Math.abs(off) > HOME_BIAS ? -Math.sign(off) : (rng() < 0.5 ? -1 : 1);
-        kappa = dir * (1 / MIN_RADIUS) * R2D * tightness;
+        kappa = dir * (1 / minRadius) * R2D * tightness;
+        bends.push({ s, fork: false });
       } else {
-        hold = STRAIGHT_MIN + Math.floor(rng() * STRAIGHT_VAR);
+        hold = straightMin + Math.floor(rng() * straightVar);
         kappa = 0;
       }
     }
@@ -188,13 +339,204 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0) {
 
     hdg += kappa * len;
     // Hard stop at the leash: the bend simply ends early rather than carrying the road round.
-    if (hdg - 180 > HOME_MAX) { hdg = 180 + HOME_MAX; hold = 0; }
-    if (hdg - 180 < -HOME_MAX) { hdg = 180 - HOME_MAX; hold = 0; }
+    // Measured against the nominal captured at the TOP of this iteration, so the clamp and the
+    // decision that produced this segment are talking about the same direction.
+    if (wrapDeg(hdg - nominal) > HOME_MAX) { hdg = nominal + HOME_MAX; hold = 0; }
+    if (wrapDeg(hdg - nominal) < -HOME_MAX) { hdg = nominal - HOME_MAX; hold = 0; }
   }
-  const route = { voidKey, destKey, window, nodes: n, L, R: CORRIDOR_R, legs, trunkL };
+  // ── THE LAST LEG LANDS ON THE TILE, EXACTLY ──────────────────────────────────
+  // The loop stops within a segment of the target, which is close but not the same thing. A road
+  // that ends "about here" would put the arrival check, the destination sign and the tile the rig
+  // is handed to `leaveCorridor` at three slightly different places. So one final straight is laid
+  // from wherever the wander finished onto the target itself.
+  if (anch) {
+    const dx = anch.x1 - x, dy = anch.y1 - y;
+    const len = Math.hypot(dx, dy);
+    if (len > 1e-6) {
+      const ux = dx / len, uy = dy / len;
+      legs.push({ s0: s, s1: s + len, x0: x, y0: y, ux, uy, len, trunk: s < trunkL, deg: bearingDegOf(dx, dy) });
+      x = anch.x1; y = anch.y1; s += len;
+    }
+  }
+  // ANCHORED, `L` IS WHAT THE ROAD TURNED OUT TO BE — the arc length actually laid down, not the
+  // cap it was built under. Everything downstream (the odometer clamp, `legFrac`, the arrival
+  // test, the mile boards) reads route.L, so this one assignment is what makes them all agree with
+  // the geometry rather than with the estimate.
+  const realL = anch ? s : L;
+  const route = { voidKey, destKey, window, nodes: n, L: realL, R: CORRIDOR_R, legs, trunkL, bends,
+    origin: plan?.origin || null,
+    // WHAT ONE VOID ROOM IS WORTH, IN TILES. It used to be the global TILES_PER_ROOM, which was
+    // correct precisely because the road's length was defined as nodes × that constant. Once the
+    // road is as long as the real gap, the two stop being the same number and the ROOM COUNT is
+    // what has to stay fixed — the crossing's chain, its encounters and its `zone.entered` calls
+    // are all indexed by node, and a road that produced a different number of nodes than the void
+    // has rooms would walk a driver off the end of the chain. So a room is a FRACTION of the road.
+    roomLen: realL / n,
+    // The same factor the bends were scaled by, carried so the SIGN pass can reach it. A board is
+    // positioned in absolute tiles (stand SIGN_LEAD back from the bend, no two closer than
+    // SIGN_APART, aim the arrow SIGN_LOOK down the road) and every one of those numbers was chosen
+    // against a 720-tile haul. On a 98-tile road SIGN_APART alone collapses every board into one
+    // and FORK_SPREAD aims the junction arrow past the far end of the road it is describing.
+    bendK,
+    anchored: !!anch };
   route.index = buildIndex(route);
+  // ── THE OTHER LIMBS ARE ROAD, AND THEY WERE NEVER DRAWN ──────────────────────
+  // A route is a trunk plus ONE limb, because that is all a driver's odometer runs along. That is
+  // right for the physics and it was wrong for the window: `corridorAt` only ever asked this one
+  // road what was at a tile, so the two roads you were choosing between at the junction did not
+  // exist out the windscreen. The highway came down the trunk, swung once, and ended in open
+  // waste — a highway that just stops, which is the one thing a highway never does.
+  //
+  // So a route carries its SIBLINGS, built from the identical trunk seed (see the note above) and
+  // their own limb seeds, and `corridorAt` falls through to them for any tile this road does not
+  // claim. Nothing about the drive changes: `locate`, the odometer clamp, the node crossing and
+  // the fuel burn all still read `rig.route` and only `rig.route`. What changes is that the fork
+  // is a fork you can SEE, and each limb runs off toward its own region instead of stopping.
+  //
+  // ⚠ THE SIBLINGS ARE BUILT WITHOUT A `dests` TABLE OF THEIR OWN, and that is load-bearing twice
+  // over: it terminates the recursion, and it leaves them with no signs. A sign is a thing the
+  // road you are ON tells you; sixty signs facing a road nobody is driving are just texture with a
+  // per-tile cost.
+  //
+  // ⚠ AND A SIBLING IS ANCHORED TO ITS OWN DESTINATION, off the SAME origin. Handing it this
+  // route's anchor would build three roads to one place — the fork would visibly reconverge — and
+  // handing it none would build it in the legacy local frame, dropping a second road across the
+  // real world at (0,0). A dest with no coordinates of its own simply falls back to unanchored,
+  // which is the same road it has always drawn.
+  route.branches = (dests || [])
+    .filter((d) => d.key !== destKey && (d.nodes | 0) > 0)
+    .map((d) => ({ key: d.key, name: d.name || d.key,
+      route: corridorFor(voidKey, d.key, window, d.nodes, trunkNodes, null,
+        anch && Number.isFinite(d.x) && Number.isFinite(d.y)
+          ? { x0: anch.x0, y0: anch.y0, x1: d.x, y1: d.y } : null) }));
+  route.signs = dests ? signsFor(route, dests) : [];
   return route;
 }
+
+// ── The signs ────────────────────────────────────────────────────────────────
+// WHAT A SIGN IS FOR, out here: not decoration, and not a tutorial. The corridor is a curve across
+// a featureless waste with no map, no landmarks and a fork in the middle of it, so the two things a
+// driver cannot otherwise know are HOW FAR and WHICH WAY. Everything on a board answers one of
+// those and nothing answers anything else.
+//
+// A row is `{ n, m, a }` — name, MILES (never tiles; see milesOf), and an arrow index 0-7 measured
+// from the DRIVER'S OWN HEADING at that sign, clockwise from straight ahead. So the arrow is what
+// a driver sees from the seat rather than a compass bearing they would have to convert.
+//
+// ⚠ THE ARROW IS TAKEN FROM A LOOK-AHEAD POINT ON THE ROAD, NEVER FROM THE DESTINATION ITSELF. The
+// obvious implementation — bearing from the sign to where the road ends — reads plausibly and is
+// wrong at exactly the moment a sign matters: both limbs out of Coldwater are leashed within 46° of
+// south, so their far endpoints sit within one arrow step of each other and the junction board
+// would have pointed BOTH ways ahead. What a driver needs at a junction is which way the road goes
+// from HERE, so the bearing is measured to a point LOOK tiles along that road. On a straight that
+// still resolves to "ahead", which is the correct answer there.
+const SIGN_LOOK = 80;        // tiles down the road the arrow is aimed at
+// ⚠ AND THE JUNCTION BOARD HAS TO LOOK FURTHER THAN THAT, or it points every limb straight on. A
+// board stands SIGN_LEAD short of the fork, so an 80-tile look lands barely 60 tiles into a bend
+// whose radius is 110 — the two roads have separated by about ten degrees at that point, which
+// rounds to the same arrow. The limbs are properly apart a couple of hundred tiles down, and THAT
+// is the direction a driver at the junction is choosing between. Measured from the fork itself
+// rather than from the sign, so moving the board does not silently re-aim it.
+const FORK_SPREAD = 210;     // tiles past the junction the fork board's arrows are aimed at
+const SIGN_LEAD = 16;        // tiles BEFORE a bend a sign stands — you read it while still straight
+const SIGN_APART = 40;       // tiles — two boards closer than this are one board
+// Lateral offset: clear of the shoulder (2.4) with enough margin that rounding the post onto a tile
+// centre can never push it back onto the graded dirt, and inboard of the structure band (off ≥ 4).
+export const SIGN_OFF = 3.4;
+
+// Compass bearing of a corridor-space vector, in degrees, matching corridorFor's heading convention
+// (ux = sin θ, uy = −cos θ — so +y is due south).
+const bearingOf = (vx, vy) => (Math.atan2(vx, -vy) * R2D + 360) % 360;
+// Eight-point arrow, relative to the road's own heading. 0 = straight on, 2 = hard right, 4 = back
+// the way you came, 6 = hard left.
+function arrowFrom(hdg, vx, vy) {
+  if (!vx && !vy) return 0;
+  const rel = ((bearingOf(vx, vy) - hdg) % 360 + 540) % 360 - 180;
+  return ((Math.round(rel / 45) % 8) + 8) % 8;
+}
+// The rows one board carries, at odometer `s`.
+//
+// PAST THE JUNCTION A SIGN STOPS NAMING THE OTHER PLACES, and that is honesty rather than
+// tidiness: there is no cutting across out here (see `route`), so a board naming a town you can no
+// longer reach is a board that lies. The ORIGIN is on every board, because the one route that is
+// always available is the one behind you.
+function rowsAt(route, s, dests, kind) {
+  const hdg = corridorPos(route, s, 0).heading;
+  const here = corridorPos(route, s, 0);
+  const rows = [];
+  const aim = (r, target) => {
+    const p = corridorPos(r, target, 0);
+    return arrowFrom(hdg, p.x - here.x, p.y - here.y);
+  };
+  const onTrunk = s <= route.trunkL;
+  // Scaled with the road, for the same reason the bends are: a junction arrow aimed 210 tiles
+  // past a fork on a road only 98 tiles long is aimed past the destination it is pointing at.
+  const k = route.bendK || 1;
+  const look = kind === 'fork' ? Math.max(SIGN_LOOK * k, route.trunkL - s + FORK_SPREAD * k) : SIGN_LOOK * k;
+  for (const d of dests) {
+    const r = d.key === route.destKey ? route : route.branches.find((b) => b.key === d.key)?.route;
+    if (!r || (!onTrunk && r !== route)) continue;
+    rows.push({ n: signLabel(d.name || d.key), m: milesOf(Math.max(0, r.L - s)), a: aim(r, Math.min(r.L, s + look)) });
+  }
+  if (s > 4) rows.push({ n: signLabel(route.origin || 'BACK'), m: milesOf(s), a: aim(route, Math.max(0, s - SIGN_LOOK)) });
+  return rows;
+}
+// A board is a fixed-width object and a long name would render as a smear, so names are trimmed
+// HERE — once, server-side — rather than in the renderer, so the `route` verb and the board can
+// never disagree about what a place is called.
+const SIGN_CHARS = 15;
+const signLabel = (s) => String(s).toUpperCase().slice(0, SIGN_CHARS);
+
+function signsFor(route, dests) {
+  const at = [];
+  const k = route.bendK || 1;
+  const apart = SIGN_APART * k, lead = SIGN_LEAD * k;
+  const head = Math.max(2, 6 * k), tail = Math.max(4, 12 * k);   // clear of both ends of the road
+  const push = (s, kind) => {
+    const cs = Math.round(Math.max(head, Math.min(route.L - tail, s)));
+    if (cs < head || cs > route.L - tail) return;
+    if (at.some((p) => Math.abs(p.s - cs) < apart)) return;
+    at.push({ s: cs, kind });
+  };
+  // The gate board comes first so the collapse below can never drop it: a road that names its
+  // destinations at the very moment you join it is the difference between a highway and a track.
+  push(Math.max(2, 8 * k), 'gate');
+  // The junction board, on the trunk, in advance of the fork — a sign AT a junction is a sign you
+  // read as you take the wrong one.
+  if (route.trunkL > apart) push(route.trunkL - lead, 'fork');
+  for (const b of route.bends) push(b.s - lead, b.fork ? 'fork' : 'bend');
+  return at
+    .sort((a, b) => a.s - b.s)
+    .map((p) => {
+      // ⚠ A SIGN IS ONE TILE, RESOLVED HERE, NOT A TOLERANCE BAND RESOLVED IN corridorAt. The wreck
+      // and the roadside structures match on a band because they are placed in (s, t) and have to
+      // survive a curve turning that row of tiles into a diagonal — and a band is fine for a shed,
+      // which is a whole tile wide anyway. A board is a post: matched on a band it comes out as
+      // three or four identical boards in a row, which reads as a mistake rather than as a sign.
+      // So the post is snapped to its tile ONCE, at build time, and the lookup is an equality.
+      const at2 = corridorPos(route, p.s, SIGN_OFF);
+      return { s: p.s, kind: p.kind, x: Math.round(at2.x), y: Math.round(at2.y), deg: at2.heading,
+        rows: rowsAt(route, p.s, dests, p.kind) };
+    })
+    .filter((p) => p.rows.length);
+}
+// Every board between two odometer readings, for anything that wants to READ one rather than
+// render it (the text rung has no windscreen, and a board only a 3-D client can see is a board half
+// the players in the game do not have).
+//
+// ⚠ A SWEPT RANGE, NOT "AM I NEAR ONE". A board is one tile and the two rungs advance the odometer
+// at wildly different granularities — the cab reconciles four times a second, the text run covers
+// a whole slab of road per tick — so a proximity test would have the cab reading every board and
+// the text rung stepping straight over most of them. Asking what was PASSED is the same question
+// at both rates.
+export function signsBetween(route, from, to) {
+  if (!(to > from)) return [];
+  return (route?.signs || []).filter((g) => g.s > from && g.s <= to);
+}
+// The eight arrows, as words — the same order `arrowFrom` returns, shared by the text rung and by
+// anything that has to say an arrow out loud.
+export const ARROW_WORDS = ['straight on', 'bearing right', 'right', 'back and right',
+  'back the way you came', 'back and left', 'left', 'bearing left'];
 
 // Where is (s, t) in corridor XY? Used to place the truck and to seed the cab's start pose.
 export function corridorPos(route, s, t = 0) {
@@ -387,9 +729,9 @@ const compassOf = (vx, vy) => Math.abs(vy) >= Math.abs(vx) ? (vy > 0 ? 'south' :
 // it allocates a little and queries nothing.
 export function corridorAt(route, x, y) {
   const hit = locate(route, x, y);
-  if (!hit) return null;                                  // beyond the corridor: open air
+  if (!hit) return branchAt(route, x, y);                 // not our road — try the ones we forked away from
   const { s, t } = hit;
-  const node = Math.max(0, Math.min(route.nodes - 1, Math.floor(s / TILES_PER_ROOM)));
+  const node = nodeAt(route, s);
   const terrain = nodeTerrain(route, node);
   const at = Math.abs(t);
   const id = `corridor_${route.voidKey}_${route.destKey}_${x}_${y}`;
@@ -437,6 +779,20 @@ export function corridorAt(route, x, y) {
   // a fixed lateral offset form a clean row and rounding lands on exactly one of them; on a curve
   // that row is a diagonal and the rounding lands on none of them for stretches at a time, so an
   // equality test places the hulk intermittently or not at all.
+  // A SIGN, on the right-hand verge, facing the traffic it is talking to. It sits between the
+  // shoulder (2.4) and the structure band (3.4) on purpose: close enough to read at speed, far
+  // enough out that a rig running wide does not have to be adjudicated against it.
+  //
+  // Same tolerance band as the wreck below, and for the same reason — on a curve the row of tiles
+  // at a fixed lateral offset is a diagonal, so `Math.round(t) === SIGN_OFF` would stand the board
+  // up on some stretches and not on others.
+  const g = (route.signs || []).find(k => k.x === x && k.y === y);
+  if (g) {
+    // `face` is the road's own heading at the post; the renderer turns the panel 180° from it,
+    // because a sign is only ever read by somebody coming the other way.
+    flags.road_sign = { rows: g.rows, face: g.deg, kind: g.kind };
+    return { id, name: 'A Roadside Sign', danger, flags };
+  }
   const wreck = wrecksOn(route).find(w => Math.abs(w.s - s) < 1.6 && Math.abs(t - w.side * w.off) < 0.7);
   if (wreck) {
     flags.building_type = 'reefer';
@@ -471,6 +827,26 @@ export function corridorAt(route, x, y) {
     }
   }
   return { id, name, danger, flags };
+}
+
+// The tile belongs to a road we are not on — the limb we did not take, or the one we did not take
+// yet. Rendered in full (tarmac, shoulder, verge, its own roadside junk) because it IS a road and
+// half a road out the side window is worse than none, but stamped so nothing downstream can
+// mistake it for the road under the wheels.
+//
+// ⚠ `corridor_s` AND `corridor_node` ARE STRIPPED, and that is not tidiness. They are the two
+// numbers the drive is derived from, and a cell carrying a *sibling's* odometer reading is a
+// number that is wrong in a way that would look right — the one shape of bug this whole file is
+// arranged to avoid. A branch cell says which branch it is and nothing about how far along it any
+// of us happen to be.
+function branchAt(route, x, y) {
+  for (const b of route.branches || []) {
+    const cell = corridorAt(b.route, x, y);
+    if (!cell) continue;
+    const { corridor_s, corridor_node, ...flags } = cell.flags;
+    return { ...cell, flags: { ...flags, corridor_branch: b.key } };
+  }
+  return null;
 }
 
 // Bind a route to a provider with the (x, y) signature mapWindow wants. Pass the result straight

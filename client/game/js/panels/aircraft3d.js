@@ -2640,10 +2640,22 @@ export function vehicleLamps(cls, variant = '') {
   return {
     // Headlamps: the stacked pair in the chromed pod, so the glow sits between the two lenses.
     head: [at(L.lampF + 0.004, -L.lampG, L.lampMidZ), at(L.lampF + 0.004, L.lampG, L.lampMidZ)],
-    // Tail lamps: the back of the frame, where a bobtail's are. With a box on the hitch these are
-    // inside the trailer and the depth test drops them, which is correct — you cannot see your own
-    // tractor's tail lamps through a forty-foot trailer either.
-    tail: [at(L.frame0 + 0.004, -S.w * 0.66, 0.085), at(L.frame0 + 0.004, S.w * 0.66, 0.085)],
+    // ── TAIL LAMPS, AND THEY MOVE TO THE BOX WHEN THERE IS ONE ─────────────────
+    // On a bobtail they are the back of the frame, which is where a real one's are. With a trailer
+    // on the hitch they were STILL on the frame — inside the box, correctly dropped by the depth
+    // test, and the comment here said so approvingly: "you cannot see your own tractor's tail lamps
+    // through a forty-foot trailer either." Perfectly true, and it meant a LOADED rig had no
+    // visible tail lamps at all, so the one configuration a trucker actually drives was the one
+    // that could not signal. Brake lights on a tractor nobody can see are not brake lights.
+    //
+    // So the stations follow the load: the rear face of the box, at the same station `buildTruck`
+    // ends the trailer at (`t1 - S.deck`, where `t1 = frame0 + 0.06`) — read from the shape rather
+    // than re-derived, for the reason at the top of this function. Wider apart and a little higher,
+    // because a trailer is wider and taller than the frame rails.
+    tail: /\+t/.test(String(variant))
+      ? [at(L.frame0 + 0.06 - S.deck - 0.004, -S.w * 0.86, 0.105),
+         at(L.frame0 + 0.06 - S.deck - 0.004, S.w * 0.86, 0.105)]
+      : [at(L.frame0 + 0.004, -S.w * 0.66, 0.085), at(L.frame0 + 0.004, S.w * 0.66, 0.085)],
     // The five roof markers, on the same station and spacing the visor row is built at, and only on
     // the trucks that carry one — so a lamp never glows where no lamp was built.
     marker: S.lamps > 0.2
@@ -2669,19 +2681,34 @@ export function vehicleLamps(cls, variant = '') {
 // 0.18 on a Continental, so the corner ate into the sleeper at about TWELVE DEGREES of articulation:
 // ordinary steering, and the trailer was through the back of the cab.
 //
-// So the gap is the swing, not a number: enough clearance to turn to SWING_CLEAR before the corner
-// reaches the cab, which is why the frame is longer on the rigs with wider boxes and not on the
-// narrow ones. Past that angle a real trailer does touch a real cab — that is what a jackknife IS,
-// and PHI_MAX (88°) says the physics already knows it — so the honest target is 'clears everything
-// you would drive through', not 'never touches'.
-const SWING_CLEAR = 35 * Math.PI / 180;   // articulation the box clears the cab at, by design
+// So the gap is the swing, not a number: enough clearance for the box to turn against the cab
+// without reaching it, which is why the frame is longer on the rigs with wider boxes and not on the
+// narrow ones.
+//
+// ⚠ AND IT CLEARS AT EVERY ANGLE, NOT AT A DESIGN ANGLE. `reach = noseHalf · sin φ` peaks at φ = 90°,
+// so a gap of one nose half-width clears the whole range the sim can reach and the tightest corner
+// in the game cannot make two solids share a space. A real cab that gets touched DEFORMS; ours
+// interpenetrates, and a box visibly inside a sleeper reads as a broken model rather than as a bad
+// manoeuvre — the physics already punishes a fold (PHI_MAX, the jackknife event, the constraint
+// that drives it) and the picture does not need to punish it as well.
+//
+// ⚠ WHICH IS BOUGHT WITH A TAPERED NOSE, NOT WITH LENGTH. Clearing 90° on the full body width needs
+// the frame about half again as long, and length is not free: past ~45° of equivalent gap the depot
+// floor's painter's-sort fallback starts losing a headlamp (shapes:smoke catches it, which is what
+// that gate is for). A trailer's front corners are radiused in the real world for exactly this
+// reason, so the nose is tapered to NOSE_TAPER of the body — the corner that swings is the NOSE
+// corner, so tapering it shortens the radius directly, and the same clearance costs a third less
+// frame. Both numbers come from here, so the mesh and the gap cannot drift.
+const NOSE_TAPER = 0.70;                  // the box's front face, as a fraction of its body width
+
 const PLATE_BACK = 0.06;                  // the plate's centre, aft of the frame's front end
 // …with a margin, and the margin is what makes the smoke a TEST rather than a tautology: derive the
 // gap and assert the gap and you have asserted arithmetic. At 1.15 the check has something to
 // measure, and it fails when somebody moves the plate, the cab or the box width without coming
 // back here.
 const SWING_MARGIN = 1.15;
-const frameBack = (S) => PLATE_BACK + S.w * 1.02 * Math.sin(SWING_CLEAR) * SWING_MARGIN;
+const boxNoseHalf = (S) => S.w * 1.02 * NOSE_TAPER;
+const frameBack = (S) => PLATE_BACK + boxNoseHalf(S) * SWING_MARGIN;
 
 // The lamp stations, derived once from a truck's shape. `buildTruck` lays its lenses out from this
 // and `vehicleLamps` lights them from it, so the two cannot drift apart.
@@ -3546,8 +3573,14 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // two are one vehicle: a box comes out fractionally above the tractor's roof fairing, which is
     // where a real one sits, and it tracks any future change to `hi` instead of drifting from it.
     const tTop = deckTop + S.hi * 0.95;
-    box(t0, t1, S.w * 1.02, 0.075, tTop, 'body');                  // the box
-    box(t0 + 0.01, t1 - 0.01, S.w * 0.99, tTop, tTop + 0.010, 'body');  // roof cap
+    // THE BOX, and its front corners are RADIUSED — two stepped slices, which at this scale reads as
+    // a radius and is what buys the swing clearance (see NOSE_TAPER). The body is full width from
+    // the back to `tBev`; ahead of that it steps in twice to the nose face.
+    const tBev = t1 - 0.030;
+    box(t0, tBev, S.w * 1.02, 0.075, tTop, 'body');                 // the box
+    box(tBev, tBev + 0.016, S.w * 1.02 * ((1 + NOSE_TAPER) / 2), 0.075, tTop, 'body');   // first step in
+    box(tBev + 0.016, t1, boxNoseHalf(S), 0.075, tTop, 'body');     // the nose face itself
+    box(t0 + 0.01, tBev, S.w * 0.99, tTop, tTop + 0.010, 'body');   // roof cap, stopping at the taper
     // RIBS. A trailer flank is a corrugated wall, and a bare quad is the flattest surface in the
     // whole model — six shallow ribs a side cost nothing and give the biggest panel on the rig
     // something for the light to break on.
@@ -3742,7 +3775,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // because the whole point of `frameBack` is that they are related, and a test that assumed the
     // relation could not catch it being broken.
     cabBack: solo ? null : cab0 - shift,
-    boxHalf: S.w * 1.02,
+    boxHalf: boxNoseHalf(S),   // the corner that swings is the NOSE corner — see NOSE_TAPER
     door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: S.w },
   });
   return faces;
@@ -4851,10 +4884,18 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   const sg = ctx.createLinearGradient(0, yTop - dh, 0, yBot);
   sg.addColorStop(0, rgbStr(pal.top)); sg.addColorStop(1, rgbStr(pal.hor));
   ctx.fillStyle = sg; ctx.fillRect(x0 - 6, yTop - dh, dw + 12, dh * 2 + 6);
-  // Stars in a clear night sky (deterministic, upper half only).
+  // Stars in a clear night sky (deterministic, upper half only). This is the flat sky through a
+  // hangar door, not the canopy's projected dome — but the same rule applies and is the whole
+  // reason it reads as sky: MOST of them are barely there and a few are obviously bright, with a
+  // spectral tint on each. A field of identical dots is a field of pixels.
   if (night > 0.55 && /clear/.test(wx)) {
-    ctx.fillStyle = 'rgba(228,236,255,0.8)';
-    for (let i = 0; i < 44; i++) ctx.fillRect(x0 + hash01(i * 5.1) * dw, yTop - dh * 0.4 + hash01(i * 9.7) * dh * 0.9, 1, 1);
+    for (let i = 0; i < 110; i++) {
+      const m = 0.12 + Math.pow(hash01(i * 3.3), 3) * 0.88;
+      const c = hash01(i * 7.7), sx = x0 + hash01(i * 5.1) * dw, sy = yTop - dh * 0.4 + hash01(i * 9.7) * dh * 0.9;
+      ctx.fillStyle = `rgba(${c < 0.3 ? '200,214,255' : c < 0.72 ? '244,246,252' : '255,226,190'},${(m * 0.85).toFixed(2)})`;
+      const sz = m > 0.66 ? 2 : m > 0.36 ? 1.5 : 1;
+      ctx.fillRect(sx, sy, sz, sz);
+    }
   }
   // 2) Sun / moon (clear skies) — a soft disc up in the sky, before the ground/blocks so a low sun
   //    sets behind them.

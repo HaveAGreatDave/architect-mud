@@ -38,7 +38,9 @@ function liveEnv() {
     const s = _getEnvSnapshot();
     if (!s || !s.time) return null;
     const [h, m] = s.time.split(':').map(Number);
-    return { hour: (h || 0) + (m || 0) / 60, weather: normalizeWx(s.weatherType) };   // fractional hour → smooth dawn/dusk sky
+    // fractional hour → smooth dawn/dusk sky; `moonPhase` rides the same snapshot, so the yacht
+    // shows the same moon as a cockpit over her mast without a channel of its own.
+    return { hour: (h || 0) + (m || 0) / 60, weather: normalizeWx(s.weatherType), moon: s.moonPhase };
   } catch { return null; }
 }
 
@@ -325,6 +327,7 @@ export function openHelmChase(container, opts = {}) {
     const env = liveEnv();
     const hour = env ? env.hour : st.hour;
     const weather = env ? env.weather : st.weather;
+    const moon = env ? env.moon : undefined;
     // Prefer the REAL sim weather field (setSky), so the helm renders the same moving clouds/rain
     // at their true bearings as the flight sim does. Only synth a field when none was streamed
     // (e.g. the standalone rig), so it never falls back to a flat sky.
@@ -346,7 +349,7 @@ export function openHelmChase(container, opts = {}) {
     paintWindshield(id, {
       external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1, frameY: st.frameY,
       heading: hdgN, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
-      height: 0, speed: st.spd, hour, weather, wxField: field, seaScroll: st.seaScroll || 0, contacts,
+      height: 0, speed: st.spd, hour, moon, weather, wxField: field, seaScroll: st.seaScroll || 0, contacts,
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
     });

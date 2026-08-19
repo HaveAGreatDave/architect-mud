@@ -36,7 +36,7 @@ import { rasterCount, _setBlitEnabled } from '../../client/game/js/panels/model-
 import { truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 
 const SWING_MIN = 2;    // px of box movement below which two angles are indistinguishable
-export const CLEAR_DEG = 35;   // articulation the box must clear the cab at — see frameBack in aircraft3d
+export const CLEAR_DEG = 90;   // articulation the box must clear the cab at — see frameBack in aircraft3d
 
 function recorder() {
   const polys = []; let cur = null;

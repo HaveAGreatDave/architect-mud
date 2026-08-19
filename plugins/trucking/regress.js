@@ -10,8 +10,8 @@ import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFr
 import { mapWindow } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
-import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R,
-  addWreck, wrecksOn, wreckAhead, _clearWrecks } from './corridor.js';
+import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
+  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
@@ -105,6 +105,52 @@ export default async function regress({ run, check, getPlayer }) {
       JSON.stringify(a) !== JSON.stringify(corridorFor(VOIDKEY, DESTKEY, 4243, 8)));
     check('the road is exactly as long as the room chain',
       a.L === 8 * TILES_PER_ROOM, a.L);
+
+    // ── THE ANCHORED ROAD ────────────────────────────────────────────────────
+    // The corridor is laid between two REAL world tiles now, so that a driver, a pilot and a
+    // walker all describe the same place with the same numbers. These are the invariants that
+    // buys, and every one of them was a way it went wrong while being written.
+    {
+      const A = { x0: 918, y0: 947, x1: 910, y1: 1042 };     // Coldwater's south rim → the Reach
+      const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, null, A);
+      const straight = Math.hypot(A.x1 - A.x0, A.y1 - A.y0);
+      check('an anchored road starts on the rim tile it left',
+        Math.hypot(corridorPos(r, 0, 0).x - A.x0, corridorPos(r, 0, 0).y - A.y0) < 0.01);
+      // ⚠ THE ARRIVAL TILE IS THE WHOLE POINT. A road that ends "about there" puts the arrival
+      // check, the destination sign and the tile `leaveCorridor` hands back in three places.
+      check('…and ends exactly on the tile it was aimed at',
+        Math.hypot(corridorPos(r, r.L, 0).x - A.x1, corridorPos(r, r.L, 0).y - A.y1) < 0.01,
+        `${corridorPos(r, r.L, 0).x.toFixed(2)},${corridorPos(r, r.L, 0).y.toFixed(2)}`);
+      // ⚠ THE LIMIT-CYCLE GUARD. Terminating the wander at a few fixed tiles let the road orbit
+      // its own destination — homing to ~8 tiles out and then circling for the rest of its budget,
+      // because it was correcting an 8-tile miss on a 43-tile turning circle. It only ever
+      // arrived because the cap ran out. A road longer than MAX_SINUOSITY means that is back.
+      check('…without orbiting it — the road converges under its own steam',
+        r.L / straight <= 1.6, `sinuosity ${(r.L / straight).toFixed(3)}`);
+      // The odometer must round-trip through world coordinates, or `locate` and `corridorPos`
+      // disagree and the truck's one economically meaningful number is wrong.
+      let worst = 0;
+      for (let s = 0; s <= r.L; s += 1) {
+        const p = corridorPos(r, s, 0);
+        const hit = corridorLocate(r, p.x, p.y);
+        worst = hit ? Math.max(worst, Math.abs(hit.s - s)) : Infinity;
+      }
+      check('…and the odometer round-trips through real coordinates the whole way',
+        worst < 1, `worst ${worst === Infinity ? 'NO FIX' : worst.toFixed(3)}`);
+      // A room is a FRACTION of the road now, not a fixed 90 tiles — but the chain must still be
+      // spanned exactly, or a driver walks off the end of it.
+      const rooms = new Set();
+      for (let s = 0; s < r.L; s += r.L / 500) rooms.add(nodeAt(r, s));
+      check('…and every void room is still reachable by driving', rooms.size === 8, `${rooms.size}/8`);
+      // The composite provider in state.js leans on this: off the road, the corridor must decline
+      // so the REAL world shows through instead of being painted over as air.
+      check('…and a tile well off the road declines, so the world shows through',
+        corridorAt(r, A.x0 + 400, A.y0 - 400) === null);
+      // And the legacy frame is untouched, which is what makes every case above this one still
+      // mean what it meant.
+      check('an unanchored road is still the old local frame',
+        a.anchored === false && a.roomLen === TILES_PER_ROOM && Math.abs(corridorPos(a, 0, 0).x) < 1e-9);
+    }
 
     // Sweep the whole odometer down the centreline. Every tile must be road, and the node index
     // must climb 0..n-1 with no gaps and no repeats — a gap strands a driver off the map, and a
@@ -272,6 +318,117 @@ export default async function regress({ run, check, getPlayer }) {
     check('every roadside structure is a modelled building type', badType === null, badType);
   }
 
+
+  // ── 1b. The junction you can see, and the boards that name it ──────────────
+  // Two things that are one thing: the highway used to be a single limb ending in open waste, so
+  // the fork was a room name changing and the road appeared to just STOP. It now carries its
+  // siblings and a handful of signs.
+  {
+    const PLAN = { origin: 'Coldwater Basin', dests: [
+      { key: DESTKEY, name: 'The Reach', nodes: 8 },
+      { key: 'exodus', name: 'Terminus', nodes: 12 },
+      { key: 'deadwater', name: 'Deadwater', nodes: 8 },
+    ] };
+    const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, PLAN);
+    const bare = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4);
+
+    // 1. THE TRUNK IS THE SAME ROAD WHETHER OR NOT YOU KNOW ABOUT THE OTHER LIMBS. This is what
+    // makes `switchLimb` a change of mind rather than a teleport, and adding siblings must not have
+    // perturbed it — the trunk is seeded without the destination precisely so it cannot.
+    check('the plan does not move the road it describes',
+      JSON.stringify(r.legs) === JSON.stringify(bare.legs));
+    check('a route with no plan has no siblings and no signs',
+      bare.branches.length === 0 && bare.signs.length === 0);
+    check('a route with a plan carries the limbs it did NOT take',
+      r.branches.map(b => b.key).sort().join(',') === 'deadwater,exodus');
+    check('…and each of those is a whole road of its own length',
+      r.branches.every(b => b.route.L === b.route.nodes * TILES_PER_ROOM));
+    check('a sibling does not recurse into siblings of its own',
+      r.branches.every(b => b.route.branches.length === 0));
+
+    // 2. THE OTHER ROAD IS ACTUALLY THERE, past the fork, where it is a different road. Before this
+    // the window past the junction held one highway and open waste where the other one went.
+    let branchTiles = 0, ours = 0;
+    const mid = corridorPos(r, r.trunkL + 140, 0);
+    for (let dx = -70; dx <= 70; dx++) for (let dy = -70; dy <= 70; dy++) {
+      const c = corridorAt(r, Math.round(mid.x) + dx, Math.round(mid.y) + dy);
+      if (!c) continue;
+      if (c.flags.corridor_branch) branchTiles++; else ours++;
+    }
+    check('past the junction the road you did not take is still out there', branchTiles > 200, branchTiles);
+    check('…and it never outranks the road under your wheels', ours > branchTiles);
+
+    // 3. ⚠ A SIBLING'S CELL CARRIES NO ODOMETER. `corridor_s` and `corridor_node` are the two
+    // numbers the whole drive is derived from, and a cell handing out another limb's reading would
+    // be wrong in a way that looked right.
+    let leaked = null;
+    for (let dx = -70; dx <= 70 && !leaked; dx++) for (let dy = -70; dy <= 70; dy++) {
+      const c = corridorAt(r, Math.round(mid.x) + dx, Math.round(mid.y) + dy);
+      if (c?.flags?.corridor_branch && (c.flags.corridor_s !== undefined || c.flags.corridor_node !== undefined)) {
+        leaked = `${c.flags.corridor_branch} @ ${dx},${dy}`; break;
+      }
+    }
+    check('a sibling limb never hands out an odometer reading', leaked === null, leaked);
+
+    // 4. THE BOARDS. One at the gate, one before the junction, one on the approach to each bend.
+    check('the road puts up signs at all', r.signs.length >= 3, r.signs.length);
+    check('the first board is at the gate, where the road names itself', r.signs[0].kind === 'gate');
+    check('there is a board on the approach to the junction',
+      r.signs.some(g => g.kind === 'fork' && g.s < r.trunkL));
+    check('no two boards are close enough to read as one repeated board',
+      r.signs.every((g, i) => i === 0 || g.s - r.signs[i - 1].s >= 40));
+
+    // 5. ⚠ ONE BOARD IS ONE TILE. Matched on a tolerance band (the way a wreck is) a post comes out
+    // as three or four identical boards in a row, which reads as a bug rather than as a sign.
+    for (const g of r.signs) {
+      let n = 0;
+      for (let dx = -6; dx <= 6; dx++) for (let dy = -6; dy <= 6; dy++) {
+        if (corridorAt(r, g.x + dx, g.y + dy)?.flags?.road_sign) n++;
+      }
+      check(`the board at mile ${milesOf(g.s)} stands on exactly one tile`, n === 1, n);
+    }
+    // …and it stands OFF the road, on the verge, where a truck holding its line drives past it.
+    check('every board is clear of the tarmac and the shoulder',
+      r.signs.every(g => {
+        const t = corridorAt(r, g.x, g.y);
+        return t && t.flags.terrain !== 'road' && t.flags.terrain !== 'dirt_road';
+      }));
+
+    // 6. WHAT THE BOARD SAYS. Miles, never tiles, and every place named on it is one you can still
+    // get to from where it stands — a board naming a town on the other side of a junction you have
+    // already passed is a board that lies, and there is no cutting across out here.
+    const gate = r.signs[0], last = r.signs[r.signs.length - 1];
+    check('the gate board names every destination out of the void',
+      gate.rows.filter(row => row.n !== 'COLDWATER BASIN').length === 3, gate.rows.length);
+    check('…and it names the place you came from too, pointing back',
+      gate.rows.some(row => row.n === 'COLDWATER BASIN' && row.a === 4));
+    check('the distance is in miles, not tiles',
+      gate.rows.find(row => row.n === 'THE REACH').m === milesOf(r.L - gate.s));
+    if (last.s > r.trunkL) {
+      check('past the junction a board stops naming roads you can no longer reach',
+        last.rows.every(row => row.n === 'THE REACH' || row.n === 'COLDWATER BASIN'),
+        last.rows.map(row => row.n).join('/'));
+    }
+    check('every arrow is one of the eight, so nothing renders a rotation off the end of the table',
+      r.signs.every(g => g.rows.every(row => ARROW_WORDS[row.a] !== undefined)));
+
+    // 7. THE BOARD REACHES THE LOG. Swept, not proximity-tested — the text rung covers a slab of
+    // road per tick and a proximity test would step straight over most of the boards it passes.
+    check('a board a whole tick of road wide is still passed, not stepped over',
+      signsBetween(r, gate.s - 200, gate.s + 200).length >= 1);
+    check('a board is passed exactly once as the odometer sweeps the whole road',
+      r.signs.every(g => signsBetween(r, g.s - 0.5, g.s + 0.5).length === 1));
+    check('nothing is passed by standing still', signsBetween(r, 400, 400).length === 0);
+
+    // 8. THE RENDER SEAM, for the board specifically. The rows have to survive deriveSurfaceCell or
+    // they are a server-side fact nobody can read.
+    const g0 = r.signs[0];
+    const win = mapWindow({ grid_x: g0.x, grid_y: g0.y }, 2, corridorProvider(r));
+    check('a board survives the trip through mapWindow as a mark with its rows on it',
+      win[2][2].mark === 'sign' && win[2][2].sgn?.rows?.length === g0.rows.length,
+      JSON.stringify(win[2][2].mark));
+  }
+
   // ── 2. The render seam ─────────────────────────────────────────────────────
   // The corridor must go through mapWindow and come back as a drawn road. If this breaks, the
   // truck is driving through a void with no world in it and nothing else here would notice.
@@ -318,15 +475,44 @@ export default async function regress({ run, check, getPlayer }) {
     const held = rig.s;
     reconcileTruck(rig, { s: 99999, t: 0, hdg: 180, spd: 68, x: start.x, y: start.y }, 2000);
     check('the odometer is derived from POSITION, not from what the client claims',
-      rig.s === held, `${held.toFixed(3)} -> ${rig.s.toFixed(3)}`);
+      rig.s < held + 0.001, `${held.toFixed(3)} -> ${rig.s.toFixed(3)}`);
 
-    // Monotonic: phase 1 has no reverse, so an odometer cannot be re-driven.
+    // ── BACKTRACKING ────────────────────────────────────────────────────────
+    // The odometer used to be floored at its own previous value, and this case asserted it "never
+    // runs backwards". That is deliberately no longer true: phase 2 shipped a reverse gear,
+    // nothing is paid per tile (a delivery pays a flat sum on arrival), and a walker in the same
+    // crossing has always been able to turn round and go back out the way they came. The floor
+    // made the truck the only thing in the void that could not.
+    //
+    // What has to survive is the ANTI-CHEAT, and it was never about direction — it was about RATE.
+    // So the property under test flips from "monotonic" to "symmetric envelope": you may go back,
+    // and going back is clamped exactly as hard as going forward.
+    // ⚠ DRIVE IT OUT FIRST. The case above leaves the rig back at the gate with s already at the
+    // floor, so testing "can it go backwards" from there measures nothing — 0 → 0 passes a
+    // monotonic clamp and a symmetric one identically. Walk it out to real road, one clamped
+    // second at a time, before asking whether it can come back.
+    for (let t = 3000, i = 0; i < 20; i++, t += 1000) {
+      const fwd = corridorPos(route, 60, 0);
+      reconcileTruck(rig, { s: 60, t: 0, hdg: 180, spd: 68, x: fwd.x, y: fwd.y }, t);
+    }
+    check('…and it can be driven back out to real road', rig.s > 10, rig.s.toFixed(3));
+
     const was = rig.s;
-    reconcileTruck(rig, { s: 0, t: 0, hdg: 180, spd: 0, x: start.x, y: start.y }, 3000);
-    check('the odometer never runs backwards', rig.s >= was, `${was} -> ${rig.s}`);
+    reconcileTruck(rig, { s: 0, t: 0, hdg: 0, spd: 0, x: start.x, y: start.y }, 23000);
+    check('the odometer CAN run backwards — a truck may turn round like a walker',
+      rig.s < was, `${was.toFixed(3)} -> ${rig.s.toFixed(3)}`);
+    check('…but no faster backwards than a second of road', rig.s >= was - (topTilesPerSec() + 0.001),
+      `moved ${(was - rig.s).toFixed(3)} in 1s, cap ${topTilesPerSec().toFixed(3)}`);
+    // And it cannot be driven below the gate: s = 0 is the rim tile you left, not a negative
+    // number the node bucketing would read off the front of the chain as `undefined`.
+    for (let t = 24000; t < 49000; t += 1000) {
+      reconcileTruck(rig, { s: 0, t: 0, hdg: 0, spd: 0, x: start.x, y: start.y }, t);
+    }
+    check('…and the odometer floors at the gate rather than going negative',
+      rig.s >= 0 && rig.s < 1, rig.s.toFixed(3));
 
     // Lateral is bounded but not defended — nothing economic depends on it.
-    reconcileTruck(rig, { s: rig.s, t: 9999, hdg: 180, spd: 0, x: start.x, y: start.y }, 4000);
+    reconcileTruck(rig, { s: rig.s, t: 9999, hdg: 180, spd: 0, x: start.x, y: start.y }, 50000);
     check('lateral offset is bounded to the corridor', Math.abs(rig.t) <= route.R, rig.t);
 
     // RUNNING DRY HAS TO BITE. For a long time the gauge counted to zero and the truck carried on,
@@ -348,7 +534,7 @@ export default async function regress({ run, check, getPlayer }) {
     }
 
     // Off the corridor entirely is reported as bogged, so the caller can apply the law.
-    const lost = reconcileTruck(rig, { s: rig.s, t: 0, hdg: 180, spd: 40, x: 99999, y: 99999 }, 5000);
+    const lost = reconcileTruck(rig, { s: rig.s, t: 0, hdg: 180, spd: 40, x: 99999, y: 99999 }, 51000);
     check('driving off the corridor reports bogged, not a collision', lost.bogged === true);
   }
 
@@ -391,13 +577,19 @@ export default async function regress({ run, check, getPlayer }) {
       }
       return s;
     };
+    // ⚠ MEASURED FROM REST, WHICH IS A SHORT WINDOW. `pull` runs full throttle for `secs`, and the
+    // property under test is which gear pulls HARDER off the line — not which one has the most road
+    // speed left after a quarter of a minute. With the ceiling doubled, first now redlines at 18mph
+    // and runs out of revs inside the old 15s window, so third overtakes it and the case failed on a
+    // truck whose low gears are working exactly as intended. Six seconds is still 'from rest'.
     const g1 = pull(1), g3 = pull(3), g8 = pull(8);
+    const r1 = pull(1, 6), r3 = pull(3, 6), r8 = pull(8, 6);
     check('first gear pulls away from rest', g1.speed > 10, g1.speed.toFixed(1));
     // A LOW GEAR PULLS HARDER, and until weight arrived this case asserted the opposite — third
     // beat first — because `drive` read the throttle and the band but never the ratio, so gears
     // differed only in where they put the revs. That is invisible bobtail and fatal loaded.
-    check('a low gear out-accelerates a high one from rest', g1.speed > g3.speed && g3.speed > g8.speed,
-      `1:${g1.speed.toFixed(1)} 3:${g3.speed.toFixed(1)} 8:${g8.speed.toFixed(1)}`);
+    check('a low gear out-accelerates a high one from rest', r1.speed > r3.speed && r3.speed > r8.speed,
+      `1:${r1.speed.toFixed(1)} 3:${r3.speed.toFixed(1)} 8:${r8.speed.toFixed(1)}`);
     check('pulling away in top gear STALLS the engine', g8.stalled === true && g8.speed < 1,
       `${g8.speed.toFixed(1)} mph, stalled=${g8.stalled}`);
 
@@ -419,7 +611,13 @@ export default async function regress({ run, check, getPlayer }) {
     check('…and so does the clutch', brakeDown({ clutch: 1 }).stalled === false);
 
     // Parking must never be a stall. A driver crawling into a bay in third has done nothing wrong.
-    const crawl = createTruckState(p); crawl.gear = 3; crawl.speed = 3;
+    // ⚠ AND 'PARKING SPEED' IS A NUMBER ON THE DIAL, WHICH MOVED. The ceiling doubled without
+    // `tileMph`, so the needle now reads twice what it did for the same ground covered — the crawl
+    // that was 3mph is 6mph. And the GEAR moved with it: the ladder came down to put the new ceiling
+    // in top, so third is now 16–26mph and a bay crawl belongs in second, exactly as it would in a
+    // vehicle that tops at a hundred. Left in third at a walking pace this case asserts that a truck
+    // can idle along at a third of the speed the gear is geared for, which is a stall in anything.
+    const crawl = createTruckState(p); crawl.gear = 2; crawl.speed = 6;
     for (let i = 0; i < 300; i++) step(crawl, { throttle: 0.15, brake: 0, steer: 0, surface: 'road' }, p, 1 / 60);
     check('crawling at parking speed does not stall', crawl.stalled === false, crawl.speed.toFixed(1));
 
@@ -513,7 +711,16 @@ export default async function regress({ run, check, getPlayer }) {
     for (const [id, t] of Object.entries(TYPES)) {
       if (!t.ground) continue;
       const s = createTruckState(t); truckHitch(s, t, { loadKg: t.kg }); s.gear = -1;
-      for (let i = 0; i < 420; i++) step(s, { steer: 0.3, throttle: 0.7, brake: 0, surface: 'road' }, t, 1 / 60);
+      // ⚠ AND THIS IS A WINDOW, NOT A SPEED — the same trap the `pull` note above documents, and it
+      // sprung the same way. The property under test is that a loaded rig GOES BACKWARDS, not that
+      // it reaches two miles an hour inside seven seconds; that number was only ever the old
+      // acceleration written down. `INERTIA` (flight-model.js) doubled how long every truck takes to
+      // wind up, which left three of the four at about −1.1 in the old window while still pulling
+      // perfectly well toward a cap four times that. Fifteen seconds is still "out of a bay", and it
+      // puts the slowest truck in the fleet a third clear of the threshold rather than a hair over.
+      // Not longer: at twenty the Courier has wound its trailer onto the PHI_MAX clamp, and a fixture
+      // sitting on a saturated constraint stops measuring the thing the second check reads off it.
+      for (let i = 0; i < 900; i++) step(s, { steer: 0.3, throttle: 0.7, brake: 0, surface: 'road' }, t, 1 / 60);
       check(`the ${t.name} can back a loaded trailer up`, s.speed < -2, `${s.speed.toFixed(1)} mph`);
       check(`…and reversing swings the trailer instead of straightening it`, Math.abs(s.phi) > 1, s.phi.toFixed(1));
     }
@@ -1419,6 +1626,17 @@ export default async function regress({ run, check, getPlayer }) {
         pushes.map(m => m?.type).join(', ') || 'nothing pushed');
       check('…carrying the world window and the truck it is', !!cab?.map && !!cab?.params,
         `map=${!!cab?.map} params=${!!cab?.params}`);
+      // ⚠ …AND WHAT TIME IT IS OUT THERE. The cab renders through the flight sim's canopy, which
+      // has drawn a time-of-day sky since it was built — and this payload never carried `hour` or
+      // `weather`, so the client's `?? 12` / `'clear'` defaults stood in and EVERY haul in the game
+      // was driven at high noon under a clear sky. Nothing threw and nothing looked broken; the
+      // world simply had no nights in it from behind a wheel. Absence is the whole failure mode
+      // here, so it is asserted as presence rather than as a value.
+      check('…and what time it is out there, so the cab is not stuck at noon', cab?.hour != null,
+        `hour=${cab?.hour}`);
+      check('…and the weather, so rain reaches the windscreen', !!cab?.weather, `weather=${cab?.weather}`);
+      check('…and tonight\'s moon, in phase with every other canopy in the world',
+        typeof cab?.moon === 'number' && cab.moon >= 0 && cab.moon < 1, `moon=${cab?.moon}`);
       // THE DOOR ONLY EXISTS IF YOU CAME OUT OF ONE. This suite's yard is a bare road tile
       // carrying the flag — the legacy apron shape, no shed — so the cab must be told there is no
       // roller door to lift. Getting this wrong is two and a half seconds of a player staring at

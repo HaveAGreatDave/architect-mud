@@ -14,7 +14,8 @@
 //   bank,       // deg, + = right bank
 //   height,     // 0 = on the deck … 1 = high
 //   speed,      // 0..1 airspeed fraction
-//   hour,       // 0..23 in-game hour (sky palette)
+//   hour,       // 0..23 in-game hour (sky palette) — fractional is fine and blends smoother
+//   moon,       // optional 0..1 lunar phase (0 new, 0.5 full) — omitted → a full disc
 //   weather,    // 'rain'|'storm'|'snow'|'ash'|'fog'|'cloudy'|'clear'|…
 //   heading,    // deg (to orient the map obstacles)
 //   map,        // optional server map window (rows[y][x] = {kind}) → obstacles ahead
@@ -64,6 +65,12 @@ const SHADOW_MAP_PX = 256;
 const _shadowTarget = depthTarget();
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
+// How hard the headlights are throwing this frame, 0-1. A module-level handoff for the same reason
+// `_obsHgt` is one: `drawWorldObjects` shades a building from `sky` alone and has no idea whether the
+// vehicle in front of it has its lamps on — threading the switch, the weather and the view mode
+// through its signature (and the eight drawers under it) to light a wall is a worse trade than one
+// variable written once per frame, immediately before the pass that reads it.
+let _hlStr = 0;
 
 // Live render tuning — mutated by the in-cockpit tuning sliders, read every frame.
 export const RENDER_TUNE = {
@@ -228,6 +235,91 @@ function projSky(azDeg, elDeg, heading, W, horizonY, FL) {
   const el = clamp(elDeg, -6, 90) * Math.PI / 180;
   const sy = horizonY * (1 - Math.sin(el) * 0.86);                        // horizon at el 0 → high in the sky band at zenith
   return { sx, sy, front };
+}
+
+// ── The night sky: stars, the galaxy, the moon ───────────────────────────────
+//
+// All of it hangs off projSky above, so the whole dome is anchored to real bearings and wheels
+// overhead as you turn. Nothing in here is wallpaper.
+
+// Soft glows here (galaxy blobs, a bright star's halo, a meteor head) go through the skyline's
+// existing `glowSprite` cache further down the file rather than a second one: it is already a
+// baked radial falloff keyed by colour, and a `createRadialGradient` per blob per frame is one of
+// the two things that actually cost real time in canvas2d.
+
+// Spectral tints, blue-white → orange-red. The real spread is subtle at one to two pixels, so the
+// ends are pulled well in: the point is that the field ISN'T uniform, not that anyone can name a
+// spectral class off it. A pure-white field is the thing that reads as pixels rather than as sky.
+const STAR_TINTS = [[186, 204, 255], [214, 226, 255], [255, 255, 250], [255, 240, 206], [255, 202, 156]];
+function starTint(c) {
+  const t = clamp(c, 0, 0.999) * (STAR_TINTS.length - 1), i = Math.floor(t);
+  return mix(STAR_TINTS[i], STAR_TINTS[i + 1] || STAR_TINTS[i], t - i);
+}
+
+// Air mass. A star low down is seen through several times the atmosphere of one overhead, so it
+// dims and warms toward the horizon. This is the single cheapest thing that stops a star field
+// reading as flat wallpaper — the real sky thins out at the bottom and this one now does too.
+function extinction(elDeg) { return clamp(0.14 + Math.sin(clamp(elDeg, 0, 90) * Math.PI / 180) * 0.98, 0, 1); }
+
+// ── The moon, as a PHASE rather than a disc ──────────────────────────────────
+//
+// The lit shape is the limb intersected with the terminator: a half-CIRCLE plus a half-ELLIPSE
+// whose width is cos(phase angle). That ellipse is the only real geometry in here and it's the
+// reason a crescent's horns point the right way instead of it being a circle with a bite taken
+// out. Earthshine paints the unlit disc first and never skips it — a moon that vanishes entirely
+// at new reads as a bug, and a thin crescent hanging inside a faint full disc is what you actually
+// see. Maria are clipped to the LIT shape, so they're uncovered by the terminator as it sweeps.
+//
+// `phase` is 0 = new, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter.
+const MARIA = [[-0.30, -0.30, 0.30], [0.17, -0.37, 0.22], [0.31, 0.05, 0.25], [-0.10, 0.19, 0.34], [-0.45, 0.21, 0.17], [0.07, 0.45, 0.16]];
+function drawMoon(ctx, x, y, R, phase, alpha, tilt) {
+  const ct = Math.cos(phase * Math.PI * 2), illum = (1 - ct) / 2, waxing = phase < 0.5;
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(tilt || 0);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(104,112,138,0.34)';                       // earthshine
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill();
+  if (illum > 0.004) {
+    ctx.beginPath();
+    ctx.arc(0, 0, R, -Math.PI / 2, Math.PI / 2, !waxing);          // the bright limb
+    ctx.ellipse(0, 0, R * Math.abs(ct), R, 0, Math.PI / 2, -Math.PI / 2, waxing ? ct > 0 : ct < 0);
+    ctx.closePath();
+    ctx.fillStyle = 'rgb(228,232,240)'; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = 'rgba(148,157,178,0.5)';
+    for (const m of MARIA) { ctx.beginPath(); ctx.arc(m[0] * R, m[1] * R, m[2] * R, 0, 7); ctx.fill(); }
+    ctx.restore();
+    const lg = ctx.createRadialGradient(0, 0, R * 0.5, 0, 0, R);   // limb darkening — kills the sticker look
+    lg.addColorStop(0, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(18,22,34,0.45)');
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.clip();
+    ctx.fillStyle = lg; ctx.fillRect(-R, -R, R * 2, R * 2); ctx.restore();
+  }
+  ctx.restore();
+  return illum;
+}
+// Illuminated fraction on its own, for the callers that need to scale a light by it before
+// anything is drawn (the cloud silver-lining key, the water's specular path). Same curve as above.
+function moonIllum(phase) { return (1 - Math.cos(phase * Math.PI * 2)) / 2; }
+
+// Shooting stars. Spawned on a countdown rather than a per-frame dice roll so the cadence is a
+// number you can read, and a rare fireball runs slower, brighter and much longer than the common
+// streak — a field where every meteor is identical is a field where none of them is an event.
+function stepMeteors(st, dt, now, active) {
+  if (active) {
+    st.meteorT -= dt;
+    if (st.meteorT <= 0) {
+      st.meteorT = 7 + Math.random() * 27;
+      const fire = Math.random() < 0.11, dir = Math.random() * 6.283;
+      st.meteors.push({
+        az: Math.random() * 360, el: 14 + Math.random() * 64,
+        dAz: Math.cos(dir) * (fire ? 22 : 46), dEl: -Math.abs(Math.sin(dir)) * (fire ? 12 : 26),
+        t0: now, dur: fire ? 1400 + Math.random() * 700 : 380 + Math.random() * 460,
+        m: fire ? 1 : 0.4 + Math.random() * 0.5, fire,
+      });
+      if (st.meteors.length > 4) st.meteors.shift();
+    }
+  }
+  if (st.meteors.length) st.meteors = st.meteors.filter(m => now - m.t0 < m.dur);
 }
 
 // ── Rainbows, out the canopy ─────────────────────────────────────────────────
@@ -526,7 +618,52 @@ function sceneFor(id, W, H) {
     st = { scroll: 0, sideScroll: 0, last: 0, w: 0, h: 0, flash: 0, bolt: null, boltT: 0,
       // World-anchored sky bodies: fixed compass bearing (az 0..360) + elevation (° above the
       // horizon), projected fresh each frame so they hold their place in the sky as you yaw.
-      stars: Array.from({ length: 70 }, (_, i) => ({ az: rnd(i) * 360, el: 4 + rnd(i + 91) * 70, m: 0.4 + rnd(i + 7) * 0.6 })),
+      //
+      // ⚠ MAGNITUDE IS THE POINT, NOT THE COUNT. A field of identical dots reads as noise however
+      // many of them you draw; what makes a sky look like a sky is that a handful are obviously
+      // bright and the rest are almost not there. So `m` is skewed hard toward the faint end
+      // (cubed) — most of these 240 are barely a pixel and a dozen carry the whole picture. `c` is
+      // a spectral tint and `tw`/`ph` give each its own scintillation, so no two twinkle together.
+      stars: Array.from({ length: 240 }, (_, i) => ({
+        az: rnd(i) * 360, el: 2 + rnd(i + 91) * 78,
+        m: 0.1 + Math.pow(rnd(i + 7), 3) * 0.9,
+        c: rnd(i + 313), tw: 0.7 + rnd(i + 57) * 2.2, ph: rnd(i + 131) * 6.283,
+      })),
+      // The galaxy — unresolved starlight on a great circle tilted across the sky. Points are
+      // generated ON the circle perpendicular to a fixed galactic pole and then tipped back toward
+      // that pole a little, which is what gives the band its thickness. Doing it as real spherical
+      // geometry rather than a painted smear is the whole reason it holds a place in the world and
+      // wheels with the stars: fly a heading and the band crosses the canopy at a believable angle
+      // instead of following the camera. Two populations — soft `glow` blobs (drawn from the ONE
+      // cached sprite) and a dense `dust` scatter that gives it grain.
+      milky: (() => {
+        const P = [Math.cos(0.62) * Math.sin(3.6), Math.cos(0.62) * Math.cos(3.6), Math.sin(0.62)];
+        const band = (n, spread, seed) => Array.from({ length: n }, (_, i) => {
+          const a = rnd(i * 2.1 + seed) * 6.283;
+          let v = [Math.cos(a), Math.sin(a), rnd(i * 3.7 + seed) * 2 - 1];
+          const d = v[0] * P[0] + v[1] * P[1] + v[2] * P[2];
+          v = [v[0] - P[0] * d, v[1] - P[1] * d, v[2] - P[2] * d];          // → onto the great circle
+          let L = Math.hypot(v[0], v[1], v[2]) || 1; v = [v[0] / L, v[1] / L, v[2] / L];
+          const off = (rnd(i * 5.3 + seed) - 0.5) * spread * (0.35 + rnd(i * 7.9 + seed));
+          v = [v[0] + P[0] * off, v[1] + P[1] * off, v[2] + P[2] * off];    // → tipped off it, = thickness
+          L = Math.hypot(v[0], v[1], v[2]) || 1;
+          return { az: (Math.atan2(v[0] / L, v[1] / L) * 180 / Math.PI + 360) % 360,
+                   el: Math.asin(clamp(v[2] / L, -1, 1)) * 180 / Math.PI, i };
+        });
+        return {
+          glow: band(30, 0.36, 11).map((p) => ({ ...p, r: 50 + rnd(p.i * 4.4) * 116, a: 0.05 + rnd(p.i * 6.1) * 0.1 })),
+          dust: band(170, 0.30, 91).map((p) => ({ ...p, m: 0.1 + rnd(p.i * 8.3) * 0.32, c: rnd(p.i * 9.1) })),
+        };
+      })(),
+      // Orbital hardware, still up there and still catching the sun: a slow, steady point crossing
+      // the sky with NO trail — which is exactly how a satellite reads and exactly how a meteor
+      // doesn't. Tumbling gives each a slow brightness flare.
+      sats: Array.from({ length: 3 }, (_, i) => ({
+        az: rnd(i * 17) * 360, el: 14 + rnd(i * 23) * 58,
+        vAz: (rnd(i * 29) < 0.5 ? -1 : 1) * (0.5 + rnd(i * 31) * 0.9), vEl: (rnd(i * 37) - 0.5) * 0.5,
+        m: 0.3 + rnd(i * 41) * 0.45, tum: 0.4 + rnd(i * 43) * 1.4,
+      })),
+      meteors: [], meteorT: 4 + rnd(5) * 10,   // shooting stars + seconds to the next one
       // Two layered cumulus bands: a low, fat foreground band and a higher, smaller/faster one.
       // `drift` slowly advects the bearing (real cloud movement) on top of the yaw-driven pan.
       clouds: Array.from({ length: 12 }, (_, i) => { const hi = i % 3 === 0; return {
@@ -874,7 +1011,15 @@ export function paintWindshield(id, view) {
   const _moonPos = projSky(90 + _moonT * 180, Math.sin(_moonT * Math.PI) * 55, vw.heading, W, horizonY, skyFL);
   const _dayKey = sunUp && sunFront;
   const lightX = _dayKey ? sunSkyX : _moonPos.sx, lightY = _dayKey ? sunSkyY : _moonPos.sy;
-  const lightStr = _dayKey ? clamp(0.4 + sunElev * 0.6, 0, 1) : (sky.night > 0.4 && _moonPos.front ? 0.7 : 0);
+  // How much moon there is tonight. Server-derived off the world calendar (see getMoonPhase) so
+  // every client agrees about it; 0.5 — a plain full disc, which is what shipped before phases
+  // existed — when the field isn't on the wire, so an un-updated caller changes nothing.
+  const moonPh = v.moon != null ? ((v.moon % 1) + 1) % 1 : 0.5;
+  const _moonLit = moonIllum(moonPh);
+  // A NEW MOON LIGHTS NOTHING. The key light is what puts a silver lining on cloud and a specular
+  // path on water, so leaving it at a flat 0.7 meant a moonless night still looked moonlit.
+  const lightStr = _dayKey ? clamp(0.4 + sunElev * 0.6, 0, 1) : (sky.night > 0.4 && _moonPos.front ? 0.14 + _moonLit * 0.62 : 0);
+  sunFx.moonElev *= 0.2 + _moonLit * 0.8;
   const _clearish = wx === 'clear' || wx === 'cloudy';
   const glareStr = (sunUp && sunFront && !framed && _clearish) ? clamp(0.32 + (1 - sunElev) * 0.7, 0, 1) * (wx === 'cloudy' ? 0.45 : 1) : 0;
   const rayStr   = (sunUp && sunFront && !framed && _clearish && worldBlend > 0.02) ? clamp((0.55 - sunElev) / 0.55, 0, 1) * (wx === 'cloudy' ? 0.5 : 1) : 0;
@@ -926,11 +1071,105 @@ export function paintWindshield(id, view) {
   g.addColorStop(0, rgb(sky.top)); g.addColorStop(1, rgb(sky.hor));
   ctx.fillStyle = g; ctx.fillRect(-OX, -H, ex, horizonY + H);
 
-  // Stars (night) — anchored to real sky positions, so the field wheels overhead as you turn.
+  // ── Night sky ────────────────────────────────────────────────────────────────
+  // Everything below is anchored to a real bearing + elevation and projected through the same
+  // projSky the sun and the clouds use, so the whole dome wheels overhead as you turn. Drawn in
+  // depth order: airglow, the galaxy behind everything, the star field, then the things that move.
+  // The overcast ceiling painted further down washes over all of it, which is why a rainy night is
+  // starless without a single line in here having to know what the weather is doing.
+  stepMeteors(st, dt, now, sky.night > 0.45 && (wx === 'clear' || wx === 'dust' || wx === 'ash') && !framed);
   if (sky.night > 0.15) {
-    ctx.fillStyle = rgb([230, 236, 255], sky.night);
-    for (const s2 of st.stars) { const p = projSky(s2.az, s2.el, vw.heading, W, horizonY, skyFL); if (!p.front || p.sy > horizonY) continue; const tw = 0.5 + 0.5 * Math.sin(now * 0.002 * s2.m + s2.az); ctx.globalAlpha = sky.night * s2.m * tw; ctx.fillRect(p.sx, p.sy, 1.4, 1.4); }
-    ctx.globalAlpha = 1;
+    const nA = sky.night;
+    // Airglow — the sky is never actually black at the horizon, and the band of faint green sitting
+    // just above it is most of why. Also gives the star field somewhere to fade OUT to.
+    const agH = Math.max(20, horizonY * 0.3);
+    const ag = ctx.createLinearGradient(0, horizonY - agH, 0, horizonY);
+    ag.addColorStop(0, 'rgba(44,72,66,0)'); ag.addColorStop(1, `rgba(52,86,74,${(0.2 * nA).toFixed(3)})`);
+    ctx.fillStyle = ag; ctx.fillRect(-OX, horizonY - agH, ex, agH);
+
+    // The galaxy. Soft blobs first (additive, from the cached sprite), then its own grain of dust
+    // stars over the top so the band is made of light rather than being a painted cloud.
+    const spr = glowSprite('255,255,255');
+    ctx.globalCompositeOperation = 'lighter';
+    for (const b of st.milky.glow) {
+      const p = projSky(b.az, b.el, vw.heading, W, horizonY, skyFL);
+      if (!p.front || p.sy > horizonY) continue;
+      ctx.globalAlpha = b.a * nA * extinction(b.el);
+      ctx.drawImage(spr, p.sx - b.r, p.sy - b.r * 0.72, b.r * 2, b.r * 1.44);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    for (const s2 of st.milky.dust) {
+      const p = projSky(s2.az, s2.el, vw.heading, W, horizonY, skyFL);
+      if (!p.front || p.sy > horizonY) continue;
+      ctx.globalAlpha = s2.m * nA * extinction(s2.el);
+      ctx.fillStyle = rgb(starTint(s2.c));
+      ctx.fillRect(p.sx, p.sy, 1, 1);
+    }
+
+    // The field itself. Faint stars scintillate HARDER than bright ones and low stars harder than
+    // high ones — that's the way round it works in air, and it's what makes the twinkle read as
+    // atmosphere instead of as a flashing-dot effect.
+    for (const s2 of st.stars) {
+      const p = projSky(s2.az, s2.el, vw.heading, W, horizonY, skyFL);
+      if (!p.front || p.sy > horizonY) continue;
+      const ext = extinction(s2.el);
+      const twAmp = (1 - s2.m * 0.7) * (1 - ext * 0.55);
+      const tw = 1 - twAmp * (0.5 + 0.5 * Math.sin(now * 0.001 * s2.tw + s2.ph));
+      const a = nA * s2.m * ext * tw;
+      if (a < 0.03) continue;
+      // Extinction warms as well as dims: a star on the horizon is redder than the same star
+      // overhead, so its tint slides down the table rather than just losing alpha.
+      ctx.globalAlpha = a;
+      ctx.fillStyle = rgb(starTint(s2.c + (1 - ext) * 0.5));
+      const sz = s2.m > 0.62 ? 2 : s2.m > 0.34 ? 1.5 : 1;
+      ctx.fillRect(p.sx, p.sy, sz, sz);
+      // The brightest handful get a halo and a diffraction glint — the two cues an eye reads as
+      // "that one is BRIGHT" rather than "that one is a slightly bigger square".
+      if (s2.m > 0.82) {
+        const gr = 5 + s2.m * 9;
+        ctx.globalAlpha = a * 0.5;
+        ctx.drawImage(spr, p.sx - gr, p.sy - gr, gr * 2, gr * 2);
+        ctx.globalAlpha = a * 0.42; ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(p.sx - gr, p.sy + 0.5); ctx.lineTo(p.sx + gr, p.sy + 0.5);
+        ctx.moveTo(p.sx + 0.5, p.sy - gr); ctx.lineTo(p.sx + 0.5, p.sy + gr);
+        ctx.stroke();
+      }
+    }
+
+    // Satellites — steady, silent, and the one thing up there that moves in a straight line at a
+    // speed you can actually watch. They wrap in bearing and bounce off the zenith and the horizon.
+    for (const s2 of st.sats) {
+      s2.az = (s2.az + s2.vAz * dt + 360) % 360;
+      s2.el += s2.vEl * dt;
+      if (s2.el > 84 || s2.el < 8) { s2.vEl = -s2.vEl; s2.el = clamp(s2.el, 8, 84); }
+      const p = projSky(s2.az, s2.el, vw.heading, W, horizonY, skyFL);
+      if (!p.front || p.sy > horizonY) continue;
+      const flare = 0.55 + 0.45 * Math.sin(now * 0.0009 * s2.tum + s2.az);
+      ctx.globalAlpha = nA * s2.m * extinction(s2.el) * flare;
+      ctx.fillStyle = 'rgb(246,244,232)';
+      ctx.fillRect(p.sx, p.sy, 1.2, 1.2);
+    }
+
+    // Meteors. Head and tail are two points on the SAME arc a fraction of the life apart, so the
+    // streak lengthens and shortens with its own speed rather than being a fixed-length dash.
+    for (const m of st.meteors) {
+      const t = (now - m.t0) / m.dur;
+      const fade = Math.sin(clamp(t, 0, 1) * Math.PI);            // in and out, never a hard pop
+      const h = projSky(m.az + m.dAz * t, m.el + m.dEl * t, vw.heading, W, horizonY, skyFL);
+      const tp = Math.max(0, t - (m.fire ? 0.1 : 0.24));
+      const tl = projSky(m.az + m.dAz * tp, m.el + m.dEl * tp, vw.heading, W, horizonY, skyFL);
+      if (!h.front || h.sy > horizonY) continue;
+      const col = m.fire ? [255, 226, 170] : [232, 238, 255];
+      const g2 = ctx.createLinearGradient(tl.sx, tl.sy, h.sx, h.sy);
+      g2.addColorStop(0, rgb(col, 0)); g2.addColorStop(1, rgb(col, nA * m.m * fade));
+      ctx.globalAlpha = 1; ctx.strokeStyle = g2; ctx.lineWidth = m.fire ? 2.2 : 1.2;
+      ctx.beginPath(); ctx.moveTo(tl.sx, tl.sy); ctx.lineTo(h.sx, h.sy); ctx.stroke();
+      const hr = m.fire ? 14 : 5;
+      ctx.globalAlpha = nA * m.m * fade * (m.fire ? 0.9 : 0.6);
+      ctx.drawImage(glowSprite(m.fire ? '255,226,170' : '232,238,255'), h.sx - hr, h.sy - hr, hr * 2, hr * 2);
+    }
+    ctx.globalAlpha = 1; ctx.lineWidth = 1;
   }
   // Aurora / ash-glow curtains high in the night sky.
   if (auroraOn) drawAurora(ctx, W, horizonY, now, sky, wx);
@@ -947,12 +1186,26 @@ export function paintWindshield(id, view) {
       const mp = projSky(90 + nT * 180, Math.sin(nT * Math.PI) * 55, vw.heading, W, horizonY, skyFL);
       bodyX = mp.sx; bodyY = mp.sy; bodyFront = mp.front;
     }
-    if (bodyFront) {
+    if (bodyFront && isMoon) {
+      // The halo is scaled by how much moon there is to make it: a new moon lights nothing, and a
+      // full one throws a wide soft glow. That's the same `illum` the key light below reads, so the
+      // disc, the halo, the silver lining on the clouds and the path on the water can't disagree.
+      const il = moonIllum(moonPh), R = 13;
+      const rg = ctx.createRadialGradient(bodyX, bodyY, 2, bodyX, bodyY, 20 + il * 32);
+      rg.addColorStop(0, rgb([226, 232, 244], 0.5 + il * 0.4)); rg.addColorStop(0.42, rgb([210, 220, 240], il * 0.34)); rg.addColorStop(1, rgb([200, 212, 236], 0));
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(bodyX, bodyY, 20 + il * 32, 0, 7); ctx.fill();
+      // The horns point away from the sun, which is under the horizon all night — so the lit limb
+      // faces broadly DOWN, tipping across the night as the sun tracks under. A deliberate
+      // approximation: the real angle needs a sun below the horizon that projSky clamps away, and
+      // no eye reads the difference on a 13px disc — it reads a crescent lying the wrong way up.
+      drawMoon(ctx, bodyX, bodyY, R, moonPh, 0.96, Math.PI / 2 + (clamp(_moonT, 0, 1) - 0.5) * 1.2);
+      ctx.globalAlpha = 1;
+    } else if (bodyFront) {
       const disc = sky.sun || [220, 226, 236];
       const rg = ctx.createRadialGradient(bodyX, bodyY, 2, bodyX, bodyY, 46);
       rg.addColorStop(0, rgb(disc, 0.95)); rg.addColorStop(0.4, rgb(disc, 0.5)); rg.addColorStop(1, rgb(disc, 0));
       ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(bodyX, bodyY, 46, 0, 7); ctx.fill();
-      ctx.fillStyle = rgb(disc, 0.95); ctx.beginPath(); ctx.arc(bodyX, bodyY, isMoon ? 12 : 15, 0, 7); ctx.fill();
+      ctx.fillStyle = rgb(disc, 0.95); ctx.beginPath(); ctx.arc(bodyX, bodyY, 15, 0, 7); ctx.fill();
     }
   }
   // Spatial weather: advect the field's cloud/precip/storm cells locally (60fps between packets),
@@ -1213,10 +1466,21 @@ export function paintWindshield(id, view) {
     // Textured 3-D world through the Mode-7 camera (roads/runway ground + extruded buildings),
     // faded in with worldBlend so it crossfades against the airport scenery above. On the deck
     // (worldBlend 0) it's the flat airport scenery that stands in, so these layers stay dark.
+    // ⚠ SET OUTSIDE THE worldBlend BLOCK, AND THAT IS NOT TIDINESS. `drawWorldObjects` runs
+    // unconditionally below and is the only reader; assigning this inside the block meant that on
+    // any frame the world was not being drawn (parked on a deck, worldBlend 0) the buildings were
+    // washed with LAST frame's beam. A per-frame handoff has to be written every frame.
+    _hlStr = (v.landingLight && !framed && !ext && worldBlend > 0.02)
+      ? clamp((Math.max(sky.night, wxGloom(wx)) - 0.18) / 0.82, 0, 1) : 0;
     if (worldBlend > 0.02) {
       ctx.save(); ctx.globalAlpha = worldBlend;
       pBegin('surfaces');
       drawGroundSurfaces(ctx, cam, vw, sky, now);
+      // THE HEADLIGHTS ON THE ROAD ITSELF. Between the ground and the buildings on purpose: the beam
+      // is on the ground plane, so anything that stands up out of it must be able to occlude it.
+      // Gated exactly as the screen-space glare is — the driver's switch AND the gloom — so the two
+      // halves of one lamp can never disagree about whether it is lit.
+      if (_hlStr > 0) drawHeadlightBeam(ctx, cam, Math.max(sky.night, wxGloom(wx)), now);
       pEnd();
       ctx.restore();
     }
@@ -2077,22 +2341,56 @@ function drawCabInterior(ctx, W, H, v) {
   //      tighter one low behind the wheel (the glow off the column). Composited with `lighter` so
   //      they ADD light rather than paint a translucent film over the texture — a film would flatten
   //      the grain the pass above just laid down.
+  //
+  //      ⚠ IT SCALES WITH THE DARK OUTSIDE, AND IT USED TO BE A CONSTANT. The flood was a fixed
+  //      pair of alphas, so the cab was lit exactly as much at midnight as at noon — which reads
+  //      as fine at noon and as a black box at 3am, because the eye judges the panel against what
+  //      is out of the windscreen and not against its own absolute brightness. A real cab has a
+  //      dash rheostat and the driver winds it UP as the light goes; that is what this is.
+  //
+  //      Weather counts as darkness for the same reason it does for the headlight gate below: the
+  //      condition that most wants the panel lit is a filthy afternoon, not only actual night.
+  const litK = (() => {
+    const s = skyAt(v?.hour == null ? 12 : v.hour);
+    const wx = v?.weather;
+    const murk = wx === 'storm' || wx === 'ash' || wx === 'dust' ? 0.55
+      : wx === 'rain' || wx === 'snow' || wx === 'fog' ? 0.40 : 0;
+    return clamp(Math.max(s.night, murk), 0, 1);
+  })();
   {
     const G = cabWheelGeom(W, H);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     dashPath();
     ctx.clip();
+    // Floored well above zero so a daylit cab keeps the modelling the flood gives the vinyl, and
+    // roughly tripled by full dark — the panel gains presence as the world loses it.
+    const k = 0.55 + 2.05 * litK;
     const eyebrow = ctx.createRadialGradient(G.x, dash, 0, G.x, dash, Math.max(W * 0.42, H * 0.30));
-    eyebrow.addColorStop(0, hexA(T.glow, 0.20));
-    eyebrow.addColorStop(0.45, hexA(T.glow, 0.075));
+    eyebrow.addColorStop(0, hexA(T.glow, 0.20 * k));
+    eyebrow.addColorStop(0.45, hexA(T.glow, 0.075 * k));
     eyebrow.addColorStop(1, hexA(T.glow, 0));
     ctx.fillStyle = eyebrow; ctx.fillRect(0, dash - H * 0.05, W, H);
     const column = ctx.createRadialGradient(G.x, G.top, 0, G.x, G.top, Math.max(W * 0.18, H * 0.16));
-    column.addColorStop(0, hexA(T.glow, 0.14));
+    column.addColorStop(0, hexA(T.glow, 0.14 * k));
     column.addColorStop(1, hexA(T.glow, 0));
     ctx.fillStyle = column; ctx.fillRect(0, dash - H * 0.05, W, H);
+    // AND THE SHELL, NOT ONLY THE DASH. The two washes above are clipped to `dashPath` — the board
+    // itself — so at night everything ABOVE the dash (the header, the pillars, the door cards) was
+    // still sitting at its unlit gradient with a glowing board beneath it. A dome lamp and the
+    // spill off the panel reach the whole cab, so this is the same trim colour lifted over the
+    // interior at large, unclipped and much weaker. Only worth drawing once it is genuinely dark.
     ctx.restore();
+    if (litK > 0.04) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const dome = ctx.createRadialGradient(W * 0.5, dash * 0.92, 0, W * 0.5, dash * 0.92, Math.max(W * 0.62, H * 0.55));
+      dome.addColorStop(0, hexA(T.glow, 0.085 * litK));
+      dome.addColorStop(0.6, hexA(T.glow, 0.030 * litK));
+      dome.addColorStop(1, hexA(T.glow, 0));
+      ctx.fillStyle = dome; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
   }
 
   // 4c. THE INSTRUMENT PANEL — and this is where the truck's instruments LIVE now, all of them.
@@ -3118,6 +3416,96 @@ function drawLandingBeam(ctx, W, H, horizonY, vx, night, speed, now) {
   ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(0, 0, poolR, 0, 7); ctx.fill();
   ctx.restore();
   ctx.restore();
+}
+
+// ── THE HEADLIGHTS, AS LIGHT ON THE WORLD ────────────────────────────────────
+//
+// `drawLandingBeam` above is a SCREEN-SPACE effect: two feathered columns and an ellipse painted
+// over the finished frame at fixed pixel positions. It is a good glare effect and it is not a
+// light — it does not know where the road is, so it sits in the same place whether you are on
+// tarmac, on the verge or pointed at a wall, it does not bend when the road bends, and it lights
+// precisely nothing. On a dark street that reads as a torch held against the inside of the glass.
+//
+// This is the other half: the beam laid on the GROUND PLANE in world coordinates, drawn between
+// the ground pass and the buildings so it lies under everything that stands up out of it.
+//
+// ⚠ `cam.projFL(ahead, side, wz)` IS THE WHOLE REASON THIS IS SHORT. The camera already exposes a
+// forward/lateral projection — the same one the runway and the guide boxes use — so the beam is
+// authored in the units a headlight is actually described in ("twenty tiles ahead, three wide")
+// rather than being converted into world dx/dy and rotated back out again by hand. Being on the
+// ground plane is what makes it track: it follows a bend, it climbs the camera as you crest, and it
+// foreshortens with distance for free, because it is in the world rather than on the glass.
+//
+// Drawn as a strip of quads rather than one gradient-filled polygon because a canvas gradient is
+// screen-space — it would be a straight ramp across a shape that is in perspective, so the falloff
+// would be wrong at exactly the far end where all the perspective is. Per-segment alpha is a
+// piecewise approximation of the ramp, in the right space.
+const HL_NEAR = 0.9;          // tiles ahead of the eye the pool starts — just past the bumper
+const HL_FAR = 26;            // tiles the beam reaches; past this the falloff has it at nothing
+const HL_SEG = 14;            // strip segments — enough that the banding reads as a gradient
+const HL_W0 = 1.15, HL_W1 = 5.2;   // half-width in tiles, at the near and far ends
+function drawHeadlightBeam(ctx, cam, gloom, now) {
+  const str = clamp((gloom - 0.18) / 0.82, 0, 1);
+  if (str < 0.03) return;
+  const flick = 0.94 + 0.06 * Math.sin(now * 0.019) * Math.sin(now * 0.033);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < HL_SEG; i++) {
+    const t0 = i / HL_SEG, t1 = (i + 1) / HL_SEG;
+    // Quadratic in t so the near field is dense with segments and the far field is not — the
+    // brightness gradient is steepest close in, which is where the banding would otherwise show.
+    const a0 = HL_NEAR + (HL_FAR - HL_NEAR) * t0 * t0, a1 = HL_NEAR + (HL_FAR - HL_NEAR) * t1 * t1;
+    const w0 = HL_W0 + (HL_W1 - HL_W0) * t0, w1 = HL_W0 + (HL_W1 - HL_W0) * t1;
+    // Inverse-square-ish falloff, which is what makes it read as a lamp rather than as a painted
+    // wedge: bright at the bumper, gone by the far end.
+    const fall = (1 - t0) * (1 - t0);
+    const a = 0.30 * str * flick * fall;
+    if (a < 0.004) continue;
+    const p = [cam.projFL(a0, -w0, 0.004), cam.projFL(a0, w0, 0.004),
+               cam.projFL(a1, w1, 0.004), cam.projFL(a1, -w1, 0.004)];
+    if (p.some((q) => q.f <= 0.06)) continue;
+    ctx.beginPath();
+    ctx.moveTo(p[0].sx, p[0].sy);
+    for (let k = 1; k < 4; k++) ctx.lineTo(p[k].sx, p[k].sy);
+    ctx.closePath();
+    // Warm tungsten, and deliberately not white — a white pool on grey tarmac reads as fog.
+    ctx.fillStyle = `rgba(255,242,206,${a})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// The same lamps landing on something that STANDS UP out of the road. A building inside the beam
+// gets a wash on the face turned toward you, falling off with distance and with how far off the
+// beam axis it sits — so driving down a street lights the frontages either side of you rather than
+// leaving them at their night shade with a lit strip of tarmac running between them.
+//
+// ⚠ ANGLE MATTERS AS MUCH AS DISTANCE, and leaving it out was what made the first cut look wrong:
+// distance alone lights the building you have already passed exactly as brightly as the one you are
+// driving at, so the whole street brightens at once and nothing reads as a beam.
+function headlightWash(ctx, cam, dx, dy, h, str) {
+  if (str < 0.03) return;
+  // Into the camera's own forward/lateral frame — the same arithmetic `proj` does internally.
+  const f = dx * cam.sinh - dy * cam.cosh, l = dx * cam.cosh + dy * cam.sinh;
+  if (f <= 0.4 || f > HL_FAR) return;                       // behind, or past the beam's reach
+  const spread = HL_W0 + (HL_W1 - HL_W0) * (f / HL_FAR) + 1.6;   // a little wider than the tarmac pool
+  const off = Math.abs(l) / spread;
+  if (off > 1.9) return;
+  const c = cam.proj(dx, dy, h * 0.45);
+  if (c.f <= 0.2) return;
+  const dist = 1 - f / HL_FAR;
+  const a = clamp(str * 0.30 * dist * dist * clamp(1.9 - off, 0, 1.35) / 1.35, 0, 0.42);
+  if (a < 0.006) return;
+  const r = clamp(120 / c.f, 10, 90);
+  emitFace(decoDepth(c.f), () => {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
+    g.addColorStop(0, `rgba(255,240,206,${a})`);
+    g.addColorStop(0.55, `rgba(255,226,176,${a * 0.42})`);
+    g.addColorStop(1, 'rgba(255,226,176,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.sx, c.sy, r, 0, 7); ctx.fill();
+    ctx.restore();
+  });
 }
 
 // City-light bloom: at night, a warm halo over each near building's lit face, so the
@@ -5960,147 +6348,401 @@ function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
   else if (w) seg(dx, dy, dx - 0.5, dy);          // reach west only
 }
 
+const CLIFF_H = 0.52;   // world-z of the tableland top. Roughly a 4-storey building: it has to clear the scatter and read as a landform from the air, without becoming a wall of the Curtain's height.
+
+// ── THE CORNER LATTICE ───────────────────────────────────────────────────────
+//
+// Everything about a massif's shape comes from three functions of a WORLD COORDINATE, and that
+// is the whole trick. A massif used to be an extruded stamp: one height per tile, a flat cap,
+// four axis-aligned walls. From the air that reads as a stack of crates — the top is a
+// dead-level plane cut into visible squares by the per-tile tone jitter, and the outline is the
+// tile grid, with 90° corners nothing in geology makes.
+//
+// The reason all three take a world coordinate rather than a tile is the reason the height
+// function always did: two tiles have to agree about the edge they share without either being
+// told the other exists. A shared corner is one call with one answer, so the mesh is watertight
+// for free — no seams, no cracks, and no data passed between tiles. Anything derived from the
+// tile instead (a seed, an index) reintroduces the grid the moment it reaches a colour or a
+// position, which is exactly how the old per-tile tone jitter drew the grid onto a flat top.
+
+// HEIGHT. Four octaves: the first two make one tableland differ from the next and give a long
+// escarpment a rise and fall along its length; the last two are the local roughness that stops a
+// rim running flat to the horizon. Sampled at CORNERS, never at tile centres.
+const cliffHeightAt = (wx, wy) => CLIFF_H * (0.55 + 0.90 * (
+  vnoise2(wx * 0.077, wy * 0.077) * 0.50
+  + vnoise2(wx * 0.031, wy * 0.031) * 0.26
+  + vnoise2(wx * 0.190 + 17.3, wy * 0.190 - 9.1) * 0.16
+  + vnoise2(wx * 0.430 - 5.7, wy * 0.430 + 11.9) * 0.08));
+
+// IN-PLANE WARP. The outline of a massif is the tile grid unless the corners themselves move, so
+// each lattice corner is displaced up to a quarter-tile in x and y. Adjacent tiles share the
+// displaced point, so the plan view goes ragged while the tops still abut exactly. Kept under
+// half a tile: a larger warp can march one corner past another and fold the quad into a bow-tie.
+const CLIFF_WARP = 0.50;
+function cliffCorner(cx, cy) {
+  const ox = (vnoise2(cx * 0.37 + 31.7, cy * 0.37 - 12.3) - 0.5) * CLIFF_WARP;
+  const oy = (vnoise2(cx * 0.37 - 7.9, cy * 0.37 + 22.1) - 0.5) * CLIFF_WARP;
+  return { ox, oy, wx: cx + ox, wy: cy + oy, h: cliffHeightAt(cx + ox, cy + oy) };
+}
+
 // ── High ground: cliff + plateau, drawn as ONE merged massif ─────────────────
 //
 // A raised landform is the only ground in the game that has a top and a side, and the
 // whole problem is making a painted BLOB of tiles read as one tableland rather than as
-// a field of separate blocks. Three decisions do that:
+// a field of separate blocks. Five decisions do that:
 //
 // 1. FULL TILE WIDTH, no setback. Every other mass here is `draw3DBoxAt`, whose footprint
 //    is clamped to ±0.44 so a building keeps a gap to its neighbour and to the road. That
 //    clamp is exactly wrong for terrain: at ±0.44 two adjacent cliff tiles show a seam of
 //    open ground between them, lit from below, and the massif reads as crates. Ground has
-//    no setback from itself, so this draws to the tile edge and the tops abut exactly.
+//    no setback from itself, so this draws to the (warped) tile edge and the tops abut exactly.
 //
 // 2. A WALL ONLY WHERE THE HIGH GROUND STOPS. `cf` is the run (the sides that continue),
 //    so the faces drawn are its complement — the same inversion the map's cliff piece set
 //    uses, for the same reason. An interior tile draws no wall at all, which is what
 //    "morphed together" means: the only vertical surfaces in a massif are on its outline.
+//    A continuing side needs no step face either, because the corner lattice already gives
+//    both tiles the same two corner heights on the edge they share.
 //
-// 3. THE TOP IS ALWAYS CAPPED, on rim and interior alike. The caps are what tile into a
-//    continuous surface, and skipping them on interior tiles would leave the plateau
-//    hollow the moment you were high enough to look down into it.
+// 3. THE TOP IS A FAN, NOT A QUAD. The cap is triangulated out from the tile centre to a ring
+//    of corner and edge-midpoint samples, each at its own height, and each triangle is shaded
+//    off its own normal against the same sun key the Mode-7 floor hillshades with. That is
+//    what makes a tableland read as land: a flat quad at one height has exactly one tone, and
+//    forty of them side by side is a painted plane. The ring is straight corner-to-corner in
+//    plan, so a neighbour walking the same two corners walks the same edge.
+//
+// 4. A FACE HAS A FOOT. The wall is two bands — a near-vertical caprock face down to a bench at
+//    0.42 of the height, then a talus apron battered outward to the plain in a lighter, greyer,
+//    broken-rock tone. A single vertical plane from rim to ground is the loudest single tell
+//    that a landform was extruded; the apron is also what puts a soft, uneven silhouette where
+//    the massif meets the floor instead of a ruled line. Corner points flare along the DIAGONAL
+//    where two open sides meet, so a convex corner closes instead of opening a wedge.
+//
+// 5. NOTHING IS COLOURED BY THE TILE. Tone mottle, flare depth and gully placement are all
+//    sampled from world position, so variation reads as rock rather than as tile-sized patches.
 //
 // This is rendering only. The rim's impassability is a server law (props.passable, see the
 // engine:impassable-terrain move gate); nothing here decides where a body may walk, and a
 // pilot may still fly straight through a mesa — CFIT reads building mass, not terrain.
-const CLIFF_H = 0.52;   // world-z of the tableland top. Roughly a 4-storey building: it has to clear the scatter and read as a landform from the air, without becoming a wall of the Curtain's height.
-
-// THE TOP IS NOT A CONSTANT, and this is what stops a massif reading as a fence.
 //
-// A single CLIFF_H everywhere gives every tableland in the world the same height and every rim a
-// dead-level top running to the draw distance: an extruded stamp, not country. Height is instead a
-// smooth function of WORLD POSITION, so tablelands differ from each other, a long escarpment rises
-// and falls along its length, and a rim never runs flat to the horizon.
-//
-// It must be a function of position and nothing else — not of the tile, not of a seed. Two adjacent
-// tiles have to be able to agree about the height of the edge they share, and the only way to do
-// that without passing data between them is for both to compute it from the same coordinates.
-// LOW FREQUENCY on purpose (period ~13 tiles): neighbours then differ by a few percent, so the top
-// undulates instead of jittering into a staircase.
-const cliffHeightAt = (wx, wy) => CLIFF_H * (0.72 + 0.56 * (
-  vnoise2(wx * 0.077, wy * 0.077) * 0.7 + vnoise2(wx * 0.031, wy * 0.031) * 0.3));
-
+// `seed` is deliberately unused, and that is the point of decision 5 — it is kept in the
+// signature only because every other mass draw in this file takes one.
 function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy) {
-  const NEAR = 0.08;
+  const NEAR = 0.08, BENCH = 0.42;
   // The SAME sun key the Mode-7 floor hillshades with (see the LUT builder), derived here
   // rather than passed, so a massif's lit face and the shadow the ground draws beside it
-  // can never disagree about where the sun is.
+  // can never disagree about where the sun is. `litZ` is the missing third component: a cap
+  // triangle is shaded off a real normal, so the light needs a height as well as a bearing.
   const litX = sun && sun.elev > 0.05 ? sun.dir[0] : -0.62;
   const litY = sun && sun.elev > 0.05 ? sun.dir[1] : -0.62;
+  const litZ = Math.max(0.30, sun && sun.elev > 0.05 ? sun.elev : 0.55);
+  const ll = Math.sqrt(litX * litX + litY * litY + litZ * litZ) || 1;
+  const lx = litX / ll, ly = litY / ll, lz = litZ / ll;
   const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
-  const base = BIOME_GROUND[biome] || BIOME_GROUND.cliff;
-  // Per-tile tone jitter so a long escarpment is not one flat colour across forty tiles.
-  const j = (frac(seed * 0.317) - 0.5) * 12;
+
+  // cliff/plateau are ONE landform lit two ways (see BIOME_GROUND), so the SURFACE picks the
+  // colour, not the tile: every top takes the caprock tone and every face the rim tone, with the
+  // tile's own biome mixed in a third of the way so a plateau-heavy massif still runs lighter.
+  // Before this, a mesa made of `cliff` tiles had a top as dark as its own shadowed north face.
+  const own = BIOME_GROUND[biome] || BIOME_GROUND.cliff;
+  const capBase = mix(BIOME_GROUND.plateau, own, 0.34);
+  const facBase = mix(BIOME_GROUND.cliff, own, 0.34);
+  const screeBase = mix(facBase, [166, 148, 130], 0.34);   // broken rock at the foot: lighter and greyer than the face it fell off
+  const innerBase = mix(facBase, [14, 9, 7], 0.52);        // the inside of the shell — unlit rock, never a sunlit surface seen from the wrong side
   const day = 1 - night * 0.72;
-  const col = (t, k) => rgb([(base[0] + j) * t * day, (base[1] + j * 0.7) * t * day, (base[2] + j * 0.5) * t * day], alpha);
-  const H = cliffHeightAt(wx, wy);
-  const CS = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];   // n-w, n-e, s-e, s-w
+  // Two octaves of mottle off world position. The high one is finer than a tile, so the
+  // quantization that used to draw the grid is now noise at the scale of a rock face.
+  const mott = (x, y) => (vnoise2(x * 0.77 + 3.1, y * 0.77 - 6.4) - 0.5) * 16
+                       + (vnoise2(x * 0.23 - 8.2, y * 0.23 + 4.7) - 0.5) * 14;
+  const tone = (c, m, t) => rgb([(c[0] + m) * t * day, (c[1] + m * 0.72) * t * day, (c[2] + m * 0.5) * t * day], alpha);
 
-  // The cap. Painted first at its own depth so the painter's algorithm can still sort a
-  // near tile's wall over a far tile's top.
-  const capPts = CS.map(([a, b]) => cam.proj(dx + a, dy + b, H));
-  if (capPts.every(p => p.f > NEAR)) {
-    emitFace(capPts.reduce((s, p) => s + p.f, 0) / 4, () => {
-      ctx.beginPath();
-      ctx.moveTo(capPts[0].sx, capPts[0].sy);
-      for (let i = 1; i < 4; i++) ctx.lineTo(capPts[i].sx, capPts[i].sy);
-      ctx.closePath();
-      // The top is the lit surface — the sun key the floor hillshade uses, so a mesa top
-      // and the plain around it agree about where the sun is.
-      ctx.fillStyle = col(1.06 + (litX + litY) * 0.02, 0);
-      ctx.fill();
-    });
-  }
+  // Faces are collected and depth-sorted HERE rather than leaning on emitFace, because
+  // flushFaces nulls FACE_SINK before running a queued closure — so every emitFace made from
+  // inside this function paints immediately, in call order. A massif is the first mass in the
+  // file with enough internal faces for that order to matter.
+  const parts = [];
+  const add = (d, fn) => parts.push({ d, fn });
+  const trace = (pts) => { ctx.beginPath(); ctx.moveTo(pts[0].sx, pts[0].sy); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy); ctx.closePath(); };
+  const fillPoly = (pts, fill) => {
+    trace(pts); ctx.fillStyle = fill; ctx.fill();
+    // Hairline guard. Adjacent faces abut EXACTLY (decision 1), and canvas antialiasing leaves a
+    // background-coloured thread along every shared edge — on a tableland that thread IS the tile
+    // grid, drawn in light, which is the artefact this whole rewrite exists to remove. Stroking
+    // the same path in the same colour covers it for the price of one stroke.
+    ctx.strokeStyle = fill; ctx.lineWidth = 1; ctx.stroke();
+  };
+  const fogPoly = (pts, d) => {
+    const w = fogWeight(d);
+    if (w <= 0.004 || !FOG_STATE) return;
+    ctx.globalAlpha = alpha * w; ctx.fillStyle = FOG_STATE.css; trace(pts); ctx.fill(); ctx.globalAlpha = 1;
+  };
 
-  // The faces. One per side the massif does NOT continue on.
-  const SIDES = [
-    ['n', 0, 1, 0, -1], ['e', 1, 2, 1, 0], ['s', 2, 3, 0, 1], ['w', 3, 0, -1, 0],
-  ];
-  for (const [d, i, k, nx, ny] of SIDES) {
-    // THE STEP. High ground carries on this way, so there is no cliff here — but the neighbour's top
-    // is at ITS OWN height, and where this tile is the taller of the two, the difference is an open
-    // sliver you would see straight through into the inside of the massif. Close it with a short
-    // face from the neighbour's height up to ours, and only in that direction: the lower tile draws
-    // nothing, so the step is drawn exactly once by whichever side owns it.
-    //
-    // This is the price of an undulating top, and it is the whole reason the height function takes
-    // world coordinates rather than a per-tile seed — both tiles have to compute the same number for
-    // the edge they share, without either one being told about the other.
-    let z0 = 0, z1 = H;
-    if (run.indexOf(d) >= 0) {
-      const nh = cliffHeightAt(wx + nx, wy + ny);
-      if (nh >= H - 0.002) continue;                // neighbour is level or taller — it owns the step
-      z0 = nh;
+  // Distance LOD. Far massifs drop the edge-midpoint ring (4 cap triangles and one quad per side
+  // instead of 8 and two) and the strata/gully detail. The crack this opens where a coarse tile
+  // meets a fine one is the midpoint's height deviation — a few hundredths of a world-z, which at
+  // 22 tiles out is well under a pixel, and it is between two faces of the same rock.
+  const cen = cam.proj(dx, dy, 0);
+  const fine = !(cen.f > 22);
+  const STEP = fine ? 2 : 1;
+
+  const QC = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];   // n-w, n-e, s-e, s-w
+  const cor = QC.map(([a, b]) => {
+    const c = cliffCorner(wx + a, wy + b);
+    return { x: dx + a + c.ox, y: dy + b + c.oy, wx: c.wx, wy: c.wy, h: c.h };
+  });
+  // The boundary ring, walked n-w → n-e → s-e → s-w. An edge midpoint sits on the straight line
+  // between its two warped corners (so both tiles place it identically) and takes its height from
+  // the same world function, which is what lets a rim undulate within a single tile.
+  const ring = [];
+  for (let i = 0; i < 4; i++) {
+    ring.push(cor[i]);
+    if (STEP === 2) {
+      const n = cor[(i + 1) % 4], mwx = (cor[i].wx + n.wx) / 2, mwy = (cor[i].wy + n.wy) / 2;
+      ring.push({ x: (cor[i].x + n.x) / 2, y: (cor[i].y + n.y) / 2, wx: mwx, wy: mwy, h: cliffHeightAt(mwx, mwy) });
     }
-    // Backface cull, same normal·view test the boxes use, chase-`back` folded in.
-    const mx = nx * 0.5, my = ny * 0.5;
-    if (mx * (dx + mx) + my * (dy + my) + (cam.back || 0) * (mx * cam.sinh - my * cam.cosh) >= 0) continue;
-    let [ax, ay] = CS[i].map((v, n2) => v + (n2 === 0 ? dx : dy));
-    let [bx, by] = CS[k].map((v, n2) => v + (n2 === 0 ? dx : dy));
-    const fa = rawF(ax, ay), fb = rawF(bx, by);
-    if (fa < NEAR && fb < NEAR) continue;
-    if (fa < NEAR) { const s = (NEAR - fa) / (fb - fa); ax += (bx - ax) * s; ay += (by - ay) * s; }
-    else if (fb < NEAR) { const s = (NEAR - fb) / (fa - fb); bx += (ax - bx) * s; by += (ay - by) * s; }
-    const tA = cam.proj(ax, ay, z1), tB = cam.proj(bx, by, z1);
-    const bA = cam.proj(ax, ay, z0), bB = cam.proj(bx, by, z0);
-    // A step is a band a few percent of a tile tall. Strata and the rim highlight are drawn for a
-    // FULL face and read as noise on a sliver, so the step takes the plain fill and the bright top
-    // line only — the line is what makes the step legible as a break in the caprock at all.
-    const isStep = z0 > 0;
-    // Lambert-ish key so the four aspects of a massif are not the same colour — a
-    // south face and a north face at the same tone is what makes blocks look like blocks.
-    const nl = clamp(0.62 + (nx * litX + ny * litY) * 0.42, 0.4, 1.12);
-    emitFace((tA.f + tB.f) / 2, () => {
-      ctx.beginPath();
-      ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.lineTo(bB.sx, bB.sy); ctx.lineTo(bA.sx, bA.sy);
-      ctx.closePath();
-      const topY = (tA.sy + tB.sy) / 2, botY = (bA.sy + bB.sy) / 2;
-      const g = ctx.createLinearGradient(0, topY, 0, botY);
-      g.addColorStop(0, col(nl * 1.12, 0));      // the caprock band, hardest and brightest
-      g.addColorStop(0.22, col(nl, 0));
-      g.addColorStop(1, col(nl * 0.62, 0));      // into the shadow at the foot, where the scree is
-      ctx.fillStyle = g; ctx.fill();
-      // Strata. Three horizontal bands at fixed height fractions, so the beds line up
-      // ACROSS adjacent tiles and a long face reads as one cut through the same rock.
-      ctx.save();
-      ctx.clip();
-      ctx.strokeStyle = col(nl * 0.78, 0);
-      ctx.lineWidth = 1;
-      for (const t of isStep ? [] : [0.3, 0.52, 0.74]) {
-        const l = { x: tA.sx + (bA.sx - tA.sx) * t, y: tA.sy + (bA.sy - tA.sy) * t };
-        const r = { x: tB.sx + (bB.sx - tB.sx) * t, y: tB.sy + (bB.sy - tB.sy) * t };
-        ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(r.x, r.y); ctx.stroke();
-      }
-      ctx.restore();
-      // The rim line. A hard bright edge along the very top of the face is what sells a
-      // drop rather than a slope, and it is continuous across neighbouring tiles because
-      // both draw it at the same world-z.
-      ctx.strokeStyle = col(1.3, 0);
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.stroke();
-    });
   }
+  const cwx = (cor[0].wx + cor[1].wx + cor[2].wx + cor[3].wx) / 4;
+  const cwy = (cor[0].wy + cor[1].wy + cor[2].wy + cor[3].wy) / 4;
+  const ctr = { x: (cor[0].x + cor[1].x + cor[2].x + cor[3].x) / 4, y: (cor[0].y + cor[1].y + cor[2].y + cor[3].y) / 4, wx: cwx, wy: cwy, h: cliffHeightAt(cwx, cwy) };
+
+  // ── The cap, as a fan from the tile centre ─────────────────────────────────
+  const pc = cam.proj(ctr.x, ctr.y, ctr.h);
+  const pr = ring.map(p => cam.proj(p.x, p.y, p.h));
+  if (pc.f > NEAR) {
+    for (let i = 0; i < ring.length; i++) {
+      const j = (i + 1) % ring.length, a = ring[i], b = ring[j], pa = pr[i], pb = pr[j];
+      if (pa.f <= NEAR || pb.f <= NEAR) continue;
+      // Real face normal. x/y are tiles and z is world-z in the same unit, so the cross product
+      // needs no scaling. Winding flips around the fan, so force the up-facing sign.
+      const ux = a.x - ctr.x, uy = a.y - ctr.y, uz = a.h - ctr.h;
+      const vx = b.x - ctr.x, vy = b.y - ctr.y, vz = b.h - ctr.h;
+      let ax = uy * vz - uz * vy, ay = uz * vx - ux * vz, az = ux * vy - uy * vx;
+      if (az < 0) { ax = -ax; ay = -ay; az = -az; }
+      const al = Math.sqrt(ax * ax + ay * ay + az * az) || 1;
+      const nl = clamp(0.70 + 0.60 * ((ax * lx + ay * ly + az * lz) / al), 0.44, 1.26);
+      const d = (pc.f + pa.f + pb.f) / 3;
+      // A CAP BELOW THE EYE IS A TOP; A CAP ABOVE IT IS A CEILING. Terrain has no collision, so a
+      // truck drives into a mesa and an aircraft flies through one — and there the sunlit caprock
+      // was being painted at you from its own underside, which is the one lighting a solid rock
+      // ceiling cannot have. `cam.EH` is the eye's world-z, the same unit as the cap's.
+      const m = mott((ctr.wx + a.wx + b.wx) / 3, (ctr.wy + a.wy + b.wy) / 3);
+      const under = cam.EH != null && cam.EH < (ctr.h + a.h + b.h) / 3;
+      const fill = under ? tone(innerBase, m, 0.5) : tone(capBase, m, nl);
+      const tri = [pc, pa, pb];
+      add(d, () => { fillPoly(tri, fill); fogPoly(tri, d); });
+    }
+  }
+
+  // ── The faces, one band pair per side the massif does NOT continue on ──────
+  const SN = [[0, -1], [1, 0], [0, 1], [-1, 0]];        // n, e, s, w outward normals
+  const OPEN = ['n', 'e', 's', 'w'].map(d => run.indexOf(d) < 0);
+  // Where a corner leans. A corner between two OPEN sides is convex, and flaring both of its
+  // faces along their own normals would open a wedge there; the diagonal closes it. Both tiles
+  // sharing a corner see the same two sides open, so they agree without comparing notes.
+  const cdir = [];
+  for (let i = 0; i < 4; i++) {
+    const s1 = (i + 3) % 4;
+    let ox = 0, oy = 0;
+    if (OPEN[s1]) { ox += SN[s1][0]; oy += SN[s1][1]; }
+    if (OPEN[i]) { ox += SN[i][0]; oy += SN[i][1]; }
+    const l = Math.hypot(ox, oy) || 1;
+    cdir.push([ox / l, oy / l]);
+  }
+  const flareAt = (p) => 0.13 + 0.19 * vnoise2(p.wx * 0.55 + 41.2, p.wy * 0.55 - 17.6);
+  const lerpPt = (P, Q, s) => ({
+    x: P.x + (Q.x - P.x) * s, y: P.y + (Q.y - P.y) * s, h: P.h + (Q.h - P.h) * s,
+    wx: P.wx + (Q.wx - P.wx) * s, wy: P.wy + (Q.wy - P.wy) * s,
+    ox: P.ox + (Q.ox - P.ox) * s, oy: P.oy + (Q.oy - P.oy) * s, fl: P.fl + (Q.fl - P.fl) * s,
+  });
+
+  for (let si = 0; si < 4; si++) {
+    if (!OPEN[si]) continue;
+    const nx = SN[si][0], ny = SN[si][1];
+    // ⚠ THE SHELL IS NEVER BACKFACE-CULLED, AND A BUILDING'S CULL IS WHY.
+    //
+    // Every other mass in this file drops the sides facing away, which is free and correct for a
+    // box you can only ever stand outside of. Terrain is the one mass you can be INSIDE: nothing
+    // collides with it, so a truck drives into a mesa and an aircraft flies through one. From in
+    // there the whole outline faces away — the far rim as much as the near — so the cull removed
+    // every wall at once and the massif became a slab floating overhead on nothing, open to the
+    // horizon in all four directions. Only a notch whose face happened to point back at the camera
+    // survived, which is why it read as one stray panel rather than as a missing renderer.
+    //
+    // So the run-complement outline is drawn whole and the test only picks the SHADING: the outside
+    // of the shell is lit rock, the inside is unlit rock. Painter order needs nothing new — a far
+    // wall is genuinely farther (the talus flare pushes its foot farther still), so it sorts behind
+    // the cap and the near wall that cover it.
+    const mx = nx * 0.5, my = ny * 0.5;
+    const facing = mx * (dx + mx) + my * (dy + my) + (cam.back || 0) * (mx * cam.sinh - my * cam.cosh) < 0;
+    const faceCol = facing ? facBase : innerBase, footCol = facing ? screeBase : innerBase;
+    // Lambert-ish key so the four aspects of a massif are not the same colour — a south face and
+    // a north face at the same tone is what makes blocks look like blocks. The apron faces part
+    // way up, so it takes a share of the sun's height whatever its bearing. An inside surface takes
+    // no key at all: there is no sun in there.
+    const nlF = facing ? clamp(0.58 + (nx * lx + ny * ly) * 0.46, 0.34, 1.12) : 0.5;
+    const nlS = facing ? clamp(nlF * 0.80 + 0.30 * lz, 0.34, 1.16) : 0.5;
+
+    for (let k = 0; k < STEP; k++) {
+      const i0 = (si * STEP + k) % ring.length, i1 = (i0 + 1) % ring.length;
+      const o0 = i0 % STEP === 0 ? cdir[i0 / STEP] : [nx, ny];
+      const o1 = i1 % STEP === 0 ? cdir[i1 / STEP] : [nx, ny];
+      let A = { ...ring[i0], ox: o0[0], oy: o0[1], fl: flareAt(ring[i0]) };
+      let B = { ...ring[i1], ox: o1[0], oy: o1[1], fl: flareAt(ring[i1]) };
+      const fa = rawF(A.x, A.y), fb = rawF(B.x, B.y);
+      if (fa < NEAR && fb < NEAR) continue;
+      if (fa < NEAR) A = lerpPt(A, B, (NEAR - fa) / (fb - fa));
+      else if (fb < NEAR) B = lerpPt(B, A, (NEAR - fb) / (fa - fb));
+
+      // band 0 = rim, 1 = the bench where the face gives way to its own debris, 2 = the plain.
+      const pt = (P, band) => {
+        const push = band === 0 ? 0 : band === 1 ? P.fl * 0.24 : P.fl;
+        const z = band === 0 ? P.h : band === 1 ? P.h * BENCH : 0;
+        return cam.proj(P.x + P.ox * push, P.y + P.oy * push, z);
+      };
+      const tA = pt(A, 0), tB = pt(B, 0), bA = pt(A, 1), bB = pt(B, 1), fA = pt(A, 2), fB = pt(B, 2);
+      if (Math.min(tA.f, tB.f, bA.f, bB.f, fA.f, fB.f) <= 0.02) continue;   // the outward flare can push a foot behind the near plane
+
+      const mwx = (A.wx + B.wx) / 2, mwy = (A.wy + B.wy) / 2, m = mott(mwx, mwy);
+      const upper = [tA, tB, bB, bA], lower = [bA, bB, fB, fA];
+      const dU = (tA.f + tB.f + bA.f + bB.f) / 4, dL = (bA.f + bB.f + fA.f + fB.f) / 4;
+
+      add(dU, () => {
+        const g = ctx.createLinearGradient(0, (tA.sy + tB.sy) / 2, 0, (bA.sy + bB.sy) / 2);
+        g.addColorStop(0, tone(faceCol, m, nlF * 1.16));      // the caprock band, hardest and brightest
+        g.addColorStop(0.2, tone(faceCol, m, nlF));
+        g.addColorStop(1, tone(faceCol, m, nlF * 0.66));      // into the shadow above the scree
+        fillPoly(upper, g);
+        fogPoly(upper, dU);
+        // Strata, gullies and the rim line are all statements about a face SEEN FROM OUTSIDE.
+        // On the inside of the shell they would be bedding drawn on the back of the wallpaper.
+        if (fine && facing) {
+          // Strata at CONSTANT WORLD Z, not at a fraction of this tile's height — with an
+          // undulating rim the beds would otherwise step at every tile boundary instead of
+          // running through the massif as one cut. A bed above the local rim clamps to it,
+          // which is what a bed truncated by the top surface actually looks like.
+          ctx.save(); trace(upper); ctx.clip();
+          const on = (P, zs) => {
+            const zb = P.h * BENCH, t = clamp((P.h - zs) / Math.max(1e-4, P.h - zb), 0, 1);
+            return cam.proj(P.x + P.ox * P.fl * 0.24 * t, P.y + P.oy * P.fl * 0.24 * t, P.h + (zb - P.h) * t);
+          };
+          ctx.strokeStyle = tone(faceCol, m, nlF * 0.74); ctx.lineWidth = 1;
+          for (const zf of [0.58, 0.72, 0.86]) {
+            const sa = on(A, CLIFF_H * zf), sb = on(B, CLIFF_H * zf);
+            ctx.beginPath(); ctx.moveTo(sa.sx, sa.sy); ctx.lineTo(sb.sx, sb.sy); ctx.stroke();
+          }
+          // A gully. Water leaves vertical marks on rock and horizontal bedding does not explain
+          // them; one chute per segment, placed off world position so it stays on the same rock
+          // as the view swings.
+          const u = 0.22 + 0.56 * vnoise2(mwx * 1.9 + 61.4, mwy * 1.9 - 23.8);
+          ctx.strokeStyle = tone(faceCol, m, nlF * 0.5); ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          ctx.moveTo(tA.sx + (tB.sx - tA.sx) * u, tA.sy + (tB.sy - tA.sy) * u);
+          ctx.lineTo(bA.sx + (bB.sx - bA.sx) * u, bA.sy + (bB.sy - bA.sy) * u);
+          ctx.stroke();
+          ctx.restore();
+        }
+        // The rim line. A hard bright edge along the very top of the face is what sells a drop
+        // rather than a slope, and it is continuous across neighbouring tiles because both draw
+        // it between the same two corner points at the same world-z.
+        if (facing) {
+          ctx.strokeStyle = tone(capBase, m, 1.34); ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.stroke();
+        }
+      });
+
+      add(dL, () => {
+        const g = ctx.createLinearGradient(0, (bA.sy + bB.sy) / 2, 0, (fA.sy + fB.sy) / 2);
+        g.addColorStop(0, tone(faceCol, m, nlF * 0.6));       // still in the face's shadow where the apron starts
+        g.addColorStop(0.45, tone(footCol, m, nlS * 0.86));
+        g.addColorStop(1, tone(footCol, m, nlS));             // out into the light where it meets the plain
+        fillPoly(lower, g);
+        fogPoly(lower, dL);
+      });
+    }
+  }
+
+  parts.sort((a, b) => b.d - a.d);
+  for (const p of parts) emitFace(p.d, p.fn);
+}
+
+// The two properties the corner lattice exists to provide. Checked without a camera, because they
+// are properties of the FUNCTIONS rather than of any view, and checked at all because neither one
+// fails loudly — both produce a picture, just the wrong one. Called by shapes:smoke.
+//
+//  - WATERTIGHT. A corner shared by up to four tiles must be ONE point at ONE height, or the
+//    massif cracks along that edge and you see the sky through a mountain. This is exactly what a
+//    per-tile height or a tile-seeded warp cannot give, and it is the whole reason both functions
+//    take a world coordinate. Any future octave, offset or amplitude added to either one keeps
+//    this for free — right up until someone reaches for the tile, and then it does not.
+//  - NO FOLD. The in-plane warp must never march one corner past another. Raise CLIFF_WARP far
+//    enough and a cap turns inside out: the cross product flips, the shading inverts, and it reads
+//    as a hole in the rock rather than as a bug in a renderer.
+export function cliffLatticeSmoke() {
+  const out = [];
+  let worst = 0, minArea = Infinity;
+  for (let x = 0; x < 48; x++) for (let y = 0; y < 48; y++) {
+    // This tile's SE corner is also its east neighbour's SW, its south neighbour's NE and its
+    // south-east neighbour's NW — four tiles, four different call sites, one answer required.
+    const c = cliffCorner(x + 0.5, y + 0.5);
+    for (const [ox, oy, cx, cy] of [[1, 0, -0.5, 0.5], [0, 1, 0.5, -0.5], [1, 1, -0.5, -0.5]]) {
+      const n = cliffCorner(x + ox + cx, y + oy + cy);
+      worst = Math.max(worst, Math.abs(n.wx - c.wx), Math.abs(n.wy - c.wy), Math.abs(n.h - c.h));
+    }
+    // Signed shoelace over the warped quad. An unwarped tile is exactly 1; a fold cancels the
+    // halves against each other and drives it toward zero and then negative.
+    const q = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]].map(([a, b]) => cliffCorner(x + a, y + b));
+    let A = 0;
+    for (let i = 0; i < 4; i++) { const p = q[i], r = q[(i + 1) % 4]; A += p.wx * r.wy - r.wx * p.wy; }
+    minArea = Math.min(minArea, A / 2);
+  }
+  if (worst !== 0) out.push(`shared cliff corners disagree by ${worst} — a massif will crack along that edge`);
+  if (minArea < 0.15) out.push(`the warp folded a tile to ${minArea.toFixed(3)} of its area — CLIFF_WARP is too large`);
+
+  // ── THE SHELL IS CLOSED, INCLUDING FROM INSIDE ─────────────────────────────
+  // A lone stack (run '') has all four sides open, so every one of them must be drawn — two bands
+  // each, two segments each at full detail: sixteen. Gradients are the counter, because every band
+  // makes exactly one and nothing else in the function makes any.
+  //
+  // Two sweeps, and the second is the one that matters. A backface cull scores 4–8 from outside,
+  // which still looks like a mesa and is why this went unnoticed; from a camera standing IN the
+  // footprint it scores zero, and a massif becomes a slab hanging in the air over open desert with
+  // one stray panel where a notch happened to face back. Terrain has no collision, so that is not a
+  // contrived viewpoint — it is what driving at high ground does.
+  {
+    const bands = (cam, px, py) => {
+      let c = 0;
+      const ctx = new Proxy({}, {
+        get: (t, k) => (k === 'createLinearGradient' ? () => { c++; return { addColorStop() {} }; } : () => {}),
+        set: () => true,
+      });
+      drawCliffMass(ctx, cam, px, py, '', 'cliff', 3, 0, 1, { elev: 0.7, dir: [-0.62, -0.62] }, 60, 40);
+      return c;
+    };
+    const mkCam = (head, back) => {
+      const sinh = Math.sin(head), cosh = Math.cos(head);
+      return { sinh, cosh, back, EH: 0.16, proj(x, y, z) {
+        const bx = x + back * sinh, by = y - back * cosh, f = Math.max(0.06, bx * sinh - by * cosh);
+        return { sx: 320 + (bx * cosh + by * sinh) / f * 300, sy: 240 + 300 * (0.16 - z) / f, f };
+      } };
+    };
+    const HEADS = [0, 0.8, 1.6, 2.4, 3.1, 3.9, 4.7, 5.5];
+    let outLo = Infinity, inLo = Infinity, n = 0;
+    for (const head of HEADS) for (const back of [0, 0.9]) {
+      // OUTSIDE: parked four tiles dead ahead, so nothing is behind the eye and no near-clip can
+      // account for a missing side. The heading sweep turns the massif under the camera, so every
+      // one of the four sides takes a turn at facing away.
+      outLo = Math.min(outLo, bands(mkCam(head, back), 4 * Math.sin(head), -4 * Math.cos(head)));
+      // INSIDE: standing in the footprint. Half the ring IS legitimately behind the eye here, so
+      // the bar is only that the far half survives — with the cull this is exactly zero.
+      for (const [px, py] of [[0, 0], [-0.3, 0.2], [0.25, -0.15]]) inLo = Math.min(inLo, bands(mkCam(head, back), px, py));
+      n += 4;
+    }
+    if (outLo !== 16) out.push(`a lone stack drew only ${outLo} of its 16 wall bands from outside — a side is missing with nothing clipped, which is a backface cull`);
+    if (inLo <= 0) out.push('a lone stack vanished completely from a camera inside its own footprint — the massif is a slab floating on nothing, which is the backface cull deleting the whole outline at once');
+    out.viewpoints = n; out.outLo = outLo; out.inLo = inLo;
+  }
+  out.worst = worst; out.minArea = minArea;
+  return out;
 }
 
 // A faceted vertical DRUM (cylinder/cone) through the world camera — the rounded alternative to
@@ -6985,12 +7627,44 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night) {
       const hb = lb + LENS_V * 1.2;
       fillPoly(ctx, [bp(B, -LENS_U * 1.45, hb, cF), bp(B, LENS_U * 1.45, hb, cF), bp(B, LENS_U * 1.45, hb - 0.004, hoodC), bp(B, -LENS_U * 1.45, hb - 0.004, hoodC)], 'rgba(14,16,20,0.95)');
     }
-    if (on && s > 2) {
-      const c = bp(B, 0, lb, lensC), gr = Math.max(1.6, LENS_V * Math.hypot(B.vx, B.vy) * 3.4);
+    // ── THE LIT LAMP HAS TO READ AS A LIGHT SOURCE, NOT A COLOURED DOT ─────────
+    //
+    // A signal is the one object on the road a driver is actively looking FOR, and at the distance
+    // you actually read one from it is a handful of pixels. The old halo was a single soft gradient
+    // at ~0.32-0.66 alpha over a lens filled with the flat plate colour, which at range averaged
+    // out with the dark housing behind it into a dim smudge — clearly visible in a screenshot,
+    // easy to miss out of a moving windscreen at night, which is the only time it matters.
+    //
+    // Three changes, and they are the three things a real lamp does that a filled octagon does not:
+    //   · a HOT CORE. A bulb overexposes toward white at its centre. Filling the lens with the pure
+    //     plate colour makes red read as maroon at small sizes; a whitened centre is what makes it
+    //     read as emitting rather than as painted.
+    //   · a BLOOM that survives distance. The halo is floored in SCREEN pixels as well as scaled
+    //     from the lens, so a signal two junctions away still puts a glow on the glass instead of
+    //     collapsing to sub-pixel with its lens.
+    //   · IT STAYS LIT WHEN THE HEAD IS OFF-AXIS. `faceness` scaled the halo to almost nothing on an
+    //     oblique approach — but a lamp you are approaching at an angle is exactly the one you most
+    //     need to see, and a real lens is visible well off its axis. Floored rather than removed, so
+    //     a head facing away from you is still dimmer than one facing you.
+    if (on && s > 1.2) {
+      const c = bp(B, 0, lb, lensC);
+      const face = 0.55 + 0.45 * faceness;                       // was 0.35 + 0.65 — never near-zero
+      const gr = Math.max(2.6, LENS_V * Math.hypot(B.vx, B.vy) * 3.4, s * 0.42);
       const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], gr);
-      g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${(0.32 + night * 0.34) * (0.35 + 0.65 * faceness)})`);
+      const a0 = clamp((0.46 + night * 0.46) * face, 0, 1);
+      // A whitened core, then the plate colour, then out to nothing.
+      g.addColorStop(0, `rgba(${Math.min(255, col[0] + 90)},${Math.min(255, col[1] + 90)},${Math.min(255, col[2] + 90)},${a0})`);
+      g.addColorStop(0.30, `rgba(${col[0]},${col[1]},${col[2]},${a0 * 0.72})`);
       g.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], gr, 0, 7); ctx.fill();
+      // The lens itself, overexposed toward white at the middle. Drawn after the halo so the core
+      // sits on top of it rather than under, and only when the head is big enough to have a middle.
+      if (s > 3) {
+        const hot = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], Math.max(1.2, gr * 0.34));
+        hot.addColorStop(0, `rgba(255,255,255,${0.42 + night * 0.30})`);
+        hot.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
+        ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(c[0], c[1], Math.max(1.2, gr * 0.34), 0, 7); ctx.fill();
+      }
     }
   }
 }
@@ -7923,9 +8597,19 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
     // Headlamps carry a CONE, and need one. A point lamp at the front of the bumper lights whatever
     // faces it, which from a lamp's own station includes the bumper's back and the front of the
     // cab — a torch switched on inside the bodywork. The cone is what makes it a headlamp.
-    const beam = (c.landing ? 1 : 0.20) * nb;
+    // ⚠ `c.heads` IS ANOTHER DRIVER'S ACTUAL SWITCH, and it arrives on the contact off the
+    // telemetry lamp field (plugins/trucking state.js). `c.landing` stays the own-ship path. A
+    // contact that never sent one reads as ON, because that is the behaviour that shipped and a
+    // silent client is not a client driving dark.
+    const lit = c.heads !== undefined ? !!c.heads : !!c.landing;
+    const beam = (lit ? 1 : 0.20) * nb;
     for (const p of vl.head) add(p, [255, 248, 224], beam * 0.9, 0.75, FWD, 1.15);
-    for (const p of vl.tail) add(p, [255, 70, 52], 0.85 * nb * 0.55, 0.45, AFT, 1.25);
+    // BRAKE LAMPS. The tail lights are always on; standing on the pedal is what makes them JUMP —
+    // which is the entire signal, and why this is a multiplier on an existing lamp rather than a
+    // second set of stations. A tail lamp you cannot tell from a brake lamp tells the driver behind
+    // you nothing at all, so the step is deliberately large (about 3x) rather than tasteful.
+    const braked = !!c.braking;
+    for (const p of vl.tail) add(p, [255, 70, 52], 0.85 * nb * (braked ? 1.7 : 0.55), braked ? 0.62 : 0.45, AFT, 1.25);
     // THE LIFTERS, WHICH ARE MOST OF WHY THIS HALF IS WORTH HAVING. Their wash has always been
     // painted on the ROAD and stopped dead at the bodywork — so the one machine in the game that is
     // lit from underneath had a completely unlit underside, and the pool of light it stood in
@@ -8625,9 +9309,14 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         };
         const FWD = [1, 0, 0], AFT = [-1, 0, 0];
         // Headlamps are the LIGHTS switch; the rest of the set is on whenever the engine is.
-        const beam = c.landing ? 1 : 0.20;
+        const lit2 = c.heads !== undefined ? !!c.heads : !!c.landing;
+        const beam = lit2 ? 1 : 0.20;
+        const braked2 = !!c.braking;
         for (const p of vl.head) if (facing(p, FWD)) glow(p, '255,248,224', beam * nb, 0.40);
-        for (const p of vl.tail) if (facing(p, AFT)) glow(p, '255,70,52', 0.85 * nb, 0.26);
+        // The visible lens, same rule as the light rig above: on always, bright under braking. The
+        // RADIUS grows with it as well as the alpha — a brake lamp reads as a bigger light, not
+        // just a harder one, and at the size these draw the radius is what actually carries it.
+        for (const p of vl.tail) if (facing(p, AFT)) glow(p, '255,70,52', (braked2 ? 1 : 0.62) * nb, braked2 ? 0.42 : 0.26);
         // Roof markers sit on the front edge of the visor and shine forward, same as the lamps
         // under them — from behind, the cab roof is in the way.
         for (const p of vl.marker) if (facing(p, FWD)) glow(p, '255,196,110', 0.75 * nb, 0.13);
@@ -9943,6 +10632,46 @@ export function interiorRenderSmoke() {
   return out;
 }
 
+// MARK RENDER SMOKE. The building models have had coverage since the roaster froze the sim; the
+// MARKS — statue, gate, depot bay, highway sign — never did, and they are reached by exactly the
+// same accident (somebody drives past one). A mark is not in `shapeModelRegistry`, so nothing above
+// touches it. This runs each of them the way the world pass does: inside a real face sink, then
+// flushed, because that is where the ctx work actually happens.
+export function markRenderSmoke() {
+  const out = [];
+  out.ran = 0;
+  const foot = 0.4;
+  const SGN = (n) => ({ face: 143, kind: 'fork', rows: Array.from({ length: n }, (_, i) => ({ n: 'COLDWATER BASIN', m: 240 - i, a: i * 3 })) });
+  const cases = [
+    ['statue', (night, alpha) => drawStatue(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, foot, 3, night, alpha, 1000)],
+    ['gate', (night, alpha) => drawSouthGate(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, foot, 'ew', 3, night, alpha, 1000)],
+    ...['south', 'east'].map((ent) => [`bay:${ent}`, (night, alpha) =>
+      drawVehicleBay(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, { bn: 'SMOKE DEPOT', bt: 'truck_depot', ent, flr: 1, biome: 'freight' }, night, alpha, 1000)]),
+    // Every row count, because the row loop divides by it and the arrow rotates by index — a board
+    // with one row and a board with four take measurably different paths through the same code.
+    ...[1, 2, 3, 4].map((n) => [`sign:${n}row`, (night, alpha) => drawRoadSign(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, SGN(n), foot, night, alpha)]),
+    // A board with no rows at all is a real state (a limb whose chains have gone missing) and must
+    // return quietly rather than paint an empty green rectangle or divide by zero.
+    ['sign:empty', (night, alpha) => drawRoadSign(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, { face: 0, rows: [] }, foot, night, alpha)],
+  ];
+  for (const [key, fn] of cases) {
+    for (const night of [0, 0.9]) {
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE;
+      out.ran++;
+      try {
+        FACE_SINK = [];
+        fn(night, 1);
+        flushFaces();
+      } catch (e) {
+        out.push({ key, night, err: e.message });
+      } finally {
+        FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight;
+      }
+    }
+  }
+  return out;
+}
+
 // GROUND COLLISION smoke — every model probed at ground level (THE LONG HAUL).
 // Two things are checked, and the second is the real one:
 //   1. `groundObstructionAt` runs without throwing on every model.
@@ -10323,6 +11052,26 @@ export function viewRenderSmoke(ID) {
     : y === 0 ? { kind: 'water', biome: 'coast' }
     : { kind: 'land', biome: 'citycore', flr: 0 }
   )));
+  // HIGH GROUND. Nothing else in this suite carries `hi`, so drawCliffMass — the only mass on the
+  // map that is TERRAIN rather than a building, and the tallest thing on it — had no coverage of
+  // any kind. Two massifs, because the two ends of the distance range take different branches: one
+  // pressed against the camera, which is the only way the face near-clip and the cap's
+  // behind-the-eye rejection ever run, and one out at the far corner, where the LOD drops the ring
+  // midpoints and the fog overlay switches on. `cf` is DERIVED from membership rather than typed
+  // out, because a hand-written run that disagrees with the block puts a wall through the middle of
+  // a massif and would still sail past a smoke that only asks whether anything threw.
+  const mesa = (x0, y0, x1, y1) => {
+    const inside = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const cf = (inside(x, y - 1) ? 'n' : '') + (inside(x + 1, y) ? 'e' : '')
+               + (inside(x, y + 1) ? 's' : '') + (inside(x - 1, y) ? 'w' : '');
+      // Both terrains appear: cliff and plateau are one landform lit two ways, and each picks a
+      // different base tone, so a massif of one kind never exercises the other's colour path.
+      map[y][x] = { kind: 'land', biome: x % 2 ? 'cliff' : 'plateau', flr: 0, hi: 1, cf };
+    }
+  };
+  mesa(R - 4, R - 1, R - 2, R + 2);   // right beside the camera
+  mesa(2, 2, 5, 5);                   // out at range, past the LOD threshold
   // THE BLACKOUT. The same world with the grid down: signals dark, lamps dark. This is its own map
   // because the power branch is the one a plant failure takes, and nothing else in the suite ever
   // sets pw to 0 — an untested dark path is exactly how the roaster bug this file exists for got in.
@@ -10334,6 +11083,17 @@ export function viewRenderSmoke(ID) {
   // quad whole. Nothing else in this smoke ever enters it, and a throw in there is a black cab.
   const bayMap = map.map((row) => row.slice());
   bayMap[R][R] = { kind: 'land', biome: 'freight', bt: 'truck_depot', ent: 'north', flr: 1, mark: 'bay', bn: 'TEST DEPOT' };
+  // …AND THE TRUCK STANDING INSIDE A MESA. Terrain has no collision, so this is not a contrived
+  // state — it is what happens when you drive at high ground, and it was rendering as a slab
+  // hanging in the air over open desert because a camera in the footprint backface-culls the whole
+  // outline at once. The camera tile is `hi` here, which is the only way that path runs.
+  const inMesaMap = map.map((row) => row.slice());
+  for (let y = R - 1; y <= R + 1; y++) for (let x = R - 1; x <= R + 1; x++) {
+    const inside = (a, b) => a >= R - 1 && a <= R + 1 && b >= R - 1 && b <= R + 1;
+    const cf = (inside(x, y - 1) ? 'n' : '') + (inside(x + 1, y) ? 'e' : '')
+             + (inside(x, y + 1) ? 's' : '') + (inside(x - 1, y) ? 'w' : '');
+    inMesaMap[y][x] = { kind: 'land', biome: 'cliff', flr: 0, hi: 1, cf };
+  }
   const cases = [
     // The cab. `height: 0` and `resFloor: 1` are the pair that caught fire — keep them together.
     ['cab',            { ...base, map: bayMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
@@ -10346,6 +11106,8 @@ export function viewRenderSmoke(ID) {
     ['framed',         { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, windowClass: 'heavy' }],
     ['helm',           { ...base, cls: 'boat', phase: 'ground', worldBlend: 0, height: 0 }],
     ['cab:blackout',   { ...base, map: darkMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
+    ['cab:in-mesa',    { ...base, map: inMesaMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
+    ['cockpit:in-mesa', { ...base, map: inMesaMap, cls: 'prop', phase: 'cruise', height: 0.02 }],
     // ── THE DIVE BOMBER, MID-ATTACK ────────────────────────────────────────────
     // Two passes nothing else in this suite has ever entered: the BOMBSIGHT (only built on an
     // airframe with a rack, and only in bomb mode) and the BURSTS (only present in the frames
@@ -10386,6 +11148,17 @@ export function viewRenderSmoke(ID) {
       try { paintWindshield(ID, { ...view, hour, weather, actors }); }
       catch (e) { out.push({ key, hour, weather, err: e.message }); }
     }
+  }
+  // ── EVERY MOON ────────────────────────────────────────────────────────────
+  // The loop above only ever runs the DEFAULT moon (a full disc), and the phase is drawn with two
+  // arcs whose sweep flags flip four different ways across the month — waxing/waning crossed with
+  // crescent/gibbous. Three of those four are unreachable at 0.5, and the new-moon branch skips the
+  // lit path entirely. So sweep the month: a night that throws is a black canopy, and "it worked
+  // when I looked at it" is a statement about one night in twenty-nine.
+  for (const moon of [0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88, 1]) {
+    out.ran++;
+    try { paintWindshield(ID, { ...cases[0][1], hour: 2, weather: 'clear', moon, actors: [] }); }
+    catch (e) { out.push({ key: `moon:${moon}`, hour: 2, weather: 'clear', err: e.message }); }
   }
   return out;
 }
@@ -14339,6 +15112,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.back || 0);
     if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
+    if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha)); continue; }   // THE LONG HAUL — a distance board on the void corridor's verge
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
     if (it.c.mark === 'bay') { emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
@@ -14467,7 +15241,15 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const decoNear = it.f < (RENDER_TUNE.decoFar || Infinity);
     if (decoNear && !m && night > 0.3 && h > 0.35 && (it.seed % 7) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);   // rooftop holo-ad on ~1 in 7 tall buildings (was 1 in 4 — too many flickering at once)
     // Warm bloom over the lit windows so near towers read as emitting light at night.
-    if (decoNear && night > 0.45) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
+    // ⚠ WAS GATED AT night > 0.45, which is well after the streetlights come on — so through the
+    // whole of dusk the windows were flat unlit rectangles on a darkening wall, which is exactly
+    // when a lit window is most visible in life. Dropped to 0.18 and strengthened; the bloom's own
+    // `night` factor still fades it out toward day, so this widens the band rather than flattening it.
+    if (decoNear && night > 0.18) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
+    // …and the headlights landing on this frontage. Not gated on `decoNear` — a building far enough
+    // out to have dropped its adornments is still lit by a beam that reaches it, and the wash is one
+    // gradient, which is what the far tier is trying to avoid spending forty of.
+    if (_hlStr > 0.03) headlightWash(ctx, cam, it.dx, it.dy, h, _hlStr * alpha);
     // ROOFTOP HELIDECK guidance — a building tile that is also an airfield (the Solenne sky pad) gets
     // the Echelon's catch volume over its roof, at the model's real top. Same shape, same promise:
     // fly into the column and she brings you down. Only drawn for a helicopter in the air (v.roofPad).
@@ -15108,6 +15890,77 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       }
     }
     if (night) for (const s of [-1, 1]) glowPool(ctx, cam, ...F(s * (DOOR_W + 0.06), HL + 0.01), WALL * 0.8, '255,206,140', 9, alpha * 0.5);
+  }
+  ctx.restore();
+}
+
+// ── THE HIGHWAY SIGN ─────────────────────────────────────────────────────────
+// A board on two legs on the verge of the void corridor, and the only thing out there that ever
+// tells a driver where they are.
+//
+// ⚠ NOTHING HERE WORKS ANYTHING OUT. The rows arrive on the cell as `sgn` — name, MILES, and an
+// arrow index already measured against the road's own heading at that post (see signsFor in
+// plugins/trucking/corridor.js). That is the same rule the price board runs on and for the same
+// reason: a distance computed in the renderer is a second answer to a question the server has
+// already answered, and the first time the two disagree a driver budgets a tank against the wrong
+// one. The client's whole job is paint.
+//
+// THE ARROW IS DRAWN, NOT TYPED. A glyph would have been three characters of work and would have
+// depended on a monospace font having ↗ in it at a legible weight on every machine; it is a
+// polygon in the board's own surface coordinates instead, so it leans and foreshortens with the
+// panel exactly as the lettering does and can never come out as a box.
+const SIGN_Z0 = 0.60, SIGN_Z1 = 1.18;   // panel bottom and top, world-z (a gate arch is 1.05)
+// The arrow, pointing straight up the board, in panel-local units (x across, y DOWN) — rotated per
+// row by 45° a step. Head, then the shaft, as one closed path.
+const SIGN_ARROW = [[0, -0.62], [0.44, -0.06], [0.18, -0.06], [0.18, 0.58], [-0.18, 0.58], [-0.18, -0.06], [-0.44, -0.06]];
+function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha) {
+  const rows = (sgn?.rows || []).slice(0, 4);
+  if (!rows.length) return;
+  const th = (Number(sgn.face) || 0) * Math.PI / 180;
+  // The board faces the traffic, so its normal is the road's heading REVERSED. Map-space heading
+  // vectors are [sin θ, −cos θ] here, the same convention the curved-road markings use (see `RA`
+  // in drawGroundSurfaces) and the same one corridor.js integrates along.
+  const E = [-Math.sin(th), Math.cos(th)];
+  const half = foot * 1.12;
+  const dn = night > 0.4 ? 1 : 0;
+  // World point at (u across ∈ [−1,1], v down ∈ [0,1]) on the panel face.
+  const P = (u, v) => cam.proj(dx + E[1] * half * u, dy - E[0] * half * u, SIGN_Z1 - (SIGN_Z1 - SIGN_Z0) * v);
+  const quad = (u0, u1, v0, v1) => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
+  const face = quad(-1, 1, 0, 1);
+  if (face.some(p => p.f <= 0.12)) return;
+  const poly = (q) => { ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy); for (let i = 1; i < q.length; i++) ctx.lineTo(q[i].sx, q[i].sy); ctx.closePath(); };
+  // 1. The legs. Mass, so they go through the box primitive and pick up the same vertex light and
+  //    fog every other solid out here does.
+  for (const s of [-1, 1]) {
+    draw3DBoxAt(ctx, cam, dx + E[1] * half * 0.66 * s, dy - E[0] * half * 0.66 * s, foot * 0.075, 0, SIGN_Z0 + 0.06, 'ty_gate_dk', 7 + s * 3, night, alpha, false);
+  }
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // 2. The board. Retroreflective sheeting, so after dark it is BRIGHTER than by day rather than
+  //    darker — headlights are the only light out here and a sign that dimmed with the sun would be
+  //    a sign you never once read on a night run.
+  ctx.fillStyle = dn ? 'rgb(30,86,62)' : 'rgb(22,68,50)'; poly(face); ctx.fill();
+  ctx.strokeStyle = dn ? 'rgba(236,246,238,0.92)' : 'rgba(226,238,228,0.78)';
+  ctx.lineWidth = 1.4; poly(face); ctx.stroke();
+  const ink = dn ? '#f4faf4' : '#e6efe6';
+  const n = rows.length;
+  for (let i = 0; i < n; i++) {
+    const r = rows[i];
+    const v0 = i / n + 0.055 / n, v1 = (i + 1) / n - 0.055 / n;
+    const nq = quad(-0.94, 0.26, v0, v1);
+    drawSurfaceText(ctx, nq[0], nq[1], nq[2], nq[3], bakeSignText(String(r.n || '').slice(0, 15), ink, dn, false, true), false, alpha);
+    const mq = quad(0.32, 0.68, v0, v1);
+    drawSurfaceText(ctx, mq[0], mq[1], mq[2], mq[3], bakeSignText(String(r.m ?? ''), ink, dn, false, true), false, alpha);
+    // 3. The arrow, rotated in the board's own plane. y is DOWN in panel space, so a clockwise turn
+    //    (as the driver reads it) is the ordinary [x cos − y sin, x sin + y cos].
+    const A = ((r.a | 0) % 8) * Math.PI / 4, ca = Math.cos(A), sa = Math.sin(A);
+    const rowH = (SIGN_Z1 - SIGN_Z0) / n, rad = rowH * 0.40;
+    const su = rad / half, sv = rad / (SIGN_Z1 - SIGN_Z0);
+    const cu = 0.84, cv = (v0 + v1) / 2;
+    const pts = SIGN_ARROW.map(([x, y]) => P(cu + (x * ca - y * sa) * su, cv + (x * sa + y * ca) * sv));
+    if (!pts.some(p => p.f <= 0.12)) {
+      ctx.fillStyle = ink; poly(pts); ctx.fill();
+    }
   }
   ctx.restore();
 }

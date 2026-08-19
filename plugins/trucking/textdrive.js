@@ -26,8 +26,8 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine } from './state.js';
-import { TILES_PER_ROOM } from './corridor.js';
+import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, passSign } from './state.js';
+import { TILES_PER_ROOM, nodeAt } from './corridor.js';
 import { afterDrive } from './scale.js';
 import { hitcherAt } from './hitchers.js';
 import { wearFor, breakdownRoll } from './rig.js';
@@ -234,7 +234,12 @@ async function stepRun(player, rig, run) {
     rig.s = Math.min(rig.route.L, rig.s + covered);
     rig.speed = Math.round(run.sim?.speed || 0);
     burn(rig, covered);
-    const node = Math.min(rig.chain.length - 1, Math.floor(rig.s / TILES_PER_ROOM));
+    // The boards, read out. Swept rather than proximity-tested (see signsBetween) precisely because
+    // a text tick covers far more road than a cab frame does, so "near a sign" would step over most
+    // of them — and a rung that cannot read the only source of distances out here is a rung with a
+    // hole in it.
+    passSign(player, rig);
+    const node = nodeAt(rig.route, rig.s, rig.chain.length);
     if (rig.s >= rig.route.L - 1) { await run.hooks.arrive(player, rig); return; }
     if (node !== rig.node) {
       const zone = await crossToNode(player, rig, node);

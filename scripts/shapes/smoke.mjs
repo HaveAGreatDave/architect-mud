@@ -92,6 +92,26 @@ async function main() {
     problems.push(`interior ${f.key} (hour=${f.hour}, speed=${f.speed}) → ${f.err}`);
   }
 
+  // ── MARKS ──
+  // The world objects that are drawn INSTEAD of a building archetype — statue, South Gate, depot
+  // bay, highway sign. None of them is in the model registry, so the whole sweep above walks past
+  // them, and each is reached the same way a building model is: somebody happens to drive past it.
+  const marks = ws.markRenderSmoke();
+  for (const f of marks) problems.push(`mark   ${f.key} (night=${f.night}) → ${f.err}`);
+  const markLine = `Marks: ${marks.ran} statue/gate/bay/highway-sign passes clean (night+day).`;
+
+  // ── HIGH GROUND ──
+  // The cliff massif is the only mass in the sim that is TERRAIN, and it is the only one you can
+  // be inside — nothing collides with it, so a truck drives into a mesa and an aircraft flies
+  // through one. Two invariants, neither of which fails loudly: the corner lattice must be shared
+  // exactly (or the rock cracks) and the shell must stay closed from every angle (a backface cull
+  // deletes ALL of it from a camera standing in the footprint, leaving a slab floating on nothing).
+  const cliff = ws.cliffLatticeSmoke();
+  for (const f of cliff) problems.push(`cliff  ${f}`);
+  const cliffLine = `High ground: corner lattice shared exactly across 2304 tiles (worst disagreement ${cliff.worst}), `
+    + `smallest warped cap ${cliff.minArea.toFixed(2)} of a tile, and a lone stack keeps all ${cliff.outLo} wall bands across ${cliff.viewpoints} viewpoints `
+    + `(${cliff.inLo} still standing from a camera inside the rock, where a backface cull leaves none).`;
+
   // ── VIEW ──
   // paintWindshield itself, once per view shape. Every other gate here enters BELOW it, so its own
   // entry code — view unpacking, camera solve, pass ordering — had no coverage until a one-line TDZ
@@ -380,7 +400,9 @@ async function main() {
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
-  console.log(`  Views: ${views.ran} paintWindshield passes clean (cab/cockpit/chase/porthole/helm × night+day × clear+rain).`);
+  console.log('  ' + markLine);
+  console.log('  ' + cliffLine);
+  console.log(`  Views: ${views.ran} paintWindshield passes clean (cab/cockpit/chase/porthole/helm × night+day × clear+rain, plus the moon swept across a full month).`);
   console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
   console.log(`  Truck occlusion: ${occ.reduce((n, o) => n + o.views, 0)} views swept across ${occ.length} rigs — nothing is painted under a part that is entirely in front of it.`);
   console.log('  Truck noses: no panel cuts through a chrome detail on any of the 4 faces — the grille and the lamp brows survive the sort from either side.');

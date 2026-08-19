@@ -379,7 +379,7 @@ function paintWindow(id, a, s) {
   const mapOffset = a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
-    hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
+    hour: s.sky?.hour, moon: s.sky?.moon, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
     event: s.sky?.event,   // named hero event — outranks `weather` for the canopy grade
     wxField: s.sky?.field, acX: a.fx, acY: a.fy,   // spatial weather cells + our world position
     // Both scenes' data are passed unconditionally (falling back to the last real values
@@ -3590,7 +3590,7 @@ function stepCrashBreakup(F, now) {
     cls: F.cls, heading: C.hdg, bank, pitch, livery: F.livery, gearAnim: F.gearAnim ?? 1,
     enginePct: 0, engineOn: false, breakup: { t, parts }, wreckFx,
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
-    height, speed: 0, hour: F.sky?.hour, weather: F.sky?.weather, wxField: F.sky?.field,
+    height, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field,
     map: F.map, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },
     acX: F.pos.x, acY: F.pos.y, biomeBelow: F.biomeBelow || 'default', airport: F.airport || 'default', helipad: !!F.helipad,
   });
@@ -3697,7 +3697,7 @@ function stepDeckLanding(F, now) {
   paintWindshield('fsim-ws', {
     external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
     heading: C.hdg, extYaw: cam.yaw, extPitch: cam.pitch, extZoom: cam.zoom,
-    height: 0, speed: 0, hour: F.sky?.hour, weather: F.sky?.weather, wxField: F.sky?.field,
+    height: 0, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field,
     map: deckLandingWindow(F), mapCenter: { x: 0, y: 0 }, mapOffset: { x: lookAt[0], y: lookAt[1] },
     acX: 0, acY: 0, biomeBelow: 'water', airport: 'default',
     contacts: [heli], padDome: dome ? { armed: true } : null,   // bubble shown during the wide approach, gone once on deck
@@ -4475,7 +4475,7 @@ function fsimFrame(now) {
     // stair-stepped target stutters the pan, and a 1° step throws distant horizon features
     // several pixels sideways — the "horizon jumps around when you yaw". The raw float yaws
     // continuously. (Same reason height uses raw s.altitude above.) d.hdg stays for the HUD.
-    hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
+    hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
     map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,

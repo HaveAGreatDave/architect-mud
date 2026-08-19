@@ -20,12 +20,15 @@ import { streetActors } from '../../server/engine/street-actors.js';
 import { emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
-import { mapWindow, surfaceAt, aircraftNearCoord } from '../flight/state.js';
+import { mapWindow, surfaceAt, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
-  addWreck, wreckAhead } from './corridor.js';
+  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
+// The crossing's own shape, read rather than reconstructed. ⚠ voidwalking imports nothing from
+// this plugin, so this is a one-way edge and not the load-order tangle routes.js warns about.
+import { crossingChain, crossingInfo } from '../voidwalking/index.js';
 import { trailersNear, standingIn, hitchReach, posed, refreshStanding, boxColour } from './trailers.js';
 // The one paint→livery conversion, shared with the cab and the depot panel — see the file's own
 // note on why it is in client/shared rather than in the renderer.
@@ -84,8 +87,22 @@ export function topTilesPerSec() { return (TOP_SPEED_MPH / TILE_MPH) * CLAMP_SLA
 // That is the entire difference, and it is the payoff for the provider seam: `mapWindow` renders
 // both identically, the physics model never learns which one it is on, and `groundObstructionAt`
 // collides against real city buildings and roadside ruins with the same code.
+// ⚠ ON THE CORRIDOR THE REAL WORLD IS UNDERNEATH, NOT REPLACED. This used to be a straight swap —
+// `corridorProvider` INSTEAD of `surfaceAt` — which was the only honest thing to do while the road
+// lived in a coordinate space of its own: the world's tiles were somewhere else entirely, so
+// asking about them would have returned a tile from a different frame.
+//
+// Anchored, they are the same frame, and the swap becomes a lie by omission: a driver pulling out
+// of Coldwater's south rim saw the city vanish the instant the road began, because everything
+// off the corridor's own band answered `null` and `mapWindow` painted it as air. Now the corridor
+// answers FIRST — it owns the tarmac, the verge, the signs and the wrecks — and anything it does
+// not claim falls through to the world that was always there. So the basin recedes in the mirrors
+// and the Reach comes up out of the haze ahead, with no work done by either of them.
 export function providerFor(rig) {
-  return rig.leg === 'city' ? surfaceAt : corridorProvider(rig.route);
+  if (rig.leg === 'city') return surfaceAt;
+  const road = corridorProvider(rig.route);
+  if (!rig.route?.anchored) return road;   // legacy local frame — the world is genuinely elsewhere
+  return (x, y) => road(x, y) || surfaceAt(x, y);
 }
 
 // A rig exists only while somebody is driving one. Mounted in the CITY — the crossing is joined
@@ -130,13 +147,61 @@ export function mountRig(player, { x, y, heading = 180, depot = null }) {
   return rig;
 }
 
+// THE CROSSING, AS THE ROAD-BUILDER NEEDS IT: every limb, with the name a sign would call it and
+// the number of rooms it runs for. `corridorFor` uses it for two things it could not do from one
+// destination alone — synthesise the OTHER limbs so the junction is visible from the cab, and word
+// the boards on the verge.
+//
+// It is derived here rather than passed in by the caller because both callers of joinCorridor
+// already hold an instance id and nothing else, and a third one would have to learn the same two
+// calls. A limb whose chain has gone missing is dropped rather than defaulted: a sign quoting a
+// distance to a road that is not there is worse than a sign that does not mention it.
+function crossingPlan(instanceId) {
+  const info = instanceId ? crossingInfo(instanceId) : null;
+  if (!info) return null;
+  return {
+    origin: info.originSign || info.origin || null,
+    dests: (info.dests || [])
+      .map((d) => {
+        // WHERE THIS LIMB ACTUALLY COMES OUT, in world tiles. `d.dest` is a real zone id — the rim
+        // tile the walker arrives on — so the road now has somewhere to be aimed. A dest whose
+        // zone is not loaded contributes no coordinates and its limb falls back to the legacy
+        // local frame, which is degraded rather than broken.
+        const z = getZone(d.dest);
+        return { key: d.key, name: d.sign || d.heading || d.key,
+          nodes: crossingChain(instanceId, d.key).length,
+          x: z?.grid_x ?? null, y: z?.grid_y ?? null };
+      })
+      .filter((d) => d.nodes > 0),
+  };
+}
+
+// ── THE TWO REAL TILES A ROAD RUNS BETWEEN ───────────────────────────────────
+// The whole point of anchoring: the crossing already knows both ends as ZONES, and both zones
+// already carry `grid_x`/`grid_y`, so the road can be laid in the same coordinates the flight sim
+// and a walker's own tile use. Nothing new is authored and nothing is stored — this is a lookup of
+// two rows that were always there.
+//
+// ⚠ RETURNS NULL RATHER THAN A GUESS. A missing coordinate on either end means the legacy local
+// frame, which still drives correctly; a fabricated one would put the road somewhere real and
+// wrong, and every downstream consumer would believe it.
+function anchorFor(instanceId, destKey) {
+  const info = instanceId ? crossingInfo(instanceId) : null;
+  if (!info) return null;
+  const from = getZone(info.originZone);
+  const to = getZone((info.dests || []).find((d) => d.key === destKey)?.dest);
+  if (from?.grid_x == null || to?.grid_x == null) return null;
+  return { x0: from.grid_x, y0: from.grid_y, x1: to.grid_x, y1: to.grid_y };
+}
+
 // City → corridor. Called when the rig drives off the rim into a live crossing.
 export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain, dest, trunk = 1 }) {
   rig.leg = 'corridor';
   rig.instanceId = instanceId; rig.destKey = destKey; rig.voidKey = voidKey;
   rig.window = window; rig.chain = chain; rig.dest = dest; rig.trunk = Math.max(1, trunk | 0);
-  rig.route = corridorFor(voidKey, destKey, window, chain.length, rig.trunk);
-  rig.s = 0; rig.t = 0; rig.node = 0;
+  rig.route = corridorFor(voidKey, destKey, window, chain.length, rig.trunk, crossingPlan(instanceId),
+    anchorFor(instanceId, destKey));
+  rig.s = 0; rig.t = 0; rig.node = 0; rig.sMax = 0;
   const start = corridorPos(rig.route, 0, 0);
   rig.x = start.x; rig.y = start.y; rig.heading = start.heading;
   rig.speed = Math.min(rig.speed, 25);   // you don't leave the world at cruise
@@ -156,11 +221,12 @@ export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain,
 // standing in a room BOTH chains contain, so there is nothing to move you to.
 export function switchLimb(rig, { destKey, chain, dest }) {
   rig.destKey = destKey; rig.chain = chain; rig.dest = dest;
-  rig.route = corridorFor(rig.voidKey, destKey, rig.window, chain.length, rig.trunk);
+  rig.route = corridorFor(rig.voidKey, destKey, rig.window, chain.length, rig.trunk, crossingPlan(rig.instanceId),
+    anchorFor(rig.instanceId, destKey));
   rig.s = Math.min(rig.s, rig.route.L);
   const p = corridorPos(rig.route, rig.s, rig.t);
   rig.x = p.x; rig.y = p.y;
-  rig.node = Math.max(0, Math.min(chain.length - 1, Math.floor(rig.s / TILES_PER_ROOM)));
+  rig.node = nodeAt(rig.route, rig.s, chain.length);
   return rig;
 }
 // Is the fork still ahead of us? The last trunk room IS the junction, so the answer is "you have
@@ -283,15 +349,34 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   // client says where it is; the server decides how far that is. `d.s` is accepted only as a
   // fallback when the position is unusable (a bog).
   //
-  // However far it claims, it cannot have gone further than flat-out for the elapsed time. And it
-  // is monotonic — phase 1 has no reverse, so a decreasing odometer is either a bug or an attempt
-  // to re-drive a stretch of road that has already been paid for.
-  const ceiling = rig.s + topTilesPerSec() * (dtMs / 1000);
+  // However far it claims, it cannot have moved further than flat-out for the elapsed time.
+  //
+  // ⚠ THE ENVELOPE IS SYMMETRIC NOW, AND THE ODOMETER IS NO LONGER MONOTONIC. It used to be
+  // floored at its own previous value on the reasoning that "phase 1 has no reverse, so a
+  // decreasing odometer is either a bug or an attempt to re-drive road already paid for". Both
+  // halves of that stopped being true: phase 2 shipped a reverse gear, and nothing is paid per
+  // tile — a delivery pays a flat `job.pay` on arrival, so re-driving a stretch buys nothing.
+  //
+  // What the floor actually did was make the truck the only thing out here that could not turn
+  // round. A walker in the same crossing has always been able to: trunk rooms carry a `north` exit
+  // back the way they came, and the move gate seals only the FORWARD one, and only while an enemy
+  // is standing in the room. So the same waste had two rules depending on whether you were on your
+  // feet or in a cab, and the cab's was the strange one.
+  //
+  // The anti-cheat job survives intact, because it was never the direction that mattered — it was
+  // the RATE. Clamping |Δs| against wall-clock says exactly what the old ceiling said ("you cannot
+  // have covered more ground than flat-out in this interval") and says it about both directions.
+  const room = topTilesPerSec() * (dtMs / 1000);
   const claimed = hit ? hit.s : (Number.isFinite(d.s) ? d.s : rig.s);
-  rig.s = Math.max(rig.s, Math.min(claimed, ceiling, rig.route.L));
+  rig.s = Math.max(0, Math.min(rig.route.L,
+    Math.max(rig.s - room, Math.min(claimed, rig.s + room))));
+  // THE HIGH-WATER MARK. Not the odometer — that can now go down — but the furthest out this rig
+  // has ever been on this road. It is what arms the near-end exit (see the ⚠ in index.js), and it
+  // deliberately never decreases: coming back to the gate is the whole thing it exists to detect.
+  rig.sMax = Math.max(rig.sMax || 0, rig.s);
   // Lateral is derived too, and merely bounded — nothing economic depends on it.
   if (hit) rig.t = Math.max(-rig.route.R, Math.min(rig.route.R, hit.t));
-  const node = Math.max(0, Math.min(rig.chain.length - 1, Math.floor(rig.s / TILES_PER_ROOM)));
+  const node = nodeAt(rig.route, rig.s, rig.chain.length);
   return { moved: node !== rig.node, node, bogged, city: false };
 }
 
@@ -321,6 +406,36 @@ export function announceBreak(player, rig) {
 export function markWreck(rig, player) {
   if (!rig?.route) return null;
   return addWreck(rig.route, { s: rig.s, what: `A dead ${rig.type?.name || 'truck'}`, who: player?.handle || null });
+}
+
+// ── Reading a sign ───────────────────────────────────────────────────────────
+// THE BOARD HAS TO REACH THE LOG, and that is a contract rather than a nicety. A sign painted on
+// the windscreen is a sign that does not exist for anybody on the bottom rung of the display ladder
+// (docs/systems-display-mode.md: if a system's record does not reach the log, that rung is not done
+// for it) — and out here the board is not decoration, it is the ONLY statement of how far anything
+// is. So passing one writes the same rows out as prose.
+//
+// Fired off the same reconcile the breakdowns are, not off a node crossing: a node is 90 tiles and
+// a sign is one, so hanging it off the crossing would announce a board a driver passed a minute ago
+// or one they have not reached. `signSeen` is a per-rig Set, which is RAM like everything else
+// about a drive — driving back past a board you already read does not read it out again, and a
+// relog puts you at a node boundary anyway.
+export function passSign(player, rig) {
+  if (!rig || rig.leg !== 'corridor' || !rig.route) return false;
+  const from = Number.isFinite(rig._signAt) ? rig._signAt : rig.s;
+  rig._signAt = rig.s;
+  const passed = signsBetween(rig.route, from, rig.s).filter((g) => !rig.signSeen?.has(g.s));
+  if (!passed.length) return false;
+  rig.signSeen = rig.signSeen || new Set();
+  for (const g of passed) {
+    rig.signSeen.add(g.s);
+    const rows = g.rows.map(r => `<b>${r.n}</b> <span class="text-dim">${r.m} miles, ${ARROW_WORDS[r.a] || 'straight on'}</span>`).join('\n  ');
+    sendToPlayer(player.id, {
+      type: 'emote',
+      message: '<span class="text-dim">A board goes by on the shoulder, green under the dust, still bolted to its legs:</span>\n  ' + rows,
+    });
+  }
+  return true;
 }
 
 // ── The CB ───────────────────────────────────────────────────────────────────
@@ -485,6 +600,12 @@ export function truckContactsNear(x, y, range = 26) {
       // fourth, optional channel that only the truck mesh reads.
       variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' : ''}`,
       x: rig.x, y: rig.y, hdg: rig.heading, ias: Math.round(rig.speed),
+      // WHAT THIS TRUCK'S LAMPS ARE DOING, so the rig behind sees the brake lights come on and the
+      // rig ahead is a pair of headlights rather than a dark shape. Straight off the telemetry
+      // packet (cmdTruckSync) — no query, no column, and the one field carries both.
+      // ⚠ `?? true` on the headlights, not `|| false`: a rig whose driver is on an older client has
+      // never sent the slot, and the behaviour that shipped is lamps ON.
+      heads: rig.headlights ?? true, braking: !!rig.braking,
       alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
       bank: 0, pitch: 0, vs: 0, hullPct: 100,
       reg: rig.type?.name || 'truck',
@@ -632,6 +753,16 @@ export function cabContext(rig, extra = {}) {
     // last one because the whole point of the handle is that the running total is honest while it
     // is still running — a driver watching the credits climb must be stopped by the pump clicking
     // off, not by a refusal after the fact. (The verb re-checks all three: a button is a hint.)
+    // WHAT TIME IT IS OUT THERE. The cab renders through the flight sim's own canopy, which has
+    // always drawn a time-of-day sky, a moon and weather — and this context never sent it any of
+    // the three, so `hour` fell through to the client's `?? 12` default and every haul in the game
+    // was run at high noon under a clear sky. One call to the same `skyState` the cockpit uses, so
+    // a driver and a pilot in the air above them can never disagree about the time or the weather.
+    // The spatial weather FIELD is deliberately left off: the cab doesn't wire it, and putting a
+    // payload on the wire that nothing reads is how a push gets expensive for nothing.
+    // Flat rather than nested, because `ctx.hour` / `ctx.weather` are the names the cab has read
+    // since it was built — it was waiting for these the whole time.
+    ...(() => { const s = skyState(); return { hour: s.hour, weather: s.weather, moon: s.moon, wind: s.wind }; })(),
     pump: pumpAt(rig) ? { full: FUEL_FULL, credits: getLivePlayer(rig.playerId)?.credits || 0 } : null,
     ...extra,
   };

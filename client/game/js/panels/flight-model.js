@@ -276,6 +276,31 @@ export const TYPES = {
   // `heli: true` dispatches stepHeli. A ground type shares only the knobs that mean the same
   // thing on a road (engineLag, rollFric, dragP, brake) and adds its own.
   //
+  // ── ⚠ …AND THEN TWICE THE CEILING, A THIRD LESS PULL (2026-08-18) ──────────
+  // The ask after the one below: double the top end and make it take a long time to get there — a
+  // rig that winds up slowly and then holds a real road speed, which is what a heavy truck does.
+  // Five knobs move together and the couplings are the whole of it:
+  //
+  //   topSpeed × 2      the ceiling
+  //   thrustMax × 0.6   the pull. With twice the speed to reach on 60% of the authority, the climb
+  //                     to cruise is roughly four times as long.
+  //   rollFric × 0.6    ⚠ NOT OPTIONAL. The verge invariant is `thrustMax × drive > rollFric × drag`
+  //                     — cut the thrust and leave the resistance and a truck cannot leave tarmac.
+  //                     Regress catches it by name; it caught this.
+  //   dragP  re-solved  terminal velocity is what actually limits these (the clamp is a backstop),
+  //                     so drag is solved to put terminal exactly AT the new ceiling. The last few
+  //                     mph then take forever, which is the feel that was asked for.
+  //   gears ÷ 2         redline in a gear is `tileMph / ratio`, so the ladder has to come down or
+  //                     top gear's band sits under the new ceiling and the truck over-revs instead
+  //                     of reaching it. engBrake × 2 holds engine braking still (it is the one term
+  //                     that multiplies the ratio rather than dividing by it).
+  //
+  // ⚠ AND THE DIAL IS NOW INFLATED RELATIVE TO THE WORLD. `tileMph` did not move, so the needle
+  // reads twice what it did for the same ground covered — which means every hardcoded mph in a test
+  // or a rule means half what it used to. RECKLESS_MPH doubled with it; the gearbox cases had their
+  // speeds doubled; and a bay crawl is a SECOND-gear job now, because the ladder came down and
+  // third is 16–26mph, exactly as it would be in a vehicle that tops at a hundred.
+  //
   // ── ⚠ HALF PACE, SAME DIAL, SAME GEARBOX (2026-08-18) ──────────────────────
   // The uniform rescale documented below (×k on the speeds INCLUDING tileMph) deliberately leaves
   // tiles-per-second alone: it moves the number under the needle and nothing else. The complaint
@@ -353,8 +378,8 @@ export const TYPES = {
   hauler: {
     name: 'Ostrek Courier', ground: true, tier: 1,
     mass: 2.4,
-    thrustMax: 7.7,       // mph/s of acceleration authority at full throttle — light and willing
-    topSpeed: 52,         // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
+    thrustMax: 4.62,      // mph/s of acceleration authority at full throttle — light and willing
+    topSpeed: 104,        // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
     tileMph: 112,          // road speed (mph) that covers one corridor tile per second — see above
     // TILES between axles. Drives the bicycle model's yaw: bigger = lazier turn-in.
     // ⚠ HALVED (with `trailerLen`/`hitchOffset`, across the whole fleet) because the first cut was
@@ -366,8 +391,8 @@ export const TYPES = {
     // same angle, it just gets there twice as fast) and doubles the yaw rate everywhere.
     wheelbase: 0.24,
     engineLag: 1.4,       // throttle→rpm time constant (s)
-    rollFric: 1.19,       // rolling resistance (mph/s) at idle
-    dragP: 0.0020,        // aero drag (∝ speed²)
+    rollFric: 0.714,      // rolling resistance (mph/s) at idle
+    dragP: 0.000361,      // aero drag (∝ speed²)
     brake: 5.75,          // service-brake deceleration (mph/s) at full pedal. Phase 2 gives these
                           // a TEMPERATURE, which is what makes holding a gear down a grade matter.
     kg: 1800, tank: 1100, price: 4200,
@@ -379,19 +404,19 @@ export const TYPES = {
     // down to 2nd is not a flaw in the ladder, it is what a deep low gear FEELS like, and it
     // is why a driver skips it once rolling. Reverse borrows this ratio (× REVERSE_RATIO), so
     // it gets slower and stronger in the same edit, which is the right direction for both.
-    gears: [0, 9.7, 5.92, 4.52, 3.46, 2.66, 2.04, 1.56, 1.18], band: [0.42, 0.68],
-    engBrake: 0.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 4.85, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
+    engBrake: 1, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.17, hitchOffset: 0.055, trailerKg: 1400,   // kingpin geometry, and the empty box itself
     blurb: 'A stubby rigid box on a short wheelbase. Turns in like something half its age and carries about as much.',
   },
   drayman: {
     name: 'Vachon Drayman', ground: true, tier: 2,
-    mass: 3.2, thrustMax: 6.3, topSpeed: 48, tileMph: 112, wheelbase: 0.31,
-    engineLag: 1.9, rollFric: 1.47, dragP: 0.0023, brake: 5.25,
+    mass: 3.2, thrustMax: 3.78, topSpeed: 96, tileMph: 112, wheelbase: 0.31,
+    engineLag: 1.9, rollFric: 0.882, dragP: 0.000314, brake: 5.25,
     kg: 3500, tank: 1400, price: 11500,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 10.6, 6.44, 4.92, 3.78, 2.88, 2.2, 1.7, 1.3], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
-    engBrake: 0.625, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
     blurb: 'The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.',
   },
@@ -402,12 +427,12 @@ export const TYPES = {
   // a rolling resistance of 2.6 and the regress invariant caught it as un-drivable on the verge.
   continental: {
     name: 'Orlov Continental', ground: true, tier: 3,
-    mass: 4.6, thrustMax: 6.44, topSpeed: 44, tileMph: 112, wheelbase: 0.41,
-    engineLag: 2.6, rollFric: 1.61, dragP: 0.0023, brake: 4.5,
+    mass: 4.6, thrustMax: 3.864, topSpeed: 88, tileMph: 112, wheelbase: 0.41,
+    engineLag: 2.6, rollFric: 0.966, dragP: 0.000374, brake: 4.5,
     kg: 6200, tank: 2100, price: 31000,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 11.4, 6.94, 5.32, 4.08, 3.12, 2.38, 1.82, 1.4], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
-    engBrake: 0.75, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 5.7, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.7], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.37, hitchOffset: 0.10, trailerKg: 5200,   // kingpin geometry, and the empty box itself
     blurb: 'A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it will take a whole market with it.',
   },
@@ -415,12 +440,12 @@ export const TYPES = {
   // actually reach, rather than a wall between them and the entire system.
   scrapper: {
     name: 'Krell Barrow', ground: true, tier: 0,
-    mass: 2.8, thrustMax: 5.88, topSpeed: 41, tileMph: 112, wheelbase: 0.28,
-    engineLag: 2.4, rollFric: 1.54, dragP: 0.0027, brake: 4.2,
+    mass: 2.8, thrustMax: 3.528, topSpeed: 82, tileMph: 112, wheelbase: 0.28,
+    engineLag: 2.4, rollFric: 0.924, dragP: 0.000387, brake: 4.2,
     kg: 1200, tank: 850, price: 1300,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 12.4, 7.54, 5.78, 4.42, 3.38, 2.6, 1.98, 1.52], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
-    engBrake: 0.525, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 6.2, 3.77, 2.89, 2.21, 1.69, 1.3, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    engBrake: 1.05, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.15, hitchOffset: 0.05, trailerKg: 900,   // kingpin geometry, and the empty box itself
     blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
   },
@@ -787,6 +812,26 @@ const CRAWL_MPH  = 2.8;          // below this the clutch is always in — parki
 const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, strongest gear there is
 const REVERSE_CAP = 0.18;        // reverse is geared low and you cannot see: a fraction of top speed
 export const FADE_AT = 0.62;            // brake temperature at which the pedal starts lying to you
+// ── LONGITUDINAL INERTIA, AND WHY IT IS NOT `thrustMax` ──────────────────────
+// How long the truck takes to work through the box is a separate question from how much engine it
+// has, and reaching for `thrustMax` to answer it breaks two things at once. The verge invariant
+// (`thrustMax × drive > rollFric × drag`) is the first: halve the engine and the offroad surface
+// stops being slow and becomes a wall, which is the one thing the SURFACES note says it must never
+// be. Top speed is the second, and it is the worse one — every truck in the fleet is tuned to sit
+// EXACTLY at its authored figure (a Drayman's terminal speed off rollFric and dragP works out at
+// 96.1 against an authored 96), so there is no headroom to spend and any cut off the engine lands
+// straight on the number on the spec sheet.
+//
+// So the engine keeps every newton it had and the RIG gets heavier to shift. The drive and the
+// PASSIVE resistances scale together, which leaves the speed where they cancel — top speed —
+// untouched to the decimal while halving the rate at which the truck arrives there. Time in every
+// gear is multiplied by this exactly, because the whole accelerating equation is scaled in time.
+//
+// ⚠ THE BRAKES, THE JAKE AND THE SETTLED SHROUDS SIT OUTSIDE IT, deliberately. This is a change to
+// how long the gearbox takes to work through, not to how long the truck takes to stop — folding
+// the pedal into the same divisor would double every stopping distance in the game and silently
+// re-tune brake fade, the engine brake, and the whole descent the box exists for.
+const INERTIA = 2;
 const JACKKNIFE_DEG = 55;        // where the restoring term gives up and the trailer drives the fold
 const PHI_MAX = 88;              // trailer against the cab; there is no forward through this
 
@@ -1092,10 +1137,20 @@ function stepTruck(state, input, p, dt) {
   // pushed — you simply cannot point it any more, which is the honest consequence of switching off
   // the things that were pointing it.
   const SETTLED_DRAG = 5.5;
-  const roll = p.rollFric * surf.drag * (s.stalled ? SETTLED_DRAG : 1);
-  const forces = p.dragP * s.speed * s.speed + brake * p.brake * fade + engBrake;
+  // Split along the line `INERTIA` draws (see its note): rolling and aero are what the engine is
+  // working against on the way up to speed, so they ride the divisor with it. The pedal, the Jake
+  // and a set of shrouds dragging on tarmac are RETARDING forces that answer to nobody's gearing,
+  // so they keep their full authority — which is why the settled term is now the EXTRA over
+  // ordinary rolling rather than the multiplier it used to be. A multiplier would have smuggled the
+  // bite of a dead set of lifters inside the divisor and handed back half the coast it exists to
+  // stop. (It is multiplied by `mass` on the way out because it is divided by it on the way in, and
+  // a shroud dragging on tarmac is rolling resistance: it grows with the weight sitting on it.)
+  const roll = p.rollFric * surf.drag;
+  const aero = p.dragP * s.speed * s.speed;
+  const retard = brake * p.brake * fade + engBrake + (s.stalled ? roll * (SETTLED_DRAG - 1) * mass : 0);
   const before = s.speed;
-  s.speed += (power * dir / mass - (roll + forces / mass) * moving) * dt;
+  s.speed += ((power * dir / mass - (roll + aero / mass) * moving) / INERTIA
+              - (retard / mass) * moving) * dt;
   // Resistance stops you; it never drags you backwards through zero. (Without this a stationary
   // truck with the brake on oscillates about zero and the roll noise chatters.)
   if (before !== 0 && Math.sign(s.speed) !== Math.sign(before) && power === 0) s.speed = 0;

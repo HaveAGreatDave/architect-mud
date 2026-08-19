@@ -181,29 +181,85 @@ own and every massif gets a second outline drawn one tile inside the first.
   sides it continues on, exactly as `rd` is for road and `cur` for the Curtain. `drawCliffMass`
   ([windshield.js](../client/game/js/panels/windshield.js)) caps every `hi` tile and walls only the
   sides missing from `cf`, so a painted blob raises **one merged massif**: the only vertical surfaces
-  are on its outline. Three things make it read as terrain rather than as crates — **full tile width**
-  (`draw3DBoxAt`'s ±0.44 setback is right for buildings and wrong for ground: at ±0.44 adjacent tiles
-  show a lit seam between them), **strata at fixed height fractions** so beds line up across tiles, and
-  **the top always capped** including on interior tiles, or the plateau is hollow from above.
+  are on its outline. Five things make it read as terrain rather than as crates — see below.
   Rendering only: **CFIT reads building mass, not terrain**, so a pilot may still fly through a mesa.
 
-### The top is not a constant
+### The corner lattice, and why a massif stopped looking extruded
 
-`CLIFF_H` alone gave every tableland in the world the same height and every rim a dead-level top
-running to the draw distance — an extruded stamp, not country. `cliffHeightAt(wx, wy)` varies it
-smoothly with **world position and nothing else** (0.39–0.65 world-z, period ~13 tiles), so massifs
-differ from each other and a long escarpment rises and falls along its length.
+The first massif was an extruded stamp: **one height per tile, a flat quad cap, four axis-aligned
+walls dropped straight to the ground**. From the air that is a stack of crates. The top is a
+dead-level plane cut into visible squares by the per-tile tone jitter, the outline is the tile grid
+with 90° corners nothing in geology makes, and every face is one unbroken plane from rim to floor.
 
-It has to be a function of position rather than of the tile or a seed, because **two adjacent tiles
-must agree about the height of the edge they share without either being told about the other**. The
-neighbour step that leaves is at worst 4.4% of a full cliff.
+Everything about the shape now comes from **three functions of a world coordinate**, and that choice
+is load-bearing rather than stylistic: two tiles have to agree about the edge they share without
+either being told the other exists, and a shared corner is one call with one answer, so the mesh is
+watertight for free. Anything derived from the *tile* instead — a seed, an index — puts the grid
+back the instant it reaches a colour or a position, which is exactly what the old tone jitter did.
 
-That undulation costs one thing, and it is paid: where high ground continues but this tile is the
-taller of the two, the difference is an open sliver you would **see straight through into the inside
-of the massif**. So a short step face is drawn from the neighbour's height up to ours, and only in
-that direction — the lower tile draws nothing, so each step is drawn exactly once by whichever side
-owns it. A step takes the plain fill and the bright rim line but no strata: three beds on a sliver a
-few percent of a tile tall is noise.
+- **`cliffHeightAt(wx, wy)`** — four octaves (0.36–0.70 world-z). The low pair make one tableland
+  differ from the next and give a long escarpment a rise and fall along its length; the high pair are
+  the local roughness that stops a rim running flat to the horizon. Worst neighbour step is ~7% of a
+  full cliff, so the top undulates instead of jittering into a staircase.
+- **`cliffCorner(cx, cy)`** — the same lattice corner, **displaced up to a quarter-tile in x and y**.
+  This is what takes the right angles out of the plan view. Kept under half a tile deliberately: a
+  larger warp can march one corner past another and fold the tile's cap into a bow-tie.
+- **the mottle** — tone, flare depth and gully placement are all sampled from world position at a
+  frequency *finer than a tile*, so variation reads as rock instead of as tile-sized patches.
+
+On top of that lattice:
+
+1. **Full tile width, no setback.** `draw3DBoxAt`'s ±0.44 clamp is right for buildings and wrong for
+   ground: at ±0.44 adjacent tiles show a lit seam between them and the massif reads as crates.
+2. **A wall only where the high ground stops** — the complement of `cf`. A continuing side now needs
+   no *step* face either (see below).
+3. **The top is a fan, not a quad.** The cap is triangulated from the tile centre out to a ring of
+   corner and edge-midpoint samples, each at its own height, each shaded off **its own normal**
+   against the sun key the Mode-7 floor hillshades with. A flat quad at one height has exactly one
+   tone, and forty of those side by side is a painted plane.
+4. **A face has a foot.** The wall is two bands: a near-vertical caprock face down to a bench at 0.42
+   of the height, then a **talus apron battered outward** to the plain in a lighter, greyer,
+   broken-rock tone. A single vertical plane from rim to ground is the loudest single tell of an
+   extrusion, and the apron is also what puts an uneven silhouette where the massif meets the floor
+   instead of a ruled line. Corner points flare along the **diagonal** where two open sides meet, so
+   a convex corner closes instead of opening a wedge.
+5. **Strata at constant world z**, not at a fraction of this tile's height — with an undulating rim,
+   fractions make the beds step at every tile boundary instead of running through the massif as one
+   cut. A bed above the local rim clamps to it, which is what a truncated bed looks like anyway.
+
+6. **⚠ The shell is never backface-culled, and terrain is the only mass in the file that isn't.**
+   A cull is free and correct for a box you can only ever stand outside of. **Nothing collides with
+   terrain** — a truck drives into a mesa, an aircraft flies through one — and from in there the
+   *whole* outline faces away, near rim as much as far, so the cull removed every wall at once. The
+   massif became a slab hanging in the air over open desert, open to the horizon on all four sides,
+   with one stray panel surviving where a notch happened to point back at the camera. So the outline
+   is drawn whole and the facing test only picks the **shading**: outside is lit rock, inside is
+   unlit rock, and strata, gullies and the rim line — all statements about a face seen from outside
+   — are skipped on the inside. Painter order needs nothing new, because a far wall genuinely is
+   farther (the talus flare pushes its foot farther still) and sorts behind what covers it.
+   Correspondingly, **a cap above the eye is a ceiling, not a top** (`cam.EH` is the eye's world-z,
+   the same unit as the cap's): sunlit caprock painted at you from its own underside is the one
+   lighting a solid rock ceiling cannot have.
+
+Two consequences worth knowing before touching any of it:
+
+- **The step face is gone, and its absence is the proof the lattice works.** The old per-tile height
+  left an open sliver wherever high ground continued but this tile was the taller of the two, and a
+  short step face was drawn to close it. Corner heights are shared, so there is nothing to close.
+- **`drawCliffMass` depth-sorts its own faces** rather than leaning on `emitFace`. `flushFaces` nulls
+  `FACE_SINK` before running a queued closure, so every `emitFace` made from inside a mass draw
+  paints immediately, in call order — a massif is the first mass in the file with enough internal
+  faces for that order to matter. Faces also **fog** now, so a distant mesa hazes into the plain
+  instead of staying saturated in front of it, and a **distance LOD past 22 tiles** drops the ring
+  midpoints and the strata/gully detail (halving the face count) where they are sub-pixel anyway.
+- **`cliffLatticeSmoke()` is the gate on all of this** (`shapes:smoke`). It asserts the two things
+  that never fail loudly — a shared corner is one point at one height, and a lone stack keeps all
+  sixteen of its wall bands from outside and does not vanish from a camera inside its own footprint.
+  Both produce a picture; just the wrong one.
+- **cliff and plateau are one landform lit two ways, and the SURFACE picks the tone, not the tile.**
+  Every top takes the caprock colour and every face the rim colour, with the tile's own biome mixed a
+  third of the way in. Before this a mesa made of `cliff` tiles had a top as dark as its own shadowed
+  north face.
 
 **Nothing generates cliffs beyond the map rim.** `fillOffMap` only ever emits `scrub`/`redrock` into
 the wildlands fill, and `drawCliffMass` is driven by `hi`, which exists only on real map cells — so a

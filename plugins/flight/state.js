@@ -945,9 +945,15 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // than by a building archetype (an archetype is a closed box, and a closed box is exactly what
   // this must not be), and `groundObstructionAt` opens a hole at its door. Everything else about
   // the tile is unchanged: it still carries its name, its lights and its zone.
+  // A HIGHWAY SIGN is a mark and deliberately not a `building_type`. It is a panel on two legs —
+  // no mass worth extruding, nothing to occlude behind, nothing a shape capture would learn from —
+  // and making it a building would put it into the collision sweep, where a board on the verge
+  // would become a thing that stops a truck. Only the void corridor authors it
+  // (plugins/trucking/corridor.js); every baked world tile leaves `road_sign` undefined.
   const mark = cell.flags?.vehicle_bay ? 'bay'
     : cell.flags?.yacht ? 'yacht'
     : cell.flags?.perimeter_gate ? 'gate'
+    : cell.flags?.road_sign ? 'sign'
     : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.
   let wake, sub, heading;
@@ -1073,7 +1079,11 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
       .map(r => ({ g: String(r.grade).toUpperCase().slice(0, 8), p: r.each ?? r.price, u: r.unit }))
     : undefined;
   const pw = getZonePowerStatus(cell.id) === 'powered' ? 1 : 0;
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, brd: brd && brd.length ? brd : undefined };
+  // `sgn` carries the board's ROWS and its facing, the same way `brd` carries a forecourt's prices:
+  // the words are worked out where the road is (which limb, how far, which way the arrow points)
+  // and the renderer only paints them. Nothing in the client computes a distance.
+  const sgn = cell.flags?.road_sign || undefined;
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -1277,7 +1287,13 @@ export function skyState() {
   try {
     const env = getEnvironmentState();
     return {
-      hour: env.hour, weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0,
+      // Fractional, not the floored hour: the sky palette blends between keyframes, so an integer
+      // made sunset arrive in 24 steps a day. Same field, same range, smoother dusk.
+      hour: env.minutes != null ? env.minutes / 60 : env.hour,
+      weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0,
+      // Tonight's moon (0 new … 0.5 full), derived from the world calendar. The canopy draws the
+      // phase; nobody stores it.
+      moon: env.moonPhase,
       // The live hero event, so the canopy can render an ion storm or an acid
       // downpour as itself rather than as whatever ordinary weather is underneath
       // it. Sent as { type, phase } — the client scales its effect by phase.

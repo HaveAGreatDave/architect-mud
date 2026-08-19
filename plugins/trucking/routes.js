@@ -23,7 +23,7 @@
 // pass them from the same single implementations, so nothing is duplicated by doing it this way.
 import { getZone } from '../../server/engine/world.js';
 import { crossingInfo, VOIDS } from '../voidwalking/index.js';
-import { TILES_PER_ROOM } from './corridor.js';
+import { TILES_PER_ROOM, milesOf } from './corridor.js';
 
 // Which destination a rig is CURRENTLY pointed at. A contracted load outranks the aim, because a
 // run knows where it is going and asking twice would be ceremony.
@@ -84,6 +84,10 @@ export function routeOptions(rig, { zoneId = null, forkAhead = true } = {}) {
         key: d.key,
         heading: d.heading,
         tiles,
+        // MILES, because that is the unit the road itself now speaks in. `tiles` stays because the
+        // reach bands below are computed against a tank measured in them; nothing player-facing
+        // should print it. See the conversion note in corridor.js for why there is exactly one.
+        miles: milesOf(tiles),
         reach: !tank ? 'ok' : tiles <= tank ? 'ok' : tiles <= tank * 2 ? 'thin' : 'far',
         current: d.key === current?.key,
       };

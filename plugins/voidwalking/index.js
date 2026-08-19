@@ -61,6 +61,13 @@ const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterat
 // carries the fork-exit `dir` (n/s/e/w) that leads to its limb, and an optional
 // `length` override (else the total gate→dest length is distance-derived).
 //
+// A dest may also carry `sign` — WHAT A ROAD SIGN CALLS THE PLACE, which is a different question
+// from what the fork is called and only looks like the same one. `heading` is the choice you make
+// at the junction ("Exodus" is a direction people went, and the codex is explicit that they would
+// not name a town); a board bolted to a post on the verge is naming somewhere you can drive to, so
+// it says TERMINUS. Absent, the board falls back to `heading`, which is right for every dest whose
+// heading is already a place. THE LONG HAUL reads this; nothing else does.
+//
 // A dest also NAMES the region it lands in (`region`), rather than that being read off the
 // destination zone at runtime. It is the same fact either way in play, but this table is a graph
 // and a graph edge should know its own endpoint: the return-leg check ("is anything reachable also
@@ -69,6 +76,7 @@ const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterat
 export const VOIDS = {
   region_coldwater: {
     origin: 'Coldwater',
+    sign: 'Coldwater Basin',
     trunk: 4,
     dests: [
       // `length` overrides the distance derivation, and the Reach NEEDS it. The rim and Buzzard
@@ -91,7 +99,7 @@ export const VOIDS = {
       // of the two cheapest trucks and beyond ANY truck's round trip, so the fleet ladder doubles
       // as a map gate and the far yard's fuel pump is the only way home. See
       // docs/proposals/terminus.md.
-      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Exodus', dir: 'east', length: 12 },
+      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Exodus', sign: 'Terminus', dir: 'east', length: 12 },
       // DEADWATER, southwest, landing at the Roadhead six tiles in off its east rim.
       //
       // `dir: 'west'` is not a preference, it is the last cardinal left: `reach` holds south and
@@ -132,7 +140,7 @@ export const VOIDS = {
     dests: [
       // North out of the Reach, back onto the dirt road at the foot of the Coldwater map — the one
       // tile on that whole rim that is `dirt_road` rather than redrock, because it is the road.
-      { key: 'coldwater', dest: 'zone_district_918_947', region: 'region_coldwater', heading: 'Coldwater', dir: 'north', length: 8 },
+      { key: 'coldwater', dest: 'zone_district_918_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north', length: 8 },
       // West across the flats to Deadwater's Eastern Ruts. `west` is both true and free (north is
       // Coldwater's), so the Reach is the one region whose two crossings do not compete.
       { key: 'deadwater', dest: 'zone_dw_818_988', region: 'region_deadwater', heading: 'Deadwater', dir: 'west', length: 8 },
@@ -147,7 +155,7 @@ export const VOIDS = {
       // lies entirely north of Deadwater AND entirely east of it, so both readings are true, and
       // `east` is already spoken for by the Reach below. Landing on Coldwater's south rim at x870
       // keeps it clear of the Reach's own arrival at x918 on the same row.
-      { key: 'coldwater', dest: 'zone_district_870_947', region: 'region_coldwater', heading: 'Coldwater', dir: 'north', length: 8 },
+      { key: 'coldwater', dest: 'zone_district_870_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north', length: 8 },
       // East to the Reach's west rim, level with the middle of its original block.
       { key: 'reach', dest: 'zone_the_reach_863_1956', region: 'region_the_reach', heading: 'The Reach', dir: 'east', length: 8 },
     ],
@@ -158,7 +166,7 @@ export const VOIDS = {
     // West out of Terminus, onto Coldwater's east rim at the same latitude as the Roadhead — you
     // come back in level with where you left.
     dests: [
-      { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', dir: 'west', length: 12 },
+      { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'west', length: 12 },
     ],
   },
 };
@@ -1055,7 +1063,16 @@ export function crossingInfo(instanceId) {
   // `trunk` is the number of SHARED rooms before the fork. A walker never needed it — they take
   // an exit and the world decides — but anything laying its own geometry over the crossing does:
   // it is the boundary between the road everybody drives and the limb you chose. (THE LONG HAUL.)
-  return { voidKey: c.voidKey, window: c.window, origin: c.origin, entry: c.entry, dests: c.dests,
+  // ⚠ `origin` IS THE PLACE'S NAME, NOT THE ROOM IT HANGS OFF. `c.origin` is a zone ID (the trunk's
+  // first room exits north into it), and this handed that id out under a name every consumer was
+  // reading as prose — the `route` verb printed "Out of zone_district_918_947" for anyone already
+  // on the road, and printed the real name in a yard, because the yard branch fell through to
+  // VOIDS. The id is still available as `originZone` for anything that genuinely wants the room.
+  const vdef = VOIDS[c.voidKey];
+  return { voidKey: c.voidKey, window: c.window, origin: vdef?.origin || c.origin, originZone: c.origin,
+    // What a ROAD SIGN calls the place you came from — see the `sign` note on VOIDS.
+    originSign: vdef?.sign || vdef?.origin || null,
+    entry: c.entry, dests: c.dests,
     trunk: Math.max(1, VOIDS[c.voidKey]?.trunk || 1) };
 }
 

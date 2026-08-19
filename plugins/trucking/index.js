@@ -57,8 +57,8 @@ import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
-  announceBreak, switchLimb, atOrBeforeFork, cbLine, markWreck, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
-import { corridorPos, corridorAt, TILES_PER_ROOM, wreckNear } from './corridor.js';
+  announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, markWreck, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
+import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear } from './corridor.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
 import { tickHijackers, playerHijack } from './hijack.js';
 import { collideTrucks, narrateCollision } from './collide.js';
@@ -78,7 +78,11 @@ const say = (msg) => ({ type: 'emote', message: msg });
 
 // Below this, a contact is a scrape and nobody calls anybody. Above it, you have demolished part of
 // a street at the wheel of several tonnes, and in a city that is witnessed.
-const RECKLESS_MPH = 22;
+//
+// ⚠ IT IS A FRACTION OF THE SPEED RANGE, NOT A NUMBER, so it moves when the range does. 22 was
+// about 42% of a Courier's top end; after the ceiling doubled it would have been 21%, which turns
+// 'you were going far too fast for a street' into 'you were moving'. Doubled with it.
+const RECKLESS_MPH = 44;
 
 // The derelict's cold start. Named because TWO rungs spend it now (the text rung as it pulls out,
 // the visual rung the first time the ignition comes back true through telemetry), and a line of
@@ -224,6 +228,26 @@ async function cmdDrive(args, raw, player) {
   rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
   rig.fuel = owned.fuel ?? 1;
   rig.travelled = 0;
+  // ── THE BOX IS STILL ON THE BACK ─────────────────────────────────────────────
+  // A hitched trailer has ALWAYS survived in the database — `park` never unhitches, so the row
+  // keeps `towed_by` pointing at this tractor and `parked_zone` NULL, and the partial unique index
+  // guarantees there is at most one. Nothing read it back. `mountRig` starts every rig bobtail
+  // (which is the right default for a truck somebody has just climbed into) and `drive` never asked
+  // the question, so a driver who parked loaded came back to a tractor with nothing behind it —
+  // while the trailer, correctly, still believed it was hitched and so appeared in no yard either.
+  // It was not lost, it was invisible: `trailerOnTruck` was even imported into this file already
+  // and had no callers.
+  //
+  // Restoring it here rather than in `mountRig` is deliberate: mounting is a pure, synchronous
+  // state constructor shared with the roadhead and the regress fakes, and this is a query. The
+  // hitch is what the database says it is, and it says it plainly.
+  // `|| null` because `shape()` returns undefined for no row, and `mountRig` declares this field
+  // null — a rig whose bobtail state is spelled two different ways is a rig two readers can
+  // disagree about.
+  rig.trailer = (await trailerOnTruck(owned.id)) || null;
+  // The load rides with the box, for the same reason: cargo lives on the TRAILER row (`cargo`), so
+  // a restored trailer that dropped its freight would be a quieter version of the same bug.
+  if (rig.trailer?.cargo) rig.cargo = rig.trailer.cargo;
   // UNLOCKED BY GETTING IN, because you have the key — a lock the owner has to spend a verb on is a
   // lock that is only ever an obstacle to the person it belongs to. `park` sets it again on the way
   // out, so the stored state is simply "is anybody in it".
@@ -499,7 +523,7 @@ function mountOnCrossing(player) {
   const at = chain.indexOf(player.current_zone);
   if (at > 0) {
     rig.node = at;
-    rig.s = at * TILES_PER_ROOM;
+    rig.s = sOfNode(rig.route, at);
     const p = corridorPos(rig.route, rig.s, 0);
     rig.x = p.x; rig.y = p.y; rig.heading = p.heading;
   }
@@ -1968,6 +1992,9 @@ async function pumpFuel(player, want, { typed }) {
 // What counts as stopped. Not zero: the client reports a float and a truck settling on its lifters
 // reports a whisper of it, so an exact test would refuse a rig that has visibly stopped moving.
 const PARK_STOPPED_MPH = 0.6;
+// How far out the rig must have been before the near end of the road becomes an exit. See the ⚠ on
+// the retreat test: a rig joins at s = 0, so without this the gate is a door you fall through.
+const RETREAT_ARM = 2;
 export async function forcedPark(player) { return parkRig(player, true); }
 async function cmdPark(args, raw, player) { return parkRig(player, false); }
 async function parkRig(player, forced) {
@@ -2074,7 +2101,20 @@ async function cmdTruckSync(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return { type: 'noop' };
   const n = args.map(Number);
-  if (n.length < 6 || n.some(Number.isNaN)) return { type: 'noop' };
+  if (n.length < 6 || n.slice(0, 6).some(Number.isNaN)) return { type: 'noop' };
+  // ── THE LAMPS ──────────────────────────────────────────────────────────────
+  // A seventh packed slot, and it is deliberately OPTIONAL: an older client sends six numbers and
+  // must keep working, so a missing slot means 'lamps as they have always been' rather than 'all
+  // lamps off'. Headlights default ON for exactly the reason the rocker does — that is the
+  // behaviour that shipped, and a client that cannot tell us is not a client driving dark.
+  //
+  // RAM ONLY. This is per-frame state about the outside of a truck; it is read by
+  // `truckContactsNear` on the same tick and by nothing else, ever. There is no column, no flag and
+  // no flush — the persistence tiers in docs/architecture.md are explicit that per-tick state does
+  // not go near the database, and a lamp is the purest example of one.
+  const lamps = Number.isFinite(n[6]) ? (n[6] | 0) : 1;
+  rig.headlights = !!(lamps & 1);
+  rig.braking = !!(lamps & 2);
 
   // ⚠ READ BEFORE THE RECONCILE, because the reconcile is what changes it. A truck now mounts COLD
   // (state.js), so the first time the ignition comes back true is the driver turning the key — and
@@ -2102,6 +2142,7 @@ async function cmdTruckSync(args, raw, player) {
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">A light comes on that you have been waiting for. Low fuel.</span>' });
   }
   announceBreak(player, rig);
+  passSign(player, rig);
 
   // ── TWO TRUCKS IN THE SAME PLACE ──────────────────────────────────────────
   // Detected HERE, on the frame that just moved the rig, and that placement is the whole of why it
@@ -2156,6 +2197,20 @@ async function cmdTruckSync(args, raw, player) {
   // the time you reach the end of it — hanging arrival off `moved` meant the haul completed and
   // then simply never ended, with the driver parked at the far edge of the world.
   if (rig.s >= rig.route.L - 1) { await arrive(player, rig); return { type: 'noop' }; }
+  // ── AND THE SAME TEST AT THE OTHER END ───────────────────────────────────────
+  // Backtracking means `s` can now be driven back down to zero, and zero is a real place: the rim
+  // tile you left. Without this the road simply stopped being road under you and the rig sat at
+  // the gate with nowhere to go — the far end had an exit and the near end had a wall, which is
+  // exactly the asymmetry the reverse work exists to remove. A walker has always been able to turn
+  // round and step back out of trunk room 0; this is the same door, wide enough for a truck.
+  //
+  // ⚠ IT HAS TO BE ARMED, AND FORGETTING THAT MADE THE ROAD UNUSABLE. A rig JOINS the corridor at
+  // s = 0 — that is what `joinCorridor` sets — so an unguarded test at the near end fired on the
+  // first telemetry frame of every haul and bounced the driver straight back off the road they had
+  // just pulled onto. Arriving somewhere is only meaningful if you left, so the exit does not
+  // exist until the rig has actually got out onto the road. Two tiles, the same threshold `park`
+  // uses to decide a rig has been abandoned out here rather than merely stopped at the gate.
+  if (rig.s <= 0.5 && (rig.sMax || 0) > RETREAT_ARM) { await retreat(player, rig); return { type: 'noop' }; }
 
   if (r.moved) {
     const zone = await crossToNode(player, rig, r.node);
@@ -2712,7 +2767,7 @@ async function cmdRoute(args, raw, player) {
       const reach = d.reach === 'ok' ? ''
         : d.reach === 'thin' ? ' <span class="text-amber">— further than your tank, one way</span>'
         : ' <span class="text-red">— well past your range</span>';
-      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key}) — ${d.tiles} tiles${reach}</span>`;
+      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key}) — ${d.miles} miles${reach}</span>`;
     });
     const how = onRoad
       ? (opts.forkAhead ? `<span class="text-dim">The fork is still ahead. <b>route &lt;name&gt;</b> to take the other one.</span>`
@@ -2745,6 +2800,46 @@ async function cmdRoute(args, raw, player) {
 // You do NOT dismount here. Coming off the highway puts you on the destination region's real
 // tiles, still driving — the last mile into a yard is part of the haul, and a delivery only counts
 // when the rig is standing in the depot that ordered it.
+// ── TURNING ROUND AND GOING HOME ─────────────────────────────────────────────
+// `arrive`'s mirror, and deliberately its near-twin rather than a shared helper with two modes:
+// the two differ in the zone they land on, the prose, and the fact that coming back is not a
+// delivery, and a single function taking a direction flag would be three `if`s wearing a hat.
+//
+// The origin is read from the crossing rather than remembered on the rig, because the crossing is
+// what actually knows — `originZone` is the tile the trunk's first room exits back into, which is
+// the same tile a walker reappears on. Landing anywhere else would mean a truck and a pedestrian
+// leaving the same waste by the same road and coming out in two different places.
+async function retreat(player, rig) {
+  const info = rig.instanceId ? crossingInfo(rig.instanceId) : null;
+  const home = info && getZone(info.originZone);
+  // No origin tile to land on is the one case that cannot be narrated, so it takes `park`'s own
+  // fail-safe: you end up out of the cab and on your feet rather than in a sim with no world.
+  if (!home || home.grid_x == null) { await forcedPark(player); return; }
+
+  removePlayerFromZone(player.id, player.current_zone);
+  addPlayerToZone(player.id, home.id);
+  player.current_zone = home.id;
+  // Outside the crossing's roomSet, so voidwalking tears the instance down on this event exactly
+  // as it does for an arrival — a run you abandoned is still a run that ended.
+  emit('zone.entered', { actor: player, zone: home.id });
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [home.id, player.id]).catch(() => {});
+
+  leaveCorridor(rig, home.grid_x, home.grid_y, rig.heading);
+  rig.zoneId = home.id; rig.zoneDirty = false;
+  pushCab(rig, { arrived: true });
+  // THE LOAD IS STILL ON THE DECK AND THE CONTRACT IS STILL LIVE. Coming back is not a failure
+  // state and must not be charged as one — you have burned the diesel and lost the time, which is
+  // punishment enough for changing your mind, and the run is still there to be driven again.
+  sendToPlayer(player.id, {
+    type: 'emote',
+    message: '<span class="text-amber">The waste lets go of you and the gate comes back up out of the haze, from the wrong side. You are where you started, with less fuel and a day you will not get back.</span>'
+      + (rig.cargo ? `\n<span class="text-dim">${rig.cargo.name} still on the deck, still bound for ${rig.cargo.toName}.</span>` : ''),
+  });
+  // A text run was aiming at somewhere on the far side; that target is meaningless now, and a rung
+  // that kept driving would simply turn straight round and set off again.
+  if (isTextDriving(player.id)) stopTextDrive(player.id);
+}
+
 async function arrive(player, rig) {
   const dest = rig.dest && getZone(rig.dest);
   if (!dest || dest.grid_x == null) { await forcedPark(player); return; }

@@ -244,6 +244,23 @@ function toDateString(value) {
   return String(value).slice(0, 10);
 }
 
+// ---------------------------------------------------------------------------
+// The moon
+// ---------------------------------------------------------------------------
+// A synodic month over the world calendar, returned as 0 = new, 0.25 = first quarter,
+// 0.5 = full, 0.75 = last. Purely DERIVED from the date already on `state` — no column, no tick,
+// no row: a moon that had to be stored would be one more thing to keep in step with the clock, and
+// there is exactly one right answer for a given date. Sent to the flight sim and the truck cab so
+// every canopy in the world shows the same moon on the same night; the renderers do the geometry.
+const SYNODIC_DAYS = 29.53059;
+export function getMoonPhase(dateStr) {
+  const d = dateStr || state.date;
+  if (!d) return 0.5;
+  const days = Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000;
+  // Offset so the epoch lands on a new moon rather than an arbitrary point in the cycle.
+  return ((((days - 6.7) / SYNODIC_DAYS) % 1) + 1) % 1;
+}
+
 function seasonForDate(dateStr) {
   const month = Number(dateStr.slice(5, 7)) - 1;
   return SEASON_BY_MONTH[month];
@@ -1943,6 +1960,10 @@ export function getHUDPayload() {
     time: formatHHMM(state.minutes),
     dayOfWeek: state.dayOfWeek,
     season: state.season,
+    // Tonight's moon, alongside the other facts DERIVED from the date rather than stored beside
+    // it. On the HUD payload rather than somewhere flight-specific because every canopy in the
+    // world reads this snapshot — the yacht helm gets the same moon as the cockpit for free.
+    moonPhase: getMoonPhase(),
     weatherType: state.weatherType,
     weatherIcon: WEATHER_ICON[state.weatherType],
     windKph: state.forecast[0]?.windKph ?? 0,

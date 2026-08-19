@@ -1,6 +1,6 @@
 # THE LONG HAUL — driving the void
 
-**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house, trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks — see [proposals](proposals/the-long-haul.md).**
+**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house, trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks. The junction is now a fork you can SEE — the corridor synthesises the limbs you did *not* take, so the highway branches toward each region instead of ending in open waste — and the road signs its own bends in MILES. The road is laid in REAL WORLD COORDINATES, so a driver, a pilot and a walker all describe the same place with the same numbers, the world outside the windscreen is the actual world, and you can turn round and drive home. Distances are consequently the real gaps between regions and are pending a tuning pass. See [proposals](proposals/the-long-haul.md).**
 
 Freight hauling by road. You take a load at a depot in Coldwater, drive it through the city to the
 edge of the map, cross the waste on a highway that does not exist until you drive it, and back onto
@@ -15,7 +15,8 @@ and a city that resolves out of the haze at the end of it.
 
 | Piece | File |
 | --- | --- |
-| Corridor geometry + cell synthesis | [plugins/trucking/corridor.js](../plugins/trucking/corridor.js) |
+| Corridor geometry + cell synthesis, the sibling limbs, the signs | [plugins/trucking/corridor.js](../plugins/trucking/corridor.js) |
+| The highway sign, drawn | `drawRoadSign` in [windshield.js](../client/game/js/panels/windshield.js) · `sgn` in [plugins/flight/state.js](../plugins/flight/state.js) |
 | Rig state, the clamp, node crossings, the cab push | [plugins/trucking/state.js](../plugins/trucking/state.js) |
 | Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `truckpump`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
 | The physics (`stepTruck`, the gearbox, the articulation angle, `SURFACES`) | [client/game/js/panels/flight-model.js](../client/game/js/panels/flight-model.js) |
@@ -56,7 +57,47 @@ tile looks like. Road auto-tiling, lane markings, biome, buildings, fog and the 
 for free and stay correct when somebody improves the renderer without knowing trucking exists.
 
 The seam is one parameter: **`mapWindow(a, radius, at = surfaceAt)`**. Flight passes `surfaceAt`,
-trucking passes `corridorProvider(route)`.
+trucking passes a provider that consults the corridor **and then falls through to `surfaceAt`** —
+see the coordinate note below for why that fall-through is now both possible and necessary.
+
+### 1a. The road is laid in REAL WORLD COORDINATES
+
+*(Changed 2026-08-19. It used to have a private frame — origin at the gate, heading due south,
+length `nodes × 90`.)*
+
+`corridorFor` takes an **anchor**: the `grid_x`/`grid_y` of the rim zone you drove off and of the
+destination zone. Both already existed on rows the crossing already knew about, so **nothing is
+authored and nothing is stored** to make this work.
+
+The old private frame was internally consistent and it made the truck the only thing in the game
+using those numbers. A pilot overhead, a walker in the same crossing and a driver on the same road
+each had a different idea of where *here* was, and no two of them could be converted into each
+other. One frame fixes that, and it pays for itself immediately in two places:
+
+- **The world shows through.** `providerFor` used to swap `corridorProvider` **in place of**
+  `surfaceAt` — the only honest thing to do while the road was somewhere else, since the world's
+  tiles were in a different frame. Same frame, and that swap becomes a lie by omission: everything
+  off the corridor's own band answered `null` and `mapWindow` painted it as air, so the city
+  vanished the instant the road began. The corridor now answers **first** — it owns the tarmac, the
+  verge, the signs and the wrecks — and anything it does not claim falls through. The basin recedes
+  in the mirrors and the Reach comes up out of the haze, with no work done by either of them.
+- **You can turn round.** See [the odometer](#the-odometer) — a road with a real near end has a real
+  way back out of it.
+
+| decision | why |
+|---|---|
+| **the leash is re-centred, not removed** | `off` was the heading's deviation from due south, a FIXED direction, which is exactly why the road needed a fixed length to stop at. It is now the deviation from the bearing **to the target**, recomputed each segment, so the existing `HOME_BIAS`/`HOME_MAX` rules do the homing for free. No convergence term, no blend weight — the leash was always a homing device, it was just homing on a compass point instead of on a place |
+| **⚠ the approach threshold is the TURN RADIUS** | a curve cannot converge on a point tighter than the circle it can draw. Terminating a few tiles out put the builder in a **limit cycle**: it homed beautifully to ~8 tiles and then orbited its own destination for the rest of its budget, sweeping a full 360° of heading, because it was correcting an 8-tile miss on a 43-tile circle. It only ever arrived because the cap ran out and the final leg dragged it in — so every road ended in a kink nothing had chosen |
+| **the bend constants scale with the road** | `ARC_MIN`, `STRAIGHT_MIN` and `MIN_RADIUS` are absolute tile counts chosen for a 720-tile haul. On a 98-tile one a single minimum arc was two thirds of the journey. Same for the sign constants — `FORK_SPREAD` at 210 aimed the junction arrow past the far end of the road it was describing |
+| **`MIN_RADIUS` scales but is FLOORED** | the fold invariant is not negotiable: cells are classified by distance from the centreline out to `OFFROAD_R`, so a bend tighter than that band folds the verge through itself and `locate` hands out two answers for one tile |
+| **unanchored still builds the old frame** | one code path, and a missing coordinate on either end degrades to the road that always shipped rather than putting a road somewhere real and wrong. Much of the regress suite is built on it |
+
+> ⚠ **Hauls are now as long as the gap actually is.** Coldwater's south rim and the Reach are 95
+> tiles apart, not the 720 that `length: 8` produced — about 33 miles against 240. That also means
+> **the Terminus fleet gate is gone** (it worked because 1080 tiles was beyond any truck's round
+> trip; the real gap is 245) and the tank tuning in `flight-model.js`, sized against 765 tiles, is
+> now slack. This is a deliberate deferral, not an oversight: a road that lies about where it is
+> cannot be tuned into honesty first. The dials are `MAX_SINUOSITY` and moving the regions apart.
 
 > **Why this is a rule and not a preference.** [snapshot.js](../plugins/flight/snapshot.js) used to
 > keep its own copy of that per-cell derivation. It drifted twice — the baked flight world silently
@@ -117,6 +158,58 @@ row is a diagonal and an equality test places them intermittently or not at all.
 gets its length **and** its tightness from the destination seed: where the leash forces both limbs
 the same way, identical curvature kept them on the same tiles for a full void room past the junction.
 
+### 1c. The junction is a fork you can SEE, and the road tells you how far *(2026-08-18)*
+
+*(2026-08-18.)* A route is a trunk plus **one** limb, because that is all a driver's odometer runs
+along — and `corridorAt` only ever asked that one road what was at a tile. So the two roads you were
+choosing between at the junction did not exist out the windscreen: the highway came down the trunk,
+swung once, and **ended in open waste**. A highway that just stops.
+
+A route now carries its **siblings** (`route.branches`), built from the identical trunk seed and
+their own limb seeds, and `corridorAt` falls through to them for any tile this road does not claim.
+Nothing about the drive changed — `corridorLocate`, the odometer clamp, the node crossing and the
+fuel burn all still read `rig.route` and only `rig.route`.
+
+⚠ **A sibling's cell carries no odometer.** `corridor_s` and `corridor_node` are stripped and
+replaced with `corridor_branch`. They are the two numbers the whole drive derives from, and a cell
+handing out *another limb's* reading is wrong in a way that would look right — the exact shape of
+bug the corridor is arranged to avoid. Regress sweeps a window past the fork asserting no branch
+cell carries either.
+
+⚠ **The siblings are built without a plan of their own.** That terminates the recursion, and it
+leaves them with no signs — a sign is a thing the road you are ON tells you, and sixty boards facing
+a road nobody is driving are texture with a per-tile cost.
+
+**The boards.** One at the gate, one on the approach to the junction, one before each bend, deduped
+to no closer than 40 tiles. A row is `{ n, m, a }` — name, **miles**, and an arrow index 0–7 measured
+from the driver's own heading, clockwise from straight ahead. Rows list every destination still
+reachable from that post plus the **origin**, pointing back; past the junction a board stops naming
+the towns you can no longer get to, because there is no cutting across out here and a board naming
+one would be a board that lies.
+
+| decision | why |
+|---|---|
+| **miles, not tiles** | `TILES_PER_MILE = 3` lives in [client/shared/road-units.js](../client/shared/road-units.js) and nowhere else, re-exported by corridor.js. The board, the `route` verb and the GPS all print the same number; a board saying 240 while the dash says 60 means a driver cannot budget a tank against either. ⚠ **It moved out of corridor.js because one of those three surfaces is drawn in the browser** — the dash strip re-derives its own distance every frame from live `s`, could not import a server plugin, and so carried a `/12` that printed a QUARTER of the truth for months while looking entirely plausible |
+| **a sign is one TILE, snapped at build time** | the wreck and the roadside sheds match on a tolerance band because they are a whole tile wide anyway. A post matched on a band comes out as three or four identical boards in a row, which reads as a mistake rather than as a sign |
+| **⚠ the junction board looks 210 tiles PAST the fork** | a board stands 16 tiles short of the junction, so an ordinary 80-tile look lands barely 60 tiles into a bend of radius 110 — the limbs have separated by about ten degrees, which rounds to the same arrow, and the board points every limb straight on. ⚠ **All four of those numbers now scale with the road** (`route.bendK`), because 210 tiles past a fork on a 99-tile road aims the arrow past the destination it is naming, and `SIGN_APART` at 40 collapses every board on the route into one |
+| **the arrow is drawn, not typed** | a glyph would depend on a monospace font having ↗ in it at a legible weight. It is a polygon in the board's own surface coordinates, so it leans and foreshortens with the panel exactly as the lettering does |
+| **a sign is a `mark`, not a `building_type`** | a panel on two legs has no mass worth extruding and nothing to occlude behind — and a building would enter the collision sweep, where a board on the verge becomes a thing that stops a truck |
+
+The rows travel to the client as `sgn` on the surface cell, exactly the way a forecourt's prices
+travel as `brd`: **nothing in the renderer works out a distance.** And the same rows reach the
+**log** as prose when you pass a post (`passSign`), because a board painted only on the windscreen
+does not exist for anyone on the bottom rung of the display ladder — and out here the board is the
+only statement of how far anything is.
+
+⚠ **Passing a board is a SWEPT range, not "am I near one".** The cab reconciles four times a second
+and a text run covers a whole slab of road per tick, so a proximity test has the cab reading every
+board and the text rung stepping over most of them. `signsBetween(route, from, to)` asks what was
+*passed*, which is the same question at both rates.
+
+One honest limitation, so nobody "fixes" it into a lie: where the leash forces every limb the same
+way out of the junction, the board really does point them all the same way, and they separate later.
+The arrow is the road's geometry. Choosing between them is what `route` is for.
+
 ### 2. The drive IS the crossing
 
 `player.current_zone` stays the void room the whole way. The odometer crossing a node boundary
@@ -126,7 +219,13 @@ So voidwalking's encounters, ghost-traces, hard nodes, detours and teardown are 
 and implemented nowhere here**. A trucker who breaks down finishes the crossing on foot at a cost
 of zero extra code.
 
-`node = floor(s / TILES_PER_ROOM)`. The two plugins meet through named exports on voidwalking's
+`nodeAt(route, s)` maps an odometer reading back to a room. It was `floor(s / TILES_PER_ROOM)`
+written out in five files, which was fine while the road's length was DEFINED as `nodes × 90` — the
+division could not disagree with anything. A room is a **fraction of the road's real length** now
+(`route.roomLen`), so five copies of a stale division would put the cab, the text rung, the renderer
+and the node-crossing handler in four different rooms.
+
+The two plugins meet through named exports on voidwalking's
 public surface — `crossingChain`, `crossingDest`, `crossingInfo` — never by reaching into its
 internals. `player._crossing` deliberately carries only `{ instanceId, seen }`; everything else
 about a crossing is shared state and lives on the crossing.
@@ -138,7 +237,7 @@ A haul is driven in two different worlds and the rig moves between them by swapp
 | Leg | `x`/`y` are | Provider | A tile is |
 | --- | --- | --- | --- |
 | `city` | real world grid coords | `surfaceAt` | a real zone you are standing in |
-| `corridor` | corridor coords | `corridorProvider(route)` | 1/90th of a void room |
+| `corridor` | **real world grid coords** | `corridorProvider(route)` → falls through to `surfaceAt` | `route.roomLen` tiles — one *n*th of a real road |
 
 `joinCorridor` fires when you drive off the rim (through voidwalking's own `launchCrossing`, not a
 copy of it); `leaveCorridor` fires on arrival, so you come off the highway **still driving** and the
@@ -196,9 +295,16 @@ elsewhere.
 
 **The spread is in different directions, not one "better" axis.** The Mule is the *fastest* thing in
 the fleet and can't carry a full commodity load; the Continental is slower than the Drayman and
-swallows a whole market. Range is the other half of the ladder. **The run is 765 tiles one way** (44 of Coldwater road, 720
-of corridor, one into the yard), so only the Orlov round-trips on a fill — everything below it must
-refuel at the far end, and the Barrow arrives on 10%.
+swallows a whole market. Range is the other half of the ladder — **and it is currently slack**, see
+the warning below.
+
+> ⚠ **These range figures are pre-anchoring and no longer bite.** They were tuned against a run of
+> **765 tiles one way** (44 of Coldwater road, 720 of corridor, one into the yard), which is what
+> made only the Orlov round-trip on a fill, forced everything below it to refuel at the far end, and
+> had the Barrow arriving on 10%. Since the road was anchored to real coordinates
+> ([§1a](#1a-the-road-is-laid-in-real-world-coordinates)) the Coldwater→Reach corridor is about 99
+> tiles, so every truck in the fleet round-trips comfortably and the ladder's range rung does
+> nothing. Retuning it is part of the distance pass, together with the Terminus gate.
 
 > **Naming.** Trucks are an invented **maker + haulage model** — a drayman drove a brewery cart, a
 > barrow is the humblest cart there is. Deliberately a different family from the aircraft, which are
@@ -354,6 +460,17 @@ the headlights is midday fog, and the lamps stayed off in the only condition tha
 The gate is now `max(night, wxGloom(wx))` off the same `WX_HAZE` scalar that decides how far you can
 see. The cab passes `landingLight: true` unconditionally and there is deliberately **no switch on
 the dash** — a rig runs lit, and the renderer decides when that is visible.
+
+⚠ **…and until 2026-08-18 none of that could ever fire, because the cab was never told the time.**
+`cabContext` carried the map, the traffic, the trailer, the fuel and the damage, and not one of
+`hour` / `weather` / `moon` — so the client's `?? 12` / `'clear'` defaults stood in and **every haul
+in the game was driven at high noon in clear air**. Nothing threw and nothing looked broken; the
+world simply had no nights or weather in it from behind a wheel, and the gloom rule above, the
+wipers, the rain on the glass and the whole night sky were all unreachable code. It is now one call
+to the **same `skyState()` the cockpit uses**, so a driver and a pilot over their head can never
+disagree about the time or the weather. The spatial weather **field** is deliberately left off — the
+cab doesn't wire it, and a payload nothing reads is how a push gets expensive for nothing. Regress
+asserts presence rather than a value, since absence was the entire failure mode.
 
 ---
 
@@ -898,6 +1015,36 @@ client), so when you build a second drivable building model, add it to `SHELL_TY
 commit. The rule is the general statement of the bug: *a building you drive into has to have an
 inside.*
 
+#### …and then twice the ceiling, a third less pull *(2026-08-18)*
+
+A rig that winds up slowly and then holds a real road speed — which is what a heavy truck does.
+`topSpeed × 2`, `thrustMax × 0.6`: twice the speed to reach on 60% of the authority, so the climb to
+cruise is roughly **four times as long**. Three couplings come with it and none is optional:
+
+- ⚠ **`rollFric × 0.6`.** The verge invariant is `thrustMax × drive > rollFric × drag`. Cut the
+  thrust and leave the resistance and a truck **cannot leave tarmac** — regress catches it by name,
+  and it caught this.
+- ⚠ **`dragP` re-solved.** Terminal velocity is what actually limits these (the speed clamp is a
+  backstop), so drag is solved to put terminal exactly *at* the new ceiling. The last few mph then
+  take forever, which is the feel being asked for.
+- ⚠ **`gears ÷ 2`, `engBrake × 2`.** Redline in a gear is `tileMph / ratio`, so the ladder has to
+  come down or top gear's band sits under the new ceiling and the truck over-revs instead of
+  reaching it. Engine braking is the one term that multiplies the ratio rather than dividing by it.
+
+⚠ **And the dial is now inflated relative to the world.** `tileMph` did not move, so the needle reads
+twice what it did for the same ground covered — **every hardcoded mph in a rule or a test now means
+half what it used to**. `RECKLESS_MPH` doubled with it (22 was 42% of a Courier's top end; left
+alone it would have been 21%, turning *"far too fast for a street"* into *"moving"*). And a bay
+crawl is a **second**-gear job now, because the ladder came down and third is 16–26 mph — exactly
+as it would be in a vehicle that tops at a hundred.
+
+| rig | top | pull-away | terminal |
+|---|---|---|---|
+| Krell Barrow | 82 | 2.60 mph/s | 82 |
+| Ostrek Courier | 104 | 3.91 mph/s | 104 |
+| Vachon Drayman | 96 | 2.90 mph/s | 96 |
+| Orlov Continental | 88 | 2.90 mph/s | 88 |
+
 #### Half pace, same dial, same gearbox *(2026-08-18)*
 
 The world went past too fast. `tps = speed / tileMph`, and a journey is a fixed number of tiles, so
@@ -1034,13 +1181,25 @@ The plate is 0.14 now and the box nose starts forward of its centre.
 kingpin `0.04` behind the cab — and because the box's nose sits on the pin, its front corners sweep
 *forward* by `half-width × sin φ`. Half a width is ~0.18 on a Continental, so the corner reached the
 sleeper at about **twelve degrees** of articulation: ordinary steering, and the trailer through the
-back of the cab. `frameBack` derives the gap from that sweep — clearance to **35°** plus 15% — so a
-wider box gets a longer tractor and the four rigs no longer share one number that suits none of
-them (0.154 to 0.180, from 0.10). Past 35° a real trailer does touch a real cab; that is what a
-jackknife is, and `PHI_MAX` (88°) already knows it. The margin exists so the smoke is a **test**
-rather than arithmetic asserting itself: it reads the pin, the cab back and the box half-width out
-of `TRUCK_META` and checks the relation, which is what catches somebody moving the plate or the cab
-without coming back to `frameBack`.
+back of the cab. `frameBack` derives the gap from that sweep, and it clears **at every angle rather than at a design
+angle**: `reach = noseHalf · sin φ` peaks at 90°, so a gap of one nose half-width covers the whole
+range the sim can reach and the tightest corner in the game cannot make two solids share a space. A
+real cab that gets touched deforms; ours interpenetrates, and a box visibly inside a sleeper reads
+as a broken model rather than as a bad manoeuvre — the physics already punishes a fold (`PHI_MAX`,
+the jackknife event, the constraint that drives it) and the picture does not need to as well.
+
+⚠ **And that is bought with a TAPERED NOSE, not with length.** Clearing 90° on the full body width
+needs the frame about half again as long, and **length is not free**: past roughly 45° of equivalent
+gap the depot floor's painter's-sort fallback starts losing a headlamp — `shapes:smoke` catches it,
+which is exactly what that gate is for, and it is how this was found rather than shipped. A real
+trailer's front corners are radiused for this very reason, so the box's nose steps in to 70% of its
+body width over the last 30 thousandths. The corner that swings is the NOSE corner, so tapering it
+shortens the radius directly and the same clearance costs a third less frame. Both numbers come
+from `NOSE_TAPER`, so the mesh and the gap cannot drift.
+
+The margin exists so the smoke is a **test** rather than arithmetic asserting itself: it reads the
+pin, the cab back and the nose half-width out of `TRUCK_META` and checks the relation, which is what
+catches somebody moving the plate, the cab or the taper without coming back to `frameBack`.
 
 ⚠ **And the slot is FOUND, never counted.** Stock was placed at index `trailersAt(zone).length`,
 which is right exactly once: sell a box and the next purchase is stood at that index again, inside
@@ -1378,8 +1537,30 @@ own progress is a client that can weave and be paid for the extra tarmac. The `s
 only as a fallback for a bogged rig, whose position is off-road and therefore locates nowhere.
 
 `s` is the one number defended hard — arrival, node crossings, and (later) contract clocks and fuel
-all key off it, and nothing else does. It is clamped against elapsed wall-clock and is monotonic
-(phase 1 has no reverse, so a decreasing odometer is an attempt to re-drive paid road).
+all key off it, and nothing else does. It is clamped against elapsed wall-clock.
+
+<a id="the-odometer"></a>
+**It is NOT monotonic — you can turn round.** *(Changed 2026-08-19.)* `s` used to be floored at its
+own previous value, on the reasoning that "phase 1 has no reverse, so a decreasing odometer is an
+attempt to re-drive paid road". Both halves of that stopped being true: **phase 2 shipped a reverse
+gear**, and **nothing is paid per tile** — a delivery pays a flat `job.pay` on arrival, so
+re-driving a stretch buys you nothing.
+
+What the floor actually did was make the truck the only thing out there that could not turn round.
+A walker in the same crossing has always been able to: trunk rooms carry a `north` exit back the way
+they came, and the move gate seals only the *forward* one, and only while an enemy is in the room.
+So the same waste had two rules depending on whether you were on your feet or in a cab, and the
+cab's was the strange one.
+
+The anti-cheat survives intact, because **it was never about direction — it was about rate**.
+Clamping `|Δs|` against wall-clock says exactly what the old ceiling said and says it both ways.
+
+| decision | why |
+|---|---|
+| **`retreat()` mirrors `arrive()`** | drive back to `s = 0` and you come out on the rim tile you left, landing on the same zone a walker returns to (read from `crossingInfo().originZone`, not remembered on the rig). The load stays on the deck and the contract stays live — coming back is not a failure state, and the diesel and the time are punishment enough |
+| **⚠ the near-end exit must be ARMED** | a rig **joins** the corridor at `s = 0`, so an unguarded test at the near end fires on the first telemetry frame of every haul and bounces the driver straight back off the road they just pulled onto. It did. `rig.sMax` is a high-water mark that never decreases; the exit does not exist until the rig has been more than `RETREAT_ARM` tiles out |
+| **`s` floors at 0** | a negative index reads off the front of the room chain as `undefined` |
+| **node crossings fire in either direction** | which is exactly what happens when a walker re-enters a room — same encounter roll, same traces. Consistency with the walker is the whole point |
 
 Rig state is **RAM-only**. The crossing's own five `player_flags` already survive a relog.
 
