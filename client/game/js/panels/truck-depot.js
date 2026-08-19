@@ -98,6 +98,10 @@ export function openTruckDepot(msg) {
     inspect: B?.inspect || inspectDefault(),
     bench: B?.bench || { tab: 'condition', psec: 'scheme', tune: null, paint: null, trim: null },
     lotSel: B?.lotSel || null,
+    // Which box is open, kept across a re-push exactly as the truck selection is — a repush lands
+    // after every mutation on this screen, and a panel that closed itself each time would make
+    // selling a trailer a thing you had to re-find between the click and the confirm.
+    boxSel: (msg.trailers || []).some(t => t.id === B?.boxSel) ? B.boxSel : (msg.trailers || [])[0]?.id || null,
   };
   // A fresh truck selected (you just bought one) resets any half-turned dials — they belonged to a
   // different machine, and carrying them across would silently propose a tune nobody asked for.
@@ -207,6 +211,37 @@ function wire() {
   root.addEventListener('input', onInput);
 }
 
+// ⚠ A BOX IS A VEHICLE YOU OWN, so it answers the same three questions a truck does — what it is,
+// where it is, and what state it is IN — and the row answered one and a half of them. The server has
+// always sent the condition, the band and the empty weight; the list printed the rating and binned
+// the rest, so a worn reefer and a box off the line read identically right up until one of them
+// cost money to put right.
+//
+// Selection rather than a fourth clause on the row, for the same reason the truck list works that
+// way: a row is a thing you scan and a panel is a thing you read. The ACTIONS deliberately stay on
+// the row — they are already gated on facts the server sent, and moving them in here would put the
+// sell button behind a click for nothing. The band words are the SERVER'S (see the trailer rows in
+// index.js): a label table on the client is a second copy of BANDS waiting to drift.
+function boxDetail(mine) {
+  const t = mine.find(r => r.id === B.boxSel);
+  if (!t) return '';
+  // ⚠ 'loaded' WITHOUT 'cargo' IS A STASH, AND THE STASH IS THE POINT OF THE STASH. The server
+  // tells this panel that the box is not empty and deliberately does not say what is in it, so the
+  // one thing this line must never do is get more specific than it was told.
+  const load = t.cargo ? `${esc(t.cargo.name)} · ${t.cargo.kg} kg`
+    : t.loaded ? 'carrying something' : 'empty';
+  return `<div class="td-box-detail">
+    <div class="td-main"><b>${esc(t.name)}</b><span class="td-dim"> · ${esc(t.bandLabel || t.band || '')} · ${pct(t.condition)}</span></div>
+    ${t.bandText ? `<div class="td-dim td-note">${esc(t.bandText)}</div>` : ''}
+    <div class="td-box-stats">
+      <span class="td-dim">Rated <b>${t.ratedKg} kg</b></span>
+      <span class="td-dim">Empty <b>${t.kg} kg</b></span>
+      <span class="td-dim">${t.towedBy ? 'On the pin' : t.hereNow ? 'Standing here' : esc(t.where)}</span>
+      <span class="td-dim">Load <b>${load}</b></span>
+    </div>
+  </div>`;
+}
+
 // ── The floor: one garage, every rig you own standing in it ──────────────────
 function floorScreen() {
   const d = B.data, fleet = d.fleet || [];
@@ -218,7 +253,7 @@ function floorScreen() {
   const mine = d.trailers || [];
   const boxes = mine.length ? `
       <div class="td-deck td-boxes"><span class="td-lab">Your boxes</span>
-        ${mine.map(t => `<div class="td-box-row">
+        ${mine.map(t => `<div class="td-box-row${t.id === B.boxSel ? ' on' : ''}" data-box="${esc(t.id)}">
           <b>${esc(t.name)}</b> <span class="td-dim">· ${t.ratedKg} kg rated</span>
           <span class="td-dim">· ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}</span>
           ${t.cargo ? `<span class="td-dim">· loaded: ${esc(t.cargo.name)}</span>` : ''}
@@ -226,6 +261,7 @@ function floorScreen() {
           ${t.canSell ? tbtn('₵', `Sell · ${money(t.resale)}`, `data-confirm="yard sell ${esc(t.id)}"`) : ''}
           ${!t.canSell && (t.hereNow || t.towedBy) && t.loaded ? '<span class="td-dim">· empty it to sell it</span>' : ''}
         </div>`).join('')}
+        ${boxDetail(mine)}
       </div>` : '';
   const deck = d.cargo
     ? (d.cargo.kind === 'goods'
@@ -902,7 +938,7 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-paintpick],[data-trimpick],[data-psec],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -919,6 +955,7 @@ function onClick(e) {
   if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
   if (t.dataset.viewReset != null) { const m = B.inspect.mode; B.inspect = inspectDefault(); B.inspect.mode = m; walkKeys.clear(); return void render(); }
   if (t.dataset.lot) { B.lotSel = t.dataset.lot; return void render(); }
+  if (t.dataset.box) { B.boxSel = t.dataset.box; return void render(); }
   // One swatch, whichever row it came from — the paint job, the finish coat and the door art are
   // three lists of the same widget, so they are one handler rather than three near-copies.
   if (t.dataset.paintpick) { B.bench.paint = { ...paintNow(), [t.dataset.paintpick]: t.dataset.paintval }; return void render(); }
@@ -1556,8 +1593,15 @@ function ensureStyles() {
   /* The boxes you own, under the deck read-out — a list, because a trailer is a capacity and a
      place rather than something you look at from three angles. */
   .td-boxes{margin-top:8px}
-  .td-box-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;padding:4px 0;
-    border-top:1px solid var(--border)}
+  .td-box-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;padding:4px 6px;
+    border-top:1px solid var(--border);cursor:pointer;border-radius:4px}
+  .td-box-row:hover{background:color-mix(in srgb,var(--td-accent) 8%,transparent)}
+  .td-box-row.on{background:color-mix(in srgb,var(--td-accent) 15%,transparent);
+    box-shadow:inset 2px 0 0 var(--td-accent)}
+  .td-box-detail{margin-top:6px;padding:8px;border-radius:5px;
+    background:color-mix(in srgb,var(--td-accent) 6%,transparent);
+    border:1px solid color-mix(in srgb,var(--td-accent) 22%,transparent)}
+  .td-box-stats{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-size:12.5px}
   .td-box-row:first-of-type{border-top:0}
   .td-box-row .td-act{margin-left:auto;padding:2px 8px;font-size:11px}
   .td-lab{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2);display:block}

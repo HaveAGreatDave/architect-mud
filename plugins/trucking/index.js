@@ -885,7 +885,11 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     // live in zone flags and the panel has never seen them.
     trailers: myTrailers.map(t => ({
       id: t.id, name: t.name, kg: t.kg, ratedKg: t.ratedKg,
-      condition: +(t.condition ?? 1).toFixed(3), band: bandOf(t.condition ?? 1).key,
+      // The same three condition fields a TRUCK row carries, and for the same reason: this screen
+      // renders what it is told and invents nothing, so a box that only sent the band KEY forced the
+      // panel to keep its own table of labels — a second copy of BANDS, on the client, drifting.
+      ...(() => { const b = bandOf(t.condition ?? 1);
+        return { condition: +(t.condition ?? 1).toFixed(3), band: b.key, bandLabel: b.label, bandText: b.text }; })(),
       towedBy: t.towedBy || null,
       hereNow: !t.towedBy && zonesHere.includes(t.parkedZone),
       // ⚠ AND WHETHER IT CAN BE SOLD, which is not the same question as `hereNow`. A box on your own
