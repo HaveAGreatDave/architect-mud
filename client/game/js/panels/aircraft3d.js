@@ -2963,11 +2963,23 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
 // Brightwork rides `trim`. Structure — hinges, hoses, mudflaps, the things every working vehicle
 // has whatever it cost — rides `fine`, so the cheap rigs get most of the new triangles too and
 // gain them as WEAR AND HARDWARE rather than as jewellery.
+// ⚠ AND THEN IT WENT TOO FAR THE OTHER WAY. The raise above fixed a rig that read as a flat slab
+// and overshot into one that reads as a tower: a box as tall as it is wide is right for a van and
+// wrong for a trailer, which is a LONG thing first and a tall thing second. Two columns, both
+// walked back toward the proportion a trailer actually has:
+//   hi    — down about a tenth across the fleet. Still well clear of the pre-raise value that
+//           caused the flat-slab reading, so this is a trim rather than a revert.
+//   deck  — up about a quarter. This is the one that was actually wrong: the boxes were stubby
+//           fore-aft, which is what made them look tall no matter what 'hi' said. Height reads
+//           relative to LENGTH, so lengthening the box does half the work of lowering it.
+// Everything hanging off the box follows for free — the tail-lamp stations are struck from
+// 'frame0 + 0.06 - S.deck' and the ribs space across 'S.deck', so none of them needed a second
+// edit. 'tTop' still derives from 'hi'. Collision is still untouched (see the ⚠ above).
 const TRUCK_SHAPES = {
-  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.250, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25, trim: 0.05, rig: 'cage' },
-  hauler:      { cab: 0.24, nose: 0.04, hi: 0.275, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55, trim: 0.40, rig: 'rack' },
-  drayman:     { cab: 0.24, nose: 0.06, hi: 0.300, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8,  trim: 0.75, rig: null },
-  continental: { cab: 0.26, nose: 0.10, hi: 0.335, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1,    trim: 1.00, rig: null },
+  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.225, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.38, aero: 0,    skirt: 0, lamps: 0.25, trim: 0.05, rig: 'cage' },
+  hauler:      { cab: 0.24, nose: 0.04, hi: 0.248, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.44, aero: 0.35, skirt: 0, lamps: 0.55, trim: 0.40, rig: 'rack' },
+  drayman:     { cab: 0.24, nose: 0.06, hi: 0.270, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.58, aero: 0.75, skirt: 1, lamps: 0.8,  trim: 0.75, rig: null },
+  continental: { cab: 0.26, nose: 0.10, hi: 0.300, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.76, aero: 1,    skirt: 1, lamps: 1,    trim: 1.00, rig: null },
 };
 // `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
 // SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and

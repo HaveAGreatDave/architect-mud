@@ -810,6 +810,14 @@ const STALL_RPM = 0.11;          // below this in gear, clutch out, it dies
 const LAUNCH_MPH = 8.4;          // below this, ON THE THROTTLE, a driver is feathering the clutch
 const CRAWL_MPH  = 2.8;          // below this the clutch is always in — parking must not stall you
 const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, strongest gear there is
+// FIRST IS THE ONE YOU LAUNCH ON, and the square root below flattens exactly the gear that most
+// needs to feel like it has something in it. 'ratioBoost' is normalised against top and rooted, so
+// the honest 8:1 spread arrives as 2.9:1 — which is the right call for the middle of the box and
+// leaves first pulling like a slightly shorter second. Every yard manoeuvre and every pull-away on
+// a hill happens in this gear, so it gets a little of that spread handed back. Applied to the RATIO
+// TERM rather than to the pedal lag on purpose: more shove, without turning the throttle back into
+// the go-kart switch that 'spool' exists to have fixed. Reverse borrows it, as it borrows the ratio.
+const FIRST_BOOST = 1.3;
 const REVERSE_CAP = 0.18;        // reverse is geared low and you cannot see: a fraction of top speed
 export const FADE_AT = 0.62;            // brake temperature at which the pedal starts lying to you
 // ── LONGITUDINAL INERTIA, AND WHY IT IS NOT `thrustMax` ──────────────────────
@@ -1050,7 +1058,9 @@ function stepTruck(state, input, p, dt) {
   // square-rooted because the honest ratio spread (6.5:1) would make first gear a dragster. What
   // survives is the shape that matters: low gears pull, high gears don't, and the difference is
   // most of why you choose one.
-  const ratioBoost = ratio > 0 ? Math.sqrt(ratio / p.gears[p.gears.length - 1]) : 0;
+  const ratioBoost = ratio > 0
+    ? Math.sqrt(ratio / p.gears[p.gears.length - 1]) * (Math.abs(gear) === 1 ? FIRST_BOOST : 1)
+    : 0;
   const drive = p.thrustMax * throttle * torque * engaged * surf.drive * ratioBoost * (slipping ? SLIP_TRANSMIT : 1);
 
   // STALLING, and it is a DIFFERENT mistake from lugging away from a stop. You stall when the

@@ -1788,10 +1788,23 @@ export function openCab(ctx = {}) {
   st.engageReverse = engageReverse;
   function toggleReverse() {
     if (Math.abs(st.sim.speed) >= 2) return;
-    // Reverse is a gear like any other, so it grinds like any other. The target is what the shift
-    // below would land on — first out of reverse, reverse out of anything else.
-    if (st.shiftGate?.(st.sim.gear < 0 ? 1 : -1)) return;
-    truckShift(st.sim, P, st.sim.gear < 0 ? 2 : -(st.sim.gear + 1));
+    // THE LEFT FOOT IS AUTOMATIC ON THIS ONE, and reverse is the only slot on the gate that gets
+    // that. Everywhere else the clutch is half of shifting and the player owns it — see the note on
+    // the sequential keys, which deliberately stopped dipping it for you. Reverse is different for
+    // a reason that is already written into the guard above: it can ONLY be selected stopped, so
+    // there is no version of this where the automatic foot is covering for a shift that should have
+    // cost something. What it was actually costing was a grind every time somebody backed onto a
+    // dock, from a pedal they were already holding a wheel and a throttle against.
+    //
+    // Dipped and released around the shift rather than latched, so nothing is left holding the
+    // clutch down afterwards — and the release honours a hand that IS on the pedal (or the latch),
+    // exactly as the automatic's own sequence does when it lets one up.
+    const held = st.input.clutch;
+    st.input.clutch = 1;
+    if (!st.shiftGate?.(st.sim.gear < 0 ? 1 : -1)) {
+      truckShift(st.sim, P, st.sim.gear < 0 ? 2 : -(st.sim.gear + 1));
+    }
+    st.input.clutch = (st.heldBy?.clutch || st.clutchLatched) ? held : 0;
   }
   // THE SPLITTER IS HALF A SHIFT, AND HALF A SHIFT IS STILL A SHIFT. The collar moves dog teeth in
   // the same box; flicking it under load with the clutch out is the classic way to lose a ratio and
@@ -2549,7 +2562,24 @@ function autoShift(dt) {
   // either side. `band` is the pair the dash lights IN BAND from, so this is the same instrument.
   const [lo, hi] = P.band || [0.55, 0.8];
   const rpm = st.sim.rpm || 0;                    // a fraction of redline — see truckReadout, which is what multiplies it by 100
-  if (step1 > st.sim.gear) { if (rpm > hi) beginShift(step1); return; }
+  // ⚠ AN UPSHIFT CANNOT WAIT FOR THE TOP OF THE BAND, because a truck does not always GET there.
+  // 'rpm > hi' was the whole gate, and it reads as obviously right: wind it out, then grab the next
+  // one. What it misses is that a gear's terminal speed is wherever drag balances torque, and
+  // torque is already falling off above the band — so a truck that has stopped accelerating
+  // plateaus just UNDER 'hi' and sits there. The dash prints a taller suggested gear, the driver
+  // can see it, and the box never takes it. Loaded, where the plateau is lower still, that stranded
+  // the top two or three ratios permanently: the automatic simply stopped shifting halfway up.
+  //
+  // So the second clause is the rule a driver actually uses — take the next one when the next one
+  // will still PULL. 'want' (bestGear, above) has already said the taller gear is the better place
+  // to be; this only asks whether the engine survives the drop, which is 'rpm' scaled by the ratio
+  // change. Both clauses are kept rather than swapped: winding it past 'hi' must still shift even
+  // when the drop would land under the band, which is what gets first into second at all.
+  if (step1 > st.sim.gear) {
+    const rpmNext = rpm * (P.gears[step1] / P.gears[st.sim.gear]);
+    if (rpm > hi || rpmNext >= lo) beginShift(step1);
+    return;
+  }
   // Not on the overrun: lifting off drops the revs, and a box that downshifted every time you came
   // off the throttle would work its way down the gears the whole way down a hill. That rule only
   // holds while the engine still has somewhere to fall, though — past `SAVE_RPM` it is out of room
