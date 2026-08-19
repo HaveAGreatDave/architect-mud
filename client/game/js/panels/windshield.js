@@ -5869,7 +5869,7 @@ function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR, smooth) {
 // `chase` = { back, up } is given (external view), the camera physically sits `back` tiles
 // BEHIND and `up` world-z ABOVE the craft — a real 3rd-person chase camera looking up the
 // craft's own tail, so the whole world renders from behind the aircraft, not the cockpit.
-function makeCam(W, horizonY, depth, v, chase) {
+export function makeCam(W, horizonY, depth, v, chase) {
   const R = v.map ? (v.map.length - 1) / 2 : 0;
   // ── ⚠ A SEAT IS NOT A TUNING CONSTANT ──────────────────────────────────────
   // `RENDER_TUNE.eh` and `.fov` are the GROUND camera for an aeroplane: an eye height picked so the
@@ -5883,15 +5883,37 @@ function makeCam(W, horizonY, depth, v, chase) {
   // neither and is bit-identical.
   const eh0 = v.eyeH != null ? v.eyeH : RENDER_TUNE.eh;
   const EHbase = Math.max(0.05, eh0 + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
-  const back = chase ? chase.back : 0, EH = Math.max(0.05, EHbase + (chase ? chase.up : 0));   // floor the summed eye-height so a low vertical orbit never drops the camera below the terrain
+  const back = chase ? chase.back : 0;
+  // ── ⚠ THE CAMERA IS NO LONGER OBLIGED TO SIT ON THE HEADING AXIS ────────────
+  // `back` is a SCALAR down the craft's own heading, which is the entire vocabulary a chase camera
+  // needs and none of the vocabulary a detached one does: there is no way to say "two tiles to the
+  // left of the truck" in it, because left is not a direction this function had. `fx`/`fy` are a
+  // WORLD-space offset added on top, and `ez` an absolute eye height that overrides the summed one
+  // (a free camera's altitude is its own, not the craft's plus a chase lift).
+  //
+  // ⚠ AND THE DEFAULT IS ARITHMETIC IDENTITY, NOT MERELY EQUIVALENCE. Every existing view — every
+  // chase, every cockpit, the helm, the deck-cam, the cold open — passes none of these, so the
+  // expressions below reduce to `x - 0` and the old `EHbase + up`. That is bit-identical rather
+  // than close, which is what makes this safe to put under nine callers with no pixel coverage. The
+  // temptation was to solve it generally (resolve the camera to a world point and derive `back`
+  // from it); that reintroduces `sin²+cos²`, which is not exactly 1, and every existing frame moves
+  // by a hair. See scripts/shapes/freecam.mjs, which asserts the identity rather than trusting it.
+  const fx = chase && chase.fx || 0, fy = chase && chase.fy || 0;
+  const EH = chase && chase.ez != null
+    ? Math.max(0.05, chase.ez)
+    : Math.max(0.05, EHbase + (chase ? chase.up : 0));   // floor the summed eye-height so a low vertical orbit never drops the camera below the terrain
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, ox = off ? off.x : 0, oy = off ? off.y : 0;
   const cx = W / 2, FL = (W / 2) / 1.15 * (RENDER_TUNE.fov || 1) * (v.fovMul || 1);   // fov<1 compresses the world laterally into a tighter tunnel; fovMul is the per-seat override
+  // The free offset resolved onto the view axes ONCE, so the per-point projections below stay the
+  // two multiply-adds they were. Both are exactly 0 when fx/fy are, which is what carries the
+  // identity above through `projFL` as well as `proj`.
+  const fFwd = fx * sinh - fy * cosh, fSide = fx * cosh + fy * sinh;
   // The chase offset shifts everything `back` tiles forward of the camera (f += back); lateral
   // is unchanged. up raises the eye height (EH), tipping the nose of the view down onto the craft.
-  const proj = (dx, dy, wz) => { const bx = dx + back * sinh, by = dy - back * cosh; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
-  const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa + back); return { sx: cx + (s / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
-  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  const proj = (dx, dy, wz) => { const bx = dx + back * sinh - fx, by = dy - back * cosh - fy; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
+  const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa + back - fFwd); return { sx: cx + ((s - fSide) / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
+  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
