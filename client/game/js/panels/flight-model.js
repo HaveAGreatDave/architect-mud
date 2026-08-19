@@ -817,7 +817,20 @@ const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, 
 // a hill happens in this gear, so it gets a little of that spread handed back. Applied to the RATIO
 // TERM rather than to the pedal lag on purpose: more shove, without turning the throttle back into
 // the go-kart switch that 'spool' exists to have fixed. Reverse borrows it, as it borrows the ratio.
-const FIRST_BOOST = 1.5;
+const FIRST_BOOST = 1.9;
+// ⚠ FIRST WAKES UP FASTER THAN SECOND, AND THAT INVERSION IS DELIBERATE. The gradient this breaks
+// out of is right on its own terms — a deep reduction IS a lot of driveline to wind up, and that lag
+// is what stopped the throttle behaving like a go-kart switch — but it anchored FIRST at the slow
+// end, and first is the gear every launch, every yard manoeuvre and every hill start happens in. It
+// took about a second to reach full pull, so the torque was arriving after the moment it was wanted
+// and raising FIRST_BOOST could not reach it: a multiplier on a pedal that has not come in yet is
+// nothing at all.
+//
+// So first is a named exception (~0.55s to full pull) rather than a re-anchored curve, because
+// lifting the floor lifted gears two through seven with it and nobody asked for a twitchier middle
+// of the box. Every other ratio keeps the number it had, exactly. Reverse borrows this, as it
+// borrows first's ratio.
+const FIRST_SPOOL = 1.8;
 const REVERSE_CAP = 0.18;        // reverse is geared low and you cannot see: a fraction of top speed
 export const FADE_AT = 0.62;            // brake temperature at which the pedal starts lying to you
 // ── LONGITUDINAL INERTIA, AND WHY IT IS NOT `thrustMax` ──────────────────────
@@ -960,7 +973,17 @@ function stepTruck(state, input, p, dt) {
   const pedal = clamp(input.throttle || 0, 0, 1);
   const gearIdx = Math.abs(clamp(s.gear ?? 1, -1, p.gears.length - 1));
   // 1st ≈ 1.05 s to full pull, top ≈ 0.36 s. Reverse takes first's number, as it takes its ratio.
-  const spool = 0.95 + 2.0 * ((gearIdx <= 1 ? 0 : gearIdx - 1) / Math.max(1, p.gears.length - 2));
+  // ⚠ AND FIRST IS NO LONGER THE SLOWEST THING IN THE BOX TO WAKE UP. The gradient below is right —
+  // a deep reduction IS a lot of driveline to wind up, and this lag is what stopped the throttle
+  // behaving like a go-kart switch. But it was anchored so low that first took about a second to
+  // reach full pull, which is the gear every launch, every yard manoeuvre and every hill start
+  // happens in: the torque was arriving after the moment it was wanted, and raising FIRST_BOOST
+  // alone could not fix that because a multiplier on a pedal that has not come in yet is nothing.
+  // The floor is lifted and the span narrowed to match, so TOP is unchanged (~0.34s) and first goes
+  // from ~1.05s to ~0.55s — still the laziest gear to spool, just no longer absent.
+  const spool = gearIdx <= 1
+    ? FIRST_SPOOL
+    : 0.95 + 2.0 * ((gearIdx - 1) / Math.max(1, p.gears.length - 2));
   const rate = pedal > (s.pedal ?? 0) ? spool : 6.0;
   s.pedal = clamp((s.pedal ?? 0) + (pedal - (s.pedal ?? 0)) * Math.min(1, rate * dt), 0, 1);
   const throttle = s.pedal;

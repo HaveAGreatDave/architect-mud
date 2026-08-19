@@ -8671,6 +8671,18 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
     let dx = fx[0] - o[0], dy = fx[1] - o[1], dz = fx[2] - o[2];
     const dm = Math.hypot(dx, dy, dz) || 1; dx /= dm; dy /= dm; dz /= dm;
     const FWD = [dx, dy, dz], AFT = [-dx, -dy, -dz];
+    // ⚠ AND A CONE HAS A DIRECTION AS WELL AS A PLACE. Moving the trailer's lamps onto the trailer
+    // fixed WHERE they are and left them still pointing down the TRACTOR's axis — so on a swung rig
+    // the brake lights sat correctly on the back of the box and threw their light off across the
+    // lane, which reads as the lamps not having moved at all. Same two probe points as the pair
+    // above, taken through the hinge, which is the trailer's own forward in world space.
+    let FWD_D = FWD, AFT_D = AFT;
+    if (ARL) {
+      const oD = Wp(ARL([0, 0, 0])), fD = Wp(ARL([1, 0, 0]));
+      let ex = fD[0] - oD[0], ey = fD[1] - oD[1], ez = fD[2] - oD[2];
+      const em = Math.hypot(ex, ey, ez) || 1; ex /= em; ey /= em; ez /= em;
+      FWD_D = [ex, ey, ez]; AFT_D = [-ex, -ey, -ez];
+    }
     const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
     const power = clamp(c.power != null ? c.power : 0.55, 0, 1);
     lights = [];
@@ -8692,7 +8704,7 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
     // second set of stations. A tail lamp you cannot tell from a brake lamp tells the driver behind
     // you nothing at all, so the step is deliberately large (about 3x) rather than tasteful.
     const braked = !!c.braking;
-    for (const p of vl.tail) add(p, [255, 70, 52], 0.85 * nb * (braked ? 1.7 : 0.55), braked ? 0.62 : 0.45, AFT, 1.25, vl.tailDeck);
+    for (const p of vl.tail) add(p, [255, 70, 52], 0.85 * nb * (braked ? 1.7 : 0.55), braked ? 0.62 : 0.45, vl.tailDeck ? AFT_D : AFT, 1.25, vl.tailDeck);
     // THE LIFTERS, WHICH ARE MOST OF WHY THIS HALF IS WORTH HAVING. Their wash has always been
     // painted on the ROAD and stopped dead at the bodywork — so the one machine in the game that is
     // lit from underneath had a completely unlit underside, and the pool of light it stood in
@@ -8721,7 +8733,17 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
 function drawVehicleGround(ctx, P, c, sun, now = 0) {
   const vl = vehicleLamps(c.cls, c.variant);
   if (!vl) return;
-  const pods = vl.podGlow || [];
+  // ⚠ AND THE BOX'S PODS SWING WITH THE BOX. This function was the half of the trailer-lamp fix
+  // that got missed: the bodywork lamps went through `AL` and articulate correctly, but the LIFTER
+  // WASH and the contact shadow are built here, from these stations, with no hinge applied at all —
+  // so on a swung rig the cones and the shadow stayed bolted to the tractor's centreline while the
+  // trailer went somewhere else. That is the light standing out in the next lane, again, in the
+  // one place the first pass did not look.
+  //
+  // Applied ONCE, here, because everything below is derived from `pods`: the footprint the shadow
+  // is drawn from and the wash the cones are drawn from both read this array and nothing else.
+  const AR = c.artic ? articFrame(c.artic) : null;
+  const pods = (vl.podGlow || []).map((q) => (AR && q.deck ? { ...q, p: AR(q.p) } : q));
   if (!pods.length) return;
   // The footprint, from the lifter stations — they are the corners of the contact patch by
   // definition, so nothing here needs to know a truck's dimensions.

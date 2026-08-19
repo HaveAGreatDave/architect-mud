@@ -1508,19 +1508,22 @@ export function openCab(ctx = {}) {
     // camera mid-corner would spiral off the road while you photographed it, which is a bug wearing
     // a feature's coat. Cruise is the machinery for exactly this and already exists, so it is used
     // rather than a second speed-hold nobody else knows about.
-    if (k === 'o' && down && !e.repeat && st.external) {
-      const on = freeCam.toggle({ yaw: (st.sim.heading || 0) + (st.extYaw || 0), z: 0.5 });
-      if (on) {
+    // ⚠ THE EXTERNAL VIEW IS REQUIRED TO ENTER AND MUST NEVER BE REQUIRED TO LEAVE. Gating the whole
+    // toggle on `st.external` built a trap: the view button is a CLICK, so a driver could detach the
+    // camera and then click back to the cockpit view — leaving the camera active (swallowing every
+    // key, including the throttle) with no way to stow it, because the key that stows it had just
+    // stopped working. Holding A did nothing, the pedal read empty, and the truck coasted on the
+    // hold. Entering is conditional; leaving is not, and `exitFreeCam` is the one way out so the
+    // button below can use it too.
+    if (k === 'o' && down && !e.repeat && (st.external || freeCam.active)) {
+      if (freeCam.active) exitFreeCam();
+      else {
+        freeCam.open({ yaw: (st.sim.heading || 0) + (st.extYaw || 0), z: 0.5 });
         st.freeHold = { cruise: st.cruise };
         if (st.sim.speed >= 5.5 && !st.dry && !st.broken && st.sim.gear > 0) setCruise(st.sim.speed);
         st.input.steer = 0; st.input.throttle = 0; st.input.brake = 0;
-      } else {
-        // Handing it back exactly as it was found. A driver who was NOT on cruise before must not
-        // discover they are on it after, which is the sort of thing you only notice at a junction.
-        if (!st.freeHold?.cruise) setCruise(null);
-        st.freeHold = null;
+        paintFreeCamHint();
       }
-      paintFreeCamHint();
       return;
     }
     // While it is detached the camera owns its keys and the truck hears none of them.
@@ -1947,6 +1950,9 @@ export function openCab(ctx = {}) {
   // is exactly the seam every aircraft already uses to be the thing the world is drawn for.
   viewBtn.addEventListener('click', () => setExternal(!st.external));
   function setExternal(on) {
+    // Stepping back inside stows the camera. There is nothing to detach from behind the glass, and
+    // a camera left running there is one holding the keyboard hostage — see the ⚠ on the O key.
+    if (!on) st.exitFreeCam?.();
     st.external = !!on;
     viewBtn.classList.toggle('on', st.external);
     viewBtn.textContent = st.external ? '◎ CAB' : '◎ EXT';
@@ -1961,6 +1967,20 @@ export function openCab(ctx = {}) {
     st.wheel?.setDragging(false);
   }
   st.setExternal = setExternal;
+  // THE ONE WAY OUT, so the key, the view button and the teardown all hand the truck back the same
+  // way. ⚠ It restores the throttle from the KEY STATE rather than to zero: a driver who was holding
+  // A throughout is still holding it, and autorepeat may not fire again for them — so releasing the
+  // camera has to give the pedal back rather than wait to be told about it a second time.
+  function exitFreeCam() {
+    if (!freeCam.active) return;
+    freeCam.close();
+    // A driver who was NOT on cruise before must not discover they are on it after — the sort of
+    // thing you only notice at a junction.
+    if (!st.freeHold?.cruise) setCruise(null);
+    st.freeHold = null;
+    paintFreeCamHint();
+  }
+  st.exitFreeCam = exitFreeCam;
   // ── THE ROUTE PICKER ───────────────────────────────────────────────────────
   //
   // THE SCREEN PROPOSES; THE VERB DECIDES. Every row here sends the ordinary `route <key>` command
