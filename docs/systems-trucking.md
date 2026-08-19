@@ -2022,6 +2022,25 @@ Three details that were each wrong once and are load-bearing:
   torque, so launching in a tall gear is possible, slow, and eventually a stall.
 - **The splitter is written the long way** because the one-liner chained on `truckShift`'s return
   value, which is a GEAR NUMBER — so a split into neutral was falsy and left `split` lying.
+- ⚠ **An upshift cannot be gated on reaching the top of the band** *(2026-08-19)*. `autoShift` asked
+  for `rpm > hi` and nothing else, which reads as obviously right — wind it out, then take the next
+  one. What it misses is that **a gear's terminal speed is wherever drag balances torque**, and
+  `torqueAt` is already falling away above the band, so a truck that has stopped accelerating
+  plateaus *just under* `hi` and stays there: the dash prints a taller suggested gear, the driver can
+  see it, and the box never takes it. On the Courier that put 8th at **97.6 mph against a 104 mph
+  top speed** — a figure that assumes bobtail on dry asphalt — so loaded, or anywhere off the paved
+  centreline, the top ratios were unreachable and the automatic simply stopped shifting halfway up
+  the box. The gate is now `rpm > hi` **or** the next gear still pulling (`rpm × ratioNext/ratioNow
+  ≥ lo`), with `bestGear` still having to agree first. Both clauses are load-bearing: the second is
+  what escapes the plateau, and the first is what gets **first into second at all**, where the drop
+  genuinely does land under the band. 1→2 is unchanged on every truck; everything above it comes
+  down about 8%.
+- **First gear is boosted past what the ratio says** (`FIRST_BOOST` in `flight-model.js`).
+  `ratioBoost` is normalised against top and **square-rooted**, which is right for the middle of the
+  box and quietly flattens the one gear every yard manoeuvre and every hill start happens in. It is
+  applied to the **ratio term, never to `spool`** — the pedal lag stays as it is, or first goes back
+  to being the go-kart switch that `spool` was added to fix. Reverse borrows it, as it borrows the
+  ratio.
 
 ### The clutch is not optional, and there is a key in the barrel *(2026-08-16)*
 
@@ -2031,6 +2050,15 @@ slot buttons, the range switch, `↑↓`, `,`/`.`, the splitter, `R`) passes one
 [cab-view.js](../client/game/js/panels/cab-view.js), so the rule is written once. Two things never
 grind, because they don't in a truck either: **pulling it OUT into neutral**, and a box already in
 neutral.
+
+⚠ **Reverse is the third, and it is the one exception in the gate** *(2026-08-19)*. `R` dips the
+clutch for you and lets it straight back up, so selecting reverse can never grind. That is not the
+old auto-clutch creeping back: the justification is already written into reverse's own guard, which
+is that it can **only be selected stopped**. There is no version of that shift where the automatic
+foot is covering for a mistake worth charging for — what it was actually charging for was backing
+onto a dock while holding a wheel and a throttle against a pedal. The dip honours a hand that is
+genuinely on the clutch (or the latch), so nothing is left holding it down afterwards. Every other
+route into a gear is unchanged and still grinds.
 
 What this replaced was an **auto-clutch on both shift paths** — taking hold of the lever dipped the
 clutch for you (with a CLUTCH IN plate announcing it) and a sequential key dipped it for 320 ms. The
