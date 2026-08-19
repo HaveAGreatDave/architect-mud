@@ -1531,10 +1531,76 @@ export function openCab(ctx = {}) {
     }
   }
 
+  // ── WHICH DRIVE KEYS ARE PHYSICALLY DOWN ────────────────────────────────────
+  //
+  // Nothing recorded this, and three separate bugs were all the same missing fact.
+  //
+  // A held control is written straight into `st.input` by the key handler, so the ONLY thing that
+  // ever let go of it was the matching keyup arriving at this window. Every route by which that
+  // keyup can fail to arrive was therefore a truck that never stopped accelerating — clicking into
+  // the command box mid-drive, or Alt-Tabbing to another window, in both cases with A still down.
+  // And the one path that deliberately drops the pedal (the camera coming off its mount) could not
+  // put it back, because there was nothing to put it back FROM: `exitFreeCam` carried a comment
+  // promising it restored the throttle "from the KEY STATE", and no key state existed, so a driver
+  // holding A through an O…O round trip got the pedal back only by releasing and pressing again.
+  //
+  // One Set fixes all three, and it is deliberately a record of the KEYBOARD rather than a second
+  // copy of the controls: `st.input` stays the one statement of what the truck is being told to do,
+  // and this only ever says which fingers are still on which keys. A pedal held by a POINTER is not
+  // in here at all — that is `hold()`'s business and it has its own pointer discipline.
+  //
+  // ⚠ The table is the release, not the press. Each entry undoes exactly what its key's own branch
+  // in `onKey` does, guarded the same way (letting go of Q while E is still down must leave you
+  // looking right, not snap you forward into a bend) — so a release through this path and a release
+  // through the ordinary keyup are the same release, and running both is a no-op.
+  const HOLD_KEYS = new Map([
+    ['a', () => { st.input.throttle = 0; if (st.heldBy) st.heldBy.throttle = 0; }],
+    ['z', () => { st.input.brake = 0; if (st.heldBy) st.heldBy.brake = 0; }],
+    [' ', () => { st.input.clutch = 0; if (st.heldBy) st.heldBy.clutch = 0; }],
+    ['j', () => { st.input.jake = 0; if (st.heldBy) st.heldBy.jake = 0; }],
+    ['x', () => { if (st.steerKey === -1) { st.steerKey = 0; st.wheel?.setHeld(0); } }],
+    ['arrowleft', () => { if (st.steerKey === -1) { st.steerKey = 0; st.wheel?.setHeld(0); } }],
+    ['c', () => { if (st.steerKey === 1) { st.steerKey = 0; st.wheel?.setHeld(0); } }],
+    ['arrowright', () => { if (st.steerKey === 1) { st.steerKey = 0; st.wheel?.setHeld(0); } }],
+    ['q', () => { if (st.viewYaw === -90) { st.viewYaw = 0; st.showViewTag?.(0); } }],
+    ['e', () => { if (st.viewYaw === 90) { st.viewYaw = 0; st.showViewTag?.(0); } }],
+    ['s', () => { if (st.viewYaw === 180) { st.viewYaw = 0; st.showViewTag?.(0); } }],
+    ['h', () => st.hornUp?.()],   // the cord: a blast that never ends is the loudest version of this bug
+  ]);
+  const typingNow = (el) => /^(INPUT|TEXTAREA)$/.test(el?.tagName || '') || !!el?.isContentEditable;
+  st.keysDown = new Set();
+  function releaseHeldKey(k) {
+    if (!st || !st.keysDown.delete(k)) return;
+    HOLD_KEYS.get(k)?.();
+  }
+  // Everything at once — the window losing focus, or the tab going to the background.
+  function releaseAllHeldKeys() {
+    if (!st) return;
+    for (const k of [...st.keysDown]) releaseHeldKey(k);
+  }
+  // ⚠ A KEY YOU CANNOT LET GO OF IS THE WORST OF THE THREE. Alt-Tab away with the throttle down and
+  // the keyup is delivered to whatever you switched to; this window never hears it, so the rig
+  // drives off on its own while you are reading something else. Both hooks, because they answer
+  // different questions — `blur` is "this window is no longer taking keys" and `visibilitychange` is
+  // "this tab is not on screen", and a driver can reach either one without the other.
+  st.onWinBlur = releaseAllHeldKeys;
+  st.onVisibility = () => { if (document.hidden) releaseAllHeldKeys(); };
+  addEventListener('blur', st.onWinBlur);
+  document.addEventListener('visibilitychange', st.onVisibility);
+
   st.onKey = (e) => {
-    if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
     const k = e.key.toLowerCase();
     const down = e.type === 'keydown';
+    // ⚠ A KEYUP IS HEARD EVEN WHEN THE HANDS HAVE MOVED TO THE TEXT BAR. The typing guard below is
+    // right for a keydown — a driver writing a message must not be shifting gear — and it was
+    // catastrophic for a keyup: hold A, click into the command box, and the release for A is
+    // addressed to an INPUT, gets dropped here, and the throttle is left pinned at 1 with no key
+    // held and nothing on screen to say so. The truck accelerates until you go back to the road and
+    // press-release A over it. So the RECORD is settled before the guard: a press only counts while
+    // the cab has the keyboard, and a release always counts, wherever it is delivered.
+    if (down) { if (!typingNow(e.target) && HOLD_KEYS.has(k)) st.keysDown.add(k); }
+    else releaseHeldKey(k);
+    if (typingNow(e.target)) return;
     // ── THE CAMERA OFF ITS MOUNT ────────────────────────────────────────────
     // `O` for observer, which is free on all three panels that render a windshield — the cab alone
     // already spends twenty-six keys, so this was chosen by elimination rather than by mnemonic.
@@ -2016,6 +2082,18 @@ export function openCab(ctx = {}) {
     // thing you only notice at a junction.
     if (!st.freeHold?.cruise) setCruise(null);
     st.freeHold = null;
+    // ⚠ AND THE PEDALS COME BACK FROM THE KEY RECORD, WHICH IS WHAT THE COMMENT ABOVE THIS FUNCTION
+    // HAS ALWAYS CLAIMED. It could not: entering zeroed `st.input` and nothing anywhere remembered
+    // that A was still down, so autorepeat never fired again for that press and the throttle stayed
+    // dead until the driver released and pressed it a second time. Detaching the camera is allowed
+    // to take the truck away; it is not allowed to keep it.
+    for (const [k, ctl] of [['a', 'throttle'], ['z', 'brake'], [' ', 'clutch'], ['j', 'jake']]) {
+      st.input[ctl] = st.keysDown.has(k) ? 1 : 0;
+      if (st.heldBy) st.heldBy[ctl] = st.input[ctl];
+    }
+    st.steerKey = st.keysDown.has('x') || st.keysDown.has('arrowleft') ? -1
+      : st.keysDown.has('c') || st.keysDown.has('arrowright') ? 1 : 0;
+    st.wheel?.setHeld(st.steerKey);
     paintFreeCamHint();
   }
   st.exitFreeCam = exitFreeCam;
@@ -4264,6 +4342,10 @@ export function closeCab() {
   removeEventListener('keydown', st.onKey);
   removeEventListener('keyup', st.onKey);
   if (st.onFocusIn) removeEventListener('focusin', st.onFocusIn);
+  // The key record's own two hooks. They are the window's and the document's, so nothing else takes
+  // them down, and a driver who parked and drove again would stack another pair on the last.
+  if (st.onWinBlur) removeEventListener('blur', st.onWinBlur);
+  if (st.onVisibility) document.removeEventListener('visibilitychange', st.onVisibility);
   // Each pedal and steer button parked a release on the window (a pointerup that lands outside the
   // control still has to let go of it). They are not the pane's, so nothing else takes them down,
   // and a driver who parked and drove again would stack another set on top of the last.

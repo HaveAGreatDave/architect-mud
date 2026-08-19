@@ -1844,6 +1844,25 @@ same guard now covers `steerHold` and `lookHold`, because X/C and Q/E/S write `s
 middle-click silently took hold of the wheel) and refuses Chrome's middle-click autoscroll, which the
 flight sim already refuses inside its own view.
 
+⚠ **The cab records which drive keys are physically down** *(2026-08-19)*, and it is one `Set`
+answering three bugs that were all the same missing fact. A held control is written straight into
+`st.input` by the key handler, so the **only** thing that ever let go of it was the matching keyup
+arriving at this window — which made every route by which that keyup can fail to arrive a truck that
+never stopped accelerating:
+
+| the route | what happened |
+|---|---|
+| **clicking into the command box mid-drive** | the typing guard is the first line of `onKey` and is right for a keydown (a driver writing a message must not be shifting gear). For a keyup it was catastrophic: the release for A is addressed to an `INPUT`, gets dropped, and the throttle stays pinned at 1 with no key held and nothing on screen to say so. The **record** is settled before the guard now — a press only counts while the cab has the keyboard, a release always counts, wherever it is delivered |
+| **Alt-Tab, or the tab going to the background** | the keyup is delivered to whatever you switched to and this window never hears it, so the rig drives off on its own while you read something else. `blur` *and* `visibilitychange`, because they answer different questions ("this window is no longer taking keys" vs "this tab is not on screen") and a driver can reach either without the other |
+| **`O`, the camera coming off its mount** | entering deliberately drops the pedals (the truck is about to belong to the camera, so it latches cruise instead) and `exitFreeCam` **could not put them back** — it carried a comment promising it restored the throttle "from the KEY STATE" and no key state existed. A driver holding A through an `O`…`O` round trip got the pedal back only by releasing and pressing again. Detaching the camera is allowed to take the truck away; it is not allowed to keep it |
+
+The Set is deliberately a record of the **keyboard**, not a second copy of the controls: `st.input`
+stays the one statement of what the truck is being told to do. A pedal held by a **pointer** is not
+in it at all — that is `hold()`'s business, and it has its own pointer discipline (above). Each entry
+in the table undoes exactly what its key's own branch in `onKey` does, guarded the same way, so a
+release through this path and a release through the ordinary keyup are the same release and running
+both is a no-op.
+
 **Touch controls come back in the chase view** *(2026-08-15)*, on every device. Out there the wheel is
 not on screen to drag, the painted dash is behind the camera, and a pointer drag means orbit — so a
 desktop driver has no pointer route to steering at all. **The controls a cockpit made redundant stop
