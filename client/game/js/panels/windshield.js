@@ -9424,6 +9424,21 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
           return a.f > 0.08 && b.f < a.f;
         };
         const FWD = [1, 0, 0], AFT = [-1, 0, 0];
+        // ⚠ AND THIS IS THE THIRD PLACE THE TRAILER'S LAMPS HAD TO BE TOLD ABOUT THE HINGE. The
+        // light rig casts them, drawVehicleGround washes the road under them, and THIS draws the
+        // visible lens — three passes over one set of stations, and each one had to learn the same
+        // thing separately. This was the one still painting a red ember out on the tarmac behind
+        // the tractor while the actual lamps sat correctly on the swung box.
+        //
+        // Directions are rotated rather than re-probed because this pass works in MODEL space
+        // (`P` projects model points, and FWD/AFT above are model axes): a direction through the
+        // hinge is the point rotation with the pin translation dropped, which is the two terms
+        // below and nothing else.
+        const ART = c.artic ? articFrame(c.artic) : null;
+        const cpA = c.artic ? Math.cos(c.artic.phi) : 1, spA = c.artic ? Math.sin(c.artic.phi) : 0;
+        const onDeck = ART && vl.tailDeck;
+        const deckAt = (p) => (onDeck ? ART(p) : p);
+        const AFT_T = onDeck ? [-cpA, spA, 0] : AFT;
         // Headlamps are the LIGHTS switch; the rest of the set is on whenever the engine is.
         const lit2 = c.heads !== undefined ? !!c.heads : !!c.landing;
         const beam = lit2 ? 1 : 0.20;
@@ -9432,7 +9447,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         // The visible lens, same rule as the light rig above: on always, bright under braking. The
         // RADIUS grows with it as well as the alpha — a brake lamp reads as a bigger light, not
         // just a harder one, and at the size these draw the radius is what actually carries it.
-        for (const p of vl.tail) if (facing(p, AFT)) glow(p, '255,70,52', (braked2 ? 1 : 0.62) * nb, braked2 ? 0.42 : 0.26);
+        for (const p0 of vl.tail) { const p = deckAt(p0); if (facing(p, AFT_T)) glow(p, '255,70,52', (braked2 ? 1 : 0.62) * nb, braked2 ? 0.42 : 0.26); }
         // Roof markers sit on the front edge of the visor and shine forward, same as the lamps
         // under them — from behind, the cab roof is in the way.
         for (const p of vl.marker) if (facing(p, FWD)) glow(p, '255,196,110', 0.75 * nb, 0.13);
