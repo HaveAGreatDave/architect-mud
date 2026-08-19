@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas } from './windshield.js';
+  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
@@ -2100,11 +2100,12 @@ export function cabContext(ctx) {
   if (ctx.routes !== undefined) { st.routes = ctx.routes; st.renderRoutePicker?.(); }   // what the GPS names — the route verb owns the aiming
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;
   if (ctx.surface) st.input.surface = ctx.surface;
-  if (ctx.contacts) st.contacts = ctx.contacts;
+  // …stamped on arrival, which is what gives contactsFor an age to reckon from.
+  if (ctx.contacts) st.contacts = ctx.contacts.map(c => ({ ...c, t: performance.now() }));
   // THE BOXES STANDING IN THE YARD. They arrive in the same contact shape the aircraft do (see
   // trailers.js trailersNear), so they need no renderer of their own — they are concatenated into
   // the contact list below and drawn by the same code that draws another player's rig.
-  if (ctx.trailers) st.trailers = ctx.trailers;
+  if (ctx.trailers) st.trailers = ctx.trailers.map(c => ({ ...c, t: performance.now() }));
   if (ctx.hitchable !== undefined) { st.hitchable = ctx.hitchable; paintHitchBtn(st); }
   // The pump under the nose, and the balance the handle meters against. `null` is a real answer —
   // it is most of the world — so this assigns rather than merges.
@@ -2855,7 +2856,12 @@ function frame(now) {
       // `trim` is the bench's retrim over the top of it, and reaches the SURFACE only: a retrimmed
       // Barrow can be walnut and brass and still has one dial, because the ladder is instruments.
       tier: P.tier, trim: TRIM,
-      hitched: r.hitched, phi: r.phi,
+      // ⚠ THE TRAILER'S OWN HEADING GOES OVER, NOT JUST THE ANGLE BETWEEN. `phi` is
+      // `heading - trailerHeading` (flight-model), and a renderer handed the difference has to
+      // pick a sign to put it back together with — I picked the wrong one, and the box LED the
+      // turn instead of lagging it, which reads as the trailer steering the truck. The sim owns
+      // the absolute angle; sending it means nothing downstream can reconstruct it backwards.
+      hitched: r.hitched, phi: r.phi, trailerHeading: r.trailerHeading,
       rpmFrac: r.rpm / 100, band: P.band, inBand: r.inBand, topSpeed: P.topSpeed,
       // ── THE DASH IS THE DASH ─────────────────────────────────────────────
       // Everything the instrument panel needs, and nothing it does not. It is all derived here
@@ -2886,7 +2892,21 @@ function frame(now) {
       // Aircraft passing over. The cab used to be deliberately blind to traffic; it is not any
       // more, because a world where a pilot can see a truck but a driver cannot see a plane is
       // half a world. Same channel, same renderer, no new code on either side.
-      contacts: (st.contacts || []).concat(st.trailers || []),
+      // ⚠ CAMERA-RELATIVE, AND THAT CONVERSION IS THE WHOLE REASON THIS CAB HAS NEVER DRAWN A
+      // CONTACT. `paintWindshield` documents its contact shape as {dx, dy, altDiff, rng, …} — an
+      // offset from the eye — and both server lists arrive in WORLD tiles (`x`, `y`), because that
+      // is the only frame a server can speak. The cockpit has always converted before handing them
+      // over (see contactView there); the cab concatenated the raw rows straight through, so every
+      // contact reached drawContacts with `c.dx` undefined, projected to NaN, failed the on-screen
+      // test and fell out through the off-screen chevron branch. Nothing was ever drawn and nothing
+      // ever errored.
+      //
+      // It was invisible because both halves looked right on their own: the boxes were in the
+      // payload (the server proves it), the renderer draws contacts (the sim proves it), and the
+      // one line between them was speaking a different coordinate system. It is not only the
+      // trailers — the aircraft this cab was deliberately given so a driver could watch a Mule come
+      // over the yard have never been drawn either.
+      contacts: contactsFor(st),
       map: st.map, mapCenter: { x: st.mapX, y: st.mapY },
       actors: st.actors,   // the people on the pavement either side of the road
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
@@ -2924,6 +2944,44 @@ function frame(now) {
 }
 
 // Styles live with the panel (the one-file-per-panel convention), injected once.
+// The two server lists — aircraft overhead and boxes standing in the yard — in the frame the
+// renderer actually reads. World tiles in, offsets from the truck out.
+//
+// A box is STATIC and an aeroplane is not, so airborne contacts are dead-reckoned over the age of
+// the payload exactly as the cockpit does it: the relay is every second or two and a Mule crossing
+// the yard would otherwise arrive in visible steps. `ias` is 0 on a parked box, which makes the
+// same line a no-op for the thing it must not move.
+const CAB_DR_MAX = 2.5;   // seconds of dead reckoning before a stale contact is left where it was
+function contactsFor(st) {
+  const src = (st.contacts || []).concat(st.trailers || []);
+  if (!src.length) return [];
+  const now = performance.now();
+  const ax = st.sim.x, ay = st.sim.y;
+  const out = [];
+  for (const c of src) {
+    const age = Math.min(CAB_DR_MAX, Math.max(0, (now - (c.t || now)) / 1000));
+    const spd = (c.ias || 0) * 0.02, hr = (c.hdg || 0) * Math.PI / 180;
+    const cx = c.x + Math.sin(hr) * spd * age, cy = c.y - Math.cos(hr) * spd * age;
+    const dx = cx - ax, dy = cy - ay;
+    // A ground contact pins itself to the world ground plane rather than to the driver's eye —
+    // `groundZ: 0` is the tarmac the cab is already sitting on, so a dropped box rests on it
+    // instead of floating at windscreen height. A truck's own altitude is zero, so an aircraft's
+    // altDiff is simply its altitude.
+    const ground = c.onGround || c.band === 'ground';
+    // ⚠ AND A RIG IS DRAWN AT THE ROAD'S OWN SCALE, not at the one an aeroplane sees it at.
+    // CONTACT_SIZE.truck is honest — from the air a rig SHOULD be a detail on the tarmac — and the
+    // hero model multiplies it by seven to frame against lane markings that are metres across.
+    // That argument is about the road, so it applies to everything on the road: without this, a
+    // box parked beside your own cab draws at a seventh of its size, which is exactly what it
+    // looked like. `sizeMul` rather than a size override, because it is the one field that reaches
+    // the draw, the ground anchor and the occlusion size together.
+    const rig = c.cls === 'truck' ? ROAD_RIG_MUL : 1;
+    out.push({ ...c, dx, dy, rng: Math.hypot(dx, dy), sizeMul: (c.sizeMul || 1) * rig,
+      ...(ground ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }) });
+  }
+  return out;
+}
+
 function ensureCabStyles() {
   if (document.getElementById('cab-styles')) return;
   const s = document.createElement('style');

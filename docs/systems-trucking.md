@@ -898,6 +898,221 @@ client), so when you build a second drivable building model, add it to `SHELL_TY
 commit. The rule is the general statement of the bug: *a building you drive into has to have an
 inside.*
 
+#### Half pace, same dial, same gearbox *(2026-08-18)*
+
+The world went past too fast. `tps = speed / tileMph`, and a journey is a fixed number of tiles, so
+**halving the pace doubles the haul** — there is no version of this that does not. The Reach
+crossing goes from about thirteen minutes to about twenty-six, which is the trade that was chosen.
+
+The uniform rescale this file already documents (×k on the speeds **including** `tileMph`)
+deliberately leaves tiles-per-second alone — it moves the number under the needle and nothing else.
+This is the other edit, and that note's own warning is its specification: *"Scaling topSpeed WITHOUT
+tileMph is the version of this change that quietly adds 40% to every haul."*
+
+⚠ **And the gear ladder doubles with `tileMph`, or the top half of the gearbox goes unreachable.**
+Every place a ratio meets `tileMph` is a **quotient** — engine speed is `(mph / tileMph) × ratio`,
+pulling power is `sqrt(ratio / topRatio)` — so doubling both leaves rpm, the shift points, the band
+and the torque curve exactly where they were. The one term that is not a quotient is engine braking
+(`ratio × engBrake`), so `engBrake` halves to hold it still. Every rig's top speed still sits inside
+its **top** gear's band, which is the check that the ladder survived.
+
+Nothing else moved: `topSpeed`, `thrustMax`, `brake`, `rollFric` and `dragP` are all in mph, so the
+needle and the way it climbs are untouched. What changed is how much ground a mile an hour buys.
+Turning is unaffected in shape — radius is `wheelbase / tan δ` and carries no speed term, so the
+same corner takes the same tiles and twice the seconds.
+
+#### The rig bends at the pin *(2026-08-18)*
+
+**A semi is not a long vehicle.** It is a tractor and a box that share one point, and the only free
+variable between them is the angle about that point. The physics has modelled that since phase 1
+(`s.phi`), and the mirrors have drawn it at its true value all along — while the view out of the
+window welded the two together and swung them as one. So a jackknife could be happening on the
+gauge, visible in the mirror, and invisible in front of you.
+
+⚠ **AND IT IS ONE DRAW, NOT TWO.** The obvious build is a second `drawAircraftModel` for the box.
+It is wrong, and wrong in a way a smoke that switches the depth blit off **cannot see**: each model
+draw runs its own depth pass and blits its own rectangle, so the second paints over the first and
+whichever half went down first simply vanishes. That shipped — as *"the trailer isn't spawned with
+me even though it's hitched"* — while this file's gate was green, because with the blit off both
+halves reached the canvas.
+
+So the hinge lives in the per-face vertex pipeline that already tucks the gear, swings the cargo
+visor and deflects the control surfaces. `face.deck` marks the trailer half (stamped in
+`buildTruck`), and articulating is a rotation of those faces about the kingpin in the model's own
+f/g plane — one model, one depth pass, and the shadow, the occlusion and the draw order inherit it
+for free. `buildTruck`'s own comment called that split *"the seam where a future articulated draw
+hangs its angle"*; this is that draw. A point one unit ahead of the pin in the TRAILER's frame is
+`(cos φ, −sin φ)` in the tractor's, which is the whole derivation.
+
+⚠ **The pin comes from the mesh, never from a constant.** Four rigs are four lengths, each laid out
+from its nose and then slid back to centre, so the plate sits at a different station on every one
+(−0.041 to +0.064). `TRUCK_META.pin` publishes that station in the centred frame; a guessed offset
+articulates three of the four about a point in mid-air.
+
+⚠ **And the box's own origin IS its pin**, so it needs no second offset — a dropped trailer is
+already anchored there (`shift` centres a solo mesh on its front station, because the pose the
+server stores for one is the coupling point). The two facts meet: put the box's origin on the
+tractor's pin and the joint is exact rather than eyeballed.
+
+⚠ **And the ABSOLUTE trailer heading travels, not the angle between.** `phi` is defined as
+`heading - trailerHeading`, so a renderer handed the difference has to pick a sign to put it back
+together with — and the wrong one makes the box **lead** the turn, which reads as the trailer
+steering the truck. It did. The sim owns the absolute angle and now sends it, so nothing downstream
+reconstructs it at all; the `heading - phi` fallback is kept only for a payload old enough not to
+carry it.
+
+⚠ **The box stops at the plate.** The first cut put its nose at `frame0 + 0.11`, forward of `cab0` —
+the box began *inside* the back of the cab and the rig read as a trailer riding up over its own
+tractor. A kingpin is at the BACK of the truck: the nose is the plate's own centre, the tractor's
+rear axles run under the first few feet of the box, and the gap to the sleeper is the swing
+clearance a real one turns in. With the nose on the pin the joint measures **0.1px** against the
+welded rig rather than 1.9.
+
+⚠ **Which half is painted first has to be ASKED.** From in front the tractor is nearer; from behind
+the box is. A fixed order paints one straight through the other for half of every turn.
+
+⚠ **The gate has two halves, because one observable cannot see both failures.** The geometry is read
+with the blit OFF (with it on there are no polygons left to measure) — and the blit is exactly what
+broke the two-model build, so a second pass counts **rasters** with it on: one model is one raster,
+and two is the bug whatever the geometry says. The geometry half also keys off the BOX'S OWN PAINT
+rather than the rig's silhouette, because swung one way the trailer stays inside the tractor's
+outline and moves several feet for a tenth of a pixel of bounding box.
+
+The gate is a comparison rather than a look ([truck-artic.mjs](../scripts/shapes/truck-artic.mjs)):
+at **φ=0 the two-body rig must occupy the same silhouette as the welded one** — that is the whole
+correctness statement, since at no angle an articulated rig *is* the rigid rig — and at φ=40 it must
+not. All four land within **1.9px** of the weld and swing 7px+ by 40°. A joint that never moves is a
+weld with extra steps, and that is the half which catches the angle being dropped in transit.
+
+⚠ **Collision does not follow the fold, and does not need to.** The truck's obstruction probe
+(`obstructionAhead` in cab-view.js) sweeps the rig's own POINT position against world buildings — it
+has never used the trailer's geometry for anything — so articulating the draw desyncs nothing. Worth
+stating because the opposite is the obvious worry: a box that visibly swings while a rigid hull
+collides would be a jackknife that hits nothing.
+
+#### A rig is a rig, and it stands in the shed *(2026-08-18)*
+
+With the contacts finally reaching the glass, the boxes turned up **a seventh of their size, out on
+the apron**. Two separate things, and the first is not the one it looks like.
+
+⚠ **The exaggeration is per-VIEW, not per-object.** `CONTACT_SIZE.truck` is 0.030 and honest — from
+an aircraft a rig SHOULD be a detail on the road — and the hero model multiplies it by **7** through
+`ownExtMul`, because 0.030 of a tile is too small to frame against a four-lane road whose lane
+markings are metres across. That argument is about the **road**, so it is just as true of a trailer
+standing on it. Only the hero model got the multiplier, so a box parked beside your own cab drew at
+a seventh of its size: the rig was not too big, the box was honest and alone. The cab applies
+`ROAD_RIG_MUL` to truck-class contacts through **`sizeMul`**, which is the one field that reaches
+the draw, the ground anchor and the occlusion size together — scaling the model and not the anchor
+is a trailer hovering over the tarmac.
+
+⚠ **And stock stands IN the shed now, in the bays the floor paints.** The slot geometry **is** those
+markings, not an approximation of them: `drawVehicleBay` stripes the strip between the left wall and
+the drive lane at `lx ∈ [-0.455, -0.15]` and `ly ∈ {-0.45, 0, +0.45}`, which is a bay centred at
+`lx = -0.3025` and `ly = ±0.225`. ⚠ **Local `+lx` is the trailer's LEFT** — work `th = atan2(-E[0],
+E[1])` through all four entrance faces and it lands on the direction opposite the heading's right
+vector every time — so a bay at `-0.3025` is to the trailer's *right*, and getting that sign wrong
+parks every box in the numbered tractor stalls on the other side of the lane. It did, once.
+
+⚠ **And a parked box sits ACROSS the lane, not along it.** The bays run down one side of a drive
+lane, so a box lying lengthways has its pin at one end of a forty-foot object with a wall behind it
+— there is nowhere for a tractor to be when its fifth wheel is under that pin. Turned a quarter, the
+body is backed into the bay against the wall and the nose is out over the lane, which is the
+manoeuvre the lane exists for. Which quarter is not a choice: the bays are on the trailer's *right*
+of the way out, so the middle of the room is to its left. `stockSlots` therefore runs two different
+angles — the SPOT is laid out in the shed's frame, the BOX standing on it is turned to face the lane
+— and running both off one angle is what parked a trailer somewhere it could never be coupled to.
+
+⚠ **And the fifth wheel reaches under the box**, which is a fact about the two together rather than
+about the plate. A tractor and a trailer that merely touch end to end are two vehicles in a queue; a
+**semi** is one vehicle because the front of the box is carried ON that plate with the tractor's back
+axles underneath it. The plate was 0.07 long and stopped 0.02 short of a box that began aft of the
+whole chassis, so there was daylight between them from every angle — and nothing for an articulated
+draw to pivot about, because the pivot is the middle of the plate and the box was nowhere near it.
+The plate is 0.14 now and the box nose starts forward of its centre.
+
+⚠ **And the frame behind the cab is DERIVED from the swing.** It was a flat `0.10`, which put the
+kingpin `0.04` behind the cab — and because the box's nose sits on the pin, its front corners sweep
+*forward* by `half-width × sin φ`. Half a width is ~0.18 on a Continental, so the corner reached the
+sleeper at about **twelve degrees** of articulation: ordinary steering, and the trailer through the
+back of the cab. `frameBack` derives the gap from that sweep — clearance to **35°** plus 15% — so a
+wider box gets a longer tractor and the four rigs no longer share one number that suits none of
+them (0.154 to 0.180, from 0.10). Past 35° a real trailer does touch a real cab; that is what a
+jackknife is, and `PHI_MAX` (88°) already knows it. The margin exists so the smoke is a **test**
+rather than arithmetic asserting itself: it reads the pin, the cab back and the box half-width out
+of `TRUCK_META` and checks the relation, which is what catches somebody moving the plate or the cab
+without coming back to `frameBack`.
+
+⚠ **And the slot is FOUND, never counted.** Stock was placed at index `trailersAt(zone).length`,
+which is right exactly once: sell a box and the next purchase is stood at that index again, inside
+the one already there — and two trailers in one spot is two trailers under one pin, so `hitch` takes
+whichever the search reached first. `findStockPose` walks the depot's places in preference order —
+the shed's two painted bays, then a rank along the apron fence — and returns the first that is clear
+of everything standing, so a sold box frees its bay for the next one. Regress asserts exactly that.
+
+Stock left on the apron made a liar of the shed's own floor — while putting the one thing you have
+to line up on out of frame the moment you climbed in, because a driver mounts *inside* the shed
+facing the door. `standPlaces()` is the one answer to where a box may stand: the shed's own tile
+(the facade a truck is parked on, since the bay itself is a room at grid 0,0), then the apron, both
+of them zones `hitch` already searches so nothing had to widen.
+
+⚠ **That forced the homeless test to get stricter.** It used to be *"is it in the yard tile"*, which
+was fine while that was the only pose there was — and the moment stock moved indoors it would have
+swept up every box a driver had deliberately dropped on the apron and shuffled it inside. A box with
+a pose has a place and somebody chose it; the only ones `standStock` has any business touching are
+the ones with **none**, and the ones sitting in the bay interior at grid 0,0.
+
+#### The cab was never drawing a contact at all *(2026-08-18)*
+
+The boxes standing in a yard were in the payload, posed, ranged and liveried — the server proves
+it — and nothing appeared out of the windscreen. So was every aircraft, which this cab was
+deliberately given so a driver could watch a Mule come over the yard.
+
+⚠ **`paintWindshield` takes contacts as `{dx, dy, altDiff, rng, …}` — offsets from the eye — and
+both server lists arrive in WORLD tiles.** That is the only frame a server can speak in. The
+cockpit has always converted before handing them over; the cab concatenated the raw rows straight
+through, so every contact reached `drawContacts` with `c.dx` undefined, projected to `NaN`, failed
+the on-screen test and fell out through the off-screen chevron branch. Nothing drawn, nothing
+logged, no error.
+
+It stayed invisible because both halves were right on their own: the boxes were in the payload, the
+renderer draws contacts, and the one line between them was speaking a different coordinate system.
+`contactsFor()` in cab-view.js does the conversion now, dead-reckoning the airborne ones over the
+age of the payload exactly as the cockpit does — `ias` is 0 on a parked box, which makes the same
+line a no-op for the thing it must not move — and pinning ground contacts to `groundZ: 0` so a
+dropped trailer rests on the tarmac instead of floating at windscreen height.
+
+#### …and you can sell one *(2026-08-18)*
+
+A trailer could be bought and never sold: the one thing in the yard you could spend four figures on
+by mistake and be stuck with forever, and the piece of kit you are most likely to get wrong,
+because the whole choice is a capacity number you have not run yet. `yard sell <box>` now takes
+either — **one verb, deciding by what the id names**, because a second verb would be a second thing
+to discover for the same act.
+
+The price is the truck's own rule reduced to what a box actually has: no odometer, no tune, no
+kits, so a trailer's entire history is its **condition**. List × dealer margin × condition, floored
+so a wreck is still worth taking away. ⚠ **A loaded box is not for sale**, and neither is one on a
+fifth wheel — the load is somebody's freight or your own capital, and a dealer who took the trailer
+and kept what was in it is a way to lose a market run to a mis-click.
+
+⚠ **A box on your own pin, in the yard you are standing in, is as much "here" as one on the
+concrete.** It is not findable by `trailersAt` — a towed row has no `parked_zone` at all — so a
+driver sitting in the yard with the thing they wanted to sell hooked up behind them was told it
+was not standing here. It is: it is on the truck, and the truck is here. Selling it **drops it
+first**, using the same drop `unhitch` performs, and clears the live rig's own `trailer` before the
+row goes — the other order leaves a rig towing a trailer that has been deleted, which every reader
+of `rig.trailer` would then answer questions about. `sellTrailer` itself still refuses a towed row
+(it is the race `hitchTrailer` refuses from the other side), and the verb leaning on that guard is
+what makes the two-step safe.
+
+In the panel it is a button per box in **Your boxes**, which is where a truck's Sell already lives —
+deliberately not a second one on the dealer's line, because that would be two places to do one act.
+⚠ **The button is absent on a box that is carrying something**, not present-and-refusing: the
+toolbar rule on this screen is that a button which refuses is worse than one that explains itself.
+The payload says `loaded` rather than sending the contents, because a box holds a declared load AND
+a stash and the stash is the entire point of the stash — the panel is told the box is not empty and
+deliberately not told what is in it.
+
 #### A box is one colour, and it is the box's *(2026-08-18)*
 
 A trailer used to be drawn in whatever the tractor's `deck` field said, and standing in a yard it
@@ -941,12 +1156,14 @@ question that may well be asked again, and turning it back on is one constant. E
 downstream already read `cut` as a number rather than a flag, so nothing else had to change.
 
 ⚠ **Except the occlusion gate, and for a reason that is not the cutaway at all.** The mask used to
-skip a shed *when it was being opened up*; it skips one when the **eye is inside it**, which is the
-honest statement and stays true whether or not anything is ever cut away again: a wall you are
-standing within cannot come between you and something in the room with you. Without that, every
-contact in the yard is culled against the room the driver is sitting in. `bayOccluderSmoke` now
-asserts both halves — a solid shed with your rig in it **does** mask it from a camera outside, and
-masks **nothing** from the cab.
+skip a shed *when it was being opened up*. It skips one you are **standing in** — and "you" is the
+SUBJECT, not the eye. Gating it on the eye looks right and is wrong by about a tile: the chase
+camera sits ~0.9 tiles astern, so parked in a shed your rig is inside it and the camera is not, the
+building masks everything in there with you, and the boxes in the trailer bays you are about to back
+under disappear. That shipped, as *"I can see the reefer in the depot and not in the yard"*, the
+moment stock moved indoors. `bayOccluderSmoke` asserts both halves: a shed **beside** the rig masks
+— from up over the eaves and from down on the road — and the one the rig is standing **in** masks
+nothing.
 
 #### A depot must not contain a trailer that is nowhere *(2026-08-18)*
 

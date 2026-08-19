@@ -290,29 +290,102 @@ export function hitchReach(rig, t) {
 // interior with no coordinates to draw it at. So the knob in the cab lit, named the thing, and
 // there was nothing on the hardstand to back under.
 //
-// Stock now stands outside on the apron at a real pose, nose out to the road, and from that moment
-// it is an ordinary dropped trailer — drawn, driven around, and hitchable only when the fifth wheel
-// is genuinely under the pin.
+// Stock stands at a real pose, nose out to the road, and from that moment it is an ordinary dropped
+// trailer — drawn, driven around, and hitchable only when the fifth wheel is genuinely under the pin.
 //
-// ⚠ THE POSE MUST STAY INSIDE THE APRON TILE, which is what the clamp is for. `hitch` only searches
-// the depot's own three zones, so a box stood a tile up the street is drawn, driven up to, lined up
-// on — and then refused, because the ROW is in the yard and the driver is not. A longer row of
-// boxes would have to move the search, not the geometry.
-const STOCK_ACROSS = 0.30;   // off the door lane, so pulling out does not drive through the stock
-const STOCK_BACK = 0.22;     // …and each further box steps back down the fence
-const STOCK_LIMIT = 0.45;    // …but never off the tile it is parked in
-export function stockPose(x, y, heading, n = 0) {
+// ⚠ AND IT STANDS IN THE SHED, IN THE BAYS PAINTED FOR IT. It used to be walked out onto the apron
+// in front of the building, which is where a yard hand would leave one and is not where the shed
+// says boxes go: drawVehicleBay paints TRAILER down the left-hand side of the floor and numbered
+// tractor stalls down the right, and stock parked outside made a liar of its own markings. It also
+// put the one thing you have to line up on out of the frame the moment you climbed in, since a
+// driver mounts inside the shed facing the door.
+//
+// The numbers below ARE those markings, read off BAY in windshield.js — trailer bays run from the
+// left wall in to the drive lane, and the two of them sit fore and aft of the middle. A third box
+// steps deeper rather than inventing a bay the floor has not got.
+//
+// ⚠ THE POSE MUST STAY INSIDE ITS OWN TILE, which is what the clamp is for. `hitch` only searches
+// the depot's own zones, so a box stood a tile up the street is drawn, driven up to, lined up on —
+// and then refused, because the ROW is in the yard and the driver is not. A longer row of boxes
+// would have to move the search, not the geometry.
+// ── THE PAINTED BAYS, IN NUMBERS ─────────────────────────────────────────────
+// These ARE drawVehicleBay's markings, not an approximation of them. Its trailer bays are three
+// stripes across the strip between the left wall and the drive lane:
+//
+//   across   lx from -HW + 0.015 to -LANE      →  centre -0.3025
+//   along    ly at -HL + 0.02, 0, HL - 0.02    →  two bays centred at ±0.225
+//
+// ⚠ AND LOCAL +lx IS THE TRAILER'S LEFT, which is the sign error worth stating rather than
+// discovering twice. The renderer's frame comes from `th = atan2(-E[0], E[1])` off the entrance
+// face; work it through for all four entrances and +lx lands on the world direction OPPOSITE the
+// heading's right vector every time. So a bay at lx = -0.3025 is 0.3025 to the trailer's RIGHT, and
+// a box placed on the left is parked in the numbered tractor stalls on the other side of the lane.
+const BAY_HW = 0.47, BAY_HL = 0.47, BAY_LANE = 0.15, BAY_EDGE = 0.015;
+const BAY_ACROSS = (BAY_HW - BAY_EDGE + BAY_LANE) / 2;      // 0.3025 — the middle of the painted strip
+const BAY_ALONG = [(BAY_HL - 0.02) / 2, -(BAY_HL - 0.02) / 2];   // ±0.225 — the near bay, then the far one
+// A tile with no painted bays (a depot whose only drivable ground is its apron) gets a rank along
+// the fence instead, which is what every depot did before there was a shed to stand anything in.
+const RANK_ACROSS = 0.30, RANK_ALONG = [0.24, -0.06, -0.36];
+const STOCK_LIMIT = 0.45;   // never off the tile it is parked in — `hitch` only searches this depot
+// Two boxes are in the same spot if their pins are closer than this. A trailer is long; half a tile
+// apart is two boxes nose to tail, and anything less is one box inside another.
+export const STOCK_GAP = 0.20;
+
+// Every place a box may stand on ONE tile, in the order a yard hand would use them.
+//
+// ⚠ `heading` IS THE WAY OUT OF THE SHED, AND A PARKED BOX SITS ACROSS IT. The bays are down one
+// side of a drive lane, so a box lying ALONG the lane has its pin at one end of a forty-foot
+// object with a wall behind it — there is nowhere for a tractor to be when its fifth wheel is
+// under that pin. Turned a quarter, the pin faces the middle of the room: the body is backed into
+// the bay against the wall, the nose is out over the lane, and backing under it is the manoeuvre
+// the lane exists for. Which quarter is not a choice — the bays are on the trailer's RIGHT of the
+// way out (see BAY_ACROSS), so the middle of the room is to its left, and the box turns to face it.
+const OUT_TO_BAY = -90;
+export function stockSlots(x, y, heading, bays = true) {
   const h = (heading || 0) * Math.PI / 180;
   const fx = Math.sin(h), fy = -Math.cos(h);           // out toward the road, the way the nose points
   const rx = Math.cos(h), ry = Math.sin(h);            // the trailer's own right
-  const across = (n % 2 ? -1 : 1) * STOCK_ACROSS;      // alternating sides of the lane out
-  const back = -STOCK_BACK * Math.floor(n / 2);        // then back toward the shed, a row at a time
+  const across = bays ? BAY_ACROSS : RANK_ACROSS;
+  const along = bays ? BAY_ALONG : RANK_ALONG;
   const clamp = (v) => Math.max(-STOCK_LIMIT, Math.min(STOCK_LIMIT, v));
-  return {
-    x: x + clamp(rx * across + fx * back),
-    y: y + clamp(ry * across + fy * back),
-    heading: ((heading || 0) % 360 + 360) % 360,
-  };
+  // The SPOT is laid out in the shed's frame (out of the door, and across to the bays); the box
+  // standing on it is turned to face the lane. Two different questions, and running them off one
+  // angle is what put a trailer lengthways down a bay it cannot be coupled to.
+  const face = (((heading || 0) + OUT_TO_BAY) % 360 + 360) % 360;
+  return along.map((a) => ({
+    x: x + clamp(rx * across + fx * a),
+    y: y + clamp(ry * across + fy * a),
+    heading: face,
+  }));
+}
+
+// ⚠ A FREE SLOT, FOUND — NEVER THE NTH ONE COUNTED. Stock used to be placed at index
+// `trailersAt(zone).length`, which is right exactly once: sell the first box and the next purchase
+// is stood at index 1 again, inside the one that is already there. Two trailers in one spot is also
+// two trailers under one pin, so `hitch` picks whichever the search happened to reach first.
+//
+// So it looks at what is standing and takes the first place that is clear of all of it. `tiles` is
+// in preference order — the shed's own painted bays first, then the apron — because a yard hand
+// puts a box under the roof if there is room under the roof.
+export function findStockPose(tiles, heading, taken = []) {
+  const clear = (p) => taken.every((t) => t.x == null || Math.hypot(p.x - t.x, p.y - t.y) >= STOCK_GAP);
+  let last = null;
+  for (const t of tiles) {
+    if (!t || t.zone?.grid_x == null) continue;
+    for (const p of stockSlots(t.zone.grid_x, t.zone.grid_y, heading, t.bays !== false)) {
+      last = { ...p, zoneId: t.zone.id };
+      if (clear(p)) return last;
+    }
+  }
+  // Every bay in the depot is full. Somebody still bought a trailer, so it goes in the last place
+  // rather than nowhere — a box you can see and have to shunt beats a box with no pose at all.
+  return last;
+}
+
+// The single-slot form the older callers use. Kept because a fixture depot has no bays to search.
+export function stockPose(x, y, heading, n = 0) {
+  const slots = stockSlots(x, y, heading, true);
+  return slots[Math.min(n, slots.length - 1)];
 }
 
 // ── THE YARD PUTS ITS BOXES OUT ──────────────────────────────────────────────
@@ -342,27 +415,35 @@ export function stockPose(x, y, heading, n = 0) {
 // writes nothing at all — the UPDATE only runs for a box that has no place, which happens once per
 // box, ever. A depot with no drivable yard (the legacy one-tile shape, and the fixtures) has no
 // hardstand to stand anything on, so it does nothing and the unposed row stays legal.
-export async function standStock(bay, yard, heading = 180) {
-  if (!yard || yard.grid_x == null) return 0;
-  const zones = [...new Set([bay?.id, yard.id].filter(Boolean))];
+export async function standStock(bay, places, heading = 180) {
+  const usable = (places || []).filter(t => t?.zone?.grid_x != null);
+  if (!usable.length) return 0;
+  const zones = [...new Set([bay?.id, ...usable.map(t => t.zone.id)].filter(Boolean))];
   const { rows } = await query(
     `SELECT ${SELECT} FROM trailers WHERE parked_zone = ANY($1) AND towed_by IS NULL ORDER BY created_at`,
     [zones]
   ).catch(() => ({ rows: [] }));
   const list = rows.map(shape);
-  const homeless = list.filter(t => !posed(t) || t.parkedZone !== yard.id);
+  // ⚠ HOMELESS MEANS NO PLACE, NOT 'NOT WHERE I WOULD PUT IT'. The test used to be 'is it in the
+  // yard tile', which was fine while that was the only pose there was — and the moment stock moved
+  // INTO the shed it would have swept up every box a driver had deliberately dropped on the apron
+  // and shuffled it indoors. A box with a pose has a place and somebody chose it; the only ones
+  // this function has any business touching are the ones with none, and the ones sitting in the
+  // BAY, which is a building interior at grid 0,0 and cannot be drawn at even in principle.
+  const homeless = list.filter(t => !posed(t) || t.parkedZone === bay?.id);
   if (!homeless.length) return 0;
-  // ⚠ THE RANK CARRIES ON FROM WHAT IS ALREADY STANDING THERE, or the first box walked out lands on
-  // top of one that has been parked on the hardstand for a week.
-  let n = list.length - homeless.length;
+  // What is already standing, so the ones being placed go BESIDE it rather than inside it.
+  const taken = list.filter(t => !homeless.includes(t) && posed(t)).map(t => ({ x: t.x, y: t.y }));
   for (const t of homeless) {
-    const pose = stockPose(yard.grid_x, yard.grid_y, heading, n++);
+    const pose = findStockPose(usable, heading, taken);
+    if (!pose) break;
+    taken.push(pose);   // …and the next one goes beside THIS one, not on top of it
     // Guarded on `towed_by IS NULL` for the same reason `hitchTrailer` is guarded: somebody may
     // have backed under it between the read and the write, and a box that is on a fifth wheel must
     // never be given a place on the ground.
     await query(
       'UPDATE trailers SET parked_zone = $1, park_x = $2, park_y = $3, park_heading = $4 WHERE id = $5 AND towed_by IS NULL',
-      [yard.id, pose.x, pose.y, pose.heading, t.id]
+      [pose.zoneId, pose.x, pose.y, pose.heading, t.id]
     ).catch(() => {});
   }
   // ⚠ AND THE MOVER REFRESHES THE STANDING SET, because nothing else knows a row moved.
@@ -377,6 +458,34 @@ export async function standStock(bay, yard, heading = 180) {
   // trailer drawn twice.
   await Promise.all(zones.map(z => refreshStanding(z)));
   return homeless.length;
+}
+
+// ── WHAT A USED BOX IS WORTH, AND SELLING IT ─────────────────────────────────
+// A trailer could be bought and never sold, which made it the one thing in the yard you could
+// spend four figures on by mistake and be stuck with forever — and it is the piece of kit you are
+// most likely to buy wrong, because the whole choice is a capacity number you have not run yet.
+//
+// The price is the truck's own rule (see resaleValue in fleet.js) reduced to what a box actually
+// has: no odometer, no tune, no kits — a trailer's whole history is its CONDITION. So it is the
+// list price scaled by a dealer's margin and then by the state of the thing, which is the same
+// two-step a tractor is valued with and lands in the same place for the same reasons.
+//
+// ⚠ A LOADED BOX IS NOT FOR SALE, and neither is one on a fifth wheel. The load is somebody's
+// freight or your own capital; a dealer who took the trailer and kept what was in it is a way to
+// lose a market run to a mis-click, and refusing is one line.
+export const TRAILER_MARGIN = 0.55;   // what a dealer gives you for a box in perfect order
+export function trailerResale(t) {
+  const type = t && TRAILER_TYPES.find(r => r.kg === t.kg && r.rated === t.ratedKg);
+  const list = type ? type.price : Math.max(400, Math.round((t?.ratedKg || 2200) * 0.7));
+  const cond = 0.55 + 0.45 * Math.max(0, Math.min(1, t?.condition ?? 1));   // a wreck is still a box
+  return Math.max(80, Math.round(list * TRAILER_MARGIN * cond));
+}
+// Guarded on the owner AND on being parked, so a race with a hitch cannot sell a box out from
+// under a truck that has just backed under it — the same argument hitchTrailer makes.
+export async function sellTrailer(trailerId, ownerId) {
+  const { rowCount } = await query('DELETE FROM trailers WHERE id = $1 AND owner_id = $2 AND towed_by IS NULL',
+    [trailerId, ownerId]).catch(() => ({ rowCount: 0 }));
+  return rowCount > 0;
 }
 
 // Repainting one. Guarded on the OWNER, because a box standing in a public yard is somebody's and

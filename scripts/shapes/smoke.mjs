@@ -34,6 +34,11 @@ import { rasterSmoke } from './raster-smoke.mjs';
 import { rasterCount, shadeCount } from '../../client/game/js/panels/model-raster.js';
 import { truckFairingSmoke, truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA, LAMP_MAX_RATIO } from './truck-lamps.mjs';
 import { truckDoorArtSmoke, doorArtCloseUpSmoke } from './truck-doorart.mjs';
+import { truckArticSmoke, CLEAR_DEG } from './truck-artic.mjs';
+// A couple of pixels of slack: the solo box is re-centred on its pin and settled onto its own legs,
+// so a face or two differs from the welded build even when the joint is exactly right.
+const JOINT_MAX_PX = 4;
+const SWING_MIN_PX = 5;
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -264,6 +269,31 @@ async function main() {
         + 'It is being culled at a nearer plane than the panel it sits on — see MODEL_NEAR_Z.');
     }
   }
+  // ── AND DOES THE RIG BEND AT THE PIN? ──────────────────────────────────────
+  // A semi is a tractor and a box sharing one point. Splitting the welded mesh into two drawn
+  // models has one silent failure — the JOINT — so the gate is a comparison: at φ=0 the two-body
+  // rig must occupy the same silhouette as the welded one, and at φ=40 it must not.
+  const artic = truckArticSmoke(ws.paintWindshield, stubCanvas, 'shape-artic');
+  for (const a of artic) {
+    if (!a.clears) {
+      problems.push(`artic  ${a.variant} → the box reaches the back of the cab before ${CLEAR_DEG}° of `
+        + `articulation (${a.margin.toFixed(3)} of clearance). Its nose is on the pin, so the front corners sweep `
+        + 'FORWARD by half-width x sin φ — see frameBack, which derives the gap from exactly that.');
+    } else if (!(a.joint <= JOINT_MAX_PX)) {
+      problems.push(`artic  ${a.variant} → straight, the articulated rig sits ${a.joint.toFixed(1)}px off the welded one `
+        + `(max ${JOINT_MAX_PX}). The box is hung on the wrong point — see TRUCK_META.pin.`);
+    } else if (a.rasters !== 1) {
+      problems.push(`artic  ${a.variant} → a hitched rig ran ${a.rasters} depth passes, not 1. `
+        + 'Two model draws blit two rectangles and the second paints over the first — half the rig vanishes, '
+        + 'and only with the blit ON, which is why this half of the gate exists.');
+    } else if (!a.lags) {
+      problems.push(`artic  ${a.variant} → the box draws the same whichever side of the tractor it is on. `
+        + 'The angle is being reassembled without its sign — a trailer that leads the turn is one steering the truck.');
+    } else if (!(a.swing >= SWING_MIN_PX)) {
+      problems.push(`artic  ${a.variant} → the box moved ${a.swing.toFixed(1)}px between φ=0 and φ=40 `
+        + `(min ${SWING_MIN_PX}). A joint that does not move is a weld with extra steps.`);
+    }
+  }
   const stances = parkedStanceSmoke();
   for (const s of stances) {
     if (!(s.drop > 0.008)) problems.push(`parked ${s.variant} → a shut-down rig did not settle (${s.drop.toFixed(4)} of drop)`);
@@ -356,10 +386,11 @@ async function main() {
   console.log('  Truck noses: no panel cuts through a chrome detail on any of the 4 faces — the grille and the lamp brows survive the sort from either side.');
   console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
     + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);
+  console.log(`  Truck articulation: all ${artic.length} rigs bend at the pin and clear the cab to ${CLEAR_DEG}° (tightest margin ${Math.min(...artic.map((a) => a.margin)).toFixed(3)}) — the joint sits within ${Math.max(...artic.map((a) => a.joint)).toFixed(1)}px of the welded rig at φ=0, and the box swings ${Math.min(...artic.map((a) => a.swing)).toFixed(0)}px+ by φ=40.`);
   console.log(`  Truck door art: painted on all ${doorArt.length} rigs and riding the fit (${doorArt.map((d) => d.ratio.toFixed(2)).join(', ')}× the silhouette's own scaling).`);
   console.log(`  …and it survives the walk-up: still painted at ${closeUp.filter((c) => c.cells).at(-1)?.standoff} out, where the model is ${closeUp.filter((c) => c.cells).at(-1)?.faces} faces.`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
-  console.log(`  Depot occlusion: ${bayOcc.length ? '?' : 'a shed is a shed from every camera outside it — beside the rig, and around the rig — and masks nothing from a driver standing inside it'}.`);
+  console.log(`  Depot occlusion: ${bayOcc.length ? '?' : 'a shed beside the rig masks, from up over the eaves and down on the road — and the one the rig is standing IN masks nothing, so the boxes in its bays are visible from the cab'}.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log('  Forecourt: all three lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — the pumps are still solid, and the island kerb is ridden over rather than hit.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');

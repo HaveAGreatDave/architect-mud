@@ -31,7 +31,8 @@ import { query } from '../../server/models/db.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { _test as truckTest } from './index.js';
 import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
-  posed, stockPose, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY } from './trailers.js';
+  posed, stockPose, stockSlots, findStockPose, STOCK_GAP, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY,
+  sellTrailer, trailerResale } from './trailers.js';
 import { runScale, scaleAt, clearCustoms } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
@@ -1889,21 +1890,50 @@ export default async function regress({ run, check, getPlayer }) {
       hitchReach(at(999, 999, 0), unplaced).ok, 'an existing trailer became unreachable');
 
     // ── WHERE THE DEALER STANDS ITS STOCK ────────────────────────────────────
-    // Two rules, and both are about the tile. A box has to STAY on the apron it is parked in, or
-    // `hitch` — which only searches the depot's own zones — will refuse a trailer the driver is
-    // sitting under. And no two may land on the same spot, or a second purchase is invisible
-    // inside the first.
-    const stand = Array.from({ length: 6 }, (_, n) => stockPose(40, 70, 180, n));
-    check('stock stands inside the tile it is parked in, however many you buy',
-      stand.every(p => Math.abs(p.x - 40) <= 0.5 && Math.abs(p.y - 70) <= 0.5),
-      stand.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
-    check('…and the first two are on opposite sides of the lane out',
-      stand[0].x !== stand[1].x || stand[0].y !== stand[1].y, `${stand[0].x} vs ${stand[1].x}`);
-    check('…and none of them is standing inside another',
-      new Set(stand.map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)}`)).size === stand.length,
-      stand.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
-    check('…facing the way the truck came out, so the pin is on its centreline',
-      stand.every(p => p.heading === 180), stand[0].heading);
+    // Three rules. A box has to STAY on the tile it is parked in, or `hitch` — which only searches the
+    // depot's own zones — refuses a trailer the driver is sitting under. It has to land in the bays
+    // the shed PAINTS, because stock parked anywhere else makes a liar of its own floor. And no two
+    // may land on the same spot, or a second purchase is invisible inside the first and both answer
+    // to one pin.
+    const bays = stockSlots(40, 70, 180, true);
+    check('stock stands inside the tile it is parked in',
+      bays.every(p => Math.abs(p.x - 40) <= 0.5 && Math.abs(p.y - 70) <= 0.5),
+      bays.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
+    // ⚠ THE SAME SIDE OF THE LANE, fore and aft of each other. The painted bays are all on ONE side;
+    // alternating would park every other box in the numbered tractor stalls opposite — and across
+    // the way out. This is the assertion that used to say the opposite, and it was wrong.
+    check('…on the one side the bays are painted on, one behind the other',
+      bays.length === 2 && bays[0].x === bays[1].x && bays[0].y !== bays[1].y,
+      bays.map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).join(' '));
+    // ⚠ AND IT FACES ACROSS THE LANE, NOT ALONG IT. A box lying lengthways down a bay has its pin at
+    // one end of a forty-foot object with a wall behind it, and there is nowhere for a tractor to be
+    // when its fifth wheel is under that pin. Turned a quarter it is backed into the bay with its
+    // nose out over the lane, which is the manoeuvre the lane exists for. This assertion used to
+    // demand the opposite.
+    check('…turned across the lane, so the pin faces the middle of the room',
+      bays.every(p => p.heading === 90), bays[0].heading);
+    check('…and that quarter-turn follows the door, whichever way the shed faces',
+      stockSlots(0, 0, 270, true)[0].heading === 180 && stockSlots(0, 0, 0, true)[0].heading === 270,
+      `${stockSlots(0, 0, 270, true)[0].heading} ${stockSlots(0, 0, 0, true)[0].heading}`);
+    // ⚠ AND THE ALLOCATOR FINDS A FREE ONE RATHER THAN COUNTING. Placing at `length` is right
+    // exactly once: sell a box and the next purchase is stood at that index again, inside the one
+    // that is already there. Fill the depot one at a time and no two may come out together.
+    const places = [{ zone: { id: 'shed', grid_x: 40, grid_y: 70 }, bays: true },
+      { zone: { id: 'apron', grid_x: 40, grid_y: 71 }, bays: false }];
+    const taken = [];
+    for (let i = 0; i < 5; i++) { const p2 = findStockPose(places, 180, taken); if (p2) taken.push(p2); }
+    check('five boxes find five places', taken.length === 5);
+    check('…and no two of them are standing inside another',
+      taken.every((a, i) => taken.every((b, j) => i === j || Math.hypot(a.x - b.x, a.y - b.y) >= STOCK_GAP)),
+      taken.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
+    check('…and the first two went under the roof, not out on the apron',
+      taken[0].zoneId === 'shed' && taken[1].zoneId === 'shed', `${taken[0].zoneId} ${taken[1].zoneId}`);
+    // Selling the first one frees its bay, and the next box takes it back — the whole point of
+    // searching rather than counting.
+    const reused = findStockPose(places, 180, taken.slice(1));
+    check('…and a sold box frees its bay for the next one',
+      Math.hypot(reused.x - taken[0].x, reused.y - taken[0].y) < 1e-9,
+      `${reused.x},${reused.y} vs ${taken[0].x},${taken[0].y}`);
   }
 
   // ── A BOX IS ONE COLOUR, AND IT IS THE BOX'S ───────────────────────────────
@@ -1936,6 +1966,40 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── AND YOU CAN GET RID OF ONE ─────────────────────────────────────────────
+  // A trailer could be bought and never sold, which made it the one thing in the yard you could
+  // spend four figures on by mistake and be stuck with forever — and it is the piece of kit you are
+  // most likely to buy wrong, because the whole choice is a capacity number you have not run yet.
+  {
+    const me = getPlayer();
+    const depotZone = truckTest.allDepots().find(d => truckTest.depotFrom(d.id)?.yard?.grid_x != null);
+    const ctx = depotZone ? truckTest.depotFrom(depotZone.id) : null;
+    if (ctx?.yard) {
+      const box = await buyTrailer(me.id, 'reefer', ctx.yard.id, null, null);
+      const worth = trailerResale(box);
+      // Priced off the LIST and the condition, exactly as a tractor is — and never zero, because a
+      // box in poor order is still a box.
+      check('a used box is worth something, and less than it cost',
+        worth > 0 && worth < TRAILER_TYPES.find(t => t.id === 'reefer').price, String(worth));
+      check('…and a wrecked one is still worth taking away',
+        trailerResale({ ...box, condition: 0 }) > 0 && trailerResale({ ...box, condition: 0 }) < worth);
+      // ⚠ GUARDED ON THE OWNER AND ON BEING PARKED. Selling a box off somebody else's fifth wheel
+      // is the race hitchTrailer already refuses, stated from the other side.
+      check('a box that is not yours cannot be sold', !(await sellTrailer(box.id, 'someone_else')));
+      check('you can sell your own', await sellTrailer(box.id, me.id));
+      // ⚠ AND A BOX ON THE PIN IS STILL IN THE YARD. `sellTrailer` refuses a towed row on purpose —
+      // it is the race `hitchTrailer` refuses from the other side — so the VERB drops it first and
+      // then sells the parked row. This asserts the guard is still there, since the verb leaning on
+      // it is what makes the two-step safe.
+      const hooked = await buyTrailer(me.id, 'box', ctx.yard.id, null, null);
+      await hitchTrailer(hooked.id, 'truck_probe', ctx.yard.id);
+      check('a box on a fifth wheel cannot be sold out from under it', !(await sellTrailer(hooked.id, me.id)));
+      await dropTrailer(hooked.id, ctx.yard.id, null);
+      check('…and can be, the moment it is dropped', await sellTrailer(hooked.id, me.id));
+      check('…and it is gone', !(await getTrailer(box.id)));
+    }
+  }
+
   // ── A DEPOT MUST NOT CONTAIN A TRAILER THAT IS NOWHERE ─────────────────────
   // The other half of the pose rule, and the one that had to be added afterwards: the dealer stands
   // what it SELLS on the hardstand, and everything already in the world stayed exactly where it was.
@@ -1956,7 +2020,7 @@ export default async function regress({ run, check, getPlayer }) {
       // The legacy shape, made deliberately: parked in the room behind the door, with no place.
       const lost = await buyTrailer(me.id, 'reefer', ctx.bay.id, null);
       check('the case exists: a box in the bay with no pose at all', !!lost && !posed(lost));
-      const moved = await standStock(ctx.bay, ctx.yard, 180);
+      const moved = await standStock(ctx.bay, [{ zone: ctx.yard, bays: false }], 180);
       const out = await getTrailer(lost.id);
       check('the yard walks a homeless box out onto the hardstand', moved >= 1 && posed(out),
         out ? `${out.x},${out.y}` : 'gone');
@@ -1968,7 +2032,7 @@ export default async function regress({ run, check, getPlayer }) {
       // ⚠ AND IT IS A NO-OP THE SECOND TIME. This runs on every yard open and every mount, so a
       // version that rewrote a pose each pass would be a write on a read path — and worse, would
       // pick up a box the driver had deliberately dropped somewhere in the yard and shuffle it.
-      check('…and running it again moves nothing', await standStock(ctx.bay, ctx.yard, 180) === 0);
+      check('…and running it again moves nothing', await standStock(ctx.bay, [{ zone: ctx.yard, bays: false }], 180) === 0);
       await query('DELETE FROM trailers WHERE id = $1', [lost.id]).catch(() => {});
     }
   }

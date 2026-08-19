@@ -1414,6 +1414,12 @@ const handlers = {
   // explicitly. `openCab` writes #area-content directly, which would tear the depot's DOM out from
   // under it while `isTruckDepotActive()` still answered true — and that flag is now what tells a
   // room description to keep its hands off the pane, so the room would never have painted again.
+  // ⚠ 'NOTHING HAPPENED' IS A REAL REPLY, AND IT HAS TO BE HANDLED RATHER THAN DROPPED. Several
+  // verbs answer `{ type: 'noop' }` — a bench commit where nothing changed, a sync from a player who
+  // has already climbed out — and every one of them logged `no handler for 'noop' — message dropped`
+  // in the console. It was harmless and it was also the loudest thing in there, which is worse than
+  // it sounds: a warning that fires constantly is a warning nobody reads when it matters.
+  noop: () => {},
   truck_sim: (msg) => { closeTruckDepot(); openCab(msg); },
   truck_ctx: (msg) => { cabContext(msg); applyCbContext(msg.cb); },
   // THE CB. Handled here rather than inside the cab panel because the radio has to work at every

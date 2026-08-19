@@ -2663,6 +2663,26 @@ export function vehicleLamps(cls, variant = '') {
   };
 }
 
+// ── HOW FAR BEHIND THE CAB THE FIFTH WHEEL SITS, AND WHY IT IS DERIVED ───────
+// It was a flat 0.10, which put the kingpin 0.04 behind the cab — and a box whose nose is ON the
+// pin sweeps its front corners FORWARD by (half-width × sin φ) as it swings. Half a width is about
+// 0.18 on a Continental, so the corner ate into the sleeper at about TWELVE DEGREES of articulation:
+// ordinary steering, and the trailer was through the back of the cab.
+//
+// So the gap is the swing, not a number: enough clearance to turn to SWING_CLEAR before the corner
+// reaches the cab, which is why the frame is longer on the rigs with wider boxes and not on the
+// narrow ones. Past that angle a real trailer does touch a real cab — that is what a jackknife IS,
+// and PHI_MAX (88°) says the physics already knows it — so the honest target is 'clears everything
+// you would drive through', not 'never touches'.
+const SWING_CLEAR = 35 * Math.PI / 180;   // articulation the box clears the cab at, by design
+const PLATE_BACK = 0.06;                  // the plate's centre, aft of the frame's front end
+// …with a margin, and the margin is what makes the smoke a TEST rather than a tautology: derive the
+// gap and assert the gap and you have asserted arithmetic. At 1.15 the check has something to
+// measure, and it fails when somebody moves the plate, the cab or the box width without coming
+// back here.
+const SWING_MARGIN = 1.15;
+const frameBack = (S) => PLATE_BACK + S.w * 1.02 * Math.sin(SWING_CLEAR) * SWING_MARGIN;
+
 // The lamp stations, derived once from a truck's shape. `buildTruck` lays its lenses out from this
 // and `vehicleLamps` lights them from it, so the two cannot drift apart.
 function truckLampGeom(S) {
@@ -2671,7 +2691,7 @@ function truckLampGeom(S) {
   const lampF = BUMP_F + 0.004, lampZ = BUMP_TOP + 0.010;
   const scrF1 = nose0 + 0.038, scrHi = S.hi * 0.985;
   return {
-    nose1, nose0, cab1, cab0, frame0: cab0 - 0.10,
+    nose1, nose0, cab1, cab0, frame0: cab0 - frameBack(S),
     BUMP_TOP, BUMP_F, lampF, lampZ, lampG: S.w * 0.86,
     // Between the upper lens (lampZ+0.020..+0.038) and the lower (lampZ..+0.017): one glow for a
     // stacked pair reads as one lamp unit, which is what a quad-lamp pod looks like lit.
@@ -3079,7 +3099,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // truck grows forward and upward from one anchor rather than needing four hand-placed boxes.
   const nose1 = 0.40, nose0 = nose1 - S.nose;              // bonnet
   const cab1 = nose0, cab0 = cab1 - S.cab;                 // cab box
-  const frame0 = cab0 - 0.10;                              // frame rails behind the cab
+  const frame0 = cab0 - frameBack(S);                      // frame rails behind the cab — see frameBack
   const deckTop = 0.115;
 
   // ── Chassis ────────────────────────────────────────────────────────────────
@@ -3090,7 +3110,15 @@ function buildTruck(variant = 'hauler', detail = 1) {
   box(frame0, cab0 + 0.02, S.w * 0.80, 0.050, 0.070, 'body');                 // deck plate over the rails
   // The fifth wheel: the greased steel plate the kingpin drops into. Visible on a bobtail, and the
   // single detail that says this tractor is MISSING something rather than simply being short.
-  box(frame0 + 0.03, frame0 + 0.10, S.w * 0.62, 0.070, 0.082, 'strut');
+  //
+  // ⚠ IT HAS TO REACH UNDER THE BOX, which is a fact about the two together rather than about the
+  // plate. A tractor and a trailer that merely touch end to end are two vehicles in a queue; a
+  // SEMI is one vehicle because the front of the box is carried ON this plate, with the tractor's
+  // back axles underneath it. The plate was 0.07 long and stopped 0.02 short of the box, so there
+  // was daylight between them from every angle — and nothing for an articulated draw to pivot
+  // about, because the pivot is the middle of this plate and the box was nowhere near it.
+  const PIN_F0 = frame0 - 0.01, PIN_F1 = frame0 + 0.13;
+  box(PIN_F0, PIN_F1, S.w * 0.62, 0.070, 0.082, 'strut');
 
   // ── Cab ────────────────────────────────────────────────────────────────────
   box(cab0, cab1, S.w, 0.02, S.hi, 'body');                // cab
@@ -3500,7 +3528,18 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // every view this mesh is used in (a passing aircraft, a contact in the window, the yard) —
     // and it is also the seam where a future articulated draw hangs its angle, since the two
     // halves are already two groups of faces rather than one welded box.
-    const t1 = frame0 - 0.02, t0 = t1 - S.deck;
+    // ⚠ THE NOSE OF THE BOX SITS OVER THE FIFTH WHEEL, not behind the tractor. It began at
+    // `frame0 - 0.02`, which is aft of the whole chassis: the rig read as a truck towing a
+    // separate box on a drawbar rather than as a semi, and the kingpin — the one point the
+    // articulation turns about — had no geometry over it at all. Forward of the plate's own
+    // centre now, so the tractor is genuinely UNDER its load and the pivot is inside both bodies.
+    // ⚠ AND IT STOPS AT THE PLATE. The first cut put the nose at `frame0 + 0.11`, which is FORWARD
+    // of `cab0` — the box began inside the back of the cab and the rig read as a trailer riding up
+    // over its own tractor. A kingpin is at the BACK of the truck; the box hangs off it and the gap
+    // between its nose and the sleeper is the swing clearance a real one turns in (see the tail-swing
+    // template). So the nose is the plate's own centre: the pin is on the box's front edge, the
+    // tractor's rear axles are under the first few feet of it, and nothing overlaps the cab.
+    const t1 = frame0 + 0.06, t0 = t1 - S.deck;
     // THE FLATTEST PANEL ON THE RIG, and it was flat because this was a constant. At 0.135 over a
     // deck the box stood 0.175 tall in a body 0.36 across — a shipping container half the height it
     // should be, and the single biggest surface the eye lands on. Derived from the cab now, so the
@@ -3684,13 +3723,31 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // `g` is the flank half-width; the renderer picks which flank is facing the camera.
   const doorF1 = cab1 - 0.052 - shift, doorF0 = cab1 - 0.104 - shift;
   const doorZ0 = S.hi * 0.185 - drop, doorZ1 = S.hi * 0.345 - drop;
+  // ── AND WHERE THE KINGPIN IS ───────────────────────────────────────────────
+  // The middle of the fifth-wheel plate, in the CENTRED frame every consumer of this mesh places
+  // it by. It is here for one reason: an articulated draw turns the box about this point, and the
+  // point is a fact about the geometry rather than a number the renderer could guess. A tractor
+  // laid out from a nose anchor and then slid back to centre has no fixed relationship between
+  // 'the plate' and 'the origin' — four rigs, four different answers — so anything reconstructing
+  // it outside this function is reconstructing it wrong for three of them.
+  //
+  // ⚠ NULL ON A SOLO BOX, AND THAT IS NOT AN OMISSION. A dropped trailer is already anchored ON
+  // its pin (see the ⚠ on `shift` above — solo centres on `hi`, the front station), so its pin is
+  // its origin and a second number saying so would be a second thing to keep in step.
   TRUCK_META.set(str + ':' + detail, {
     shift, drop, pods: podAt,
+    pin: solo ? null : (PIN_F0 + PIN_F1) / 2 - shift,
+    // …and the two numbers a clearance check needs: the back of the cab the box swings toward, and
+    // the box's own half-width, which is the radius that swings. Published rather than re-derived
+    // because the whole point of `frameBack` is that they are related, and a test that assumed the
+    // relation could not catch it being broken.
+    cabBack: solo ? null : cab0 - shift,
+    boxHalf: S.w * 1.02,
     door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: S.w },
   });
   return faces;
 }
-// variant+detail → { shift, drop, pods, door }. See the ⚠ at the end of buildTruck.
+// variant+detail → { shift, drop, pods, pin, cabBack, boxHalf, door }. See the ⚠ at the end of buildTruck.
 const TRUCK_META = new Map();
 // Read-only, for the regress suite: the door panel and the centring are facts about the mesh that
 // nothing outside this file can otherwise see, and door art is placed from them.

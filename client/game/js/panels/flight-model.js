@@ -276,6 +276,23 @@ export const TYPES = {
   // `heli: true` dispatches stepHeli. A ground type shares only the knobs that mean the same
   // thing on a road (engineLag, rollFric, dragP, brake) and adds its own.
   //
+  // ── ⚠ HALF PACE, SAME DIAL, SAME GEARBOX (2026-08-18) ──────────────────────
+  // The uniform rescale documented below (×k on the speeds INCLUDING tileMph) deliberately leaves
+  // tiles-per-second alone: it moves the number under the needle and nothing else. The complaint
+  // this time was the opposite — the world went past too fast — so this is the other edit, and the
+  // doc's own warning about it is the specification: 'Scaling topSpeed WITHOUT tileMph is the
+  // version of this change that quietly adds 40% to every haul.' That is the ask. Journeys are a
+  // fixed number of tiles, so halving the pace doubles them, and the Reach crossing goes from about
+  // thirteen minutes to about twenty-six.
+  //
+  // ⚠ AND THE GEAR LADDER DOUBLES WITH IT, or the top half of the gearbox goes unreachable. Every
+  // place a ratio meets `tileMph` is a QUOTIENT — engine speed is `(mph / tileMph) × ratio`, pulling
+  // power is `sqrt(ratio / topRatio)` — so doubling both leaves rpm, the shift points, the band and
+  // the torque curve exactly where they were. The one term that is not a quotient is engine braking
+  // (`ratio × engBrake`), so `engBrake` halves to hold it still. Nothing else moved: topSpeed,
+  // thrustMax, brake, rollFric and dragP are all in mph, so the needle and the way it climbs are
+  // untouched. What changed is how much ground a mile an hour buys.
+  //
   // THE SCALE KNOB IS `tileMph`, and it is the one number that decides how a haul FEELS: it is
   // the road speed at which the truck covers one corridor tile per second. At 80, a 60 mph cruise
   // is 0.75 tiles/s, a 90-tile void room is about two minutes, and an 8-room crossing to the Reach
@@ -338,7 +355,7 @@ export const TYPES = {
     mass: 2.4,
     thrustMax: 7.7,       // mph/s of acceleration authority at full throttle — light and willing
     topSpeed: 52,         // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
-    tileMph: 56,          // road speed (mph) that covers one corridor tile per second — see above
+    tileMph: 112,          // road speed (mph) that covers one corridor tile per second — see above
     // TILES between axles. Drives the bicycle model's yaw: bigger = lazier turn-in.
     // ⚠ HALVED (with `trailerLen`/`hitchOffset`, across the whole fleet) because the first cut was
     // not a wheelbase, it was a scale error: a tile is ~36 m at tileMph 80, so 0.48 tiles was a
@@ -362,19 +379,19 @@ export const TYPES = {
     // down to 2nd is not a flaw in the ladder, it is what a deep low gear FEELS like, and it
     // is why a driver skips it once rolling. Reverse borrows this ratio (× REVERSE_RATIO), so
     // it gets slower and stronger in the same edit, which is the right direction for both.
-    gears: [0, 4.85, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
-    engBrake: 1, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 9.7, 5.92, 4.52, 3.46, 2.66, 2.04, 1.56, 1.18], band: [0.42, 0.68],
+    engBrake: 0.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.17, hitchOffset: 0.055, trailerKg: 1400,   // kingpin geometry, and the empty box itself
     blurb: 'A stubby rigid box on a short wheelbase. Turns in like something half its age and carries about as much.',
   },
   drayman: {
     name: 'Vachon Drayman', ground: true, tier: 2,
-    mass: 3.2, thrustMax: 6.3, topSpeed: 48, tileMph: 56, wheelbase: 0.31,
+    mass: 3.2, thrustMax: 6.3, topSpeed: 48, tileMph: 112, wheelbase: 0.31,
     engineLag: 1.9, rollFric: 1.47, dragP: 0.0023, brake: 5.25,
     kg: 3500, tank: 1400, price: 11500,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 5.30, 3.22, 2.46, 1.89, 1.44, 1.10, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
-    engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 10.6, 6.44, 4.92, 3.78, 2.88, 2.2, 1.7, 1.3], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    engBrake: 0.625, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
     blurb: 'The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.',
   },
@@ -385,12 +402,12 @@ export const TYPES = {
   // a rolling resistance of 2.6 and the regress invariant caught it as un-drivable on the verge.
   continental: {
     name: 'Orlov Continental', ground: true, tier: 3,
-    mass: 4.6, thrustMax: 6.44, topSpeed: 44, tileMph: 56, wheelbase: 0.41,
+    mass: 4.6, thrustMax: 6.44, topSpeed: 44, tileMph: 112, wheelbase: 0.41,
     engineLag: 2.6, rollFric: 1.61, dragP: 0.0023, brake: 4.5,
     kg: 6200, tank: 2100, price: 31000,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 5.70, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.70], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
-    engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 11.4, 6.94, 5.32, 4.08, 3.12, 2.38, 1.82, 1.4], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    engBrake: 0.75, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.37, hitchOffset: 0.10, trailerKg: 5200,   // kingpin geometry, and the empty box itself
     blurb: 'A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it will take a whole market with it.',
   },
@@ -398,12 +415,12 @@ export const TYPES = {
   // actually reach, rather than a wall between them and the entire system.
   scrapper: {
     name: 'Krell Barrow', ground: true, tier: 0,
-    mass: 2.8, thrustMax: 5.88, topSpeed: 41, tileMph: 56, wheelbase: 0.28,
+    mass: 2.8, thrustMax: 5.88, topSpeed: 41, tileMph: 112, wheelbase: 0.28,
     engineLag: 2.4, rollFric: 1.54, dragP: 0.0027, brake: 4.2,
     kg: 1200, tank: 850, price: 1300,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 6.20, 3.77, 2.89, 2.21, 1.69, 1.30, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
-    engBrake: 1.05, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    gears: [0, 12.4, 7.54, 5.78, 4.42, 3.38, 2.6, 1.98, 1.52], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    engBrake: 0.525, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.15, hitchOffset: 0.05, trailerKg: 900,   // kingpin geometry, and the empty box itself
     blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
   },

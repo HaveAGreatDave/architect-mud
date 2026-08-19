@@ -35,7 +35,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
-import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta } from './aircraft3d.js';
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
@@ -1315,7 +1315,34 @@ export function paintWindshield(id, view) {
       // ignore it, and a contact that never sends one simply has none.
       // `own: true` marks this as the camera's SUBJECT rather than one more thing in the world — the
       // truck path reads it to keep the depth buffer on however small the window is (see the ⚠ there).
-      const ownbb = drawAircraftModel(ctx, cam, { own: true, dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, steer: v.steer, drive: v.drive, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
+      // ── ⚠ AN ARTICULATED RIG IS ONE MODEL WITH A HINGE IN IT ─────────────
+      // A semi is a tractor and a box that share one point, and the physics has modelled the angle
+      // between them since phase 1 (`s.phi`) while the picture welded the two together — so a
+      // jackknife was on the gauge, in the mirror, and invisible out of the window.
+      //
+      // ⚠ AND IT IS ONE DRAW, NOT TWO. The obvious build is a second `drawAircraftModel` for the
+      // box; it is wrong, and wrong in a way a smoke that switches the blit off cannot see. Each
+      // model draw runs its own depth pass and blits its own rectangle, so the second call paints
+      // over the first — whichever half went down first simply vanished, which is 'the trailer is
+      // not spawned with me even though it is hitched'. The mesh already knows which faces are the
+      // box (`face.deck`, stamped in buildTruck) and this loop already transforms vertices per face
+      // for the gear tuck, the cargo visor and the control surfaces. The hinge is one more of those.
+      //
+      // ⚠ THE PIN COMES FROM THE MESH. Four rigs are four lengths, each laid out from its nose and
+      // slid back to centre, so the plate sits at a different station on every one (−0.041 to
+      // +0.064). `TRUCK_META.pin` publishes it; a guessed offset hinges three of the four about a
+      // point in mid-air.
+      const artic = (() => {
+        if (v.cls !== 'truck' || !v.hitched) return null;
+        const meta = truckMeta(`${v.variant}:1`);
+        if (!meta || meta.pin == null) return null;   // first frame: the mesh has not been built yet
+        // The trailer's ABSOLUTE heading is what the sim owns; `phi` is `heading - trailerHeading`,
+        // and a renderer reassembling that has to pick a sign. Picking the wrong one makes the box
+        // LEAD the turn, which reads as the trailer steering the truck. It did.
+        const phi = v.trailerHeading != null ? ((v.heading || 0) - v.trailerHeading) : (v.phi || 0);
+        return Math.abs(phi) < 0.05 ? null : { phi: phi * Math.PI / 180, pin: meta.pin };
+      })();
+      const ownbb = drawAircraftModel(ctx, cam, { own: true, dx: 0, dy: 0, cls: v.cls, variant: v.variant, artic, armed: !!v.armed, hdg: v.heading, steer: v.steer, drive: v.drive, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
       if (clipped) ctx.restore();
       pEnd();
@@ -7575,6 +7602,16 @@ const OWN_EXT_MUL = 1.9;   // was 2.3 — dropped so the hero craft sits truer a
 // framing still is not right; nothing else in the chase view needs touching for it.
 const OWN_EXT_MUL_BY_CLS = { truck: 7.0 };
 const ownExtMul = (cls) => OWN_EXT_MUL_BY_CLS[cls] || OWN_EXT_MUL;
+// ⚠ AND A VIEWER ON THE ROAD HAS TO APPLY IT TO EVERY RIG IN THE VIEW, NOT JUST ITS OWN.
+// The exaggeration above is per-VIEW, not per-object: it exists because 0.030 of a tile is too
+// small to frame against a four-lane road whose lane markings are metres across. That argument is
+// about the ROAD, so it is just as true of a trailer standing on it — and while only the hero
+// model got the multiplier, a box parked beside your own rig drew at a SEVENTH of its size. That
+// is the 'trailers are tiny' report, and the rig was not too big: the box was honest and alone.
+// The cab applies it through `sizeMul` (see contactsFor in cab-view.js), which is the one field
+// that reaches the draw, the ground anchor and the occlusion size together — scaling the model
+// and not the anchor is a trailer hovering over the tarmac.
+export const ROAD_RIG_MUL = OWN_EXT_MUL_BY_CLS.truck;
 const LOD_HI_TILES = 4.5;   // contacts nearer than this (or the own chase model) render the full-detail mesh; farther ones drop to the coarse LOD (they're only a few px)
 
 // The own-ship external-chase model's centre world-z. Two jobs, and it takes the higher of them:
@@ -8172,7 +8209,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // are airborne, so their gear is stowed (skipped). `nacelle` pods are structure — never tucked.
   const showGear = c.gearAnim > 0.02;                               // own-ship with gear not fully up; contacts (undefined) → false
   const gearDown = c.gearAnim == null ? 1 : clamp(c.gearAnim, 0, 1);
-  for (const face of aircraftFaces(c.cls, detail, !!c.armed, c.variant || '')) {
+  for (let face of aircraftFaces(c.cls, detail, !!c.armed, c.variant || '')) {
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
     if (visorHidden(face, c.noseVisor)) continue;                   // hold + stowed ramp exist only while the cargo nose is open
     const isGear = face.role === 'gear';
@@ -8180,6 +8217,16 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Tuck the gear legs up into the belly (+z) and fold them inward (g·ga) as gearAnim → 0.
     // Hinged control surfaces (own-ship only — `c.ctrl` set) swing about their hinge from the
     // live pilot input: ailerons roll, flaps drop, elevators pitch. Contacts pass no ctrl → neutral.
+    // THE HINGE. `face.deck` marks the trailer half of a rig (buildTruck stamps it), so an
+    // articulated draw is a rotation of those faces about the kingpin in the model's own f/g
+    // plane — and every downstream pass (depth, shadow, occlusion, the blit) inherits it for free
+    // because there is still only one model. A point one unit ahead of the pin in the TRAILER's
+    // frame is (cos φ, −sin φ) in the tractor's, which is the whole derivation.
+    if (c.artic && face.deck) {
+      const cp = Math.cos(c.artic.phi), sp = Math.sin(c.artic.phi), pin = c.artic.pin;
+      face = { ...face, p: face.p.map(v => { const df = v[0] - pin; return [pin + df * cp + v[1] * sp, -df * sp + v[1] * cp, v[2]]; }),
+        cen: face.cen ? (() => { const df = face.cen[0] - pin; return [pin + df * cp + face.cen[1] * sp, -df * sp + face.cen[1] * cp, face.cen[2]]; })() : face.cen };
+    }
     const lp = (isGear && gearDown < 1)
       ? face.p.map(v => [v[0], v[1] * gearDown, v[2] + (1 - gearDown) * 0.2])
       : (face.visor && c.noseVisor > 0.001) ? hingeVisorFace(face, c.noseVisor)   // Leviathan cargo visor: forward section swung up when parked/cold
@@ -10191,14 +10238,13 @@ export function bayOccluderSmoke(ID) {
     // …and the quads the own ship is masked against per pixel. Coverage alone cannot see this: the
     // coarse field could be perfect while the fine mask has nothing to test and quietly no-ops.
     if (solids === 0) out.push('a shed beside the truck put no solid in OCC_SOLIDS — the per-pixel mask has nothing to test');
-    // ── ⚠ THE SHED YOUR RIG IS IN MASKS IT, AND THAT IS THE POINT NOW ───────
-    // This assertion used to run the other way: with the cutaway on, a shed containing your truck
-    // was being opened up for you and had to mask nothing, or the rig drew through a wall it was
-    // deliberately being shown through. The cutaway is off (see BAY_CUTAWAY_ON) — the building is
-    // always a building — so from a camera OUTSIDE it, a wall between you and your own truck is a
-    // wall, and a mask that had not heard of it would put the truck back through the wall.
+    // ── ⚠ THE SHED YOUR RIG IS IN MASKS NOTHING ─────────────────────────────
+    // Not a rendering decision: a building does not hide the room you are standing in, and what is
+    // in there with you is the row of boxes in its trailer bays. The chase camera sits ~0.9 tiles
+    // astern, so gating this on where the EYE is puts your rig inside and the camera out, and the
+    // shed masks its own contents. This assertion was briefly inverted to match that mistake.
     const own = plain(); own[R][R] = bay('OWN DEPOT');
-    if (covered(own) === 0) out.push('a solid shed with the rig standing in it masks nothing — the walls are painted and the occluder has not heard of them');
+    if (covered(own) > 0) out.push('the shed the rig is standing IN is masking it — a building must not hide the room you are in');
     // …and the one exemption, which is not about the picture at all: a wall you are STANDING
     // INSIDE cannot come between you and something in the room with you. From the cab — eye at the
     // truck, inside the footprint — the shed must mask nothing, or every contact in the yard is
@@ -10210,11 +10256,12 @@ export function bayOccluderSmoke(ID) {
       if (F) for (let i = 0; i < F.gh; i++) { const row = i * F.stride; for (let c = 0; c < F.gw; c++) if (F.d[row + c] < Infinity) n++; }
       if (n > 0) out.push('from inside the shed, the shed is masking the room — a wall you are within cannot occlude what is in there with you');
     }
-    // ── …AND FROM DOWN ON THE ROAD ──────────────────────────────────────────
-    // The pose the original bug happened in: the chase dropped onto the road, below the eaves,
-    // where the walls are painted solid. They have to mask there too.
+    // ── …AND A SHED YOU ARE NOT IN STILL MASKS, FROM DOWN ON THE ROAD ───────
+    // The exemption above is about the building you are standing in. Every other one is a building,
+    // and the pose the original bug happened in is the chase dropped onto the road below the eaves,
+    // where the walls are painted solid and have to mask.
     const flat = { ...view, extPitch: 0.02, extZoom: 1 };
-    paintWindshield(ID, { ...flat, map: own });
+    paintWindshield(ID, { ...flat, map: off });
     {
       const F = OCC_FIELD;
       let n = 0;
@@ -14144,13 +14191,18 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         // not there, and the own ship is painted after the world pass. That is a rig drawn straight
         // through a wall you can see, and it is the bug this line exists for. Now both halves ask
         // `bayCutaway`, and a wall hides exactly as much as it is opaque.
-        const { cut: bcut, inside: bInside, ct, st } = bayCutaway(cam, it.dx, it.dy, it.c);
-        // Two ways a shed stops masking, and only one of them is about the picture. It is being
-        // OPENED UP for you (masking against a wall you are being shown through puts the bug back
-        // one layer down) — or you are STANDING IN IT, which is not a rendering decision at all: a
-        // wall cannot come between you and something in the room with you, and with the cutaway
-        // switched off this is the only one of the two that ever fires.
-        if (bcut > 0.5 || bInside) continue;
+        const { cut: bcut, inside: bInside, subjectInside: bSubj, ct, st } = bayCutaway(cam, it.dx, it.dy, it.c);
+        // ⚠ A SHED DOES NOT HIDE THE ROOM YOU ARE IN, and "you" is the SUBJECT, not the eye. Gating
+        // this on the eye alone looks right and is wrong by about a tile: the chase camera sits ~0.9
+        // tiles astern, so parked in a shed your RIG is inside it and the CAMERA is not — the
+        // building then masks everything in there with you, and the boxes standing in the trailer
+        // bays you are about to back under vanish. That is "I can see the reefer in the depot and
+        // not in the yard", and it arrived the moment stock moved indoors.
+        //
+        // The other exemption is the cutaway — masking against a wall you are deliberately being
+        // shown through puts the bug back one layer down. It never fires while BAY_CUTAWAY_ON is
+        // false, and is kept because it is the same sentence said about the other case.
+        if (bcut > 0.5 || bInside || bSubj) continue;
         const toWorldB = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
         const k = 1 - OCC_SHRINK;
         const slab = (sx0, sx1, z0, z1) => {

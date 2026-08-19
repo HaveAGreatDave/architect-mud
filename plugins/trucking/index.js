@@ -71,7 +71,8 @@ import { registerAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
   buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition,
-  hitchReach, posed, refreshStanding, stockPose, standStock, paintTrailer, boxColour } from './trailers.js';
+  hitchReach, posed, refreshStanding, stockPose, findStockPose, standStock, paintTrailer, boxColour,
+  sellTrailer, trailerResale } from './trailers.js';
 
 const say = (msg) => ({ type: 'emote', message: msg });
 
@@ -203,7 +204,7 @@ async function cmdDrive(args, raw, player) {
   // stood on the apron rather than in the shed — the case where you are looking straight at the
   // empty hardstand the box should be standing on.
   const yardCtx = depotFrom(stood?.id);
-  await standStock(yardCtx?.bay || null, yardCtx?.yard || getZone(yardId), spot?.heading ?? 180);
+  await standStock(yardCtx?.bay || null, standPlaces(yardCtx?.bay, depot), spot?.heading ?? 180);
   // WHATEVER IS STANDING AT THIS DEPOT, so it is drawn from the first frame. Both tiles, because
   // you mount on the DOOR and the stock stands on the HARDSTAND — one refresh meant a driver
   // starting the engine looked out at an empty yard until the wheels crossed the boundary.
@@ -379,6 +380,26 @@ function whichTruckLine(verb, list, want, byId = false) {
 // surface under it — and the failure surfaces somewhere far away as a rig that cannot move. `yard`
 // is the one fact a bay genuinely cannot derive, so a depot without one is unauthored, not flexible.
 const yardIdOf = (zone, depot) => depot?.yard || null;
+// WHERE A BOX STANDS AT THIS DEPOT, and it is the SHED rather than the apron. The shed paints
+// TRAILER down one side of its floor and numbered tractor stalls down the other; stock left
+// outside made a liar of its own markings, and put the one thing you have to line up on out of
+// frame the moment you climbed in — a driver mounts INSIDE the shed, facing the door.
+//
+// The bay itself is a room at grid 0,0, so the tile that is physically the shed is its facade —
+// the same `world_exit_zone` a truck is parked on. A depot with no drivable shed (the legacy
+// one-tile shape, and the fixtures) falls back to the apron, which is what every one of them did
+// before there was a shed to stand anything in.
+// …and it is a LIST, in preference order, because the shed holds two boxes and a fleet is bigger
+// than two. Under the roof in the painted bays first; then the apron, in a rank along the fence.
+// Both are the depot's own zones, so `hitch` reaches either without widening its search.
+function standPlaces(bay, depot) {
+  const shed = bay?.flags?.world_exit_zone ? getZone(bay.flags.world_exit_zone) : null;
+  const yard = getZone(yardIdOf(bay, depot));
+  const out = [];
+  if (shed && shed.grid_x != null) out.push({ zone: shed, bays: true });
+  if (yard && yard.grid_x != null && yard.id !== shed?.id) out.push({ zone: yard, bays: false });
+  return out;
+}
 // ── WHERE A RIG IS STANDING WHEN YOU CLIMB INTO IT ───────────────────────────
 // Pulled out of `cmdDrive` so it can be ASSERTED rather than trusted. It was four lines inline,
 // which meant the one thing worth pinning — that you start inside the shed facing the way out, and
@@ -637,7 +658,11 @@ async function cmdYard(args, raw, player) {
   if (!depot) return say('No yard here.');
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'buy') return await yardBuy(player, bay, depot, args[1], args.slice(2).join(' '));
-  if (sub === 'sell') return await yardSell(player, bay, args[1]);
+  // ⚠ ONE VERB FOR BOTH, AND IT DECIDES BY WHAT THE ID NAMES. `yard sell` was trucks only, so a
+  // trailer was a thing you could buy and never get rid of — and the box is the piece of kit you
+  // are most likely to buy wrong, because the whole choice is a capacity number you have not run
+  // yet. A second verb would have been a second thing to discover for the same act.
+  if (sub === 'sell') return await yardSell(player, bay, depot, args[1]);
   // Fetching one home is the third thing a yard does with a truck, so it sits with buying and selling.
   if (sub === 'recall' || sub === 'fetch' || sub === 'tow') return await yardRecall(player, bay, args[1]);
   // …and painting a box, which is a different job from painting the cab that pulls it and is priced
@@ -717,7 +742,7 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   // given one, and it has to happen ahead of `trailersOf` below or the panel lists this trailer as
   // being in a zone the write is about to change. See standStock for why a depot must not contain a
   // trailer that is nowhere.
-  await standStock(bay, yard, mountSpot(bay)?.heading ?? 180);
+  await standStock(bay, standPlaces(bay, depot), mountSpot(bay)?.heading ?? 180);
   const region = here.flags?.region_id;
   const day = marketDay();
   const mine = await fleetOf(player.id);
@@ -839,11 +864,29 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       condition: +(t.condition ?? 1).toFixed(3), band: bandOf(t.condition ?? 1).key,
       towedBy: t.towedBy || null,
       hereNow: !t.towedBy && zonesHere.includes(t.parkedZone),
+      // ⚠ AND WHETHER IT CAN BE SOLD, which is not the same question as `hereNow`. A box on your own
+      // fifth wheel, in the yard you are standing in, is as much 'here' as one on the concrete — the
+      // pin is not a reason to make somebody type two verbs to do one thing. Selling it drops it
+      // first, which is the SAME drop `unhitch` performs, so the two stores can never disagree.
+      canSell: !t.cargo && !t.stash
+        && ((!t.towedBy && zonesHere.includes(t.parkedZone))
+          || (t.towedBy && t.towedBy === rig?.truckId && !rig?.cargo
+            && (zonesHere.includes(rig?.zoneId) || zonesHere.includes(rig?.fromDepot)))),
       where: t.towedBy ? 'hitched' : (zonesHere.includes(t.parkedZone) ? 'here' : depotNameOf(t.parkedZone)),
       cargo: t.cargo ? { name: t.cargo.name, kg: t.cargo.kg } : null,
+      // ⚠ AND WHETHER IT IS CARRYING ANYTHING AT ALL, which is not the same question as `cargo`.
+      // A box holds a declared load and a STASH, and the sale refuses either — but the stash is
+      // the whole point of the stash, so the panel is told that the box is not empty and
+      // deliberately not told what is in it. Without this the Sell button is offered on a loaded
+      // box and then refused, which is the one thing the toolbar rule on this screen forbids: a
+      // button that is present and refuses is worse than one that is absent and explains itself.
+      loaded: !!(t.cargo || t.stash),
       // What colour it is, so the yard floor draws a fleet rather than a row of black slabs. One
       // field, because a box is one colour — see boxLivery.
       colour: boxColour(t),
+      // What a dealer would give you, sent as a FACT for the same reason every other price on this
+      // screen is: the button prints exactly what the verb pays.
+      resale: trailerResale(t),
     })),
     // The bench's catalogues, sent once with the panel exactly as the hangar sends its paint and
     // tune catalogues: the client renders the dials it is told about and invents none.
@@ -1044,11 +1087,14 @@ async function yardBuyTrailer(player, here, depot, t) {
   // the same facade `entrance`, so the box stands the way the traffic runs rather than at an angle
   // somebody typed. A depot with no drivable yard (the legacy one-tile shape, and the fixtures)
   // falls back to the old behaviour: parked where you stand, unposed, hitchable anywhere.
-  const yard = getZone(yardIdOf(here, depot));
-  const outside = yard && yard.grid_x != null ? yard : null;
-  const pose = outside
-    ? stockPose(outside.grid_x, outside.grid_y, mountSpot(here)?.heading ?? 180, (await trailersAt(outside.id)).length)
-    : null;
+  // ⚠ THE FIRST FREE BAY, NEVER THE NTH ONE COUNTED. Placing at `trailersAt(zone).length` is right
+  // exactly once: sell a box and the next purchase is stood at that index again, inside the one
+  // already there — and two trailers in one spot is two trailers under one pin.
+  const places = standPlaces(here, depot);
+  const standing = [];
+  for (const pl of places) for (const t of await trailersAt(pl.zone.id)) if (posed(t)) standing.push({ x: t.x, y: t.y });
+  const pose = places.length ? findStockPose(places, mountSpot(here)?.heading ?? 180, standing) : null;
+  const outside = pose ? getZone(pose.zoneId) : null;
   // ⚠ AND IT COMES OUT OF THE SHED IN YOUR COLOURS. A box you have just bought is yours, and the
   // cheapest way to say so is the one a real yard uses: it gets sprayed to match the cab that is
   // going to pull it. The stamp is taken ONCE, here, from the truck you keep at this depot — not
@@ -1070,6 +1116,41 @@ async function yardBuyTrailer(player, here, depot, t) {
     + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. ${outside
       ? `A yard hand walks it out and drops the legs on the hardstand, nose to the road — ${teachVerb('hitch')} once you have backed under it.`
       : `It is standing in the yard — ${teachVerb('hitch')} to back under it.`}</span>`);
+}
+
+// Selling a box. Priced off the list and its condition (trailerResale), refused while it is
+// loaded or on a pin, and it has to be STANDING HERE — the same three tests the truck sale makes,
+// for the same reason: a dealer buys a thing he can walk round.
+async function yardSellTrailer(player, here, depot, id) {
+  const zones = hitchZones(here?.id);
+  let box = null;
+  for (const z of zones) for (const t of await trailersAt(z)) if (t.id === id && t.ownerId === player.id) box = t;
+  // ⚠ …OR THE ONE ON YOUR OWN PIN. A hitched box is not findable by `trailersAt` — it has no
+  // `parked_zone` at all while it is being towed — so a driver sitting in the yard with the thing
+  // they want to sell hooked up behind them got 'it isn't standing in this yard'. It is: it is on
+  // the truck, and the truck is here. The drop below is the same one `unhitch` does.
+  const rig = rigOf(player);
+  const towed = !box && rig?.trailer && rig.trailer.id === id && rig.trailer.ownerId === player.id
+    && (zones.includes(rig.zoneId) || zones.includes(rig.fromDepot)) ? rig.trailer : null;
+  if (towed && rig.cargo) return say(`There is still a load on it. <span class="text-dim">Deliver or dump it before you sell the ${towed.name}.</span>`);
+  box = box || towed;
+  if (!box) return say("That isn't yours, or it isn't standing in this yard.");
+  if (box.cargo || box.stash) return say(`There is still a load on it. <span class="text-dim">Empty the ${box.name} first.</span>`);
+  const value = trailerResale(box);
+  // Unhook it first, so the row is a parked box for the instant before it stops existing — and the
+  // live rig stops believing it has one. Doing it the other way round leaves a rig towing a trailer
+  // that has been deleted, which every consumer of `rig.trailer` would then answer questions about.
+  if (towed) {
+    await dropTrailer(box.id, here?.id || rig.zoneId, null);
+    rig.trailer = null;
+  }
+  if (!await sellTrailer(box.id, player.id)) return say('Somebody is towing it.');
+  player.credits = (player.credits || 0) + value;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await Promise.all(zones.map(z => refreshStanding(z)));   // it stops being on the glass now, not on the next arrival
+  await repush(player, 'fleet');
+  return say(`<span class="item-grant">Sold ${box.name} for ${value}₵.</span> <span class="text-dim">${towed ? 'They pull the pin, walk it off your fifth wheel and drag it round the back.' : 'A yard hand hooks it up and drags it round the back.'}</span>`);
 }
 
 // ── yard paint ───────────────────────────────────────────────────────────────
@@ -1152,10 +1233,12 @@ async function yardRecall(player, here, id) {
     + `into the yard, filthy, with a chain mark on the bumper nobody wants to talk about.</span> <span class="item-loss">-${fee}₵</span>`);
 }
 
-async function yardSell(player, here, id) {
+async function yardSell(player, here, depot, id) {
   if (!id) return say('Sell which? <span class="text-dim">yard sell &lt;id&gt;</span>');
   const t = await getTruck(id, player.id);
-  if (!t) return say("That isn't yours.");
+  // Not a truck of yours — try the boxes standing in this yard before refusing. Ids are exact and
+  // a trailer's is unmistakable, so this can never take a sale you meant for a tractor.
+  if (!t) return await yardSellTrailer(player, here, depot, id);
   if (!depotZonesOf(here, depotAt(here)).includes(t.depot_zone)) return say(`It's parked at ${depotNameOf(t.depot_zone)}. Bring it here first.`);
   if (rigOf(player)?.truckId === t.id) return say("You're sitting in it.");
   // The bodywork is in the price — see resaleValue. A dealer looks at the thing.

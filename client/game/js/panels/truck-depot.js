@@ -223,6 +223,8 @@ function floorScreen() {
           <span class="td-dim">· ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}</span>
           ${t.cargo ? `<span class="td-dim">· loaded: ${esc(t.cargo.name)}</span>` : ''}
           ${t.hereNow && d.driving ? tbtn('⚯', 'Back under it', 'data-cmd="hitch"') : ''}
+          ${t.canSell ? tbtn('₵', `Sell · ${money(t.resale)}`, `data-confirm="yard sell ${esc(t.id)}"`) : ''}
+          ${!t.canSell && (t.hereNow || t.towedBy) && t.loaded ? '<span class="td-dim">· empty it to sell it</span>' : ''}
         </div>`).join('')}
       </div>` : '';
   const deck = d.cargo
