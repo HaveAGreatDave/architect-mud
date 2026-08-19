@@ -12,7 +12,7 @@
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup } from './windshield.js';
-import { createFreeCam, FREECAM_HINT } from './freecam.js';
+import { createFreeCam, FREECAM_HINT, bindFreeCamPointer } from './freecam.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
 // standalone/embed context that can't provide it (or fails to load it) still runs on opts
@@ -401,6 +401,7 @@ export function openHelmChase(container, opts = {}) {
   }
   window.addEventListener('keydown', onHelmKey);
   window.addEventListener('keyup', onHelmKey);
+  const unbindFreeCamPointer = bindFreeCamPointer(container.querySelector('.ws-wrap') || container, freeCam);
 
   const busy = () => st.sailing || st.heading !== st.headingTarget;
 
@@ -545,6 +546,7 @@ export function openHelmChase(container, opts = {}) {
       // The camera is stowed with the view, and its keys with it — see the same note in closeCab.
       freeCam.close();
       window.removeEventListener('keydown', onHelmKey); window.removeEventListener('keyup', onHelmKey);
+      unbindFreeCamPointer?.();
       container.innerHTML = '';
     },
   };

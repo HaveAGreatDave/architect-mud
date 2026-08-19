@@ -19,7 +19,7 @@
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
-import { createFreeCam, FREECAM_HINT } from './freecam.js';
+import { createFreeCam, FREECAM_HINT, bindFreeCamPointer } from './freecam.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
@@ -941,6 +941,9 @@ export function openCab(ctx = {}) {
   // means taking your eyes off the thing you are steering. Dragging where you are already looking
   // is the control that scales with the window.
   const glass = container.querySelector('.ws-wrap');
+  // The mouse, on the glass. Bound once with the cab and released with it; it does nothing at all
+  // until the camera is off its mount, so the cab's own gestures are untouched.
+  st.freeCamUnbind = bindFreeCamPointer(glass, freeCam);
   {
     let drag = null;
     const isChrome = (e) => !!e.target?.closest?.('.cab-chrome,.cab-dmg,.cab-help');
@@ -4190,6 +4193,7 @@ export function closeCab() {
   // The camera goes back on its mount with the cab. Not merely tidiness: it holds a key set, and a
   // dismount while a movement key is down would leave that key latched for the next drive.
   freeCam.close();
+  st.freeCamUnbind?.(); st.freeCamUnbind = null;
   st.freeHold = null;
   suppressWeatherFx(false, 'cab');
   cancelAnimationFrame(st.raf);

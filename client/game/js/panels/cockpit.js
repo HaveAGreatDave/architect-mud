@@ -22,7 +22,7 @@ import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
-import { createFreeCam } from './freecam.js';
+import { createFreeCam, bindFreeCamPointer } from './freecam.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
 // auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
@@ -2666,6 +2666,10 @@ export function openFlightSim(opts = {}) {
   // spring-back — so you can fly and watch from any angle. The ⟲ reset button SWINGS it back to just
   // behind and above the craft. Only in external view.
   const viewEl = q('.fsim-view');
+  // ⚠ BOUND BEFORE THE YOKE AND THE ORBIT BELOW, on the capture phase. That ordering is what lets a
+  // detached camera take the left-drag away from the yoke without the yoke handler being told the
+  // camera exists — and hand it straight back the moment the camera is stowed.
+  bindFreeCamPointer(viewEl, freeCam);
   if (viewEl) {
     let ox = 0, oy = 0;
     add(viewEl, 'pointerdown', (e) => {

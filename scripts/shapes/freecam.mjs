@@ -136,3 +136,45 @@ ck(!fc.active && fc.view() === null, 'it closes');
 
 console.log(`  ${cbad ? '✗' : '✓'} freecam controller — ${cbad} problem(s)`);
 if (cbad) process.exit(1);
+
+// ── Mouse, roll and dolly ───────────────────────────────────────────────────
+const fm = createFreeCam();
+// Same rule as the keys, and for the same reason: a closed camera must not eat a drag, or the
+// cockpit's yoke and the cab's own gestures stop working the moment this file is imported.
+ck(fm.beginDrag(10, 10) === false, 'a closed camera refuses a drag');
+ck(fm.moveDrag(20, 20) === false, '…and tracks nothing');
+ck(fm.dolly(-1) === false, '…and ignores the wheel');
+
+fm.open({ yaw: 0, z: 1 });
+ck(fm.beginDrag(100, 100) === true, 'an open camera takes the drag');
+ck(fm.dragging === true, '…and says so');
+const y0 = fm.view().yaw, mp0 = fm.view().pitch;
+fm.moveDrag(160, 100);
+ck(fm.view().yaw > y0, 'dragging right turns it right');
+fm.moveDrag(160, 40);
+ck(fm.view().pitch > mp0, 'dragging up looks up');
+fm.endDrag();
+ck(fm.dragging === false, 'releasing ends the drag');
+
+// The wheel dollies along the view axis rather than changing the focal length — at yaw 0 that is
+// −y, and it must be the SAME axis W drives along or the two controls disagree about "forward".
+fm.open({ yaw: 0, z: 1 });
+const d0 = { ...fm.view() };
+fm.dolly(-1);
+ck(fm.view().y < d0.y && Math.abs(fm.view().x - d0.x) < 1e-9, 'the wheel dollies down the view axis');
+
+// Roll is the rotation a chase camera cannot have: it pins the horizon level by definition.
+fm.open({});
+ck(fm.view().roll === 0, 'it opens level');
+fm.onKey('x', true); for (let i = 0; i < 5; i++) fm.step(0.1);
+ck(fm.view().roll > 0, 'X rolls it');
+const r1 = fm.view().roll;
+fm.onKey('x', false); fm.onKey('z', true); for (let i = 0; i < 10; i++) fm.step(0.1);
+ck(fm.view().roll < r1, 'Z rolls it back the other way');
+// ⚠ Reopening must level it. A camera that remembered a dutch angle from a previous session would
+// have the player wondering why the horizon is bent with nothing on screen to explain it.
+fm.close(); fm.open({});
+ck(fm.view().roll === 0, 'reopening levels the horizon');
+
+console.log(`  ${cbad ? '✗' : '✓'} freecam mouse + roll — ${cbad} problem(s) total`);
+if (cbad) process.exit(1);

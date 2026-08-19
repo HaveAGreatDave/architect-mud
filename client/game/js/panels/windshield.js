@@ -1018,7 +1018,12 @@ export function paintWindshield(id, view) {
   // In the EXTERNAL chase view the camera holds a LEVEL horizon and you watch the plane roll
   // against a static sky (a proper chase cam) — so the world (sky/clouds/sun/ground) doesn't spin
   // with your bank. The cockpit view still banks the world fully for immersion.
-  const bankRad = ext ? 0 : (v.bank || 0) * Math.PI / 180;
+  // ⚠ AND A DETACHED CAMERA MAY ROLL. The external view pins the horizon level by definition —
+  // that is what makes it a chase cam, and you watch the aircraft bank against a static sky. A free
+  // camera has no such obligation: it is not following anything, so its roll is its own and the
+  // whole scene turns with it. Same canvas rotate the cockpit's bank already goes through, so
+  // nothing downstream learns a third way to be tilted.
+  const bankRad = fcam ? (fcam.roll || 0) : (ext ? 0 : (v.bank || 0) * Math.PI / 180);
 
   // ── Cinematic-flourish placement + strength scalars ───────────────────────────
   // The sun's on-screen position (same placement the sky disc uses), hoisted so the
