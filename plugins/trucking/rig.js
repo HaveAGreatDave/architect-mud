@@ -88,7 +88,7 @@ export const bandOf = (c) => BANDS.find(b => (c ?? 1) >= b.at) || BANDS[BANDS.le
 // between visits to a bench, which is often enough to be a rhythm and rare enough not to be a tax.
 const WEAR_PER_TILE = 0.00014;
 export function wearFor(tiles, { surface = 'road', tune = {}, condition = 1 } = {}) {
-  const rough = surface === 'offroad' ? 2.4 : surface === 'shoulder' ? 1.5 : 1;
+  const rough = surface === 'offroad' ? 2.4 : surface === 'shoulder' ? 1.5 : surface === 'dirt' ? 1.25 : 1;
   const hot = 1 + Math.max(0, tune.boost || 0) * 0.45;      // a hard turbo is a bill you pay later
   // A tired truck wears FASTER. This is the one compounding term in the system and it is
   // deliberate: it is what turns "I'll fix it next time" into a decision instead of a default.
@@ -216,7 +216,7 @@ export function breakChance(tiles, { condition = 1, surface = 'road' } = {}) {
   if ((condition ?? 1) <= TERMINAL_CONDITION) return Math.max(0, tiles) > 0 ? 1 : 0;
   const deficit = Math.max(0, 0.5 - (condition ?? 1));
   if (deficit <= 0) return 0;
-  const rough = surface === 'offroad' ? 2 : surface === 'shoulder' ? 1.4 : 1;
+  const rough = surface === 'offroad' ? 2 : surface === 'shoulder' ? 1.4 : surface === 'dirt' ? 1.2 : 1;
   return Math.max(0, tiles) * BREAK_PER_TILE * deficit * deficit * rough;
 }
 // Is this breakdown one a driver can do anything about? Terminal ones are not — there is no clamp,

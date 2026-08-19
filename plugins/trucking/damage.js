@@ -81,7 +81,7 @@ export function overall(dmg) {
 // has to be the bill. At 7x, a stretch of verge that saves you a few minutes costs a set of
 // housings, which is a trade a driver can weigh and sometimes take. The engine multiplier is
 // deliberately absent: a diesel does not care what it is rolling over.
-const WHEEL_SURFACE = { road: 1, shoulder: 2.4, offroad: 7 };
+const WHEEL_SURFACE = { road: 1, dirt: 1.6, shoulder: 2.4, offroad: 7 };
 export function wearSplit(amount, { surface = 'road' } = {}) {
   const rough = WHEEL_SURFACE[surface] ?? 1;
   return {

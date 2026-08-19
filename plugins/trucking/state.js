@@ -842,6 +842,17 @@ export function surfaceUnder(rig) {
   const terrain = c?.flags?.terrain;
   if (!c) return 'offroad';
   if (terrain === 'road' || terrain === 'asphalt' || terrain === 'concrete') return 'road';
-  if (terrain === 'dirt_road' || terrain === 'gravel') return 'shoulder';
+  // ⚠ `dirt_road` MEANS TWO DIFFERENT THINGS AND ONLY THE LEG CAN TELL THEM APART. Out on the
+  // corridor it is the graded band beside the tarmac — `corridorAt` paints the verge with it
+  // precisely because it earns the renderer's packed-dirt look — and a verge has to keep a verge's
+  // penalty or the whole "the edge of the road is a law, not a wall" rule stops meaning anything.
+  // In a CITY it is somebody's actual road: authored, driven, and the only way to reach a good deal
+  // of the map. Bucketing both as `shoulder` made a real road handle like the strip you bog on —
+  // 41 seconds to thirty in a loaded rig, which is indistinguishable from a gearbox that will not
+  // leave second, and is exactly what it was reported as.
+  if (terrain === 'dirt_road') return rig.leg === 'city' ? 'dirt' : 'shoulder';
+  // Gravel stays the verge wherever it is: it is the material a shoulder is MADE of, and the 900-odd
+  // tiles of it in the world are yards and lots rather than routes.
+  if (terrain === 'gravel') return 'shoulder';
   return 'offroad';
 }

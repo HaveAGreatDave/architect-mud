@@ -1255,6 +1255,10 @@ function stepTruck(state, input, p, dt) {
 // "edge of the road is a law, not a wall" rule is quietly broken by a tuning number.
 export const SURFACES = {
   road:     { cap: 1.00, grip: 1.00, drag: 1.00, drive: 1.00 },
+  // A REAL ROAD THAT HAPPENS NOT TO BE PAVED. Slower and looser than tarmac and nothing like the
+  // verge: you can get a loaded rig up through the box on it, which is the entire difference
+  // between a route and a penalty. See surfaceUnder — only the CITY leg's `dirt_road` lands here.
+  dirt:     { cap: 0.86, grip: 0.86, drag: 1.12, drive: 0.96 },
   shoulder: { cap: 0.72, grip: 0.68, drag: 1.30, drive: 0.88 },   // gravel: it rumbles, and it pulls
   offroad:  { cap: 0.34, grip: 0.42, drag: 1.60, drive: 0.62 },   // the verge: passable, and a mistake
 };

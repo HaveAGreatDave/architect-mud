@@ -3152,6 +3152,7 @@ function ensureCabStyles() {
      by the truck you are actually in rather than by one amber that every rung shared. */
   .cab-readout b{font-size:22px;color:var(--cab-glow,#e8c07a);font-variant-numeric:tabular-nums}
   .cab-readout span{font-size:9px;letter-spacing:.14em;color:#7c848f}
+  .cab-surface.s-dirt{color:#c8b083}
   .cab-surface.s-shoulder{color:#d8a24e}
   .cab-surface.s-offroad{color:#d2603f}
   /* ── THE PEDALS ────────────────────────────────────────────────────────────
