@@ -253,7 +253,7 @@ function wrapDeg(d) { return ((d % 360) + 540) % 360 - 180; }
 // "toward the target" gets more specific the closer it gets. There is no separate convergence
 // term and no blend weight — the leash was always a homing device, it was just homing on a
 // compass point instead of on a place.
-export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, plan = null, anchor = null) {
+export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, plan = null, anchor = null, seedKey = null) {
   const dests = plan?.dests || null;
   const n = Math.max(1, nodes | 0);
   const anch = anchor && [anchor.x0, anchor.y0, anchor.x1, anchor.y1].every(Number.isFinite)
@@ -284,8 +284,14 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
   const trunkL = Math.max(0, Math.min(L, anch
     ? L * (Math.min(n, Math.max(0, trunkNodes | 0)) / n)   // the same FRACTION of the road, in real tiles
     : (trunkNodes | 0) * TILES_PER_ROOM));
-  const trunkRng = mulberry32(hashSeed(`${voidKey}|${window}|trunk`));
-  const limbRng = mulberry32(hashSeed(`${voidKey}|${destKey}|${window}|corridor`));
+  // ⚠  OVERRIDES THE IDENTITY OF THE ROAD, and null keeps the legacy strings EXACTLY.
+  // A segment of the network is seeded on what it IS — a spoke on its gate, so every road leaving
+  // that gate lays the same tarmac; a middle on the PAIR of gates, so both directions are one road.
+  // Written as a branch rather than as a template with a default, because the old strings are what
+  // every pinned road in the regress suite was built from and they have to survive character for
+  // character.
+  const trunkRng = mulberry32(hashSeed(seedKey ? `${seedKey}|${window}|trunk` : `${voidKey}|${window}|trunk`));
+  const limbRng = mulberry32(hashSeed(seedKey ? `${seedKey}|${window}|corridor` : `${voidKey}|${destKey}|${window}|corridor`));
   const legs = [];
   const bends = [];           // the s each ARC begins at — where the road changes direction (see signsFor)
   let s = 0, x = anch ? anch.x0 : 0, y = anch ? anch.y0 : 0;
@@ -399,7 +405,7 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
   // test, the mile boards) reads route.L, so this one assignment is what makes them all agree with
   // the geometry rather than with the estimate.
   const realL = anch ? s : L;
-  const route = { voidKey, destKey, window, nodes: n, L: realL, R: CORRIDOR_R, legs, trunkL, bends,
+  const route = { voidKey, destKey, window, seedKey, nodes: n, L: realL, R: CORRIDOR_R, legs, trunkL, bends,
     origin: plan?.origin || null,
     // WHAT ONE VOID ROOM IS WORTH, IN TILES. It used to be the global TILES_PER_ROOM, which was
     // correct precisely because the road's length was defined as nodes × that constant. Once the
@@ -716,6 +722,26 @@ const ROADSIDE_EVERY = 40;
 // reading as a scrapyard.
 const WRECKS = new Map();
 const WRECK_CAP = 12;
+// ── WHAT SEEDS A CELL, ON A ROAD MADE OF SEGMENTS ────────────────────────────
+//
+// Everything scattered along the road — the verge terrain, the roadside sheds, the wrecks — is
+// seeded on the road's identity, and on a joined road that identity is not one thing. A cell on the
+// SPOKE out of Coldwater has to roll the same whichever destination this particular driver is bound
+// for, or the shared spoke is only shared geometrically and grows different buildings per road. A
+// cell on the MIDDLE has to roll the same in both directions, or one road has two sets of scenery.
+//
+// So the seed is the SEGMENT's, picked by where on the road the cell is. `joinRoutes` records the
+// pieces in order; an unjoined road has none and falls back to exactly the string it always used,
+// which is what keeps every pinned road in the regress suite byte-identical.
+function segSeed(route, s) {
+  const segs = route?.segments;
+  if (segs?.length) {
+    let acc = 0;
+    for (const seg of segs) { acc += seg.L; if (s < acc) return seg.seedKey; }
+    return segs[segs.length - 1].seedKey;
+  }
+  return route?.seedKey || `${route.voidKey}|${route.destKey}`;
+}
 const wreckKey = (route) => `${route.voidKey}|${route.destKey}|${route.window}`;
 export function addWreck(route, { s, what, who }) {
   if (!route) return null;
@@ -855,7 +881,7 @@ export function corridorAt(route, x, y) {
         corridor_s: s, corridor_node: node } };
   }
   // The verge. Node terrain, and very occasionally something somebody built and left.
-  const rng = mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}|${x},${y}`));
+  const rng = mulberry32(hashSeed(`${segSeed(route, s)}|${route.window}|${x},${y}`));
   const flags = { terrain, corridor_s: s, corridor_node: node };
   let name = pick(rng, VERGE_NAMES);
   // A wreck from a real haul, standing where its driver gave up on it. It borrows `reefer` — the
@@ -896,7 +922,7 @@ export function corridorAt(route, x, y) {
   // five of them stacked at s=0). One marker, one building.
   const mile = Math.round(s);
   if (at >= 3.4 && mile % ROADSIDE_EVERY === 0) {
-    const mrng = mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}|mile${mile}`));
+    const mrng = mulberry32(hashSeed(`${segSeed(route, s)}|${route.window}|mile${mile}`));
     if (mrng() < 0.55) {
       const side = mrng() < 0.5 ? -1 : 1;
       const off = 4 + Math.floor(mrng() * (route.R - 3));   // clear of the widened shoulder

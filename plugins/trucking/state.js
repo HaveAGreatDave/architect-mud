@@ -22,7 +22,8 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
-  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt } from './corridor.js';
+  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt,
+  joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
@@ -325,6 +326,73 @@ export function gatePair(aKey, bKey) {
   return best ? { from: best.a, to: best.b } : null;
 }
 export const _clearGateCache = () => _gates.clear();   // regress only — the world is rebuilt between suites
+
+// ── THE INTERCHANGE ──────────────────────────────────────────────────────────
+//
+// A gate's own junction, out in the waste. Every road leaving that gate runs down the SAME spoke to
+// it and only diverges there, which is what turns the fork from a room boundary into a place: you
+// can see it, the boards can point at it, and it is the same piece of tarmac for everybody.
+//
+// PLACED, NOT AUTHORED. It sits `SPOKE_LEN` tiles out from the gate along the mean bearing to
+// everywhere that gate can reach — so it is ahead of you as you leave, roughly on the way to all of
+// your options, and it moves by itself when a destination is added. A hub, in the end, is nothing
+// more than an interchange that several roads meet at; nothing here has to know which kind it is.
+//
+// ⚠ FAR ENOUGH OUT THAT THE ROADS HAVE ROOM TO PART. Inside the minimum turn radius the limbs
+// leaving it would have to bend tighter than the geometry allows (see MIN_RADIUS and the fold
+// invariant), so they would either fold through their own verge or leave as one road that slowly
+// smears apart. This is comfortably outside it.
+const SPOKE_LEN = 140;
+export function interchangeFor(regionKey, gate) {
+  const g = gate || regionGates(regionKey)[0];
+  if (!g) return null;
+  const v = VOIDS[regionKey];
+  let ax = 0, ay = 0, n = 0;
+  for (const d of v?.dests || []) {
+    const p = d.region ? gatePair(regionKey, d.region) : null;
+    if (p) { ax += p.to.x; ay += p.to.y; n++; }
+  }
+  if (!n) return null;
+  let dx = ax / n - g.x, dy = ay / n - g.y;
+  const m = Math.hypot(dx, dy);
+  if (m < 1e-6) return null;
+  dx /= m; dy /= m;
+  // ⚠ NEVER PAST THE HALFWAY POINT. On a short hop the two interchanges would otherwise overshoot
+  // each other and the middle segment would run BACKWARDS between them — a road that doubles back
+  // on itself, which `locate` resolves by handing out two answers for one tile.
+  const reach = Math.min(SPOKE_LEN, m * 0.4);
+  return { x: g.x + dx * reach, y: g.y + dy * reach };
+}
+
+// ── THE WHOLE ROAD, GATE TO GATE ─────────────────────────────────────────────
+// spoke out → the middle → spoke in, reversed. The middle is seeded on the PAIR of gates, so this
+// road and the one built from the other end are the same tarmac driven in opposite directions; each
+// spoke is seeded on its own gate, so it is shared by every road that leaves it.
+export function networkRoute(fromKey, toKey, window, nodes) {
+  const pair = gatePair(fromKey, toKey);
+  if (!pair) return null;
+  const iA = interchangeFor(fromKey, pair.from), iB = interchangeFor(toKey, pair.to);
+  if (!iA || !iB) return null;
+  const spoke = (key, gate, ic) => corridorFor(key, 'spoke', window, nodes, 0, null,
+    { x0: gate.x, y0: gate.y, x1: ic.x, y1: ic.y }, `spoke|${gate.id}`);
+  // ⚠ THE MIDDLE IS BUILT ONCE, CANONICALLY, AND REVERSED FOR THE OTHER DIRECTION. Building it from
+  // each end with the same seed is the obvious thing and it does not work: the wander integrates a
+  // heading from wherever it starts, so running it from A toward B is not the mirror of running it
+  // from B toward A. Same seed, same endpoints, two different curves — nine tiles apart at worst,
+  // which regress caught on the first run and which is the entire bug this phase exists to kill.
+  // So the lower-sorted gate id is the road's own direction (the same sort `pairKey` uses, for the
+  // same reason: something has to decide and a coin flip is not a decision), and a driver coming
+  // the other way gets it turned round rather than rebuilt.
+  const canon = String(pair.from.id) < String(pair.to.id);
+  const [m0, m1] = canon ? [iA, iB] : [iB, iA];
+  const [k0, k1] = canon ? [fromKey, toKey] : [toKey, fromKey];
+  const midCanon = corridorFor(k0, k1, window, nodes, 0, null,
+    { x0: m0.x, y0: m0.y, x1: m1.x, y1: m1.y }, `mid|${pairKey(pair.from.id, pair.to.id)}`);
+  const mid = canon ? midCanon : reverseRoute(midCanon);
+  const out = joinRoutes([spoke(fromKey, pair.from, iA), mid, reverseRoute(spoke(toKey, pair.to, iB))]);
+  if (out) { out.nodes = nodes; out.roomLen = out.L / Math.max(1, nodes); }
+  return out;
+}
 
 // ── THE TWO REAL TILES A ROAD RUNS BETWEEN ───────────────────────────────────
 // The whole point of anchoring: the crossing already knows both ends as ZONES, and both zones

@@ -13,7 +13,7 @@ import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, _clearGateCache, _previewRoute } from './state.js';
+  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -711,6 +711,59 @@ export default async function regress({ run, check, getPlayer }) {
       }
       return true;
     })());
+  }
+
+  // ── 1f. THE NETWORK: GATE → INTERCHANGE → INTERCHANGE → GATE ───────────────
+  // The shape the whole thing has been heading for. A hub is nothing more than an interchange that
+  // several roads meet at, so nothing here has to know which kind it is.
+  {
+    const a = VOIDKEY, b = (VOIDS[VOIDKEY]?.dests || []).find((d) => d.region && regionGates(d.region).length)?.region;
+    check('there are two regions with gates to build a road between', !!b, String(b));
+    if (b) {
+      const win = voidTest.currentWindow();
+      const AB = networkRoute(a, b, win, 8), BA = networkRoute(b, a, win, 8);
+      check('a network road is built end to end', !!AB && !!BA);
+      if (AB && BA) {
+        const ga = gatePair(a, b);
+        check('it starts on the gate it leaves and ends on the gate it arrives at',
+          Math.hypot(corridorPos(AB, 0, 0).x - ga.from.x, corridorPos(AB, 0, 0).y - ga.from.y) < 0.01
+          && Math.hypot(corridorPos(AB, AB.L, 0).x - ga.to.x, corridorPos(AB, AB.L, 0).y - ga.to.y) < 0.01);
+        // ⚠ THE HEADLINE INVARIANT OF THE WHOLE PHASE. Driving out and driving back must retrace ONE
+        // road. Built from either end, the tarmac has to be the same tarmac — not a similar road
+        // that happens to join the same two towns, which is what shipped before.
+        check('…and the same length in both directions', Math.abs(AB.L - BA.L) < 0.01,
+          `${AB.L.toFixed(1)} vs ${BA.L.toFixed(1)}`);
+        let worst = 0;
+        for (let s = 2; s < AB.L - 2; s += 13) {
+          const p = corridorPos(AB, s, 0), q = corridorPos(BA, BA.L - s, 0);
+          worst = Math.max(worst, Math.hypot(p.x - q.x, p.y - q.y));
+        }
+        check('…and driving it back is the SAME ROAD, not a second one between the same towns',
+          worst < 0.05, `worst divergence ${worst.toFixed(3)} tiles`);
+        // The spoke is shared by every road out of that gate, which is what moves the fork to a
+        // place. Two destinations from the same gate must lay identical tarmac until the interchange.
+        const other = (VOIDS[a]?.dests || []).find((d) => d.region && d.region !== b && regionGates(d.region).length);
+        if (other) {
+          const AC = networkRoute(a, other.region, win, 8);
+          let same = true;
+          for (let s = 1; s < Math.min(AB.trunkL, AC.trunkL) - 1 && same; s += 7) {
+            const p = corridorPos(AB, s, 0), q = corridorPos(AC, s, 0);
+            if (Math.hypot(p.x - q.x, p.y - q.y) > 0.05) same = false;
+          }
+          check('two roads out of one gate share their spoke, so the fork is a place', same);
+          check('…and part company at the interchange rather than at the gate',
+            AB.trunkL > 20, AB.trunkL.toFixed(1));
+        }
+        // The odometer still has to survive the whole thing, or none of the above matters.
+        let bad = null;
+        for (let s = 0; s <= AB.L && !bad; s += 3) {
+          const p = corridorPos(AB, s, 0);
+          const hit = corridorLocate(AB, p.x, p.y);
+          if (!hit || Math.abs(hit.s - s) > 1.5) bad = `s=${s.toFixed(0)} → ${hit ? hit.s.toFixed(1) : 'NO FIX'}`;
+        }
+        check('…and the odometer round-trips the whole road, through both seams', !bad, bad);
+      }
+    }
   }
 
   // ── 2. The render seam ─────────────────────────────────────────────────────
