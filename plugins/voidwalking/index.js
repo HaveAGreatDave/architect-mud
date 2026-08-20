@@ -181,7 +181,11 @@ let _seq = 0;
 // go red on a tree nobody touched. WINDOW_FORCE lets the suite pin one week and get
 // a deterministic layout. Never set outside regress.
 let WINDOW_FORCE = null;
-function currentWindow() { return WINDOW_FORCE ?? Math.floor(Date.now() / WEEK_MS); }
+// Exported because the road over the waste is seeded on it, and trucking now derives that road
+// BEFORE any crossing exists (see previewRoute) — so the week has stopped being only the void's
+// business. ⚠ Still honours WINDOW_FORCE, which is what lets a regress suite pin a week and get a
+// fixed road out of both this plugin and that one.
+export function currentWindow() { return WINDOW_FORCE ?? Math.floor(Date.now() / WEEK_MS); }
 
 export function voidGateOf(zone) {
   const key = zone?.flags?.region_id;

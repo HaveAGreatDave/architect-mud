@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A drift of fine sand has piled against the windward side of a boulder and settled into a smooth curve. Nothing has walked on it.",
+  "description": "Main Street gives up its buildings and keeps going anyway, a graded ribbon of dirt running west out of the Reach with nothing on either side of it. Somebody scraped this flat once. The wind has been putting it back ever since.",
   "exits": {
     "east": "zone_the_reach_865_1955",
     "north": "zone_the_reach_864_1954",
@@ -22,13 +22,13 @@
   "flags": {
     "lawless": true,
     "region_id": "region_the_reach",
-    "terrain": "scrub"
+    "terrain": "dirt_road"
   },
   "grid_x": 904,
   "grid_y": 1039,
   "grid_z": 0,
   "id": "zone_the_reach_864_1955",
   "map_id": "map_world",
-  "name": "The Deep Scrub",
+  "name": "The Coldwater Road",
   "parent_zone": null
 }

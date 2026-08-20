@@ -7,13 +7,13 @@
 // fake and individually meaningless. What has to hold is that an odometer reading turns into the
 // right void room, every time, for a whole haul.
 import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
-import { mapWindow, surfaceAt, bounds as worldBounds } from '../flight/state.js';
+import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor } from './state.js';
+  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, voidGateTile, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -531,6 +531,57 @@ export default async function regress({ run, check, getPlayer }) {
       }
       check('…and the verge is still synthesised out where the world places nothing',
         !fill || /^corridor_/.test(String(fill.id)), `${fill?.id} at s=${atS}`);
+    }
+  }
+
+  // ── 1c. THE ROAD IS THERE BEFORE YOU ARE ───────────────────────────────────
+  // The crossing was anchored to whichever rim tile the driver happened to be standing on, so the
+  // road's start was not knowable until after they had left — and a highway you cannot locate until
+  // you are on it cannot be drawn while you drive up to it. That is the pop-in, and no amount of
+  // rendering work fixes it, because there is nothing to render. The gate makes it static.
+  {
+    // ⚠ EVERY VOID, NOT JUST THE ONE THIS SUITE DRIVES. The fallback (anchor on the tile the driver
+    // left from) still exists and still works, and that is exactly the problem: a region whose road
+    // never reaches its rim would go on quietly popping its highway in at the edge, with a green
+    // suite and nothing to say which region it was. A gate is a content requirement now — if this
+    // fails, the region named needs a road authored out to its edge, not a special case here.
+    {
+      const missing = Object.keys(VOIDS).filter((k) => !voidGateTile(k));
+      check('every void has a gate — the tile its own road runs off the map at',
+        missing.length === 0, missing.join(', ') || 'all present');
+    }
+    const gate = voidGateTile(VOIDKEY);
+    check('the suite\'s own void has one', !!gate, VOIDKEY);
+    if (gate) {
+      const at = surfaceAt(gate.x, gate.y);
+      check('…and it really is a road tile of that region',
+        isRoadCell(at) && at?.flags?.region_id === VOIDKEY, String(at?.id));
+      check('…on the rim, with the map genuinely stopping beside it',
+        [[0, -1], [0, 1], [1, 0], [-1, 0]].some(([dx, dy]) => !surfaceAt(gate.x + dx, gate.y + dy)));
+      // ⚠ AND IT IS STABLE. `getAllZones()` yields a Map's insertion order and a content import can
+      // reshuffle it; a gate that moved with that would silently move every road in the game.
+      _clearGateCache();
+      const again = voidGateTile(VOIDKEY);
+      check('…and picking it twice picks the same tile', again?.id === gate.id, String(again?.id));
+    }
+    // A rig standing in the region sees the corridor from the city leg. This is the fix, stated as
+    // the thing a driver would notice: road, out past the edge of the world, from on the map.
+    if (gate) {
+      const rig = { leg: 'city', x: gate.x, y: gate.y };
+      const provider = providerFor(rig);
+      const pre = _previewRoute(VOIDKEY, voidTest.currentWindow());
+      check('the approach can see the road before the crossing exists', !!pre);
+      if (pre) {
+        let seen = null;
+        for (let s = 4; s <= 60 && !seen; s += 2) {
+          const p = corridorPos(pre, s, 0), px = Math.round(p.x), py = Math.round(p.y);
+          if (!surfaceAt(px, py) && provider(px, py)?.flags?.terrain === 'road') seen = s;
+        }
+        check('…out past the edge of the map, from a truck still standing on it', seen !== null,
+          seen === null ? 'no corridor road visible off-map from the city leg' : `s=${seen}`);
+        check('…and it starts on the gate, not on wherever somebody happened to stand',
+          Math.hypot(corridorPos(pre, 0, 0).x - gate.x, corridorPos(pre, 0, 0).y - gate.y) < 0.01);
+      }
     }
   }
 

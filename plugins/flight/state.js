@@ -853,7 +853,7 @@ export function advance(live, tiles) {
 // the payload. It's a ~2400-cell JSON pushed only every 3s while airborne — cheap.
 // A surface cell reads as road if it's a named artery, carries a road/runway map icon, or
 // is painted `road` terrain — the same signals the minimap paints grey asphalt from.
-function isRoadCell(c) {
+export function isRoadCell(c) {
   const f = c && c.flags;
   if (!f) return false;
   return (Array.isArray(f.artery) && f.artery.length > 0)

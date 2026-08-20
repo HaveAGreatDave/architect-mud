@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "The last of the swept ground gives out to thorn and grit. Somebody has dragged a pallet out here to sit on and watch the town from a distance, which is a thing people in the Reach do.",
+  "description": "Main Street gives up its buildings and keeps going anyway, a graded ribbon of dirt running west out of the Reach with nothing on either side of it. Somebody scraped this flat once. The wind has been putting it back ever since.",
   "exits": {
     "east": "zone_the_reach_867_1955",
     "north": "zone_the_reach_866_1954",
@@ -22,13 +22,13 @@
   "flags": {
     "lawless": true,
     "region_id": "region_the_reach",
-    "terrain": "scrub"
+    "terrain": "dirt_road"
   },
   "grid_x": 906,
   "grid_y": 1039,
   "grid_z": 0,
   "id": "zone_the_reach_866_1955",
   "map_id": "map_world",
-  "name": "Town Flats",
+  "name": "The Coldwater Road",
   "parent_zone": null
 }

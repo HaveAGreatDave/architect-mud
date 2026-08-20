@@ -15,12 +15,12 @@
 // re-deriving `s` from the room you woke up in is both cheap and correct. The persistence-tier
 // rules in docs/architecture.md are explicit that per-tick state does not go near the DB.
 
-import { getZone, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
+import { getZone, getAllZones, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
 import { streetActors } from '../../server/engine/street-actors.js';
 import { emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
-import { mapWindow, surfaceAt, aircraftNearCoord, skyState } from '../flight/state.js';
+import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
@@ -28,7 +28,7 @@ import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
 // The crossing's own shape, read rather than reconstructed. ⚠ voidwalking imports nothing from
 // this plugin, so this is a one-way edge and not the load-order tangle routes.js warns about.
-import { crossingChain, crossingInfo } from '../voidwalking/index.js';
+import { crossingChain, crossingInfo, VOIDS, currentWindow as currentVoidWindow } from '../voidwalking/index.js';
 import { trailersNear, standingIn, hitchReach, posed, refreshStanding, boxColour } from './trailers.js';
 // The one paint→livery conversion, shared with the cab and the depot panel — see the file's own
 // note on why it is in client/shared rather than in the renderer.
@@ -128,9 +128,25 @@ export function topTilesPerSec() { return (TOP_SPEED_MPH / TILE_MPH) * CLAMP_SLA
 // Nothing here is load-bearing for the DRIVE — the odometer, the node and the collision all read
 // `locate` and `rig.route`, never this window (see corridorLocate) — so this decides what you SEE.
 export function providerFor(rig) {
-  if (rig.leg === 'city') return surfaceAt;
+  // ── THE CITY LEG SEES THE ROAD IT IS DRIVING TOWARD ────────────────────────
+  // It used to be bare `surfaceAt`, which is why the highway switched on the instant you crossed
+  // the edge: on this side of the line the corridor was not consulted at all, so there was nothing
+  // out past the rim but air. Now the approach composes the same road the crossing will lay (see
+  // previewRoute — same seed, same anchor, same object), so the highway comes up out of the haze
+  // while you are still on the map and the boundary stops being an event.
+  //
+  // ⚠ A rig nowhere near a void gets `null` here and this is exactly the provider it always was.
+  if (rig.leg === 'city') {
+    const pre = previewFor(rig);
+    return pre ? composed(corridorProvider(pre)) : surfaceAt;
+  }
   const road = corridorProvider(rig.route);
   if (!rig.route?.anchored) return road;   // legacy local frame — the world is genuinely elsewhere
+  return composed(road);
+}
+// The one composition, so the approach and the crossing can never disagree about which of the two
+// worlds owns a tile — see the ⚠ above providerFor for why it is per-claim rather than an order.
+function composed(road) {
   return (x, y) => {
     const c = road(x, y);
     if (c && isCarriageway(c)) return c;
@@ -209,6 +225,73 @@ function crossingPlan(instanceId) {
   };
 }
 
+// ── WHERE A REGION'S ROAD LEAVES IT ──────────────────────────────────────────
+//
+// THE GATE IS A PLACE, and until now the road out of a void did not have one. A crossing is
+// anchored to `leader.current_zone` — the rim tile you happened to be standing on when you struck
+// out — which is right for the ROOMS (you walk into the waste from where you are) and impossible
+// for the ROAD: a highway whose start is not known until you have already left cannot be drawn
+// while you are driving up to it, so it switched on the instant you crossed the edge. That is the
+// pop-in, and no amount of rendering work fixes it, because there is nothing to render.
+//
+// So the road gets a gate of its own: the tile where the region's OWN ROAD runs out of the map. Not
+// an arbitrary rim tile and not a derived midpoint — the highway is the continuation of a street
+// that is already there, which is what makes the join read as a road leaving town rather than as
+// tarmac beginning in a field. It is found by looking at the world rather than by authoring a zone
+// id anywhere, because the world already says it: a rim tile carrying road IS the way out.
+//
+// ⚠ THIS CHANGES THE ANCHOR AND NOTHING ELSE. The crossing's rooms still hang off the tile you
+// actually walked out of, `originSign` still names the place, and a walker's void is untouched. All
+// that becomes canonical is where the road's GEOMETRY starts — which is precisely the thing that
+// has to be knowable before you get there.
+//
+// ⚠ AND IT LIVES HERE RATHER THAN IN voidwalking, which is where it reads like it belongs. That
+// plugin imports nothing from flight and nothing from this one (see the note on the crossingChain
+// import above — it is deliberately a one-way edge), and the road test wants flight's `isRoadCell`.
+// Trucking already depends on both, so putting it here adds no edge at all.
+//
+// Cached: the world is static between deploys and this walks every zone once.
+const _gateTile = new Map();
+export function voidGateTile(voidKey) {
+  if (_gateTile.has(voidKey)) return _gateTile.get(voidKey);
+  const v = VOIDS[voidKey];
+  let best = null;
+  if (v) {
+    // Where the roads out of here are going, as one point: the mean of this void's destinations. A
+    // rim tile facing that is the one a road heading for them would actually use.
+    let ax = 0, ay = 0, n = 0;
+    for (const d of v.dests || []) {
+      const z = getZone(d.dest);
+      if (z?.grid_x != null && z?.grid_y != null) { ax += z.grid_x; ay += z.grid_y; n++; }
+    }
+    for (const z of getAllZones()) {
+      if (z.map_id !== 'map_world' || (z.grid_z ?? 0) !== 0) continue;
+      if (z.flags?.region_id !== voidKey) continue;
+      if (!isRoadCell({ flags: z.flags || {} })) continue;
+      // A rim tile: the map genuinely stops on at least one side of it. `surfaceAt` indexes exactly
+      // the placed surface tiles, so this is the same question voidwalking's own rim test asks — a
+      // missing EXIT is a wall, a missing TILE is the edge of the world.
+      const rim = [[0, -1], [0, 1], [1, 0], [-1, 0]]
+        .some(([ddx, ddy]) => !surfaceAt(z.grid_x + ddx, z.grid_y + ddy));
+      if (!rim) continue;
+      const d2 = n ? (z.grid_x - ax / n) ** 2 + (z.grid_y - ay / n) ** 2 : 0;
+      // ⚠ TIES BROKEN ON THE COORDINATE, NEVER ON ITERATION ORDER. `getAllZones()` yields a Map's
+      // insertion order, and a content import can reshuffle that — which would silently move every
+      // road in the game without a line of code changing.
+      if (!best || d2 < best.d2 - 1e-9
+        || (Math.abs(d2 - best.d2) <= 1e-9 && (z.grid_x < best.x || (z.grid_x === best.x && z.grid_y < best.y)))) {
+        best = { id: z.id, x: z.grid_x, y: z.grid_y, d2 };
+      }
+    }
+  }
+  // ⚠ NULL RATHER THAN A GUESS. A region with no road reaching its rim has no gate, and every caller
+  // falls back to the tile the driver actually left from — which is the behaviour that shipped.
+  const out = best ? { id: best.id, x: best.x, y: best.y } : null;
+  _gateTile.set(voidKey, out);
+  return out;
+}
+export const _clearGateCache = () => _gateTile.clear();   // regress only — the world is rebuilt between suites
+
 // ── THE TWO REAL TILES A ROAD RUNS BETWEEN ───────────────────────────────────
 // The whole point of anchoring: the crossing already knows both ends as ZONES, and both zones
 // already carry `grid_x`/`grid_y`, so the road can be laid in the same coordinates the flight sim
@@ -221,10 +304,68 @@ function crossingPlan(instanceId) {
 function anchorFor(instanceId, destKey) {
   const info = instanceId ? crossingInfo(instanceId) : null;
   if (!info) return null;
-  const from = getZone(info.originZone);
+  // ⚠ THE GATE FIRST, THE TILE YOU LEFT FROM ONLY AS A FALLBACK. Anchoring on `originZone` — where
+  // the driver happened to be standing — is what made the road unknowable until after you had left
+  // it, and therefore undrawable on the approach. The gate is the region's own road running off the
+  // map (see voidGateTile), so the same crossing produces the same road for everybody, every time,
+  // and a preview built before you cross is the road you actually get rather than a guess at it.
+  const gate = voidGateTile(info.voidKey);
+  const from = gate || getZone(info.originZone);
   const to = getZone((info.dests || []).find((d) => d.key === destKey)?.dest);
-  if (from?.grid_x == null || to?.grid_x == null) return null;
-  return { x0: from.grid_x, y0: from.grid_y, x1: to.grid_x, y1: to.grid_y };
+  const x0 = gate ? gate.x : from?.grid_x, y0 = gate ? gate.y : from?.grid_y;
+  if (x0 == null || to?.grid_x == null) return null;
+  return { x0, y0, x1: to.grid_x, y1: to.grid_y };
+}
+
+// ── THE ROAD YOU CAN SEE BEFORE YOU ARE ON IT ────────────────────────────────
+//
+// The whole point of the gate. A crossing instance does not exist until you strike out, so the
+// approach cannot ask one what the road looks like — but every argument `corridorFor` takes is now
+// static: the void's own table gives the destinations and the room counts, `voidGateTile` gives the
+// origin, and the week gives the seed. So the road over the waste is derivable from a standing
+// start, and the city leg can render the same geometry the corridor leg will.
+//
+// ⚠ IT MUST BE THE SAME ROAD, NOT A SIMILAR ONE. Every argument here is the one `joinCorridor`
+// passes, and regress asserts the two routes come out identical for a real crossing — because a
+// preview that differs by so much as its seed is a road that visibly jumps at the exact moment the
+// pop-in used to happen, which is the bug wearing a different hat.
+//
+// Cached per void+week: the road is a pure function of those, so this builds once and every rig in
+// the region reads the same object.
+const _preview = new Map();
+function previewRoute(voidKey, window) {
+  const key = `${voidKey}|${window}`;
+  if (_preview.has(key)) return _preview.get(key);
+  const v = VOIDS[voidKey], gate = voidGateTile(voidKey);
+  let route = null;
+  if (v && gate) {
+    const dests = (v.dests || []).map((d) => {
+      const z = getZone(d.dest);
+      return { key: d.key, name: d.sign || d.heading || d.key, nodes: d.length | 0,
+        x: z?.grid_x ?? null, y: z?.grid_y ?? null };
+    }).filter((d) => d.nodes > 0 && Number.isFinite(d.x));
+    const first = dests[0];
+    if (first) {
+      const trunk = Math.max(1, v.trunk | 0);
+      route = corridorFor(voidKey, first.key, window, first.nodes, trunk,
+        { origin: v.sign || v.origin || null, dests },
+        { x0: gate.x, y0: gate.y, x1: first.x, y1: first.y });
+    }
+  }
+  _preview.set(key, route);
+  return route;
+}
+export const _clearPreview = () => _preview.clear();   // regress only
+export { previewRoute as _previewRoute };   // regress only — the suite asserts it equals the joined route
+
+// Which void's road, if any, runs off the edge of the region this rig is standing in. A rig nowhere
+// near a void gets null and the city leg is exactly what it always was.
+function previewFor(rig) {
+  if (rig.leg !== 'city') return null;
+  const here = surfaceAt(Math.round(rig.x), Math.round(rig.y));
+  const voidKey = here?.flags?.region_id;
+  if (!voidKey || !VOIDS[voidKey]) return null;
+  return previewRoute(voidKey, currentVoidWindow());
 }
 
 // City → corridor. Called when the rig drives off the rim into a live crossing.

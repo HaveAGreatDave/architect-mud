@@ -25,7 +25,7 @@
   "flags": {
     "lawless": true,
     "region_id": "region_the_reach",
-    "terrain": "dirt"
+    "terrain": "dirt_road"
   },
   "grid_x": 908,
   "grid_y": 1039,

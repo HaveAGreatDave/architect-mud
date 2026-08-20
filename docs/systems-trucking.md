@@ -70,6 +70,42 @@ below for why that composition is now both possible and necessary, and which way
 | **why does it look unmaintained?** | `flags.road_wear` on the paved band → `wr` on the cell → `drawGroundSurfaces` | Nobody has resurfaced this since the basin emptied, and it has to *look* like that or the void reads as a municipal street laid across a desert. **One authored bit, everything else derived**: sun-bleached tar, sand drifting in off the verge, tar patches, cracks, paint that is thinned *and missing outright in places* — a faded line still reads as a line somebody maintains, and a broken one does not. Shipping the detail per tile would be authoring a texture over the wire at 3,700 cells a push and would put the road's appearance in two places. **A highway also gets no kerb and no pavement band** — that is a city thing the street-actor pass stands people on. ⚠ Every scrap of variation is hashed off the tile's **world** coordinate, never its index in the window: the window travels with you, so a window-relative hash makes the ground crawl and shimmer as you drive (which is what the older dirt-road shade jitter was doing) |
 | **why do the headlamps light nothing?** | they do now — `drawVehicleGround` §4 | `drawHeadlightBeam` has thrown a beam down the tarmac since the first night run, but it is built in the **camera's** frame: it is the light you drive *by*, and it belongs to whoever is looking rather than to a truck. So every rig seen from outside — yours in the chase view, and every other rig on the corridor — had two lit lenses and no light. The new pair is built from the lamp **stations** in the mesh's own coordinates, exactly as the lifter cones are, so it turns and leans with the vehicle for free; it is painted **before** the model, like everything else on the road, so the bodywork masks its own beam by paint order. ⚠ Deliberately **not** run through the articulation frame, unlike every other station in that file — headlamps are on the tractor, and hinging them would swing the beam with the trailer |
 
+### 1a-i. The gate: where a region's road leaves it
+
+*(2026-08-19.)* **The road is there as you drive up to it, instead of switching on when you cross
+the edge.** That was never a rendering gate that could simply be opened — a crossing is anchored to
+`leader.current_zone`, the rim tile you happened to be standing on when you struck out, so until you
+had *already left* the game did not know where the road started. There was nothing to draw.
+
+So the road gets a gate of its own: **the tile where the region's own road runs off the map**
+(`voidGateTile`). Not an arbitrary rim tile and not a derived midpoint — the highway is the
+continuation of a street that is already there, which is what makes the join read as a road leaving
+town rather than as tarmac beginning in a field. It is found by *looking at the world* rather than by
+authoring a zone id anywhere, because the world already says it: a rim tile carrying road **is** the
+way out.
+
+⚠ **This changes the anchor and nothing else.** The crossing's rooms still hang off the tile you
+actually walked out of, `originSign` still names the place, and a walker's void is untouched. All
+that becomes canonical is where the road's *geometry* starts — precisely the thing that has to be
+knowable before you get there. With it static, `previewRoute` builds the same road from the same
+seed and anchor before any crossing exists, and the **city leg composes it** (`providerFor`), so the
+highway comes up out of the haze while you are still on the map.
+
+⚠ **It must be the same road, not a similar one** — a preview differing by so much as its seed is a
+road that visibly jumps at the exact moment the pop-in used to happen, which is the bug wearing a
+different hat. Regress pins the gate's stability too: `getAllZones()` yields a Map's insertion order
+and a content import can reshuffle it, so ties are broken on the **coordinate**, never on iteration
+order — otherwise a re-import would silently move every road in the game.
+
+⚠ **A gate is a CONTENT requirement.** The fallback (anchor on the tile the driver left from) still
+exists and still works, and that is exactly the danger: a region whose road never reaches its rim
+would go on quietly popping its highway in, with a green suite and nothing to say which region it
+was. Regress therefore sweeps **every** void and names the ones without a gate. The Reach failed it
+on the first run — its only road surfaces were the airstrip and four tiles of main street — and was
+fixed in content rather than in code: Main Street simply keeps going west to the rim, along five
+tiles of scrub the layout had already joined by exits. **A new region with a void needs a road out
+to its edge**, not a special case here.
+
 ### 1a. The road is laid in REAL WORLD COORDINATES
 
 *(Changed 2026-08-19. It used to have a private frame — origin at the gate, heading due south,
@@ -507,6 +543,32 @@ to the **same `skyState()` the cockpit uses**, so a driver and a pilot over thei
 disagree about the time or the weather. The spatial weather **field** is deliberately left off — the
 cab doesn't wire it, and a payload nothing reads is how a push gets expensive for nothing. Regress
 asserts presence rather than a value, since absence was the entire failure mode.
+
+**Both light switches now exist, and they point in opposite directions** *(2026-08-19)*. The
+paragraph above is superseded on its last clause: the headlights got a **latching `LAMPS` rocker**
+(key `L`, default ON, carried on the telemetry packet's lamp bitfield so other drivers see your
+actual lamps), because the renderer deciding for you meant there was no way to drive dark and no way
+to forget your lights. The gloom gate is unchanged — it is now what the *default* is, not what the
+truth is.
+
+The second switch is the **dome lamp** (`CAB`, key `I`, default ON, `dome` on the frame options).
+It lights the inside and nothing else, and unlike the headlights it never leaves the client — nobody
+outside the cab can see it, so there is no packet field and no column. Three rules:
+
+- **The panel lamps are a separate circuit, and switching the cab light off winds them UP.** That is
+  the whole feature. A dial sitting at its daylight backlight in a black cab reads flat, because the
+  eye judges an instrument against what is around it — so `glowK` (the one entry on the trim row
+  that is not a colour) scales the dial's own backlight and adds a soft spill *outside* the bezel
+  onto the plate. It is carried on `T`, which every dial already receives, rather than as a
+  thirteenth positional argument to `drawCabDial`.
+- **The flood over the vinyl is wound DOWN, never off.** The dash wash IS the interior light
+  spilling onto the board, so with the lamp off it has no source — but a real cab at night is still
+  lit by its instruments and by what the headlights throw back off the bonnet, and you can find the
+  park brake by shape. Dark, never blind.
+- **Absent means ON.** `v.dome !== false`, so the depot turntable, the shape smoke and any older
+  caller render exactly the cab they always did. `interiorRenderSmoke` has a `cab:dark` case
+  because dome-off is a genuine second branch (no roof lozenges, no shell wash, the wound-up
+  backlight), not a dimmer setting.
 
 ---
 
