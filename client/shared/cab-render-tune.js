@@ -35,6 +35,19 @@ export const CAB_VIEW_TUNE = Object.freeze({
   // 44px is roughly 4% of screen height — properly distant from a driver's seat — and the flat fill
   // is tone-matched to the texture average, so a wall does not change colour as it crosses over.
   wallLodPx: 44,
+  // ── THE ROAD SURFACE IS THE SUBJECT HERE, NOT THE BACKDROP ─────────────────
+  // The Mode-7 ground raster is sized in CSS pixels; everything else in the frame is drawn into a
+  // backing store this view deliberately renders ABOVE 1:1 (superSample: 2). From altitude that
+  // mismatch is invisible — the ground is a distant carpet and the detail is all in the sky and the
+  // skyline. From a cab it is the thing you are staring at: a metre of lane marking, kerb and tile
+  // seam filling the bottom half of the windscreen, painted one texel to a 2x2 block of real pixels
+  // while the buildings standing on it got every one. That is where "the terrain looks blurry"
+  // comes from, and it is a resolution mismatch rather than a filter.
+  //
+  // The cost is real (dpr squared on a per-texel software loop) and is left on the adaptive dial:
+  // perfDS still coarsens the floor step by step when frames run long, so this raises the ceiling
+  // on a machine that can pay for it and changes nothing on one that cannot.
+  floorSubpixel: 1,
   // Rooftop signage and ground shadows go BEHIND the building in front of them long before they go
   // small. That is a thing only a ground camera gets to be true about.
   decoFar: 12,

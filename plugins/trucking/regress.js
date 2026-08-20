@@ -559,6 +559,65 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and an untouched tile still reads the same through it',
         (before ? before.id : null) === (after ? after.id : null));
     }
+
+    // ── HOW LONG A CROSSING IS, DERIVED ────────────────────────────────────────
+    // Every destination in VOIDS used to carry a hand-written `length`, and the reason was a wrong
+    // constant rather than a design decision: `totalLength` divided a real distance by
+    // TILES_PER_ROOM (90), which is what a room is worth on an UNANCHORED road — the legacy local
+    // frame where L = nodes × 90 because there was nothing to measure against. The real gates are
+    // 93 to 282 tiles apart, so every crossing came out at 1 to 3 rooms, clamped to MIN_ROOMS, and
+    // every dest had to override it by hand.
+    {
+      const vw = await import('../voidwalking/index.js');
+      const { VOIDS: V, totalLength } = vw._test;
+      const { getZone } = await import('../../server/engine/world.js');
+      const dist = (from, to) => { const p = gatePair(from, to); return p ? Math.hypot(p.to.x - p.from.x, p.to.y - p.from.y) : 0; };
+
+      // ⚠ NOTHING IN THE TABLE OVERRIDES IT ANY MORE. The mechanism stays — an author may want to
+      // pin a crossing — but a `length` sitting on a row that the derivation already agrees with is
+      // a number nobody will think to update, which is how the old ones came to describe a
+      // measurement that was never taken.
+      const pinned = [];
+      for (const [fromKey, def] of Object.entries(V)) for (const d of def.dests || []) if (d.length) pinned.push(fromKey + '→' + d.key);
+      check('no crossing needs a hand-written length any more', pinned.length === 0, pinned.join(' '));
+
+      // The derivation is gate-to-gate, and the gates are the same ones the ROAD anchors on — so
+      // the room count and the geometry cannot disagree about how far it is.
+      for (const [fromKey, def] of Object.entries(V)) {
+        for (const d of def.dests || []) {
+          const gd = dist(fromKey, d.region);
+          check(`${fromKey.replace('region_', '')}→${d.key}: the gates are a real distance apart`, gd > 0, String(gd));
+          const rooms = totalLength(d, null, getZone(d.dest), fromKey);
+          check('…and its room count is derived from that distance, clamped',
+            rooms === Math.max(5, Math.min(15, Math.round(gd / 12))), `${rooms} for ${gd.toFixed(0)} tiles`);
+        }
+      }
+
+      // ⚠ AND OUT AND BACK AGREE BY CONSTRUCTION. The old table kept the two directions equal by
+      // copying a number into both rows; `gatePair` picks the same two mouths whichever end asks,
+      // so a return leg is the same length as its outbound without anything having to be edited
+      // twice. This is the case that silently rots when somebody tunes one direction.
+      const roomsFor = (fromKey, destKey) => {
+        const d = (V[fromKey]?.dests || []).find(x => x.key === destKey);
+        return d ? totalLength(d, null, getZone(d.dest), fromKey) : null;
+      };
+      for (const [a, ak, b, bk] of [
+        ['region_coldwater', 'reach', 'region_the_reach', 'coldwater'],
+        ['region_coldwater', 'deadwater', 'region_deadwater', 'coldwater'],
+        ['region_coldwater', 'exodus', 'region_terminus', 'coldwater'],
+        ['region_the_reach', 'deadwater', 'region_deadwater', 'reach'],
+      ]) {
+        const out = roomsFor(a, ak), back = roomsFor(b, bk);
+        check(`${ak}/${bk}: the way back is the same length as the way out`, out != null && out === back, `${out} vs ${back}`);
+      }
+
+      // The Reach is the crossing with the most tuning behind it — a trunk of 4 is meant to put the
+      // fork exactly halfway — and the derivation has to reproduce it, or the braid stops meaning
+      // what it was drawn to mean. It is the reason the per-room constant is 12 and not a rounder
+      // number somebody liked the look of.
+      check('the Reach still forks exactly halfway', roomsFor('region_coldwater', 'reach') === V.region_coldwater.trunk * 2,
+        `${roomsFor('region_coldwater', 'reach')} rooms, trunk ${V.region_coldwater.trunk}`);
+    }
     check('…and so does its back face', r.signs.every(g => leadsAhead(g.back)));
     // The one that would have caught the report: on a two-way road the two faces must not open
     // with the same name, or turning round changes nothing about what the board tells you.

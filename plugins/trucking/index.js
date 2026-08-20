@@ -52,7 +52,8 @@ import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, 
   sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from './rig.js';
 import { stockTrim } from '../../client/shared/cab-trim.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
+import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS,
+  registerCrossingDistance } from '../voidwalking/index.js';
 import { pushRoadWindow } from './mmroad.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
 
@@ -65,11 +66,28 @@ import { registerZoneReloadHook } from '../../server/engine/world.js';
 // neighbour being absent — so editing one tile can create or destroy a gate in a region that tile
 // does not belong to. Clearing one region's entry would be precise about the wrong thing.
 registerZoneReloadHook(() => _clearGateCache());
+
+// HOW LONG A CROSSING IS, ANSWERED BY THE THING THAT BUILDS IT. voidwalking decides how many rooms
+// a limb gets, and until now it divided a real distance by the UNANCHORED per-room constant (90) —
+// so every crossing in the game came out under the minimum and every destination carried a
+// hand-written `length` to correct it. It now asks for the distance instead, and this is the
+// answer: the same `gatePair` the road itself anchors on, so the room count and the geometry
+// cannot disagree about how far it is.
+//
+// ⚠ AND IT IS SYMMETRIC, which the hand-written numbers only were by careful copying. A return leg
+// is the same crossing read backwards, and `gatePair` picks the same two mouths whichever end you
+// ask from — so out and back derive the same length by construction rather than by both being
+// edited at the same time.
+registerCrossingDistance((fromRegion, toRegion) => {
+  const pair = gatePair(fromRegion, toRegion);
+  return pair ? Math.hypot(pair.to.x - pair.from.x, pair.to.y - pair.from.y) : 0;
+});
 import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
   announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, markWreck, pumpAt, pumpClamp, FUEL_FULL,
+  gatePair,
   _clearGateCache } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear } from './corridor.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';

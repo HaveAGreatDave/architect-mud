@@ -22,7 +22,7 @@
 // are standing in, and whether the fork is still ahead — are passed IN by the caller. Both callers
 // pass them from the same single implementations, so nothing is duplicated by doing it this way.
 import { getZone } from '../../server/engine/world.js';
-import { crossingInfo, VOIDS } from '../voidwalking/index.js';
+import { crossingInfo, crossingRooms, VOIDS } from '../voidwalking/index.js';
 import { TILES_PER_ROOM, milesOf } from './corridor.js';
 
 // Which destination a rig is CURRENTLY pointed at. A contracted load outranks the aim, because a
@@ -68,6 +68,9 @@ export function routeOptions(rig, { zoneId = null, forkAhead = true } = {}) {
   const info = onRoad && rig.instanceId ? crossingInfo(rig.instanceId) : null;
   const here = getZone(zoneId);
   const vdef = onRoad ? null : VOIDS[here?.flags?.region_id];
+  // Which region's table these dests came from — needed by the room-count derivation below, and
+  // available from the live crossing when you are already on the road.
+  const voidKey = info?.voidKey || here?.flags?.region_id || null;
   const dests = info?.dests || vdef?.dests || [];
   if (!dests.length) return null;
 
@@ -79,7 +82,13 @@ export function routeOptions(rig, { zoneId = null, forkAhead = true } = {}) {
     // In a yard the fork has not been reached, let alone passed, so the choice is always live.
     forkAhead: onRoad ? !!forkAhead : true,
     dests: dests.map((d) => {
-      const tiles = (d.length || 0) * TILES_PER_ROOM;
+      // ⚠ THE FOURTH PLACE THAT READ `d.length`, and the one that had been quietly wrong the
+      // longest. It multiplies a ROOM COUNT by the UNANCHORED per-room constant (90) to get a
+      // distance — so this picker has been telling drivers the Reach is 720 tiles away while the
+      // road it builds is 93. See the note in index.js: that gap is a real disagreement with the
+      // mile boards and it is not this commit's to settle, so the arithmetic is preserved exactly
+      // and only the room count now comes from the derivation instead of a field that is gone.
+      const tiles = crossingRooms(voidKey, d) * TILES_PER_ROOM;
       return {
         key: d.key,
         heading: d.heading,

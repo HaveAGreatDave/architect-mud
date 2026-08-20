@@ -79,14 +79,11 @@ export const VOIDS = {
     sign: 'Coldwater Basin',
     trunk: 4,
     dests: [
-      // `length` overrides the distance derivation, and the Reach NEEDS it. The rim and Buzzard
-      // Field are only 40 tiles apart in a straight line, so `totalLength` clamped to MIN_ROOMS
-      // (5) — which with a trunk of 4 left a limb of ONE room. The braid's whole idea is a shared
-      // trunk that forks toward real alternatives, and a fork with a single room behind it is a
-      // formality. At 8 the fork sits exactly halfway and there is genuine road on the far side of
-      // the choice. (It also sets the haul at ~15 minutes; see the tank note in flight-model.js,
-      // which is tuned against the 765 tiles this produces.)
-      { key: 'reach',  dest: 'zone_the_reach_870_1958', region: 'region_the_reach', heading: 'The Reach', dir: 'south', length: 8 },
+      // The `length: 8` that used to be here is now DERIVED and comes out at 8 unchanged: the gates
+      // are 93 tiles apart and a room is 12, so the fork still sits exactly halfway at a trunk of 4.
+      // (The old comment said 40 tiles and clamping to MIN_ROOMS, which was true of the wrong
+      // measurement — origin tile to destination tile, divided by the unanchored 90. See totalLength.)
+      { key: 'reach',  dest: 'zone_the_reach_870_1958', region: 'region_the_reach', heading: 'The Reach', dir: 'south' },
       // TERMINUS. `zone_exodus_waypoint` never existed — this limb deposited walkers at a zone id
       // with no zone behind it. The destination is now the roadhead outside the Exodus wall.
       //
@@ -94,12 +91,15 @@ export const VOIDS = {
       // went, not a town of that name. The codex is explicit that they will not say where they are
       // going, and Terminus is where they went when they left the Basin, not where they are going.
       //
-      // `length: 12` for the same reason the Reach needs 8 — the derivation is straight-line and
-      // would clamp to MIN_ROOMS even at 255 tiles out. Twelve rooms puts Terminus beyond the range
+      // The `length: 12` here is now derived too, and comes out at MAX_ROOMS: the gates are 282
+      // tiles apart, which is 23 rooms before the clamp. That is a real answer rather than a
+      // failure — the ROAD is 282 tiles whatever this says, so the range gate below is untouched;
+      // what the clamp changes is that the longest crossing gets longer rooms rather than a
+      // silly number of them. Fifteen rooms still puts Terminus beyond the range
       // of the two cheapest trucks and beyond ANY truck's round trip, so the fleet ladder doubles
       // as a map gate and the far yard's fuel pump is the only way home. See
       // docs/proposals/terminus.md.
-      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Exodus', sign: 'Terminus', dir: 'east', length: 12 },
+      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Exodus', sign: 'Terminus', dir: 'east' },
       // DEADWATER, southwest, landing at the Roadhead six tiles in off its east rim.
       //
       // `dir: 'west'` is not a preference, it is the last cardinal left: `reach` holds south and
@@ -108,9 +108,9 @@ export const VOIDS = {
       // Coldwater needs a design change — a second gate, or a fork that is not a room with four
       // walls — and not another row in this array.
       //
-      // `length: 8` explicitly, the same reason as the Reach: the derivation is straight-line and
-      // 45 tiles of gap would clamp to MIN_ROOMS (5), leaving a single room behind a trunk of 4.
-      { key: 'deadwater', dest: 'zone_dw_812_955', region: 'region_deadwater', heading: 'Deadwater', dir: 'west', length: 8 },
+      // Derived as well now — 108 tiles between the gates is 9 rooms, one more than the 8 that was
+      // written here, and the road is the same 108 tiles it always was.
+      { key: 'deadwater', dest: 'zone_dw_812_955', region: 'region_deadwater', heading: 'Deadwater', dir: 'west' },
     ],
   },
 
@@ -122,9 +122,12 @@ export const VOIDS = {
   // place was a Dragonfly you had to already own. Somebody who spent 31,000 credits on a rig
   // could be stranded by it.
   //
-  // These are NOT new roads. Each is the same crossing read backwards — the same `length`, so the
-  // corridor is the same distance and the tank maths holds in both directions, and the arrival
-  // tile is the rim tile that faces the way you went. A trunk of one keeps a single-destination
+  // These are NOT new roads. Each is the same crossing read backwards — and it is the same LENGTH
+  // by construction now rather than by careful copying: the room count is derived from the gate
+  // pair (see totalLength), and `gatePair` picks the same two mouths whichever end you ask from.
+  // So the corridor is the same distance in both directions and the tank maths holds, without two
+  // numbers in this table having to be edited together. The arrival tile is the rim tile that
+  // faces the way you went. A trunk of one keeps a single-destination
   // void honest: there is nothing to fork toward, so the "shared trunk" is a formality and the
   // limb is the crossing. (Detours need `trunkLen >= 3` and therefore do not appear on a return
   // leg — correct: the gamble is a thing you take on the way OUT, with a full tank and a choice
@@ -140,10 +143,10 @@ export const VOIDS = {
     dests: [
       // North out of the Reach, back onto the dirt road at the foot of the Coldwater map — the one
       // tile on that whole rim that is `dirt_road` rather than redrock, because it is the road.
-      { key: 'coldwater', dest: 'zone_district_918_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north', length: 8 },
+      { key: 'coldwater', dest: 'zone_district_918_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north' },
       // West across the flats to Deadwater's Eastern Ruts. `west` is both true and free (north is
       // Coldwater's), so the Reach is the one region whose two crossings do not compete.
-      { key: 'deadwater', dest: 'zone_dw_818_988', region: 'region_deadwater', heading: 'Deadwater', dir: 'west', length: 8 },
+      { key: 'deadwater', dest: 'zone_dw_818_988', region: 'region_deadwater', heading: 'Deadwater', dir: 'west' },
     ],
   },
   region_deadwater: {
@@ -155,9 +158,9 @@ export const VOIDS = {
       // lies entirely north of Deadwater AND entirely east of it, so both readings are true, and
       // `east` is already spoken for by the Reach below. Landing on Coldwater's south rim at x870
       // keeps it clear of the Reach's own arrival at x918 on the same row.
-      { key: 'coldwater', dest: 'zone_district_870_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north', length: 8 },
+      { key: 'coldwater', dest: 'zone_district_870_947', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'north' },
       // East to the Reach's west rim, level with the middle of its original block.
-      { key: 'reach', dest: 'zone_the_reach_863_1956', region: 'region_the_reach', heading: 'The Reach', dir: 'east', length: 8 },
+      { key: 'reach', dest: 'zone_the_reach_863_1956', region: 'region_the_reach', heading: 'The Reach', dir: 'east' },
     ],
   },
   region_terminus: {
@@ -166,7 +169,7 @@ export const VOIDS = {
     // West out of Terminus, onto Coldwater's east rim at the same latitude as the Roadhead — you
     // come back in level with where you left.
     dests: [
-      { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'west', length: 12 },
+      { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'west' },
     ],
   },
 };
@@ -260,7 +263,25 @@ function destByHeading(vdef, heading) {
 }
 
 // ── Distance-relative limb length ─────────────────────────────────────────────
-const TILES_PER_ROOM = 90;
+//
+// ⚠ 90 IS THE UNANCHORED FALLBACK, AND DIVIDING A REAL DISTANCE BY IT IS WHY EVERY DEST NEEDED A
+// HAND-WRITTEN `length`. `TILES_PER_ROOM` is what a room is worth on a road built with no anchor —
+// the legacy local frame, where `L = nodes * 90` because there was nothing to measure against. An
+// ANCHORED road does not work that way: it is built between two real gates, its length is the
+// distance between them, and it carries its own `roomLen` (= L / nodes, see corridor.js) which is
+// what every node lookup actually divides by.
+//
+// The real gate-to-gate distances are 93 to the Reach, 99 Reach-to-Deadwater, 108 to Deadwater and
+// 282 to Terminus. Divided by 90 those are 1, 1, 1 and 3 — every one of them below MIN_ROOMS, so
+// every crossing clamped to 5 and every dest had to override it by hand. The overrides were not
+// papering over a design problem; they were papering over a wrong constant.
+//
+// ROOM_TILES is that constant done honestly: the length of ONE void room on a road that has real
+// coordinates under it. 12 reproduces the Reach's authored 8 exactly (93 / 12 = 7.75 → 8), which is
+// the crossing with the most tuning behind it — the fork sits halfway at a trunk of 4 — so it is a
+// number the world already agreed with rather than one picked to look tidy.
+const TILES_PER_ROOM = 90;   // unanchored roads only; kept in step with corridor.js
+const ROOM_TILES = 12;
 const MIN_ROOMS = 5;
 const MAX_ROOMS = 15;
 const DEFAULT_ROOMS = 8;
@@ -269,12 +290,56 @@ function gridDist(a, b) {
   if (!a || !b || a.grid_x == null || b.grid_x == null || a.grid_y == null || b.grid_y == null) return null;
   return Math.hypot(a.grid_x - b.grid_x, a.grid_y - b.grid_y);
 }
-// Total gate→dest room count (distance-derived, clamped; a dest `length` overrides).
-function totalLength(dest, originZone, destZone) {
+
+// HOW FAR IS IT, REALLY — from the mouth of one region's road to the mouth of the other's.
+//
+// Registered rather than imported. The gate pairing lives in the trucking plugin (it is the same
+// `gatePair` the road anchors on, so the room count and the geometry cannot disagree about the
+// distance), and trucking already imports THIS module — so importing it back would be a cycle.
+// Pushing the capability in the direction the dependency already runs is the way out, and it is
+// the same shape as registerZoneReloadHook and registerMinimapNodeFilter.
+let _gateDistance = null;
+export function registerCrossingDistance(fn) { if (typeof fn === "function") _gateDistance = fn; }
+
+// THE PUBLIC NAME, because two other places were answering this question for themselves.
+//
+// ⚠ `d.length` WAS BEING READ DIRECTLY IN THREE PLACES — here, and twice in the trucking plugin
+// (`destsFor` and `previewRoute`, both `d.length | 0`). That was survivable only while every dest
+// carried one; the moment the count became derived, the two readers that did not know about the
+// derivation got zero, filtered the destination out, and the approach preview produced a road with
+// no segments at all. Which is the good version of that mistake: it failed loudly, in a test, the
+// first time it was possible.
+//
+// So the question has one answer and one place to ask it. A caller that wants a room count asks
+// this; nothing outside this module reads `length` again.
+export function crossingRooms(fromKey, dest, originZone = null) {
+  return totalLength(dest, originZone, getZone(dest?.dest), fromKey);
+}
+
+// Total gate→dest room count.
+//
+// ⚠ ROOM COUNT IS PACING; ROAD LENGTH IS DISTANCE. Only the second has to be exact, and it already
+// is — the road is built between the gates whatever this returns, so fuel, time and the range gate
+// that keeps Terminus behind the fleet ladder do not depend on this number at all. What this sets
+// is how often the crossing hands you a room: an encounter, a hard node, somewhere to stop. Which
+// is why clamping at MAX_ROOMS is a real answer rather than a failure — a very long crossing gets
+// rooms that are longer, not a road that is wrong, and `roomLen` keeps every node lookup honest.
+//
+// `dest.length` still wins. It is now an author's override rather than a workaround, and nothing in
+// the table uses one — the derivation reproduces what they were hand-set to.
+function totalLength(dest, originZone, destZone, fromKey = null) {
   if (dest.length) return dest.length;
+  const rooms = (n) => Math.max(MIN_ROOMS, Math.min(MAX_ROOMS, Math.round(n)));
+  // Gate to gate first — the distance the road is actually built across.
+  if (_gateDistance && fromKey && dest.region) {
+    const gd = _gateDistance(fromKey, dest.region);
+    if (gd > 0) return rooms(gd / ROOM_TILES);
+  }
+  // …then the tile you left from, which is what this always used. Kept as a fallback for a
+  // crossing whose far end publishes no gate, and it now divides by the same honest constant.
   const d = gridDist(originZone, destZone);
   if (d == null) return DEFAULT_ROOMS;
-  return Math.max(MIN_ROOMS, Math.min(MAX_ROOMS, Math.round(d / TILES_PER_ROOM)));
+  return rooms(d / ROOM_TILES);
 }
 
 // ── Deterministic generator ───────────────────────────────────────────────────
@@ -466,7 +531,7 @@ function ensureInstance(instanceId, voidKey, window, origin) {
   // A limb per destination, forking off `fork` in the dest's `dir`.
   for (const d of vdef.dests) {
     destSet.add(d.dest);
-    const total = totalLength(d, originZone, getZone(d.dest));
+    const total = totalLength(d, originZone, getZone(d.dest), voidKey);
     const limbLen = Math.max(1, total - trunkLen);
     const limbId = (i) => `${instanceId}_${d.key}${i}`;
     for (let i = 0; i < limbLen; i++) {

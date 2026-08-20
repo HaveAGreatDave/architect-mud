@@ -29,7 +29,7 @@ import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
 // The crossing's own shape, read rather than reconstructed. ⚠ voidwalking imports nothing from
 // this plugin, so this is a one-way edge and not the load-order tangle routes.js warns about.
-import { crossingChain, crossingDest, crossingInfo, VOIDS, currentWindow as currentVoidWindow } from '../voidwalking/index.js';
+import { crossingChain, crossingDest, crossingInfo, crossingRooms, VOIDS, currentWindow as currentVoidWindow } from '../voidwalking/index.js';
 import { trailersNear, standingIn, hitchReach, posed, refreshStanding, boxColour } from './trailers.js';
 // The one paint→livery conversion, shared with the cab and the depot panel — see the file's own
 // note on why it is in client/shared rather than in the renderer.
@@ -527,7 +527,12 @@ function destsFor(voidKey, info) {
     key: d.key,
     name: d.sign || d.heading || d.key,
     region: d.region || null,
-    nodes: (info ? crossingChain(info.instanceId || null, d.key)?.length : 0) || d.length || d.nodes || 0,
+    // ⚠ THE DERIVATION, NOT `d.length`. A live crossing wins — those are the rooms that actually
+    // exist — but a table read falls through to crossingRooms rather than to a field that is now
+    // usually absent. Reading `d.length` here is what made the approach preview build a road with
+    // no segments the moment the counts became derived.
+    nodes: (info ? crossingChain(info.instanceId || null, d.key)?.length : 0)
+      || d.nodes || crossingRooms(voidKey, d) || 0,
   })).filter((d) => d.region && d.nodes > 0);
 }
 
@@ -600,7 +605,7 @@ function previewRoute(voidKey, window) {
     const dests = (v.dests || []).map((d) => {
       const pair = d.region ? gatePair(voidKey, d.region) : null;
       const z = getZone(d.dest);
-      return { key: d.key, name: d.sign || d.heading || d.key, nodes: d.length | 0,
+      return { key: d.key, name: d.sign || d.heading || d.key, nodes: crossingRooms(voidKey, d) | 0,
         x: pair ? pair.to.x : (z?.grid_x ?? null), y: pair ? pair.to.y : (z?.grid_y ?? null) };
     }).filter((d) => d.nodes > 0 && Number.isFinite(d.x));
     const first = dests[0];
