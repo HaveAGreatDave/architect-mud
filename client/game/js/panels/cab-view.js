@@ -110,6 +110,8 @@ const CONTROLS = [
   ['/', 'Splitter — half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
   ['H', 'Air horn. The room hears it.'],
+  ['L / LAMPS', 'Headlights. They default on, because a rig runs lit — switching them off is a thing you chose, and other drivers see your actual lamps.'],
+  ['I / CAB', 'The dome lamp over your head. Off, the panel lamps stay lit and everything else in the cab goes dark, which is what a night shift looks like from the seat; there is still enough of the dash to find a knob by.'],
   ['W / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting — off, intermittent, low, high.'],
   ['Q / E / S', 'Look left, right, and over your shoulder. Held — you look, then you come back. There is no dash behind the side glass, so the view out of it is clear.'],
   // The whole map is the flight sim's now — see the sync note in the key handler.
@@ -520,6 +522,20 @@ export function openCab(ctx = {}) {
                  your actual lamps rather than an assumption about them. -->
             <button class="cab-btn cab-rocker cab-heads on" aria-label="Headlights" aria-pressed="true"
               title="Headlights (L) — beam on the road ahead. Other drivers see them."><i></i><u><span>LAMPS</span></u></button>
+
+            <!-- THE DOME LAMP. The other light switch, and the one that points inward: it lights
+                 the CAB, not the road, and it is deliberately next to the headlights because a hand
+                 reaching for one is usually deciding between the two.
+
+                 It defaults ON, and switching it off is the interesting state rather than a
+                 penalty: the panel lamps are a separate circuit on a truck and they stay lit, so a
+                 dark cab is a cab where the only thing you can see is the instruments, glowing on a
+                 board you can still just make out. That is what a night shift looks like from the
+                 seat, and it is why the flood over the vinyl is wound DOWN rather than off (see
+                 THE DOME LAMP in windshield.js). Purely local, like the headlights — but unlike
+                 them it is not on the telemetry packet, because nobody outside the cab can see it. -->
+            <button class="cab-btn cab-rocker cab-dome on" aria-label="Cab light" aria-pressed="true"
+              title="Cab light (I) — the dome lamp over your head. Switched off, the panel still glows and the rest of the dash goes dark."><i></i><u><span>CAB</span></u></button>
 
             <!-- CRUISE. A LATCHING switch, not a held one, and the only rocker on this panel whose
                  label is a NUMBER when it is on: what a driver wants back off cruise control is
@@ -1497,6 +1513,7 @@ export function openCab(ctx = {}) {
   // persist. Toggling repaints the rocker immediately rather than waiting for a server round trip,
   // which is the same rule the instrument voices follow: your own control answers your own hand.
   tap('.cab-heads', () => setHeads(!st.heads));
+  tap('.cab-dome', () => setDome(!st.dome));
   // ── THE CORD IS OPEN FOR AS LONG AS YOU PULL IT ─────────────────────────────
   //
   // ⚠ YOUR OWN HORN NEVER WAITS FOR THE SERVER — the instruments' rule (systems-procedural-audio),
@@ -1644,6 +1661,7 @@ export function openCab(ctx = {}) {
     // flight sim's Space is the trigger). Its default is a page scroll, so it must be eaten.
     else if (k === 'z') st.input.brake = down ? 1 : 0;
     else if (k === 'l' && down) setHeads(!st.heads);
+    else if (k === 'i' && down && !e.repeat) setDome(!st.dome);
     // ── ⚠ THE CAB AND THE COCKPIT SHARE A KEYBOARD ────────────────────────────
     // These four moved so that a player who flies and drives is not learning two contradictory
     // maps for the same hand. The flight sim is the elder system and the one with more keys, so it
@@ -2015,6 +2033,24 @@ export function openCab(ctx = {}) {
     }
   }
   st.setHeads = setHeads;
+  // -- THE DOME LAMP ----------------------------------------------------------
+  // Latching, on by default, and it never leaves this client: the renderer reads it off the frame
+  // options and there is nothing about the inside of your cab another driver could see.
+  if (st.dome === undefined) st.dome = true;
+  function setDome(on) {
+    st.dome = !!on;
+    const el = container.querySelector('.cab-dome');
+    if (el) {
+      el.classList.toggle('on', st.dome);
+      // WARNING: the <span>, not the button — the rocker carries its own tell-tale lamp (<i>) and
+      // a textContent write on the button deletes it. Same trap as the headlights above.
+      const lbl = el.querySelector('span');
+      if (lbl) lbl.textContent = st.dome ? 'CAB' : 'DARK';
+      el.setAttribute('aria-pressed', st.dome ? 'true' : 'false');
+      el.setAttribute('aria-label', st.dome ? 'Cab light — on' : 'Cab light — off');
+    }
+  }
+  st.setDome = setDome;
   function cycleWipers() {
     st.wipers = ((st.wipers | 0) + 1) % 4;
     paintWipers();
@@ -3274,6 +3310,11 @@ function frame(now) {
       // gate — night or filthy weather), but whether the lamps are ON is now the driver's, so this
       // is the switch rather than an assumption about it.
       landingLight: !!st.heads,
+      // THE OTHER SWITCH. The dome lamp is a purely local, purely visual fact about the inside of
+      // this cab, so unlike the headlights it goes no further than the renderer — no packet field,
+      // no column. Absent means ON, which is what keeps the depot turntable and the shape smoke
+      // rendering the cab they always did.
+      dome: st.dome !== false,
       // Brake lamps, for the rig's own rear and for anyone behind. Taken off the same
       // `st.input.brake` the retardation model reads, so the lamps cannot disagree with the pedal.
       braking: (st.input.brake || 0) > 0.02 || !!st.park,

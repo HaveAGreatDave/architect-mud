@@ -2234,7 +2234,16 @@ function drawCabSideGlass(ctx, W, H, v) {
 
 function drawCabInterior(ctx, W, H, v) {
   ctx.save();
-  const T = cabTrim(v?.tier, v?.trim);
+  // WARNING: 'let', NOT 'const' — the dome switch below re-derives it once (see THE DOME LAMP),
+  // because every dial on this panel already takes T, and a thirteenth positional argument on
+  // drawCabDial would have been a worse way to say the same thing.
+  let T = cabTrim(v?.tier, v?.trim);
+  // -- THE DOME LAMP ---------------------------------------------------------
+  // The driver's own interior light, and it DEFAULTS ON so that anything which never sends the
+  // field is unchanged (the depot turntable, the shape smoke, an older caller). What it gates is
+  // only the light INSIDE the cab: the roof lozenges, the flood over the vinyl, the wash across
+  // the shell. It never touches the instruments themselves — see glowK, further down.
+  const domeOn = v?.dome !== false;
   const dash = H * (1 - CAB_DASH);
   const pillar = W * 0.075;
 
@@ -2249,7 +2258,7 @@ function drawCabInterior(ctx, W, H, v) {
   //     because they look like something, and which the cheap trucks in the fleet do not have.
   //     They sit INSIDE the cab's header rather than out on the world model, which is honest: you
   //     are seeing the glow off your own roof through the top of the screen, not the lamps.
-  for (let i = 0; i < (T.lamps || 0); i++) {
+  for (let i = 0; domeOn && i < (T.lamps || 0); i++) {
     const lx = W * (0.5 + (i - (T.lamps - 1) / 2) * 0.062), ly = hdr * 0.52, lr = Math.max(1.6, W * 0.0042);
     const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr * 4);
     lg.addColorStop(0, 'rgba(255,196,110,0.85)'); lg.addColorStop(1, 'rgba(255,170,70,0)');
@@ -2401,7 +2410,11 @@ function drawCabInterior(ctx, W, H, v) {
     ctx.clip();
     // Floored well above zero so a daylit cab keeps the modelling the flood gives the vinyl, and
     // roughly tripled by full dark — the panel gains presence as the world loses it.
-    const k = 0.55 + 2.05 * litK;
+    // ...AND IT COMES BACK DOWN WHEN THE DOME LAMP IS OFF. This wash IS the interior light
+    // spilling onto the board, so with the lamp off it has no source — but it is wound down rather
+    // than killed, because a real cab at night is still lit by its own instruments and by what the
+    // headlights throw back off the bonnet. Dark, never blind: you can still find the park brake.
+    const k = (0.55 + 2.05 * litK) * (domeOn ? 1 : 1 - 0.78 * litK);
     const eyebrow = ctx.createRadialGradient(G.x, dash, 0, G.x, dash, Math.max(W * 0.42, H * 0.30));
     eyebrow.addColorStop(0, hexA(T.glow, 0.20 * k));
     eyebrow.addColorStop(0.45, hexA(T.glow, 0.075 * k));
@@ -2417,7 +2430,7 @@ function drawCabInterior(ctx, W, H, v) {
     // spill off the panel reach the whole cab, so this is the same trim colour lifted over the
     // interior at large, unclipped and much weaker. Only worth drawing once it is genuinely dark.
     ctx.restore();
-    if (litK > 0.04) {
+    if (domeOn && litK > 0.04) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const dome = ctx.createRadialGradient(W * 0.5, dash * 0.92, 0, W * 0.5, dash * 0.92, Math.max(W * 0.62, H * 0.55));
@@ -2428,6 +2441,15 @@ function drawCabInterior(ctx, W, H, v) {
       ctx.restore();
     }
   }
+
+  // -- AND THE INSTRUMENTS GO THE OTHER WAY ----------------------------------
+  // Switching the dome lamp off does not switch the PANEL lamps off — they are separate circuits
+  // on a truck and they are separate here. With the cab dark the dials are the only lit thing in
+  // it, so their backlight is wound UP rather than left where it was: the eye is no longer judging
+  // them against a lit board, and a dial sitting at its daylight glow in a black cab reads flat.
+  // ONE NUMBER, carried on the trim row every dial already receives, so nothing downstream needed
+  // a new argument. The backlight pass in drawCabDial is its only reader.
+  T = { ...T, glowK: 1 + (domeOn ? 0 : 1.75 * litK) };
 
   // 4c. THE INSTRUMENT PANEL — and this is where the truck's instruments LIVE now, all of them.
   //
@@ -2898,11 +2920,27 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   // glows green without either being repainted.
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
+  // glowK is 1 unless the cab's dome lamp is off in the dark, when it winds the bulb up — see
+  // THE DOME LAMP in drawCabInterior. It is the one entry on the trim row that is not a colour.
+  const gk = T.glowK ?? 1;
   const bl = ctx.createRadialGradient(cx, cy + r * 0.18, r * 0.05, cx, cy, r * 0.99);
-  bl.addColorStop(0, hexA(T.glow, 0.30));
-  bl.addColorStop(0.55, hexA(T.glow, 0.10));
+  bl.addColorStop(0, hexA(T.glow, 0.30 * gk));
+  bl.addColorStop(0.55, hexA(T.glow, 0.10 * gk));
   bl.addColorStop(1, hexA(T.glow, 0));
   ctx.fillStyle = bl; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  // AND IT SPILLS PAST THE BEZEL. A lit instrument in a dark cab throws a little light onto the
+  // plate around it; without that the dials are bright discs with a hard edge, which is a diagram
+  // again. Drawn OUTSIDE the face and only once the lamp is wound up, so a daylit dash neither
+  // changes nor pays for it.
+  if (gk > 1.02) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const halo = ctx.createRadialGradient(cx, cy, r * 0.92, cx, cy, r * 1.9);
+    halo.addColorStop(0, hexA(T.glow, 0.11 * (gk - 1)));
+    halo.addColorStop(1, hexA(T.glow, 0));
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
   ctx.restore();
   // The bezel is where the money shows: a hairline of steel on the Barrow, brass on the Orlov.
   ctx.strokeStyle = T.ring; ctx.lineWidth = T.dials > 1 && T.lamps >= 5 ? 2.2 : 1.4; ctx.stroke();
@@ -10907,6 +10945,11 @@ export function interiorRenderSmoke() {
       brakeGauge: true, hitched: true, phi: 58,
       lamps: { fuel: true, brake: true, jake: true, wipe: true, trail: true, dmg: true },
     })],
+    // AND THE DOME LAMP OFF, which is a real second branch through the interior rather than a
+    // dimmer setting: the roof lozenges are skipped, the shell wash is not drawn at all, and the
+    // dials take the wound-up backlight and the halo outside their own bezels. The case runs at
+    // hour 3 like every other one here, which is the only hour any of that has an effect.
+    ['cab:dark', (v) => drawCabInterior(SHAPE_STUB_CTX, W, H, { ...v, tier: 3, dome: false })],
   ];
   for (const [key, fn] of cases) {
     for (const hour of [3, 13]) for (const speed of [0, 55]) {
