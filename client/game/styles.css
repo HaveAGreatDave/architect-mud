@@ -3171,6 +3171,25 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	gap: 0.15em; width: 100%; height: 100%; padding: 0.3em 0;
 	font-family: var(--font-mono); color: var(--text-dim);
 }
+/* THE HIGHWAY WINDOW, when the trucking plugin has sent one (see plugins/trucking/mmroad.js).
+   The window is the instrument and the trail below is its ribbon, which is the same arrangement
+   the cab makes of the same two things — so the sidebar and the windscreen are not two different
+   ideas about what a corridor looks like. */
+.mm-crossing.has-road { justify-content: flex-start; gap: 0.25em; padding-top: 0.25em; }
+.mm-crossing .mm-road {
+	z-index: 1; width: 100%; max-width: 100%; height: auto; aspect-ratio: 1 / 1;
+	min-height: 0; flex: 1 1 auto; object-fit: contain;
+	border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+	border-radius: 3px; background: #05080b;
+	/* Crisp, because it is a grid of tiles painted one rect each and smoothing turns a road one
+	   tile wide into a grey smear at this size. */
+	image-rendering: pixelated;
+}
+/* The trail keeps its place underneath, but stops trying to fill the box once the road is above
+   it — otherwise the two of them fight for the same vertical space and the map ends up scrolling,
+   which the sidebar must never do. */
+.mm-crossing.has-road > *:not(.mm-road) { flex: 0 0 auto; }
+
 /* Drifting ash/grit — faint specks sliding across the waste behind the trail. */
 .mm-crossing::before {
 	content: ''; position: absolute; inset: -20%; z-index: 0; pointer-events: none; opacity: 0.5;

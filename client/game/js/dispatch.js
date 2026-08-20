@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
 import { setVerbs } from './complete.js';
-import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
+import { renderMinimap, setRoadWindow, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { setDreamFx } from './panels/environment.js';
@@ -465,6 +465,12 @@ const handlers = {
   // would have made that true.
   force_look: () => sendCmdSilent('look'),
 
+  // THE HIGHWAY WINDOW for the sidebar map. Its own packet rather than a field on `minimap`,
+  // because that payload is built by 24 different senders and a field on it would have to be
+  // added to all of them (see plugins/trucking/mmroad.js). `road: null` is a real message — it is
+  // how the server takes the highway back when you step off the corridor — so this must not be
+  // guarded on truthiness.
+  mmroad(msg) { setRoadWindow(msg.road || null); },
   move: (msg) => {
     // Walking into a walk-in hangar races the server's `hangar_bay_open` push
     // against this plain-text room description — whichever lands second wins.

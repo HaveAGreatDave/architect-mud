@@ -53,6 +53,7 @@ import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, 
 import { stockTrim } from '../../client/shared/cab-trim.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
+import { pushRoadWindow } from './mmroad.js';
 import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
@@ -3034,6 +3035,16 @@ registerMoveGate(({ player }) => {
 on('zone.entered', async ({ actor, zone: zoneId, from }) => {
   try {
     if (!actor) return;
+    // ── THE SIDEBAR MAP'S HIGHWAY ──────────────────────────────────────────────
+    // Every step in the void and every node boundary the odometer crosses come through here, which
+    // is exactly the cadence this wants: one packet per room, not one per tick. `pushRoadWindow`
+    // is a no-op for anyone not on a crossing, so the ordinary case — a step down a city street —
+    // costs one function call and sends nothing.
+    //
+    // ⚠ AND IT IS OUTSIDE THE DEPOT BRANCH BELOW, which returns early. Put inside it, the clear
+    // would not fire for a driver who walked off a crossing straight into a yard — and a stale
+    // highway under the depot panel is the exact failure this is here to prevent.
+    try { pushRoadWindow(actor); } catch (e) { console.error('[trucking] mmroad:', e.message); }
     const zone = getZone(zoneId);
     const depot = depotAt(zone);
     if (depot && !rigs.has(actor.id)) {

@@ -12,6 +12,7 @@ import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGe
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, joinRoutes, reverseRoute, pairKey } from './corridor.js';
+import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';   // pure data, no DOM — that is exactly why it is not defined in windshield.js
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
@@ -469,6 +470,55 @@ export default async function regress({ run, check, getPlayer }) {
     const behind = (row) => (row.a | 0) === 3 || (row.a | 0) === 4 || (row.a | 0) === 5;
     const leadsAhead = (rows) => rows.length < 2 || !behind(rows[0]) || rows.every(behind);
     check('a board leads with the destination you are driving toward', r.signs.every(g => leadsAhead(g.rows)));
+
+    // ── THE SIDEBAR MAP'S HIGHWAY WINDOW ───────────────────────────────────────
+    // The sidebar minimap eats zone NODES and the cab GPS eats derived surface CELLS, so out on a
+    // crossing the sidebar was a chain of boxes on the one stretch of world where the road IS the
+    // content. `mmroad` serves it the cab's own cells on its own packet.
+    //
+    // ⚠ AND THE CASES THAT MATTER ARE THE CLEARING ONES. Drawing a road is the easy half; a window
+    // left behind after you step off the corridor is a sidebar showing a highway that is not there,
+    // and that reads as a render fault rather than the state fault it is. So the transition is what
+    // is pinned here, in both directions, rather than the picture.
+    {
+      const { roadWindowFor, pushRoadWindow, MMROAD_RADIUS } = await import('./mmroad.js');
+      const onRoad = { id: player.id, current_zone: player.current_zone };
+      // A rig standing on a real corridor route — the same builder the drive uses.
+      const rigged = { playerId: onRoad.id, leg: 'corridor', route: r, x: 0, y: 0, heading: 180 };
+      const pos = corridorPos(r, 0, 0);
+      rigged.x = pos.x; rigged.y = pos.y; rigged.heading = pos.heading;
+      rigs.set(onRoad.id, rigged);
+      try {
+        const win = roadWindowFor(onRoad);
+        check('a rig on a corridor gets a road window', !!win?.cells?.length);
+        check('…square, and the size mmroad asked for', win.cells.length === MMROAD_RADIUS * 2 + 1
+          && win.cells.every(row => row.length === MMROAD_RADIUS * 2 + 1), String(win.cells.length));
+        check('…centred on the rig, in whole tiles', win.x === Math.round(rigged.x) && win.y === Math.round(rigged.y));
+        check('…carrying the heading, so the arrow can point', Number.isFinite(win.heading));
+        // The cells are the SAME derivation the cab eats — a road is a road here because it is a
+        // road out there, which is the whole reason this rides providerFor rather than a copy.
+        check('…and the road is actually in them',
+          win.cells.some(row => row.some(c => c && (c.road || c.terrain === 'road'))));
+
+        // THE PUSH, and its one-shot. First call on a road sends; a second changes nothing to say.
+        delete onRoad._sentRoad;
+        check('pushing on a corridor sends a window', !!pushRoadWindow(onRoad) && onRoad._sentRoad === true);
+
+        // ⚠ THE CLEAR. Step off the road and the NEXT push must send `null` — a message, not a
+        // silence — and must then fall quiet rather than repeating it every step across town.
+        rigs.delete(onRoad.id);
+        check('…stepping off it sends the clear', pushRoadWindow(onRoad) === null && onRoad._sentRoad === false);
+        check('…and then says nothing at all', pushRoadWindow(onRoad) === null && onRoad._sentRoad === false);
+        // And a player who was never on one is silent from the start, so an ordinary walk down a
+        // city street costs one call and no packet.
+        const never = { id: player.id + '_never', current_zone: player.current_zone };
+        check('a player who was never on a road is never sent one',
+          pushRoadWindow(never) === null && !never._sentRoad);
+        check('…and has no window to build', roadWindowFor(never) === null);
+      } finally {
+        rigs.delete(onRoad.id);
+      }
+    }
     check('…and so does its back face', r.signs.every(g => leadsAhead(g.back)));
     // The one that would have caught the report: on a two-way road the two faces must not open
     // with the same name, or turning round changes nothing about what the board tells you.
@@ -946,6 +996,28 @@ export default async function regress({ run, check, getPlayer }) {
       corridorProvider(route));
     check('past the off-road limit the window renders open air', wide[0][0].kind === 'air', wide[0][0].kind);
     check('the cab window is smaller than the cockpit\'s', CAB_RADIUS < 36, CAB_RADIUS);
+    // The cab's LOD ring has to fit inside the cab's own draw limit, and for the whole of THE LONG
+    // HAUL it did not. The renderer draws out to (CAB_RADIUS - 1) tiles, and RENDER_TUNE's 'lodFar'
+    // - a number calibrated for an aircraft asking for 36 - ships at 32. With a 30-tile window that
+    // is four tiles PAST the edge of everything a driver can ever see, so no building in the cab
+    // reached the cheap LOD tier at any distance and the expensive full-detail arm ran for the
+    // entire visible city. Nothing looked wrong; it was only slow, which is exactly the kind of
+    // defect that survives for months.
+    //
+    // CAB_VIEW_TUNE fixes the numbers; this is the guard that keeps them honest. The failure comes
+    // back silently the moment somebody changes CAB_RADIUS without re-deriving the ring, and the
+    // only symptom it has is frame rate.
+    const drawFar = CAB_RADIUS - 1;
+    check('the cab LOD ring finishes inside the cab draw limit',
+      CAB_VIEW_TUNE.lodFar < drawFar, 'lodFar ' + CAB_VIEW_TUNE.lodFar + ' vs draw limit ' + drawFar);
+    check('the cab LOD ring is ordered and starts inside it',
+      CAB_VIEW_TUNE.lodNear > 0 && CAB_VIEW_TUNE.lodNear < CAB_VIEW_TUNE.lodFar,
+      'lodNear ' + CAB_VIEW_TUNE.lodNear);
+    // Same trap, same cause: a cull distance further out than the draw limit is a cull that never
+    // fires. Both of these were the aircraft's numbers too.
+    check('the cab culls rooftop signage and shadows inside the draw limit',
+      CAB_VIEW_TUNE.decoFar < drawFar && CAB_VIEW_TUNE.shadowFar < drawFar,
+      'decoFar ' + CAB_VIEW_TUNE.decoFar + ' shadowFar ' + CAB_VIEW_TUNE.shadowFar);
   }
 
   // ── 3. The clamp ───────────────────────────────────────────────────────────

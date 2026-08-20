@@ -40,6 +40,7 @@ import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
+import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // the ground camera's load-shedding numbers — shared with the trucking regress, which asserts they fit inside CAB_RADIUS
 // The cab's SURFACE vocabulary — materials and colourways — shared with the maintenance bench that
 // sells them. See the note at the top of that file for why it is not in this one.
 import { DASH_MATERIALS, DASH_COLOURWAYS, isDashMaterial, isDashColourway, stockTrim, resolveColourway, sanitizeCustomTrim, CUSTOM_COL } from '../../../shared/cab-trim.js';
@@ -752,7 +753,23 @@ export function paintWindshield(id, view) {
   // canvas costs several times the pixels, so the scaler engages there and only there, and the
   // result reads as the fullscreen button making the game blurry.
   // A caller passing `resFloor: 1` renders at native and accepts the frame cost instead.
-  const resFloor = clamp(v.resFloor != null ? v.resFloor : 0.6, 0.5, 1);
+  const resFloorRaw = clamp(v.resFloor != null ? v.resFloor : 0.6, 0.5, 1);
+  // -- ...AND THE FLOOR A CALLER ACTUALLY MEANS IS IN PIXELS, NOT IN MULTIPLES --
+  // 'resFloor' is a scale ON TOP of the device ratio, which makes "render at native, accept the
+  // cost" (resFloor: 1) mean something different on every monitor. On a 1x display it is one backing
+  // pixel per CSS pixel. On a 2x display it is FOUR, and because the ceiling collapses to 1 there
+  // too (resCeil below), the dial is pinned at exactly 1.0 and cannot move in either direction --
+  // so the view paying the most pixels is the one view with no adaptive relief at all. That is
+  // where "the city is sluggish in the truck" was coming from on a hidpi screen.
+  //
+  // 'resFloorPx' says the thing the caller means: never go below this many BACKING pixels per CSS
+  // pixel. The cab asks for 1 -- native -- which on a 1x display is the pin it already had, and on
+  // a 2x display permits dropping to half scale while still being sharper than a 1x monitor at full
+  // resolution. Opt-in and additive: a caller that does not pass it is byte-for-byte unchanged, so
+  // the flight sim's own floor is untouched.
+  const resFloor = v.resFloorPx != null
+    ? clamp(Math.max(resFloorRaw, v.resFloorPx / baseDpr), 0.5, 1)
+    : resFloorRaw;
   // ── AND THE OTHER DIRECTION: SUPERSAMPLING ─────────────────────────────────
   // `superSample` is the TOTAL backing pixels per CSS pixel a caller would like when the frames
   // are there to pay for it — 2 means render the scene at twice the linear resolution and let the
@@ -788,7 +805,11 @@ export function paintWindshield(id, view) {
   // dynamic-res dial above can't reach (its buffer is sized in CSS-px/DS space, not backing pixels), so
   // under sustained load bump DS up to +4 on top of RENDER_TUNE.pixel — quartering the texel count at
   // the cost of a slightly chunkier (on-brand) floor. Read by drawMode7Floor this same frame.
-  PERF_DS = RENDER_TUNE.perfDS !== 0 ? clamp(Math.round((st.frameMs - 24) / 8), 0, 4) : 0;   // 24ms→0, 32→+1, 40→+2 … cap +4
+  // The frame's calibration -- RENDER_TUNE unless this caller brought its own load-shedding numbers.
+  // Set before anything reads TUNE, and deliberately never restored (see VIEW_TUNABLE: no key in it
+  // is read outside a frame, so a stale one cannot reach collision or capture).
+  TUNE = resolveTune(v.tune);
+  PERF_DS = TUNE.perfDS !== 0 ? clamp(Math.round((st.frameMs - 24) / 8), 0, 4) : 0;   // 24ms→0, 32→+1, 40→+2 … cap +4
   // Floor raised 0.3→0.5: under a heavy deck the puff budget shed as much as 70% of its puffs,
   // and since heavy clouds ARE the load the dial oscillated the deck — on-screen puffs blinked out
   // and back as frames breathed. A 0.5 floor halves that swing (min budget 170, not 102) so the
@@ -5863,7 +5884,7 @@ export function climbOutClear(f, lat, height) {
   return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1) > 0;
 }
 
-const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
+const TR = () => Math.max(0.5, TUNE.texRes || 1);
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
 const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab', 'ty_reach_hangar', 'ty_reach_rust', 'ty_reach_dynamo', 'ty_reach_tank', 'ty_reefer', 'ty_stack_dk', 'ty_melt_tank', 'ty_2cell']);   // ...+ Two-Cell Supply, a shop built out of corrugated sheet   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block
@@ -6407,6 +6428,44 @@ const decoDepth = (...fs) => Math.min(...fs) - DECO_LIFT;
 // (null when fog is off or outside the world pass) and read by draw3DBoxAt to overlay each face.
 const FOG_NEAR = 6, FOG_FAR = 34;
 let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in paintWindshield off smoothed frameMs; added to RENDER_TUNE.pixel in drawMode7Floor
+
+// -- PER-VIEW LOAD-SHEDDING CALIBRATION --------------------------------------
+// RENDER_TUNE is ONE calibration and it was written for an aeroplane. Every distance knob in it is
+// in TILES, and the two cameras that read it do not agree about what a tile is worth: from altitude
+// a building is small, most of its walls fall under 'wallLodPx' and flat-fill, and the LOD ring sits
+// out in the haze where you cannot see the handover. From a truck cab the camera is ON THE GROUND in
+// a dense city -- every wall in frame is hundreds of pixels tall, so the expensive column-split
+// textured blit runs for essentially all of them, and with CAB_RADIUS 30 the draw limit is 29 tiles,
+// which puts 'lodFar' (32) BEYOND THE ENTIRE VISIBLE WORLD. A building the driver can see could
+// never reach the cheap tier at all. Those are not bad numbers; they are numbers for the other view.
+//
+// So a caller may hand 'tune' to paintWindshield and have its own numbers for the frame.
+//
+// THE ALLOWLIST IS THE WHOLE DESIGN, and it is a smaller idea than "let a caller override the tune".
+// Most of RENDER_TUNE is GEOMETRY -- bldgFoot, bldgH, eh, fov -- and those same values are read
+// again OUTSIDE any frame by the collision helpers (buildingRoofFtAt, groundObstructionAt,
+// climbOutClear) and by the shape capture. Let a view override one of those and the picture and the
+// solid world quietly stop being the same shape: you would fly through a building that is drawn
+// where you can see it. Restricted to keys that only ever decide HOW MUCH WORK TO SKIP, that class
+// of bug cannot be written -- which is also why TUNE is not restored on a throw and does not need
+// to be. Nothing outside a frame reads any of these.
+//
+// Adding a key here is therefore a real decision, not a formality: it must be one that changes only
+// what is skipped, never where anything is.
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'perfDS', 'texRes']);
+// The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
+// override this is the same object it always was, and the sliders keep working because the merge is
+// rebuilt from RENDER_TUNE every frame rather than snapshotted once.
+let TUNE = RENDER_TUNE;
+function resolveTune(t) {
+  if (!t) return RENDER_TUNE;
+  const out = { ...RENDER_TUNE };
+  for (const k in t) {
+    if (VIEW_TUNABLE.has(k)) out[k] = t[k];
+    else if (!resolveTune._warned) { resolveTune._warned = true; console.error(`[windshield] view tune key '${k}' is not view-tunable and was ignored -- see VIEW_TUNABLE`); }
+  }
+  return out;
+}
 let FOG_STATE = null;
 function fogWeight(f) { if (!FOG_STATE) return 0; const ff = clamp((f - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1); return ff * ff * FOG_STATE.amt; }
 // Per-wall Gouraud vertex light, tinted for a POST-APOCALYPTIC CYBERPUNK city: not a warm sunny key
@@ -6620,7 +6679,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // top of the day one at alpha·NB (both baked opaque, so NB=1 fully replaces it).
   const NB = clamp((night - 0.30) / 0.20, 0, 1);
   const wallDay = wallTex(biome, 0), wallNite = NB > 0.001 ? wallTex(biome, 1) : null, shade = [0.0, 0.16, 0.3, 0.12];
-  const flatWall = rgb(mix(flatWallCol(biome, 0), flatWallCol(biome, 1), NB)), WALL_LOD_PX = RENDER_TUNE.wallLodPx || 0;   // small-wall LOD: flat-fill (tone-matched to the tex average) instead of the column-split textured blit
+  const flatWall = rgb(mix(flatWallCol(biome, 0), flatWallCol(biome, 1), NB)), WALL_LOD_PX = TUNE.wallLodPx || 0;   // small-wall LOD: flat-fill (tone-matched to the tex average) instead of the column-split textured blit
   const faces = [];
   for (let i = 0; i < 4; i++) {
     const j = (i + 1) % 4;
@@ -11875,6 +11934,8 @@ export function viewRenderSmoke(ID) {
   // midpoints and the fog overlay switches on. `cf` is DERIVED from membership rather than typed
   // out, because a hand-written run that disagrees with the block puts a wall through the middle of
   // a massif and would still sail past a smoke that only asks whether anything threw.
+  // Exactly what cab-view.js sends for resolution and load-shedding — spread into all four cab views.
+  const CAB_RES = { resFloor: 0.5, resFloorPx: 1, tune: CAB_VIEW_TUNE };
   const mesa = (x0, y0, x1, y1) => {
     const inside = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
@@ -11910,9 +11971,11 @@ export function viewRenderSmoke(ID) {
     inMesaMap[y][x] = { kind: 'land', biome: 'cliff', flr: 0, hi: 1, cf };
   }
   const cases = [
-    // The cab. `height: 0` and `resFloor: 1` are the pair that caught fire — keep them together.
-    ['cab',            { ...base, map: bayMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
-    ['cab:ext',        { ...base, map: bayMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid+t', external: true, extYaw: 0.6, extPitch: 0.3, extZoom: 1.15 }],
+    // The cab. `height: 0` and the resolution pair are what caught fire — keep them together. CAB_RES
+    // is the cab's REAL payload (see CAB_VIEW_TUNE), so the ground calibration and the pixel floor
+    // are both driven here rather than being the one part of this view nothing ever runs.
+    ['cab',            { ...base, map: bayMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, ...CAB_RES, variant: 'rigid', tier: 2 }],
+    ['cab:ext',        { ...base, map: bayMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, ...CAB_RES, variant: 'rigid+t', external: true, extYaw: 0.6, extPitch: 0.3, extZoom: 1.15 }],
     ['cockpit:air',    { ...base, cls: 'prop', phase: 'cruise', height: 0.5 }],
     ['cockpit:ground', { ...base, cls: 'prop', phase: 'ground', height: 0 }],
     ['cockpit:ext',    { ...base, cls: 'gunship', phase: 'cruise', height: 0.4, external: true, extYaw: 1.2, extPitch: -0.2, armed: true }],
@@ -11920,8 +11983,8 @@ export function viewRenderSmoke(ID) {
     ['passenger',      { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, side: true }],
     ['framed',         { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, windowClass: 'heavy' }],
     ['helm',           { ...base, cls: 'boat', phase: 'ground', worldBlend: 0, height: 0 }],
-    ['cab:blackout',   { ...base, map: darkMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
-    ['cab:in-mesa',    { ...base, map: inMesaMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
+    ['cab:blackout',   { ...base, map: darkMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, ...CAB_RES, variant: 'rigid', tier: 2 }],
+    ['cab:in-mesa',    { ...base, map: inMesaMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, ...CAB_RES, variant: 'rigid', tier: 2 }],
     ['cockpit:in-mesa', { ...base, map: inMesaMap, cls: 'prop', phase: 'cruise', height: 0.02 }],
     // ── THE DIVE BOMBER, MID-ATTACK ────────────────────────────────────────────
     // Two passes nothing else in this suite has ever entered: the BOMBSIGHT (only built on an
@@ -12430,7 +12493,7 @@ function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N
 }
 // Does a sign at this camera distance earn a real blurred halo? See RENDER_TUNE.glowFar — the blur
 // is the expensive part of neon, and beyond a handful of tiles it is smaller than a pixel.
-const glowEarned = (night, f) => !!night && f < (RENDER_TUNE.glowFar || 0);
+const glowEarned = (night, f) => !!night && f < (TUNE.glowFar || 0);
 
 // A soft radial blob, baked ONCE per colour into a small offscreen canvas and thereafter blitted.
 //
@@ -17571,7 +17634,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // mark every building already hidden behind a nearer one. See the notes above screenBox — the
   // occluder/occludee boxes are deliberately biased so this can only ever be too timid.
   let occluded = null;
-  if (RENDER_TUNE.occlude) {
+  if (TUNE.occlude) {
     const W = _frameW, H = _frameH;
     const gw = clamp(Math.round(W / OCC_CELL_PX), OCC_GW_MIN, OCC_GW_MAX);
     const gscale = gw / W, gh = Math.ceil(H * gscale);
@@ -17746,11 +17809,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
   }
   // With the pre-pass off there is no field, and every contact draws exactly as it always did.
-  if (!RENDER_TUNE.occlude) { OCC_FIELD = null; OCC_SOLIDS = null; }
+  if (!TUNE.occlude) { OCC_FIELD = null; OCC_SOLIDS = null; }
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
   // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
   if (sun && sun.len > 0) {
-    const shadowFar = RENDER_TUNE.shadowFar || Infinity;
+    const shadowFar = TUNE.shadowFar || Infinity;
     for (const it of items) {
       if (!it.c.bt || it.f > shadowFar) continue;   // a distant building's ground shadow is an invisible smear — skip it
       const h = floorHeight(it.c, it.seed);
@@ -17895,10 +17958,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // rather than by running its arm — same mass at the handover, dissolving to one box by lodFar.
     // drawModelLOD returns false when a model has no usable capture, in which case we run the real
     // arm as before, so a capture failure costs framerate and never correctness.
-    const lodN = RENDER_TUNE.lodNear || 0;
+    const lodN = TUNE.lodNear || 0;
     let drewLod = false;
     if (m && lodN > 0 && it.f > lodN) {
-      const lodF = Math.max(lodN + 0.001, RENDER_TUNE.lodFar || 32);
+      const lodF = Math.max(lodN + 0.001, TUNE.lodFar || 32);
       const detail = clamp(1 - (it.f - lodN) / (lodF - lodN), 0, 1);
       drewLod = drawModelLOD(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, face, detail);
     }
@@ -17908,7 +17971,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // only ~120 faces per frame across the whole skyline against ~2750 of mass, so keeping them
       // costs almost nothing and dropping them cost the only part of a distant building you can
       // actually see. Set lodAdorn 0 to trade that back for the last slice of speed.
-      const tier = RENDER_TUNE.lodAdorn | 0;
+      const tier = TUNE.lodAdorn | 0;
       if (tier > 0) {
         MASS_OFF = true; ADORN_TIER = Math.min(tier, ADORN_RICH);
         try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd); }
@@ -17922,7 +17985,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // buildings only: named landmarks (m) carry their own bespoke rooftop signage.
     // Rooftop decorations (holo-ad + window bloom) are only a few px at range — cull them past decoFar
     // so a dense skyline doesn't pay for signage nobody can read. Near buildings keep the full treatment.
-    const decoNear = it.f < (RENDER_TUNE.decoFar || Infinity);
+    const decoNear = it.f < (TUNE.decoFar || Infinity);
     if (decoNear && !m && night > 0.3 && h > 0.35 && (it.seed % 7) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);   // rooftop holo-ad on ~1 in 7 tall buildings (was 1 in 4 — too many flickering at once)
     // Warm bloom over the lit windows so near towers read as emitting light at night.
     // ⚠ WAS GATED AT night > 0.45, which is well after the streetlights come on — so through the
@@ -17969,7 +18032,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // Dev overlay: the captured shapes, stroked on top of the finished frame. Off unless asked for.
   if (RENDER_TUNE.shapeWire) {
     for (const it of items) {
-      if (!it.c || !it.c.bt || it.f > (RENDER_TUNE.lodFar || 32)) continue;
+      if (!it.c || !it.c.bt || it.f > (TUNE.lodFar || 32)) continue;
       const wm = modelFor(it.c); if (!wm) continue;
       const wsegs = shapeForModel(wm, it.seed); if (!wsegs || !wsegs.length) continue;
       const wh = floorHeight(it.c, it.seed);

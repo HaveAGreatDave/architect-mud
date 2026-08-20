@@ -17,7 +17,8 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL } from './windshield.js';
+  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas , ROAD_RIG_MUL,
+  perfBegin, perfEnd, perfTick } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer } from './freecam.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
@@ -27,6 +28,7 @@ import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { truckLivery } from './aircraft3d.js';   // stored paint → renderer livery, the one conversion
 import { sendCmdSilent } from '../net.js';
+import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this view's own load-shedding numbers — see that file for why they are not RENDER_TUNE's
 import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the one tiles→miles conversion, shared with the server
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { openTabletToChatTab } from './tablet-os.js';
@@ -3037,6 +3039,19 @@ function frame(now) {
   if (!st) return;
   const dt = Math.max(0, Math.min(0.1, (now - st.last) / 1000));
   st.last = now;
+  // -- THE CAB IS PROFILEABLE, ON THE SAME TABLE THE COCKPIT PRINTS -----------
+  // '__wsProfile(true)' has existed since the flight sim's frame was first chased down, and in the
+  // cab it printed a table with nothing in it: the phases are opened by the CALLER (that is the
+  // whole reason 'frame' is whatever the caller declares it to be), and this loop opened none. So
+  // the one view whose camera sits at ground level in a dense city -- the worst case this renderer
+  // has, and the one place the frame rate actually gets complained about -- was the one view you
+  // could not ask where its frame went.
+  //
+  // Same three phase names the cockpit uses, deliberately, so a cab profile and a sim profile are
+  // read against each other rather than each needing its own key. Free when off (one boolean test
+  // per call). 'frame' is closed AFTER the catch, so a bad frame cannot leave the stack dirty and
+  // mis-attribute every later one.
+  perfBegin('frame');
   try {
     st.prev = { x: st.sim.x, y: st.sim.y };
     // Dead in the water, for either reason. A broken rig behaves exactly as a dry one does at the
@@ -3097,6 +3112,7 @@ function frame(now) {
     }
     // The camera flies on the same clock the truck does, and BEFORE the frame is painted, so a held
     // key moves it this frame rather than next one.
+    perfBegin('sim:physics');
     freeCam.step(dt);
     autoShift(dt);
     // THE SPRING BRAKES, applied where a foot would be — see setPark. Written AFTER cruise (which
@@ -3106,6 +3122,7 @@ function frame(now) {
     if (st.park) st.input.brake = 1;
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
+    perfEnd();   // sim:physics
 
     // Solid geometry. THE WALL PUSHES BACK; it does not swallow you.
     //
@@ -3307,6 +3324,7 @@ function frame(now) {
     //
     // `tier` is still passed and does not need gating — drawCabInterior is already `!ext` inside
     // the renderer, so the painted cab suppresses itself the moment the camera leaves it.
+    perfBegin('sim:paint');
     paintWindshield(st.id, {
       cls: 'truck', phase: 'ground', worldBlend: 1,
       // NEVER DOWNSCALE THE ROAD. The renderer's dynamic resolution defends frame rate by shrinking
@@ -3314,7 +3332,14 @@ function frame(now) {
       // lane markings a metre away — and because a fullscreen canvas is where it actually engages,
       // the symptom was "fullscreen makes it blurry". Rendering at native and taking the frame cost
       // is the trade this view wants.
-      resFloor: 1,
+      // 'resFloor' is a scale on top of the device ratio, so asking for 1 meant "native" on a 1x
+      // monitor and "four times the pixels, and no adaptive relief in either direction" on a 2x one
+      // -- the dial pinned solid on exactly the machines paying the most. 'resFloorPx' is the same
+      // sentence in the unit that was meant: never below ONE BACKING PIXEL PER CSS PIXEL. On a 1x
+      // display that is the identical pin this view already had; on a 2x display the scene may drop
+      // to half scale under load and is STILL sharper than a 1x monitor at full resolution. The raw
+      // floor goes to the clamp minimum so the pixel floor is the one that governs.
+      resFloor: 0.5, resFloorPx: 1,
       // …AND GO THE OTHER WAY WHEN THERE IS ROOM. Native is the floor, not the goal: at 1:1 on an
       // ordinary monitor every hard edge in this view — lane markings, the panel lines on the rig
       // in front, the aerial — is drawn with no antialiasing at all, and fullscreen is where that
@@ -3323,6 +3348,14 @@ function frame(now) {
       // gets sharper by being made larger first. It backs off on its own if the frames cost too
       // much (see the supersample note in paintWindshield) — no setting, no cliff.
       superSample: 2,
+      // -- THE GROUND CAMERA'S OWN LOAD-SHEDDING NUMBERS ----------------------
+      // RENDER_TUNE's distance block is in tiles and was calibrated from a cockpit, where a building
+      // is small and far away. Down here the camera is at ground level in a dense city and the same
+      // numbers mean something else -- so this view brings its own. Only keys that decide how much
+      // work to SKIP may be set (see VIEW_TUNABLE); geometry is not overridable, because the
+      // collision helpers read that outside the frame and the picture and the solid world must never
+      // disagree. The numbers live next to the ones they override so the smoke can drive them too.
+      tune: CAB_VIEW_TUNE,
       // Which of the four, and whether there is a box on the back. The ONE string that decides the
       // shape, and it is the same one the yard hands its turntable.
       //
@@ -3493,6 +3526,7 @@ function frame(now) {
     });
     // The rig itself is the renderer's now; this is only what the renderer cannot know.
     if (st.external) { st.tier = P.tier; drawRigOverlay(st, r); }
+    perfEnd();   // sim:paint
 
     // Stopped and pointing the same way as last time we spoke? Nothing the server needs to know
     // has changed, so drop to the heartbeat. `rolling` is the whole gate — a truck that is not
@@ -3524,6 +3558,8 @@ function frame(now) {
     // not kill the loop and strand a driver looking at a frozen picture.
     if (!st._errLogged) { console.error('[cab] frame error (view kept alive — report this stack):', e); st._errLogged = true; }
   }
+  perfEnd();    // frame
+  perfTick();   // prints + resets on a 2s window
   st.raf = requestAnimationFrame(frame);
 }
 

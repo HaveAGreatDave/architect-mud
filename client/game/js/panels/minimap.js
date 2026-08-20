@@ -603,14 +603,78 @@ export function isOnCrossing() {
   return !!_lastMinimapNodes?.find(n => n.is_current)?.void_crossing;
 }
 
+// THE ROAD UNDER THE TRAIL. Set by the `mmroad` packet (plugins/trucking/mmroad.js), which sends
+// one per room rather than one per tick, and sends `null` on the way out — so this is cleared by a
+// message rather than by anyone here having to notice. A stale window would be a sidebar showing a
+// highway that is not there, which reads as a render fault rather than the state fault it is.
+let _road = null;
+export function setRoadWindow(road) {
+  _road = road && Array.isArray(road.cells) && road.cells.length ? road : null;
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+}
+
+// Ground tints. Deliberately the same reading as the cab GPS — the tarmac and anything with mass
+// on it are what you look at, and everything else is a tint to put them against.
+const MM_BIOME = {
+  urban: '#1b1f24', city: '#1b1f24', grass: '#16241a', grassland: '#16241a',
+  forest: '#122019', marsh: '#152220', water: '#0e2030', sand: '#241f16',
+  desert: '#241f16', redrock: '#2a1a16', waste: '#1d1a17', ash: '#1a1a1c', snow: '#232a30',
+};
+
+// Paint one road window. Three things only — the ground, the tarmac, and anything with mass on it
+// — which is exactly what the cab GPS paints, for the reason the cab gives: a GPS that tried to
+// render the world would be a second renderer, and a map is a generalisation.
+function paintRoad(cv, road) {
+  const g = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  g.fillStyle = '#05080b'; g.fillRect(0, 0, W, H);
+  const rows = road.cells, n = rows.length;
+  const cw = W / n, ch = H / n;
+  for (let ry = 0; ry < n; ry++) {
+    const row = rows[ry];
+    if (!row) continue;
+    for (let rx = 0; rx < row.length; rx++) {
+      const c = row[rx];
+      if (!c) continue;
+      g.fillStyle = c.bt ? '#2b333d' : c.road ? '#3c4249' : MM_BIOME[c.biome] || '#131a16';
+      g.fillRect(rx * cw, ry * ch, cw + 0.6, ch + 0.6);
+      if (c.bt) { g.fillStyle = 'rgba(150,170,195,0.22)'; g.fillRect(rx * cw, ry * ch, cw + 0.6, ch + 0.6); }
+    }
+  }
+  // WHICH WAY YOU ARE POINTED, as an arrow rather than a dot — a dot tells you where you are, which
+  // you knew. Offset by the sub-tile lead so it sits where you actually are instead of snapping to
+  // the middle of a tile.
+  const ax = W * 0.5 + (road.ox || 0) * cw, ay = H * 0.5 + (road.oy || 0) * ch;
+  const r = Math.max(3, Math.min(W, H) * 0.055);
+  g.save();
+  g.translate(ax, ay); g.rotate(((road.heading || 0) * Math.PI) / 180);
+  g.fillStyle = '#8fe6c8';
+  g.beginPath(); g.moveTo(0, -r * 1.5); g.lineTo(r, r); g.lineTo(0, r * 0.45); g.lineTo(-r, r);
+  g.closePath(); g.fill();
+  g.restore();
+}
+
 function renderCrossing(nodes, current, direction) {
   setMinimapCrossing(true);
-  const html = `<div class="mm-crossing">${crossingInnerHtml(nodes, current)}</div>`;
+  // ⚠ BOTH, NOT A CHOICE — the same call the cab makes with its own corridor map. The window is the
+  // instrument and the trail is the ribbon under it: the picture cannot tell you that a branch is a
+  // dead end or that the next room is the gate, and the trail cannot show you the bend you are
+  // already in. Either alone is a worse map than the two together.
+  const html = _road
+    ? `<div class="mm-crossing has-road"><canvas class="mm-road" width="180" height="180"></canvas>${crossingInnerHtml(nodes, current)}</div>`
+    : `<div class="mm-crossing">${crossingInnerHtml(nodes, current)}</div>`;
 
   applyMinimapZoom();
   for (const id of ['minimap-grid', 'minimap-grid-hud', 'minimap-grid-mob']) {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = html;
+    if (!el) continue;
+    el.innerHTML = html;
+    // Painted AFTER the markup is mounted, and once per container, because there are three of them
+    // and a canvas that is not in the document yet has nothing to paint into.
+    if (_road) {
+      const cv = el.querySelector('.mm-road');
+      if (cv) { try { paintRoad(cv, _road); } catch { /* a window we cannot draw is not worth killing the map for */ } }
+    }
   }
   if (direction) slideMinimap(direction);
 }

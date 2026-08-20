@@ -469,6 +469,16 @@ export function networkRoute(fromKey, toKey, window, nodes) {
 // never reaches its rim, a dest with no region) still has to be drivable, and the pre-network road
 // is a perfectly good road — it is only a lonely one. Regress asserts every shipped void takes the
 // network path, so this is a fallback rather than a second way of doing things.
+// THE SAME ROAD, WITHOUT A RIG. A crossing's geometry is deterministic — same instance, same seed,
+// same anchor — so a walker on foot out there is on the very road a truck would be on, and asking
+// for it needs nothing but the crossing. Exported so the sidebar map (mmroad.js) builds its window
+// from THIS builder rather than from a second one that would drift the first time a bend is tuned.
+export function routeForCrossing(instanceId, destKey, nodes) {
+  const info = instanceId ? crossingInfo(instanceId) : null;
+  if (!info) return null;
+  return routeForRig({ instanceId, voidKey: info.voidKey, window: info.window, trunk: info.trunk || 1 },
+    destKey, nodes);
+}
 function routeForRig(rig, destKey, nodes) {
   const info = rig.instanceId ? crossingInfo(rig.instanceId) : null;
   const dests = destsFor(rig.voidKey, info);
