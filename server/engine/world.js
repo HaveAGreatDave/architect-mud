@@ -1695,6 +1695,30 @@ export function getInterruptLoudness(zoneId) {
   return entry.loudness;
 }
 
+// ── WHAT A ZONE EDIT INVALIDATES ─────────────────────────────────────────────
+//
+// `reloadZone` keeps `world.zones` honest after a dev-panel write, and for a long time that was
+// taken to be the whole job. It is not: several systems build their own SPATIAL indexes over the
+// zone rows — a coordinate index, a set of region rim gates — and none of them is the zones Map,
+// so refreshing that Map leaves every one of them describing the world as it was at boot.
+//
+// ⚠ AND THE FAILURE IS SILENT AND PERMANENT. Nothing throws, nothing logs, and no amount of
+// reloading helps, because reloading is what is not working. You move a tile in the editor, the
+// room moves, and the flight sim, the road network and the map rim all go on believing the old
+// coordinates until the process restarts.
+//
+// Sync by design, exactly like registerMinimapNodeFilter above: a reload is a dev-panel action, so
+// this is nowhere near a hot path, and an invalidator that has to be awaited is one a caller can
+// forget to await. A hook throws at most once, into the log, and the other hooks still run — one
+// plugin failing to drop a cache must not leave the others holding theirs.
+const zoneReloadHooks = [];
+export function registerZoneReloadHook(fn) { if (typeof fn === "function") zoneReloadHooks.push(fn); }
+function fireZoneReload(zoneId) {
+  for (const fn of zoneReloadHooks) {
+    try { fn(zoneId); } catch (e) { console.error(`[world] zone-reload hook: ${e.message}`); }
+  }
+}
+
 export async function reloadZone(zoneId) {
   // query-lint-ok: this IS the re-loader for world.zones — the read that keeps
   // the Map honest after a dev-panel write. It cannot read the Map.
@@ -1717,6 +1741,9 @@ export async function reloadZone(zoneId) {
     _threatScore: existing._threatScore,
   });
   await applyExitOverrides(zoneId);
+  // Everything downstream that indexed this zone by POSITION rather than by id. Fired after the
+  // row is in the Map, so a hook that rebuilds eagerly reads the new world rather than the old.
+  fireZoneReload(zoneId);
 }
 
 // Returns true and records the cooldown if this enemy type can shout; false if suppressed.

@@ -264,6 +264,18 @@ export function surfaceAt(x, y) {
 }
 export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 
+// DROP THE SPATIAL INDEX, so the next read rebuilds it from the zones Map as it stands now.
+//
+// Lazy rather than eager on purpose: a region move is many single-zone writes in a row, and
+// rebuilding an index over every mapped zone once per tile would turn one editor drag into
+// thousands of full sweeps. Nulling is O(1) and the cost is paid once, on the next read that
+// actually wants it.
+//
+// ⚠ `_bounds` GOES WITH IT. It is derived in the same pass and cached in its own variable, so
+// leaving it behind would give the next caller a fresh index inside a stale rectangle — which is
+// worse than either being stale on its own, because the two would disagree.
+export function invalidateCoordIndex() { _coordIndex = null; _bounds = null; }
+
 // ── Coarse whole-world terrain (the DEADHEAD map) ─────────────────────────────
 // The world grid downsampled to a fixed cell budget: one character per output cell, packed into
 // row strings. A char, not an object — the whole point is that this ships on a 2s poll, and at
@@ -308,9 +320,16 @@ export function worldTerrainMap() {
 // A region has NO stored bounds — the `regions` row is just id/name/terrain, and membership lives
 // the other way round, on each tile's `flags.region_id`. So the rectangle has to be derived by
 // sweeping the tiles once. That sweep is O(mapped zones), which is far too much to redo on a 2s
-// poll, so it's memoised against the coord index OBJECT ITSELF: a dev-panel edit calls /world/reload,
-// which rebuilds `_coordIndex` into a new Map, and the identity check below misses and recomputes.
-// No manual cache-busting to forget.
+// poll, so it's memoised against the coord index OBJECT ITSELF — when `_coordIndex` becomes a new
+// Map the identity check below misses and this recomputes, with no second cache to bust.
+//
+// ⚠ THAT ONLY WORKS IF SOMETHING ACTUALLY REPLACES `_coordIndex`, AND UNTIL 2026-08-20 NOTHING DID.
+// This comment used to assert that "/world/reload rebuilds `_coordIndex` into a new Map", and it
+// was simply not true: `buildCoordIndex` ran once, lazily, on the first `surfaceAt` after boot, and
+// every guard around it is `if (!_coordIndex)` — which never fires again because it is never nulled.
+// So the index, this region cache and the world-map memo below it all described the world as it was
+// at boot, for the life of the process, and a dev-panel tile move was invisible to the flight sim,
+// the road network and the map rim. See invalidateCoordIndex, which is now wired to the reload.
 let _regionCache = null, _regionCacheFor = null;
 export function listRegions() {
   if (!_coordIndex) buildCoordIndex();

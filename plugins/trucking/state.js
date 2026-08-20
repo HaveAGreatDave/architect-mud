@@ -325,7 +325,11 @@ export function gatePair(aKey, bKey) {
   }
   return best ? { from: best.a, to: best.b } : null;
 }
-export const _clearGateCache = () => _gates.clear();   // regress only — the world is rebuilt between suites
+// Drop the memoised rim gates. Called by regress (which rebuilds the world between suites) AND, in
+// production, off the zone-reload hook in index.js — a gate is derived from tile POSITIONS, so an
+// editor moving a region moves its road mouths and this is what stops the highway anchoring itself
+// to where they used to be. The leading underscore is now a misnomer kept for its callers.
+export const _clearGateCache = () => _gates.clear();
 
 // ── THE INTERCHANGE ──────────────────────────────────────────────────────────
 //

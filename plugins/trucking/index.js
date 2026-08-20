@@ -54,11 +54,23 @@ import { stockTrim } from '../../client/shared/cab-trim.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
 import { pushRoadWindow } from './mmroad.js';
+import { registerZoneReloadHook } from '../../server/engine/world.js';
+
+// THE RIM GATES ARE DERIVED FROM TILE POSITIONS, so an editor moving a region's tiles moves the
+// mouths of its roads — and `regionGates` memoises per region for the life of the process. Left
+// alone, the highway would go on anchoring itself to where the gate used to be: the road would
+// still be built, still be drivable, and still be wrong, with nothing anywhere saying so.
+//
+// ⚠ CLEARED WHOLESALE RATHER THAN PER REGION. A gate is a RIM tile — its identity depends on a
+// neighbour being absent — so editing one tile can create or destroy a gate in a region that tile
+// does not belong to. Clearing one region's entry would be precise about the wrong thing.
+registerZoneReloadHook(() => _clearGateCache());
 import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
-  announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, markWreck, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
+  announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, markWreck, pumpAt, pumpClamp, FUEL_FULL,
+  _clearGateCache } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear } from './corridor.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
 import { tickHijackers, playerHijack } from './hijack.js';

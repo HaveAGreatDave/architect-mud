@@ -13,6 +13,15 @@ import { query } from '../../server/models/db.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { registerZoneReloadHook } from '../../server/engine/world.js';
+import { invalidateCoordIndex } from './state.js';
+
+// A DEV-PANEL TILE EDIT MOVES THE WORLD, and `surfaceAt` is an index OVER positions rather than
+// a read THROUGH them — so without this it answers with the world as it stood at boot, for the
+// life of the process. Everything spatial rides on it: the flight sim's ground, the truck
+// corridor's composition, groundObstructionAt, the map rim that decides where a region's gates
+// are. Nulling is O(1) and the rebuild is paid by the next reader that wants it.
+registerZoneReloadHook(() => invalidateCoordIndex());
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getTimeScale } from '../../server/engine/gametime.js';

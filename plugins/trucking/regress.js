@@ -519,6 +519,46 @@ export default async function regress({ run, check, getPlayer }) {
         rigs.delete(onRoad.id);
       }
     }
+
+    // ── WHAT A ZONE EDIT INVALIDATES ───────────────────────────────────────────
+    // Two spatial indexes are built over tile POSITIONS rather than read through them: the flight
+    // plugin's coordinate index (which `surfaceAt`, and therefore the whole road network, sits on)
+    // and this plugin's memoised rim gates. Neither of them is `world.zones`, so refreshing that
+    // Map left both describing the world as it stood at boot.
+    //
+    // ⚠ AND IT FAILED SILENTLY AND PERMANENTLY. Nothing threw, nothing logged, and reloading did
+    // not help — because reloading was the thing that was not working. `_coordIndex` had NO
+    // invalidator at all, and the comment above it asserted that /world/reload rebuilt it, which
+    // was never true: every guard on it reads `if (!_coordIndex)`, and it was never nulled.
+    {
+      const { registerZoneReloadHook, reloadZone, getZone } = await import('../../server/engine/world.js');
+      const { surfaceAt: sa, invalidateCoordIndex } = await import('../flight/state.js');
+      // A real content tile: `reloadZone` returns early on a row it cannot find, and an early
+      // return fires no hook — so a made-up id would make every case below pass for no reason.
+      const probe = 'zone_district_922_910';
+      check('the engine publishes a zone-reload seam', typeof registerZoneReloadHook === 'function');
+      check('the flight plugin publishes an index invalidator', typeof invalidateCoordIndex === 'function');
+      check('…and the probe tile is really in the world', !!getZone(probe));
+
+      // THE RIM GATES. Warm the memo, prove it IS a memo, then reload and prove it went.
+      const warm = regionGates(VOIDKEY);
+      check('rim gates are memoised while nothing changes', regionGates(VOIDKEY) === warm);
+      await reloadZone(probe);
+      check('…and a zone reload drops them, so a moved region re-derives its road mouths',
+        regionGates(VOIDKEY) !== warm);
+
+      // THE COORDINATE INDEX — the bigger of the two, because everything spatial reads through it.
+      // The world has not actually changed here, so the ANSWER must not change; what is being
+      // asserted is that it is still answerable after the drop, i.e. that the index rebuilt itself
+      // rather than staying null or holding the old sweep.
+      const gz = getZone(probe);
+      const before = sa(gz.grid_x, gz.grid_y);
+      await reloadZone(probe);
+      const after = sa(gz.grid_x, gz.grid_y);
+      check('a reload rebuilds the coordinate index rather than emptying it', !!after);
+      check('…and an untouched tile still reads the same through it',
+        (before ? before.id : null) === (after ? after.id : null));
+    }
     check('…and so does its back face', r.signs.every(g => leadsAhead(g.back)));
     // The one that would have caught the report: on a two-way road the two faces must not open
     // with the same name, or turning round changes nothing about what the board tells you.

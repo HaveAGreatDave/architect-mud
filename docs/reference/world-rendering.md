@@ -858,3 +858,73 @@ rooftop neon.
 A NEW building that resolves to an arm another building already uses is the thing to watch for.
 Re-run the audit after adding one.
 
+
+## One renderer, two cameras — the per-view tune (as built, 2026-08-20)
+
+`RENDER_TUNE` is one calibration and it was written for an aeroplane. Every distance knob in it is
+expressed in **tiles**, and the two cameras that read those tiles do not agree about what one is
+worth.
+
+From a cockpit a building is small and far away: most of its walls fall under `wallLodPx` and
+flat-fill for free, and the LOD ring sits out in the haze where you could not see the handover if
+you went looking for it. From the **truck cab** the camera is on the ground in a dense city — every
+wall in frame is hundreds of pixels tall, so the expensive perspective-correct column-split textured
+blit runs for essentially all of them.
+
+⚠ **And the ring was outside the world.** The cab asks the server for a 30-tile window
+(`CAB_RADIUS`, [plugins/trucking/state.js](../../plugins/trucking/state.js)), so the renderer draws
+out to 29 tiles — while `lodFar` ships at **32**, calibrated against an aircraft asking for 36. Four
+tiles past the edge of everything a driver can ever see. **No building in the cab reached the cheap
+LOD tier at any distance**, and the full-detail arm ran for the entire visible city, every frame.
+Nothing looked wrong; it was only slow, which is how it lasted.
+
+### The seam
+
+A caller may pass `tune` to `paintWindshield` and have its own numbers for the frame. It is resolved
+once per frame into a module-level `TUNE` (rebuilt from `RENDER_TUNE` each time, so the ⚙ sliders
+keep working) and read by the load-shedding sites in place of `RENDER_TUNE`.
+
+**The allowlist is the whole design**, and it is a smaller idea than "let a caller override the
+tune". Most of `RENDER_TUNE` is **geometry** — `bldgFoot`, `bldgH`, `eh`, `fov` — and those same
+values are read again *outside* any frame by the collision helpers (`buildingRoofFtAt`,
+`groundObstructionAt`, `climbOutClear`) and by the shape capture. Let a view override one of those
+and the picture and the solid world quietly stop being the same shape: you would drive through a
+building that is drawn where you can see it. `VIEW_TUNABLE` restricts overrides to keys that only
+ever decide **how much work to skip**, so that class of bug cannot be written — which is also why
+`TUNE` is not restored on a throw and does not need to be. Nothing outside a frame reads any of them.
+
+Adding a key to `VIEW_TUNABLE` is therefore a real decision: it must change only what is skipped,
+never where anything is.
+
+### Where the cab's numbers live
+
+[client/shared/cab-render-tune.js](../../client/shared/cab-render-tune.js) — **not** in
+`windshield.js`, for the same reason `cab-trim.js` and `skyline-scale.js` are shared: two sides read
+it and neither should own it. The renderer needs the numbers; the trucking regress suite needs to
+assert they still fit inside `CAB_RADIUS`, and it cannot import a client panel to find out. One
+definition, so what ships and what is covered cannot drift.
+
+The suite guards exactly the failure above — a LOD ring, deco cull and shadow cull that all finish
+**inside** the cab's own draw limit. It comes back silently the moment somebody changes
+`CAB_RADIUS` without re-deriving the ring, and **the only symptom it has is frame rate**.
+
+### `resFloorPx` — a floor in pixels, not in multiples
+
+`resFloor` is a scale applied *on top of* the device ratio, which makes "render at native, accept
+the cost" (`resFloor: 1`) mean something different on every monitor. On a 1× display it is one
+backing pixel per CSS pixel. On a 2× display it is **four** — and because the supersample ceiling
+collapses to 1 there too, the dial is **pinned at exactly 1.0 and cannot move in either direction**.
+The view paying the most pixels was the one view with no adaptive relief at all.
+
+`resFloorPx` says the thing the caller means: never drop below this many **backing pixels per CSS
+pixel**. The cab asks for `1` — native — which on a 1× display is the pin it already had, and on a
+2× display permits half scale while still being sharper than a 1× monitor at full resolution.
+Opt-in and additive; a caller that does not pass it is unchanged.
+
+### Profiling the cab
+
+The phases are opened by the **caller** (`frame` is whatever the caller declares it to be), and
+[cab-view.js](../../client/game/js/panels/cab-view.js) opened none — so `__wsProfile(true)` printed
+an empty table for the one view whose camera sits at ground level in a dense city. It now opens the
+same three phases the cockpit does (`frame` / `sim:physics` / `sim:paint`), so a cab profile and a
+sim profile read against each other.

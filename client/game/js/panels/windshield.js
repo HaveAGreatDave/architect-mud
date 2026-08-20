@@ -95,6 +95,7 @@ export const RENDER_TUNE = {
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 1,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro). 1 is the hard floor: DS = max(1, pixel + PERF_DS), one texel per screen pixel. Dropped 4 → 1 for the crispest ground the frame will allow; `perfDS` still coarsens it under sustained load, so this is a ceiling on quality rather than a fixed cost.
   // ── Performance / adaptive-quality knobs (all live-tunable) ─────────────────────
+  floorSubpixel: 0,   // 1 = size the Mode-7 ground raster in BACKING pixels rather than CSS pixels, so its texels match the resolution everything else in the frame is drawn at. Off by default because it costs dpr² times the texel loop and an aircraft's ground is a distant carpet; a ground camera (the truck cab) is looking straight at it and wants it. See M7_MIN_DS.
   perfDS: 1,          // 1 = under sustained frame-load, bump the Mode-7 floor's per-pixel downscale (DS) up to +4 on top of `pixel`, quartering the ground-raster texel count. The floor is a fixed-cost software raster the canvas dynamic-res dial can't touch, so this is the one lever that sheds its load. 0 = fixed `pixel` DS always.
   wallLodPx: 20,      // building-wall LOD: a wall whose on-screen height is below this (px) skips the perspective-correct column-split textured blit (the expensive clip/transform/drawImage storm) and fills one flat shaded polygon instead — a far/small wall's window grid is an aliased blur anyway. Higher = flat-shade more walls (faster, less detail); 0 = always texture every wall.
   // Building distance LOD (see drawModelLOD). `lodNear` is where a building stops running its full
@@ -809,6 +810,7 @@ export function paintWindshield(id, view) {
   // Set before anything reads TUNE, and deliberately never restored (see VIEW_TUNABLE: no key in it
   // is read outside a frame, so a stale one cannot reach collision or capture).
   TUNE = resolveTune(v.tune);
+  M7_MIN_DS = TUNE.floorSubpixel ? clamp(1 / dpr, 0.5, 1) : 1;
   PERF_DS = TUNE.perfDS !== 0 ? clamp(Math.round((st.frameMs - 24) / 8), 0, 4) : 0;   // 24ms→0, 32→+1, 40→+2 … cap +4
   // Floor raised 0.3→0.5: under a heavy deck the puff budget shed as much as 70% of its puffs,
   // and since heavy clouds ARE the load the dial oscillated the deck — on-screen puffs blinked out
@@ -4659,7 +4661,10 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   // you turn (the whole textured plane rotates around you). Each texel samples the
   // biome ahead from the map window + a world-space terrain texture + distance haze.
   // Eye height grows with altitude → the ground spreads and falls away as you climb.
-  const DS = Math.max(1, Math.round(RENDER_TUNE.pixel || 4) + PERF_DS);   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster)
+  // Texel size in CSS pixels. M7_MIN_DS scales the QUALITY end of the ladder (1 by default → this
+  // is the old `pixel + PERF_DS` expression unchanged; 0.5 on a supersampling ground camera → one
+  // texel per backing pixel), while the load-shed still adds whole steps on top of it.
+  const DS = Math.max(M7_MIN_DS, M7_MIN_DS * Math.round(RENDER_TUNE.pixel || 4) + PERF_DS);   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster)
   // Horizontal extent, snapped to the ORIGINAL texel lattice (-W + k·DS). The snap is load-bearing:
   // X0 sets the sampling phase of the whole floor, so letting it slide by sub-texel amounts as the
   // bank angle changes would make the ground crawl and shimmer during a roll. Snapping keeps every
@@ -6427,6 +6432,23 @@ const decoDepth = (...fs) => Math.min(...fs) - DECO_LIFT;
 // hit full fog exactly where they'd otherwise pop in. FOG_STATE is set per-frame by drawWorldObjects
 // (null when fog is off or outside the world pass) and read by draw3DBoxAt to overlay each face.
 const FOG_NEAR = 6, FOG_FAR = 34;
+// ── THE GROUND WAS THE ONE SURFACE DRAWN AT HALF RESOLUTION ──────────────────
+// The Mode-7 floor raster is sized in CSS pixels (H/DS) and blitted up nearest-neighbour, while
+// every other pass in the frame draws through a ctx scaled to the BACKING store. So the moment a
+// view renders above 1:1 — which the truck cab always does, it asks for superSample 2 — the city,
+// the signs and the lane furniture get the extra pixels and the road surface under them does not.
+// It is not a blur in the raster; it is one texel painted across a 2×2 block of real pixels, next
+// to geometry that had them. That reads as exactly what it is: soft ground under a sharp world.
+//
+// M7_MIN_DS is the smallest texel, in CSS pixels, the floor is allowed to use this frame. 1 is the
+// old behaviour to the byte. A view opting into 'floorSubpixel' gets 1/dpr — one texel per backing
+// pixel and no finer, because past that it is paying for resolution the canvas cannot show.
+//
+// ⚠ THE COST IS QUADRATIC AND IT IS DELIBERATELY LEFT ON THE ADAPTIVE DIAL. At dpr 2 this is four
+// times the per-texel loop, which is the single biggest fixed cost in the frame. PERF_DS still adds
+// on top, so a machine that cannot pay is coarsened back exactly as it is today — this raises the
+// CEILING on ground quality, it does not pin the floor to it.
+let M7_MIN_DS = 1;
 let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in paintWindshield off smoothed frameMs; added to RENDER_TUNE.pixel in drawMode7Floor
 
 // -- PER-VIEW LOAD-SHEDDING CALIBRATION --------------------------------------
@@ -6452,7 +6474,7 @@ let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in pa
 //
 // Adding a key here is therefore a real decision, not a formality: it must be one that changes only
 // what is skipped, never where anything is.
-const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'perfDS', 'texRes']);
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'perfDS', 'floorSubpixel', 'texRes']);
 // The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
@@ -7757,6 +7779,24 @@ let _actorSrc = null;       // identity of the last payload array — see syncSt
 // Keep it in step with the server's own step interval — if that tick ever changes, this is the
 // number that has to move with it or the walk goes back to stopping and starting.
 const WALK_MS = 15000;
+// ── PACE IS PER TILE, NOT PER LEG ──────────────────────────────────
+// WALK_MS above is the duration of ONE tile crossing, and that distinction is the whole of this
+// block. A leg is not always one tile: a commuter advances COMMUTE_STEPS_PER_TICK (4) tiles per
+// wander tick in ai-behaviour.js, so the naive "every leg takes WALK_MS" put four tiles of ground
+// under a figure in fifteen seconds and then left them standing through several minutes of idle
+// wandering. That is a sprint followed by a statue, which is exactly what somebody on a pavement
+// never does, and it is worse than the stop-motion the fixed duration was added to cure — a dart
+// is at least short. Timing a leg by its LENGTH gives one speed for everybody: a loiterer's single
+// tile and a commuter's fourth tile are crossed at the same pace, and the only thing that varies
+// is how long somebody is walking for, which is what varies in a real street.
+//
+// ⚠ THE COST IS A LONGER TRAIL, AND IT IS BOUNDED ON PURPOSE. A figure crossing four tiles at one
+// tile per tick finishes 45 s after the server said they were there, and a commuter who keeps
+// stepping never catches up — unbounded, that draws somebody minutes behind, on a street they have
+// long left. CATCHUP_TILES is the leash: past it the leg's ORIGIN is slid forward so at most that
+// much remains, which reads as ground covered while they were out of frame rather than as a
+// teleport, because at that distance they are up against the fog edge anyway.
+const CATCHUP_TILES = 3.2;
 const FADE_MS = 900;        // a doorway swallowing somebody, or a figure reaching the window edge
 const VERGE = 0.38;         // how far off the tile centre the kerb is. Under half a tile, so a
                             // figure is always inside its own tile and never straddles the lane.
@@ -7785,7 +7825,7 @@ function syncStreetActors(list, now) {
       // Somebody new in view: walked in from beyond the window, stepped out of a doorway, or the
       // whole window just recentred onto them. Fade in where they stand rather than sliding them
       // from an origin we would have to invent.
-      ACTORS.set(a.t, { ax: a.x, ay: a.y, bx: a.x, by: a.y, t0: now - WALK_MS, side: actorHash(a.t, 1) < 0.5 ? -1 : 1, born: now, gone: 0 });
+      ACTORS.set(a.t, { ax: a.x, ay: a.y, bx: a.x, by: a.y, t0: now - WALK_MS, side: actorHash(a.t, 1) < 0.5 ? -1 : 1, born: now, gone: 0, ms: WALK_MS });
       continue;
     }
     held.gone = 0;                                   // reappeared before their fade-out finished
@@ -7794,14 +7834,25 @@ function syncStreetActors(list, now) {
     // reported on — mid-walk those differ, and using the reported tile would snap them backward
     // before setting off again.
     const p = actorPos(held, now);
-    held.ax = p.x; held.ay = p.y; held.bx = a.x; held.by = a.y; held.t0 = now;
+    let sx = p.x, sy = p.y;
+    // The leash: slide the origin up the line toward the new tile until the leg is walkable at a
+    // pedestrian pace without falling further behind than CATCHUP_TILES.
+    let dist = Math.hypot(a.x - sx, a.y - sy);
+    if (dist > CATCHUP_TILES) {
+      const k = 1 - CATCHUP_TILES / dist;
+      sx += (a.x - sx) * k; sy += (a.y - sy) * k;
+      dist = CATCHUP_TILES;
+    }
+    held.ax = sx; held.ay = sy; held.bx = a.x; held.by = a.y; held.t0 = now;
+    // Floored, so a sub-tile correction still takes long enough to read as a step rather than a twitch.
+    held.ms = Math.max(WALK_MS * 0.35, dist * WALK_MS);
   }
   // Anybody held but no longer sent has left the surface grid: through a door, off the window edge,
   // or dead. Start their fade; the draw pass walks them at a doorway if there is one to walk to.
   for (const [t, h] of ACTORS) {
     if (seen.has(t)) continue;
     if (!h.gone) h.gone = now;
-    else if (now - h.gone > FADE_MS + WALK_MS) ACTORS.delete(t);
+    else if (now - h.gone > FADE_MS + (h.ms || WALK_MS)) ACTORS.delete(t);
   }
 }
 
@@ -7814,7 +7865,7 @@ function syncStreetActors(list, now) {
 // forever, which is a worse artefact than the one it was added to fix. Somebody walking holds a
 // speed; only the gait bob (`phase`, in the draw pass) should be periodic.
 function actorPos(h, now) {
-  const t = clamp((now - h.t0) / WALK_MS, 0, 1);
+  const t = clamp((now - h.t0) / (h.ms || WALK_MS), 0, 1);
   return { x: h.ax + (h.bx - h.ax) * t, y: h.ay + (h.by - h.ay) * t, moving: t < 1 };
 }
 
@@ -7868,7 +7919,13 @@ function doorwayDir(map, R, wcx, wcy, x, y) {
 function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night) {
   const p = cam.proj(dx, dy, 0);
   if (!p || p.f <= 0.12) return;
-  const s = clamp(11 / p.f, 1.1, 26);            // whole-figure height in px
+  // ⚠ LEGIBILITY, NOT ANTHROPOMETRY. 11 was the literal answer — drawTreeBB uses 34 for a tree and
+  // a person is about a third of a tree. It was also a figure four pixels tall across most of a
+  // street, which is the size at which a person, a bin and a bollard are the same smudge. This
+  // layer exists so that everything you can see is somebody you could go and talk to, and that is
+  // worth half a head of height against a tree: the silhouette has to read as A PERSON at the far
+  // kerb rather than merely occupy the correct number of pixels.
+  const s = clamp(17 / p.f, 1.6, 40);            // whole-figure height in px
   if (s < 1.3) return;                            // sub-pixel: nothing legible to draw
   const nm = night ? 0.62 : 1;
   const warm = actorHash(t, 4);
