@@ -2148,6 +2148,20 @@ async function cmdTruckSync(args, raw, player) {
   announceBreak(player, rig);
   passSign(player, rig);
 
+  // ── YOU TOOK THE OTHER ROAD ────────────────────────────────────────────────
+  // Steering onto the far limb is a real decision about where this load is going, so it is SAID.
+  // A junction you can take with the wheel and that changes your destination silently is worse than
+  // one you cannot take at all: the first time a driver would find out is at the wrong town, with a
+  // tank they budgeted for somewhere else. The detection is in reconcileTruck (see the ⚠ there);
+  // this only reports it, and deliberately names the verb too — turning back is the same wheel.
+  if (r.tookFork) {
+    sendToPlayer(player.id, {
+      type: 'emote',
+      message: `<span class="text-amber">The wheels find the other road and stay on it. You are on the ${r.tookFork.name} limb now.</span>`
+        + ` <span class="text-dim">Steer back across if that was not what you meant — or ${teachVerb('route', 'route')} to see what each one costs you.</span>`,
+    });
+  }
+
   // ── TWO TRUCKS IN THE SAME PLACE ──────────────────────────────────────────
   // Detected HERE, on the frame that just moved the rig, and that placement is the whole of why it
   // costs nothing: no tick, no new client message, no new command, no round trip. The position it

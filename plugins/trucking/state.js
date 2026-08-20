@@ -22,13 +22,13 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
-  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway } from './corridor.js';
+  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
 // The crossing's own shape, read rather than reconstructed. ⚠ voidwalking imports nothing from
 // this plugin, so this is a one-way edge and not the load-order tangle routes.js warns about.
-import { crossingChain, crossingInfo, VOIDS, currentWindow as currentVoidWindow } from '../voidwalking/index.js';
+import { crossingChain, crossingDest, crossingInfo, VOIDS, currentWindow as currentVoidWindow } from '../voidwalking/index.js';
 import { trailersNear, standingIn, hitchReach, posed, refreshStanding, boxColour } from './trailers.js';
 // The one paint→livery conversion, shared with the cab and the depot panel — see the file's own
 // note on why it is in client/shared rather than in the renderer.
@@ -393,11 +393,19 @@ export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain,
 // The caller owns the RULE (you must still be on the trunk); this owns the move. Nothing here
 // touches `current_zone`, and that is not an oversight: while you are on the trunk you are
 // standing in a room BOTH chains contain, so there is nothing to move you to.
-export function switchLimb(rig, { destKey, chain, dest }) {
+// ⚠ `keepPose` IS FOR THE LIMB YOU TOOK WITH THE WHEEL. Taking the fork by TYPING at it happens on
+// the trunk, where both limbs are the same tarmac, so re-seating the rig on the new road's (s, t)
+// is a no-op and the node can be settled here. Taking it by DRIVING onto the other limb is the
+// opposite case in both respects: the truck is already exactly where it is and must not be moved
+// under the driver, and `rig.node` has to be left alone so the caller's own comparison fires and
+// walks them into the right room through `crossToNode` — the same path an ordinary node crossing
+// takes. Two callers, two genuinely different situations, one move.
+export function switchLimb(rig, { destKey, chain, dest, keepPose = false }) {
   rig.destKey = destKey; rig.chain = chain; rig.dest = dest;
   rig.route = corridorFor(rig.voidKey, destKey, rig.window, chain.length, rig.trunk, crossingPlan(rig.instanceId),
     anchorFor(rig.instanceId, destKey));
   rig.s = Math.min(rig.s, rig.route.L);
+  if (keepPose) return rig;
   const p = corridorPos(rig.route, rig.s, rig.t);
   rig.x = p.x; rig.y = p.y;
   rig.node = nodeAt(rig.route, rig.s, chain.length);
@@ -514,7 +522,56 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   // the edge of the tarmac, which made the verge a wall wearing a penalty's clothes. Now leaving
   // the road is ordinary driving that is slow and eats tyres (see WHEEL_SURFACE in damage.js), and
   // this is only the far end of that: somewhere you have to genuinely set out for.
-  const hit = corridorLocate(rig.route, rig.x, rig.y);
+  // ── TAKING THE FORK BY STEERING INTO IT ────────────────────────────────────
+  //
+  // The junction was a thing you could SEE and not a thing you could DRIVE. Both limbs are
+  // synthesised and rendered (see branchAt) so the highway visibly splits — and `locate` only ever
+  // asked the road you were nominally on, so putting your wheels on the other one changed nothing.
+  // Follow it far enough and the limbs separate past OFFROAD_R, at which point you bog: stalled, on
+  // what is unmistakably a road, for no reason the windscreen can explain. The only real way to
+  // take a junction was to type a destination at it, which is a menu rather than a fork.
+  //
+  // So the wheels decide. If a sibling limb claims this position on its CARRIAGEWAY and holds it
+  // closer to its own centreline than our road does, you are on that road, and the rig is moved
+  // onto it. Nothing here is a distance rule and nothing here is a permission: it is the same
+  // question `locate` already answers, asked of the other roads as well as of this one.
+  //
+  // ⚠ THE CARRIAGEWAY, NOT THE BAND. `locate` answers out to OFFROAD_R because the verge is
+  // drivable, so testing "does the sibling locate me" would switch roads while you were still
+  // squarely on your own tarmac — the limbs are within each other's verge for a long way past the
+  // junction. Crossing has to mean crossing: your wheels on their pavement.
+  //
+  // ⚠ AND `rig.node` IS DELIBERATELY NOT UPDATED. The caller compares the returned node against it
+  // and does the zone move through `crossToNode` — the same path an ordinary node crossing takes.
+  // Setting it here would suppress that comparison and leave the driver standing in the room of the
+  // road they just left, which is the sort of thing nothing notices until a teardown strands them.
+  let hit = corridorLocate(rig.route, rig.x, rig.y);
+  let tookFork = null;
+  if (rig.route?.branches?.length) {
+    const ours = hit ? Math.abs(hit.t) : Infinity;
+    let best = null;
+    for (const b of rig.route.branches) {
+      const bh = corridorLocate(b.route, rig.x, rig.y);
+      if (!bh) continue;
+      const paved = pavedAt(b.route, bh.s);
+      if (Math.abs(bh.t) > paved || Math.abs(bh.t) >= ours) continue;
+      if (!best || Math.abs(bh.t) < Math.abs(best.hit.t)) best = { b, hit: bh };
+    }
+    if (best) {
+      const chain = crossingChain(rig.instanceId, best.b.key);
+      const dest = crossingDest(rig.instanceId, best.b.key);
+      if (chain?.length) {
+        // Re-derived from the POSITION, never carried over: `s` on the limb you left and `s` on the
+        // limb you joined are two different distances along two different roads, and the wheels are
+        // the only thing that knows which point on the new one you are actually standing at.
+        switchLimb(rig, { destKey: best.b.key, chain, dest, keepPose: true });
+        rig.s = Math.max(0, Math.min(rig.route.L, best.hit.s));
+        rig.sMax = Math.max(rig.sMax || 0, rig.s);
+        hit = corridorLocate(rig.route, rig.x, rig.y);
+        tookFork = { key: best.b.key, name: best.b.name };
+      }
+    }
+  }
   const bogged = !hit;
 
   // THE CLAMP. The odometer is DERIVED here from the reported position rather than taken from the
@@ -551,7 +608,7 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   // Lateral is derived too, and merely bounded — nothing economic depends on it.
   if (hit) rig.t = Math.max(-rig.route.R, Math.min(rig.route.R, hit.t));
   const node = nodeAt(rig.route, rig.s, rig.chain.length);
-  return { moved: node !== rig.node, node, bogged, city: false };
+  return { moved: node !== rig.node, node, bogged, city: false, tookFork };
 }
 
 // The breakdown announcement, shared by BOTH rungs — it lives here rather than in either of them

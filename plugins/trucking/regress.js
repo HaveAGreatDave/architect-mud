@@ -585,6 +585,46 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── 1d. THE FORK IS A THING YOU CAN DRIVE INTO ─────────────────────────────
+  // Both limbs are synthesised and rendered, and `locate` only ever asked the road you were
+  // nominally on — so putting your wheels on the other one changed nothing, and following it far
+  // enough separated the limbs past OFFROAD_R and bogged you: stalled, on what is unmistakably a
+  // road, for no reason the windscreen could explain. The only real way to take a junction was to
+  // type a destination at it, which is a menu rather than a fork.
+  {
+    const plan = { origin: 'Coldwater Basin', dests: [
+      { key: DESTKEY, name: 'The Reach', nodes: 8, x: 910, y: 1042 },
+      { key: 'exodus', name: 'Terminus', nodes: 8, x: 1000, y: 1020 },
+    ] };
+    const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, plan, { x0: 918, y0: 947, x1: 910, y1: 1042 });
+    const sib = r.branches?.[0];
+    check('a route carries the limb it did not take', !!sib, String(r.branches?.length));
+    if (sib) {
+      // A point on the sibling's own centreline past the junction — somewhere a driver who steered
+      // across at the fork and kept going would actually be.
+      let onSib = null;
+      for (let s = r.trunkL + 4; s <= sib.route.L && !onSib; s += 2) {
+        const p = corridorPos(sib.route, s, 0);
+        const theirs = corridorLocate(sib.route, p.x, p.y);
+        if (!theirs || Math.abs(theirs.t) > pavedAt(sib.route, theirs.s)) continue;
+        const ours = corridorLocate(r, p.x, p.y);
+        // ⚠ THE PRECONDITION FOR THE WHOLE FEATURE, and it is the OLD BEHAVIOUR stated as a test:
+        // standing on the other limb's tarmac, our own road either does not hold us at all (a bog,
+        // stalled on what is unmistakably a road) or holds us out in its verge (driving down a road
+        // the game does not think we are on). Both are the same bug from different distances.
+        if (!ours || Math.abs(ours.t) > pavedAt(r, ours.s)) onSib = { p, s, ours, theirs };
+      }
+      check('there is tarmac on the far limb that our own road does not hold us on', !!onSib);
+      if (onSib) {
+        check('…the wheels are squarely on the sibling\'s carriageway there',
+          Math.abs(onSib.theirs.t) <= pavedAt(sib.route, onSib.theirs.s), onSib.theirs.t.toFixed(2));
+        check('…and that is exactly what used to bog you, or drive you down the wrong road',
+          !onSib.ours || Math.abs(onSib.ours.t) > pavedAt(r, onSib.ours.s),
+          onSib.ours ? `verge t=${onSib.ours.t.toFixed(1)}` : 'no fix at all — a bog');
+      }
+    }
+  }
+
   // ── 2. The render seam ─────────────────────────────────────────────────────
   // The corridor must go through mapWindow and come back as a drawn road. If this breaks, the
   // truck is driving through a void with no world in it and nothing else here would notice.
