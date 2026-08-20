@@ -42,6 +42,11 @@ import { openTabletToChatTab } from './tablet-os.js';
 // costs nothing but a slightly later node crossing.
 const SYNC_MS = 500;              // rolling
 const IDLE_SYNC_MS = 2500;        // stationary — a heartbeat, not a stream
+// ⚠ THE SERVER'S OWN FLOOR, restated here because the edge send above has to respect it. Anything
+// arriving inside this window is dropped by reconcileTruck BEFORE it reads the speed off the
+// packet (see MIN_SYNC_MS in plugins/trucking/state.js), so an edge fired inside it is not merely
+// early, it is lost — and the stop it was reporting would wait for the heartbeat after all.
+const MIN_SYNC_MS = 120;
 // THE PARAMETERS ARE THE SERVER'S, NOT A CONSTANT. This was `TYPES.hauler` — one hardcoded truck
 // for the whole fleet — so a player who spent 31,000₵ on a Continental drove a Courier with a
 // different name on the door: same gears, same top speed, same brakes, same turn-in. The server
@@ -646,7 +651,10 @@ export function openCab(ctx = {}) {
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
     s: ctx.s || 0, L: ctx.L || 1, node: ctx.node || 0, nodes: ctx.nodes || 1,
     hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', moon: ctx.moon, wind: ctx.wind || 0, wipers: 0,
-    last: performance.now(), lastSync: 0, lastAudio: 0, raf: 0, hitCd: 0, prev: null, contacts: ctx.contacts || [],
+    // `wasRolling` is the edge detector for the telemetry cadence — see the ⚠ at the send. Seeded
+    // false because a cab opens on a stationary truck, so the first frame under way is a real edge
+    // rather than an artefact of starting undefined.
+    last: performance.now(), lastSync: 0, wasRolling: false, lastAudio: 0, raf: 0, hitCd: 0, prev: null, contacts: ctx.contacts || [],
     // Seeded from the sim's own starting gear, or the first frame reads as a shift and the box
     // clunks at a driver who has not touched it.
     lastGear: sim.gear, lastSplit: sim.split, rpmDip: 0, external: false, tier: P.tier,
@@ -3551,7 +3559,32 @@ function frame(now) {
     // has changed, so drop to the heartbeat. `rolling` is the whole gate — a truck that is not
     // moving cannot cross a node, burn fuel, break down or bog.
     const rolling = Math.abs(st.sim.speed) >= 0.5;
-    if (now - st.lastSync >= (rolling ? SYNC_MS : IDLE_SYNC_MS)) {
+    // ⚠ …EXCEPT THAT COMING TO A STOP IS ITSELF THE NEWS, AND THE HEARTBEAT IS 2.5 SECONDS.
+    //
+    // The gate above is right about the STREAM and wrong about the EDGE. The instant the truck
+    // drops under half a mile an hour the cadence falls from 500ms to 2500ms — so the last thing
+    // the server heard can be the speed from BEFORE the stop, and it goes on believing that for up
+    // to two and a half seconds after the rig is standing still.
+    //
+    // `park` refuses over PARK_STOPPED_MPH (0.6), so what that buys the driver is: brake to a halt,
+    // watch the needle sit on zero, reach for the brake knob, and get told 'not while it is still
+    // rolling'. Nothing on the dash agrees with the refusal and nothing the driver can do makes it
+    // go away except waiting, without being told that is what they are doing. It reads as the truck
+    // refusing to stop.
+    //
+    // So the edge is sent immediately, in both directions — stopping is worth knowing at once, and
+    // so is pulling away. The interval still governs everything between edges, which is the part
+    // that was actually saving packets.
+    //
+    // ⚠ THE SERVER DROPS ANYTHING INSIDE MIN_SYNC_MS (120ms) AND RETURNS BEFORE IT READS THE SPEED,
+    // so an edge fired too soon after the last packet would be swallowed and we would be back to
+    // waiting out the heartbeat. `lastSync` is therefore left ALONE when it is too early, so the
+    // next frame tries again — which bounds the whole thing at about a tenth of a second rather
+    // than at the heartbeat.
+    const edge = rolling !== st.wasRolling;
+    if (edge && now - st.lastSync < MIN_SYNC_MS) { /* too soon to be heard — retry next frame */ }
+    else if (edge || now - st.lastSync >= (rolling ? SYNC_MS : IDLE_SYNC_MS)) {
+      st.wasRolling = rolling;
       st.lastSync = now;
       // Packed numerics, matching cmdTruckSync's unpack order exactly: s t hdg spd x y.
       // The client reports WHERE IT IS, not how far it has come — the server derives the odometer
