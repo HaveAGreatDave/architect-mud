@@ -443,9 +443,20 @@ export default async function regress({ run, check, getPlayer }) {
       const { rows: s } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, FAIL_QUEST_ID]);
       return s[0]?.status;
     };
+    // ⚠ `settle` IS ONLY EVER CORRECT FOR A NEGATIVE. It is a fixed 120ms guess at how long a
+    // fire-and-forget subscriber takes to reach Postgres, so it is the right wait for asserting
+    // that something did NOT happen (a poll for 'stays active' is just a sleep with extra steps)
+    // and the WRONG one for asserting that something DID. A positive that waits a fixed 120ms is
+    // green on a quiet box and red on a loaded CI runner, which is a red that moves between runs
+    // and looks like anything except what it is.
+    //
+    // That is not hypothetical here twice over: the equip case cost a CI-only red on 2026-08-14,
+    // and `meta.failPermanent blocks the retry` cost another on 2026-08-20 — the fail had simply
+    // not landed yet, so the quest was still active, and START_QUEST on an ALREADY-ACTIVE quest
+    // also answers `started: false`. Both halves of the assertion read as if the feature worked.
+    //
+    // So: asserting a status flip? Use `failed(...)`. Asserting a status DIDN'T flip? `settle()`.
     const settle = () => sleep(120);
-    // …and the same polling wait as the block above, for the same reason: a status
-    // flip driven off a fire-and-forget event lands when it lands.
     const failed = async (want, ms = 3000) => {
       const until = Date.now() + ms;
       for (;;) {
@@ -506,7 +517,10 @@ export default async function regress({ run, check, getPlayer }) {
       { failPermanent: true }
     );
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
-    await settle();
+    // ⚠ POLL, don't sleep. The retry has to be refused BECAUSE the quest is permanently failed —
+    // if the fail has not landed the quest is merely still active, START_QUEST answers
+    // `started: false` to that too, and the case passes for the wrong reason or fails for one.
+    check('…and the fail lands before the retry is attempted', (await failed('failed')) === 'failed', await statusOf());
     r = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: FAIL_QUEST_ID } });
     check('meta.failPermanent blocks the retry', r?.started === false && (await statusOf()) === 'failed', JSON.stringify(r));
 
@@ -556,7 +570,7 @@ export default async function regress({ run, check, getPlayer }) {
       [{ type: 'timeout', count: 60 }]);
     await backdate();
     emit('vendor.purchase', { player, itemId: 'medkit' });
-    await settle();
+    await failed('failed');   // positive — poll, see the ⚠ on `settle`
     const { rows: pr } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, FAIL_QUEST_ID]);
     check('an event against an expired quest fails it instead of advancing it',
       pr[0]?.status === 'failed' && (pr[0]?.progress?.[0] || 0) === 0, JSON.stringify(pr[0]));
@@ -565,8 +579,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mkFail([{ id: 'o0', type: 'escort', target: 'npc_regress_ward', zone: 'zone_regress_dest', count: 1, desc: 'Walk them' }],
       [{ type: 'escort_lost', target: 'npc_regress_ward' }]);
     emit('escort.lost', { actor: player, npc: { id: 'npc_regress_ward', name: 'Ward' }, reason: 'killed' });
-    await settle();
-    check('losing the escortee fails the escort quest', (await statusOf()) === 'failed', await statusOf());
+    check('losing the escortee fails the escort quest', (await failed('failed')) === 'failed', await statusOf());
 
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, FAIL_QUEST_ID]);
     await query('DELETE FROM quests WHERE id=$1', [FAIL_QUEST_ID]);

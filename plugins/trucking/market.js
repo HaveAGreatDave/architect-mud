@@ -62,10 +62,46 @@ export const COMMODITIES = {
 // medical and protein cheap, so that corridor is salvage out and food and medicine back. The Reach
 // wants parts (1.30) and sells chems cheap (0.78), so THAT corridor is machined parts out and drums
 // back. One region, two live routes, and neither of them is the other one with the labels changed.
-const REGIONS = {
+// Exported so the suite can hold every DEPOT region to having a row here — see the market block in
+// regress.js. Terminus and the Scarletwastes each had a depot, a yard and a working board for
+// months while falling through to PAR, which neither throws nor looks wrong: the prices are
+// plausible and the trades clear. The only symptom is a place with no character to learn, which is
+// invisible unless you go looking for it.
+export const REGIONS = {
   region_coldwater: { scrap: 1.28, water: 0.80, protein: 0.82, chems: 1.24, parts: 0.76, medical: 0.84 },
   region_the_reach: { scrap: 0.76, water: 1.30, protein: 1.26, chems: 0.78, parts: 1.30, medical: 1.28 },
   region_deadwater:  { scrap: 0.74, water: 0.82, protein: 1.24, chems: 1.32, parts: 0.70, medical: 1.30 },
+  // TERMINUS IS BUILDING SOMETHING, and every number here is read off that one fact. The Exodus
+  // compound exists to leave, so it eats the two goods a fabrication effort eats — machine parts
+  // and feedstock alloy — and it is provisioning a population that intends to depart, which is what
+  // makes medical dear in a place with no sickness problem. It sits on redrock at 0.88 dryness and
+  // has no basin, so water is the dearest thing on the board.
+  //
+  // What it SELLS is the exhaust of the same work, which is the half that had to be got right: a
+  // region that only consumes is a dead end you deadhead home from. They crack their own propellant
+  // chemistry in bulk, so industrial chems come off that line cheap, and a compound that has to feed
+  // itself behind a wall for years runs vats rather than fields, so protein does too.
+  //
+  // Note the pairing it completes without being designed for it: Coldwater already sells parts at
+  // 0.76 and already wants chems at 1.24. Parts out, drums back — the east limb is a live two-way
+  // route the day this row lands, using only numbers that were already on the board.
+  region_terminus:   { scrap: 1.26, water: 1.30, protein: 0.80, chems: 0.76, parts: 1.28, medical: 1.24 },
+  // THE THORNWARREN GROWS THINGS AND MACHINES NOTHING. The wall is grown rather than built, which is
+  // the whole region in one detail: there is no shop, no refinery and no line, so parts and chems
+  // are the dearest goods here and there is nothing they can do about it locally. The water is
+  // poisoned — the pool is the point — so that comes in too, and acid rain over redrock means the
+  // domestic interior is fed rather than farmed.
+  //
+  // It sells the two things the Wildblood genuinely have. MEDICAL is the cheapest on any board in
+  // the game, because this is where mutation is understood and treated and everywhere else is
+  // guessing; that makes a run out of here the highest-capital route on the map, which is the right
+  // shape for the region you reach last. And the trophy road is a road through picked-over waste
+  // nobody here has a use for, so baled alloy goes out cheap into Coldwater's 1.28.
+  //
+  // ⚠ NOTHING IN THIS ROW PRICES THE HORROR. The approach is a performance and the inside is
+  // domestic, and a market that charged outsiders a fear premium would be the region remarking on
+  // its own tell. They trade like a town, because they are one.
+  region_scarletwastes: { scrap: 0.78, water: 1.28, protein: 1.22, chems: 1.30, parts: 1.32, medical: 0.74 },
 };
 // An unknown region trades at par rather than crashing — new content should never break the market.
 const PAR = { scrap: 1, water: 1, protein: 1, chems: 1, parts: 1, medical: 1 };

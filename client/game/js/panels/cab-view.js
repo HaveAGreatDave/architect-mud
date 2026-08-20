@@ -566,6 +566,13 @@ export function openCab(ctx = {}) {
                  does something with the key off. -->
             <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it will not let you pull away. Pull it with the key off and the rig stopped and you climb down."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
 
+            <!-- EXIT CAB. Not a control on the truck — the door. It is disabled until the spring
+                 brakes are set and the rig is stopped, so it is a legible sequence rather than a
+                 rule you get told off by: the button lights when you have finished parking. It
+                 sends the same 'park' verb the knob does, which is what closes this panel and hands
+                 the room back. -->
+            <button class="cab-btn cab-exitbtn" disabled aria-label="Exit cab" title="Exit cab — climb down. Set the park brake at a standstill first."><i></i><u><span>EXIT CAB</span></u></button>
+
             <!-- THE PUMP HANDLE. Hidden until the server says there is a pump under the nose — the
                  same 'a control appears because the world affords it' rule the trailer air valve
                  follows, and for the same reason: a dead button on the panel everywhere else in
@@ -808,6 +815,14 @@ export function openCab(ctx = {}) {
   container.querySelector('.cab-auto')?.addEventListener('click', () => st.setAuto?.(!st.auto));
   container.querySelector('.cab-revbtn')?.addEventListener('click', () => st.engageReverse?.());
   container.querySelector('.cab-parkbtn')?.addEventListener('click', () => st.setPark?.(!st.park));
+  // The door. It is disabled unless the frame loop says you are parked and stopped, so it decides
+  // nothing itself — one send, the same verb the knob sends, and `parkSent` keeps the two from
+  // doubling up if the latch fired on the same frame.
+  container.querySelector('.cab-exitbtn')?.addEventListener('click', () => {
+    if (st.parkSent) return;
+    st.parkSent = true;
+    sendCmdSilent('park');
+  });
   // The radio wires itself; the cab only tells it what pressing the set should open, because the
   // tablet is the cab's business and not the radio's.
   st.cbWidget = wireCbRadio(container, { openDeadhead: (key) => openTabletToChatTab(key) });
@@ -1835,7 +1850,17 @@ export function openCab(ctx = {}) {
     // pulled the park brake expecting to climb down, got silence, and had no way to learn that the
     // key was the missing step. `parkRig` refuses in one clear sentence that names the key; letting
     // it say so is the whole point of not deciding here.
-    if (st.park && Math.abs(st.sim.speed) < 0.5) sendCmdSilent('park');
+    // ⚠ AND THE SEND IS NOT DECIDED HERE, BECAUSE THE MOMENT YOU PULL THE KNOB IS NOT THE MOMENT
+    // YOU ARE STOPPED. The knob comes out at anything under 3 mph (above), and the verb only went
+    // out under 0.5 — so a driver who pulled it at a crawl set the brakes, watched the legend flip
+    // to PUSH, and got NOTHING: the rig then coasted to rest with the knob already on, so pressing
+    // it again pushed it back IN. That is the whole of "park sometimes does nothing", and it is not
+    // discoverable from the seat, because the control visibly worked.
+    //
+    // So the intent is LATCHED and the frame loop fires it when the rig actually comes to rest (see
+    // the exit-cab block in the readout sync). `parkSent` is the one-shot: cleared whenever the
+    // brake is pushed back in, which is also what lets a driver who changed their mind change it.
+    if (!st.park) st.parkSent = false;
   }
   st.setPark = setPark;
   // Toggling it ON takes the speed you are DOING, which is the only number a driver ever means by
@@ -3100,6 +3125,23 @@ function frame(now) {
       rev.setAttribute('aria-pressed', String(r.gear < 0));
       rev.disabled = Math.abs(st.sim.speed) >= 2;
     }
+    // ── GETTING OUT ────────────────────────────────────────────────────────────
+    // ⚠ THE NUMBER IS THE SERVER'S. `parkRig` refuses above `PARK_STOPPED_MPH` (0.6) in
+    // plugins/trucking/index.js, and the cab used to test 0.5 — a sliver where the client sent a
+    // command the server then refused, which reads to the driver as the same silence as not sending
+    // one. One threshold, kept here as a named constant so the next person can find its twin.
+    const PARK_SEND_MPH = 0.6;
+    const stopped = Math.abs(st.sim.speed) <= PARK_SEND_MPH;
+    // The latched pull, fired the frame the rig actually comes to rest — see setPark.
+    if (st.park && stopped && !st.parkSent) { st.parkSent = true; sendCmdSilent('park'); }
+    // AND THE EXPLICIT DOOR. `park` being the way out is emergent — it is a brake knob that happens
+    // to end the drive — which is fine once you know it and invisible until then. This button says
+    // the thing out loud, and it is DERIVED rather than remembered (the same rule as the REV lamp
+    // above): it lives whenever the brake is set and the rig is stopped, and it is dim otherwise, so
+    // the sequence reads off the dash — stop, park, climb down. It sends the ordinary `park` verb
+    // and knows nothing else; there is no second get-out path on the server.
+    const exit = q('.cab-exitbtn');
+    if (exit) exit.disabled = !(st.park && stopped);
     // `BEST` is the shift indicator, and it is a fleet privilege — see CAB_KIT. In a Barrow or a
     // Courier the hint reverts to the keys, which is all a cheap dash has ever told anybody.
     const kit = kitFor(P);
@@ -4118,6 +4160,16 @@ function ensureCabStyles() {
   @keyframes cab-stalk-hint{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(0deg)}}
   .cab-horn{--key:#e0b45a}
   .cab-rev,.cab-revbtn{--key:#d2603f}
+  /* The door, shaped like the park knob's label plate so it reads as part of that cluster. Amber,
+     because it is the end of the sequence the amber knob starts. */
+  .cab-exitbtn{--key:#d8a41e;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px}
+  .cab-exitbtn i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.6)}
+  .cab-exitbtn:not([disabled]) i{background:#f0c23a;box-shadow:0 0 8px #f0c23a}
+  .cab-exitbtn u{display:block;text-decoration:none;font:700 7px/1 inherit;letter-spacing:.1em;
+    color:#8b95a1}
+  .cab-exitbtn:not([disabled]) u{color:#c9d2dc}
+  .cab-exitbtn[disabled]{opacity:.42;cursor:default}
   /* Refusing is a STATE, not a silence: rolling, the button dims rather than doing nothing. */
   .cab-revbtn[disabled]{opacity:.42;cursor:default}
   .cab-splitbtn{--key:#8fe0a0}
