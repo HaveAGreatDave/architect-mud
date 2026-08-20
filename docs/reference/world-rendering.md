@@ -629,10 +629,109 @@ panel nobody plays on.
   (a plinth modelled as standing *on* a kerb has its underside above the clearance probe and becomes
   a thing you drive through).
 
-## Twin audit — buildings that share a model
+## The non-Coldwater pass (as built, 2026-08-19)
+
+Every building outside the Coldwater Basin now has its own `NAMED_MODELS` silhouette — 47 of 47
+across Terminus, the Thornwarren, Deadwater and the Reach. Before this pass only the Reach (9) was
+bespoke; the other 38 were on shared type models or on nothing at all. Four failure modes turned up,
+and each is worth knowing because none of them looks like a bug in the source:
+
+- **`civic` aliased to `police`.** Seven buildings in two settlements — a creche, an assembly hall,
+  two checkpoints, a song house, a lookout and a birthing room — rendered as Precinct 9, blue beacon
+  and antenna included. A `TYPE_MODEL` alias is a *fallback*, and a fallback that is wrong is louder
+  than no model at all.
+- **`ruins` was in neither `TYPE_MODEL` nor `BLDG_TYPE_3D`,** so it fell through to
+  `BLDG_TYPE_3D.default` and 148 tiles of rampart, thorn hedge and dam concrete extruded as citycore
+  mid-rises. `ruins` now has a `BLDG_TYPE_3D` row so an unnamed one is at least a ruin.
+- **Four `drawTypeModel` arms existed but were never registered** (`clone`, `foundry`, `dynamo`,
+  `industrial`), exactly as the note on the `greenhouse` row in `TYPE_MODEL` warns. Adding the case
+  and adding the row are one job.
+- **`bathhouse` was declared twice in `TYPE_MODEL` and had two `case` arms.** The later row won and
+  the earlier arm drew, so Coldwater’s Lather & Lye was silently rendering as the Reach’s Long Soak
+  and its own arm was dead code. It is now `citybathhouse`, reached by name.
+
+### ⚠ A wall section is symmetric, and that is a correctness rule
+
+`trm_wall`, `thornwall` and `damwall` each draw ONE tile of a long run (70, 62 and 16 tiles). Every
+other arm leans on `F()`/`frontVis` to turn its features toward the entrance — but a wall tile’s
+entrance is derived from a door that does not exist, so it differs tile to tile and any "front"
+feature points a different way along the run. These three arms therefore use only centred masses and
+symmetric (±) detail pairs. What varies along a run is **seeded decoration, never the section**.
+
+### ⚠ `NAMED_MODELS` is keyed on the name slug, and the map cell carries no region
+
+Terminus and the Thornwarren both had a building called **The Gate House**, which cannot resolve to
+two silhouettes. The fix was a content rename (the Thornwarren’s is now **The Thorn Gate**) rather
+than shipping `region_id` on every surface cell — `deriveSurfaceCell` runs ~5,300 times per snapshot,
+and one collision does not pay for that. If collisions ever become routine, the cell payload is the
+general answer; until then, **two buildings in different regions may not share a name.**
+
+### Floor counts were the other half of it
+
+`TYPE_FLOORS` had no row for `civic`, `ruins`, `infra`, `dynamo`, `clone`, `foundry` or `industrial`,
+so every fraction inside those arms was being measured against `default: 4` — the same failure the
+forecourt hit, described in the ⚠ in [skyline-scale.js](../../client/shared/skyline-scale.js). All
+seven now have explicit rows. Each was checked first: **no Coldwater building carries any of these
+types**, so none of the values moves anything that already shipped.
+
+## ⚠ `building_name` is not the zone `name`, and this silently kills models
+
+`modelFor(cell)` resolves a bespoke model from **`cell.bn`**, which `deriveSurfaceCell` sets from
+**`flags.building_name`** — never from the zone’s `name`. A building whose tile carries only a zone
+name gets **no** `NAMED_MODELS` match, falls through to the type model or to nothing, and there is no
+warning anywhere: the entry just never fires.
+
+This had bitten seven entries at once. `thewall` (70 tiles), `thethornwall` (62), `thedam` (16),
+`thecisterns`, `glasshouse`, `theturbinehall` and `hallofrecords` were all dead — several of them
+added in the same session that "fixed" them, because the audit script grouped by `building_name ||
+name` and so reported them as resolved. **Audit with `flags.building_name` alone, exactly as the
+renderer does.** The check that matters:
+
+```
+NAMED_MODELS keys that match no building_name anywhere  →  dead entries
+buildings whose building_name is absent                 →  can never have a bespoke model
+```
+
+Authoring a `building_name` is cheap and claims **no map icon** — `buildingIconSvg` requires a
+`facade` tag plus a `building_type`. It reaches the 3-D renderer and the text map’s landmark list
+(deduped to one entry per building), and nothing else.
+
+## Deadwater — the works (as built, 2026-08-20)
+
+Ten tiles of the Null’s works platform carried no `building_type` at all, so the region’s entire
+settlement drew as bare graded gravel. They are now buildings: the Schoolroom, the Sleepers, the
+Reckoning, the Forge, the Winding Shop, the Tally, the Standpipe, the Stores, the Surgery and the
+Gauge House.
+
+⚠ **`building_type` gates SOLIDITY, not walking.** Walking is governed by exits. Every tile above
+keeps its exits, so it is still a room you walk into and is now also mass you can fly into. The
+proposal’s warning about the dam shoulders being unreachable was about tiles generated as wall
+**without exits** — not about the flag itself.
+
+⚠ **The Gallery is deliberately not a building.** It is the tunnel driven straight *through* the
+dam — the hole, not the stone. Mass on that tile closes the short way north for anything not on foot.
+Also left alone: The Long Table and The Bench (Terminus already owns both names, and `NAMED_MODELS`
+keys on the name slug), and the open ground — The Grey Yard, The Spillway, The Head of the Water.
+
+### The three rules every Deadwater arm obeys
+
+1. **Nothing is electric.** The region is dark by construction — one orphan `power_zones` row per
+   tile, offline from the first power cycle. Every light in these arms is flame, oil or carbide.
+   There is no `blinkLight`, no neon band, no beacon and no floodlight anywhere in the block.
+2. **It is maintained, not surviving.** The Null are not squatting in a ruin, they are running one.
+   The Turbine Hall and The Dry Run were first written as derelict — a holed roof, a seized crane, a
+   collapsed canopy — and both were rewritten: the generators came *out*, and the penstocks now turn
+   a line shaft that leaves the building on pillow blocks and goes overhead to the shops on trestles.
+   Drawing the region’s power distribution as a **belt** rather than a cable is the anti-tech
+   statement; a dead powerhouse says the opposite of what the faction is.
+3. **The covers are off** (the proposal’s own rule 4), and they stand **on edge against their
+   housings** rather than lying about as debris. That is the difference between "stripped" and
+   "being worked on", and it recurs across the arms on purpose — it is the region’s signature.
+
+## Twin audit — buildings that share a model (closed 2026-08-20)
 
 Two buildings of the same `building_type` with no `NAMED_MODELS` entry render as the
-**same silhouette**, which reads as a bug from the air ("didn't I just fly over this?").
+**same silhouette**, which reads as a bug from the air ("didn’t I just fly over this?").
 Audit it with:
 
 ```sql
@@ -644,16 +743,41 @@ SELECT flags->>'building_type' bt, array_agg(DISTINCT flags->>'building_name')
  GROUP BY 1 HAVING count(DISTINCT flags->>'building_name') > 1;
 ```
 
-The fix is to promote the more characterful half of a pair to a `NAMED_MODELS` entry
-with its own `drawTypeModel` case, leaving the twin on the generic type model — as with
-**Coldline Reefer Depot** (`reefer`), **Interchange Stack** (`interstack`), **Ferro
-Fabrication Works** (`foundry`), **Meltwater Freight Office** (`oldoffice`), **Customs
-Bonded Store 7** (`bonded`) and **The Lucky Bastard** (`neonvig`, promoted off `casino` so a
-future casino still has a generic to fall back on).
+⚠ **That query answers the wrong question on its own.** It groups by `building_type`, but what
+the eye sees is the resolved `drawTypeModel` **arm** — and two different types can land on one arm
+(`fence` and `pawn` both did), while one type can split across several. Group by the resolved
+`{type, pal}` pair from `modelFor()`, not by `building_type`, or the list is both incomplete and
+full of false positives.
 
-**A weaker tier still exists and is deliberate:** several `NAMED_MODELS` entries share a
-`type` and differ only by `pal`/`neon` — same silhouette, different colours. Today that's
-`diner` (Ration Nine / Meltwater Diner), `hangar` (Coldwater Regional / Threshold
-Helipad), `office` (Coldwater Sentinel / Ward Nine Permits) and `divebar` (The Green Room
-/ The Dead Pigeon / Sump). Fine at altitude; the obvious next candidates if you want
-another pass.
+The fix is to promote the more characterful half of a pair to a `NAMED_MODELS` entry with its own
+`drawTypeModel` case, **leaving the twin on the generic type model** so the type keeps a fallback.
+
+### The pass that closed it
+
+Eleven groups covering thirty Coldwater buildings were sharing an arm, eight of those groups
+sharing a palette too — literal clones. Promoted: **Fired & Forgotten** (`ff_kiln`), **Tine &
+Temper** (`tine`), **Two-Cell Supply** (`twocell`), **Fallow Provisions** (`fallow`), **The Paper
+Tomb** (`papertomb`), **Stitch ’n’ Bitch** (`stitch`), **Camp Giardia** (`campgiardia`), **Watts
+The Damage** (`watts`), **Hulls Angels** (`hulls`), **Slag & Wares** (`slagwares`), **Thumb On The
+Scale** (`thumbscale`), **The Slip** (`slipback`), **Sentimental Value Pawn** (`sentimental`) and
+**Grind House** (`grindhouse`). Their twins — Precinct 9, Co-Pay & Pray, Grease Expectations, Nuts
+to That, The Wet Handoff, Salvage Rites, In Hock We Trust and the Second Amendment Superstore —
+each keep the generic type model on purpose.
+
+The worst single mismatch was **Camp Giardia**, a tarpaulin over a bus shell with a cook fire in a
+cut-down drum, rendering as the streamline `diner`: a chrome dining car with a barrel roof and
+rooftop neon.
+
+### Three groups still share a model, and all three are correct
+
+- **The four numbered Units** (Kessler, Marrow ×2, Voss) share `vacantunit` **deliberately**. They
+  are one landlord’s empty ex-tenant stock and looking alike is the truth about them; what varies
+  is the *state* of the dereliction, off the seed (shutter down / boarded / glass gone), plus a TO
+  LET board at a seeded angle. Four bespoke silhouettes would say they are four businesses.
+- **`hangar`** (Coldwater Regional / Threshold Helipad) and **`divebar`** (Sump / The Dead Pigeon)
+  share a `type` but branch on `m.big`, `m.helipad` and `m.perch`, so the captured geometry already
+  differs. Not twins — the model record, not the type string, is what `shapeForModel` caches on.
+
+A NEW building that resolves to an arm another building already uses is the thing to watch for.
+Re-run the audit after adding one.
+

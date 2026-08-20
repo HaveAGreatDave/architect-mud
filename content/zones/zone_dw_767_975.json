@@ -22,7 +22,10 @@
     "west": "zone_dw_766_975"
   },
   "flags": {
+    "building_name": "The Schoolroom",
+    "building_type": "civic",
     "emp_shadow": true,
+    "floors": 1,
     "no_spawn": true,
     "region_id": "region_deadwater",
     "terrain": "gravel"

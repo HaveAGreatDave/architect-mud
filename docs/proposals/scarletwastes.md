@@ -251,7 +251,7 @@ doors is a cul-de-sac; the generator flood-fills the town and all 225 interior t
 | **The Chorus' Den** | The Chorus | Cushions, salvage, and a rota that is the entire government of the place |
 | **The Long Fire** | Pitch Halloway | Forty feet of fire trench. Nobody pays; there is an owing board instead |
 | **The Foundry** | Ferrous Bight | Eleven blades and no two alike, because eleven hands and no two alike |
-| **The Gate House** | Quarrel Nine, Ossa Vurn | The mask rack, quilted and stitched flat, and the tally board |
+| **The Thorn Gate** | Quarrel Nine, Ossa Vurn | The mask rack, quilted and stitched flat, and the tally board |
 | **The Sweetwater** | Sill Moraine | The test bench, twice a day, for years |
 | **The Bathhouse** | Brine Tack | The most used building in the town, and the one where nobody is hiding anything |
 | **Rindle's** | Rindle Ashcroft | Ordinary stock on the left, the reason people drive four days on the right |

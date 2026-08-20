@@ -16,6 +16,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_thorn_gatehouse",
   "map_id": "map_int_thorn_gatehouse",
-  "name": "The Gate House — Utility Room",
+  "name": "The Thorn Gate — Utility Room",
   "parent_zone": "zone_scw_1045_969"
 }

@@ -22,7 +22,10 @@
     "west": "zone_dw_768_975"
   },
   "flags": {
+    "building_name": "The Winding Shop",
+    "building_type": "fabrication",
     "emp_shadow": true,
+    "floors": 1,
     "no_spawn": true,
     "region_id": "region_deadwater",
     "terrain": "gravel"

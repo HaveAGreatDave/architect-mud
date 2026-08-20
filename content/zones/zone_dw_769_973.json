@@ -22,6 +22,7 @@
     "west": "zone_dw_768_973"
   },
   "flags": {
+    "building_name": "The Turbine Hall",
     "building_type": "power",
     "emp_shadow": true,
     "floors": 2,

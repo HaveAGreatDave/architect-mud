@@ -22,7 +22,10 @@
     "west": "zone_dw_770_976"
   },
   "flags": {
+    "building_name": "The Surgery",
+    "building_type": "clinic",
     "emp_shadow": true,
+    "floors": 1,
     "no_spawn": true,
     "region_id": "region_deadwater",
     "terrain": "gravel"

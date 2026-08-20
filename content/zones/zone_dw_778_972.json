@@ -20,7 +20,10 @@
     "south": "zone_dw_778_973"
   },
   "flags": {
+    "building_name": "The Gauge House",
+    "building_type": "infra",
     "emp_shadow": true,
+    "floors": 1,
     "lawless": true,
     "region_id": "region_deadwater",
     "terrain": "ash"

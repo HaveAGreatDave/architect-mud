@@ -138,9 +138,16 @@ one; Deadwater not having one is its argument made in schema rather than in pros
 
 The dam is building **mass** (`building_type` gates solidity in `groundObstructionAt` — without it a
 vehicle drives straight through, because exits stop walkers and nothing else). It claims **no map
-code**: `building_type` only, no `is_building` and no `building_name`, because sixteen tiles reaching
-for the same two letters is the marker-namespace exhaustion Terminus hit at *thirteen*, and a barrier
-is not a landmark.
+code**: `building_type` and `building_name` only, no `is_building`, because sixteen tiles reaching
+for the same two letters is the marker-namespace exhaustion Terminus hit at *thirteen*,
+and a barrier is not a landmark.
+
+> **Corrected 2026-08-20.** This originally said no `building_name` either, and the dam carried none —
+> which meant its flight-sim model could never resolve, because `modelFor()` reads `flags.building_name`
+> and never the zone `name`. All sixteen tiles rendered as a generic citycore mid-rise. The name is now
+> authored and the map code is still not claimed: **`buildingIconSvg` needs a `facade` tag plus a**
+> **`building_type`**, and the dam has no `facade`. A `building_name` on its own reaches the 3-D
+> renderer and the text map’s landmark list (deduped to one entry per building) and nothing else.
 
 But the lake is only ten tiles deep in a region fifty-two tall, so **a walker who wants the north
 shore can simply go round.** The Gallery is the short way, not the only way. The two shoulders (the

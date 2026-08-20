@@ -4,6 +4,7 @@
   "description": "Thorn, grown thick as a man is broad and twice his height, trained for years through a lattice of salvage plate and rail. The stems are finger-thick and grey and set with spines the length of your hand. Where somebody has cut into it at some point the cut has closed over, knotted and ugly and entirely shut. Nothing about it was manufactured. All of it was decided.",
   "exits": {},
   "flags": {
+    "building_name": "The Thorn Wall",
     "building_type": "ruins",
     "floors": 1,
     "lawless": true,

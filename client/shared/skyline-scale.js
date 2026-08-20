@@ -28,7 +28,21 @@
 // too big.
 export const TYPE_FLOORS = {
   corporate_office: 22, hotel: 6, apartment: 8, residential: 4, shop: 3, diner: 2,
-  bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1, civic: 6,
+  bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1,
+  // ⚠ CIVIC WAS 6, AND THE ⚠ ABOVE IS EXACTLY WHY THAT MATTERED. Seven of the eight buildings that
+  // carry building_type 'civic' are in Terminus and the Thornwarren — a nursery, an assembly hall,
+  // two checkpoints, a song house, a lookout and a birthing room — and every fraction inside their
+  // model arms was being measured against a SIX-STOREY building.
+  // The EIGHTH is Coldwater's own Paper Tomb, which this row would also have moved. It carries an
+  // authored flags.floors instead, so it no longer depends on this default either way.
+  civic: 2,
+  // The three walls. `ruins` had no row, so 148 tiles of rampart, thorn and dam were four storeys
+  // tall — which is the same failure the forecourt hit, on a bigger footprint.
+  ruins: 2,
+  // The other types that exist ONLY outside Coldwater and had no row, so every one of them was
+  // being drawn against a four-storey number: a water store, a flywheel house, a vat room, a
+  // cupola and a kiln. Checked before setting — no Coldwater building carries any of these.
+  infra: 2, dynamo: 2, clone: 3, foundry: 3, industrial: 3,
   gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, fuel_yard: 1, default: 4,
 };
 

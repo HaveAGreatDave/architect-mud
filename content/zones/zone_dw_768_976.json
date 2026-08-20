@@ -22,7 +22,10 @@
     "west": "zone_dw_767_976"
   },
   "flags": {
+    "building_name": "The Forge",
+    "building_type": "foundry",
     "emp_shadow": true,
+    "floors": 1,
     "no_spawn": true,
     "region_id": "region_deadwater",
     "terrain": "gravel"

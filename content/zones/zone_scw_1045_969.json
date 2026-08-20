@@ -11,7 +11,7 @@
     "west": "zone_thorn_gatehouse"
   },
   "flags": {
-    "building_name": "The Gate House",
+    "building_name": "The Thorn Gate",
     "building_type": "civic",
     "entrance": "east",
     "facade": true,
@@ -28,6 +28,6 @@
   "id": "zone_scw_1045_969",
   "map_id": "map_world",
   "marker": "HO",
-  "name": "The Gate House",
+  "name": "The Thorn Gate",
   "parent_zone": null
 }

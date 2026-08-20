@@ -8,7 +8,7 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_thorn_gatehouse",
-  "name": "The Gate House — Utility Room Junction Box",
+  "name": "The Thorn Gate — Utility Room Junction Box",
   "owner_id": null,
   "zone_id": "zone_util_zone_thorn_gatehouse"
 }
