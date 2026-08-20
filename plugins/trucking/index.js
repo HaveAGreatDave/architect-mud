@@ -576,6 +576,7 @@ async function mountOnCrossing(player) {
     rig.x = p.x; rig.y = p.y; rig.heading = p.heading;
   }
   setPosture(player, 'driving');
+  pushRoadWindow(player);   // see the note at the other join — a boundary event is a room too late
   sendToPlayer(player.id, { ...cabContext(rig, { mounted: true }), type: 'truck_sim' });   // type AFTER the spread — see cmdDrive
   // Two different sentences, because they are two different events: getting back into YOUR truck
   // out on the road is not finding one abandoned at the roadhead with the keys in it.
@@ -2796,6 +2797,10 @@ async function leaveTheMap(player, rig, broadcast) {
     trunk: info.trunk });
   rig.zoneId = player.current_zone;
   pushCab(rig, { joined: true });
+  // …and the sidebar's road window with it. `zone.entered` only fires on a NODE BOUNDARY, so
+  // without this the map stays on the city street you left until you have driven a full room —
+  // which is exactly the stretch where somebody looks at it to see what they have driven into.
+  pushRoadWindow(player);
   const aimed = info.dests?.find(d => d.key === destKey);
   sendToPlayer(player.id, {
     type: 'emote',

@@ -94,7 +94,7 @@ const kitFor = (p) => CAB_KIT[p?.tier] || CAB_KIT[1];
 // two keys out of eleven. This table is the legend the ? card renders, and it is written as data so
 // that adding a control without telling anybody about it takes a deliberate omission.
 const CONTROLS = [
-  ['Drag the wheel', 'Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead, and the scroll wheel dollies it.'],
+  ['Drag the wheel', 'Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead — the middle button does too, if that is the hand you have — and the scroll wheel dollies it.'],
   ['X / C or ← →', 'Steer. X and C are the flight sim rudder keys, so the hand that flies already knows them; the arrows do the same thing. One full turn of the wheel is full lock.'],
   ['Centre boss', 'The horn. Press the middle of the wheel.'],
   ['GPS screen', 'Tap it. The map is the road you are actually on; tapping opens the fork, with the distance and whether your tank reaches. Picking one runs the ordinary route command, so it obeys the same rules typing it would.'],
@@ -1012,11 +1012,24 @@ export function openCab(ctx = {}) {
     const isChrome = (e) => !!e.target?.closest?.('.cab-chrome,.cab-dmg,.cab-help');
     glass.addEventListener('pointerdown', (e) => {
       grabKeys();                                     // clicking the road is asking to drive — see grabKeys
-      // ⚠ THE PRIMARY BUTTON ONLY. This excluded the RIGHT button and said nothing about the
-      // MIDDLE one, so a middle-click on the windscreen silently took hold of the steering wheel —
-      // and in Chrome opened the autoscroll widget over the road at the same time. Neither is a
-      // gesture anybody asked for. Everything above button 0 is now inert on the glass.
-      if (isChrome(e) || e.button > 0) return;
+      // ⚠ THE PRIMARY BUTTON — AND THE MIDDLE ONE, BUT ONLY OUT OF THE CAB.
+      //
+      // This used to exclude everything above button 0, and the reason is still good: a middle
+      // drag inside the cab silently took hold of the STEERING WHEEL, and in Chrome opened the
+      // autoscroll widget over the road while it did. Neither is a gesture anybody asked for.
+      //
+      // But that argument is about the cab, and the chase view has no wheel in it. Out there the
+      // drag already means orbit, so the middle button can mean orbit too — which is the binding
+      // every 3-D tool trained everyone on, and the one a hand reaches for when the subject is a
+      // vehicle it is circling. It is an ALIAS, deliberately: the same gesture on a second button,
+      // not a second gesture, so nothing has to be learned and nothing else changes.
+      //
+      // ⚠ THE VIEW IS TESTED, NOT THE BUTTON ALONE. Allowing button 1 unconditionally would put
+      // the exact bug above straight back, because `st.external` is what decides whether a drag
+      // reaches the wheel — and the autoscroll suppression below only helps if we also take the
+      // event, which we do not when this returns.
+      const orbitBtn = e.button === 1 && st.external;
+      if (isChrome(e) || (e.button > 0 && !orbitBtn)) return;
       // THE BOSS IS A BUTTON, because on a truck it is. It is tested against the renderer's own
       // geometry (cabWheelHub) rather than a second copy of it, so the horn can never end up an
       // inch off the thing that looks like the horn. Not a grab: the angle delta at the centre of
@@ -1135,7 +1148,13 @@ export function openCab(ctx = {}) {
     // No middle-click autoscroll over the windscreen. The flight sim already refuses it inside its
     // own view for the same reason (cockpit.js): the scroll widget lands on top of the road, eats
     // the next click and cannot be dismissed without taking your hands off the truck.
+    // ⚠ AUXCLICK IS TOO LATE ON ITS OWN. Chrome arms the autoscroll widget on the middle POINTERDOWN,
+    // so suppressing the click after the fact leaves the pan cursor sitting over the road for the
+    // whole drag. The pointerdown handler above calls preventDefault for the orbit case; this stays
+    // as the backstop for a middle click that never became a drag, and for the cab view, where the
+    // button is still inert and must not open a widget over the windscreen either.
     glass.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+    glass.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
     // The dolly. External only — there is nothing to zoom in the cab, and a wheel event that did
     // nothing but eat the page scroll would be worse than one that is simply not bound.
     glass.addEventListener('wheel', (e) => {

@@ -609,8 +609,13 @@ export function isOnCrossing() {
 // highway that is not there, which reads as a render fault rather than the state fault it is.
 let _road = null;
 export function setRoadWindow(road) {
+  const had = !!_road;
   _road = road && Array.isArray(road.cells) && road.cells.length ? road : null;
-  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+  // ⚠ REPAINT ON THE CLEAR TOO, and with no nodes if that is all there is. Guarding this on
+  // `_lastMinimapNodes` meant the road could never appear for anyone whose first payload of the
+  // session was the road itself — and, worse, that dropping the road left the last road frame on
+  // screen until something else happened to re-render.
+  if (_road || had) renderMinimap(_lastMinimapNodes);
 }
 
 // Ground tints. Deliberately the same reading as the cab GPS — the tarmac and anything with mass
@@ -654,15 +659,21 @@ function paintRoad(cv, road) {
   g.restore();
 }
 
-function renderCrossing(nodes, current, direction) {
+// `current` is derived rather than passed now: the two callers disagreed about whether they had
+// one, and out on a road driven from a cab there may be no usable node payload at all. The trail
+// simply does not draw when there is nothing to draw it from — which is the honest picture, and
+// leaves the road window as the whole map rather than putting a wrong trail under it.
+function renderCrossing(nodes, direction) {
+  const current = Array.isArray(nodes) ? nodes.find(n => n.is_current) : null;
+  const trail = current?.void_crossing ? crossingInnerHtml(nodes, current) : '';
   setMinimapCrossing(true);
   // ⚠ BOTH, NOT A CHOICE — the same call the cab makes with its own corridor map. The window is the
   // instrument and the trail is the ribbon under it: the picture cannot tell you that a branch is a
   // dead end or that the next room is the gate, and the trail cannot show you the bend you are
   // already in. Either alone is a worse map than the two together.
   const html = _road
-    ? `<div class="mm-crossing has-road"><canvas class="mm-road" width="180" height="180"></canvas>${crossingInnerHtml(nodes, current)}</div>`
-    : `<div class="mm-crossing">${crossingInnerHtml(nodes, current)}</div>`;
+    ? `<div class="mm-crossing has-road"><canvas class="mm-road" width="180" height="180"></canvas>${trail}</div>`
+    : `<div class="mm-crossing">${trail}</div>`;
 
   applyMinimapZoom();
   for (const id of ['minimap-grid', 'minimap-grid-hud', 'minimap-grid-mob']) {
@@ -979,6 +990,21 @@ export function setMinimapRender(smooth) {
 }
 
 export function renderMinimap(nodes, direction) {
+  // ⚠ THE ROAD WINDOW DECIDES, NOT THE NODE PAYLOAD, and getting that the wrong way round is why
+  // the highway did not appear the first time this shipped.
+  //
+  // The obvious gate is `current.void_crossing` — ask the nodes whether you are in the void — and
+  // it is wrong for the case this feature exists for. Once you are in a cab the server stops
+  // sending `minimap` at all: the cab owns the view, and the last node payload the client received
+  // is the CITY STREET you set off from. So the `mmroad` packet would arrive, this would re-render,
+  // the stale nodes would say `void_crossing: false`, and it would draw Marrow Street while the
+  // windscreen showed a road sign for the Reach.
+  //
+  // The road window is pushed by the server precisely when you are on a road and cleared precisely
+  // when you are not (plugins/trucking/mmroad.js), so it is the fresher and more direct answer to
+  // the only question being asked. It wins, and it does not need nodes at all — which it must not,
+  // because out here there may not be any worth having.
+  if (_road) { hideCanvas(); renderCrossing(nodes || _lastMinimapNodes, direction); return; }
   if (!nodes || !nodes.length) { hideCanvas(); minimapMessage('(unmapped)'); return; }
   const current = nodes.find(n => n.is_current);
   if (!current) { hideCanvas(); minimapMessage('(unmapped)'); return; }
@@ -989,7 +1015,7 @@ export function renderMinimap(nodes, direction) {
   // Off the grid: a waste-crossing room isn't on the world map, so drop the city
   // renderer for a stylized "you are in the void" trail view (walked → you → fog).
   // The void has no tiles to draw, so the canvas stands down entirely.
-  if (current.void_crossing) { hideCanvas(); renderCrossing(nodes, current, direction); return; }
+  if (current.void_crossing) { hideCanvas(); renderCrossing(nodes, direction); return; }
   setMinimapCrossing(false);
 
   if (mmCanvas) {
