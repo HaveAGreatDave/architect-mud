@@ -1750,6 +1750,37 @@ export default async function regress({ run, check, getPlayer }) {
     // frame was already on the road. It is the door TILE now, and these are the three things that
     // have to hold for that to be a drive rather than a truck buried in a wall. `mountSpot` exists
     // as a function precisely so this can be asserted without buying a rig first (see its note).
+    // ⚠ AND FROM THE APRON TOO, WHICH IS WHERE PARKING LEAVES YOU.
+    //
+    // `mountSpot` asked `depotAt(stood)`, which is true of the BAY and of nothing else. Walking in
+    // puts you in the bay so it resolved; `park` puts the truck under the roof and the DRIVER on
+    // the hardstand, so it returned null — and `cmdDrive` then read `spot.heading` off null and
+    // threw. The depot panel came up after parking with a live 'Take it out' button on it, you
+    // pressed it, and nothing happened, because the command died before it could even refuse.
+    //
+    // Every tile of a depot has to answer this identically, which is the same widening
+    // `depotZonesOf` already took. Asserted against the YARD as well as the bay, so the two paths
+    // into a truck cannot drift apart again.
+    for (const bayId of ['zone_yard_bonded', 'zone_yard_roadhead', 'zone_yard_lastload',
+                         'zone_yard_dryrun', 'zone_yard_deadleg']) {
+      const bay = world.zones.get(bayId);
+      const yard = world.zones.get(bay?.flags?.truck_depot?.yard);
+      if (!yard) continue;
+      const fromBay = truckTest.mountSpot(bay);
+      const fromYard = truckTest.mountSpot(yard);
+      check(`${bayId}: parking on the apron still finds a mount`, !!fromYard, String(fromYard));
+      // The SAME seat, not merely some seat — otherwise parking and walking in are two different
+      // features wearing one button.
+      check('…the same one walking into the shed gives you',
+        fromYard?.zone?.id === fromBay?.zone?.id && fromYard?.heading === fromBay?.heading,
+        `${fromYard?.zone?.id}@${fromYard?.heading} vs ${fromBay?.zone?.id}@${fromBay?.heading}`);
+      // ⚠ AND IT HAS A HEADING AT ALL. This is the exact dereference that threw: `cmdDrive` reads
+      // `spot?.heading` for the mount and `standStock` had always read it as an optional chain, so
+      // the two lines disagreed about whether the value could be missing.
+      check('…and carries a heading the mount can actually read', Number.isFinite(fromYard?.heading),
+        String(fromYard?.heading));
+    }
+
     for (const bayId of ['zone_yard_bonded', 'zone_yard_roadhead', 'zone_yard_lastload',
                          'zone_yard_dryrun', 'zone_yard_deadleg']) {
       const bay = world.zones.get(bayId);

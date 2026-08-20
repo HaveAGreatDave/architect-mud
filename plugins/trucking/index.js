@@ -260,7 +260,11 @@ async function cmdDrive(args, raw, player) {
   // lookup matches on — and it stays the YARD exactly as before. Passing the door tile here would
   // have quietly re-homed the truck to a zone no `depotZonesOf` pair contains, and the symptom
   // would have been "you don't own a truck here" while sitting in it.
-  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot.heading, depot: yardId || here.id });
+  // ⚠ `spot?.heading`, not `spot.heading`. `mountSpot` can still answer null — a depot authored
+  // somewhere this cannot resolve — and `standStock` below has ALWAYS written it as an optional
+  // chain with a default. The two lines disagreed about whether the same value could be missing,
+  // and this was the one that threw.
+  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot?.heading ?? 180, depot: yardId || here.id });
   rig.zoneId = here.id;
   rig._hardStart = hardStart;      // spent by whichever rung actually turns the key — see above
   // ⚠ AND ANYTHING WITHOUT A PLACE GETS ONE FIRST. A box with no pose is on every list in the game
@@ -467,16 +471,31 @@ function standPlaces(bay, depot) {
 // and whether a roller door is in front of you.
 const OUT_HEADING = { north: 0, east: 90, south: 180, west: 270 };
 export function mountSpot(stood) {
-  const depot = depotAt(stood);
-  if (!depot) return null;
-  const door = stood.flags?.world_exit_zone ? getZone(stood.flags.world_exit_zone) : null;
+  // ⚠ ANY OF THE DEPOT'S THREE TILES, NOT JUST THE BAY — and asking `depotAt` alone is what made
+  // `drive` do nothing after you parked.
+  //
+  // `depotAt` is true of the BAY and of nothing else. Walk into a depot and you are standing in the
+  // bay, so this resolved and everything worked. But `park` leaves you on the APRON (the truck goes
+  // under the roof; the driver climbs down where they stopped), so `stood` was the hardstand, this
+  // returned null — and the caller then read `spot.heading` off it and threw. The panel came up
+  // with a live 'Take it out' button on it, you pressed it, and nothing happened at all, because
+  // the command died before it could even refuse.
+  //
+  // It is the same widening `depotZonesOf` already had to take, for the same reason and with the
+  // ⚠ above it saying so: a depot is a PLACE of three tiles, and every question about it has to be
+  // answerable from whichever of them you happen to be on. `depotFrom` is that lookup, and using it
+  // here means parking and walking in now put you in exactly the same seat.
+  const ctx = depotFrom(stood?.id);
+  if (!ctx) return null;
+  const { bay, depot } = ctx;
+  const door = bay?.flags?.world_exit_zone ? getZone(bay.flags.world_exit_zone) : null;
   // A bay with a facade puts you INSIDE it. Anything else — a depot authored straight onto a road
   // tile, which is what the test fixtures are — mounts where it always did.
   if (door && door.grid_x != null) {
     const heading = OUT_HEADING[door.flags?.entrance];
     return { zone: door, heading: heading != null ? heading : 180, fromShed: true, depot };
   }
-  const yard = getZone(yardIdOf(stood, depot));
+  const yard = getZone(yardIdOf(bay, depot));
   return { zone: (yard && yard.grid_x != null) ? yard : stood, heading: 180, fromShed: false, depot };
 }
 // ⚠ A DEPOT IS THREE TILES AND THIS USED TO NAME TWO OF THEM — the one you are standing on, and
