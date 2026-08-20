@@ -17917,6 +17917,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
     if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, now)); continue; }
     if (it.c.mark === 'pylons') { emitFace(od, () => drawPylons(ctx, cam, it.dx, it.dy, night, alpha, it.seed)); continue; }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
+    // A dust airstrip's drums and threshold bars — see drawStripMarks. `continue` is deliberate:
+    // the tile is still a road underneath (the ground pass has already painted it), and there is no
+    // mass here to extrude on top of it.
+    if (it.c.mark === 'strip') { emitFace(od, () => drawStripMarks(ctx, cam, it.dx, it.dy, it.c.strip, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, it.seed)); continue; }
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
     if (it.c.mark === 'bay') { emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
@@ -18822,6 +18826,50 @@ function drawSegDigit(ctx, P, ch, u0, v0, w, h, ink, dim, alpha) {
   }
   ctx.globalAlpha = alpha;
 }
+// A DUST STRIP, MARKED THE WAY A DUST STRIP CAN BE.
+//
+// No paint: a lawless field is graded dirt and paint is the thing it does not have. What it has is
+// what somebody dragged out there — drums down the edges and a bar across each threshold — and
+// that is enough to say 'this dirt is a runway and that dirt is not', which is the whole job.
+//
+// ⚠ NOT A BUILDING, for the same reason the mile boards are not: `building_type` puts a thing into
+// the collision sweep, and a drum on the edge of a strip that stops a forty-tonne truck is worse
+// than no drum at all. These are marks — drawn, never solid — so you can run straight over them,
+// which is also what really happens to the drums on a strip like this.
+function drawStripMarks(ctx, cam, dx, dy, strip, foot, night, alpha, seed) {
+  if (!strip) return;
+  const ew = strip.ax === 'ew';
+  // Along-strip and across-strip unit vectors, so one bit of geometry serves both orientations.
+  const ax = ew ? 1 : 0, ay = ew ? 0 : 1;          // along
+  const bx = ew ? 0 : 1, by = ew ? 1 : 0;          // across
+  const half = foot * 1.15;
+  // ── EDGE DRUMS ────────────────────────────────────────────────────────────
+  // Both sides, and only on alternate tiles — a drum on every tile of every edge reads as a fence,
+  // and the point of them is that somebody put out as many as they could be bothered to.
+  if ((seed | 0) % 2 === 0) {
+    for (const t of [-1, 1]) {
+      const px = dx + bx * half * t, py = dy + by * half * t;
+      drawFacetDrum(ctx, cam, px, py, 0, 0.055, foot * 0.16, foot * 0.15, 8, alpha,
+        (fc) => 'rgb(' + (150 + fc.nl * 60 | 0) + ',' + (74 + fc.nl * 34 | 0) + ',' + (36 + fc.nl * 20 | 0) + ')', 'rgb(96,48,24)');
+      // The one white band each, which is what makes a rusty drum read as a MARKER rather than as
+      // fly-tipping. Weathered, not painted this year.
+      drawRing(ctx, cam, px, py, 0.040, foot * 0.165, 8, 'rgba(214,206,188,0.55)', 2, alpha);
+    }
+  }
+  // ── THE THRESHOLD ─────────────────────────────────────────────────────────
+  // A bar of short boards laid across the very end of the strip. `end` is -1 or 1 for the two ends
+  // and 0 for everything between, so this lands exactly twice on any strip however long it is.
+  if (strip.end !== 0) {
+    const e = strip.end;
+    for (let i = -2; i <= 2; i++) {
+      const off = i * foot * 0.44;
+      const px = dx + bx * off + ax * half * 0.72 * e;
+      const py = dy + by * off + ay * half * 0.72 * e;
+      draw3DBoxAt(ctx, cam, px, py, foot * 0.16, 0, 0.028, 'ty_reach_paint', seed + 40 + i, night, alpha, true);
+    }
+  }
+}
+
 function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha, now = 0) {
   const th = (Number(sgn?.face) || 0) * Math.PI / 180;
   // The board faces the traffic, so its normal is the road's heading REVERSED. Map-space heading

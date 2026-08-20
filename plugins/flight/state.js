@@ -973,11 +973,35 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // and making it a building would put it into the collision sweep, where a board on the verge
   // would become a thing that stops a truck. Only the void corridor authors it
   // (plugins/trucking/corridor.js); every baked world tile leaves `road_sign` undefined.
+  // A DUST STRIP HAS TO SAY IT IS A STRIP, and paint is the one way it cannot.
+  //
+  // A lawless field is `surface: 'dust'` — graded dirt with no paint, no PAPI and no edge lights,
+  // which is right for the fiction and, at Buzzard Field, indistinguishable from the dirt roads it
+  // sits among. You cannot find the runway from the ground because it looks exactly like the track
+  // beside it.
+  //
+  // So it gets what a frontier strip has instead of paint: drums down the edges and a threshold
+  // bar across each end. DERIVED, not authored — the tiles already carry `flags.runway`, and
+  // whether one is an END is a question about its neighbours this pass can already ask through
+  // `at`. Nothing is added to content, and a second dust strip anywhere gets the same treatment
+  // without anybody remembering to mark it up.
+  //
+  // ⚠ DUST ONLY. A paved field already has paint, lights and a PAPI, and drums down the side of
+  // Coldwater Regional would read as roadworks.
+  let strip;
+  if (cell.flags?.runway && ft === 'dust') {
+    const ew = String(cell.flags.runway) === 'ew';
+    const isStrip = (ddx, ddy) => !!at(x + ddx, y + ddy)?.flags?.runway;
+    const back = ew ? isStrip(-1, 0) : isStrip(0, -1);
+    const fwd = ew ? isStrip(1, 0) : isStrip(0, 1);
+    strip = { ax: ew ? 'ew' : 'ns', end: back && fwd ? 0 : back ? 1 : -1 };
+  }
   const mark = cell.flags?.vehicle_bay ? 'bay'
     : cell.flags?.yacht ? 'yacht'
     : cell.flags?.perimeter_gate ? 'gate'
     : cell.flags?.road_sign ? 'sign'
     : cell.flags?.junction_pylons ? 'pylons'
+    : strip ? 'strip'
     : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.
   let wake, sub, heading;
@@ -1115,7 +1139,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (plugins/trucking/corridor.js): sun-bleached and sand-drifted, its paint half gone, patched and
   // cracked. Every baked world tile leaves it undefined and paints exactly as it always did.
   const wr = cell.flags?.road_wear ? 1 : undefined;
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, strip, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

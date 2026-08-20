@@ -1578,4 +1578,42 @@ export default async function regress({ run, check, getPlayer }) {
     check('stepping out of the aircraft leaves no cabin behind',
       cabinTemperature(p.id) === null);
   }
+
+  // ── A DUST STRIP IS MARKED, A PAVED ONE IS NOT ────────────────────────────
+  // A lawless field is `surface: 'dust'` — graded dirt, no paint, no PAPI, no edge lights — which
+  // is right for the fiction and meant Buzzard Field's runway was indistinguishable from the dirt
+  // roads it sits among. It is now marked the way a frontier strip actually is: drums down the
+  // edges, a bar across each threshold. DERIVED from `flags.runway` plus the neighbours, so
+  // nothing is authored and a second dust strip gets it for free.
+  {
+    const { surfaceAt, deriveSurfaceCell } = await import('./state.js');
+    const der = (x, y) => { const c = surfaceAt(x, y); return c ? deriveSurfaceCell(c, x, y, surfaceAt) : null; };
+
+    // The Reach, north end → south end. Buzzard Field's hangar sits BESIDE the strip (910,1042),
+    // which is the layout that once made a clean landing read as off-field — see the ⚠ in the
+    // `land` handler. The strip itself is x=909.
+    const strip = [1039, 1040, 1041, 1042].map(y => der(909, y));
+    check('every tile of the dust strip is marked as one', strip.every(d => d?.mark === 'strip'),
+      strip.map(d => d?.mark).join(','));
+    check('…and carries the axis it runs on', strip.every(d => d?.strip?.ax === 'ns'));
+
+    // ⚠ EXACTLY TWO THRESHOLDS, however long the strip is. `end` is -1 and 1 at the two ends and 0
+    // between, so the bar lands twice — not on every tile, which would be a ladder, and not once,
+    // which would mark one approach and not the other.
+    check('the two ends are thresholds and the middle is not',
+      strip.map(d => d.strip.end).join(',') === '-1,0,0,1', strip.map(d => d.strip.end).join(','));
+
+    // The hangar tile is not part of the strip and must not be marked — it is a building, and a
+    // threshold bar across a hangar door would be nonsense.
+    check('the field\'s own tile is not a strip tile', der(910, 1042)?.mark !== 'strip');
+    // …and the tiles either side of the ends are outside it, or the strip would grow every pass.
+    check('the strip stops where it stops', der(909, 1038)?.mark !== 'strip' && der(909, 1043)?.mark !== 'strip');
+
+    // ⚠ AND A PAVED FIELD IS LEFT ALONE. Coldwater Regional already has paint, lights and a PAPI;
+    // drums down the side of it would read as roadworks. The gate is the DUST surface, not the
+    // runway flag, and this is the case that proves the difference is being read.
+    const paved = [898, 899, 900, 901, 902, 903].map(y => der(925, y));
+    check('a paved runway carries the flag but is never drum-marked',
+      paved.every(d => d && d.mark !== 'strip'), paved.map(d => d?.mark).join(','));
+  }
 }
