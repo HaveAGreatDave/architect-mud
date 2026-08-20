@@ -20,7 +20,11 @@ function makeCtx() {
   return new Proxy({}, {
     get(t, k) {
       if (k === 'canvas') return { width: 8, height: 8 };
-      if (k === 'measureText') return () => ({ width: 0 });
+      // A PLAUSIBLE width, not zero. Zero is a lie that passes: bakeSignText's tight mode sizes its
+      // canvas from this, so a zero here exercised the clamp instead of the measurement and would
+      // have hidden a real divide-by-a-degenerate-aspect. Monospace advance is about 0.6em and the
+      // sign face is ~33px, so ~20px a character is the right order for what the smoke actually draws.
+      if (k === 'measureText') return (txt) => ({ width: String(txt == null ? '' : txt).length * 20 });
       if (k === 'createLinearGradient' || k === 'createRadialGradient' || k === 'createConicGradient') return () => gradient;
       if (k === 'createPattern') return () => null;
       // ⚠ TWO ARITIES, AND THEY ARE NOT THE SAME ONE. `getImageData(x, y, w, h)` takes a rect;

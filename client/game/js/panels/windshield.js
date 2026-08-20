@@ -5335,6 +5335,9 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_reach_saloon: [104, 82, 58], ty_reach_saloon_dk: [66, 50, 36], ty_reach_board: [120, 96, 62],
   ty_reach_dynamo: [92, 88, 80], ty_reach_tank: [104, 72, 46], ty_reach_scorch: [40, 34, 30],
   ty_reach_motel: [110, 100, 88], ty_reach_motel_roof: [72, 58, 44], ty_reach_water: [96, 84, 68],
+  // Added for the timber pass: a shake roof, a porch deck, and the iron a hanging sign swings on.
+  ty_reach_shake: [96, 78, 56], ty_reach_porch: [118, 96, 66], ty_reach_iron: [58, 54, 50],
+  ty_reach_paint: [156, 116, 52],
   // Main Street, second pass — the trades the Reach gives a whole false front to. Timber that has
   // been in this sun for decades, a poured blockhouse, a flat grey nobody repaints, and a bathhouse
   // shed the steam has stained darker at the eaves than anywhere else in town.
@@ -5791,13 +5794,35 @@ const PLAIN_WALL = new Set(['ty_soffit', 'ty_kerb', 'ty_pump_dk', 'ty_fuel_kiosk
   'ty_signalbox', 'ty_signal_brick', 'ty_signal_yellow', 'ty_helpings', 'ty_helpings_mach',
   // Deadwater. Stone, iron and painted timber — none of it a facade wanting a window grid.
   'ty_dw_stone', 'ty_dw_iron', 'ty_dw_brass', 'ty_dw_timber', 'ty_dw_slate', 'ty_dw_paint',
-  'ty_dw_belt', 'ty_dw_lamp', 'ty_dw_canvas', 'ty_dw_forge', 'ty_dw_coal']);
+  'ty_dw_belt', 'ty_dw_lamp', 'ty_dw_canvas', 'ty_dw_forge', 'ty_dw_coal',
+  // The Reach's sign ironwork and the paint on the boards it swings. Six storeys of glowing
+  // offices in a bracket is exactly the failure the ⚠ on STRUCT_WALL above is about.
+  'ty_reach_iron', 'ty_reach_paint']);
 // A GLAZED SHOPFRONT — the kiosk's front wall, and the second-brightest thing on a forecourt after
 // the canopy. Not GLASS_WALL: that family is a TOWER's curtain wall (floor-plate striping over
 // dozens of storeys), and a single-storey shop window has no floor plates, one sill, one head, and
 // a lit interior you can see the shelves in. Same argument as STRUCT_WALL — the default branch's
 // job is a grid of apartment windows and this is one big window.
 const SHOP_GLASS = new Set(['ty_fuel_glass']);
+// ── TIMBER. THE REACH IS BUILT OUT OF WOOD AND NOTHING ELSE IN THE GAME IS ───
+//
+// Every frontier building was falling through to the default branch, which paints a grid of lit
+// apartment windows — so the one town in the world that is board-and-batten was wearing the same
+// facade as a Coldwater tenement, and all the wild-west reading was being carried by silhouette
+// alone. A false front is only a false front if you can see it is made of PLANKS.
+//
+// Board-and-batten, weathered: vertical boards of individually varied tone (a frontier wall is
+// re-boarded a plank at a time and never matches), a batten over every seam, grain streaks, knots,
+// nail heads that have bled rust down the board, and the silvering that sun puts on the top of a
+// wall and never on the bottom. The variation is the whole point — a uniform plank texture reads
+// as corrugated sheet, which is the family next door.
+const TIMBER_WALL = new Set(['ty_reach_saloon', 'ty_reach_saloon_dk', 'ty_reach_board', 'ty_reach_shack',
+  'ty_reach_merc', 'ty_reach_merc_dk', 'ty_reach_grey', 'ty_reach_grey_dk', 'ty_reach_bath',
+  'ty_reach_motel', 'ty_reach_water', 'ty_reach_assay_dk', 'ty_reach_awning', 'ty_reach_porch']);
+// SPLIT SHAKES. A roof of hand-split shingles laid in overlapping courses, each shake a slightly
+// different length and tone, the butt line ragged. Read from above (which is how the flight sim
+// mostly sees a roof) it is the single most recognisable wild-west surface there is.
+const SHAKE_ROOF = new Set(['ty_reach_shake', 'ty_reach_motel_roof', 'ty_reach_bath_roof']);
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
@@ -5841,6 +5866,91 @@ function wallTex(biome, night) {
       R(0.13, 0.66, 0.10, 0.20, 'rgba(190,70,50,0.9)');                     // the nozzles in them, colour-coded by grade
       R(0.59, 0.66, 0.10, 0.20, 'rgba(70,110,180,0.9)');
       R(0.04, 0.92, 0.92, 0.06, 'rgba(20,22,26,0.85)');                     // the plinth it stands on
+      return c;
+    }
+    if (TIMBER_WALL.has(biome)) {   // BOARD-AND-BATTEN, WEATHERED — see TIMBER_WALL
+      const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+      const px = Math.max(1, tr | 0);
+      // Sun-silvered at the head, damp and dark at the foot. Painted first so every board below
+      // inherits it and the wall reads as one weathered plane rather than as a set of strips.
+      const vg = g.createLinearGradient(0, 0, 0, H);
+      vg.addColorStop(0, k(1.18)); vg.addColorStop(0.55, k(1.0)); vg.addColorStop(1, k(0.74));
+      g.fillStyle = vg; g.fillRect(0, 0, W, H);
+      // THE BOARDS. Four or five to a tile — wide enough that a plank reads as a plank at the
+      // distance you fly past one, which a realistic count never would.
+      const bw = Math.max(3, Math.round(W / 4.5)), nb = Math.ceil(W / bw);
+      for (let i = 0; i < nb; i++) {
+        const x = i * bw;
+        // Each board its own tone. This is the line that stops it reading as siding.
+        const t = 0.82 + frac(i * 7.3) * 0.34;
+        g.fillStyle = k(t); g.fillRect(x, 0, bw - px, H);
+        // GRAIN — two or three long streaks down the board, never across it.
+        for (let gi = 0; gi < 3; gi++) {
+          const gx = x + Math.round(frac(i * 3.7 + gi * 1.9) * (bw - px - 1));
+          const y0 = Math.round(frac(i * 5.1 + gi) * H * 0.5);
+          g.fillStyle = `rgba(0,0,0,${0.05 + frac(i + gi) * 0.07})`;
+          g.fillRect(gx, y0, px, Math.round(H * (0.35 + frac(gi * 2.2) * 0.5)));
+        }
+        // A KNOT, on about a third of the boards. One dark ellipse with a lighter ring.
+        if (frac(i * 11.3) > 0.62) {
+          const kx = x + Math.round(bw * 0.45), ky = Math.round(frac(i * 2.9) * H * 0.8 + H * 0.1);
+          const kr = Math.max(px, Math.round(bw * 0.22));
+          g.fillStyle = 'rgba(0,0,0,0.34)';
+          g.beginPath(); g.ellipse(kx, ky, kr, kr * 1.35, 0, 0, 7); g.fill();
+          g.fillStyle = k(0.62);
+          g.beginPath(); g.ellipse(kx, ky, kr * 0.5, kr * 0.7, 0, 0, 7); g.fill();
+        }
+        // THE BATTEN over the seam, and the shadow it throws down the board beside it.
+        g.fillStyle = 'rgba(0,0,0,0.30)'; g.fillRect(x + bw - px, 0, px, H);
+        g.fillStyle = k(1.10); g.fillRect(x + bw - px * 2, 0, px, H);
+        // NAIL HEADS, and the rust each one has bled down the board underneath it. This is the
+        // detail that says nobody has painted this building in thirty years.
+        for (let ny = 0; ny < 3; ny++) {
+          const yy = Math.round(H * (0.18 + ny * 0.32) + frac(i * 4.4 + ny) * H * 0.06);
+          g.fillStyle = 'rgba(26,20,16,0.75)'; g.fillRect(x + Math.round(bw * 0.5) - px, yy, px, px);
+          g.fillStyle = 'rgba(122,66,30,0.30)'; g.fillRect(x + Math.round(bw * 0.5) - px, yy + px, px, Math.round(H * 0.06));
+        }
+      }
+      // A couple of open seams where a board has shrunk away from its neighbour — real gaps, dark
+      // all the way through, because a frontier wall you can see daylight through is the point.
+      for (let i = 0; i < 2; i++) {
+        const gx = Math.round(frac(i * 9.7) * (W - px));
+        g.fillStyle = 'rgba(10,8,6,0.55)'; g.fillRect(gx, Math.round(frac(i * 3.3) * H * 0.4), px, Math.round(H * 0.5));
+      }
+      if (nite) { g.fillStyle = 'rgba(0,0,0,0.30)'; g.fillRect(0, 0, W, H); }
+      return c;
+    }
+    if (SHAKE_ROOF.has(biome)) {   // HAND-SPLIT SHINGLES — see SHAKE_ROOF
+      const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+      const px = Math.max(1, tr | 0);
+      g.fillStyle = k(0.7); g.fillRect(0, 0, W, H);
+      // Courses from the bottom up, so each one overlaps the one below exactly as a real roof is
+      // laid. Drawing them top-down would put every shadow on the wrong side of every butt line.
+      const ch = Math.max(3, Math.round(H / 7));
+      for (let row = Math.ceil(H / ch); row >= 0; row--) {
+        const y = row * ch;
+        const off = (row % 2) ? Math.round(W * 0.27) : 0;   // stagger, so no joint runs two courses
+        const sw = Math.max(3, Math.round(W / 3.2));
+        for (let x = -sw; x < W + sw; x += sw) {
+          const i = row * 31 + ((x / sw) | 0) * 7;
+          // Each shake its own tone AND its own butt line, a pixel or two proud or shy of its
+          // neighbour. The ragged line is what separates a shake roof from a tiled one.
+          const jag = Math.round(frac(i * 2.1) * px * 2);
+          g.fillStyle = k(0.72 + frac(i * 5.3) * 0.48);
+          g.fillRect(x + off, y - jag, sw - px, ch + px * 2 + jag);
+          g.fillStyle = 'rgba(0,0,0,0.34)';   // the split between this shake and the next
+          g.fillRect(x + off + sw - px, y - jag, px, ch + px * 2 + jag);
+        }
+        // The shadow the course above throws down onto this one.
+        g.fillStyle = 'rgba(0,0,0,0.26)'; g.fillRect(0, y, W, px);
+      }
+      // Moss, or whatever passes for it out here, in the two courses nearest the shade.
+      for (let i = 0; i < Math.round(10 * tr); i++) {
+        const rx = frac(i * 6.1) * W | 0, ry = frac(i * 2.7) * H | 0;
+        g.fillStyle = `rgba(70,78,48,${0.10 + frac(i) * 0.16})`;
+        g.fillRect(rx, ry, Math.max(px, 2 * px), px);
+      }
+      if (nite) { g.fillStyle = 'rgba(0,0,0,0.32)'; g.fillRect(0, 0, W, H); }
       return c;
     }
     if (PLAIN_WALL.has(biome)) {   // painted panel: a soffit, a kerb, a kiosk flank — never a facade
@@ -5972,6 +6082,30 @@ function roofTex(biome, night) {
     const S = Math.round(16 * tr), c = texCanvas(S, S), g = c.getContext('2d');
     const w = WALL_COL[biome] || [52, 56, 66];
     g.fillStyle = `rgb(${w[0] * 1.25 + 8 | 0},${w[1] * 1.25 + 8 | 0},${w[2] * 1.25 + 8 | 0})`; g.fillRect(0, 0, S, S);
+    // ⚠ THE ROOF IS THE FACE A FLIGHT SIM ACTUALLY SHOWS YOU, and this is a SECOND function from
+    // wallTex — so a family added there and not here gets its treatment on the walls and the
+    // generic gravel-and-vent tile on the one surface you spend the whole flight looking down at.
+    // Split shakes, laid in courses from the eave up, staggered, each one its own length and tone.
+    if (SHAKE_ROOF.has(biome)) {
+      const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+      const px = Math.max(1, tr | 0);
+      g.fillStyle = k(0.66); g.fillRect(0, 0, S, S);
+      const ch = Math.max(3, Math.round(S / 6));
+      for (let row = Math.ceil(S / ch); row >= 0; row--) {
+        const y = row * ch, off = (row % 2) ? Math.round(S * 0.3) : 0;
+        const sw = Math.max(3, Math.round(S / 3));
+        for (let x = -sw; x < S + sw; x += sw) {
+          const i = row * 17 + ((x / sw) | 0) * 5;
+          const jag = Math.round(frac(i * 1.7) * px * 2);
+          g.fillStyle = k(0.74 + frac(i * 3.9) * 0.46);
+          g.fillRect(x + off, y - jag, sw - px, ch + px * 2 + jag);
+          g.fillStyle = 'rgba(0,0,0,0.32)';
+          g.fillRect(x + off + sw - px, y - jag, px, ch + px * 2 + jag);
+        }
+        g.fillStyle = 'rgba(0,0,0,0.24)'; g.fillRect(0, y, S, px);   // the course above, shadowing this one
+      }
+      return c;
+    }
     const N = Math.round(30 * tr);
     for (let i = 0; i < N; i++) { const rx = frac(i * 2.3) * S | 0, ry = frac(i * 4.1) * S | 0; g.fillStyle = `rgba(0,0,0,${0.06 + frac(i) * 0.08})`; g.fillRect(rx, ry, 1, 1); }
     g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(4 * tr, 5 * tr, 6 * tr, 4 * tr);
@@ -12016,14 +12150,29 @@ let _bladeSign;   // ambient: the current building's display name, set by drawTy
 // right for a sign that emits (a marquee, a blade); it is wrong for lettering on a white board,
 // where the bright core is the same colour as the board and the halo just fogs the edges. A brand
 // band is paint on enamel and has to read as paint.
-function bakeSignText(label, color, dn, vertical, solid) {
+// `tight` crops the canvas to the INKED width instead of reserving a full CELL per character.
+// Opt-in, because every other caller maps this texture onto a quad it has already sized to the
+// padded aspect, and changing that for all of them would move signage across the whole city. Only
+// the road sign asks for it, because only the road sign then fits the quad to the texture.
+function bakeSignText(label, color, dn, vertical, solid, tight) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return null;   // adornment — and it allocates a canvas, which capture must never do
-  const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}|${solid ? 1 : 0}`;
+  const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}`;
   let c = _signTexCache.get(key); if (c) return c;
   const n = label.length, CELL = 46, PAD = 8;   // logical px per glyph cell + margin; the strip map scales this onto the quad
-  const W = vertical ? CELL : n * CELL + PAD * 2, H = vertical ? n * CELL + PAD * 2 : CELL;
+  const FONT = `bold ${Math.round(CELL * 0.72)}px monospace`;
+  // A monospace advance is about 0.6em, so a full CELL per character reserves nearly twice the
+  // width the glyphs actually use. That padding is invisible until something maps the canvas onto
+  // a quad — at which point the ink is squeezed into the middle and the whole run comes out far
+  // taller than it is wide. Measuring first is what makes the texture's aspect the TEXT's aspect.
+  let W = vertical ? CELL : n * CELL + PAD * 2;
+  if (tight && !vertical) {
+    const m = texCanvas(8, 8).getContext('2d');
+    m.font = FONT;
+    W = Math.max(CELL, Math.ceil(m.measureText(label).width) + PAD * 2);
+  }
+  const H = vertical ? n * CELL + PAD * 2 : CELL;
   c = texCanvas(W, H); const g = c.getContext('2d');
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${Math.round(CELL * 0.72)}px monospace`;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = FONT;
   const glow = dn ? 12 : 6, core = dn ? 6 : 2;
   const put = (ch, x, y) => {
     if (solid) {   // painted, not lit: one flat colour, and after dark a breath of its own glow because the board behind it is backlit
@@ -12546,6 +12695,123 @@ function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
 // rather than made ambient like `_bladeSign` because it is not derivable from anything the arm has:
 // a price is a fact about the world at this moment, and the alternative to threading it is a
 // hardcoded number in a renderer, which is the one thing the fuel plugin exists to prevent.
+// ══ THE REACH'S WILD-WEST VOCABULARY ═══════════════════════════════════════
+//
+// Five things build a frontier street, and before this pass the Reach had exactly one of them (the
+// false front). Each is a helper rather than lines inside an arm for the ordinary reason — nine
+// buildings have to look like ONE TOWN, and nine hand-rolled porches look like nine towns — but
+// also because the porch is where the wild-west read actually lives. A false front on a box is a
+// shape; a false front over a covered boardwalk with a rail and a hanging sign is a STREET.
+//
+// ⚠ ALL OF THESE ARE MASS OR EMITTED FACES, so they are captured by the shape bake and inherit
+// distance LOD, occlusion and ground shadow for free. Keep them affine in fh/h — the capture
+// verifies it — which is why every dimension below is a multiple of one or the other and never a
+// sin() of a seed.
+
+// A COVERED BOARDWALK: a plank deck out front, posts carrying a shed roof over it, and a rail
+// between the posts. `depth` is how far it stands off the building, in fh.
+function westPorch(ctx, cam, dx, dy, E, seed, night, alpha, o) {
+  const F2 = (lx, ly) => facePt(dx, dy, lx, ly, E);
+  const { fh, h, halfW = 0.96, depth = 0.5, deckZ = 0.09, postTop, roof = true, rail = true, posts = 3 } = o;
+  const front = fh * (1.0 + depth), mid = fh * (1.0 + depth * 0.5);
+  // 1) THE DECK — a plank platform you step UP onto. The step is what makes it a boardwalk rather
+  //    than a painted strip, so the deck is real mass and not a decal.
+  { const [gx, gy] = F2(0, mid);
+    draw3DBoxAt(ctx, cam, gx, gy, fh * halfW, 0, h * deckZ, 'ty_reach_porch', seed + 1, night, alpha, true); }
+  // 2) THE POSTS. Odd counts read better — a post at the centre of a frontage looks deliberate and
+  //    an even pair looks like a gap somebody forgot to fill.
+  const step = (halfW * 1.8) / (posts - 1);
+  for (let i = 0; i < posts; i++) {
+    const [px, py] = F2((-halfW * 0.9 + i * step) * fh, front);
+    draw3DBoxAt(ctx, cam, px, py, fh * 0.045, h * deckZ, postTop, 'ty_reach_porch', seed + 10 + i, night, alpha, false);
+  }
+  // 3) THE RAIL between them, at hand height, with a lower rung. Two rails, because one reads as a
+  //    barrier and two reads as somewhere to lean and hitch a thing to.
+  if (rail) for (const [i, z] of [[0, 0.46], [1, 0.28]]) {
+    const [rx, ry] = F2(0, front);
+    draw3DBoxAt(ctx, cam, rx, ry, fh * halfW * 0.92, postTop * z, postTop * (z + 0.06), 'ty_reach_porch', seed + 20 + i, night, alpha, false);
+  }
+  // 4) THE PORCH ROOF — a shallow shake-covered shed over the whole walk, which is the thing that
+  //    puts the frontage in shadow and every wild-west street in shadow at midday.
+  if (roof) { const [ax, ay] = F2(0, mid);
+    draw3DBoxAt(ctx, cam, ax, ay, fh * (halfW + 0.06), postTop, postTop + h * 0.05, 'ty_reach_shake', seed + 30, night, alpha, true); }
+}
+
+// A HANGING SIGN: an iron bracket off the wall and a painted board swinging under it, lettered.
+// This is the single most legible frontier tell there is, and it is what the reference photograph
+// is doing with CUSTOM SADDLES and GENERAL MERCANTILE — the name is not ON the building, it is
+// hung OFF it at right angles so you can read it walking down the street rather than only from
+// straight in front. Which is also why it is drawn as mass on the flank rather than as a decal.
+function westHangSign(ctx, cam, dx, dy, E, seed, night, alpha, o) {
+  const F2 = (lx, ly) => facePt(dx, dy, lx, ly, E);
+  const { fh, h, u = 0.7, ly = 1.02, z = 0.62, w = 0.30, drop = 0.20 } = o;
+  // The bracket: an upright off the wall and a diagonal stay under it. Two boxes, and the stay is
+  // what stops it reading as a shelf.
+  { const [bx, by] = F2(u * fh, ly * fh * 0.72);
+    draw3DBoxAt(ctx, cam, bx, by, fh * 0.02, h * z, h * (z + 0.10), 'ty_reach_iron', seed + 1, night, alpha, false); }
+  { const [ax, ay] = F2(u * fh, ly * fh * 0.88);
+    draw3DBoxAt(ctx, cam, ax, ay, fh * 0.11, h * (z + 0.08), h * (z + 0.10), 'ty_reach_iron', seed + 2, night, alpha, false); }
+  { const [sx, sy] = F2(u * fh, ly * fh * 0.98);
+    draw3DBoxAt(ctx, cam, sx, sy, fh * 0.02, h * (z - drop * 0.2), h * (z + 0.09), 'ty_reach_iron', seed + 3, night, alpha, false); }
+  // THE BOARD. Hung across the walk, painted, with a dark edge — the paint is the only maintained
+  // surface on most of these buildings and it is deliberately the brightest thing on the frontage.
+  { const [px, py] = F2(u * fh, ly * fh * 0.98);
+    draw3DBoxAt(ctx, cam, px, py, fh * w, h * (z - drop), h * z, 'ty_reach_paint', seed + 4, night, alpha, false); }
+}
+
+// A GABLE END with a fan light in it — the pitched face over a porch, and the half-round window
+// the reference puts at the top of it. Emitted as flat faces because a gable is a TRIANGLE and the
+// box primitive cannot make one; `cullN` turns it away when you are behind the building.
+function westGable(ctx, cam, dx, dy, E, seed, night, alpha, o) {
+  const { fh, h, halfW = 0.62, base, peak, ly = 1.0, fan = true } = o;
+  const L = (lx, lz) => { const w2 = facePt(dx, dy, lx, ly * fh, E); return [w2[0], w2[1], lz]; };
+  const shade = night > 0.4 ? 'rgba(58,46,32,0.95)' : 'rgba(126,102,68,0.95)';
+  emitFlat(ctx, cam, [L(-halfW * fh, base), L(halfW * fh, base), L(0, peak)], shade, alpha,
+    { stroke: 'rgba(30,24,18,0.7)', lw: 1, cullN: [E[0], E[1]], lift: 0.02 });
+  // THE FAN — a half-round light under the peak, and the spokes in it. Warm at night, because the
+  // room behind a gable window is the one anybody is ever awake in.
+  if (fan) {
+    const fz = base + (peak - base) * 0.42, fr = fh * halfW * 0.30;
+    emitFlat(ctx, cam, [L(-fr, fz), L(fr, fz), L(fr * 0.5, fz + fr * 0.9), L(-fr * 0.5, fz + fr * 0.9)],
+      night > 0.4 ? 'rgba(255,206,132,0.85)' : 'rgba(70,80,74,0.9)', alpha,
+      { stroke: 'rgba(28,22,16,0.8)', lw: 1, cullN: [E[0], E[1]], lift: 0.03 });
+    for (const t of [-0.5, 0, 0.5]) emitFlat(ctx, cam,
+      [L(t * fr, fz), L(t * fr + fh * 0.012, fz), L(t * fr * 0.5 + fh * 0.012, fz + fr * 0.88), L(t * fr * 0.5, fz + fr * 0.88)],
+      'rgba(34,26,18,0.85)', alpha, { cullN: [E[0], E[1]], lift: 0.04 });
+  }
+}
+
+// THE STREET FURNITURE nobody builds and every frontier town has: barrels, a water butt, a bench
+// under the window, a hitching post. Called with a list of what this building keeps outside, so
+// no two frontages carry the same clutter and none of them carries none.
+function westClutter(ctx, cam, dx, dy, E, seed, night, alpha, o) {
+  const F2 = (lx, ly) => facePt(dx, dy, lx, ly, E);
+  const { fh, h, items = [] } = o;
+  for (const [i, [kind, u, v]] of items.entries()) {
+    const [ix, iy] = F2(u * fh, v * fh);
+    if (kind === 'barrel') {
+      drawFacetDrum(ctx, cam, ix, iy, h * 0.09, h * 0.34, fh * 0.095, fh * 0.085, 9, alpha,
+        (f) => 'rgb(' + (108 + f.nl * 52 | 0) + ',' + (82 + f.nl * 38 | 0) + ',' + (50 + f.nl * 24 | 0) + ')', 'rgb(70,52,32)');
+      // The hoops. Two dark rings are what makes a drum read as a COOPERED barrel rather than as oil.
+      drawRing(ctx, cam, ix, iy, h * 0.16, fh * 0.098, 9, 'rgba(24,18,12,0.55)', 2, alpha);
+      drawRing(ctx, cam, ix, iy, h * 0.28, fh * 0.092, 9, 'rgba(24,18,12,0.55)', 2, alpha);
+    } else if (kind === 'butt') {
+      drawFacetDrum(ctx, cam, ix, iy, h * 0.09, h * 0.46, fh * 0.15, fh * 0.15, 10, alpha,
+        (f) => 'rgb(' + (92 + f.nl * 44 | 0) + ',' + (78 + f.nl * 34 | 0) + ',' + (58 + f.nl * 24 | 0) + ')', 'rgb(58,46,34)');
+      drawRing(ctx, cam, ix, iy, h * 0.42, fh * 0.155, 10, 'rgba(24,18,12,0.5)', 2, alpha);
+    } else if (kind === 'bench') {
+      draw3DBoxAt(ctx, cam, ix, iy, fh * 0.22, h * 0.16, h * 0.21, 'ty_reach_porch', seed + 40 + i, night, alpha, true);
+      for (const t of [-1, 1]) { const [lx2, ly2] = F2((u + t * 0.16) * fh, v * fh);
+        draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.03, h * 0.09, h * 0.16, 'ty_reach_porch', seed + 50 + i + t, night, alpha, false); }
+    } else if (kind === 'hitch') {
+      for (const t of [-1, 1]) { const [lx2, ly2] = F2((u + t * 0.22) * fh, v * fh);
+        draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.035, 0, h * 0.30, 'ty_reach_porch', seed + 60 + i + t, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, ix, iy, fh * 0.24, h * 0.26, h * 0.30, 'ty_reach_porch', seed + 70 + i, night, alpha, false);
+    } else if (kind === 'crate') {
+      draw3DBoxAt(ctx, cam, ix, iy, fh * 0.13, h * 0.09, h * 0.30, 'ty_reach_porch', seed + 80 + i, night, alpha, true);
+    }
+  }
+}
 function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1], name = '', board = null) {
   const pal = m.pal;
   // The building's display name, upper-cased for signage. Published as the ambient blade sign so
@@ -14887,6 +15153,9 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // 1) Saloon body (welded plate) + 2) the FALSE FRONT parapet — a taller block pulled forward to
       //    the entrance face so it rises as a flat wall above the low roof behind (the classic western tell).
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.9, 0, bodyTop, pal, seed, night, alpha, true);
+      // THE SHAKE ROOF BEHIND THE FALSE FRONT. The front is a flat board wall and everything behind
+      // it is what you actually see from the air, so the body gets a shingled cap — otherwise the
+      // one surface a flight sim spends the whole flight looking down at is generic roof felt.      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, bodyTop, bodyTop + h * 0.05, 'ty_reach_shake', seed + 200, night, alpha, true);
       { const [fx, fy] = F(0, fh * 0.16); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.86, 0, frontTop, 'ty_reach_saloon_dk', seed + 1, night, alpha, true); }
       // 3) PORCH — a shed awning over the boardwalk on three posts, along the front.
       { const canZ0 = bodyTop * 0.5, canZ1 = bodyTop * 0.58, [cx, cy] = F(0, fh * 1.18);
@@ -14913,6 +15182,32 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, bodyTop * 0.5, '255,190,110', 12, alpha * 0.4); }   // warm windows
       }
       if (night) glowPool(ctx, cam, dx, dy, frontTop * 0.72, '255,106,58', 14, alpha * 0.2);
+      // ── THE GALLERY, THE GABLE AND THE WALK ────────────────────────────────
+      // A saloon is the one building on a frontier street with an UPSTAIRS you can stand on, and
+      // the balcony over the walk is what says so from a quarter of a mile out. Built as the porch
+      // helper with its roof suppressed (the balcony deck IS the porch roof) plus a rail on top.
+      { const gallZ = h * 0.68;
+        westPorch(ctx, cam, dx, dy, E, seed + 60, night, alpha,
+          { fh, h, halfW: 1.00, depth: 0.50, postTop: gallZ, posts: 5, roof: false });
+        // The balcony deck, standing proud of the posts, and its own rail above.
+        { const [bx, by] = F(0, fh * 1.25);
+          draw3DBoxAt(ctx, cam, bx, by, fh * 1.04, gallZ, gallZ + h * 0.05, 'ty_reach_porch', seed + 70, night, alpha, true); }
+        for (const [i2, z] of [[0, 0.30], [1, 0.16]]) { const [rx, ry] = F(0, fh * 1.48);
+          draw3DBoxAt(ctx, cam, rx, ry, fh * 1.00, gallZ + h * (0.05 + z * 0.5), gallZ + h * (0.08 + z * 0.5), 'ty_reach_porch', seed + 74 + i2, night, alpha, false); }
+        for (const t of [-1, -0.4, 0.4, 1]) { const [px, py] = F(t * fh * 0.94, fh * 1.48);
+          draw3DBoxAt(ctx, cam, px, py, fh * 0.03, gallZ + h * 0.05, gallZ + h * 0.26, 'ty_reach_porch', seed + 80 + t, night, alpha, false); }
+        // The upstairs doors onto it — two, warm, because the rooms up there are always let.
+        if (frontVis) for (const t of [-1, 1]) { const [dx2, dy2] = F(t * fh * 0.40, fh * 1.02);
+          draw3DBoxAt(ctx, cam, dx2, dy2, fh * 0.11, gallZ + h * 0.05, gallZ + h * 0.34, 'ty_door', seed + 90 + t, night, alpha, false);
+          glowPool(ctx, cam, dx2, dy2, gallZ + h * 0.20, '255,196,120', 5, alpha * (night ? 0.40 : 0.12)); } }
+      // THE GABLE over it, with the fan light in the peak — the reference's one piece of carpentry
+      // anybody was ever proud of, and the saloon is where it would be.
+      westGable(ctx, cam, dx, dy, E, seed + 100, night, alpha,
+        { fh, h, halfW: 0.52, base: h * 1.06, peak: h * 1.46, ly: 1.02 });
+      // Barrels and a hitching rail. A saloon with nothing tied up outside is a saloon nobody is in.
+      westClutter(ctx, cam, dx, dy, E, seed + 120, night, alpha, { fh, h, items: [
+        ['barrel', -0.78, 1.30], ['barrel', -0.62, 1.42], ['hitch', 0.34, 1.74], ['bench', 0.70, 1.24]] });
+      westHangSign(ctx, cam, dx, dy, E, seed + 140, night, alpha, { fh, h, u: -0.70, ly: 1.28, z: 0.60, w: 0.32 });
       break;
     }
     case 'dynamo': {   // THE DYNAMO (The Reach) — a jury-rigged genset that 'argues with storms': a
@@ -14964,6 +15259,13 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const t = now || 0, buzz = (Math.sin(t * 0.02) > -0.6) ? 0.85 : 0.2; const tex = bakeSignText('VA ANCY', '#ff8fb0', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * buzz)); } }
       // 4) A porch light kept burning like a habit.
       { const [lx, ly] = F(-fh * 0.95, fh * 1.14); glowPool(ctx, cam, lx, ly, wallTop * 0.7, '255,206,140', 6, alpha * (night ? 0.5 : 0.28)); }
+      // ONE LONG WALK PAST EVERY DOOR, which is the whole plan of a lodging house and the reason
+      // it reads as one from above: not a building with an entrance, a row of entrances with a
+      // roof over them. No rail — you are carrying a bag.
+      westPorch(ctx, cam, dx, dy, E, seed + 60, night, alpha,
+        { fh, h, halfW: 1.04, depth: 0.44, postTop: h * 0.58, posts: 6, rail: false });
+      westClutter(ctx, cam, dx, dy, E, seed + 90, night, alpha, { fh, h, items: [
+        ['butt', -0.94, 1.26], ['bench', 0.20, 1.18], ['crate', 0.86, 1.22]] });
       break;
     }
     case 'mercantile': {   // THE DRY GOODS (The Reach) — the widest front on Main Street and the only
@@ -14973,18 +15275,27 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const bodyTop = h * 0.62, frontTop = h * 1.22, FR = fh * 1.0;
       // 1) Body + the FALSE FRONT — a taller squared parapet pulled forward to the entrance face.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, 0, bodyTop, pal, seed, night, alpha, true);
+      // THE SHAKE ROOF BEHIND THE FALSE FRONT. The front is a flat board wall and everything behind
+      // it is what you actually see from the air, so the body gets a shingled cap — otherwise the
+      // one surface a flight sim spends the whole flight looking down at is generic roof felt.      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.99, bodyTop, bodyTop + h * 0.05, 'ty_reach_shake', seed + 200, night, alpha, true);
       { const [fx, fy] = F(0, fh * 0.2); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.92, 0, frontTop, 'ty_reach_merc_dk', seed + 1, night, alpha, true); }
       // A cornice board capping the parapet — the one bit of carpentry anybody in town is proud of.
       { const [cx, cy] = F(0, fh * 0.2); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.98, frontTop, frontTop + h * 0.05, 'ty_reach_merc', seed + 2, night, alpha, true); }
-      // 2) AWNING on three posts over the boardwalk, plus the plank strip itself.
-      { const azL = bodyTop * 0.54, azH = bodyTop * 0.62, [ax, ay] = F(0, fh * 1.2);
-        draw3DBoxAt(ctx, cam, ax, ay, fh * 0.96, azL, azH, 'ty_reach_awning', seed + 3, night, alpha, true);
-        for (const s of [-0.84, 0, 0.84]) { const [px, py] = F(fh * s, fh * 1.44); draw3DBoxAt(ctx, cam, px, py, fh * 0.03, 0, azL, 'ty_reach_merc_dk', seed + 9 + s, night, alpha, false); }
-        const pl = [P(-fh * 0.94, fh * 1.02, 0.02), P(fh * 0.94, fh * 1.02, 0.02), P(fh * 0.94, fh * 1.48, 0.02), P(-fh * 0.94, fh * 1.48, 0.02)];
-        if (pl.every(p => p.f > 0.1)) emitFace(decoDepth(pl[0].f, pl[1].f, pl[2].f, pl[3].f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(96,76,52,0.85)'; ctx.beginPath(); pl.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+      // 2) THE COVERED BOARDWALK — deck, five posts, a two-rail fence and a shake roof over the
+      //    lot. The widest frontage on the street gets the most posts, which is the only reason
+      //    anybody would read it as the biggest shop without being told.
+      westPorch(ctx, cam, dx, dy, E, seed + 3, night, alpha,
+        { fh, h, halfW: 0.96, depth: 0.52, postTop: bodyTop * 0.74, posts: 5 });
+      // …and the name on a board hung ACROSS the walk, at right angles to the front, so it reads
+      //    from up the street rather than only from square on. The parapet keeps its lettering too:
+      //    a shop this size says its name twice, and that is exactly what the photograph shows.
+      westHangSign(ctx, cam, dx, dy, E, seed + 40, night, alpha, { fh, h, u: 0.62, ly: 1.30, z: bodyTop * 0.68 / h, w: 0.34 });
       // 3) Doorway + BARRELS either side of it, standing on the boardwalk under the canvas.
       { const [gx, gy] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.16, 0, bodyTop * 0.5, 'ty_door', seed + 4, night, alpha, false); }
-      for (const s of [-0.44, 0.44]) { const [bx, by] = F(fh * s, fh * 1.14); drawFacetDrum(ctx, cam, bx, by, 0, h * 0.17, fh * 0.09, fh * 0.085, 9, alpha, (f) => `rgb(${112 + f.nl * 52 | 0},${86 + f.nl * 40 | 0},${52 + f.nl * 24 | 0})`, 'rgb(72,54,34)'); }
+      // Barrels either side of the door, a crate of stock somebody has not carried in yet, and a
+      // hitching rail at the kerb — the frontier equivalent of parking.
+      westClutter(ctx, cam, dx, dy, E, seed + 60, night, alpha, { fh, h, items: [
+        ['barrel', -0.60, 1.18], ['barrel', -0.44, 1.30], ['crate', 0.58, 1.20], ['hitch', 0.10, 1.66]] });
       // 4) THE DRY GOODS painted across the parapet in white, and a smaller price board by the door.
       if (frontVis) {
         const bz0 = frontTop * 0.62, bz1 = frontTop * 0.86, bhw = fh * 0.84;
@@ -15002,6 +15313,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const bodyTop = h * 0.5, frontTop = h * 1.3, FR = fh * 1.0;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.84, 0, bodyTop, pal, seed, night, alpha, true);
       { const [fx, fy] = F(0, fh * 0.18); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.82, 0, frontTop, 'ty_reach_assay_dk', seed + 1, night, alpha, true); }
+      // 0) THE WALK. Narrow, no rail — this is a place you go IN to, not one you sit outside.
+      westPorch(ctx, cam, dx, dy, E, seed + 30, night, alpha,
+        { fh, h, halfW: 0.82, depth: 0.34, postTop: bodyTop * 0.80, posts: 3, rail: false });
+      westHangSign(ctx, cam, dx, dy, E, seed + 50, night, alpha, { fh, h, u: -0.62, ly: 1.16, z: bodyTop * 0.72 / h, w: 0.26 });
       // 1) STEEL SHUTTER on rails beside the door — a proud slab of plate that comes down fast.
       { const [sx, sy] = F(fh * 0.46, fh * 0.94); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.2, bodyTop * 0.06, bodyTop * 0.78, 'ty_reach_skin', seed + 5, night, alpha, false); }
       { const [gx, gy] = F(-fh * 0.2, fh * 0.9); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.15, 0, bodyTop * 0.56, 'ty_door', seed + 4, night, alpha, false); }
@@ -15030,6 +15345,9 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
       const bodyTop = h * 0.56, frontTop = h * 1.1, FR = fh * 1.0;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, 0, bodyTop, pal, seed, night, alpha, true);
+      // THE SHAKE ROOF BEHIND THE FALSE FRONT. The front is a flat board wall and everything behind
+      // it is what you actually see from the air, so the body gets a shingled cap — otherwise the
+      // one surface a flight sim spends the whole flight looking down at is generic roof felt.      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.66, bodyTop, bodyTop + h * 0.04, 'ty_reach_shake', seed + 200, night, alpha, true);
       { const [fx, fy] = F(0, fh * 0.3); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.6, 0, frontTop, 'ty_reach_grey_dk', seed + 1, night, alpha, true); }
       // 1) SHUTTERED WINDOW — boarded from the inside, so it reads as a flat dead panel, not glass.
       if (frontVis) { const wz0 = bodyTop * 0.3, wz1 = bodyTop * 0.72, whw = fh * 0.24;
@@ -15040,6 +15358,15 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (frontVis) { const rz0 = bodyTop * 0.58, rz1 = bodyTop * 0.66, rhw = fh * 0.2;
         const q = [P(fh * 0.24 - rhw, FR + 0.005, rz1), P(fh * 0.24 + rhw, FR + 0.005, rz1), P(fh * 0.24 + rhw, FR + 0.005, rz0), P(fh * 0.24 - rhw, FR + 0.005, rz0)];
         if (q.every(p => p.f > 0.12)) emitFace(decoDepth(q[0].f, q[1].f, q[2].f, q[3].f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(14,12,14,0.95)'; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+      // 2b) THE WALK, and DELIBERATELY NO BOARD HANGING OVER IT. Every other frontage on this
+      //     street now swings a painted sign; this one has an empty bracket with nothing on it,
+     //     which says what it is far better than a sign could. Nobody needs telling.
+      westPorch(ctx, cam, dx, dy, E, seed + 30, night, alpha,
+        { fh, h, halfW: 0.62, depth: 0.40, postTop: bodyTop * 0.78, posts: 3 });
+      { const [ex, ey] = F(fh * 0.44, fh * 1.10);
+        draw3DBoxAt(ctx, cam, ex, ey, fh * 0.02, bodyTop * 0.62, bodyTop * 0.74, 'ty_reach_iron', seed + 44, night, alpha, false);
+        const [ax2, ay2] = F(fh * 0.44, fh * 1.24);
+        draw3DBoxAt(ctx, cam, ax2, ay2, fh * 0.10, bodyTop * 0.72, bodyTop * 0.74, 'ty_reach_iron', seed + 45, night, alpha, false); }
       // 3) PIPE STOCK — cut lengths leaned against the flank, waiting to be given a name.
       for (const [i, s] of [[0, -0.86], [1, -0.78], [2, -0.7]]) {
         const [px, py] = F(fh * s, -fh * 0.1 + i * fh * 0.06);
@@ -15056,6 +15383,12 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const wallTop = h * 0.44, FR = fh * 1.0;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, 0, wallTop, pal, seed, night, alpha, false);
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, wallTop, wallTop + h * 0.06, 'ty_reach_bath_roof', seed + 1, night, alpha, true);
+      // The walk, and a bench on it. The bench is the building's whole social function made visible:
+      // this is the one place in the Reach with a queue that is glad to be in it.
+      westPorch(ctx, cam, dx, dy, E, seed + 40, night, alpha,
+        { fh, h, halfW: 1.00, depth: 0.42, postTop: wallTop * 0.86, posts: 4, rail: false });
+      westClutter(ctx, cam, dx, dy, E, seed + 70, night, alpha, { fh, h, items: [
+        ['bench', -0.52, 1.20], ['bench', 0.36, 1.20], ['butt', 0.86, 1.24]] });
       // 1) BOILER STACK off the back corner, breathing steam that never quite stops.
       { const [px, py] = F(-fh * 0.62, -fh * 0.5), stackTop = h * 0.98;
         drawFacetDrum(ctx, cam, px, py, 0, stackTop, fh * 0.08, fh * 0.07, 8, alpha, (f) => `rgb(${86 + f.nl * 40 | 0},${78 + f.nl * 34 | 0},${66 + f.nl * 26 | 0})`, 'rgb(58,50,42)');
@@ -18338,13 +18671,54 @@ function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha, now = 0) {
     }
   }
   const n = rows.length;
+  // ── THE NAMES, AND WHY THEY ARE MEASURED BEFORE ANY OF THEM IS DRAWN ───────
+  //
+  // ⚠ THE QUAD IS FITTED TO THE TEXT, NOT THE TEXT STRETCHED TO THE QUAD. A name row is about
+  // twice as wide as it is tall (0.51 × 0.26 world units on a two-row board) while a fifteen-
+  // character run is nearly seven times as wide as it is tall, and bakeSignText's untight canvas
+  // reserves a full CELL per character on top of that. Mapping the one onto the other scaled the
+  // glyphs to about a fifth of their width and left the height alone: letters five to eight times
+  // taller than they should be, which is readable at fifty metres and a picket fence at three
+  // hundred, which is the distance a road sign exists for.
+  //
+  // ⚠ AND ONE CAP HEIGHT FOR THE WHOLE BOARD, from the LONGEST name. Fitting each row on its own
+  // is the obvious loop and it sizes every line differently — THE REACH large, COLDWATER BASIN
+  // small — which reads as two unrelated signs bolted together. A real board holds the lettering
+  // constant and lets the lines run to different widths, so the eye scans it as one list.
+  const NAME_U0 = -0.94, NAME_U1 = 0.26, MAX_STRETCH = 1.45;
+  const nameBoxW = (NAME_U1 - NAME_U0) * half;
+  const rowBoxH = ((1 / n) - 0.11 / n) * (SIGN_Z1 - SIGN_Z0);
+  // `solid: false` is the LIT branch of bakeSignText — a colour halo, a dark edge and a blown-out
+  // white core, which is what a glyph made of lamps looks like and what a painted one never does.
+  const texes = rows.map((r) => bakeSignText(String(r.n || '').slice(0, 15), ink, dn, false, false, true));
+  // The widest aspect is the binding one: size to it and no row can overflow its width.
+  let widestA = 0;
+  for (const t of texes) if (t) widestA = Math.max(widestA, t.width / t.height);
+  // `baseH` is the height the longest name wants if it fills the width at its TRUE proportions —
+  // the common scale every row is then drawn at, which is what holds the cap height constant.
+  const baseH = widestA > 0 ? nameBoxW / widestA : 0;
+  // Then a BOUNDED vertical stretch. Bounded rather than exact because a long name fitted perfectly
+  // is a very small name on a board this size; slightly condensed type is what real signage does,
+  // and 1.45 keeps it substantial while staying nowhere near the distortion that reads as a fault.
+  // A cap, not a target — a board of short names that already fills the row is left alone.
+  //
+  // ⚠ THE STRETCH IS HEIGHT-ONLY, WHICH IS WHY WIDTH IS MEASURED FROM `baseH` AND NOT FROM `nameH`.
+  // Deriving the width from the stretched height re-multiplies the anisotropy into it, so the
+  // longest name comes out wider than the box and gets clamped — squeezing that row and only that
+  // row, which is the same distortion again with a smaller number on it.
+  const nameH = Math.min(rowBoxH, baseH * MAX_STRETCH);
   for (let i = 0; i < n; i++) {
     const r = rows[i];
     const v0 = i / n + 0.055 / n, v1 = (i + 1) / n - 0.055 / n;
-    // `solid: false` is the LIT branch of bakeSignText — a colour halo, a dark edge and a blown-out
-    // white core, which is what a glyph made of lamps looks like and what a painted one never does.
-    const nq = quad(-0.94, 0.26, v0, v1);
-    drawSurfaceText(ctx, nq[0], nq[1], nq[2], nq[3], bakeSignText(String(r.n || '').slice(0, 15), ink, dn, false, false), false, alpha);
+    // Left-anchored at the shared cap height. Left, because every name then starts at the same x,
+    // which is what makes two rows scan as a list rather than as two pictures.
+    const tex = texes[i];
+    if (tex && nameH > 0) {
+      const useW = Math.min(nameBoxW, baseH * (tex.width / tex.height));
+      const vc = (v0 + v1) / 2, dvh = (nameH / (SIGN_Z1 - SIGN_Z0)) / 2;
+      const nq = quad(NAME_U0, NAME_U0 + useW / half, vc - dvh, vc + dvh);
+      drawSurfaceText(ctx, nq[0], nq[1], nq[2], nq[3], tex, false, alpha);
+    }
     // THE DISTANCE, ON A SEGMENT DISPLAY. Right-aligned like every readout that counts down to
     // something, and unpadded — a leading zero on a mileage is a clock, not a road sign, and the
     // point is to borrow the *typeface* of a machine rather than to pretend the board is one.

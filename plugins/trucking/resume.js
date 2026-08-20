@@ -118,7 +118,7 @@ export async function restoreDrivingState(player, { mountOnCrossing }) {
   // so if it is there the crossing genuinely survived and the existing mount path is correct and
   // complete — including lining the rig up on the room the player woke up in.
   if (rec.leg === 'corridor' && player._crossing) {
-    const out = mountOnCrossing(player);
+    const out = await mountOnCrossing(player);   // async since it hydrates from the truck row
     if (out) sendToPlayer(player.id, out);
     return true;
   }

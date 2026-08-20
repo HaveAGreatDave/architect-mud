@@ -37,7 +37,7 @@ import { runScale, scaleAt, clearCustoms } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
-import { resaleValue, TRUCK_TYPES } from './fleet.js';
+import { resaleValue, TRUCK_TYPES, buyTruck, getTruck } from './fleet.js';
 
 const GATE = 'zone_regress_truckgate';
 const mkZone = (id, name, extra = {}) => ({
@@ -1267,6 +1267,54 @@ export default async function regress({ run, check, getPlayer }) {
       await query('DELETE FROM trailers WHERE owner_id = $1', [player.id]).catch(() => {});
     } finally {
       if (prevT) world.zones.set(T, prevT); else world.zones.delete(T);
+    }
+  }
+
+  // ── 4d-bis. THE BOX IS STILL ON THE BACK, WHICHEVER DOOR YOU CAME IN BY ────
+  // A driver stopped out on the void road, climbed down and climbed back up, and their trailer was
+  // gone. It was not: `park` never unhitches (only `dropTrailer` clears `towed_by`), so the row
+  // still pointed at the tractor — and because a towed box holds no `parked_zone` it was in no
+  // yard either, so it was invisible in every surface at once.
+  //
+  // The cause was that there are THREE ways into a cab and only one of them read the hitch back.
+  // `drive` reaches the crossing mount before the depot path, so out on the road the restore could
+  // never run. These cases pin the invariant rather than the route: hydrating a bare rig from a
+  // truck row puts the trailer and its load back, and it is the one funnel every path goes through.
+  {
+    const { hydrateFromTruck } = truckTest;
+    const Z = 'zone_regress_hitchback';
+    const prevZ = world.zones.get(Z);
+    world.zones.set(Z, mkZone(Z, 'Test Roadhead', { map_id: 'map_world', grid_x: 3300, grid_y: 3300 }));
+    let truck = null, box = null;
+    try {
+      check('the mount helper is reachable from every path that needs it', typeof hydrateFromTruck === 'function');
+      truck = await buyTruck(player.id, 'hauler', Z, 'REGRESS');
+      box = await buyTrailer(player.id, 'box', Z);
+      check('a bought box starts standing in the yard', !!box && box.parkedZone === Z && !box.towedBy);
+      check('…and hitches to the tractor', await hitchTrailer(box.id, truck.id, Z));
+
+      // THE BUG, AS A TEST. mountRig builds every rig bobtail on purpose; the hydrate is what puts
+      // the box back. A rig that skipped it is the exact state the driver was handed.
+      const bare = { playerId: player.id, trailer: null, cargo: null };
+      await hydrateFromTruck(bare, await getTruck(truck.id, player.id));
+      check('hydrating from the truck row puts the trailer back on the pin', bare.trailer?.id === box.id);
+      check('…and it is the truck you own, not a generic rig', bare.truckId === truck.id && !!bare.params);
+
+      // AND THE LOAD RIDES WITH IT, because cargo lives on the trailer row — a restored box that
+      // dropped its freight would be the same bug one step quieter.
+      await saveLoad(box.id, { kind: 'goods', key: 'scrap', name: 'scrap', kg: 900, qty: 9 }, null);
+      const bare2 = { playerId: player.id, trailer: null, cargo: null };
+      await hydrateFromTruck(bare2, await getTruck(truck.id, player.id));
+      check('…and the load on it comes back too', bare2.cargo?.key === 'scrap' && bare2.trailer?.id === box.id);
+
+      // ⚠ AND A HITCHED BOX IS IN NO YARD, which is why forgetting the read looked like a deletion
+      // rather than like a rig that had simply been built wrong.
+      check('a towed box stands in no yard, so it cannot be found by looking for it',
+        !(await trailersAt(Z)).some(t => t.id === box.id));
+    } finally {
+      if (box) await query('DELETE FROM trailers WHERE id = $1', [box.id]).catch(() => {});
+      if (truck) await query('DELETE FROM trucks WHERE id = $1', [truck.id]).catch(() => {});
+      if (prevZ) world.zones.set(Z, prevZ); else world.zones.delete(Z);
     }
   }
 

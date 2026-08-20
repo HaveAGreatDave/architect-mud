@@ -122,8 +122,9 @@ painted INTO the surface, not billboarded.** The wrong way — the one that read
 to face you as you fly past — is `ctx.fillText` at a projected point: the glyph stays screen-upright
 while the wall tilts. The right way is two helpers:
 
-- `bakeSignText(label, color, dn, vertical)` → renders the label once to a memoised offscreen neon
-  texture (keyed `label|color|day-night|vertical`; dark edge + white core + colour halo).
+- `bakeSignText(label, color, dn, vertical, solid, tight)` → renders the label once to a memoised neon
+  texture (keyed on every argument; dark edge + white core + colour halo). `tight` crops the canvas
+  to the inked width instead of reserving a CELL per glyph — see the ⚠ below before choosing.
 - `drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha)` → maps that texture onto the face's
   **real projected quad** by 8-strip affine subdivision (canvas has no perspective transform; thin
   strips along the text axis approximate one). Composed with `ctx.transform` (not `setTransform`, so
@@ -135,6 +136,37 @@ The signage helpers already route through this: `marqueeBand` (horizontal band),
 ambient var `drawTypeModel` sets from the building's `building_name` (`it.c.bn`, upper-cased) — so a
 blade paints the real venue name for free; pass `''` to force the old abstract "letter rungs". **When
 you add any new world sign, use `drawSurfaceText`; do not `fillText` onto the scene.**
+
+⚠ **`drawSurfaceText` STRETCHES the texture to fill the quad, and it has no idea what the text
+looks like.** The mapping is `texture → quad corners`, so the drawn aspect is the QUAD's aspect and
+the glyph proportions are whatever that division happens to produce. Two things make that worse than
+it sounds, and they compound:
+
+1. `bakeSignText` reserves a full **`CELL` (46px) per character** while a monospace advance is about
+   0.6em — so nearly half the canvas is empty margin, and the texture reads as far wider than the
+   text in it. Pass `tight` to measure and crop instead; the flag is opt-in because every other
+   caller has already sized its quad to the padded aspect.
+2. A caller that sizes its quad from **layout** (a row on a board, a band across a facade) rather
+   than from the text will stretch whatever it is handed.
+
+The road sign hit both: a name row is about 2:1 while a fifteen-character run is nearly 7:1, and on
+top of that the untight canvas was 15:1. Glyphs came out **five to eight times taller than they
+should be** — readable at fifty metres and a picket fence at three hundred, which is the distance a
+road sign exists for. The fix is to invert it: **fit the quad to the text**, not the text to the
+quad. `drawRoadSign` bakes tight, takes the texture's own aspect, and sizes its quad from that.
+
+Two rules came out of doing it, and both are easy to get wrong:
+
+- **One cap height for the whole board, taken from the LONGEST line.** Fitting each row
+  independently is the obvious loop and it sizes every line differently, which reads as two
+  unrelated signs bolted together. Real signage holds the lettering constant and lets the lines run
+  to different widths.
+- ⚠ **A bounded stretch is HEIGHT-ONLY, so width must be measured from the UNSTRETCHED height.**
+  Deriving the width from the stretched height re-multiplies the anisotropy into it, the longest
+  line overflows its box, and the clamp then squeezes that one row — the same distortion again with
+  a smaller number on it. `MAX_STRETCH` (1.45) is the single tunable: slightly condensed type is
+  what real signage does, and it is a cap rather than a target, so short names that already fill
+  their row are left alone.
 
 **The one carve-out — HUD / instrument text STAYS billboarded.** Airfield ID + distance tags
 (drawn inline off `v.airports` on the heading tape, windshield.js:1642), bogey reg/range labels,
@@ -673,6 +705,51 @@ so every fraction inside those arms was being measured against `default: 4` — 
 forecourt hit, described in the ⚠ in [skyline-scale.js](../../client/shared/skyline-scale.js). All
 seven now have explicit rows. Each was checked first: **no Coldwater building carries any of these
 types**, so none of the values moves anything that already shipped.
+
+## The Reach — timber (as built, 2026-08-20)
+
+The frontier town had wild-west SILHOUETTES (false fronts, a bottle-front saloon) and no wild-west
+SURFACES: every one of its palettes fell through `wallTex`'s default branch, whose whole job is a
+grid of lit apartment windows. The one settlement in the world built out of board-and-batten was
+wearing a Coldwater tenement's facade, and the entire read was being carried by outline alone.
+
+Two new texture families fix that, and both are **procedural canvas**, like everything else here:
+
+- **`TIMBER_WALL`** — board-and-batten, weathered. Four or five wide boards per tile, each with its
+  own tone (a frontier wall is re-boarded a plank at a time and never matches — a uniform plank
+  texture reads as corrugated sheet, which is the family next door), grain streaks that run *down*
+  the board, knots on about a third of them, a batten over every seam with the shadow it throws,
+  nail heads that have bled rust down the board beneath, sun-silvering at the head and damp at the
+  foot, and two open seams you can see daylight through.
+- **`SHAKE_ROOF`** — hand-split shingles in overlapping courses, laid **from the eave up** so every
+  shadow lands under the course above it, staggered so no joint runs through two courses, each
+  shake its own length and tone so the butt line is ragged.
+
+⚠ **`SHAKE_ROOF` had to be added to `roofTex` as well as `wallTex`.** They are two separate
+functions, and a family added to one and not the other gets its treatment on the walls and the
+generic tile on the roof — which in a flight sim is the surface you spend the whole flight looking
+down at.
+
+### The vocabulary, as helpers
+
+Five things build a frontier street and the Reach had one of them. `westPorch`, `westHangSign`,
+`westGable` and `westClutter` are helpers rather than lines inside an arm for the ordinary reason —
+nine buildings have to look like **one town**, and nine hand-rolled porches look like nine towns.
+
+The porch is where the read actually lives. A false front on a box is a shape; a false front over a
+covered boardwalk with a rail and a sign hung **across** the walk is a street. That last detail is
+what the reference photograph is doing with CUSTOM SADDLES and GENERAL MERCANTILE — the name is not
+*on* the building, it is hung *off* it at right angles, so you read it walking down the street
+rather than only from square in front.
+
+⚠ These are mass and emitted faces, so they are captured by the shape bake and inherit distance
+LOD, occlusion and ground shadow for free. **Keep them affine in `fh`/`h`** — the capture verifies
+it, which is why every dimension is a multiple of one or the other and never a `sin()` of a seed.
+
+One thing is deliberately absent: **The Quiet Trade gets the walk and an EMPTY BRACKET.** It was
+already the one building on the street with nothing written on it. Now that every neighbour swings
+a painted board, a bracket with nothing hanging from it says what it is far better than a sign
+could, and nobody needs telling.
 
 ## ⚠ `building_name` is not the zone `name`, and this silently kills models
 

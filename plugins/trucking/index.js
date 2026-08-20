@@ -99,6 +99,40 @@ const HARD_START_LINE = '<span class="text-amber">It turns over, and over, and d
 //
 // Phase 1 issues a rig on the spot rather than modelling ownership. What a depot IS lives in
 // content (`flags.truck_depot`), never in this file — the engine/content split.
+// EVERY WAY INTO A CAB HYDRATES THE RIG FROM THE TRUCK ROW THROUGH HERE, and that is the whole
+// reason it is a function. There are three mount paths — the depot (`cmdDrive`), the crossing
+// (`mountOnCrossing`) and the reconnect (`resume.js`) — and `mountRig` deliberately builds a bare,
+// synchronous, BOBTAIL rig, because it is shared with the regress fakes and must not query. Which
+// means every path has to put the truck back on afterwards, and a path that forgets hands the
+// driver somebody else's generic rig wearing their truck's name.
+//
+// ⚠ THE HITCH IS WHAT THE DATABASE SAYS IT IS. `park` never unhitches — only `dropTrailer` clears
+// `towed_by` — so a trailer parked on the back keeps pointing at this tractor and holds no
+// `parked_zone`, which also means it is in no yard. Re-reading it here is what makes it visible
+// again; NOT re-reading it is not a lost trailer, it is an invisible one, and the driver cannot
+// tell those apart. Do not replace this with a remembered id — a remembered id is a second copy
+// of a fact the row already holds, and it goes stale the moment somebody else takes the box.
+async function hydrateFromTruck(rig, owned) {
+  rig.truckId = owned.id;
+  rig.typeId = owned.type_id;
+  rig.type = owned.type;
+  rig.cd = owned.custom_data || {};
+  // The component bag first, and the headline number derived from it — never the other way round.
+  rig.dmg = damageOf({ cd: rig.cd, condition: owned.condition });
+  rig.condition = overall(rig.dmg);
+  rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition, rig.dmg);
+  rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
+  rig.fuel = owned.fuel ?? 1;
+  rig.travelled = 0;
+  // `|| null` because `shape()` returns undefined for no row, and `mountRig` declares this field
+  // null — a rig whose bobtail state is spelled two different ways is a rig two readers can
+  // disagree about.
+  rig.trailer = (await trailerOnTruck(owned.id)) || null;
+  // The load rides with the box: cargo lives on the TRAILER row, so a restored trailer that
+  // dropped its freight would be a quieter version of the same bug.
+  if (rig.trailer?.cargo) rig.cargo = rig.trailer.cargo;
+  return rig;
+}
 async function cmdDrive(args, raw, player) {
   if (rigOf(player)) return say('You are already behind the wheel.');
 
@@ -213,41 +247,10 @@ async function cmdDrive(args, raw, player) {
   // you mount on the DOOR and the stock stands on the HARDSTAND — one refresh meant a driver
   // starting the engine looked out at an empty yard until the wheels crossed the boundary.
   await Promise.all([...new Set([here.id, yardId].filter(Boolean))].map(z => refreshStanding(z)));
-  rig.truckId = owned.id;
-  rig.typeId = owned.type_id;
-  // WHAT YOU BOUGHT IS WHAT YOU DRIVE. `rig.params` is the tuned, kitted, worn parameter set from
-  // rig.js, and it is what the cab is handed — the client used to hardcode TYPES.hauler, so every
-  // truck in the game drove exactly like the 4,200₵ Courier and the fleet ladder bought a price tag
-  // and a silhouette and nothing else.
-  rig.type = owned.type;
-  rig.cd = owned.custom_data || {};
-  rig.condition = owned.condition ?? 1;
-  rig.dmg = damageOf({ cd: rig.cd, condition: owned.condition });
-  rig.condition = overall(rig.dmg);
-  rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition, rig.dmg);
-  rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
-  rig.fuel = owned.fuel ?? 1;
-  rig.travelled = 0;
-  // ── THE BOX IS STILL ON THE BACK ─────────────────────────────────────────────
-  // A hitched trailer has ALWAYS survived in the database — `park` never unhitches, so the row
-  // keeps `towed_by` pointing at this tractor and `parked_zone` NULL, and the partial unique index
-  // guarantees there is at most one. Nothing read it back. `mountRig` starts every rig bobtail
-  // (which is the right default for a truck somebody has just climbed into) and `drive` never asked
-  // the question, so a driver who parked loaded came back to a tractor with nothing behind it —
-  // while the trailer, correctly, still believed it was hitched and so appeared in no yard either.
-  // It was not lost, it was invisible: `trailerOnTruck` was even imported into this file already
-  // and had no callers.
-  //
-  // Restoring it here rather than in `mountRig` is deliberate: mounting is a pure, synchronous
-  // state constructor shared with the roadhead and the regress fakes, and this is a query. The
-  // hitch is what the database says it is, and it says it plainly.
-  // `|| null` because `shape()` returns undefined for no row, and `mountRig` declares this field
-  // null — a rig whose bobtail state is spelled two different ways is a rig two readers can
-  // disagree about.
-  rig.trailer = (await trailerOnTruck(owned.id)) || null;
-  // The load rides with the box, for the same reason: cargo lives on the TRAILER row (`cargo`), so
-  // a restored trailer that dropped its freight would be a quieter version of the same bug.
-  if (rig.trailer?.cargo) rig.cargo = rig.trailer.cargo;
+  // WHAT YOU BOUGHT IS WHAT YOU DRIVE — see hydrateFromTruck. It is a function rather than a block
+  // here because the CROSSING mount needs the identical thing and used to do none of it.
+  await hydrateFromTruck(rig, owned);
+
   // UNLOCKED BY GETTING IN, because you have the key — a lock the owner has to spend a verb on is a
   // lock that is only ever an obstacle to the person it belongs to. `park` sets it again on the way
   // out, so the stored state is simply "is anybody in it".
@@ -507,7 +510,7 @@ function hitchZones(zoneId) {
 
 // The legacy path: mount on a crossing you are already walking. Unchanged behaviour, moved aside so
 // `drive` reads as the depot verb it now is.
-function mountOnCrossing(player) {
+async function mountOnCrossing(player) {
   const live = player._crossing;
   const info = crossingInfo(live.instanceId);
   if (!info) return say('The road will not resolve. Try the crossing on foot.');
@@ -516,7 +519,21 @@ function mountOnCrossing(player) {
   const chain = crossingChain(live.instanceId, destKey);
   if (!chain.length) return say('The road will not resolve. Try the crossing on foot.');
 
+  // ⚠ YOUR TRUCK, IF YOUR TRUCK IS THE ONE STANDING HERE. This path is named for the legacy case —
+  // a rig left at the roadhead with the keys in it — and it built that fiction unconditionally: a
+  // bare `mountRig` with no truck id, no type, no damage, no fuel and, the symptom that surfaced
+  // it, NO TRAILER. So a driver who stopped out on the void road, climbed down and climbed back up
+  // got a generic tractor and an empty fifth wheel, while their own box sat in the database still
+  // correctly believing it was hitched to a truck nobody was driving.
+  //
+  // `drive` reaches this branch BEFORE the depot path (see its first lines), so the depot path's
+  // restore could never run out here. Parking mid-crossing writes the void room as the truck's
+  // `depot_zone` (park only hands it to a recovery yard once you are properly committed — broken,
+  // dry, or past the first couple of tiles), so the truck that belongs to this driver in this room
+  // is exactly what `trucksAt` answers, and hydrating from it restores all of the above at once.
   const rig = mountRig(player, { x: 0, y: 0 });
+  const mine = (await trucksAt(player.id, player.current_zone).catch(() => []))[0];
+  if (mine) { await hydrateFromTruck(rig, mine); rig.zoneId = player.current_zone; }
   joinCorridor(rig, { instanceId: live.instanceId, destKey, voidKey: info.voidKey,
     window: info.window, chain, dest: crossingDest(live.instanceId, destKey) });
   // Line the rig up on the room the player is actually standing in, not the roadhead.
@@ -529,7 +546,12 @@ function mountOnCrossing(player) {
   }
   setPosture(player, 'driving');
   sendToPlayer(player.id, { ...cabContext(rig, { mounted: true }), type: 'truck_sim' });   // type AFTER the spread — see cmdDrive
-  return say('<span class="text-green">There is a rig at the roadhead with the keys still in it. You climb up, and the diesel catches on the second turn.</span>');
+  // Two different sentences, because they are two different events: getting back into YOUR truck
+  // out on the road is not finding one abandoned at the roadhead with the keys in it.
+  return say(mine
+    ? `<span class="text-green">You climb back up into the ${mine.name || 'cab'}, and the diesel catches on the second turn.</span>`
+      + (rig.trailer ? ` <span class="text-dim">The ${rig.trailer.name} is still on the pin behind you.</span>` : '')
+    : '<span class="text-green">There is a rig at the roadhead with the keys still in it. You climb up, and the diesel catches on the second turn.</span>');
 }
 
 // ── haul ─────────────────────────────────────────────────────────────────────
@@ -3421,6 +3443,6 @@ export const hooks = {
 // this server is almost always.
 schedule('5s', () => tickHijackers());
 
-export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH };
+export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH, hydrateFromTruck };
 
 console.log('[trucking] Plugin loaded.');
