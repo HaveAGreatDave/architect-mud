@@ -70,6 +70,62 @@ below for why that composition is now both possible and necessary, and which way
 | **why does it look unmaintained?** | `flags.road_wear` on the paved band → `wr` on the cell → `drawGroundSurfaces` | Nobody has resurfaced this since the basin emptied, and it has to *look* like that or the void reads as a municipal street laid across a desert. **One authored bit, everything else derived**: sun-bleached tar, sand drifting in off the verge, tar patches, cracks, paint that is thinned *and missing outright in places* — a faded line still reads as a line somebody maintains, and a broken one does not. Shipping the detail per tile would be authoring a texture over the wire at 3,700 cells a push and would put the road's appearance in two places. **A highway also gets no kerb and no pavement band** — that is a city thing the street-actor pass stands people on. ⚠ Every scrap of variation is hashed off the tile's **world** coordinate, never its index in the window: the window travels with you, so a window-relative hash makes the ground crawl and shimmer as you drive (which is what the older dirt-road shade jitter was doing) |
 | **why do the headlamps light nothing?** | they do now — `drawVehicleGround` §4 | `drawHeadlightBeam` has thrown a beam down the tarmac since the first night run, but it is built in the **camera's** frame: it is the light you drive *by*, and it belongs to whoever is looking rather than to a truck. So every rig seen from outside — yours in the chase view, and every other rig on the corridor — had two lit lenses and no light. The new pair is built from the lamp **stations** in the mesh's own coordinates, exactly as the lifter cones are, so it turns and leans with the vehicle for free; it is painted **before** the model, like everything else on the road, so the bodywork masks its own beam by paint order. ⚠ Deliberately **not** run through the articulation frame, unlike every other station in that file — headlamps are on the tractor, and hinging them would swing the beam with the trailer |
 
+### 1a-0. The network: gate → interchange → interchange → gate
+
+*(2026-08-19. **Live** — `routeForRig` builds every driven road this way.)*
+
+A road used to be *wander from a gate to a target*, identified by `voidKey|destKey`. That made
+Coldwater→Reach and Reach→Coldwater **two different roads on different ground**: each fine alone,
+and the pair of them a lie, because drive out and drive back and you are not retracing anything.
+
+A road is now four points and three segments:
+
+| piece | seeded on | why |
+|---|---|---|
+| **spoke** (gate → interchange) | the **gate** | every road leaving that gate lays the *same* tarmac, so the fork stops being a room boundary and becomes a **place** you can see |
+| **middle** (interchange → interchange) | the **pair** of gates | both directions are one road |
+| **spoke** (interchange → gate), reversed | the far **gate** | same, at the other end |
+
+The **interchange** is placed, not authored: `SPOKE_LEN` tiles out along the mean bearing to
+everywhere that gate can reach, so it is ahead of you as you leave, roughly on the way to all your
+options, and it moves by itself when a destination is added. **A hub is just an interchange several
+roads meet at** — it falls out of the model rather than being built into it, and multi-exit works
+because an interchange belongs to the *gate*, not the region.
+
+⚠ **The middle is built once, canonically, and reversed for the other direction.** Building it from
+each end with the same seed is the obvious thing and does not work: the wander integrates a heading
+from wherever it starts, so A→B is not the mirror of B→A — same seed, same endpoints, **two
+different curves, nine tiles apart at worst**. Regress caught it on the first run, and it is the
+exact bug this whole phase exists to kill. The lower-sorted gate id is the road's own direction.
+
+⚠ **An interchange never sits past the halfway point.** On a short hop the two would overshoot and
+the middle would run *backwards* between them — a road doubling back, which `locate` resolves by
+handing out two positions for one tile.
+
+⚠ **Built by concatenation, not by teaching the wander about waypoints.** That loop holds the leash,
+the fold-radius floor, the sinuosity cap and the exact landing, and its output is pinned by a dozen
+cases that would all have to be re-derived at once to know whether a change was faithful. Each
+segment is built by the **same unmodified builder**; `joinRoutes` owns only the joining — `s` runs
+continuously across the seam, a room is a fraction of the **whole** road, and **the seam registers
+as a bend** so `signsFor` boards the interchange, which is the one turn a driver most needs warning
+about.
+
+⚠ **Cell seeding follows the SEGMENT, not the road.** A spoke cell must roll the same whichever
+destination this driver is bound for, or the shared spoke is only shared *geometrically* and grows
+different buildings per road; a middle cell must roll the same both ways, or one road has two sets
+of scenery. An unjoined road has no segments and falls back to the string it always used, which
+keeps every pinned road in the suite byte-identical.
+
+⚠ **The pre-network builder is still there as a fallback**, for a crossing that cannot supply a gate
+at both ends. That is right, and it means the network could be built, proven, wired and *silently
+not used* with a green suite throughout — so regress asserts the road a real crossing hands a driver
+**has three segments**, and re-asserts the shape invariants (unbroken tarmac *through the seams*,
+every room reachable, boards present) about **that** road. The older shape cases build with
+`corridorFor` directly and now describe the fallback.
+
+**Distance:** Coldwater→Reach goes 95 → 130 tiles. Against a ~1,050-tile tank that changes no fuel
+maths; the fleet ladder is untouched.
+
 ### 1a-i. The gate: where a region's road leaves it
 
 *(2026-08-19.)* **The road is there as you drive up to it, instead of switching on when you cross

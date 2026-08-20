@@ -22,7 +22,7 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
-  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt,
+  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, attachSigns,
   joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
@@ -390,8 +390,65 @@ export function networkRoute(fromKey, toKey, window, nodes) {
     { x0: m0.x, y0: m0.y, x1: m1.x, y1: m1.y }, `mid|${pairKey(pair.from.id, pair.to.id)}`);
   const mid = canon ? midCanon : reverseRoute(midCanon);
   const out = joinRoutes([spoke(fromKey, pair.from, iA), mid, reverseRoute(spoke(toKey, pair.to, iB))]);
-  if (out) { out.nodes = nodes; out.roomLen = out.L / Math.max(1, nodes); }
+  if (out) { out.nodes = nodes; out.roomLen = out.L / Math.max(1, nodes); out.anchored = true; }
   return out;
+}
+
+// THE ONE PLACE A DRIVEN ROAD IS BUILT. Joining the corridor and changing your mind at the fork
+// both come through here, so the two can never produce roads that disagree — which they would the
+// first time one of them learned about a new argument and the other did not.
+//
+// ⚠ IT FALLS BACK TO THE OLD BUILDER, and that is not timidity. The network needs a gate at BOTH
+// ends and a region key on the destination; a crossing that cannot supply those (a void whose road
+// never reaches its rim, a dest with no region) still has to be drivable, and the pre-network road
+// is a perfectly good road — it is only a lonely one. Regress asserts every shipped void takes the
+// network path, so this is a fallback rather than a second way of doing things.
+function routeForRig(rig, destKey, nodes) {
+  const info = rig.instanceId ? crossingInfo(rig.instanceId) : null;
+  const dests = destsFor(rig.voidKey, info);
+  const region = dests.find((d) => d.key === destKey)?.region;
+  const net = region && buildRoad(rig.voidKey, destKey, region, rig.window, nodes, dests);
+  if (net) return net;
+  return corridorFor(rig.voidKey, destKey, rig.window, nodes, rig.trunk, crossingPlan(rig.instanceId),
+    anchorFor(rig.instanceId, destKey));
+}
+
+// ── THE FINISHED ROAD, AS EVERYTHING ELSE EXPECTS ONE ────────────────────────
+// `networkRoute` is geometry. This is the road: identity stamped on it, boards worked out from the
+// finished shape, and the other roads out of this gate hung off it so the fork is visible and
+// drivable.
+//
+// ⚠ SIBLINGS ARE BUILT WITHOUT SIBLINGS OF THEIR OWN. It terminates the recursion, and it is the
+// same rule the old builder followed for the same second reason: a sign is a thing the road you are
+// ON tells you, and sixty boards facing a road nobody is driving are texture with a per-tile cost.
+export function buildRoad(fromKey, destKey, toRegion, window, nodes, dests = null, withSiblings = true) {
+  const road = networkRoute(fromKey, toRegion, window, nodes);
+  if (!road) return null;
+  road.destKey = destKey;
+  road.origin = dests ? (VOIDS[fromKey]?.sign || VOIDS[fromKey]?.origin || null) : null;
+  attachSigns(road, dests);
+  road.branches = [];
+  if (withSiblings) {
+    for (const d of dests || []) {
+      if (d.key === destKey || !d.region) continue;
+      const b = buildRoad(fromKey, d.key, d.region, window, d.nodes || nodes, null, false);
+      if (b) road.branches.push({ key: d.key, name: d.name || d.key, route: b });
+    }
+  }
+  return road;
+}
+
+// Every destination out of a void, in the shape `buildRoad` and `signsFor` both want. Derived from
+// the crossing where there is one and from the void's own table where there is not, so the approach
+// preview and the live drive are looking at the same list.
+function destsFor(voidKey, info) {
+  const src = info?.dests || VOIDS[voidKey]?.dests || [];
+  return src.map((d) => ({
+    key: d.key,
+    name: d.sign || d.heading || d.key,
+    region: d.region || null,
+    nodes: (info ? crossingChain(info.instanceId || null, d.key)?.length : 0) || d.length || d.nodes || 0,
+  })).filter((d) => d.region && d.nodes > 0);
 }
 
 // ── THE TWO REAL TILES A ROAD RUNS BETWEEN ───────────────────────────────────
@@ -449,6 +506,14 @@ function previewRoute(voidKey, window) {
   if (_preview.has(key)) return _preview.get(key);
   const v = VOIDS[voidKey], gate = regionGates(voidKey)[0];
   let route = null;
+  // The approach builds the SAME road the crossing will, through the same function — which is the
+  // whole contract of the preview (see the ⚠ above it) and is now one call rather than a careful
+  // re-assembly of the same arguments in a second place.
+  const dests = destsFor(voidKey, null);
+  if (dests.length) {
+    const d = dests[0];
+    return _preview.set(key, buildRoad(voidKey, d.key, d.region, window, d.nodes, dests)).get(key);
+  }
   if (v && gate) {
     // Each destination aimed at the exit that FACES it, not at the middle of the far region — the
     // same `gatePair` the real anchor uses, so the preview and the crossing agree limb for limb.
@@ -488,8 +553,7 @@ export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain,
   rig.leg = 'corridor';
   rig.instanceId = instanceId; rig.destKey = destKey; rig.voidKey = voidKey;
   rig.window = window; rig.chain = chain; rig.dest = dest; rig.trunk = Math.max(1, trunk | 0);
-  rig.route = corridorFor(voidKey, destKey, window, chain.length, rig.trunk, crossingPlan(instanceId),
-    anchorFor(instanceId, destKey));
+  rig.route = routeForRig(rig, destKey, chain.length);
   rig.s = 0; rig.t = 0; rig.node = 0; rig.sMax = 0;
   const start = corridorPos(rig.route, 0, 0);
   rig.x = start.x; rig.y = start.y; rig.heading = start.heading;
@@ -517,8 +581,7 @@ export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain,
 // takes. Two callers, two genuinely different situations, one move.
 export function switchLimb(rig, { destKey, chain, dest, keepPose = false }) {
   rig.destKey = destKey; rig.chain = chain; rig.dest = dest;
-  rig.route = corridorFor(rig.voidKey, destKey, rig.window, chain.length, rig.trunk, crossingPlan(rig.instanceId),
-    anchorFor(rig.instanceId, destKey));
+  rig.route = routeForRig(rig, destKey, chain.length);
   rig.s = Math.min(rig.s, rig.route.L);
   if (keepPose) return rig;
   const p = corridorPos(rig.route, rig.s, rig.t);

@@ -11,9 +11,9 @@ import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flig
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
-  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, joinRoutes, reverseRoute, pairKey } from './corridor.js';
+  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, _clearGateCache, _previewRoute } from './state.js';
+  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -762,6 +762,51 @@ export default async function regress({ run, check, getPlayer }) {
           if (!hit || Math.abs(hit.s - s) > 1.5) bad = `s=${s.toFixed(0)} → ${hit ? hit.s.toFixed(1) : 'NO FIX'}`;
         }
         check('…and the odometer round-trips the whole road, through both seams', !bad, bad);
+
+        // ── THE SHAPE CASES, ON THE ROAD PEOPLE ACTUALLY DRIVE ────────────────
+        // ⚠ The pinned sinuosity/bend/connectivity cases further up build with `corridorFor`
+        // directly, so they describe the pre-network road — which is still real (it is the
+        // fallback), and is no longer what a driver is on. Every invariant that mattered about a
+        // road has to be re-asserted about THIS one, or the suite is green about the wrong object.
+        const road = buildRoad(a, 'reach', b, win, 8, [{ key: 'reach', name: 'The Reach', region: b, nodes: 8 }]);
+        check('the driven road is assembled with its identity and its boards on it',
+          !!road && road.destKey === 'reach' && road.segments.length === 3);
+        // THE FOLD INVARIANT, and it matters more here than anywhere: the road now has SEAMS, and a
+        // seam is exactly where two pieces of geometry could fail to touch.
+        {
+          const paved = new Set();
+          for (let s = 0; s <= road.L; s += 0.5) {
+            for (let t = -PAVED_R; t <= PAVED_R; t += 0.4) {
+              const p = corridorPos(road, s, t), px = Math.round(p.x), py = Math.round(p.y);
+              if (corridorAt(road, px, py)?.flags.terrain === 'road') paved.add(`${px},${py}`);
+            }
+          }
+          const seen = new Set(), stack = [paved.values().next().value];
+          seen.add(stack[0]);
+          while (stack.length) {
+            const [px, py] = stack.pop().split(',').map(Number);
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const k = `${px + dx},${py + dy}`;
+              if (paved.has(k) && !seen.has(k)) { seen.add(k); stack.push(k); }
+            }
+          }
+          check('…and its tarmac is one unbroken piece, seams and all',
+            seen.size === paved.size, `${seen.size}/${paved.size} tiles connected`);
+        }
+        // Every void room still has road in it. A road that skipped one would strand a driver in a
+        // room the chain says they must pass through.
+        {
+          const rooms = new Set();
+          for (let s = 0; s < road.L; s += road.L / 400) rooms.add(nodeAt(road, s));
+          check('…and every room of the chain is still reachable by driving it', rooms.size === 8,
+            `${rooms.size}/8`);
+        }
+        check('…and it puts up boards, worked out from the finished shape', road.signs.length >= 2,
+          `${road.signs.length} boards`);
+        // The seam gets one, which is the whole reason `joinRoutes` marks it as a bend — the
+        // interchange is the one turn a driver most needs telling about.
+        check('…including one on the approach to the interchange',
+          road.signs.some((g) => Math.abs(g.s - road.trunkL) < 60), road.signs.map((g) => g.s | 0).join(','));
       }
     }
   }
@@ -2100,6 +2145,18 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and the rig changes to the corridor leg', rig.leg === 'corridor', rig.leg);
       check('the rig lays its road over the crossing\'s own room chain',
         rig.chain?.length > 0 && rig.chain[0] === player.current_zone, `${rig.chain?.length} rooms`);
+      // ⚠ AND THE ROAD IT LAYS IS THE NETWORK'S, NOT THE OLD ONE. `routeForRig` keeps the pre-network
+      // builder as a fallback for a crossing that cannot supply a gate at both ends, which is right
+      // — and it means the whole network can be built, proven, wired, and silently not used, with a
+      // green suite the entire time. This is the case that would notice. Three segments: the spoke
+      // out, the middle, the spoke in.
+      check('…and it is a NETWORK road — spoke, middle, spoke — not the old one-piece wander',
+        rig.route?.segments?.length === 3, `${rig.route?.segments?.length ?? 'no'} segments`);
+      check('…whose first segment is the shared spoke, so the fork happens at the interchange',
+        rig.route.trunkL > 20 && Math.abs(rig.route.trunkL - rig.route.segments[0].L) < 1e-6,
+        rig.route.trunkL?.toFixed(1));
+      check('…and which still starts exactly on the gate it left',
+        Math.hypot(corridorPos(rig.route, 0, 0).x - rig.x, corridorPos(rig.route, 0, 0).y - rig.y) < 0.01);
 
       // ── THE GPS AND THE VERB GIVE ONE ANSWER ──────────────────────────────────
       //

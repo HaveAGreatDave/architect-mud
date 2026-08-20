@@ -534,6 +534,15 @@ function rowsAt(route, s, dests, kind, hdg = null) {
 const SIGN_CHARS = 15;
 const signLabel = (s) => String(s).toUpperCase().slice(0, SIGN_CHARS);
 
+// Boards for a road that was ASSEMBLED rather than built in one pass. `corridorFor` sets its own at
+// the end of construction, which a joined road never goes through — and `joinRoutes` deliberately
+// clears them, because a segment's boards were worked out against that segment's own length and
+// bends and are wrong the moment it becomes the middle of something longer. So the finished road
+// gets its boards once, from the finished geometry, which is the only version of it that is true.
+export function attachSigns(route, dests) {
+  if (route) route.signs = dests?.length ? signsFor(route, dests) : [];
+  return route;
+}
 function signsFor(route, dests) {
   const at = [];
   const k = route.bendK || 1;
