@@ -2527,12 +2527,39 @@ function drawCabInterior(ctx, W, H, v) {
   // same job the old hood did — but STRAIGHT-SIDED, because that hood was two quadratic curves
   // meeting over a pair of dials and what it actually drew was a fat lozenge: the egg. A cluster
   // surround is a squared panel with a lip, and nothing on this dash is egg-shaped now.
-  const plate = (x0, y0, x1, y1) => {
+  // `lamps` is [[x, radius], …] — where the bulbs behind this plate actually are. The wash is
+  // drawn INSIDE the plate's own clip, so it is light falling on a piece of metal rather than a
+  // disc floating over the dash, and it stops at the plate edge because that is where the metal
+  // stops. Between two dials the two pools overlap and add; outside the outermost one there is
+  // only half a pool. That asymmetry is the whole reason it reads as lit rather than as drawn.
+  const plate = (x0, y0, x1, y1, lamps = []) => {
     ctx.save();
     roundRectPath(ctx, x0, y0, x1 - x0, y1 - y0, Math.max(3, smallR * 0.22));
     const pg = ctx.createLinearGradient(0, y0, 0, y1);
     pg.addColorStop(0, T.face[1]); pg.addColorStop(1, T.dash[2]);
     ctx.fillStyle = pg; ctx.fill();
+    const gk = T.glowK ?? 1;
+    if (gk > 1.02 && lamps.length) {
+      ctx.save();
+      ctx.clip();                       // …to the plate. Light does not spill past the panel it is on.
+      ctx.globalCompositeOperation = 'lighter';
+      // Tinted by running the sprite through the trim glow: the sprite is white, so a fill of the
+      // lamp colour in `source-in` would cost a second buffer — cheaper to tint by drawing the
+      // sprite as a mask for a coloured rect, but at this size a straight stamp of a warm sprite
+      // under a colour multiply is indistinguishable, so the sprite is stamped and the plate's own
+      // colour does the tinting. The trim's glow still sets the STRENGTH below.
+      const blob = lampBlob();
+      const a = 0.20 * Math.min(1.7, gk - 1);
+      for (const [lx, lr] of lamps) {
+        // Squashed vertically, because the panel is raked away from you and a pool of light on a
+        // surface you are looking across is an ellipse. A circle here is the tell that it is a decal.
+        const rw = lr * 3.1, rh = lr * 1.85;
+        ctx.globalAlpha = a;
+        ctx.drawImage(blob, lx - rw, outY - rh, rw * 2, rh * 2);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
     ctx.strokeStyle = T.lip; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
   };
@@ -2560,13 +2587,15 @@ function drawCabInterior(ctx, W, H, v) {
   ];
   // One plate under each half of the row — the big dial and its two small neighbours together, so
   // the panel reads as two clusters flanking a wheel rather than six separate stickers.
-  plate(leftX - smallR * 1.5, outY - bigR * 1.30, tachX + bigR * 1.22, outY + bigR * 1.34);
+  plate(leftX - smallR * 1.5, outY - bigR * 1.30, tachX + bigR * 1.22, outY + bigR * 1.34,
+    [[leftX, smallR], [leftX + smallGap, smallR], [tachX, bigR]]);
   // ⚠ THE RIGHT PLATE HUGS WHAT IS ACTUALLY ON IT. A Barrow has no tachometer (CAB_TRIM.dials is 1),
   // so its single dial takes the driver's side and the right-hand big slot is EMPTY — and a plate
   // stretched to hold an instrument that was never fitted reads as a missing part rather than as a
   // cheap truck. A poor cab should look plainly equipped, never broken.
   const rightPlateL = twoDials ? speedX - bigR * 1.22 : rightX - smallR * 1.5;
-  plate(rightPlateL, outY - bigR * 1.30, rightX + smallGap + smallR * 1.5, outY + bigR * 1.34);
+  plate(rightPlateL, outY - bigR * 1.30, rightX + smallGap + smallR * 1.5, outY + bigR * 1.34,
+    [...(twoDials ? [[speedX, bigR]] : []), [rightX, smallR], [rightX + smallGap, smallR]]);
 
   // The tachometer reads 0-100% of the band rather than in thousands: this engine's redline is a
   // fraction the gearbox model works in, and inventing an rpm figure to print would be a number
@@ -2772,7 +2801,58 @@ function drawCabGps(ctx, W, H, v, T, dash, mx, cy, u) {
   // Scanline wash, so the screen reads as a screen and not as a hole cut in the dash.
   ctx.fillStyle = 'rgba(120,200,190,0.045)';
   for (let ly = sy; ly < sy + sh; ly += 3) ctx.fillRect(sx, ly, sw, 1);
+
+  // ── THE BACKLIGHT ──────────────────────────────────────────────────────────
+  // ⚠ A SCREEN IS AN EMITTER, AND THIS ONE WAS BEING DRAWN AS A PICTURE. Every colour above is a
+  // fixed dark value, so the GPS rendered identically at noon and at midnight — which meant that
+  // the moment the panel lamps came up and lit the dials and the plate around it, the one thing on
+  // the dash that makes its own light became the DIMMEST object on it. That is backwards: a lit
+  // instrument cluster gets brighter with the lamps, and a display gets brighter still, because
+  // nothing about it depends on a bulb behind a face.
+  //
+  // Two passes, both inside the screen's own clip so they cannot touch the bezel. An additive lift
+  // in the display's own phosphor colour, which raises the map without washing the tarmac and the
+  // buildings into each other the way a flat white overlay would; then a gentle vignette back down
+  // at the corners, because a backlit panel is always brightest in the middle and an even one
+  // reads as a sticker.
+  const gpsK = Math.min(1.7, T.glowK ?? 1);
+  {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lift = 0.16 + 0.30 * (gpsK - 1);
+    const bg = ctx.createLinearGradient(0, sy, 0, sy + sh);
+    bg.addColorStop(0, `rgba(96,196,178,${(lift * 0.85).toFixed(3)})`);
+    bg.addColorStop(0.45, `rgba(110,206,186,${lift.toFixed(3)})`);
+    bg.addColorStop(1, `rgba(84,178,166,${(lift * 0.78).toFixed(3)})`);
+    ctx.fillStyle = bg; ctx.fillRect(sx, sy, sw, sh);
+    ctx.restore();
+    ctx.save();
+    const vg = ctx.createRadialGradient(sx + sw * 0.5, sy + sh * 0.5, Math.min(sw, sh) * 0.20,
+                                        sx + sw * 0.5, sy + sh * 0.5, Math.max(sw, sh) * 0.72);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.34)');
+    ctx.fillStyle = vg; ctx.fillRect(sx, sy, sw, sh);
+    ctx.restore();
+  }
   ctx.restore();
+
+  // AND IT THROWS LIGHT ONTO ITS OWN BEZEL, which is the half that makes it read as emitting rather
+  // than as merely bright. Stamped from the same dithered sprite the panel lamps use — a screen
+  // and a bulb are different sources but they land on the same metal, and two different-looking
+  // spills on one dash is what says one of them was drawn by hand. Deliberately drawn AFTER the
+  // screen clip is released and BEFORE the bezel's inner shadow line, so the glow sits on the
+  // moulding and the recess still reads as a recess.
+  if (gpsK > 1.02) {
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, Math.max(3, u * 0.20));
+    ctx.clip();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.26 * (gpsK - 1);
+    const bw = sw * 0.92, bh = sh * 0.92;
+    ctx.drawImage(lampBlob(), sx + sw * 0.5 - bw, sy + sh * 0.5 - bh, bw * 2, bh * 2);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
   ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 1;
   roundRectPath(ctx, sx, sy, sw, sh, Math.max(2, u * 0.10)); ctx.stroke();
 
@@ -2781,12 +2861,14 @@ function drawCabGps(ctx, W, H, v, T, dash, mx, cy, u) {
   const ty = sy + sh + u * 0.30;
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.font = '700 ' + (Math.max(6, u * 0.30) | 0) + "px 'DejaVu Sans Mono',monospace";
-  ctx.fillStyle = T.needle;
+  // Lit with the screen — the strip is on the same fascia and a dim legend under a bright map is
+  // the same mismatch one step smaller.
+  ctx.fillStyle = gpsK > 1.02 ? hexA(T.glow, Math.min(1, 0.72 + 0.28 * (gpsK - 1))) : T.needle;
   const aim = String(v?.aim || '—').toUpperCase();
   ctx.fillText(aim.length > 12 ? aim.slice(0, 11) + '…' : aim, sx, ty);
   if (v?.legLeft != null) {
     ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(150,165,185,0.75)';
+    ctx.fillStyle = `rgba(170,196,214,${Math.min(0.95, 0.72 + 0.22 * (gpsK - 1)).toFixed(3)})`;
     ctx.fillText(Math.max(0, Math.round(v.legLeft)) + ' MI', sx + sw, ty);
   }
   ctx.restore();
@@ -2919,6 +3001,33 @@ function cabDashTex(mat) {
 // `warn` (optional) is the one thing a small gauge needs that a big one does not: a colour for the
 // needle and the number when the value is the reason you looked. Left null it behaves exactly as it
 // always did, so the two big dials are untouched by the four small ones existing.
+// ONE SOFT LAMP POOL, baked once and stamped wherever a bulb sits behind the panel.
+//
+// Baked rather than drawn live for two reasons. It is stamped six times a frame at four frames a
+// second per driver, and `ctx.filter = 'blur()'` on that path is real money for something that
+// never changes. And more importantly it can be DITHERED: a smooth alpha ramp on an 8-bit
+// destination terminates in a contour — the last step before it rounds to nothing lands on one
+// radius, and additive blending over a dark dash is the worst case for seeing it. A pixel of noise
+// in the alpha breaks that contour into nothing, which is the difference between light and a ring,
+// and you cannot dither a gradient the canvas is interpolating for you.
+let _lampBlob = null;
+function lampBlob() {
+  if (_lampBlob) return _lampBlob;
+  const S = 128, c = texCanvas(S, S), g = c.getContext('2d');
+  const rg = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  // A steep, long-tailed falloff — bright core, most of the radius spent near zero. Stops rather
+  // than two ends, because a linear ramp is the thing that bands.
+  for (let i = 0; i <= 12; i++) { const t = i / 12; rg.addColorStop(t, `rgba(255,255,255,${Math.pow(1 - t, 2.8).toFixed(4)})`); }
+  g.fillStyle = rg; g.fillRect(0, 0, S, S);
+  // The dither. ±3/255 of alpha noise, which is invisible as noise and fatal to a contour.
+  try {
+    const img = g.getImageData(0, 0, S, S), d = img.data;
+    for (let i = 3; i < d.length; i += 4) d[i] = Math.max(0, Math.min(255, d[i] + (frac(i) * 6 - 3)));
+    g.putImageData(img, 0, 0);
+  } catch { /* a stub context with no pixel access — the gradient alone is still correct */ }
+  _lampBlob = c; return c;
+}
+
 function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[1], warn = null, scale = 0) {
   const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25;
   ctx.save();
@@ -2946,30 +3055,22 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   // plate around it; without that the dials are bright discs with a hard edge, which is a diagram
   // again. Drawn OUTSIDE the face and only once the lamp is wound up, so a daylit dash neither
   // changes nor pays for it.
-  // ⚠ A LINEAR ALPHA RAMP TO ZERO OVER A DARK CAB DRAWS A VISIBLE CIRCLE, which is what this did:
-  // a soft spill reported as 'weird rings around the gauges when dark'. Nothing here was drawing a
-  // stroke. An 8-bit destination quantises the tail of the ramp, and the last step before it
-  // rounds to nothing lands on one radius — so the fade terminates in a contour, and additive
-  // blending over a near-black dash is the worst case for seeing it. Reaching r * 1.9 put that
-  // contour well outside the bezel and across the neighbouring dial, which is why it read as a
-  // ring around the cluster rather than as a glow around an instrument.
+  // ⚠ THE SPILL IS NOT DRAWN HERE ANY MORE, AND THAT IS THE FIX RATHER THAN A TUNING OF IT.
   //
-  // The fix is the SHAPE of the falloff, not its strength: most of the ramp is spent in the first
-  // third, so the outer half is already within a step of zero and there is no visible edge left to
-  // quantise. Pulled in to 1.45r as well — a bulb behind a dial lights the plate it is mounted on,
-  // not the one next to it.
-  if (gk > 1.02) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const a0 = 0.075 * Math.min(1.6, gk - 1);
-    const halo = ctx.createRadialGradient(cx, cy, r * 0.94, cx, cy, r * 1.45);
-    halo.addColorStop(0, hexA(T.glow, a0));
-    halo.addColorStop(0.34, hexA(T.glow, a0 * 0.42));
-    halo.addColorStop(0.66, hexA(T.glow, a0 * 0.13));
-    halo.addColorStop(1, hexA(T.glow, 0));
-    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
+  // It used to be a radial gradient centred on this dial, and it was reported twice — as 'weird
+  // rings when dark' and then, after being softened and pulled in, as 'circles, not light'. Both
+  // reports were right, and softening was never going to answer them, because the problem was not
+  // the falloff curve. It was that a per-dial radial gradient IS a circle: it is centred on a
+  // point, it is the same in every direction, it stops where it stops, and it floats over whatever
+  // happens to be underneath — including the gap between plates, where there is no surface for
+  // light to land on. Six of them side by side read as six discs, which is exactly what they are.
+  //
+  // Light lands on a SURFACE. So the spill moved to the plate (see `plate`), where it is clipped
+  // to the metal it is falling on, squashed against a panel that is raked away from you, stamped
+  // from a pre-blurred and DITHERED sprite so there is no quantisation contour to read as an edge,
+  // and accumulated from all the bulbs at once so the pool between two dials is brighter than the
+  // pool outside them. That last part is the one that actually reads as light rather than as
+  // decoration: it is uneven, and its unevenness is caused by where the lamps are.
   ctx.restore();
   // The bezel is where the money shows: a hairline of steel on the Barrow, brass on the Orlov.
   ctx.strokeStyle = T.ring; ctx.lineWidth = T.dials > 1 && T.lamps >= 5 ? 2.2 : 1.4; ctx.stroke();

@@ -526,6 +526,21 @@ function rowsAt(route, s, dests, kind, hdg = null) {
     rows.push({ n: signLabel(d.name || d.key), m: milesOf(Math.max(0, r.L - s)), a: aim(r, Math.min(r.L, s + look)) });
   }
   if (s > 4) rows.push({ n: signLabel(route.origin || 'BACK'), m: milesOf(s), a: aim(route, Math.max(0, s - SIGN_LOOK)) });
+  // ⚠ AND A BOARD LEADS WITH WHERE YOU ARE GOING, which is what makes the two faces different.
+  //
+  // The rows were built destinations-first and the origin last, and only the ARROWS were
+  // re-measured for the back face — so a driver running back toward Coldwater read a board whose
+  // top line was THE REACH, the place behind them, with Coldwater underneath it. Every number and
+  // every arrow on it was correct; it was the READING ORDER that was wrong, and a sign is a thing
+  // you take the top line off at sixty miles an hour.
+  //
+  // Sorted rather than branched, because 'ahead' is already answered by the arrow — which is the
+  // one field on a row that is about the driver rather than about the road. Straight on and the two
+  // bearings count as ahead; a hard left or right at a fork is still a road in front of you, and
+  // only the three that point behind you get demoted. The sort is STABLE, so the order among the
+  // destinations themselves is untouched and a forward board renders exactly as it did.
+  const ahead = (a) => ((a | 0) === 3 || (a | 0) === 4 || (a | 0) === 5 ? 1 : 0);
+  rows.sort((p, q) => ahead(p.a) - ahead(q.a));
   return rows;
 }
 // A board is a fixed-width object and a long name would render as a smear, so names are trimmed

@@ -450,10 +450,30 @@ export default async function regress({ run, check, getPlayer }) {
     // road and do not change; the arrows are measured from the driver's heading and all do.
     check('every board carries a back face as well as a front',
       r.signs.every(g => g.back?.length === g.rows.length));
+    // ⚠ AS A SET, NOT INDEX-WISE. This used to compare row i to row i, which was true when both
+    // faces were built in the same order — and that sameness was the bug: a driver running home
+    // read a board whose TOP LINE was the place behind them. The places and the distances are
+    // still identical (a distance along a road does not care which way you face); what differs is
+    // which of them is read first.
+    const key = (row) => row.n + '|' + row.m;
     check('…naming the same places at the same distances', r.signs.every(g =>
-      g.back.every((row, i) => row.n === g.rows[i].n && row.m === g.rows[i].m)));
+      g.back.map(key).slice().sort().join() === g.rows.map(key).slice().sort().join()));
     check('…with the arrows re-measured for a driver facing the other way',
-      r.signs.some(g => g.back.some((row, i) => row.a !== g.rows[i].a)));
+      r.signs.some(g => g.back.some((row) => {
+        const same = g.rows.find(f => key(f) === key(row));
+        return same && same.a !== row.a;
+      })));
+    // AND EACH FACE LEADS WITH WHERE THAT DRIVER IS GOING, which is the whole point of two faces.
+    // A row pointing back is 3, 4 or 5 on the eight-point arrow; anything else is a road in front
+    // of you, including a hard turn at a fork.
+    const behind = (row) => (row.a | 0) === 3 || (row.a | 0) === 4 || (row.a | 0) === 5;
+    const leadsAhead = (rows) => rows.length < 2 || !behind(rows[0]) || rows.every(behind);
+    check('a board leads with the destination you are driving toward', r.signs.every(g => leadsAhead(g.rows)));
+    check('…and so does its back face', r.signs.every(g => leadsAhead(g.back)));
+    // The one that would have caught the report: on a two-way road the two faces must not open
+    // with the same name, or turning round changes nothing about what the board tells you.
+    check('…so the two faces do not open with the same place',
+      r.signs.some(g => g.rows.length > 1 && g.back.length > 1 && g.rows[0].n !== g.back[0].n));
     check('…and every back arrow is one of the eight too',
       r.signs.every(g => g.back.every(row => ARROW_WORDS[row.a] !== undefined)));
 
