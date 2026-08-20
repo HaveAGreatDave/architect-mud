@@ -1002,6 +1002,58 @@ export function reverseRoute(route) {
   return out;
 }
 
+// ── A ROAD MADE OF SEGMENTS ──────────────────────────────────────────────────
+//
+// The network's enabling primitive. A road is going to stop being "wander from a gate to a target"
+// and become `gate → interchange → interchange → gate`, because that is the shape that answers all
+// three things at once: every road leaving a gate SHARES its spoke (which is what today's trunk is,
+// so the junction survives and gets a real place to happen), the middle is seeded on the PAIR so
+// both directions are one road, and a hub is simply an interchange that more than two roads meet
+// at — it falls out rather than being built.
+//
+// ⚠ BUILT BY CONCATENATION, NOT BY TEACHING THE WANDER ABOUT WAYPOINTS. The obvious move is to
+// generalise `corridorFor`'s loop to a list of targets, and it is the wrong risk to take: that loop
+// is the most invariant-dense code in the plugin (the leash, the fold-radius floor, the sinuosity
+// cap, the exact landing) and its output is pinned by a dozen regress cases that would all have to
+// be re-derived at once to know whether a change was faithful. Each segment is instead built by the
+// SAME builder, unmodified, and the pieces are renumbered onto one odometer. Every invariant of a
+// segment is a property that builder already guarantees.
+//
+// What this owns is only the joining: `s` runs continuously across the seam, the leg list is one
+// list, and the bends keep their positions on the new numbering so the sign pass still finds them.
+// Signs and branches belong to the finished road and are attached by the caller — the same rule
+// `reverseRoute` follows, and for the same reason.
+export function joinRoutes(parts) {
+  const list = (parts || []).filter(Boolean);
+  if (list.length <= 1) return list[0] || null;
+  const legs = [], bends = [];
+  let s = 0;
+  for (const r of list) {
+    for (const l of r.legs) legs.push({ ...l, s0: s + l.s0, s1: s + l.s1 });
+    for (const b of r.bends || []) bends.push({ ...b, s: s + b.s });
+    s += r.L;
+  }
+  // ⚠ THE SEAM IS A BEND, and saying so is not decoration. Segments meet at an interchange, which
+  // is a place the road genuinely changes direction — and `signsFor` puts a board a fixed distance
+  // BEFORE each bend. Without this the one turn a driver most needs telling about is the only one
+  // with no sign on it.
+  for (let i = 0, acc = 0; i < list.length - 1; i++) { acc += list[i].L; bends.push({ s: acc, seam: true }); }
+  bends.sort((a, b) => a.s - b.s);
+  const first = list[0];
+  const out = { ...first, legs, bends, L: s,
+    // A room is a fraction of the WHOLE road, not of its first segment — the crossing's chain is
+    // indexed by node from end to end, and a roomLen carried off one piece would walk a driver off
+    // the end of the chain somewhere in the middle of the second.
+    roomLen: s / Math.max(1, first.nodes),
+    // The trunk is the first segment: the spoke out of the gate, shared by every road that leaves
+    // it. That is what makes the fork happen AT the interchange rather than at a room boundary.
+    trunkL: first.L,
+    segments: list.map((r) => ({ seedKey: r.seedKey || `${r.voidKey}|${r.destKey}`, L: r.L })),
+    signs: [], branches: [] };
+  out.index = buildIndex(out);
+  return out;
+}
+
 // Bind a route to a provider with the (x, y) signature mapWindow wants. Pass the result straight
 // in as `at` — see plugins/flight/state.js mapWindow.
 export function corridorProvider(route) {

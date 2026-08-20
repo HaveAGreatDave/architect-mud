@@ -11,7 +11,7 @@ import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flig
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
-  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt } from './corridor.js';
+  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
@@ -661,6 +661,56 @@ export default async function regress({ run, check, getPlayer }) {
           onSib.ours ? `verge t=${onSib.ours.t.toFixed(1)}` : 'no fix at all — a bog');
       }
     }
+  }
+
+  // ── 1e. A ROAD MADE OF SEGMENTS ────────────────────────────────────────────
+  // The network's enabling primitive: a road becomes gate → interchange → interchange → gate, so
+  // every road out of a gate can share its spoke, the middle can be seeded on the PAIR, and a hub
+  // is just an interchange more than two roads meet at. Built by CONCATENATION rather than by
+  // teaching the wander about waypoints — every invariant of a segment stays a property the
+  // existing builder already guarantees, and what is tested here is only the joining.
+  {
+    const A = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, null, { x0: 918, y0: 947, x1: 910, y1: 1000 });
+    const B = corridorFor(VOIDKEY, 'exodus', 4242, 8, 4, null, { x0: 910, y0: 1000, x1: 910, y1: 1042 });
+    const J = joinRoutes([A, B]);
+    check('joining two segments gives one road as long as both', Math.abs(J.L - (A.L + B.L)) < 1e-6,
+      `${J.L.toFixed(1)} vs ${(A.L + B.L).toFixed(1)}`);
+    check('…with one continuous leg list', J.legs.length === A.legs.length + B.legs.length);
+    // ⚠ THE ODOMETER HAS TO RUN THROUGH THE SEAM. If `s` restarts or jumps, every single thing
+    // downstream is wrong at once — arrival, the node index, the fuel burn, the mile boards.
+    let broken = null;
+    for (let i = 1; i < J.legs.length && !broken; i++) {
+      if (Math.abs(J.legs[i].s0 - J.legs[i - 1].s1) > 1e-6) broken = `leg ${i}`;
+    }
+    check('…and an odometer that runs continuously across the seam', !broken, broken);
+    check('…so a point on the second segment reads past the first',
+      corridorLocate(J, corridorPos(J, A.L + 20, 0).x, corridorPos(J, A.L + 20, 0).y)?.s > A.L,
+      String(corridorLocate(J, corridorPos(J, A.L + 20, 0).x, corridorPos(J, A.L + 20, 0).y)?.s?.toFixed(1)));
+    // The spoke out of the gate is the trunk, which is what moves the fork to the interchange
+    // rather than leaving it at a room boundary.
+    check('the first segment is the trunk — the spoke every road out of the gate shares',
+      Math.abs(J.trunkL - A.L) < 1e-6, J.trunkL.toFixed(1));
+    // ⚠ A room is a fraction of the WHOLE road. Carried off the first segment it would walk a
+    // driver off the end of the chain somewhere in the middle of the second.
+    check('…and a room is a fraction of the whole road, not of its first piece',
+      Math.abs(J.roomLen - J.L / J.nodes) < 1e-6);
+    // ⚠ The seam is a real change of direction, and `signsFor` boards a fixed distance BEFORE each
+    // bend — without this the one turn a driver most needs telling about has no sign on it.
+    check('…and the seam registers as a bend, so it gets a board',
+      (J.bends || []).some((b) => b.seam && Math.abs(b.s - A.L) < 1e-6));
+    // Reversing it is the other half of "one road, both directions".
+    const R = reverseRoute(J);
+    check('a reversed road is the same length', Math.abs(R.L - J.L) < 1e-6);
+    check('…and its start is the other road\'s end',
+      Math.hypot(corridorPos(R, 0, 0).x - corridorPos(J, J.L, 0).x,
+        corridorPos(R, 0, 0).y - corridorPos(J, J.L, 0).y) < 0.01);
+    check('…and it is the SAME tarmac, not a similar road', (() => {
+      for (let s = 5; s < J.L - 5; s += 17) {
+        const p = corridorPos(J, s, 0), q = corridorPos(R, R.L - s, 0);
+        if (Math.hypot(p.x - q.x, p.y - q.y) > 0.02) return false;
+      }
+      return true;
+    })());
   }
 
   // ── 2. The render seam ─────────────────────────────────────────────────────
