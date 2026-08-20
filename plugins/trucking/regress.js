@@ -13,7 +13,7 @@ import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, voidGateTile, _clearGateCache, _previewRoute } from './state.js';
+  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -546,11 +546,11 @@ export default async function regress({ run, check, getPlayer }) {
     // suite and nothing to say which region it was. A gate is a content requirement now — if this
     // fails, the region named needs a road authored out to its edge, not a special case here.
     {
-      const missing = Object.keys(VOIDS).filter((k) => !voidGateTile(k));
+      const missing = Object.keys(VOIDS).filter((k) => !regionGates(k).length);
       check('every void has a gate — the tile its own road runs off the map at',
         missing.length === 0, missing.join(', ') || 'all present');
     }
-    const gate = voidGateTile(VOIDKEY);
+    const gate = regionGates(VOIDKEY)[0];
     check('the suite\'s own void has one', !!gate, VOIDKEY);
     if (gate) {
       const at = surfaceAt(gate.x, gate.y);
@@ -561,8 +561,46 @@ export default async function regress({ run, check, getPlayer }) {
       // ⚠ AND IT IS STABLE. `getAllZones()` yields a Map's insertion order and a content import can
       // reshuffle it; a gate that moved with that would silently move every road in the game.
       _clearGateCache();
-      const again = voidGateTile(VOIDKEY);
+      const again = regionGates(VOIDKEY)[0];
       check('…and picking it twice picks the same tile', again?.id === gate.id, String(again?.id));
+    }
+    // ── GATES ARE PLURAL, AND THE NETWORK TURNS ON THAT ──────────────────────
+    // The design this is heading for is a road network where a region has several exits and a
+    // neighbour is reached through whichever one faces it, worked out from the map. A singular gate
+    // bakes the opposite assumption into every caller, so there is no singular gate — these pin the
+    // contract while every region still happens to publish one, which is the only time it is cheap
+    // to get wrong and impossible to notice.
+    for (const k of Object.keys(VOIDS)) {
+      const gs = regionGates(k);
+      check(`${k} publishes its ways out as a list`, Array.isArray(gs) && gs.length >= 1, String(gs.length));
+      // ⚠ ONE MOUTH IS ONE EXIT. A road is two or three tiles wide by the time it reaches the rim
+      // (it has to be — see the 8-connectivity invariant), so unclustered candidates come out as
+      // clumps and a single way out of town would publish itself as four gates.
+      check(`…clustered, so one road out of ${k} is one gate`, gs.every((g) => !gs.some((h) =>
+        h !== g && Math.abs(h.x - g.x) <= 1 && Math.abs(h.y - g.y) <= 1)));
+    }
+    // WHICH EXIT FACES WHICH NEIGHBOUR — the question the network turns on, answered from the map.
+    // With one exit each it degenerates to the only possible answer, so it is live and exercised
+    // long before any region grows a second.
+    {
+      const dest = (VOIDS[VOIDKEY]?.dests || []).find((d) => d.region && regionGates(d.region).length);
+      if (dest) {
+        const pair = gatePair(VOIDKEY, dest.region);
+        check('a road knows which exit at each end it joins', !!pair?.from && !!pair?.to);
+        // Nearest pair wins — that IS "nearby regions share a road and use the exits facing it".
+        const all = [];
+        for (const a of regionGates(VOIDKEY)) for (const b of regionGates(dest.region)) {
+          all.push({ a, b, d2: (a.x - b.x) ** 2 + (a.y - b.y) ** 2 });
+        }
+        all.sort((p, q) => p.d2 - q.d2);
+        check('…and it is the pair of exits that actually face each other',
+          pair.from.id === all[0].a.id && pair.to.id === all[0].b.id);
+        // ⚠ UNORDERED. Asking from the other end must name the same two tiles, or the road between
+        // two towns is two roads again — which is the whole of what phase 1 is for.
+        const back = gatePair(dest.region, VOIDKEY);
+        check('…and asking from the far end names the same two exits',
+          back?.from.id === pair.to.id && back?.to.id === pair.from.id);
+      }
     }
     // A rig standing in the region sees the corridor from the city leg. This is the fix, stated as
     // the thing a driver would notice: road, out past the edge of the world, from on the map.

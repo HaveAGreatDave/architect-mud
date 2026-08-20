@@ -955,6 +955,53 @@ function branchAt(route, x, y) {
 export const isCarriageway = (cell) =>
   cell?.flags?.terrain === 'road' || cell?.flags?.terrain === 'dirt_road';
 
+// ── A ROAD IS THE PAIR OF GATES IT JOINS ─────────────────────────────────────
+//
+// PHASE 1 OF MAKING THIS A NETWORK. Until now a road was identified by `voidKey|destKey` and
+// anchored origin-gate → destination-tile, which means Coldwater→Reach and Reach→Coldwater were
+// TWO DIFFERENT ROADS on two different pieces of ground. Each was fine on its own and the pair of
+// them was a lie: there was no highway between two towns, there were two one-way-authored roads
+// that happened to end near each other. Drive out and drive back and you are not retracing
+// anything, which is the one thing a highway is for.
+//
+// So the identity is the UNORDERED PAIR. `pairKey` sorts, so both directions hash the same, and
+// `corridorFor` takes it as a seed override — every seeded thing on the road (the bends, the node
+// terrain, the roadside props, the wrecks) keys off it, so the two directions agree tile for tile
+// rather than approximately.
+export const pairKey = (a, b) => (String(a) < String(b) ? `${a}~${b}` : `${b}~${a}`);
+
+// ── …AND IT IS DRIVEN FROM BOTH ENDS ─────────────────────────────────────────
+//
+// The canonical road runs from the lower-sorted gate to the higher one, because something has to
+// decide and a coin flip is not a decision. A driver coming the other way needs the same tarmac
+// with the odometer running the other way — `s = 0` where they joined it and `s = L` where they
+// arrive — because EVERYTHING downstream is written in terms of that: the arrival test, the
+// near-end retreat, `sMax`, the node index, the clamp.
+//
+// Reversing is exact and it is pure geometry: the legs come back in the opposite order, each one
+// turned round, and every `s` becomes `L − s`. Nothing is re-seeded and nothing is re-rolled, which
+// is the whole point — a reversed road is not a similar road, it is the same road read backwards.
+//
+// ⚠ SIGNS AND BRANCHES ARE NOT CARRIED OVER, and the caller must attach them. Both are ABOUT THE
+// DRIVER rather than about the road: a board's arrows are measured from the heading you are facing
+// (see rowsAt) and the limbs you can take are the ones leaving YOUR gate. Copying either across the
+// reversal would be quietly wrong in a way that reads as right.
+export function reverseRoute(route) {
+  if (!route) return null;
+  const L = route.L;
+  const legs = route.legs.map((l) => ({
+    x0: l.x0 + l.ux * l.len, y0: l.y0 + l.uy * l.len,
+    ux: -l.ux, uy: -l.uy, len: l.len,
+    s0: L - l.s1, s1: L - l.s0,
+    deg: ((l.deg + 180) % 360 + 360) % 360,
+  })).reverse();
+  const out = { ...route, legs, trunkL: Math.max(0, L - (route.trunkL || 0)),
+    bends: (route.bends || []).map((b) => ({ ...b, s: L - b.s })).reverse(),
+    signs: [], branches: [], reversed: !route.reversed };
+  out.index = buildIndex(out);
+  return out;
+}
+
 // Bind a route to a provider with the (x, y) signature mapWindow wants. Pass the result straight
 // in as `at` — see plugins/flight/state.js mapWindow.
 export function corridorProvider(route) {

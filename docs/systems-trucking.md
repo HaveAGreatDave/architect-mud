@@ -78,7 +78,7 @@ the edge.** That was never a rendering gate that could simply be opened — a cr
 had *already left* the game did not know where the road started. There was nothing to draw.
 
 So the road gets a gate of its own: **the tile where the region's own road runs off the map**
-(`voidGateTile`). Not an arbitrary rim tile and not a derived midpoint — the highway is the
+(`regionGates`). Not an arbitrary rim tile and not a derived midpoint — the highway is the
 continuation of a street that is already there, which is what makes the join read as a road leaving
 town rather than as tarmac beginning in a field. It is found by *looking at the world* rather than by
 authoring a zone id anywhere, because the world already says it: a rim tile carrying road **is** the
@@ -96,6 +96,21 @@ road that visibly jumps at the exact moment the pop-in used to happen, which is 
 different hat. Regress pins the gate's stability too: `getAllZones()` yields a Map's insertion order
 and a content import can reshuffle it, so ties are broken on the **coordinate**, never on iteration
 order — otherwise a re-import would silently move every road in the game.
+
+⚠ **GATES ARE PLURAL, from the first line, and that is deliberate.** The obvious shape is one gate
+per region; it is simpler and it would have to be torn out. The design this is heading for is a road
+**network** where a region has several exits and a neighbour is reached through whichever one faces
+it, worked out from the map rather than authored. A singular gate bakes the opposite assumption into
+every caller — so there is no singular gate. A region *publishes* its exits (`regionGates`), a road
+is a **pair** of them, and which pair two regions use is a question with an answer (`gatePair`:
+nearest pair wins, which is what "nearby regions share a road and use the exits facing it" means in
+arithmetic) rather than a constant. Every region publishes exactly one today, and every path reads
+identically for that case — which is what makes this a *step* rather than a promise. Regress pins
+the contract now, while it is still cheap to get wrong and impossible to notice: gates come back as
+a list, **one road mouth is one gate** (a road is two or three tiles wide by the time it reaches the
+rim, so unclustered candidates publish a single way out of town as four), the chosen pair really is
+the pair that faces, and asking from the far end names **the same two exits** — without which the
+road between two towns is two roads again.
 
 ⚠ **A gate is a CONTENT requirement.** The fallback (anchor on the tile the driver left from) still
 exists and still works, and that is exactly the danger: a region whose road never reaches its rim

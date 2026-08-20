@@ -250,47 +250,81 @@ function crossingPlan(instanceId) {
 // import above — it is deliberately a one-way edge), and the road test wants flight's `isRoadCell`.
 // Trucking already depends on both, so putting it here adds no edge at all.
 //
+// ⚠ GATES ARE PLURAL, AND THAT IS DELIBERATE FROM THE FIRST LINE. The obvious shape is one gate per
+// region, it is simpler, and it would have to be torn out: the design this is heading for is a road
+// NETWORK where a region has several exits and a neighbour is reached through whichever one faces
+// it — worked out from the map rather than authored. A singular gate bakes the opposite assumption
+// into every caller, so there is no singular gate. A region publishes its exits; a ROAD is a pair of
+// them; and which pair two regions use is a question with an answer (see `gatePair`) rather than a
+// constant. Today most regions publish exactly one, and everything below reads identically for that
+// case — which is what makes this a step rather than a promise.
+//
 // Cached: the world is static between deploys and this walks every zone once.
-const _gateTile = new Map();
-export function voidGateTile(voidKey) {
-  if (_gateTile.has(voidKey)) return _gateTile.get(voidKey);
-  const v = VOIDS[voidKey];
-  let best = null;
-  if (v) {
-    // Where the roads out of here are going, as one point: the mean of this void's destinations. A
-    // rim tile facing that is the one a road heading for them would actually use.
-    let ax = 0, ay = 0, n = 0;
-    for (const d of v.dests || []) {
-      const z = getZone(d.dest);
-      if (z?.grid_x != null && z?.grid_y != null) { ax += z.grid_x; ay += z.grid_y; n++; }
-    }
-    for (const z of getAllZones()) {
-      if (z.map_id !== 'map_world' || (z.grid_z ?? 0) !== 0) continue;
-      if (z.flags?.region_id !== voidKey) continue;
-      if (!isRoadCell({ flags: z.flags || {} })) continue;
-      // A rim tile: the map genuinely stops on at least one side of it. `surfaceAt` indexes exactly
-      // the placed surface tiles, so this is the same question voidwalking's own rim test asks — a
-      // missing EXIT is a wall, a missing TILE is the edge of the world.
-      const rim = [[0, -1], [0, 1], [1, 0], [-1, 0]]
-        .some(([ddx, ddy]) => !surfaceAt(z.grid_x + ddx, z.grid_y + ddy));
-      if (!rim) continue;
-      const d2 = n ? (z.grid_x - ax / n) ** 2 + (z.grid_y - ay / n) ** 2 : 0;
-      // ⚠ TIES BROKEN ON THE COORDINATE, NEVER ON ITERATION ORDER. `getAllZones()` yields a Map's
-      // insertion order, and a content import can reshuffle that — which would silently move every
-      // road in the game without a line of code changing.
-      if (!best || d2 < best.d2 - 1e-9
-        || (Math.abs(d2 - best.d2) <= 1e-9 && (z.grid_x < best.x || (z.grid_x === best.x && z.grid_y < best.y)))) {
-        best = { id: z.id, x: z.grid_x, y: z.grid_y, d2 };
+const _gates = new Map();
+export function regionGates(regionKey) {
+  if (_gates.has(regionKey)) return _gates.get(regionKey);
+  const cand = [];
+  for (const z of getAllZones()) {
+    if (z.map_id !== 'map_world' || (z.grid_z ?? 0) !== 0) continue;
+    if (z.flags?.region_id !== regionKey) continue;
+    if (!isRoadCell({ flags: z.flags || {} })) continue;
+    // A rim tile: the map genuinely stops on at least one side of it. `surfaceAt` indexes exactly
+    // the placed surface tiles, so this is the same question voidwalking's own rim test asks — a
+    // missing EXIT is a wall, a missing TILE is the edge of the world.
+    const rim = [[0, -1], [0, 1], [1, 0], [-1, 0]]
+      .some(([ddx, ddy]) => !surfaceAt(z.grid_x + ddx, z.grid_y + ddy));
+    if (rim) cand.push({ id: z.id, x: z.grid_x, y: z.grid_y });
+  }
+  // ⚠ ONE MOUTH IS ONE EXIT. A road reaching the rim is two or three tiles wide by the time it gets
+  // there (it has to be — see the 8-connectivity note in corridor.js), so the raw candidates come
+  // out as clumps. Left unclustered, a single way out of town would publish itself as four gates
+  // and the pair-chooser below would pick between four names for one place. Adjacent candidates are
+  // therefore one gate, and the clump elects the member nearest its own centre.
+  const by = new Map(cand.map((c) => [`${c.x},${c.y}`, c]));
+  const seen = new Set(), out = [];
+  for (const c of cand) {
+    if (seen.has(c.id)) continue;
+    const clump = [], stack = [c];
+    seen.add(c.id);
+    while (stack.length) {
+      const cur = stack.pop(); clump.push(cur);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+        const nb = by.get(`${cur.x + dx},${cur.y + dy}`);
+        if (nb && !seen.has(nb.id)) { seen.add(nb.id); stack.push(nb); }
       }
     }
+    const mx = clump.reduce((a, p) => a + p.x, 0) / clump.length;
+    const my = clump.reduce((a, p) => a + p.y, 0) / clump.length;
+    // ⚠ TIES BROKEN ON THE COORDINATE, NEVER ON ITERATION ORDER. `getAllZones()` yields a Map's
+    // insertion order and a content import can reshuffle it, which would silently move every road
+    // in the game without a line of code changing.
+    clump.sort((p, q) => ((p.x - mx) ** 2 + (p.y - my) ** 2) - ((q.x - mx) ** 2 + (q.y - my) ** 2)
+      || p.x - q.x || p.y - q.y);
+    out.push({ ...clump[0], width: clump.length });
   }
-  // ⚠ NULL RATHER THAN A GUESS. A region with no road reaching its rim has no gate, and every caller
-  // falls back to the tile the driver actually left from — which is the behaviour that shipped.
-  const out = best ? { id: best.id, x: best.x, y: best.y } : null;
-  _gateTile.set(voidKey, out);
+  out.sort((p, q) => p.x - q.x || p.y - q.y);   // stable order, for the same reason
+  _gates.set(regionKey, out);
   return out;
 }
-export const _clearGateCache = () => _gateTile.clear();   // regress only — the world is rebuilt between suites
+
+// WHICH WAY OUT FACES WHICH NEIGHBOUR — the question the network turns on, answered from the map.
+// Nearest pair of exits wins, which is what "nearby regions share a road and use different exits"
+// means in arithmetic. With one exit each it degenerates to the only possible answer, so this is
+// live and exercised long before any region grows a second.
+//
+// ⚠ NULL RATHER THAN A GUESS. A region with no road reaching its rim publishes no exits, and every
+// caller falls back to the tile the driver actually left from — the behaviour that shipped.
+export function gatePair(aKey, bKey) {
+  const A = regionGates(aKey), B = regionGates(bKey);
+  if (!A.length || !B.length) return null;
+  let best = null;
+  for (const a of A) for (const b of B) {
+    const d2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+    if (!best || d2 < best.d2 - 1e-9) best = { a, b, d2 };
+  }
+  return best ? { from: best.a, to: best.b } : null;
+}
+export const _clearGateCache = () => _gates.clear();   // regress only — the world is rebuilt between suites
 
 // ── THE TWO REAL TILES A ROAD RUNS BETWEEN ───────────────────────────────────
 // The whole point of anchoring: the crossing already knows both ends as ZONES, and both zones
@@ -309,12 +343,21 @@ function anchorFor(instanceId, destKey) {
   // it, and therefore undrawable on the approach. The gate is the region's own road running off the
   // map (see voidGateTile), so the same crossing produces the same road for everybody, every time,
   // and a preview built before you cross is the road you actually get rather than a guess at it.
-  const gate = voidGateTile(info.voidKey);
-  const from = gate || getZone(info.originZone);
-  const to = getZone((info.dests || []).find((d) => d.key === destKey)?.dest);
-  const x0 = gate ? gate.x : from?.grid_x, y0 = gate ? gate.y : from?.grid_y;
+  const dest = (info.dests || []).find((d) => d.key === destKey);
+  // GATE TO GATE where both ends publish one, which is what makes a road a thing joining two places
+  // rather than a thing leaving one. `gatePair` picks the exits that face each other, so a region
+  // with several ways out uses the one pointing at this neighbour.
+  const pair = dest?.region ? gatePair(info.voidKey, dest.region) : null;
+  if (pair) return { x0: pair.from.x, y0: pair.from.y, x1: pair.to.x, y1: pair.to.y,
+    fromGate: pair.from.id, toGate: pair.to.id };
+  // Falling back a piece at a time rather than all at once: an origin gate with no gate at the far
+  // end still fixes the near end, which is the half the approach preview depends on.
+  const g = regionGates(info.voidKey)[0];
+  const from = g || getZone(info.originZone);
+  const to = getZone(dest?.dest);
+  const x0 = g ? g.x : from?.grid_x, y0 = g ? g.y : from?.grid_y;
   if (x0 == null || to?.grid_x == null) return null;
-  return { x0, y0, x1: to.grid_x, y1: to.grid_y };
+  return { x0, y0, x1: to.grid_x, y1: to.grid_y, fromGate: g?.id || null, toGate: null };
 }
 
 // ── THE ROAD YOU CAN SEE BEFORE YOU ARE ON IT ────────────────────────────────
@@ -336,20 +379,24 @@ const _preview = new Map();
 function previewRoute(voidKey, window) {
   const key = `${voidKey}|${window}`;
   if (_preview.has(key)) return _preview.get(key);
-  const v = VOIDS[voidKey], gate = voidGateTile(voidKey);
+  const v = VOIDS[voidKey], gate = regionGates(voidKey)[0];
   let route = null;
   if (v && gate) {
+    // Each destination aimed at the exit that FACES it, not at the middle of the far region — the
+    // same `gatePair` the real anchor uses, so the preview and the crossing agree limb for limb.
     const dests = (v.dests || []).map((d) => {
+      const pair = d.region ? gatePair(voidKey, d.region) : null;
       const z = getZone(d.dest);
       return { key: d.key, name: d.sign || d.heading || d.key, nodes: d.length | 0,
-        x: z?.grid_x ?? null, y: z?.grid_y ?? null };
+        x: pair ? pair.to.x : (z?.grid_x ?? null), y: pair ? pair.to.y : (z?.grid_y ?? null) };
     }).filter((d) => d.nodes > 0 && Number.isFinite(d.x));
     const first = dests[0];
     if (first) {
       const trunk = Math.max(1, v.trunk | 0);
+      const pair = v.dests?.[0]?.region ? gatePair(voidKey, v.dests[0].region) : null;
       route = corridorFor(voidKey, first.key, window, first.nodes, trunk,
         { origin: v.sign || v.origin || null, dests },
-        { x0: gate.x, y0: gate.y, x1: first.x, y1: first.y });
+        { x0: (pair?.from || gate).x, y0: (pair?.from || gate).y, x1: first.x, y1: first.y });
     }
   }
   _preview.set(key, route);
