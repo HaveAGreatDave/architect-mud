@@ -343,20 +343,84 @@ export const _clearGateCache = () => _gates.clear();   // regress only — the w
 // invariant), so they would either fold through their own verge or leave as one road that slowly
 // smears apart. This is comfortably outside it.
 const SPOKE_LEN = 140;
-export function interchangeFor(regionKey, gate) {
+// How far a destination may sit off its interchange's own heading. A road leaving an interchange
+// turns by this much at most, and the bound is not taste: cells are classified by distance from the
+// centreline out to OFFROAD_R, so a turn tighter than that radius folds the verge through itself and
+// `locate` begins handing out two answers for one tile.
+const GROUP_HALF = 34;
+// ── WHICH DESTINATIONS CAN SHARE AN INTERCHANGE ──────────────────────────────
+//
+// ⚠ THE ONES THAT GO THE SAME WAY, AND ONLY THOSE. One interchange per gate is the tidy model and
+// it does not survive contact with Coldwater: the Reach is south, Terminus east, Deadwater west, a
+// fan of more than 120°, so whichever direction the junction faces at least one road has to leave
+// it through a hairpin. Aiming at the mean of destination POSITIONS gave 101°; the mean of
+// DIRECTIONS gave 90°; no single point does better, because the spread is the problem and placement
+// cannot divide it.
+//
+// So a gate grows as many interchanges as it needs. Destinations are grouped by bearing, each group
+// gets its own junction, and roads share a spoke exactly when they genuinely start off the same way
+// — which is what a shared spoke was always supposed to MEAN. It is the same answer as "a region
+// has several exits", one level down, and arrived at from the same direction: the map says how many
+// there should be, so nothing authors a number.
+function destGroups(regionKey, gate) {
+  const dirs = [];
+  for (const d of VOIDS[regionKey]?.dests || []) {
+    const p = d.region ? gatePair(regionKey, d.region) : null;
+    if (!p) continue;
+    const vx = p.to.x - gate.x, vy = p.to.y - gate.y, len = Math.hypot(vx, vy);
+    if (len < 1e-6) continue;
+    dirs.push({ region: d.region, key: d.key, ux: vx / len, uy: vy / len, len,
+      bearing: (Math.atan2(vx, -vy) * 180 / Math.PI + 360) % 360 });
+  }
+  dirs.sort((a, b) => a.bearing - b.bearing || (a.region < b.region ? -1 : 1));
+  const groups = [];
+  for (const d of dirs) {
+    // Joins the first group whose heading it is already within — greedy, and deterministic because
+    // the list is sorted by bearing and then by name rather than by whatever order the table is in.
+    const g = groups.find((grp) => {
+      const bx = grp.ux / grp.n, by = grp.uy / grp.n;
+      const dot = (bx * d.ux + by * d.uy) / Math.max(1e-9, Math.hypot(bx, by));
+      return Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI <= GROUP_HALF;
+    });
+    if (g) { g.ux += d.ux; g.uy += d.uy; g.n++; g.far = Math.max(g.far, d.len); g.members.push(d); }
+    else groups.push({ ux: d.ux, uy: d.uy, n: 1, far: d.len, members: [d] });
+  }
+  return groups;
+}
+export function interchangeFor(regionKey, gate, destRegion = null) {
   const g = gate || regionGates(regionKey)[0];
   if (!g) return null;
+  const groups = destGroups(regionKey, g);
+  const grp = destRegion ? groups.find((q) => q.members.some((m) => m.region === destRegion)) : groups[0];
+  if (grp) {
+    const u = Math.hypot(grp.ux, grp.uy);
+    if (u < 1e-6) return null;
+    // Never past the halfway point — on a short hop the two interchanges would otherwise overshoot
+    // each other and the middle would run BACKWARDS between them, a road doubling back on itself.
+    const reach = Math.min(SPOKE_LEN, grp.far * 0.4);
+    return { x: g.x + (grp.ux / u) * reach, y: g.y + (grp.uy / u) * reach };
+  }
   const v = VOIDS[regionKey];
-  let ax = 0, ay = 0, n = 0;
+  // ⚠ THE MEAN OF DIRECTIONS, NOT OF PLACES. Averaging destination COORDINATES lets the furthest one
+  // drag the answer: Terminus is three times as far away as the Reach, so it pulled the interchange
+  // round behind the road to the Reach and the two segments met at 101° — a hairpin at the junction,
+  // which is not merely ugly. Cells are classified by distance from the centreline out to OFFROAD_R,
+  // so a turn tighter than that radius folds the verge through itself and `locate` starts handing
+  // out two answers for one tile. Unit vectors weight every destination as one direction, which is
+  // what "roughly on the way to all of your options" actually means.
+  let ax = 0, ay = 0, n = 0, far = 0;
   for (const d of v?.dests || []) {
     const p = d.region ? gatePair(regionKey, d.region) : null;
-    if (p) { ax += p.to.x; ay += p.to.y; n++; }
+    if (!p) continue;
+    const vx = p.to.x - g.x, vy = p.to.y - g.y, len = Math.hypot(vx, vy);
+    if (len < 1e-6) continue;
+    ax += vx / len; ay += vy / len; n++; far = Math.max(far, len);
   }
   if (!n) return null;
-  let dx = ax / n - g.x, dy = ay / n - g.y;
-  const m = Math.hypot(dx, dy);
+  let dx = ax / n, dy = ay / n;
+  const m = Math.hypot(dx, dy) * far;   // direction from the unit mean, reach from the real spread
   if (m < 1e-6) return null;
-  dx /= m; dy /= m;
+  const u = Math.hypot(dx, dy); dx /= u; dy /= u;
   // ⚠ NEVER PAST THE HALFWAY POINT. On a short hop the two interchanges would otherwise overshoot
   // each other and the middle segment would run BACKWARDS between them — a road that doubles back
   // on itself, which `locate` resolves by handing out two answers for one tile.
@@ -371,7 +435,9 @@ export function interchangeFor(regionKey, gate) {
 export function networkRoute(fromKey, toKey, window, nodes) {
   const pair = gatePair(fromKey, toKey);
   if (!pair) return null;
-  const iA = interchangeFor(fromKey, pair.from), iB = interchangeFor(toKey, pair.to);
+  // Each end asks for the interchange that serves THIS neighbour, so two roads share a spoke
+  // exactly when they leave in the same direction.
+  const iA = interchangeFor(fromKey, pair.from, toKey), iB = interchangeFor(toKey, pair.to, fromKey);
   if (!iA || !iB) return null;
   const spoke = (key, gate, ic) => corridorFor(key, 'spoke', window, nodes, 0, null,
     { x0: gate.x, y0: gate.y, x1: ic.x, y1: ic.y }, `spoke|${gate.id}`);

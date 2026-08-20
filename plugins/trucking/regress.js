@@ -742,17 +742,41 @@ export default async function regress({ run, check, getPlayer }) {
           worst < 0.05, `worst divergence ${worst.toFixed(3)} tiles`);
         // The spoke is shared by every road out of that gate, which is what moves the fork to a
         // place. Two destinations from the same gate must lay identical tarmac until the interchange.
-        const other = (VOIDS[a]?.dests || []).find((d) => d.region && d.region !== b && regionGates(d.region).length);
-        if (other) {
+        // ⚠ A SHARED SPOKE MEANS "THESE ROADS START OFF THE SAME WAY", AND THAT IS A CONDITION, NOT
+        // A GUARANTEE. One interchange per gate does not survive Coldwater — the Reach is south,
+        // Terminus east, Deadwater west, a fan of over 120° — so whichever way a single junction
+        // faced, one road would have to leave it through a hairpin, which folds the verge through
+        // itself. A gate therefore grows as many interchanges as its destinations need, and roads
+        // share a spoke exactly when they genuinely go the same way. So the test is per PAIR: same
+        // interchange ⇒ same tarmac to it; different interchange ⇒ they part at the gate, which is
+        // the honest answer for two roads heading 120° apart.
+        for (const other of (VOIDS[a]?.dests || [])) {
+          if (!other.region || other.region === b || !regionGates(other.region).length) continue;
           const AC = networkRoute(a, other.region, win, 8);
+          if (!AC) continue;
+          const iB = interchangeFor(a, gatePair(a, b).from, b);
+          const iC = interchangeFor(a, gatePair(a, other.region).from, other.region);
+          const shared = Math.hypot(iB.x - iC.x, iB.y - iC.y) < 0.01;
           let same = true;
           for (let s = 1; s < Math.min(AB.trunkL, AC.trunkL) - 1 && same; s += 7) {
             const p = corridorPos(AB, s, 0), q = corridorPos(AC, s, 0);
             if (Math.hypot(p.x - q.x, p.y - q.y) > 0.05) same = false;
           }
-          check('two roads out of one gate share their spoke, so the fork is a place', same);
-          check('…and part company at the interchange rather than at the gate',
-            AB.trunkL > 20, AB.trunkL.toFixed(1));
+          check(`roads to ${b} and ${other.region} share a spoke exactly when they share an interchange`,
+            same === shared, shared ? 'same junction, different tarmac' : 'different junctions, same tarmac');
+        }
+        check('…and a road parts from its neighbours at an interchange, not at the gate',
+          AB.trunkL > 20, AB.trunkL.toFixed(1));
+        // Every destination is served by a junction it can leave without a hairpin — the bound that
+        // decides how many junctions a gate grows in the first place.
+        for (const d of (VOIDS[a]?.dests || [])) {
+          if (!d.region || !regionGates(d.region).length) continue;
+          const gp = gatePair(a, d.region), ic = interchangeFor(a, gp.from, d.region);
+          const toIc = Math.atan2(ic.x - gp.from.x, -(ic.y - gp.from.y)) * 180 / Math.PI;
+          const toDest = Math.atan2(gp.to.x - gp.from.x, -(gp.to.y - gp.from.y)) * 180 / Math.PI;
+          const off = Math.abs(((toDest - toIc) % 360 + 540) % 360 - 180);
+          check(`…and ${d.region} is served by a junction it can leave without a hairpin`,
+            off <= 40, `${off.toFixed(0)}° off`);
         }
         // The odometer still has to survive the whole thing, or none of the above matters.
         let bad = null;
@@ -800,6 +824,22 @@ export default async function regress({ run, check, getPlayer }) {
           for (let s = 0; s < road.L; s += road.L / 400) rooms.add(nodeAt(road, s));
           check('…and every room of the chain is still reachable by driving it', rooms.size === 8,
             `${rooms.size}/8`);
+        }
+        // ⚠ THE SEAM IS A CORNER, AND A CORNER HAS A LIMIT. Two segments are built independently and
+        // meet at the interchange, so the heading can change by any amount at all there — and the
+        // fold invariant is not a style rule: cells are classified by distance from the centreline
+        // out to OFFROAD_R, so a turn tighter than that radius folds the verge through itself and
+        // `locate` hands out two answers for one tile. A 90° kink at an interchange would do it.
+        {
+          let worstTurn = 0, at = null;
+          for (const seg of [road.trunkL, road.trunkL + road.segments[1].L]) {
+            const before = corridorPos(road, Math.max(0, seg - 2), 0).heading;
+            const after = corridorPos(road, Math.min(road.L, seg + 2), 0).heading;
+            const turn = Math.abs(((after - before) % 360 + 540) % 360 - 180);
+            if (turn > worstTurn) { worstTurn = turn; at = seg; }
+          }
+          check('…and no seam turns sharper than the road is allowed to bend',
+            worstTurn <= 60, `${worstTurn.toFixed(0)}° at s=${at?.toFixed(0)}`);
         }
         check('…and it puts up boards, worked out from the finished shape', road.signs.length >= 2,
           `${road.signs.length} boards`);

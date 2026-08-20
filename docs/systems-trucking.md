@@ -98,6 +98,19 @@ from wherever it starts, so A→B is not the mirror of B→A — same seed, same
 different curves, nine tiles apart at worst**. Regress caught it on the first run, and it is the
 exact bug this whole phase exists to kill. The lower-sorted gate id is the road's own direction.
 
+⚠ **A GATE GROWS AS MANY INTERCHANGES AS ITS DESTINATIONS NEED.** One per gate is the tidy model and
+it does not survive Coldwater: the Reach is south, Terminus east, Deadwater west — a fan of over
+120° — so whichever way a single junction faced, at least one road had to leave it through a
+**hairpin**, and that is not merely ugly. Cells are classified by distance from the centreline out
+to `OFFROAD_R`, so a turn tighter than that radius folds the verge through itself and `locate`
+begins handing out two positions for one tile. Aiming at the mean of destination *positions* gave
+**101°** (the furthest destination drags the answer); the mean of *directions* gave **90°**; no
+single point does better, because the spread is the problem and placement cannot divide it. So
+destinations are grouped by bearing (`GROUP_HALF`), each group gets its own junction, and **roads
+share a spoke exactly when they genuinely start off the same way** — which is what a shared spoke
+was always supposed to mean. It is the same answer as "a region has several exits", one level down,
+and reached the same way: the map says how many there should be, so nothing authors a number.
+
 ⚠ **An interchange never sits past the halfway point.** On a short hop the two would overshoot and
 the middle would run *backwards* between them — a road doubling back, which `locate` resolves by
 handing out two positions for one tile.
