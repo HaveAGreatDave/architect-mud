@@ -15444,7 +15444,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
     if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
-    if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha)); continue; }
+    if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, now)); continue; }
     if (it.c.mark === 'pylons') { emitFace(od, () => drawPylons(ctx, cam, it.dx, it.dy, night, alpha, it.seed)); continue; }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
@@ -16315,7 +16315,43 @@ const SIGN_Z0 = 0.60, SIGN_Z1 = 1.18;   // panel bottom and top, world-z (a gate
 // The arrow, pointing straight up the board, in panel-local units (x across, y DOWN) — rotated per
 // row by 45° a step. Head, then the shaft, as one closed path.
 const SIGN_ARROW = [[0, -0.62], [0.44, -0.06], [0.18, -0.06], [0.18, 0.58], [-0.18, 0.58], [-0.18, -0.06], [-0.44, -0.06]];
-function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha) {
+
+// ── SEVEN SEGMENTS ───────────────────────────────────────────────────────────
+//
+// The distance is drawn as a SEGMENT DISPLAY rather than typed, and that one change is most of what
+// makes the board read as a machine instead of as a lit sign. A number in a font is a number
+// somebody painted; a number made of seven bars is a number something is COUNTING, and it is the
+// single most recognisable piece of digital furniture there is.
+//
+// Bars are in a 0..1 cell (x right, y down) and drawn in the panel's own surface coordinates, so
+// they lean and foreshorten with the face exactly as the lettering does.
+const SEG_BARS = {
+  //      x0    y0    x1    y1
+  a: [0.14, 0.04, 0.86, 0.04], b: [0.90, 0.09, 0.90, 0.46], c: [0.90, 0.54, 0.90, 0.91],
+  d: [0.14, 0.96, 0.86, 0.96], e: [0.10, 0.54, 0.10, 0.91], f: [0.10, 0.09, 0.10, 0.46],
+  g: [0.14, 0.50, 0.86, 0.50],
+};
+const SEG_ON = {
+  0: 'abcdef', 1: 'bc', 2: 'abdeg', 3: 'abcdg', 4: 'bcfg',
+  5: 'acdfg', 6: 'acdefg', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg',
+};
+// ⚠ THE DARK SEGMENTS ARE DRAWN TOO, and leaving them out is what makes a fake seven-segment look
+// like a stencil. On a real display every bar is physically there; the unlit ones sit a shade above
+// the panel and are most of why a `1` reads as a digit on a display rather than as a stray stroke.
+function drawSegDigit(ctx, P, ch, u0, v0, w, h, ink, dim, alpha) {
+  const on = SEG_ON[ch] || '';
+  for (const [k, [x0, y0, x1, y1]] of Object.entries(SEG_BARS)) {
+    const lit = on.includes(k);
+    const a = P(u0 + x0 * w, v0 + y0 * h), b = P(u0 + x1 * w, v0 + y1 * h);
+    if (a.f <= 0.12 || b.f <= 0.12) continue;
+    ctx.strokeStyle = lit ? ink : dim;
+    ctx.lineWidth = lit ? 2.4 : 1.6;
+    ctx.globalAlpha = (lit ? 1 : 0.5) * alpha;
+    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+  }
+  ctx.globalAlpha = alpha;
+}
+function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha, now = 0) {
   const th = (Number(sgn?.face) || 0) * Math.PI / 180;
   // The board faces the traffic, so its normal is the road's heading REVERSED. Map-space heading
   // vectors are [sin θ, −cos θ] here, the same convention the curved-road markings use (see `RA`
@@ -16384,9 +16420,35 @@ function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha) {
   // The bezel: a dark frame, then a thin bright inner line — the housing, and the glass in it.
   ctx.strokeStyle = dn ? 'rgba(14,18,20,0.95)' : 'rgba(26,32,34,0.9)';
   ctx.lineWidth = 3.2; poly(face); ctx.stroke();
-  ctx.strokeStyle = dn ? 'rgba(120,238,176,0.55)' : 'rgba(150,214,178,0.4)';
+  // The inner line is CYAN rather than the board's own green, which is the cheapest cyberpunk tell
+  // there is: a second colour that belongs to the machine and not to the highway. It reads as the
+  // edge of a screen sitting inside a housing rather than as a painted border.
+  ctx.strokeStyle = dn ? 'rgba(96,246,255,0.62)' : 'rgba(120,208,220,0.42)';
   ctx.lineWidth = 1; poly(quad(-0.97, 0.97, 0.015, 0.985)); ctx.stroke();
   const ink = dn ? '#9dffc8' : '#d8ffe6';
+  // A LIVE PANEL, said in the two cheapest ways available. A refresh sweep — one band a shade
+  // brighter, crawling down the face on a slow cycle, which is what a display does and a board
+  // never does — and a status LED in the corner that is simply on. Both ride the panel's own (u, v)
+  // so they lean with it; a screen-space sweep would slide across the sign as you drove past, which
+  // is the one thing that would give the whole effect away.
+  {
+    const t = (now % 4200) / 4200, band = 0.13;
+    const v = t * (1 + band) - band;
+    const a0 = Math.max(0.02, v), a1 = Math.min(0.98, v + band);
+    if (a1 > a0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(120,255,190,${(dn ? 0.075 : 0.045) * alpha})`;
+      poly(quad(-0.96, 0.96, a0, a1)); ctx.fill();
+      ctx.restore();
+    }
+    const led = P(0.93, 0.06);
+    if (led.f > 0.12) {
+      const rr = Math.max(0.8, 2.4 / led.f);
+      ctx.fillStyle = dn ? 'rgba(120,255,210,0.95)' : 'rgba(150,240,205,0.75)';
+      ctx.beginPath(); ctx.arc(led.sx, led.sy, rr, 0, 7); ctx.fill();
+    }
+  }
   const n = rows.length;
   for (let i = 0; i < n; i++) {
     const r = rows[i];
@@ -16395,8 +16457,18 @@ function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha) {
     // white core, which is what a glyph made of lamps looks like and what a painted one never does.
     const nq = quad(-0.94, 0.26, v0, v1);
     drawSurfaceText(ctx, nq[0], nq[1], nq[2], nq[3], bakeSignText(String(r.n || '').slice(0, 15), ink, dn, false, false), false, alpha);
-    const mq = quad(0.32, 0.68, v0, v1);
-    drawSurfaceText(ctx, mq[0], mq[1], mq[2], mq[3], bakeSignText(String(r.m ?? ''), ink, dn, false, false), false, alpha);
+    // THE DISTANCE, ON A SEGMENT DISPLAY. Right-aligned like every readout that counts down to
+    // something, and unpadded — a leading zero on a mileage is a clock, not a road sign, and the
+    // point is to borrow the *typeface* of a machine rather than to pretend the board is one.
+    {
+      const digits = String(r.m ?? '').replace(/[^0-9]/g, '').slice(-3);
+      const dh = (v1 - v0) * 0.66, dv = v0 + (v1 - v0 - dh) / 2;
+      const dw = 0.085, gap = 0.026, right = 0.70;
+      for (let k = 0; k < digits.length; k++) {
+        const u = right - (digits.length - k) * (dw + gap);
+        drawSegDigit(ctx, P, digits[k], u, dv, dw, dh, ink, dn ? 'rgba(40,96,70,0.85)' : 'rgba(46,86,68,0.7)', alpha);
+      }
+    }
     // 3. The arrow, rotated in the board's own plane. y is DOWN in panel space, so a clockwise turn
     //    (as the driver reads it) is the ordinary [x cos − y sin, x sin + y cos].
     const A = ((r.a | 0) % 8) * Math.PI / 4, ca = Math.cos(A), sa = Math.sin(A);

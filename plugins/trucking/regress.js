@@ -660,6 +660,31 @@ export default async function regress({ run, check, getPlayer }) {
           !onSib.ours || Math.abs(onSib.ours.t) > pavedAt(r, onSib.ours.s),
           onSib.ours ? `verge t=${onSib.ours.t.toFixed(1)}` : 'no fix at all — a bog');
       }
+      // ── ⚠ AND NOTHING MAY STEER FOR YOU ON THE WAY ACROSS ────────────────────
+      // Taking an exit means leaving one limb before reaching the other, and for that moment the
+      // road you are on has let go. `bogged` is `!hit`, and being bogged snaps you to the centreline
+      // of the road you were LEAVING, facing down it — the client adopts that pose wholesale. So
+      // requiring the sibling's carriageway before handing you over put a force on the wheel at
+      // exactly the place a driver is steering hardest: you steered off, and the truck steered back.
+      // Bogging means NO road has you. These walk the gap and assert somebody always does.
+      {
+        let stranded = null;
+        for (let s = r.trunkL + 2; s <= Math.min(r.L, sib.route.L) - 2 && !stranded; s += 3) {
+          const on = corridorPos(sib.route, s, 0);          // where the far limb's tarmac is
+          const from = corridorLocate(r, on.x, on.y);
+          if (!from) continue;                              // already fully off ours — covered above
+          // Step across from our centreline toward theirs, the way a driver actually does it.
+          const here = corridorPos(r, from.s, 0);
+          for (let k = 0.1; k <= 1 && !stranded; k += 0.1) {
+            const px = here.x + (on.x - here.x) * k, py = here.y + (on.y - here.y) * k;
+            const ours = corridorLocate(r, px, py);
+            const theirs = corridorLocate(sib.route, px, py);
+            if (!ours && !theirs) stranded = `s=${s.toFixed(0)} k=${k.toFixed(1)}`;
+          }
+        }
+        check('crossing between the limbs, some road always has you — nothing bogs you mid-exit',
+          !stranded, stranded);
+      }
     }
   }
 

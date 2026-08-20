@@ -797,8 +797,20 @@ export function reconcileTruck(rig, d, now = Date.now()) {
     for (const b of rig.route.branches) {
       const bh = corridorLocate(b.route, rig.x, rig.y);
       if (!bh) continue;
-      const paved = pavedAt(b.route, bh.s);
-      if (Math.abs(bh.t) > paved || Math.abs(bh.t) >= ours) continue;
+      if (Math.abs(bh.t) >= ours) continue;              // not nearer than the road we are on
+      // ⚠ THE CARRIAGEWAY TEST ONLY APPLIES WHILE OUR OWN ROAD STILL HAS US, and leaving that out
+      // is what put a FORCE on the wheel at the exit. Requiring their pavement unconditionally is
+      // right for the case it was written for — you must not be handed to the other road while
+      // still squarely on your own — and it is wrong for the case that actually happens when you
+      // take an exit: you leave your limb, and for a moment you are in the GAP, off our band and
+      // not yet on their tarmac. `bogged` is `!hit`, so the server unbogged you — which snaps you
+      // to the centreline of the road you were leaving, facing down it, and the client adopts that
+      // pose wholesale (cab-view.js, the `ctx.bogged` branch). You steered off, and the truck
+      // steered itself back.
+      //
+      // Bogging means NO ROAD HAS YOU. If another one does, you are not bogged, you are on it — so
+      // once ours has let go, anywhere in their band is enough.
+      if (hit && Math.abs(bh.t) > pavedAt(b.route, bh.s)) continue;
       if (!best || Math.abs(bh.t) < Math.abs(best.hit.t)) best = { b, hit: bh };
     }
     if (best) {
