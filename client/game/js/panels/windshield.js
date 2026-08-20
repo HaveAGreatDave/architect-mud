@@ -10982,6 +10982,9 @@ export function markRenderSmoke() {
     // A board with no rows at all is a real state (a limb whose chains have gone missing) and must
     // return quietly rather than paint an empty green rectangle or divide by zero.
     ['sign:empty', (night, alpha) => drawRoadSign(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, { face: 0, rows: [] }, foot, night, alpha)],
+    // Several seeds, because the lean, the height and the broken cross-arm are all rolled per tile —
+    // a stand of them is the case, and one of them is not.
+    ...[0, 1, 2, 3].map((k) => [`pylons:${k}`, (night, alpha) => drawPylons(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, night, alpha, k * 11 + 3)]),
   ];
   for (const [key, fn] of cases) {
     for (const night of [0, 0.9]) {
@@ -15441,7 +15444,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
     if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
-    if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha)); continue; }   // THE LONG HAUL — a distance board on the void corridor's verge
+    if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha)); continue; }
+    if (it.c.mark === 'pylons') { emitFace(od, () => drawPylons(ctx, cam, it.dx, it.dy, night, alpha, it.seed)); continue; }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
     if (it.c.mark === 'bay') { emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
@@ -16236,6 +16240,77 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
 // depended on a monospace font having ↗ in it at a legible weight on every machine; it is a
 // polygon in the board's own surface coordinates instead, so it leans and foreshortens with the
 // panel exactly as the lettering does and can never come out as a box.
+// ── DEAD PYLONS ──────────────────────────────────────────────────────────────
+//
+// The thing at an interchange. The junction has been narrated for a long time as "the graded road
+// splits around a stand of dead pylons" and there were no pylons — the line fired on a node crossing
+// and the windscreen showed the same empty verge as everywhere else. That gap got worse rather than
+// better when the fork stopped being a room boundary and became a place, because a place you cannot
+// see is a room boundary with a better comment.
+//
+// ⚠ NOT `mast()`, THOUGH IT IS RIGHT THERE. That helper ends in `blinkLight` — a red aviation
+// beacon — and the one thing these are is DEAD. A pylon that still winks at aircraft is a pylon
+// somebody is maintaining, which is the opposite of what the whole waste is saying.
+//
+// ⚠ AND NOT A BUILDING. Same argument as the highway sign: a lattice tower has no mass worth
+// extruding, nothing to occlude behind, and making it a `building_type` would put it into the
+// collision sweep — where the landmark marking a junction becomes a thing that stops a truck at
+// the junction.
+const PYL_H = 2.05;
+function drawPylons(ctx, cam, dx, dy, night, alpha, seed) {
+  const r = (k) => frac(seed * 7.13 + k * 3.77);
+  const H = PYL_H * (0.82 + r(1) * 0.36);
+  const base = 0.16 + r(2) * 0.05, top = base * 0.34;
+  // A lean, because nothing out here is plumb any more. Small — a pylon at forty-five degrees is a
+  // collapsed pylon, and a collapsed one reads as debris rather than as the thing marking a corner.
+  const lean = (r(3) - 0.5) * 0.13, leanY = (r(4) - 0.5) * 0.10;
+  const P = (u, v, z) => cam.proj(dx + u + lean * (z / H), dy + v + leanY * (z / H), z);
+  const legs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  const foot = legs.map(([a, b]) => P(a * base, b * base, 0));
+  const head = legs.map(([a, b]) => P(a * top, b * top, H));
+  if (foot.some((p) => p.f <= 0.12) || head.some((p) => p.f <= 0.12)) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // Weathered galvanised steel: paler than the ground by day, and barely there at night, because
+  // nothing lights them. Legible as a silhouette, never as a highlight.
+  ctx.strokeStyle = night > 0.4 ? 'rgba(96,102,112,0.62)' : 'rgba(150,156,166,0.78)';
+  ctx.lineWidth = 1.1; ctx.lineJoin = 'round';
+  const line = (a, b) => { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); };
+  for (let i = 0; i < 4; i++) line(foot[i], head[i]);
+  // Cross-bracing up the body — the X between each pair of legs, which is the whole visual
+  // signature of a lattice tower and the reason four bare lines would read as scaffolding.
+  const BANDS = 4;
+  for (let k = 1; k <= BANDS; k++) {
+    const z0 = H * (k - 1) / BANDS, z1 = H * k / BANDS;
+    const w0 = base + (top - base) * ((k - 1) / BANDS), w1 = base + (top - base) * (k / BANDS);
+    for (let i = 0; i < 4; i++) {
+      const [ax, ay] = legs[i], [bx, by] = legs[(i + 1) % 4];
+      const lo0 = P(ax * w0, ay * w0, z0), lo1 = P(bx * w0, by * w0, z0);
+      const hi0 = P(ax * w1, ay * w1, z1), hi1 = P(bx * w1, by * w1, z1);
+      if ([lo0, lo1, hi0, hi1].some((p) => p.f <= 0.12)) continue;
+      line(lo0, hi1); line(lo1, hi0);          // the X
+      if (k < BANDS) line(hi0, hi1);           // the band it sits under
+    }
+  }
+  // The cross-arms. Two of them, stepped, which is what says POWER PYLON rather than radio mast —
+  // and one of them is short, because these have been out here a long time.
+  const broke = r(5) < 0.34;
+  for (const [zf, spanF, k] of [[0.80, 1.0, 6], [0.94, 0.72, 7]]) {
+    const z = H * zf, span = (0.34 + r(k) * 0.08) * spanF;
+    const l = P(-span, 0, z), rr = P(broke && zf > 0.9 ? span * 0.35 : span, 0, z);
+    if (l.f > 0.12 && rr.f > 0.12) {
+      line(l, rr);
+      // Insulators hanging off the arm ends: two short down-strokes, the detail that stops the arms
+      // reading as a plain cross.
+      for (const e of [l, rr]) {
+        const d = cam.proj(dx + (e === l ? -span : span) + lean * (z / H), dy + leanY * (z / H), z - 0.09);
+        if (d.f > 0.12) line(e, d);
+      }
+    }
+  }
+  ctx.restore();
+}
+
 const SIGN_Z0 = 0.60, SIGN_Z1 = 1.18;   // panel bottom and top, world-z (a gate arch is 1.05)
 // The arrow, pointing straight up the board, in panel-local units (x across, y DOWN) — rotated per
 // row by 45° a step. Head, then the shaft, as one closed path.

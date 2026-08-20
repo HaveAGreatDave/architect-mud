@@ -958,6 +958,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     : cell.flags?.yacht ? 'yacht'
     : cell.flags?.perimeter_gate ? 'gate'
     : cell.flags?.road_sign ? 'sign'
+    : cell.flags?.junction_pylons ? 'pylons'
     : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.
   let wake, sub, heading;

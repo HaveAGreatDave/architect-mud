@@ -111,6 +111,17 @@ share a spoke exactly when they genuinely start off the same way** — which is 
 was always supposed to mean. It is the same answer as "a region has several exits", one level down,
 and reached the same way: the map says how many there should be, so nothing authors a number.
 
+**The interchange is a place you can SEE.** The junction line has said *"the graded road splits
+around a stand of dead pylons"* for a long time and there were no pylons — it fired on a node
+crossing and the windscreen showed the same empty verge as everywhere else. That gap got worse
+rather than better when the fork stopped being a room boundary, because **a place you cannot see is
+a room boundary with a better comment**. `joinRoutes` snaps a stand of them to tiles at each seam,
+on the verge. ⚠ Not `mast()`, though it is right there — that helper ends in `blinkLight`, a red
+aviation beacon, and the one thing these are is *dead*: a pylon that still winks at aircraft is a
+pylon somebody is maintaining. ⚠ Not a `building_type` either, same argument as the sign — a lattice
+tower has no mass worth extruding, and a landmark at the one place you are choosing a road is the
+worst possible thing to make solid.
+
 ⚠ **An interchange never sits past the halfway point.** On a short hop the two would overshoot and
 the middle would run *backwards* between them — a road doubling back, which `locate` resolves by
 handing out two positions for one tile.

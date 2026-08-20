@@ -907,6 +907,12 @@ export function corridorAt(route, x, y) {
   // Same tolerance band as the wreck below, and for the same reason — on a curve the row of tiles
   // at a fixed lateral offset is a diagonal, so `Math.round(t) === SIGN_OFF` would stand the board
   // up on some stretches and not on others.
+  // The pylons at an interchange — the thing the junction line has always said is there. Snapped at
+  // build time (see joinRoutes) and tested by equality for the same reason the board is.
+  if ((route.junctions || []).some((j) => j.x === x && j.y === y)) {
+    flags.junction_pylons = 1;
+    return { id, name: 'Dead Pylons', danger, flags };
+  }
   const g = (route.signs || []).find(k => k.x === x && k.y === y);
   if (g) {
     // `face` is the road's own heading at the post; the renderer turns the panel 180° from it,
@@ -1074,6 +1080,8 @@ export function joinRoutes(parts) {
   // with no sign on it.
   for (let i = 0, acc = 0; i < list.length - 1; i++) { acc += list[i].L; bends.push({ s: acc, seam: true }); }
   bends.sort((a, b) => a.s - b.s);
+  const seams = [];
+  for (let i = 0, acc = 0; i < list.length - 1; i++) { acc += list[i].L; seams.push(acc); }
   const first = list[0];
   const out = { ...first, legs, bends, L: s,
     // A room is a fraction of the WHOLE road, not of its first segment — the crossing's chain is
@@ -1086,6 +1094,24 @@ export function joinRoutes(parts) {
     segments: list.map((r) => ({ seedKey: r.seedKey || `${r.voidKey}|${r.destKey}`, L: r.L })),
     signs: [], branches: [] };
   out.index = buildIndex(out);
+  // ── THE INTERCHANGE, AS SOMETHING YOU CAN SEE ──────────────────────────────
+  // The junction has been narrated for a long time as "the graded road splits around a stand of
+  // dead pylons", and there were no pylons: the line fired on a node crossing and the windscreen
+  // showed the same empty verge it showed everywhere else. That gap is worse now rather than
+  // better, because the fork has just stopped being a room boundary and become a PLACE — and a
+  // place you cannot see is a room boundary with a better comment.
+  //
+  // ⚠ SNAPPED TO TILES ONCE, HERE, exactly as a sign is (see the ⚠ in signsFor). Matched on a
+  // tolerance band instead, a pylon comes out as a thicket of four identical masts in a row, which
+  // reads as a mistake rather than as a landmark. They stand on the verge — clear of the shoulder,
+  // so the thing marking the junction is never a thing you can drive into.
+  out.junctions = [];
+  for (const s of seams) {
+    for (const side of [-1, 1]) {
+      const p = corridorPos(out, s, side * 3.4);
+      out.junctions.push({ x: Math.round(p.x), y: Math.round(p.y), s });
+    }
+  }
   return out;
 }
 

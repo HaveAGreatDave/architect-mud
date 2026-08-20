@@ -847,6 +847,31 @@ export default async function regress({ run, check, getPlayer }) {
         // interchange is the one turn a driver most needs telling about.
         check('…including one on the approach to the interchange',
           road.signs.some((g) => Math.abs(g.s - road.trunkL) < 60), road.signs.map((g) => g.s | 0).join(','));
+        // ── THE INTERCHANGE IS SOMETHING YOU CAN SEE ──────────────────────────
+        // The junction line has said "the graded road splits around a stand of dead pylons" for a
+        // long time, and there were no pylons — it fired on a node crossing and the windscreen
+        // showed the same empty verge as everywhere else. That gap is worse now that the fork is a
+        // PLACE rather than a room boundary, because a place you cannot see is a room boundary with
+        // a better comment.
+        check('an interchange has the pylons the junction line has always promised',
+          (road.junctions || []).length >= 2, `${road.junctions?.length ?? 0} pylons`);
+        {
+          const marked = (road.junctions || []).filter((j) =>
+            corridorAt(road, j.x, j.y)?.flags?.junction_pylons === 1);
+          check('…standing on real tiles, so the renderer is handed something',
+            marked.length === road.junctions.length, `${marked.length}/${road.junctions.length}`);
+          // ⚠ ON THE VERGE. The thing marking a junction must never be a thing you drive into: the
+          // sweep collides against anything solid, and a landmark you hit at the one place you are
+          // choosing a road is the worst possible place to put an obstacle.
+          check('…clear of the tarmac and the shoulder, so it is never something you hit',
+            road.junctions.every((j) => {
+              const hit = corridorLocate(road, j.x, j.y);
+              return hit && Math.abs(hit.t) > pavedAt(road, hit.s) + 1.0;
+            }));
+          check('…and it survives deriveSurfaceCell as a mark the windscreen knows',
+            mapWindow({ grid_x: road.junctions[0].x, grid_y: road.junctions[0].y }, 1,
+              corridorProvider(road))[1][1].mark === 'pylons');
+        }
       }
     }
   }
