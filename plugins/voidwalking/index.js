@@ -93,12 +93,22 @@ export const VOIDS = {
       //
       // The `length: 12` here is now derived too, and comes out at MAX_ROOMS: the gates are 282
       // tiles apart, which is 23 rooms before the clamp. That is a real answer rather than a
-      // failure — the ROAD is 282 tiles whatever this says, so the range gate below is untouched;
-      // what the clamp changes is that the longest crossing gets longer rooms rather than a
-      // silly number of them. Fifteen rooms still puts Terminus beyond the range
-      // of the two cheapest trucks and beyond ANY truck's round trip, so the fleet ladder doubles
-      // as a map gate and the far yard's fuel pump is the only way home. See
-      // docs/proposals/terminus.md.
+      // failure — the ROAD is 282 tiles whatever this says — and what the clamp changes is that the
+      // longest crossing gets longer rooms rather than a silly number of them.
+      //
+      // ⚠ THE RANGE GATE THIS COMMENT USED TO CLAIM DOES NOT EXIST, AND NEVER DID. It said fifteen
+      // rooms put Terminus "beyond the range of the two cheapest trucks and beyond ANY truck's
+      // round trip, so the fleet ladder doubles as a map gate". That was read off the `route`
+      // picker, which computed a distance as room count × 90 — the UNANCHORED per-room constant —
+      // and so reported this crossing at 1,350 tiles. The road is 282. Fuel burns `moved / tank`
+      // over the real road (plugins/trucking/state.js) and the cheapest tank is 850 tiles, so a
+      // Scrapper has always been able to reach Terminus and come back on two thirds of a tank.
+      //
+      // The picker tells the truth now, which means it prints 'ok' where it used to warn. Nothing
+      // about the sim changed; a surface stopped misreporting it. IF THE MAP GATE IS WANTED, it has
+      // to go in the tanks or the burn rate — somewhere that actually bites — and not back into a
+      // number this file multiplies by the wrong constant. See docs/proposals/terminus.md, whose
+      // design intent for the gate is still unbuilt rather than merely undone.
       { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Exodus', sign: 'Terminus', dir: 'east' },
       // DEADWATER, southwest, landing at the Roadhead six tiles in off its east rim.
       //
@@ -300,6 +310,27 @@ function gridDist(a, b) {
 // the same shape as registerZoneReloadHook and registerMinimapNodeFilter.
 let _gateDistance = null;
 export function registerCrossingDistance(fn) { if (typeof fn === "function") _gateDistance = fn; }
+
+// HOW FAR A CROSSING IS, IN TILES — the road's real length, gate to gate.
+//
+// Published here rather than read off `gatePair` by each caller because the trucking plugin owns
+// the pairing and imports THIS module, so the dependency only runs one way. The room count and the
+// distance therefore come from one source, and a caller cannot end up with a length that disagrees
+// with the count derived from it.
+//
+// ⚠ THE STRAIGHT LINE, NOT THE ARC. The built road bends, so its true length is a couple of per
+// cent longer than this (282 tiles of gap comes out as a 288-tile road). That gap is deliberately
+// not chased: this number exists so a driver can budget a tank, and two per cent is far inside the
+// margin they would leave anyway. Reporting the arc would mean building the road to ask.
+export function crossingDistance(fromKey, dest) {
+  if (_gateDistance && fromKey && dest?.region) {
+    const gd = _gateDistance(fromKey, dest.region);
+    if (gd > 0) return gd;
+  }
+  // No pairing available (trucking not loaded, or a far end that publishes no gate): fall back to
+  // the room count at the anchored per-room length, which is the same arithmetic one step removed.
+  return crossingRooms(fromKey, dest) * ROOM_TILES;
+}
 
 // THE PUBLIC NAME, because two other places were answering this question for themselves.
 //

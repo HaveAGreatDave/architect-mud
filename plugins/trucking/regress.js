@@ -617,6 +617,39 @@ export default async function regress({ run, check, getPlayer }) {
       // number somebody liked the look of.
       check('the Reach still forks exactly halfway', roomsFor('region_coldwater', 'reach') === V.region_coldwater.trunk * 2,
         `${roomsFor('region_coldwater', 'reach')} rooms, trunk ${V.region_coldwater.trunk}`);
+
+      // ── ONE JOURNEY, ONE DISTANCE ────────────────────────────────────────────
+      // The `route` picker used to print a room count times 90 — the UNANCHORED per-room constant —
+      // so it called the Reach 720 tiles while the road it builds is 93 and the mile board on that
+      // road's own verge says 31. Eight times apart, on two surfaces describing one journey, which
+      // is exactly what the single shared mile conversion exists to prevent.
+      const { crossingDistance } = vw;
+      for (const [fromKey, def] of Object.entries(V)) {
+        for (const d of def.dests || []) {
+          const gd = dist(fromKey, d.region);
+          const printed = crossingDistance(fromKey, d);
+          const label = `${fromKey.replace('region_', '')}→${d.key}`;
+          check(`${label}: the picker's distance IS the road's distance`,
+            Math.abs(printed - gd) < 1, `${printed.toFixed(0)} vs ${gd.toFixed(0)}`);
+          // ⚠ THE NUMBER THAT WOULD HAVE CAUGHT IT. The old arithmetic is off by roughly the ratio
+          // between the unanchored constant and the real one (90 to 12), so anything still using it
+          // lands several times high. A future edit that quietly reintroduces `rooms × 90` fails
+          // here rather than in a player's fuel budget.
+          check(`${label}: …and is nowhere near the room-count-times-90 it used to print`,
+            printed < roomsFor(fromKey, d.key) * 90 * 0.5,
+            `${printed.toFixed(0)} vs ${roomsFor(fromKey, d.key) * 90}`);
+        }
+      }
+
+      // AND THE RANGE BANDS FOLLOW THE SIM RATHER THAN THE FICTION. Fuel burns `moved / tank` over
+      // the real road and the cheapest tank is 850 tiles, so a round trip to the furthest
+      // destination fits — which is the honest state of the world and was ALWAYS the honest state
+      // of it. The warning that said otherwise was reading the fiction. If a range gate is wanted
+      // it goes in the tanks; this asserts only that the surface and the sim now agree.
+      const worst = Math.max(...Object.entries(V).flatMap(([k, def]) =>
+        (def.dests || []).map(d => crossingDistance(k, d))));
+      check('the furthest crossing is within the cheapest tank, both ways', worst * 2 < 850,
+        `${worst.toFixed(0)} tiles each way`);
     }
     check('…and so does its back face', r.signs.every(g => leadsAhead(g.back)));
     // The one that would have caught the report: on a two-way road the two faces must not open

@@ -22,8 +22,8 @@
 // are standing in, and whether the fork is still ahead — are passed IN by the caller. Both callers
 // pass them from the same single implementations, so nothing is duplicated by doing it this way.
 import { getZone } from '../../server/engine/world.js';
-import { crossingInfo, crossingRooms, VOIDS } from '../voidwalking/index.js';
-import { TILES_PER_ROOM, milesOf } from './corridor.js';
+import { crossingInfo, crossingDistance, VOIDS } from '../voidwalking/index.js';
+import { milesOf } from './corridor.js';
 
 // Which destination a rig is CURRENTLY pointed at. A contracted load outranks the aim, because a
 // run knows where it is going and asking twice would be ceremony.
@@ -82,13 +82,22 @@ export function routeOptions(rig, { zoneId = null, forkAhead = true } = {}) {
     // In a yard the fork has not been reached, let alone passed, so the choice is always live.
     forkAhead: onRoad ? !!forkAhead : true,
     dests: dests.map((d) => {
-      // ⚠ THE FOURTH PLACE THAT READ `d.length`, and the one that had been quietly wrong the
-      // longest. It multiplies a ROOM COUNT by the UNANCHORED per-room constant (90) to get a
-      // distance — so this picker has been telling drivers the Reach is 720 tiles away while the
-      // road it builds is 93. See the note in index.js: that gap is a real disagreement with the
-      // mile boards and it is not this commit's to settle, so the arithmetic is preserved exactly
-      // and only the room count now comes from the derivation instead of a field that is gone.
-      const tiles = crossingRooms(voidKey, d) * TILES_PER_ROOM;
+      // ⚠ THE REAL DISTANCE, AND IT USED TO BE A ROOM COUNT TIMES 90.
+      //
+      // 90 is the UNANCHORED per-room constant, so this picker was telling drivers the Reach is 720
+      // tiles away — 240 miles — while the road it builds is 93 tiles and the mile board standing on
+      // the verge of that same road says 31. Two surfaces describing one journey, eight times apart,
+      // which is precisely the failure the boards were given a shared conversion to avoid: nobody
+      // can budget a tank against two numbers.
+      //
+      // ⚠ AND THE REACH BANDS BELOW GO HONEST WITH IT, WHICH CHANGES WHAT THEY SAY. Fuel burns
+      // `moved / tank` over the REAL road (state.js), and the tanks run 850 to 2100 tiles — so every
+      // crossing has always been comfortably inside every truck's range, including the cheapest.
+      // The 'further than your tank' warning was computed from the fiction and was the ONLY place
+      // the range gate existed; it was never in the sim. Printing 'ok' everywhere is not a nerf, it
+      // is this surface stopping saying something that was not true. If that gate is wanted back it
+      // belongs in the tanks, where it would actually bite.
+      const tiles = Math.round(crossingDistance(voidKey, d));
       return {
         key: d.key,
         heading: d.heading,
