@@ -16,7 +16,7 @@ import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, 
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
-import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
+import { COMMODITIES, REGIONS, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
 import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim,
   customColourway, sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from '../../client/shared/cab-trim.js';
@@ -1456,6 +1456,17 @@ export default async function regress({ run, check, getPlayer }) {
     check('…and a different one tomorrow', midPrice('parts', CW, 500) !== midPrice('parts', CW, 501));
     check('a depot sells dearer than it buys', askPrice('parts', CW, 500) > bidPrice('parts', CW, 500));
     check('an unknown region trades at par rather than throwing', midPrice('parts', 'region_nowhere', 500) > 0);
+
+    // ⚠ AND PAR IS THE FALLBACK FOR CONTENT THAT HAS NOT ARRIVED YET, NEVER FOR A PLACE YOU CAN
+    // DRIVE A TRUCK INTO. A region with a depot has a yard, a board and a market verb; if it has no
+    // profile it trades at 1.0 across the board and is character-free — the numbers still work, so
+    // nothing fails and nobody notices. Terminus and the Scarletwastes sat like that for months.
+    // Author the row in the same pass as the depot.
+    {
+      const withDepots = [...new Set(truckTest.allDepots().map(d => d.flags?.region_id).filter(Boolean))];
+      const unpriced = withDepots.filter(r => !REGIONS[r]);
+      check('every region you can drive to has an authored market profile', unpriced.length === 0, unpriced.join(' '));
+    }
 
     // Every commodity must be profitable in exactly ONE direction, averaged over a month. A good
     // that pays both ways is free money; a good that pays neither is dead weight on the board.

@@ -2449,7 +2449,21 @@ function drawCabInterior(ctx, W, H, v) {
   // them against a lit board, and a dial sitting at its daylight glow in a black cab reads flat.
   // ONE NUMBER, carried on the trim row every dial already receives, so nothing downstream needed
   // a new argument. The backlight pass in drawCabDial is its only reader.
-  T = { ...T, glowK: 1 + (domeOn ? 0 : 1.75 * litK) };
+  //
+  // ⚠ AND THE PANEL LAMPS ARE ON THE LIGHT SWITCH, WHICH IS THE HALF THAT WAS MISSING. This read
+  // the DOME lamp and nothing else, so the instrument backlight came up only when you turned the
+  // cab light OFF — and pressing LAMPS, the one control on the board a driver would expect to light
+  // the dials, did nothing to them at all. On a truck the instrument lighting is on the same switch
+  // as the running lights; here that is `v.landingLight`, which the cab already sends four times a
+  // second off `st.heads`. So LAMPS is now the main contributor and the dome-off wind-up is a
+  // smaller one on top, which is the real relationship: the panel lamps light the dials, and
+  // killing the dome light just stops your eye judging them against a lit board.
+  //
+  // ⚠ BOTH TERMS SCALE WITH `litK`. In daylight the answer must stay exactly 1 — not merely small —
+  // because 1 is what the halo pass below tests against, and a dash that glowed at noon would be
+  // the same bug pointing the other way.
+  const panelLamps = v?.landingLight !== false;
+  T = { ...T, glowK: 1 + litK * ((panelLamps ? 1.15 : 0) + (domeOn ? 0 : 0.9)) };
 
   // 4c. THE INSTRUMENT PANEL — and this is where the truck's instruments LIVE now, all of them.
   //
@@ -2932,13 +2946,28 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   // plate around it; without that the dials are bright discs with a hard edge, which is a diagram
   // again. Drawn OUTSIDE the face and only once the lamp is wound up, so a daylit dash neither
   // changes nor pays for it.
+  // ⚠ A LINEAR ALPHA RAMP TO ZERO OVER A DARK CAB DRAWS A VISIBLE CIRCLE, which is what this did:
+  // a soft spill reported as 'weird rings around the gauges when dark'. Nothing here was drawing a
+  // stroke. An 8-bit destination quantises the tail of the ramp, and the last step before it
+  // rounds to nothing lands on one radius — so the fade terminates in a contour, and additive
+  // blending over a near-black dash is the worst case for seeing it. Reaching r * 1.9 put that
+  // contour well outside the bezel and across the neighbouring dial, which is why it read as a
+  // ring around the cluster rather than as a glow around an instrument.
+  //
+  // The fix is the SHAPE of the falloff, not its strength: most of the ramp is spent in the first
+  // third, so the outer half is already within a step of zero and there is no visible edge left to
+  // quantise. Pulled in to 1.45r as well — a bulb behind a dial lights the plate it is mounted on,
+  // not the one next to it.
   if (gk > 1.02) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const halo = ctx.createRadialGradient(cx, cy, r * 0.92, cx, cy, r * 1.9);
-    halo.addColorStop(0, hexA(T.glow, 0.11 * (gk - 1)));
+    const a0 = 0.075 * Math.min(1.6, gk - 1);
+    const halo = ctx.createRadialGradient(cx, cy, r * 0.94, cx, cy, r * 1.45);
+    halo.addColorStop(0, hexA(T.glow, a0));
+    halo.addColorStop(0.34, hexA(T.glow, a0 * 0.42));
+    halo.addColorStop(0.66, hexA(T.glow, a0 * 0.13));
     halo.addColorStop(1, hexA(T.glow, 0));
-    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
   ctx.restore();

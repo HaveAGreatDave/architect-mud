@@ -2211,27 +2211,74 @@ export function openCab(ctx = {}) {
       if (!cv || !cv.getContext) return;
       const g = cv.getContext('2d');
       g.clearRect(0, 0, cv.width, cv.height);
-      if (corridor) drawRouteStrip(g, cv, leg); else drawLocalMap(g, cv, leg);
+      // ⚠ THE CORRIDOR GETS THE MAP TOO NOW, AND THE STRIP BECOMES ITS FOOTER. The note above used
+      // to end "so it draws the ROUTE instead", and that was right when the void was a ruler-
+      // straight run of identical tiles. It has not been that for a while: the road BENDS, the
+      // verge is a classified band either side of a real centreline, there are mile boards and
+      // junction pylons on the shoulder, forks with sibling limbs, and wrecks where somebody did
+      // not finish. A window of that is worth looking at — and the one thing a progress bar can
+      // never show you is the bend you are already in.
+      //
+      // So both, rather than a choice: the window is the instrument and the strip is the ribbon
+      // under it, still carrying the nodes, the mileage and the turn call. Nothing new is on the
+      // wire for any of it — `st.map` is synthesised on the corridor exactly as it is in a city
+      // (see providerFor in plugins/trucking/state.js), and the windshield has been eating it the
+      // whole time.
+      const RIBBON = 54;
+      const full = { x: 0, y: 0, w: cv.width, h: cv.height };
+      if (corridor) {
+        // The window draws SILENT out here — one legend, and it is the strip's, because miles to
+        // run and the turn call beat a tile coordinate nobody can do anything with in the void.
+        drawLocalMap(g, cv, null, { x: 0, y: 0, w: cv.width, h: cv.height - RIBBON });
+        drawRouteStrip(g, cv, leg, { x: 0, y: cv.height - RIBBON, w: cv.width, h: RIBBON });
+      } else drawLocalMap(g, cv, leg, full);
     }
     // Colours are deliberately few and flat. This is an instrument, not a picture: what a driver
     // needs off it in a glance is where the roads are and where the buildings are not.
-    const MAP_INK = { road: '#4d5560', bldg: '#20262e', water: '#1d3550', field: '#2c3a2e', land: '#2a2620', air: '#12151a' };
+    const MAP_INK = { road: '#4d5560', bldg: '#20262e', water: '#1d3550', field: '#2c3a2e', land: '#2a2620', air: '#12151a',
+      // The two the corridor needs and a city does not: the made surface you want to be on, and the
+      // graded band either side of it that is merely slow. They are close together on purpose — the
+      // verge is not a hazard stripe, it is the same road with less of it under you.
+      paved: '#5a6472', verge: '#403a30' };
     function cellInk(c) {
       if (!c || c.kind === 'air') return MAP_INK.air;
       if (c.bt) return MAP_INK.bldg;
+      // ⚠ THE CORRIDOR IS A BAND, NOT A LINE, so `road` alone flattens the whole width to one grey
+      // and the driver cannot see which part of it they are on — which out here is the only
+      // question the map is being asked. `rt`/`rw` are the tile's own offset from the centreline
+      // and the paved half-width, and they travel together or not at all (see deriveSurfaceCell).
+      if (c.rdeg !== undefined && c.rw !== undefined) {
+        return Math.abs(c.rt || 0) <= c.rw ? MAP_INK.paved : MAP_INK.verge;
+      }
       if (c.road) return MAP_INK.road;
       if (c.biome === 'water' || c.sub) return MAP_INK.water;
       if (c.kind === 'field') return MAP_INK.field;
       return MAP_INK.land;
     }
-    function drawLocalMap(g, cv, leg) {
+    // `rect` is the box on the canvas this map may have, because on the corridor it shares the
+    // glass with the route ribbon. `leg` is optional for the same reason — two functions writing
+    // the one legend element means whichever ran last wins, silently.
+    function drawLocalMap(g, cv, leg, rect = { x: 0, y: 0, w: cv.width, h: cv.height }) {
       const rows = st.map;
-      if (!rows || !rows.length) { leg.innerHTML = '<span class="cab-routes-none">No fix.</span>'; return; }
-      const n = rows.length, px = Math.min(cv.width, cv.height) / n;
-      const ox = (cv.width - px * n) / 2, oy = (cv.height - px * n) / 2;
+      if (!rows || !rows.length) { if (leg) leg.innerHTML = '<span class="cab-routes-none">No fix.</span>'; return; }
+      const n = rows.length, px = Math.min(rect.w, rect.h) / n;
+      const ox = rect.x + (rect.w - px * n) / 2, oy = rect.y + (rect.h - px * n) / 2;
       for (let r = 0; r < n; r++) for (let c = 0; c < rows[r].length; c++) {
         g.fillStyle = cellInk(rows[r][c]);
         g.fillRect(ox + c * px, oy + r * px, Math.ceil(px), Math.ceil(px));
+      }
+      // THE THINGS ON THE SHOULDER. A board, a set of junction pylons, a depot door — the landmarks
+      // that make one stretch of corridor distinguishable from the next, which is precisely what
+      // the old note said a void window could never be. They ride the `mark` channel the windshield
+      // already extrudes from, so nothing is authored twice and a mark that never reaches the 3D
+      // view can never appear here either.
+      const MARK_INK = { sign: '#c9d2dc', pylons: '#7d8794', bay: '#e8b455', gate: '#9aa6b4', statue: '#6f7a88' };
+      for (let r = 0; r < n; r++) for (let c = 0; c < rows[r].length; c++) {
+        const ink = MARK_INK[rows[r][c]?.mark];
+        if (!ink) continue;
+        g.fillStyle = ink;
+        const d = Math.max(2, px * 0.42);
+        g.fillRect(ox + (c + 0.5) * px - d / 2, oy + (r + 0.5) * px - d / 2, d, d);
       }
       // ⚠ THE TRUCK IS NOT AT THE CENTRE OF THE WINDOW, it is at its own fractional position inside
       // the centre TILE — `mapX/mapY` are the window's rounded centre and `sim.x/y` are where the
@@ -2246,15 +2293,26 @@ export function openCab(ctx = {}) {
       g.fill(); g.stroke(); g.restore();
       g.fillStyle = '#8c98a6'; g.font = '10px system-ui, sans-serif'; g.textAlign = 'left';
       g.fillText('N', ox + 5, oy + 13);
-      leg.innerHTML = `<b>${Math.round(st.mapX)}, ${Math.round(st.mapY)}</b>`
-        + `<span class="td-dim"> · heading ${Math.round(st.sim?.heading ?? 0)}° · ${esc(String(st.input?.surface || 'road')).toUpperCase()}</span>`;
+      if (leg) {
+        leg.innerHTML = `<b>${Math.round(st.mapX)}, ${Math.round(st.mapY)}</b>`
+          + `<span class="td-dim"> · heading ${Math.round(st.sim?.heading ?? 0)}° · ${esc(String(st.input?.surface || 'road')).toUpperCase()}</span>`;
+      }
     }
     // The corridor, drawn as the thing it is: one line with a start, an end and you on it. `s`/`L`
     // are the server's own numbers — the same pair the odometer is derived from — so the dot cannot
     // drift from the mileage printed under it.
-    function drawRouteStrip(g, cv, leg) {
+    // It is now the FOOTER of the corridor map rather than the whole of it, so it takes a `rect`
+    // and lives in it — the line sits high in the band with the two end labels under it, which is
+    // the only arrangement that fits without either clipping the words or stealing height from the
+    // window above. The geometry is the only thing that changed; every number it prints is still
+    // the server's own.
+    function drawRouteStrip(g, cv, leg, rect = { x: 0, y: 0, w: cv.width, h: cv.height }) {
       const L = Math.max(1, st.L || 1), s = Math.max(0, Math.min(L, st.s || 0));
-      const x0 = 34, x1 = cv.width - 34, y = cv.height / 2;
+      const x0 = rect.x + 34, x1 = rect.x + rect.w - 34, y = rect.y + 18;
+      // A hairline over the band, so the ribbon reads as an instrument under the map rather than as
+      // the bottom of it.
+      g.strokeStyle = '#252c34'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(rect.x + 6, rect.y + 0.5); g.lineTo(rect.x + rect.w - 6, rect.y + 0.5); g.stroke();
       g.strokeStyle = '#39424e'; g.lineWidth = 10; g.lineCap = 'round';
       g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
       g.strokeStyle = '#c98f3c'; g.lineWidth = 10;
@@ -2269,8 +2327,8 @@ export function openCab(ctx = {}) {
       g.fillStyle = '#f2f6fb'; g.strokeStyle = '#1a1d22'; g.lineWidth = 1.4;
       g.beginPath(); g.arc(dot, y, 7, 0, 6.2832); g.fill(); g.stroke();
       g.fillStyle = '#8c98a6'; g.font = '11px system-ui, sans-serif';
-      g.textAlign = 'left'; g.fillText('start', x0 - 8, y + 26);
-      g.textAlign = 'right'; g.fillText(destName() || 'the road', x1 + 8, y + 26);
+      g.textAlign = 'left'; g.fillText('start', x0 - 8, y + 22);
+      g.textAlign = 'right'; g.fillText(destName() || 'the road', x1 + 8, y + 22);
       // Miles, in the same unit the boards and the `route` verb use — see TILES_PER_MILE. A dash
       // that disagreed with a sign the driver just passed would make both useless.
       // ⚠ DERIVED FROM THE DESTINATION'S OWN MILEAGE, never counted here. The picker already prints
@@ -4174,6 +4232,19 @@ function ensureCabStyles() {
   .cab-revbtn[disabled]{opacity:.42;cursor:default}
   .cab-splitbtn{--key:#8fe0a0}
   .cab-lookl,.cab-lookr,.cab-lookb{--key:#8fa4bc}
+  /* ⚠ AND THEY ARE GONE IN THE CHASE VIEW, because out there they do nothing. PORT/STBD/BACK turn
+     your HEAD — they swing the view yaw from the seat, and the exterior camera is not in the seat,
+     so pressing one from outside the truck is a control that answers with nothing. A dead button is
+     worse than an absent one: it reads as broken rather than as inapplicable.
+     'display:none' rather than a disabled attribute or an opacity knock-down, deliberately — this
+     is not a control you are temporarily barred from (which is what the EXIT CAB button's disabled
+     state means, and that distinction is worth keeping legible), it is a control that does not
+     belong to this view at all. It also takes them out of the tab order, which is the whole reason
+     not to fake it with opacity. '.cab-ext' is already toggled on the wrap by the view switch, so
+     this follows the existing state and adds no second source of truth. */
+  .cab-wrap.cab-ext .cab-lookl,
+  .cab-wrap.cab-ext .cab-lookr,
+  .cab-wrap.cab-ext .cab-lookb{display:none}
   .cab-left,.cab-right{--key:#9fb4c8}
   /* The housing is screwed to the dash: pressing the switch must not repaint or move it. Both
      of these restate the bezel because .cab-btn:active and .cab-btn.on tie on specificity with
