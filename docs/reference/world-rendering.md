@@ -928,3 +928,232 @@ The phases are opened by the **caller** (`frame` is whatever the caller declares
 an empty table for the one view whose camera sits at ground level in a dense city. It now opens the
 same three phases the cockpit does (`frame` / `sim:physics` / `sim:paint`), so a cab profile and a
 sim profile read against each other.
+
+
+## The cull that was never there — sideways (as built, 2026-08-21)
+
+The tile loop in `drawWorldObjects` has always clipped **near** (behind the camera, per footprint
+corner) and **far** (past the draw limit), and never **sideways**. That is the same aeroplane
+assumption the per-view tune above is about, in its purest form: from altitude the whole city is a
+small patch around the vanishing point and everything in the window is roughly in front of you, so a
+lateral test would earn nothing.
+
+From a truck cab it was the single biggest waste in the frame, because the buildings that fall
+outside the view cone down there are **the ones lining the street you are driving down**. A few
+metres away, filling no pixels at all — and passing every quality test at *full* detail, because
+`wallLodPx` asks how tall a wall is **on screen** and a wall eighty degrees off the beam projects
+enormous. Each one ran its whole model arm, queued ~45 faces into the shared sink, was depth-sorted
+against everything real, and then took the perspective-correct column-split blit (up to 48 clipped
+`drawImage`s per wall, **twice over at night**) entirely outside the canvas.
+
+At the cab's focal length (`fov` 0.82 × the seat's `fovMul` 1.22 ⇒ ~98° horizontal) that is
+**37.6% of the buildings that survived the existing near and far tests** — 31.9% from the cockpit,
+which culls *less* precisely because its wider cone is a shorter focal length.
+
+### It is exact, not a heuristic
+
+Worth stating plainly, because a lateral cull is normally the one that punches holes in a skyline.
+In this projection
+
+```
+sx = cx + (l / f) · FL
+```
+
+and **neither `l` nor `f` reads `wz`** (see `proj` in `makeCam`). A building wall is vertical, so its
+entire screen-x extent is the extent of the two footprint corners it stands on — at the base, at the
+parapet, and at every height between. Four corners therefore bound the whole extruded box exactly:
+roof, cornice, setback tiers and all.
+
+[scripts/shapes/frustum.mjs](../../scripts/shapes/frustum.mjs) asserts that height-independence
+against the shipping `makeCam` with `Object.is` rather than a tolerance — if it ever drifts to "close
+enough", the bound stops being exact and the argument stops being an argument.
+
+### The two margins, in two different units on purpose
+
+What the corners do *not* bound is what a building hangs off itself.
+
+- The footprint is tested a **full tile** wide (`FRUSTUM_HW`) rather than the 0.62 the near test
+  uses, which covers a model that oversteps its tile and anything bolted flat to its face.
+- Plus a flat margin in **screen pixels** (`FRUSTUM_PAD_PX`, 96), which is the right unit for
+  overhang that is itself measured in pixels: `glowPool` clamps its own radius to 60px however close
+  you get. Being a pixel margin it is generous exactly where things are small (far away, where a
+  stray sign is a few px) and negligible where they are large (near, where the footprint pad is
+  already hundreds of px wide). That is the way round you want it.
+
+⚠ **Ordinary buildings only.** Every `mark` — the Echelon, the depot shed, the South Gate, the pylon
+stand, a road sign — is a hand-shaped model whose drawer places geometry on its own terms and
+routinely well past its tile, and the yacht is the chase *subject* in the helm view. There are a
+handful of them against a hundred-odd buildings a frame, so the entire win is in the ordinary case
+and none of the risk needs to be.
+
+⚠ **Flagged, not dropped, and the shadow is why.** A building off the side of the canvas draws
+nothing — but it still **casts**. Sun low in the west, a block off your left shoulder, and the shadow
+rakes right across the road in front of you; dropping the row would delete it and the road would
+light up as you drove past nothing. The item stays in `items` (the shadow pre-pass is already bounded
+by `shadowFar`, 12 tiles from a cab) and it is the two *expensive* readers — the occluder pass and
+the face-building loop — that check the flag.
+
+Conservative in the same direction as everything else here: a corner behind the near plane has its
+`f` clamped to 0.06 by `proj`, which throws that corner's `sx` to a huge magnitude and **widens** the
+box past any canvas. A building straddling the lens is therefore never culled, which is exactly
+right, and the smoke asserts it by name.
+
+### The one place it makes the picture *better*
+
+Skipping an off-canvas building in the occluder pre-pass is a pure saving in the depth grid — its
+quads land outside it and write no cell either way. But **not** in `OCC_SOLIDS`, which is capped at
+`OCC_KEEP_MAX` and fills near→far. A yard with sheds off both shoulders was spending that budget on
+solids that could never cover a centre-screen model, and crowding out ones that could. So this is the
+rare cull that makes the own ship's per-pixel mask *more accurate* rather than merely cheaper.
+
+Off-switch: `RENDER_TUNE.frustum = 0` (and it is in `VIEW_TUNABLE`, since it decides only how much
+work to skip). The profiler's per-frame line reports it as `off-canvas`, beside `occluded`.
+
+
+## One wall, one blit — the day↔night crossfade, baked (as built, 2026-08-21)
+
+The two baked wall variants used to be crossfaded **on the wall**: paint the day texture, then paint
+the night one over it at `alpha · NB`. That is the most expensive call in this renderer, run twice
+for one surface.
+
+`drawTexQuadP` splits a steeply-angled wall into up to twelve perspective-correct columns of two
+triangles each, and every triangle is a `save / clip / transform / drawImage / restore` — so a single
+near wall could cost **48 clipped `drawImage`s**, and a night city street from a cab is nothing but
+near walls at steep angles. After the lateral cull above it was the largest remaining item in the
+frame, and it was paying it twice.
+
+A wall texture is 16×32 texels. `wallTexMixed(biome, NB)` composites the pair **once** into a third
+canvas and hands back one image, so the textured-wall blit cost is **exactly halved for every frame
+where `night > 0.30`** — dusk, night and dawn. It also brings the textured path into line with the
+flat-fill path beside it, which has always used a single pre-mixed colour (`flatWall`).
+
+### It is equal where it matters and *right* where it isn't
+
+Worth the algebra rather than an assertion. Over a background `B`, with day `D` and night `N`:
+
+```
+two blits:  αNB·N + (1−αNB)·(αD + (1−α)B)
+one blit:   α·(NB·N + (1−NB)·D) + (1−α)B
+difference: α · NB · (1−α) · (D − B)
+```
+
+At `α = 1` that is **exactly zero** — every opaque building, which is every building except the ones
+inside `HAZE_BAND` at the very draw limit, is byte-identical to what shipped.
+
+In the fade band the two differ, and the composite is the **correct** one: the two-blit form
+composited the night pass against a wall that was itself already partly transparent, so a ghosting
+building was being *under-nighted* by exactly that term.
+
+[scripts/shapes/walltex.mjs](../../scripts/shapes/walltex.mjs) asserts this against an independent
+software compositor written from the Porter-Duff definition — it knows nothing about the formula in
+the comment, which is the point. It also pins the *direction* of the fade-band delta, so "this is an
+improvement" stays a checked claim rather than a remembered one.
+
+### The cache redraws, it does not reallocate
+
+The bake is only cheaper if *once* is true, and there are two ways to get that wrong that nothing
+would notice from inside the renderer.
+
+Every building in a frame shares one `night`, so there is only ever **one live NB**. The cache is
+keyed on biome and holds a quantised NB step (`WALL_MIX_STEPS`, 64 — matching `WALL_LIT_BUCKETS`,
+which quantises the same kind of thing for the same reason; the whole skyline crosses a step at the
+same instant and a simultaneous global tone shift is the visible kind, so 1.6% per step puts it under
+notice).
+
+⚠ **Not a bucketed key in `_tex`.** That is the obvious way to write it and it is a slow leak:
+`WALL_COL` has some 250 palettes, `_tex` never evicts, and 250 × 64 is thousands of canvases that
+only show up as a long session going soft.
+
+⚠ **And the canvas is kept and drawn over in place.** A step of NB costs two `drawImage`s into a
+16×32 surface and allocates nothing; a whole dusk walks the ramp in 64 of those. The smoke sweeps
+three full ramps across ten biomes and asserts the allocation count is **zero**.
+
+Both ends short-circuit to the baked variants themselves, so full day and full night — most of the
+clock — composite nothing at all. And the `SHAPE_SINK` / `MASS_OFF` guards both return before the
+texture line, so shape capture and the LOD adornment pass never build a composite either.
+
+⚠ `texRes` resizes the baked variants underneath the cache, and assigning `canvas.width` also
+**clears** it — so the size check comes first and forces the redraw. Without that a wall goes blank
+on the frame somebody drags that slider.
+
+
+## The column split is not where the money is (measured, 2026-08-21)
+
+Recorded here because it is the obvious next optimisation and it is **worth nothing**, and the next
+person to look at this file will reach for it exactly as I did.
+
+`drawTexQuadP` splits a wall into up to twelve perspective-correct columns, and capping that for the
+ground camera looks like free money. It is not: a headless tally of the view suite found the depth
+ratio between a wall's two vertical edges never exceeds **1.43** across an entire city view, so
+`K = clamp(ceil(1.5·ratio), 2, 12)` never rises above **3**.
+
+| K | walls | share |
+|---|---|---|
+| 1 (the `ratio < 1.15` fast path) | 104 | 33.0% |
+| 2 | 150 | 47.6% |
+| 3 | 61 | 19.4% |
+
+A cap at 4, 6, 8 or 12 saves **exactly zero triangles**. The twelve-column case needs a wall spanning
+0.2 → 1.6 tiles of depth, and a footprint is ~0.88 of a tile wide — so it requires standing inside
+the building, which the near-clip trims first.
+
+The same measurement found the error model, worth keeping because it is not obvious. Max screen
+displacement of a texture feature for `K` columns at depth ratio `r` on a wall `Wpx` wide:
+
+```
+≈ Wpx · (r − 1) / (4K²)     (numerically within ~20% of the true value; it over-estimates)
+```
+
+⚠ Which says the split is **under**-resolved on big near walls, not over-resolved: the `ratio < 1.15`
+fast path on an 800px wall accepts ~30px of texture warp. That is a quality question, not a
+performance one, and nobody has complained — but it is the opposite of the direction anybody
+tuning for frame rate would assume.
+
+
+## One path, filled as many times as the face needs (as built, 2026-08-21)
+
+The same tally answered where the calls actually go, and it is not the blits: **~75% of every
+canvas2d call in a frame is path construction** — `beginPath`, `moveTo`, `lineTo`, `closePath` —
+against 0.7% for `drawImage`.
+
+A wall was describing the same four points up to **three** times: once for the flat-fill LOD branch,
+once for the Gouraud ramp, once for the fog overlay. A canvas keeps its current path across `fill()`,
+so those are three fills of one path. `quadPath()` lays it, and the ramp and the fog just fill again.
+The roof block had the same shape and got the same treatment.
+
+Byte-identical output — same path, same fills, same order.
+
+⚠ **The order looks odd, and it has to be.** The current path is **not** part of the state
+`save`/`restore` carry, and `texTri` opens a path of its own for every clipped column triangle. So on
+the textured branch the path must be laid *after* the blit, while on the flat branch the one the base
+fill just used is still current and must not be laid again. Get that backwards and `fill()` paints
+the last clip triangle, or nothing — with no error, no warning, and evidence only on one branch at
+one distance in one weather.
+
+### The gate, and why its first draft was wrong
+
+[scripts/shapes/pathreuse.mjs](../../scripts/shapes/pathreuse.mjs) drives the whole view suite
+through a recording context that tracks the current path the way a canvas does, and fails on any
+`fill`/`stroke` reaching an empty one. That is the invariant that makes path reuse safe *anywhere*,
+not just here.
+
+⚠ **The default scene reaches neither branch**, which is the part worth reading before touching it.
+`viewRenderSmoke`'s world is an 8-tile window, so every building is nearer than `FOG_NEAR` and every
+wall clears `wallLodPx` — the obvious one-pass version of this gate exercised the textured, unfogged
+wall and nothing else, and that is the one branch the change did not touch. It now runs four passes
+with the tune pushed to force flat-vs-textured × fogged-vs-not. (`fog` is a strength multiplier on a
+squared distance ramp, so cranking it to 20 is how an 8-tile scene fogs at all.)
+
+⚠ And the assertion is a **margin, not a zero** — the first draft asserted fog costs no paths and
+failed on correct code. `wallLodPx` flattens *walls*; a roof is textured either way, and
+`drawTexQuad` clobbers the path, so a fogged textured roof genuinely has to describe its polygon
+again. What is provable is that fog costs *fewer paths than fills*, which under the old code was an
+equality by construction.
+
+### How big is it, honestly
+
+Smaller than the 75% headline suggests, and it depends on the scene. The saving lands on walls that
+are **far enough to flat-fill and far enough to fog** — which is most of a downtown skyline from a
+cab, and *none* of the 8-tile test scene, where it is worth about 50 path constructions per 65
+passes. The structural claim (three descriptions become one) is exact; the frame-time claim needs a
+browser profile, which this file has always said and still does.

@@ -667,6 +667,25 @@ disagree about the time or the weather. The spatial weather **field** is deliber
 cab doesn't wire it, and a payload nothing reads is how a push gets expensive for nothing. Regress
 asserts presence rather than a value, since absence was the entire failure mode.
 
+**…and the first thing that weather did was rain indoors** *(2026-08-21)*. A haul **starts inside a
+shed** — `drive` mounts you on the bay tile and you drive out of the building — so the very first
+frame of a wet run was a full-screen curtain of rain falling through a roof and a windscreen beading
+up under cover. The precip passes had no idea where the vehicle was; they only ever knew what the
+sky was doing. **The cell under the wheels already answered it**: `mark === 'bay'` is put on a tile
+by the world derivation *only* where content authored `flags.vehicle_bay` (five facades, and the one
+hole in the truck collision model — see the drive verb), which makes it the game's existing
+statement that *here is inside*. `paintWindshield` reads it off the centre of the map window exactly
+as `deckLift` reads the yacht deck, so **nothing new goes on the wire** and the picture cannot
+disagree with the geometry it is parked on. Two rules keep it honest. **It is the water only** — the
+falling precip and the on-glass beads/frost stop; the sky, the gloom, the haze, the lightning and
+the lamps are untouched, because it is still filthy out of the open door and a shed that turned the
+weather off would be a bigger lie than the rain indoors was. (Which is why `roofed` is passed to
+`drawGlass` as its own argument rather than folded into `wx` — handing that layer `'clear'` would
+have taken the storm's flash with the rain.) And **not in the chase view**: `roofed` is a fact about
+the truck's tile, and in the external orbit the camera is out in the yard in the wet, looking at the
+shed. Trails already on the glass still fade and still wipe, so a rig that pulls in after a wet run
+gets a *drying* windscreen rather than a dry one.
+
 **Both light switches now exist, and they point in opposite directions** *(2026-08-19)*. The
 paragraph above is superseded on its last clause: the headlights got a **latching `LAMPS` rocker**
 (key `L`, default ON, carried on the telemetry packet's lamp bitfield so other drivers see your

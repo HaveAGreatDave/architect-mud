@@ -142,6 +142,7 @@ export const RENDER_TUNE = {
   modelShadow: 0.85,  // how far a shadowed pixel falls back toward the ambient it would have facing away from the sun. 1 = the full flat-shading answer, 0 = off.
   modelLights: 1,     // strength of the model's own lamps spilling onto its own bodywork (headlamps, lifter wash, tail lamps). 0 = off; the canvas halos are unaffected either way.
   occlude: 1,         // skip buildings entirely hidden behind a nearer one. Lossless by construction (there is no z-buffer, so a hidden building is otherwise fully built, queued, sorted and filled); the occluder/occludee boxes are biased so it can only ever be too timid. 0 = draw everything as before.
+  frustum: 1,         // skip buildings that fall entirely off the SIDE of the canvas. The tile loop has always clipped near and far and never sideways, which costs nothing at altitude and is the biggest single waste from a ground camera — see offCanvasLaterally. 0 = draw everything as before.
   shapeShadow: 1,
   shapeWire: 0,       // dev: stroke the captured building shapes over the render (cyan = mass, amber = entrance-face door/bay, magenta = the core segment that never fades). The one-glance check that collision/shadow/LOD geometry actually sits on the building.
   // What a distant (LOD) building is allowed to light up with. 2 = every adornment, which looks
@@ -896,6 +897,24 @@ export function paintWindshield(id, view) {
   // cast, no haze slot and no on-glass behaviour. It is drawn where it actually
   // is (see drawSkyRainbow) and named on the badge. 1 arc, or 3 for the good one.
   const bowArcs = v.event?.type === 'triple_rainbow' ? 3 : (v.event?.type === 'rainbow' ? 1 : 0);
+  // ── ⚠ AND UNDER A ROOF, NOTHING FALLS ON YOU ───────────────────────────────
+  // A truck STARTS every haul parked inside a shed (see the drive verb — you mount on the bay tile
+  // and drive out of the building), so the first thing a driver saw in bad weather was a full-screen
+  // curtain of rain and a windscreen beading up, indoors. The precip passes have no idea where the
+  // vehicle is; they only ever knew what the sky was doing.
+  //
+  // The cell under the wheels already answers it, and answers it authoritatively: `mark === 'bay'`
+  // is put on a tile by the world derivation ONLY where content authored `flags.vehicle_bay`, which
+  // is the one mark that means "a vehicle may drive in here, because here is inside". Read from the
+  // centre of the map window exactly as `deckLift` reads the yacht deck — same window, same idiom,
+  // nothing new on the wire, and the picture can never disagree with the geometry it is parked on.
+  //
+  // ⚠ IT IS THE PRECIPITATION ONLY. The sky, the gloom, the haze, the lightning and the lamps are
+  // all left exactly as they are: it is still filthy out of the open door, and a shed that turned
+  // the weather off would be a bigger lie than the rain indoors was.
+  // ⚠ AND NOT IN THE CHASE VIEW. `roofed` is a fact about the TRUCK's tile; in the external orbit
+  // the camera is out in the yard in the wet, looking at the shed.
+  const roofed = !ext && v.map?.length ? v.map[(v.map.length - 1) / 2]?.[(v.map.length - 1) / 2]?.mark === 'bay' : false;
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   // Chase distance is size-relative: the camera sits `chaseBack` tiles behind a reference
   // (prop-class) craft, but pulls IN for physically smaller airframes (the Mayfly ultralight
@@ -1517,8 +1536,10 @@ export function paintWindshield(id, view) {
   // The close, on-the-canopy layer (drops + streaks) is drawGlass(), painted last.
   // When the weather field is plumbed, the precip is whatever cell we're inside (rain starts as
   // you fly into it, stops as you leave) rather than one global string. `precipLocal` overrides wx.
+  // …and it is a FULL-SCREEN curtain, which is exactly why a roof has to be able to stop it: drawn
+  // from inside a shed it is weather falling through a building. See `roofed`.
   pBegin('weather');
-  drawWeather(ctx, W, H, wx, st, dt, speed, wxSample && wxSample.precip > 0.12 ? { type: wxSample.ptype, rate: wxSample.precip } : null);
+  if (!roofed) drawWeather(ctx, W, H, wx, st, dt, speed, wxSample && wxSample.precip > 0.12 ? { type: wxSample.ptype, rate: wxSample.precip } : null);
   pEnd();
 
   // The airport (themed scenery flanking a runway) on the deck; the pad for VTOL;
@@ -1866,7 +1887,10 @@ export function paintWindshield(id, view) {
   const glassRect = cabForward
     ? { x: W * 0.075, y: H * 0.085, w: W * 0.85, h: H * (1 - CAB_DASH) - H * 0.085 }
     : null;
-  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed, v.viewYaw ? 0 : (v.wipers | 0), glassRect);
+  // `roofed` is passed rather than folded into `wx` on purpose: under a shed the water stops and the
+  // LIGHT does not, so the storm's flash still comes through the door. Handing this layer 'clear'
+  // would have taken the lightning with the rain. See `roofed` up top.
+  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed, v.viewYaw ? 0 : (v.wipers | 0), glassRect, roofed);
   pEnd();
   // A TRUCK CAB is not an aircraft canopy: a flat two-pane screen with a centre post and an
   // A-pillar each side, and a dash filling the lower third rather than a glareshield. Same two
@@ -3874,15 +3898,19 @@ function pushTrail(st, x0, y0, x1, y1, r) {
   if (st.trails.length >= TRAIL_MAX) st.trails.shift();
   st.trails.push({ x0, y0, x1, y1, w: Math.max(0.8, r * 0.5), a: 1 });
 }
-function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0, glassRect = null) {
-  if (!glassRect) { drawGlassInner(ctx, W, H, wx, st, dt, speed, framed, wipers); return; }
+function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0, glassRect = null, roofed = false) {
+  if (!glassRect) { drawGlassInner(ctx, W, H, wx, st, dt, speed, framed, wipers, roofed); return; }
   ctx.save();
   ctx.beginPath(); ctx.rect(glassRect.x, glassRect.y, glassRect.w, glassRect.h); ctx.clip();
   ctx.translate(glassRect.x, glassRect.y);
-  drawGlassInner(ctx, glassRect.w, glassRect.h, wx, st, dt, speed, framed, wipers);
+  drawGlassInner(ctx, glassRect.w, glassRect.h, wx, st, dt, speed, framed, wipers, roofed);
   ctx.restore();
 }
-function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
+// `roofed` is "there is a building over this vehicle" (a bay tile — see paintWindshield). It gates
+// the WATER and nothing else: the beads, the fresh drops and the frost stop, while the trails
+// already on the pane still fade, the wipers still sweep them and the storm still flashes. Which is
+// what a driver sitting in a shed after a wet run actually has: a drying windscreen.
+function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0, roofed = false) {
   // ⚠ TRAILS BELONG TO ONE PANE. They are fractions of the surface they were laid down on, and a truck
   // draws two different surfaces through this function: the windscreen (a glassRect, so W/H are the
   // pane's) and a shoulder-check out of the side window (no rect, so W/H are the whole canvas). Kept
@@ -3914,7 +3942,7 @@ function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - b.r * 3 * speed, y + b.r * 1.2); ctx.stroke();
   }
   // Frost: in snow, ice creeps in from the corners — a feathery white bloom hugging the edges.
-  if (!framed && wx === 'snow') {
+  if (!framed && !roofed && wx === 'snow') {
     const fr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34, W / 2, H / 2, Math.max(W, H) * 0.72);
     fr.addColorStop(0, 'rgba(226,240,255,0)'); fr.addColorStop(1, 'rgba(226,240,255,0.4)');
     ctx.fillStyle = fr; ctx.fillRect(0, 0, W, H);
@@ -4020,7 +4048,7 @@ function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0
     ctx.restore();
   }
 
-  if (wx === 'rain' || wx === 'storm') {
+  if (!roofed && (wx === 'rain' || wx === 'storm')) {
     // At rest a released drop runs straight DOWN the canopy under gravity. With airspeed
     // the slipstream drags it back and sideways (away from centre), so the streak flattens
     // toward HORIZONTAL and the beads race off to the edges. `flat` = 0 vertical → 1 flat.
@@ -6295,6 +6323,72 @@ function wallTex(biome, night) {
     return c;
   });
 }
+// ── ONE WALL, ONE BLIT — the day↔night crossfade, baked ──────────────────────
+// The two baked wall variants used to be crossfaded ON THE WALL: paint the day texture, then paint
+// the night one over it at `alpha · NB`. That is two of the most expensive call in this renderer for
+// one surface. `drawTexQuadP` splits a steeply-angled wall into up to twelve perspective-correct
+// columns of two triangles each, and every triangle is a `save / clip / transform / drawImage /
+// restore` — so a single near wall could cost **48 clipped drawImages**, and a night city street
+// from a cab is nothing but near walls at steep angles. It was the largest remaining item in the
+// frame after the lateral cull, and it was paying it twice for a picture that is one picture.
+//
+// A wall texture is 16×32 texels. Compositing the pair ONCE into a third canvas and blitting that is
+// the same image for half the work, and the cache below is what makes "once" true.
+//
+// ── ⚠ AND IT IS NOT MERELY EQUIVALENT — IT IS EQUAL WHERE IT MATTERS AND RIGHT WHERE IT ISN'T ──
+// Worth doing the algebra rather than asserting it. Over a background B, with day D and night N:
+//
+//   two blits:  αNB·N + (1−αNB)·(αD + (1−α)B)
+//   one blit:   α·(NB·N + (1−NB)·D) + (1−α)B
+//   difference: α·NB·(1−α)·(D − B)
+//
+// At α = 1 that is exactly zero — so every opaque building, which is every building except the ones
+// inside the HAZE_BAND at the very draw limit, is byte-identical to what shipped. In the fade band
+// the two differ, and the composite is the CORRECT one: the two-blit form composites the night pass
+// against a wall that is itself already partly transparent, so a ghosting building was being
+// under-nighted by exactly that term. It also brings the textured path into line with the flat-fill
+// path beside it, which has always used a single pre-mixed colour (see `flatWall`).
+//
+// ── THE CACHE IS PER-FRAME-ISH, AND IT REDRAWS RATHER THAN REALLOCATES ───────
+// Every building in a frame shares one `night`, so there is only ever ONE live NB. Keying the cache
+// on a quantised NB and rebuilding when it steps keeps the working set at "the biomes on screen"
+// rather than "every biome × every dusk" — WALL_COL has some 250 palettes and `_tex` never evicts,
+// so a bucketed key in there would have been a slow leak measured in thousands of canvases.
+//
+// The canvas itself is kept and drawn over in place: a step of NB costs two drawImages into a
+// 16×32 surface and allocates nothing. Dusk walks the whole ramp in WALL_MIX_STEPS of those.
+//
+// The two ends short-circuit to the baked textures themselves, so full day and full night — which is
+// most of the clock — allocate and composite nothing at all.
+// 64 to match WALL_LIT_BUCKETS, which quantises the same kind of thing for the same reason. It is
+// not an arbitrary round number: the whole skyline crosses a step at the same instant, and a
+// simultaneous global tone shift is the visible kind — 1.6% per step puts it under notice, and the
+// cost of a finer ramp is a handful more 16×32 redraws across an entire dusk.
+const WALL_MIX_STEPS = 64;
+const _wallMix = new Map();  // biome → { c, q } — the composited canvas and the NB step it holds
+export function wallTexMixed(biome, NB) {
+  const q = Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS);
+  if (q <= 0) return wallTex(biome, 0);
+  if (q >= WALL_MIX_STEPS) return wallTex(biome, 1);
+  const day = wallTex(biome, 0);
+  let e = _wallMix.get(biome);
+  if (!e) { e = { c: texCanvas(day.width, day.height), q: -1 }; _wallMix.set(biome, e); }
+  // ⚠ The texRes slider resizes the baked variants under us, and assigning canvas.width also CLEARS
+  // it — so the size check has to come first and has to force the redraw, or a wall goes blank the
+  // frame somebody drags that slider.
+  if (e.c.width !== day.width || e.c.height !== day.height) { e.c.width = day.width; e.c.height = day.height; e.q = -1; }
+  if (e.q !== q) {
+    const g = e.c.getContext('2d');
+    g.globalAlpha = 1;
+    g.clearRect(0, 0, e.c.width, e.c.height);
+    g.drawImage(day, 0, 0);
+    g.globalAlpha = q / WALL_MIX_STEPS;
+    g.drawImage(wallTex(biome, 1), 0, 0);
+    g.globalAlpha = 1;
+    e.q = q;
+  }
+  return e.c;
+}
 function roofTex(biome, night) {
   const tr = TR();
   return getTex('roof:' + biome + ':' + tr, () => {
@@ -6379,6 +6473,17 @@ function texTri(ctx, img, s0, s1, s2, d0, d1, d2, smooth) {
   // minifying, so the far blit bilinear-filters (kills the shimmer) while near walls stay crisp.
   ctx.transform(a, b, cc, d, e, f); ctx.imageSmoothingEnabled = !!smooth; ctx.drawImage(img, 0, 0);
   ctx.restore();
+}
+// Lay a screen-space quad as the current path and stop — no fill, no stroke, no state touched. The
+// point of separating it from the fills is that a canvas keeps its current path across `fill()`, so
+// a face that is painted several times over (base, lit ramp, fog) can be built once and filled
+// three times rather than described three times. See the wall block in draw3DBoxAt, and note that
+// `save`/`restore` do NOT carry the path — anything that opens a path of its own in between
+// (`texTri`'s clip, most obviously) invalidates it.
+function quadPath(ctx, P0, P1, P2, P3) {
+  ctx.beginPath();
+  ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]);
+  ctx.closePath();
 }
 function drawTexQuad(ctx, img, P0, P1, P2, P3, smooth) {
   const W = img.width, H = img.height;
@@ -6537,7 +6642,7 @@ let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in pa
 //
 // Adding a key here is therefore a real decision, not a formality: it must be one that changes only
 // what is skipped, never where anything is.
-const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'perfDS', 'floorSubpixel', 'texRes']);
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'floorSubpixel', 'texRes']);
 // The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
@@ -6614,7 +6719,7 @@ function flushFaces() { const s = FACE_SINK; if (!s) return; FACE_SINK = null; s
 // run showed paintWindshield was only a THIRD of the real frame, which makes a windshield-only
 // profiler actively misleading. `frame` is whatever the caller declares the whole frame to be.
 const PERF = { on: false, t: {}, n: {}, stack: [], last: 0, frames: 0 };
-const PERF_COUNTS = ['faces', 'arms', 'adorn', 'grads', 'lod', 'culled'];
+const PERF_COUNTS = ['faces', 'arms', 'adorn', 'grads', 'lod', 'culled', 'offscreen'];
 function perfReset() {
   PERF.t = {}; PERF.n = {}; PERF.stack.length = 0; PERF.frames = 0;
   for (const k of PERF_COUNTS) PERF.n[k] = 0;
@@ -6665,7 +6770,7 @@ export function perfTick() {
   // is the browser rasterising/compositing what we queued — canvas2d fills are GPU work that lands
   // AFTER the handler returns, so heavy fill counts under-report here and show up as this gap.
   console.log(`   outside the handler (browser raster/composite): ${(wall - total / f).toFixed(2)} ms/frame of a ${wall.toFixed(1)} ms wall-clock frame`);
-  console.log(`   per frame: ${(PERF.n.faces / f).toFixed(0)} faces queued · ${(PERF.n.arms / f).toFixed(0)} full model arms · ${(PERF.n.lod / f).toFixed(0)} LOD buildings · ${(PERF.n.culled / f).toFixed(0)} occluded ·${(PERF.n.adorn / f).toFixed(0)} adornments · ${(PERF.n.grads / f).toFixed(0)} gradients`);
+  console.log(`   per frame: ${(PERF.n.faces / f).toFixed(0)} faces queued · ${(PERF.n.arms / f).toFixed(0)} full model arms · ${(PERF.n.lod / f).toFixed(0)} LOD buildings · ${(PERF.n.culled / f).toFixed(0)} occluded · ${(PERF.n.offscreen / f).toFixed(0)} off-canvas · ${(PERF.n.adorn / f).toFixed(0)} adornments · ${(PERF.n.grads / f).toFixed(0)} gradients`);
   perfReset(); PERF.last = now;
 }
 if (typeof window !== 'undefined') {
@@ -6760,10 +6865,11 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // Day↔night wall textures used to snap at a hard `night > 0.4` boolean (windows flipped from cool day
   // glazing to warm lit panes in a single frame) while the Gouraud vertex ramp lerped smoothly — a
   // dramatic dusk/dawn colour jump across the whole skyline. Crossfade the two baked variants over a
-  // band around 0.4 instead. NB = 0 → pure day texture, 1 → pure night; the night variant is blitted on
-  // top of the day one at alpha·NB (both baked opaque, so NB=1 fully replaces it).
+  // band around 0.4 instead. NB = 0 → pure day texture, 1 → pure night.
+  // …and the crossfade is BAKED, not blitted twice onto every wall — see wallTexMixed for the
+  // algebra (identical at alpha 1, and the more correct answer in the horizon fade band).
   const NB = clamp((night - 0.30) / 0.20, 0, 1);
-  const wallDay = wallTex(biome, 0), wallNite = NB > 0.001 ? wallTex(biome, 1) : null, shade = [0.0, 0.16, 0.3, 0.12];
+  const wallTexN = wallTexMixed(biome, NB), shade = [0.0, 0.16, 0.3, 0.12];
   const flatWall = rgb(mix(flatWallCol(biome, 0), flatWallCol(biome, 1), NB)), WALL_LOD_PX = TUNE.wallLodPx || 0;   // small-wall LOD: flat-fill (tone-matched to the tex average) instead of the column-split textured blit
   const faces = [];
   for (let i = 0; i < 4; i++) {
@@ -6803,7 +6909,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     // then the nearest-neighbour blit aliases fine detail (the reeded Meridian piers crawl). Bilinear-
     // filter that far case; keep near/magnified walls crisp. wallW is the wider (near) top-edge run.
     const wallW = Math.max(Math.hypot(P1[0] - P0[0], P1[1] - P0[1]), Math.hypot(P2[0] - P3[0], P2[1] - P3[1]));
-    const minify = wallW < wallDay.width || wallPx < wallDay.height;
+    const minify = wallW < wallTexN.width || wallPx < wallTexN.height;
     // LOD: the vertical ramp only READS on tall near walls. On short/distant walls (a few px high) it's
     // indistinguishable from a flat tint, so skip the gradient object entirely and fill one solid mid
     // colour — same picture, and a dense skyline (mostly far faces) pays almost nothing.
@@ -6828,19 +6934,33 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     // with its own roof. The bias is far below inter-building depth gaps, so it never reorders neighbours.
     emitFace(fc.af - wz1 * 0.02, () => {
       ctx.globalAlpha = alpha;
-      // Small/far wall → one flat shaded polygon; near/tall wall → the perspective-correct windowed blit.
-      // The lit-ramp + fog overlays below paint on top of either, so a flat-shaded far wall still models.
-      if (wallPx < WALL_LOD_PX) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = flatWall; ctx.fill(); }
-      else { drawTexQuadP(ctx, wallDay, P0, P1, P2, P3, fL, fR, minify); if (wallNite) { ctx.globalAlpha = alpha * NB; drawTexQuadP(ctx, wallNite, P0, P1, P2, P3, fL, fR, minify); ctx.globalAlpha = alpha; } }
-      ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath();
+      // ── ⚠ ONE PATH, FILLED AS MANY TIMES AS THE WALL NEEDS ──────────────────
+      // This used to lay the SAME four points down three times: once for the flat-fill LOD branch,
+      // once for the lit ramp, and once more for the fog overlay. A wall is `beginPath, moveTo,
+      // 3×lineTo, closePath` — six binding calls — and a headless tally of a city frame put path
+      // CONSTRUCTION at 84% of all canvas2d calls, an order of magnitude above the texture blits
+      // everyone assumes are the expensive part. Two thirds of that on the flat branch, which is
+      // most of a skyline, was building a polygon the context was already holding.
+      //
+      // `fill()` does not consume the current path, so the ramp and the fog are just two more fills
+      // of the one already there. Byte-identical output — the same path, the same fills, the same
+      // order — for a third to a half of the calls.
+      //
+      // ⚠ AND THE BLIT CLOBBERS IT, WHICH IS WHY THE ORDER LOOKS ODD. The current path is NOT part
+      // of the state `save`/`restore` carry, and `texTri` opens a path of its own for every clipped
+      // triangle — so on the textured branch the path has to be laid AFTER the blit, while on the
+      // flat branch the one we just filled is still current and must not be laid again.
+      const overlay = litTop || litSolid || sh || fog > 0.004;
+      if (wallPx < WALL_LOD_PX) { quadPath(ctx, P0, P1, P2, P3); ctx.fillStyle = flatWall; ctx.fill(); }
+      else { drawTexQuadP(ctx, wallTexN, P0, P1, P2, P3, fL, fR, minify); if (overlay) quadPath(ctx, P0, P1, P2, P3); }
       if (litTop) {
         const g = ctx.createLinearGradient(0, topY, 0, Math.max(botY, topY + 1));
         g.addColorStop(0, litTop); g.addColorStop(1, litBot); ctx.fillStyle = g; ctx.fill();
       } else if (litSolid) { ctx.fillStyle = litSolid; ctx.fill(); }
       else if (sh) { ctx.fillStyle = `rgba(0,0,0,${sh})`; ctx.fill(); }
       // N64 fog overlay: paint the sky colour over the face, thickening with distance, so the far
-      // skyline recedes into the same fog wall as the ground (matched band + colour).
-      if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fill(); }
+      // skyline recedes into the same fog wall as the ground (matched band + colour). Same path.
+      if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); }
       ctx.globalAlpha = 1;
     });
   }
@@ -6890,10 +7010,14 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
       // building depth gaps, so it only orders a box's own stacked roofs, never reorders neighbours.
       emitFace(rf - wz1 * 0.02, () => {
         ctx.globalAlpha = alpha;
+        // Same one-path rule as the wall block above: `fill()` leaves the path in place, so a flat
+        // roof that also fogs describes its polygon ONCE. The textured branch still has to lay it
+        // afterwards, because drawTexQuad's clipped triangles open paths of their own.
         const path = () => { ctx.beginPath(); ctx.moveTo(rp[0][0], rp[0][1]); for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0], rp[i][1]); ctx.closePath(); };
+        const rOverlay = rfog > 0.004;
         if (flat) { ctx.fillStyle = flat; path(); ctx.fill(); }
-        else drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]);
-        if (rfog > 0.004) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; path(); ctx.fill(); }
+        else { drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); if (rOverlay) path(); }
+        if (rOverlay) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); }
         ctx.globalAlpha = 1;
       });
     }
@@ -17120,6 +17244,65 @@ export function shapeForModel(m, seed) {
   }
 }
 
+// ── Lateral frustum culling ──────────────────────────────────────────────────
+// The tile loop in drawWorldObjects has always clipped NEAR (behind the camera) and FAR (past the
+// draw limit) and never SIDEWAYS. From a cockpit that costs nothing — at altitude the whole city is
+// a small patch around the vanishing point, and everything in the window is roughly in front of you.
+// From a truck cab it is the single biggest waste in the frame, because the buildings that fall
+// outside the view cone down there are the ones LINING THE STREET YOU ARE DRIVING DOWN: a few metres
+// away, filling no pixels at all, and passing every quality test at FULL detail — `wallLodPx` asks
+// how tall a wall is ON SCREEN, and a wall eighty degrees off the beam projects enormous. So each of
+// them ran its whole model arm, queued ~45 faces into the shared sink, was depth-sorted against
+// everything real, and then took the perspective-correct column-split blit (up to 48 clipped
+// drawImages per wall, twice over at night) entirely outside the canvas.
+//
+// At the cab's focal length — RENDER_TUNE.fov 0.82 with the seat's own fovMul 1.22 — the horizontal
+// field is about 98°, so a little under half of the half-disc in front of the truck is off-canvas.
+//
+// ── THE TEST IS EXACT, NOT A HEURISTIC ───────────────────────────────────────
+// Worth stating plainly, because a lateral cull is normally the one that punches holes in a skyline.
+// In this projection
+//        sx = cx + (l / f) · FL
+// and neither `l` nor `f` reads `wz` at all (see `proj` in makeCam). A building wall is VERTICAL, so
+// its entire screen-x extent is the extent of the two footprint corners it stands on — at the base,
+// at the parapet and at every height between. Four corners therefore bound the whole extruded box
+// exactly: roof, cornice, setback tiers and all. scripts/shapes/frustum.mjs asserts that
+// height-independence against the shipping `makeCam` rather than trusting this paragraph.
+//
+// What the corners do NOT bound is what a building hangs OFF itself, so there are two margins and
+// they are in two different units on purpose:
+//   • the footprint is taken a full tile wide rather than the 0.62 the near test uses, which covers
+//     a model that oversteps its own tile and anything bolted flat to its face;
+//   • and a flat margin in SCREEN PIXELS, which is the right unit for overhang that is itself
+//     measured in pixels — `glowPool` clamps its own radius to 60px however close you get, so 96
+//     clears it with room. Being a pixel margin it is generous exactly where things are small (far
+//     away, where a stray sign is a few px) and negligible where they are large (near, where the
+//     footprint pad is already hundreds of px wide). That is the way round you want it.
+//
+// ⚠ AND IT IS ORDINARY BUILDINGS ONLY. Every `mark` — the Echelon, the depot shed, the South Gate,
+// the pylon stand, a road sign — is a hand-shaped model whose drawer places geometry on its own
+// terms and routinely well past its tile, and the yacht is the chase SUBJECT in the helm view. There
+// are a handful of them against a hundred-odd buildings a frame, so the entire win is in the
+// ordinary case and none of the risk needs to be.
+//
+// Conservative in the same direction as the occlusion pass: a corner behind the near plane has its
+// `f` clamped to 0.06 by `proj`, which throws that corner's `sx` to a huge magnitude and widens the
+// box past any canvas — so a building straddling the lens is never culled, which is exactly right.
+const FRUSTUM_HW = 1.0;        // footprint half-width tested, in tiles (the near test's 0.62, widened for face-mounted trim)
+const FRUSTUM_PAD_PX = 96;     // screen margin for adornment overhang — glowPool caps its own radius at 60px
+const FRUSTUM_CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+// Is every part of the box standing on this tile off the side of the canvas? `W` is the frame width
+// in CSS pixels — the same W `makeCam` was handed, so `sx` and it are in one space.
+export function offCanvasLaterally(cam, dx, dy, W) {
+  let lo = Infinity, hi = -Infinity;
+  for (const [a, b] of FRUSTUM_CORNERS) {
+    const sx = cam.proj(dx + a * FRUSTUM_HW, dy + b * FRUSTUM_HW, 0).sx;
+    if (sx < lo) lo = sx;
+    if (sx > hi) hi = sx;
+  }
+  return hi < -FRUSTUM_PAD_PX || lo > W + FRUSTUM_PAD_PX;
+}
+
 // ── Occlusion culling ────────────────────────────────────────────────────────
 // There is no z-buffer here — the face queue is a painter's algorithm — so a building standing
 // completely behind a nearer tower is still fully built, queued, depth-sorted and filled. Downtown
@@ -17837,7 +18020,17 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).
     const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
-    items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149, wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
+    // ── ⚠ FLAGGED, NOT DROPPED, AND THE SHADOW IS WHY ──────────────────────────
+    // A building off the side of the canvas draws nothing (see offCanvasLaterally) — but it still
+    // CASTS. Sun low in the west, a block off your left shoulder, and the shadow rakes right across
+    // the road in front of you; `continue` here would delete it and the road would light up as you
+    // drove past nothing. The shadow pre-pass below walks `items` and is already bounded by
+    // `shadowFar` (12 tiles from a cab), so leaving the row in place costs one polygon and keeps the
+    // ground honest. It is the two expensive readers — the occluder pass and the face-building loop
+    // — that check the flag.
+    const off = !!(TUNE.frustum && c.bt && !c.mark && offCanvasLaterally(cam, dx, dy, _frameW));
+    if (off && PERF.on) PERF.n.offscreen++;
+    items.push({ dx, dy, f, c, alpha, off, seed: (wx + 512) * 73 + (wy + 512) * 149, wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
   // Occlusion pre-pass: walk NEAR→FAR (the reverse of the paint order) building a span buffer, and
@@ -17887,6 +18080,14 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
       if (!it.c || !it.c.bt) continue;
+      // ── OFF THE SIDE OF THE CANVAS, AND THIS IS THE ONE PLACE IT IMPROVES THE PICTURE ────────
+      // A building nobody can see cannot hide anything either: its projected quads land outside the
+      // grid, so rasterising them writes no cell and the field comes out identical. Skipping is a
+      // pure saving there — but NOT in `OCC_SOLIDS`, which is capped at OCC_KEEP_MAX and fills
+      // near→far. A yard with sheds off both shoulders was spending that budget on solids that
+      // could never cover a centre-screen model, and crowding out ones that could. So this is the
+      // rare cull that makes the own ship's mask more accurate rather than merely cheaper.
+      if (it.off) continue;
       // ── THE DEPOT SHED IS AN OCCLUDER TOO, AND IT WAS THE ONE BUILDING THAT WAS NOT ──────────
       // Everything below works off `shapeForModel`, and the bay has no shape: it is the one
       // building drawn at a fixed size by its own function rather than extruded from a storey
@@ -18062,9 +18263,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   } : null;
   beginFaces();
   for (const it of items) {
-    // Fully hidden behind a nearer building (see the occlusion pre-pass). Skipped before anything is
-    // built or queued — the point is to not pay for it at all, not to pay and then not show it.
-    if (occluded && occluded.has(it)) continue;
+    // Fully hidden behind a nearer building (see the occlusion pre-pass), or entirely off the side
+    // of the canvas (see offCanvasLaterally). Skipped before anything is built or queued — the point
+    // is to not pay for it at all, not to pay and then not show it.
+    if (it.off || (occluded && occluded.has(it))) continue;
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
     if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
