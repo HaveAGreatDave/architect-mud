@@ -34,7 +34,7 @@ import { HELP_GROUPS } from '../../server/engine/commands/world.js';
 import { query } from '../../server/models/db.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { _test as truckTest } from './index.js';
-import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
+import { TRAILER_TYPES, trailersAt, trailersOf, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
   posed, stockPose, stockSlots, findStockPose, STOCK_GAP, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY,
   sellTrailer, trailerResale } from './trailers.js';
 import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
@@ -3071,6 +3071,51 @@ export default async function regress({ run, check, getPlayer }) {
       check('park drops you out of a stopped truck with the engine still running', !rigs.has(player.id), out?.message?.slice(0, 30));
       check('…and turns the key off on the way down', rg.engineOn === false);
       check('…and it locks the door behind you', rg.locked === true);
+      // ── THE BOARD WORKS FROM WHERE THE BOARD IS ────────────────────────────
+      // Standing in the yard, on foot, with a hitched truck in front of you — which is exactly the
+      // state the depot panel opens in, and which used to refuse every button on it. `haul` and
+      // `market buy` both opened with "get in a truck first", where `truck` meant a MOUNTED rig; and
+      // mounting closes the panel, so the board could only be seen in the one state it could not be
+      // used in. These are the cases that would notice it going back.
+      check('the fixture is standing in the yard, out of the cab', !rigs.has(player.id));
+      const footBoard = truckTest.boardFor(player.current_zone);
+      const footSlot = (footBoard.find(b => b.crosses)?.i ?? 0) + 1;
+      const onFoot = await run(`haul ${footSlot}`);
+      check('you can take freight standing at the board, not only from the cab',
+        /Loaded:/i.test(onFoot?.message || ''), onFoot?.message?.slice(0, 70));
+      check('…and it says which truck it went on', /waiting for you/i.test(onFoot?.message || ''));
+
+      // ⚠ AND IT LANDED ON THE TRAILER ROW, which is the only reason loading on foot is possible at
+      // all: `rig.cargo` is a RAM copy hydrated at mount, so writing the box IS loading the truck.
+      // A load that lived only in the panel would be gone by the time anybody turned a key.
+      const footBox = (await trailersOf(player.id)).find(t => t.towedBy);
+      check('…onto the trailer\'s own row, not into memory somewhere',
+        !!footBox?.cargo && footBox.cargo.kg > 0, footBox?.cargo?.name || 'nothing on the row');
+
+      // A second load must refuse for the RIGHT reason — the deck is full, not "get in a truck".
+      const twice = await run(`haul ${footSlot}`);
+      check('…and a loaded deck refuses a second contract', /Already loaded/i.test(twice?.message || ''),
+        twice?.message?.slice(0, 50));
+      const buyLoaded = await run('market buy scrap 1');
+      check('…as does the exchange, on the same deck', /deck is full/i.test(buyLoaded?.message || ''),
+        buyLoaded?.message?.slice(0, 50));
+
+      // AND THE PANEL AGREES WITH THE VERB. The button was gated on `driving`, which is why it was
+      // greyed out on the screen that displays it; it is gated on `canLoad` now, and that has to be
+      // the same answer the verb gives or the two halves of the depot disagree again.
+      const footPanel = await run('haul panel');
+      const panelNow = footPanel?.type === 'truck_depot' ? footPanel : await run('yard');
+      check('the panel says this yard can take a load, standing on foot',
+        panelNow?.canLoad === true && !panelNow?.driving, `canLoad=${panelNow?.canLoad} driving=${panelNow?.driving}`);
+      check('…and shows the load that is on the deck, which on foot it never used to',
+        !!panelNow?.cargo, panelNow?.cargo?.name || 'no cargo on the panel');
+      check('…and quotes the box\'s real rating rather than a default',
+        panelNow?.deckKg === footBox.ratedKg, `${panelNow?.deckKg} vs ${footBox.ratedKg}`);
+
+      // Put it back as it was found: the rest of this fixture drives, and it must not inherit a
+      // contract it did not take.
+      await saveLoad(footBox.id, null, footBox.stash);
+
 
       // ── The text rung ──
       // The cab is a surface you ACT through, so a player at the textgames/log rung must be able to

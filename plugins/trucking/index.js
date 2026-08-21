@@ -711,13 +711,88 @@ function dockAt(zone) {
   return typeof f === 'object' ? f : { name: zone.name };
 }
 
+// ── WHAT IS BEING LOADED, AND IT IS NOT ALWAYS A RIG YOU ARE SITTING IN ──────
+//
+// `haul` and `market buy` both used to open with `if (!rig) return 'get in a truck first'`, where
+// `rig` is a MOUNTED rig — a live object that exists only between `drive` and `park`. A truck
+// standing in the bay with a box on the pin is not one, however many trailers you own.
+//
+// Which made the freight board and the exchange unusable from the one place they are displayed.
+// The depot panel opens when you walk into a yard ON FOOT, which is exactly when there is no
+// mounted rig; and mounting CLOSES it (`drive` sends truck_depot_close — the cab and the depot are
+// both pane owners). So the surface that showed you the board could only be seen in the state where
+// every one of its buttons refused, and the state where they worked was the one where the board was
+// not on screen. Every button was a legal verb string aimed at a player who could not be looking at
+// it. The verbs were right; the question they asked was wrong.
+//
+// So the question is now "what is there to load HERE", and a truck standing in front of you is a
+// real answer. That is also the model the rest of the depot already uses — `rig repair` works on a
+// parked truck and REFUSES one you are sitting in ("Climb down first") — so before this the two
+// halves of the same building disagreed about where a driver was supposed to be standing.
+//
+// ⚠ THE LOAD LIVES ON THE TRAILER ROW, WHICH IS WHY THIS IS POSSIBLE AT ALL. `rig.cargo` is a RAM
+// copy hydrated at mount (`hydrateFromTruck`: a restored trailer brings its freight back with it),
+// so writing the box's own row IS loading the truck — the next person to turn the key finds it on
+// there. There is no second store to keep in step and nothing to flush.
+async function loadDeck(player) {
+  // Behind the wheel: exactly what it always was, unchanged, and it stays first — a driver sitting
+  // in a rig is unambiguous and must never be asked which truck they mean.
+  const rig = rigOf(player);
+  if (rig) {
+    return { mounted: true, rig, trailer: rig.trailer, cargo: rig.cargo, label: rig.type?.name || 'the truck' };
+  }
+  const { bay, depot } = depotHere(player);
+  if (!depot) return { err: say('No yard here.') };
+  const parked = await trucksAt(player.id, depotZonesOf(bay, depot));
+  if (!parked.length) {
+    return { err: say('Nothing of yours is standing here to load.') };
+  }
+  // A BOX IS WHAT MAKES A TRUCK A CANDIDATE, so the disambiguation is over the trucks that can
+  // actually take a load rather than over everything you happen to own — being asked to choose
+  // between two rigs when only one of them has a trailer on it is a question with one answer.
+  const withBox = [];
+  for (const t of parked) {
+    const tr = await trailerOnTruck(t.id);
+    if (tr) withBox.push({ truck: t, trailer: tr });
+  }
+  if (!withBox.length) {
+    return { err: say(`Every truck in this yard is bobtail — there is nothing behind one to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`) };
+  }
+  if (withBox.length > 1) {
+    return { err: say('More than one rig here is hitched up. Take the one you mean out yourself — '
+      + `<span class="text-dim">${withBox.map(w => `drive ${w.truck.id}`).join(' · ')}</span>`) };
+  }
+  const { truck, trailer } = withBox[0];
+  return { mounted: false, truck, trailer, cargo: trailer.cargo, label: truck.name || truck.type.name };
+}
+
+// The one write. Mounted, it is the RAM field the drive reads and the cab paints; parked, it is the
+// trailer's own row — which is the same place the mounted path's copy came from and will be flushed
+// back to, so the two rungs cannot disagree about what is on the deck.
+async function setDeckCargo(player, deck, cargo) {
+  if (deck.mounted) {
+    deck.rig.cargo = cargo;
+    // ⚠ AND THE BOX ROW TOO, WHEN THERE IS ONE. Cargo is the trailer's, and a load taken at a bench
+    // that lived only in RAM would be gone if the server restarted before the driver parked.
+    if (deck.rig.trailer) {
+      deck.rig.trailer.cargo = cargo;
+      await saveLoad(deck.rig.trailer.id, cargo, deck.rig.trailer.stash);
+    }
+    pushCab(deck.rig);
+    return;
+  }
+  deck.trailer.cargo = cargo;
+  await saveLoad(deck.trailer.id, cargo, deck.trailer.stash);
+  // The panel is the surface this was clicked on, so it is the surface that has to show the result
+  // — the same rule every other bench commit follows (see the note on `repush`).
+  await repush(player, 'freight');
+}
+
 async function cmdHaul(args, raw, player) {
   const here = getZone(player.current_zone);
   if (!depotAt(here)) return say('No freight office here. The yards keep the boards.');
   const board = boardFor(here.id);
   if (!board.length) return say('The board is empty. Nowhere to run to from here.');
-  const rig = rigOf(player);
-
   const pick = args[0] ? parseInt(args[0], 10) : NaN;
   if (Number.isNaN(pick)) {
     const lines = board.map(b =>
@@ -726,12 +801,23 @@ async function cmdHaul(args, raw, player) {
   }
   const job = board[pick - 1];
   if (!job) return say('No such load on the board.');
-  if (!rig) return say('Get in a truck first — <b>drive</b>.');
-  if (!rig.trailer) return say('You are bobtail — there is nothing behind you to put it on. <b>hitch</b> a trailer first.');
-  if (rig.cargo) return say(`You're already loaded: ${rig.cargo.name}, for ${rig.cargo.toName}.`);
-  rig.cargo = { ...job };
-  pushCab(rig);
-  return say(`<span class="item-grant">Loaded: ${job.name}. ${job.kg} kg, bound for ${job.toName}. ${job.pay}₵ on delivery.</span>`);
+  // WHAT IS THERE TO LOAD — a rig you are sitting in, or a hitched truck standing in this yard.
+  // See the note on `loadDeck`: this used to demand a mounted rig, which is the one state you
+  // cannot be in while looking at the board.
+  const deck = await loadDeck(player);
+  if (deck.err) return deck.err;
+  if (!deck.trailer) return say(`You are bobtail — there is nothing behind you to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
+  if (deck.cargo) return say(`Already loaded: ${deck.cargo.name}${deck.cargo.toName ? `, for ${deck.cargo.toName}` : ''}.`);
+  // ⚠ AND THE BOX HAS TO TAKE IT. The mounted path never checked, because there was no way to be
+  // holding a contract the trailer could not carry — you took it in the cab of the truck that was
+  // going to pull it. On foot you can be standing at a board with a small box on the pin, so the
+  // rating is asked here rather than discovered at a weighbridge two regions away.
+  if (deck.trailer.ratedKg && job.kg > deck.trailer.ratedKg) {
+    return say(`${job.kg} kg on a box rated for ${deck.trailer.ratedKg}. It will not go on.`);
+  }
+  await setDeckCargo(player, deck, { ...job });
+  return say(`<span class="item-grant">Loaded: ${job.name}. ${job.kg} kg, bound for ${job.toName}. ${job.pay}₵ on delivery.</span>`
+    + (deck.mounted ? '' : ` <span class="text-dim">It is on the ${deck.label}, waiting for you to take it out.</span>`));
 }
 
 // Paid on arrival, at the depot the load names. The credit is the only DB write on the whole haul
@@ -850,10 +936,6 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   const day = marketDay();
   const mine = await fleetOf(player.id);
   const rig = rigOf(player);
-  // WHAT THE DECK HOLDS IS THE TRAILER'S RATING, not the truck's mass. It used to be the truck's,
-  // because there was no trailer to ask — which meant buying a bigger tractor bought you capacity
-  // it does not actually have. The truck pulls; the box carries.
-  const deckKg = rig?.trailer?.ratedKg || rig?.type?.kg || DEFAULT_TRAILER_KG;
   // Three reads the bench needs, and they go out TOGETHER rather than one after another — this
   // panel already makes four round trips against a remote Postgres and the auto-open path fires
   // from a footstep. (docs/architecture.md, read tiers: Promise.all independent reads.)
@@ -862,6 +944,34 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     trailersOf(player.id),
   ]);
   const towedIds = new Set(myTrailers.filter(t => t.towedBy).map(t => t.towedBy));
+  // ── WHAT THERE IS TO LOAD, WHICH IS NOT THE SAME QUESTION AS "ARE YOU DRIVING" ──
+  // The board's buttons were gated on `driving`, and this panel opens when you walk into the yard
+  // ON FOOT — so every one of them was greyed out on the only screen that shows them, and mounting
+  // (which would ungrey them) closes the panel. See `loadDeck`: the verbs now load a hitched truck
+  // standing here, and this is the same answer computed for the same panel so the button and the
+  // verb agree about whether there is anywhere to put a load.
+  //
+  // It is derived from rows already in hand — `mine` and `myTrailers` are both fetched above — so
+  // the honest answer costs no extra round trip.
+  const hitchedHere = rig?.trailer ? null
+    : mine.filter(t => zonesHere.includes(t.depot_zone) && towedIds.has(t.id));
+  const panelTrailer = rig?.trailer
+    || (hitchedHere?.length === 1 ? myTrailers.find(tr => tr.towedBy === hitchedHere[0].id) : null);
+  const canLoad = !!panelTrailer;
+  // Why not, in the words the verb would use — a disabled button that explains itself is the whole
+  // reason this is a string rather than a boolean.
+  const loadWhy = canLoad ? null
+    : !mine.some(t => zonesHere.includes(t.depot_zone)) ? 'Nothing of yours is standing here'
+    : hitchedHere && hitchedHere.length > 1 ? 'More than one rig here is hitched up — take the one you mean out yourself'
+    : 'Every truck in this yard is bobtail — hitch a trailer first';
+  // WHAT THE DECK HOLDS IS THE TRAILER'S RATING, not the truck's mass. It used to be the truck's,
+  // because there was no trailer to ask — which meant buying a bigger tractor bought you capacity
+  // it does not actually have. The truck pulls; the box carries.
+  // ⚠ IT IS DECLARED AFTER `panelTrailer`, not up with the other reads. It used to sit above the
+  // Promise.all, and moving the resolve below it left this reading a `const` in its temporal dead
+  // zone — which is not a wrong number, it is a throw, and it took the whole plugin's suite down
+  // with one line. If you move either, move both.
+  const deckKg = panelTrailer?.ratedKg || rig?.type?.kg || DEFAULT_TRAILER_KG;
   // A pump is a property of the PLACE, and the place is two zones — a depot that keeps diesel
   // keeps it on the apron, which is the tile with the road on it.
   const pumpHere = pumpAt({ leg: 'city', zoneId: yard.id }) || pumpAt({ leg: 'city', zoneId: bay.id });
@@ -879,12 +989,20 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     credits: player.credits || 0,
     here: here.id,
     driving: !!rig,
+    // …and whether anything here can TAKE a load, which is what the board's buttons are gated on
+    // now. `driving` stays because other parts of the panel legitimately ask it (the cab handoff,
+    // the fuel gauge); it just is not the question freight was asking.
+    canLoad, loadWhy,
     fuel: rig ? +rig.fuel.toFixed(2) : null,
     deckKg,
-    cargo: rig?.cargo
-      ? { kind: rig.cargo.kind, name: rig.cargo.name, qty: rig.cargo.qty || null,
-          kg: rig.cargo.kg, to: rig.cargo.toName || null, paid: rig.cargo.unitPaid || null }
-      : null,
+    // The load itself comes off whichever deck this panel is talking about — the rig you are in, or
+    // the box on the truck standing here. On foot this was always null, so the Sell button could
+    // not appear for a load that was demonstrably sitting in the yard.
+    cargo: (() => {
+      const c = rig?.cargo || (rig ? null : panelTrailer?.cargo);
+      return c ? { kind: c.kind, name: c.name, qty: c.qty || null,
+        kg: c.kg, to: c.toName || null, paid: c.unitPaid || null } : null;
+    })(),
     // The two zones, so the client can say which side of the door it is showing and the log rung
     // can name the road you would roll out onto.
     bay: bay.id, yard: yard.id, yardName: yard.name, inBay: player.current_zone === bay.id,
@@ -2043,9 +2161,12 @@ const REGION_LABEL = { region_coldwater: 'Coldwater', region_the_reach: 'The Rea
 const regionLabel = (r) => REGION_LABEL[r] || (r || '').replace(/^region_/, '').replace(/_/g, ' ');
 
 async function marketBuy(player, rig, here, region, good, qtyArg) {
-  if (!rig) return say('Nothing to load it into — get in a truck first.');
-  if (!rig.trailer) return say('Nowhere to put it — you are bobtail. <b>hitch</b> a trailer first.');
-  if (rig.cargo) return say(`The deck is full: ${rig.cargo.name}.`);
+  // Same resolve as the freight board, for the same reason — the exchange is on the same panel, in
+  // the same building, and refused for the same wrong question. See `loadDeck`.
+  const deck = await loadDeck(player);
+  if (deck.err) return deck.err;
+  if (!deck.trailer) return say(`Nowhere to put it — you are bobtail. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
+  if (deck.cargo) return say(`The deck is full: ${deck.cargo.name}.`);
   // Match on the key or on a word of the display name, but never on an EMPTY argument — a bare
   // `market buy` must ask what, not silently pick whichever commodity happens to sort first.
   const named = (good || '').toLowerCase().trim();
@@ -2063,7 +2184,10 @@ async function marketBuy(player, rig, here, region, good, qtyArg) {
   // WHAT THE DECK HOLDS IS THE TRAILER'S RATING, not the truck's mass. It used to be the truck's,
   // because there was no trailer to ask — which meant buying a bigger tractor bought you capacity
   // it does not actually have. The truck pulls; the box carries.
-  const deckKg = rig?.trailer?.ratedKg || rig?.type?.kg || DEFAULT_TRAILER_KG;
+  // …AND IT IS THE DECK WE RESOLVED, not the mounted rig. On foot there is no `rig` at all, so the
+  // old expression fell all the way through to DEFAULT_TRAILER_KG and quoted every player the same
+  // capacity regardless of the box actually standing in front of them.
+  const deckKg = deck.trailer?.ratedKg || deck.rig?.type?.kg || deck.truck?.type?.kg || DEFAULT_TRAILER_KG;
   const max = Math.min(capacityFor(key, deckKg), byMoney);
   if (max < 1) return say(`${c.name} is ${unit}₵ a unit and you have ${player.credits || 0}₵.`);
   const asked = /^full$/i.test(qtyArg || '') || !qtyArg ? max : Math.max(1, parseInt(qtyArg, 10) || 0);
@@ -2075,27 +2199,27 @@ async function marketBuy(player, rig, here, region, good, qtyArg) {
   }
   const cost = qty * unit;
   player.credits -= cost;
-  rig.cargo = { kind: 'goods', key, name: c.name, qty, kg: qty * c.kg, unitPaid: unit };
+  await setDeckCargo(player, deck, { kind: 'goods', key, name: c.name, qty, kg: qty * c.kg, unitPaid: unit });
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  pushCab(rig);
   return say(`<span class="item-grant">Loaded ${qty} × ${c.name} at ${unit}₵ — <b>${cost}₵</b> gone. ${qty * c.kg} kg on the deck.</span>`);
 }
 
 async function marketSell(player, rig, here, region) {
-  if (!rig?.cargo) return say('Nothing on the deck.');
-  if (rig.cargo.kind !== 'goods') return say(`That load is contracted to ${rig.cargo.toName} — it isn't yours to sell.`);
+  const deck = await loadDeck(player);
+  if (deck.err) return deck.err;
+  if (!deck.cargo) return say('Nothing on the deck.');
+  if (deck.cargo.kind !== 'goods') return say(`That load is contracted to ${deck.cargo.toName} — it isn't yours to sell.`);
   const day = marketDay();
-  const unit = bidPrice(rig.cargo.key, region, day);
-  const take = rig.cargo.qty * unit;
-  const spent = rig.cargo.qty * rig.cargo.unitPaid;
+  const unit = bidPrice(deck.cargo.key, region, day);
+  const take = deck.cargo.qty * unit;
+  const spent = deck.cargo.qty * deck.cargo.unitPaid;
   const profit = take - spent;
   player.credits = (player.credits || 0) + take;
-  const sold = rig.cargo;
-  rig.cargo = null;
+  const sold = deck.cargo;
+  await setDeckCargo(player, deck, null);
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  pushCab(rig);
   const verdict = profit > 0
     ? `<span class="item-grant">Cleared <b>${profit}₵</b> on the run.</span>`
     : profit === 0 ? '<span class="text-dim">You broke exactly even. All that road for nothing.</span>'

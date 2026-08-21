@@ -943,7 +943,7 @@ function freightScreen() {
     <div class="td-row">
       <div class="td-main"><b>${esc(b.name)}</b><div class="td-dim">${b.kg} kg → ${esc(b.toName)}${b.crosses ? ' <span class="td-warn">across the waste</span>' : ''}</div></div>
       <div class="td-pay">${money(b.pay)}</div>
-      <button class="td-act" data-cmd="haul ${b.i + 1}" ${d.driving ? '' : 'disabled title="Get in a truck first"'}>Take it</button>
+      <button class="td-act" data-cmd="haul ${b.i + 1}" ${d.canLoad ? '' : `disabled title="${esc(d.loadWhy || 'Nowhere to put it')}"`}>Take it</button>
     </div>`).join('')}</div>`;
 }
 
@@ -960,8 +960,8 @@ function marketScreen() {
       <div class="td-num">${money(q.ask)}</div>
       <div class="td-num td-dim">${money(q.bid)}</div>
       <div class="td-num">${there}</div>
-      <button class="td-act" data-cmd="market buy ${q.key} full" ${d.driving && fits > 0 ? '' : 'disabled'}
-        title="${fits > 0 ? `Fills the deck: ${fits}` : 'Not enough credits, or no truck'}">Buy ${fits > 0 ? fits : ''}</button>
+      <button class="td-act" data-cmd="market buy ${q.key} full" ${d.canLoad && fits > 0 ? '' : 'disabled'}
+        title="${!d.canLoad ? esc(d.loadWhy || 'Nowhere to put it') : fits > 0 ? `Fills the deck: ${fits}` : 'Not enough credits'}">Buy ${fits > 0 ? fits : ''}</button>
     </div>`;
   }).join('');
   const sell = d.cargo?.kind === 'goods'
@@ -970,7 +970,7 @@ function marketScreen() {
       <div class="td-row head"><div class="td-main">good</div><div class="td-num">buy</div><div class="td-num">sell</div>
         <div class="td-num">${d.thereName ? esc(d.thereName) : 'there'}</div><div></div></div>
       ${rows}</div>${sell}
-    <div class="td-dim td-note">Your deck holds ${d.deckKg} kg.</div>`;
+    <div class="td-dim td-note">Your deck holds ${d.deckKg} kg.${d.canLoad || !d.loadWhy ? '' : ` <span class="td-warn">${esc(d.loadWhy)}.</span>`}</div>`;
 }
 
 // ── Events ───────────────────────────────────────────────────────────────────
