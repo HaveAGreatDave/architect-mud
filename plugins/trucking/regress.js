@@ -2883,6 +2883,76 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and which still starts exactly on the gate it left',
         Math.hypot(corridorPos(rig.route, 0, 0).x - rig.x, corridorPos(rig.route, 0, 0).y - rig.y) < 0.01);
 
+      // ── YOU CAN GET OUT ON THE ROAD, AND IT IS STILL THERE WHEN YOU COME BACK ──
+      //
+      // For a while it was not: a healthy rig parked mid-crossing was silently turned round and
+      // driven back to the gate it came in by, so the one thing the corridor was built to allow —
+      // stop, climb down, walk about, climb up — could not be done at all. `mountOnCrossing` could
+      // always put a driver back into their own cab out here; nothing could get them out of it.
+      //
+      // The room the truck stops in is TRANSIENT, so this pins both halves: that the rig is left
+      // exactly where it stopped, and that it names somewhere real to be dragged to when the
+      // crossing ends without it. A park that silently failed to write `void_home` is a truck that
+      // passes the first half of this test and is lost the moment the player walks out of the waste.
+      //
+      // ⚠ THE FIXTURE IS HANDED BACK ITS OWN RIG OBJECT AT THE END. The corridor sweep below holds
+      // `rig` by identity and drives it tile by tile; `drive` builds a NEW rig, so leaving that one
+      // in place strands the sweep on a stale object and the whole crossing block fails downstream
+      // for reasons that look nothing like parking.
+      {
+        const roomBefore = player.current_zone;
+        const truckId = rig.truckId;
+        rig.speed = 0;
+        const down = await run('park');
+        check('void park: park lets go of the wheel rather than turning you round',
+          !rigs.has(player.id) && player.current_zone === roomBefore,
+          `${player.current_zone} vs ${roomBefore} | ${down?.message?.slice(0, 50)}`);
+
+        const { rows: [t] } = await query(
+          `SELECT depot_zone, impound_fee, custom_data->>'void_home' AS void_home FROM trucks WHERE id=$1`,
+          [truckId]).catch(() => ({ rows: [] }));
+        check('void park: the truck is parked in the room you left it in', t?.depot_zone === roomBefore,
+          `${t?.depot_zone} vs ${roomBefore}`);
+        // Truthiness, not `== null`: the lot is cleared by writing a ZERO fee (fleet.js
+        // recoverTruck) and every reader in this plugin treats 0 and NULL as the same state.
+        check('void park: …and stopping on purpose is not abandonment, so nothing impounds it',
+          !t?.impound_fee, String(t?.impound_fee));
+        check('void park: …but it names a real yard to be recovered to', !!t?.void_home, t?.void_home);
+
+        const back = await run('drive');
+        check('void park: you can climb back into your own rig out on the road',
+          rigs.has(player.id), back?.message?.slice(0, 60));
+        check('void park: …onto the corridor leg, not a generic roadhead tractor',
+          rigs.get(player.id)?.leg === 'corridor' && rigs.get(player.id)?.truckId === truckId,
+          `${rigs.get(player.id)?.leg} truck=${rigs.get(player.id)?.truckId === truckId}`);
+
+        // AND THE ROOM GOING AWAY MUST NOT TAKE THE TRUCK WITH IT. The safety property is that the
+        // row points at somewhere real either way — losing a 31,000₵ rig to a torn-down transient
+        // zone is the failure this whole path exists to prevent.
+        const home = t?.void_home;
+        const moved = await truckTest.recoverTrucksFrom([roomBefore], null);
+        const { rows: [after] } = await query(
+          'SELECT depot_zone, impound_fee FROM trucks WHERE id=$1', [truckId]).catch(() => ({ rows: [] }));
+        check('void park: a crossing ending drags an abandoned rig home rather than orphaning it',
+          moved === 1 && after?.depot_zone === home, `${moved} moved → ${after?.depot_zone} (want ${home})`);
+        check('void park: …and charges to fetch it', after?.impound_fee > 0, after?.impound_fee);
+        // ⚠ IDEMPOTENT. The teardown event and the boot sweep can both reach the same truck, and a
+        // fee re-set on every pass is a bill that grows while the rig sits still.
+        const feeOnce = after?.impound_fee;
+        await truckTest.recoverTrucksFrom([roomBefore, after?.depot_zone], null);
+        const { rows: [again] } = await query(
+          'SELECT impound_fee FROM trucks WHERE id=$1', [truckId]).catch(() => ({ rows: [] }));
+        check('void park: …once, however many times the sweep runs', again?.impound_fee === feeOnce,
+          `${feeOnce} → ${again?.impound_fee}`);
+
+        // Put the fixture back exactly as the crossing left it: its own rig, on the road, mounted,
+        // with the recovery bookkeeping undone so the sweep below drives a truck that is not in a lot.
+        await query(`UPDATE trucks SET depot_zone=$1, impound_fee=NULL WHERE id=$2`, [roomBefore, truckId]).catch(() => {});
+        rigs.set(player.id, rig);
+        rig.engineOn = true; rig.locked = false;
+        player.posture = 'driving';   // the fixture's own state, restored directly — no posture side effects wanted here
+      }
+
       // ── THE GPS AND THE VERB GIVE ONE ANSWER ──────────────────────────────────
       //
       // The dash screen is a face for `route`, and the whole value of it over typing is the two facts

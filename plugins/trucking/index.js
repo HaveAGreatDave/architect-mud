@@ -584,9 +584,9 @@ async function mountOnCrossing(player) {
   //
   // `drive` reaches this branch BEFORE the depot path (see its first lines), so the depot path's
   // restore could never run out here. Parking mid-crossing writes the void room as the truck's
-  // `depot_zone` (park only hands it to a recovery yard once you are properly committed — broken,
-  // dry, or past the first couple of tiles), so the truck that belongs to this driver in this room
-  // is exactly what `trucksAt` answers, and hydrating from it restores all of the above at once.
+  // `depot_zone` — a healthy rig stops exactly where you left it, and only a broken or dry one is
+  // handed to a recovery yard — so the truck that belongs to this driver in this room is exactly
+  // what `trucksAt` answers, and hydrating from it restores all of the above at once.
   const rig = mountRig(player, { x: 0, y: 0 });
   const mine = (await trucksAt(player.id, player.current_zone).catch(() => []))[0];
   if (mine) { await hydrateFromTruck(rig, mine); rig.zoneId = player.current_zone; }
@@ -2384,24 +2384,23 @@ async function parkRig(player, forced) {
   // them. It reads as being dumped, because it is — and it fired on the ordinary act of stopping,
   // which a driver does for a dozen legitimate reasons.
   //
-  // Abandonment is now what the word means: you are walking away because you CANNOT drive it. A
-  // rig that still runs turns round instead (`retreat`, below) and takes you back to the tile you
-  // left from — a real zone, with the truck, with the load still on the deck and the contract
-  // still live. Losing the diesel and the day is punishment enough for changing your mind.
+  // Abandonment is now what the word means: you are walking away because you CANNOT drive it.
   //
-  // ⚠ A BROKEN OR DRY RIG STILL ABANDONS, and that is not the same failure. There the truck
-  // genuinely cannot move, the void room you are standing in belongs to a crossing that is still
-  // live, and walking out of it is voidwalking's own designed path — you are stranded by the
-  // machine rather than by the verb.
-  const stranded = rig.leg !== 'city' && (rig.broken || rig.dry);
-  const canTurnRound = rig.leg !== 'city' && !stranded && !!rig.instanceId;
-  if (canTurnRound) {
-    await retreat(player, rig);
-    // `retreat` puts the rig back on real tiles and leaves it MOUNTED, which is the whole point —
-    // you are at the gate you left from, in the cab, free to drive into the yard and park properly.
-    // So this park is finished: the driver is somewhere, and that was the entire complaint.
-    return say('<span class="text-amber">You sit for a moment with the engine running, then swing it round and point the nose back the way you came.</span>');
-  }
+  // ⚠ AND STOPPING OUT THERE ON PURPOSE IS NOT ABANDONMENT EITHER. For a while a healthy rig
+  // mid-crossing was turned round by this verb (`retreat`, below) and driven back to the gate,
+  // which was safe and was not what anybody meant by `park`: you cannot get out and look at
+  // something, and the ONE case the road was built to allow — climb down, walk, climb back up —
+  // could not be reached. `mountOnCrossing` has always been able to put you back in your own cab
+  // out here, trailer and all; nothing could get you out of it in the first place.
+  //
+  // So park means park, everywhere. A healthy rig stopped on the corridor falls through to the
+  // ordinary landing below: the void room becomes its `depot_zone`, `drive` finds it there, and
+  // `retreat` keeps its OTHER caller — driving back to s = 0 under your own power still leaves
+  // the corridor at the gate you came in by, which is the honest way to change your mind.
+  //
+  // What the void room cannot do is outlive the crossing, so see `recoverTrucksFrom`: when the
+  // instance tears down with a truck still parked in it, that truck goes to the recovery lot on
+  // the same impound path a breakdown uses. Nothing is ever lost out there, it just gets expensive.
 
   rig.engineOn = false;   // the key, turned for you — the last step of the sequence, not a gate on it
   dismountRig(player.id);
@@ -2437,6 +2436,25 @@ async function parkRig(player, forced) {
     sendToPlayer(player.id, { type: 'emote', message:
       `<span class="text-amber">You leave it on the shoulder with the flashers going and start walking. Somebody will come out for it eventually.</span>\n`
       + `<span class="text-dim">Recovery to ${depotNameOf(rig.fromDepot) || 'the yard'}: <b>${fee}₵</b>, payable when you next go to drive it.</span>` });
+  }
+  // ── STOPPING ON THE SHOULDER, ON PURPOSE ─────────────────────────────────────
+  // A healthy rig left out on the corridor. The void room below becomes its `depot_zone`, which is
+  // what `mountOnCrossing` reads to give you back YOUR cab with YOUR box on the pin.
+  //
+  // ⚠ AND THE ROOM IS TRANSIENT, so the truck needs to name somewhere real to be dragged to when
+  // the crossing ends without it. That anchor is written HERE and only here, because this is the
+  // one moment both facts are in hand: which truck, and which depot it set out from. Without it
+  // `recoverTrucksFrom` has a truck and no idea where it belongs — the row would have to be swept
+  // to a default yard, which is how somebody's rig ends up on the other side of the waste.
+  const roadside = !abandoned && rig.leg !== 'city' && !!rig.instanceId;
+  if (roadside && rig.truckId) {
+    const home = rig.fromDepot || crossingInfo(rig.instanceId)?.originZone || null;
+    if (home) await query(
+      `UPDATE trucks SET custom_data = jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{void_home}', to_jsonb($1::text), true)
+        WHERE id = $2`, [home, rig.truckId]).catch(() => {});
+    sendToPlayer(player.id, { type: 'emote', message:
+      `<span class="text-amber">You set the brakes, kill the lights and drop down onto the hardpan. The engine ticks as it cools.</span>\n`
+      + `<span class="text-dim">She will be here when you get back. <b>drive</b> to climb up again — but if you walk out of the waste without her, somebody will have to come and fetch her.</span>` });
   }
   // AND YOU LOCK IT. The last thing in the sequence, and the state that says this truck was LEFT
   // rather than merely stopped — persisted in the same flush below, so it is still locked tomorrow.
@@ -3936,6 +3954,65 @@ export const hooks = {
   'hijack.target': (player, nameHint) => playerHijack(player, nameHint),
 };
 
+// ── NOTHING IS LOST OUT THERE, IT JUST GETS EXPENSIVE ────────────────────────
+// A truck parked on the corridor holds a TRANSIENT void room as its `depot_zone`, and that room
+// stops existing the moment the last member walks out of the crossing. Left alone that is a rig
+// which cannot be found, driven, sold or repaired: the row is intact and points at nothing.
+//
+// So the road drags it home. This is deliberately the SAME landing a breakdown gets (`parkRig`'s
+// abandonment branch) rather than a second idea about lost trucks — the yard it set out from, an
+// impound fee to get it out, settled by the `drive` path that already knows how to bill one.
+// Where "the yard it set out from" comes from is `custom_data.void_home`, written at the moment
+// of parking because that is the only moment anybody knows it; a truck that somehow has none
+// falls back to the crossing's own origin tile.
+//
+// ⚠ THE FEE IS ONLY EVER SET, NEVER RAISED, and "already impounded" is `NULLIF(…, 0)` rather than
+// `IS NULL`. The recovery write clears a lot by setting the fee to ZERO (fleet.js `recoverTruck`)
+// and every reader here tests it for truthiness — `if (owned.impound_fee)`, `t.impound_fee || 0` —
+// so 0 and NULL are the same state and a plain COALESCE would preserve the 0 and never charge at
+// all. Two sweeps reaching the same truck is not hypothetical: the teardown fires when the
+// crossing ends, and the boot sweep fires on every restart.
+async function recoverTrucksFrom(rooms, origin) {
+  if (!rooms?.length) return 0;
+  const { rows } = await query(
+    `SELECT id, type_id, custom_data->>'void_home' AS void_home FROM trucks WHERE depot_zone = ANY($1)`,
+    [rooms]).catch(() => ({ rows: [] }));
+  let moved = 0;
+  for (const t of rows) {
+    const home = t.void_home || origin || null;
+    if (!home) continue;   // nowhere real to put it: leave the row alone rather than guess a yard
+    const fee = Math.max(250, Math.round((truckType(t.type_id)?.price || 4000) * 0.05));
+    const { rowCount } = await query(
+      `UPDATE trucks SET depot_zone = $1, impound_fee = COALESCE(NULLIF(impound_fee, 0), $2) WHERE id = $3`,
+      [home, fee, t.id]).catch(() => ({ rowCount: 0 }));
+    moved += rowCount || 0;
+  }
+  // The count of trucks actually RESCUED, not of rows looked at — a truck with nowhere to be put
+  // is skipped above, and reporting it as moved would make the log say the opposite of the truth.
+  return moved;
+}
+
+// The crossing ended with somebody's rig still standing in it. Fired before the rooms are
+// unregistered — see the ⚠ in voidwalking's teardownInstance.
+on('crossing.ended', async ({ rooms, origin }) => {
+  const n = await recoverTrucksFrom(rooms, origin).catch(() => 0);
+  if (n) console.log(`[trucking] recovered ${n} truck(s) from a crossing that ended.`);
+});
+
+// AND THE RESTART CASE, WHICH THE EVENT CANNOT COVER. Crossings live in RAM, so a server that
+// comes back up has none — every truck still holding a void room is dangling by definition, and
+// no teardown will ever fire for it. Void rooms are the only ids shaped `xing_…` (see
+// voidwalking's `xing_${leader.id}_${_seq}`), which makes this a single indexed prefix scan rather
+// than a walk of the fleet. Deferred one tick so the plugin finishes loading first; failure here
+// must never be the thing between the server and booting.
+setTimeout(async () => {
+  const { rows } = await query(`SELECT DISTINCT depot_zone FROM trucks WHERE depot_zone LIKE 'xing\\_%'`)
+    .catch(() => ({ rows: [] }));
+  if (!rows.length) return;
+  const n = await recoverTrucksFrom(rows.map(r => r.depot_zone), null).catch(() => 0);
+  if (n) console.log(`[trucking] recovered ${n} truck(s) stranded in void rooms by a restart.`);
+}, 0);
+
 // Hijackers try the door of any STOPPED cab they are standing next to. Scheduled rather than run
 // off a movement event because the thing it watches for is a truck that is NOT moving — there is no
 // event for "still here", and the whole mechanic is about time passing while you sit. Idle-gated by
@@ -3943,6 +4020,6 @@ export const hooks = {
 // this server is almost always.
 schedule('5s', () => tickHijackers());
 
-export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH, hydrateFromTruck };
+export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH, hydrateFromTruck, recoverTrucksFrom };
 
 console.log('[trucking] Plugin loaded.');

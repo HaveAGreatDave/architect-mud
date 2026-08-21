@@ -40,7 +40,7 @@ import { getLivePlayer, getAllLivePlayers, getAllZones, getZone, getZoneEnemies,
   registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, propsOf } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { getFlag, setFlag, setFlags, clearFlagsIn } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
@@ -637,6 +637,15 @@ function addDetour(instanceId, voidKey, window, salt, spineRoomId, detourSet, ro
 
 function teardownInstance(c) {
   for (const eid of c.enemies) removeEnemyInstance(eid); // despawn spawned foes (no-op if already killed)
+  // ⚠ ANNOUNCED BEFORE THE ROOMS GO, not after. A subscriber's whole job is to deal with something
+  // it left in one of these rooms, and by the time they are unregistered there is no way to ask
+  // what was in them. `origin` rides along because a room that is about to stop existing is no
+  // answer to "where should this be put instead" — the tile the crossing set out from is.
+  //
+  // This is the ONE thing that leaves this plugin, and it is an event rather than a call so the
+  // edge stays one-way: voidwalking still imports nothing from trucking (which parks trucks out
+  // here), and nothing here knows or cares whether anybody is listening.
+  emit('crossing.ended', { instanceId: c.id, rooms: [...c.roomSet], origin: c.origin, voidKey: c.voidKey });
   for (const id of c.roomSet) removeTransientZone(id);   // trunk + limbs + detours
   crossings.delete(c.id);
 }

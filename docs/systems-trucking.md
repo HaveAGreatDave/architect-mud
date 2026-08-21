@@ -560,6 +560,32 @@ wrong row, and the symptom of that would be a whole fleet turning the colour of 
 > the rest of them. Off a pump tile the old refusal is unchanged, and regress pins that: a street
 > with no pump on it still says you are not driving anything.
 
+> **Parking on the road, and why the rig is still there.** `park` means park *everywhere*, including
+> out on the corridor. For a while it did not: a healthy rig stopped mid-crossing was silently turned
+> round and driven back to the gate it came in by (`retreat`), which was safe and was not what the
+> verb says. It also made the one thing the corridor exists to allow — **stop, climb down, walk
+> about, climb back up** — unreachable, because `mountOnCrossing` could always put a driver back into
+> their own cab out there and nothing could get them *out* of it in the first place. `retreat` keeps
+> its other caller: driving back to `s = 0` under your own power still leaves the corridor at the
+> gate, which is the honest way to change your mind.
+>
+> ⚠ **The room the truck stops in is transient, so the truck names somewhere real to be dragged to.**
+> A void room is unregistered the moment the last member walks out of the crossing
+> ([voidwalking teardownInstance](../plugins/voidwalking/index.js)), and a rig holding that id as its
+> `depot_zone` is a row pointing at nothing: not findable, not drivable, not sellable. So parking on
+> the corridor writes `custom_data.void_home` — the depot the haul set out from — at the one moment
+> both facts are in hand, and `recoverTrucksFrom` drags the truck there on the **same impound path a
+> breakdown uses**. Nothing new is invented to charge you; abandonment, confiscation and a crossing
+> that ended without you all finish in the same lot. Two triggers, because one is not enough: the new
+> `crossing.ended` event (emitted *before* the rooms go, or there is no way to ask what was in them)
+> and a boot sweep for `depot_zone LIKE 'xing_%'`, since crossings live in RAM and a restart leaves
+> every such truck dangling with no teardown to fire.
+>
+> ⚠ **`impound_fee` is truthy-tested, and 0 means *not impounded*.** `recoverTruck` clears a lot by
+> writing a **zero** fee rather than a NULL, and every reader here agrees (`if (owned.impound_fee)`,
+> `t.impound_fee || 0`). A plain `COALESCE(impound_fee, …)` in the sweep therefore preserves the 0
+> and never charges at all — it must be `COALESCE(NULLIF(impound_fee, 0), …)`. Regress caught this.
+
 > **The heavy-truck trap.** A ponderous truck is `mass`, `engineLag` and `wheelbase` — **never**
 > starving it of power. The first cut gave the Continental `thrustMax: 7.4` against a rolling
 > resistance of 2.6 and the drivability invariant caught it: it could not move off the pavement at
