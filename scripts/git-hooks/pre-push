@@ -74,13 +74,37 @@ fi
 
 if [ "$needs_regress" = 1 ]; then
   echo "[regress-gate] code changes in this push — running regression gate…"
-  node scripts/kill-orphans.js >/dev/null 2>&1   # sweep orphaned pool connections first
-  if node tests/regress.js </dev/null; then
+  node scripts/kill-orphans.js >/dev/null 2>&1   # sweep orphaned pool connections first (pretest sweeps too; this is cheap insurance before a gate that has died on the pool)
+  # ── ⚠ THE NPM SCRIPT, NOT ONE OF ITS FILES ─────────────────────────────────
+  # This ran `node tests/regress.js` directly, which meant the PUSH gate and the
+  # TEST gate were two different gates that everybody described with the same
+  # sentence — "regress runs". Everything in `pretest:regress` was outside the
+  # push: parse-smoke, automation-smoke, content:lint, query-lint, docs:lint and
+  # every scripts/shapes smoke. A client file that did not parse, a doc link that
+  # did not resolve, or a building model that threw could all be pushed by a
+  # developer who had never typed `npm run test:regress` by hand, and the hook
+  # would print "regress green" on the way out.
+  #
+  # This is the same shape as the docs:lint bug recorded in CLAUDE.md — the gate
+  # invoked one of the script's FILES rather than the script, so the other two
+  # checks were never gated at all and a real gap sat behind the wording for
+  # months. Same fix: invoke the npm script, so there is ONE definition of what
+  # the gate is and adding a check to it picks it up here for free.
+  #
+  # ⚠ KEEP `</dev/null`. The hook's own stdin is the ref list git fed it, and
+  # anything the chain spawns must not inherit what is left of it.
+  if npm run test:regress </dev/null; then
     echo "[regress-gate] regress green — push allowed."
   else
     echo ""
-    echo "✗ [regress-gate] Regression suite FAILED — push BLOCKED."
-    echo "  Fix the failures, then push again."
+    # ⚠ NOT "the regression suite failed". The gate is the whole pretest chain
+    # plus the suite, and on 2026-08-21 it printed exactly that while the suite
+    # had passed 8349/8349 — the run had been killed a sixth of the way in. A
+    # gate that names the wrong culprit sends you to debug the wrong thing.
+    echo "✗ [regress-gate] Pre-push gate FAILED — push BLOCKED."
+    echo "  That is 'npm run test:regress': the pretest chain (parse/automation"
+    echo "  smokes, content + query + docs lint, shapes smokes) AND the suite."
+    echo "  Scroll up for which one — the suite prints a trailing 'N/N passed'."
     echo "  (Real emergency only:  git push --no-verify)"
     exit 1
   fi

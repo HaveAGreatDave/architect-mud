@@ -153,6 +153,22 @@ fake player — dispatch order, posture, move gates — plus every plugin's own 
 
 Never wire it into production boot (same principle as no startup migrations — boot stays deliberate).
 
+**The pre-push hook runs the same `npm run test:regress` you would type** — corrected 2026-08-21.
+It called `node tests/regress.js` directly until then, which meant the PUSH gate and the TEST gate
+were two different gates that everyone described with one sentence ("regress runs"): the whole
+`pretest:regress` chain — `parse-smoke`, `automation-smoke`, `content:lint`, `query-lint`,
+`docs:lint` and every `scripts/shapes/*` smoke — sat **outside** the push. A client file that did not
+parse, a doc link that did not resolve, or a building model that threw could all be pushed by
+somebody who had never run the suite by hand, and the hook printed "regress green" on the way out.
+Same shape as the `docs:lint` bug two paragraphs below, one layer up. **Add a check to
+`pretest:regress` and the push gate picks it up for free.**
+
+⚠ **A red from that gate is not necessarily a red test.** On 2026-08-21 it printed "Regression suite
+FAILED" while the suite had passed 8349/8349 — the run had been killed a sixth of the way in, no
+error text, no summary line (the Neon pool transient noted below). The suite prints a trailing
+`N/N passed`; **if that line is absent the suite did not finish, which is a different problem from a
+failing test.** Re-run `npm run test:regress` standalone before you go looking for what you broke.
+
 **When you add a plugin or a verb, add a `plugins/<name>/regress.js`** (default-export
 `async ({ run, check, getPlayer }) => { … }`; see [plugin-standard.md](docs/plugin-standard.md)).
 Test code lives with the plugin and never loads in production.
