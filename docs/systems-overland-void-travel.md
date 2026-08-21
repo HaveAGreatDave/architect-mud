@@ -131,9 +131,9 @@ at a cliff.
 
 The road on the Scarletwastes side is **authored, not generated** (the region is uniformly redrock on
 purpose so it can be hand-painted): it enters at Talus on the east rim, runs west along y957, and
-turns south to ring the Thorn Wall. ⚠ It stops at x1053 while the Deadleg depot is at x1024, so the
-last stretch into that yard is open redrock — drivable, since nothing out there is impassable, but
-off the tarmac, which is a tyre bill rather than a wall.
+turns south to ring the Thorn Wall — with a spur running the other way along the same y957 line, west
+from the ring at x1053 to the Deadleg's own apron at x1024, so the depot is on the tarmac rather than
+29 tiles of open redrock off the end of it. The whole limb is now road from the rim to the yard door.
 
 ### Destination = declared heading at the gate, mastery inside the void
 
