@@ -180,6 +180,40 @@ export const VOIDS = {
     // come back in level with where you left.
     dests: [
       { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'west' },
+      // ── SOUTH TO THE SCARLETWASTES ──────────────────────────────────────────
+      // `dir: 'south'` because west is Coldwater's, and because it is also true: the Scarletwastes
+      // sit south-west, and the only rim of Terminus a road can physically leave by on that side is
+      // the southern one. The WEST rim (x1200) is cliff for its whole length — a limb aimed through
+      // it would deposit a truck on a rock face — so the gate is the westernmost passable tile of
+      // the south rim, (1219,960), painted `dirt_road` to match every other gate in this table.
+      { key: 'scarletwastes', dest: 'zone_scw_1092_957', region: 'region_scarletwastes', heading: 'The Scarletwastes', sign: 'Thornwarren', dir: 'south' },
+    ],
+  },
+
+  // ── THE SCARLETWASTES ──────────────────────────────────────────────────────
+  // The fourth region on the road, and the last one reachable without a design change: Coldwater's
+  // junction has been full at three limbs since Deadwater (a room has four walls and the fourth is
+  // the way you came in), so a hub was never going to hold everything. The network is a CHAIN
+  // instead — Coldwater–Terminus–Scarletwastes on this side, Coldwater–Reach–Deadwater on the other
+  // — which is also why this hangs off Terminus rather than off the Basin. It is not a compromise;
+  // it is the only shape that keeps growing.
+  //
+  // Geometry picked the neighbour, not taste. The Scarletwastes run x1000–1092 / y950–1001 and
+  // Terminus x1200–1239 / y921–960: they overlap in latitude and sit about 108 tiles apart, the
+  // same gap Coldwater and Deadwater are, while Deadwater (x812) and the Reach (y1958) are absurd
+  // from here.
+  //
+  // The road on the far side is authored, not generated: it enters at Talus on the east rim, runs
+  // west along y957, and turns south to ring the Thorn Wall. ⚠ It stops at x1053 and the Deadleg
+  // depot is at x1024, so the last stretch to the yard is open redrock — drivable (nothing out
+  // there is impassable) but off the tarmac, which is a tyre bill rather than a wall. That is a
+  // painting job in the Studio, not a change here.
+  region_scarletwastes: {
+    origin: 'The Scarletwastes',
+    sign: 'Thornwarren',
+    trunk: 1,
+    dests: [
+      { key: 'exodus', dest: 'zone_terminus_1219_960', region: 'region_terminus', heading: 'Terminus', sign: 'Terminus', dir: 'east' },
     ],
   },
 };

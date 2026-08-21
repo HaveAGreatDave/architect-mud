@@ -100,6 +100,41 @@ e.g. `Reach—Exodus` as a lawless-frontier shortcut. No combinatorial explosion
 that make fictional sense, and each edge is independent content (its own seed namespace, its own
 traces set).
 
+### The graph, as built *(2026-08-21)*
+
+Five regions, six legs, and every one of them symmetrical — anything reachable is leavable, at the
+same length, and `regress` asserts both for every row in `VOIDS`:
+
+| From | Limbs |
+|---|---|
+| Coldwater | The Reach (s) · Terminus (e) · Deadwater (w) — **full** |
+| The Reach | Coldwater (n) · Deadwater (w) |
+| Deadwater | Coldwater (n) · The Reach (e) |
+| Terminus | Coldwater (w) · **The Scarletwastes (s)** |
+| The Scarletwastes | Terminus (e) |
+
+⚠ **It is a chain, not a hub, and it had to become one.** Coldwater's junction has been full since
+Deadwater — a room has four walls and the fourth is the way you came in — so the fourth region could
+never hang off the Basin. The Scarletwastes therefore joins at **Terminus**, which is not a
+compromise but the only shape that keeps growing: Coldwater–Terminus–Scarletwastes on one side,
+Coldwater–Reach–Deadwater on the other. A sixth region joins at a leaf the same way.
+
+**Geometry picks the neighbour, not taste.** The Scarletwastes run x1000–1092 / y950–1001 and
+Terminus x1200–1239 / y921–960 — overlapping in latitude, about 108 tiles apart, the same gap
+Coldwater and Deadwater are, while Deadwater (x812) and the Reach (y1958) are absurd from there.
+
+⚠ **A gate must land on ground you can stand on.** Terminus' **west** rim (x1200) is cliff for its
+whole length, so the obvious westward limb would have deposited a truck on a rock face. The gate is
+the westernmost passable tile of the **south** rim, (1219,960), painted `dirt_road` to match every
+other gate in the table. Check the rim terrain before adding a limb — the table will happily point
+at a cliff.
+
+The road on the Scarletwastes side is **authored, not generated** (the region is uniformly redrock on
+purpose so it can be hand-painted): it enters at Talus on the east rim, runs west along y957, and
+turns south to ring the Thorn Wall. ⚠ It stops at x1053 while the Deadleg depot is at x1024, so the
+last stretch into that yard is open redrock — drivable, since nothing out there is impassable, but
+off the tarmac, which is a tyre bill rather than a wall.
+
 ### Destination = declared heading at the gate, mastery inside the void
 
 You **declare intent when you depart** (an adjacent region — the adjacency graph gates what's a legal

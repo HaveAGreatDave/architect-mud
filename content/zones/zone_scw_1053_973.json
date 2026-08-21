@@ -24,7 +24,7 @@
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 1053,
   "grid_y": 973,

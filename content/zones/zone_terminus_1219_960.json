@@ -20,7 +20,7 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "hardpan"
+    "terrain": "dirt_road"
   },
   "grid_x": 1219,
   "grid_y": 960,
@@ -30,3 +30,4 @@
   "name": "Ochre Bench",
   "parent_zone": null
 }
+
