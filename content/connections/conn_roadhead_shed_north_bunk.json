@@ -1,0 +1,10 @@
+{
+  "a": "zone_yard_roadhead",
+  "b": "zone_bunk_roadhead",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_roadhead_shed_north_bunk",
+  "lockable": false,
+  "one_way": false
+}
+

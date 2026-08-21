@@ -1,0 +1,10 @@
+{
+  "a": "zone_yard_lastload",
+  "b": "zone_bunk_lastload",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_lastload_shed_east_bunk",
+  "lockable": false,
+  "one_way": false
+}
+

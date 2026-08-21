@@ -1,0 +1,20 @@
+{
+  "description": "A steel-framed cot with a thin mattress, a folded blanket at the foot and a locker box under it. The frame has been welded at one corner by somebody who was not a welder.",
+  "flags": {
+    "aliases": "cot,bunk,bed,first cot",
+    "interactions": [
+      "sleep"
+    ]
+  },
+  "hp": 40,
+  "hp_max": 40,
+  "id": "furn_bunk_lastload_cot1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "first cot",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bunk_lastload"
+}
+

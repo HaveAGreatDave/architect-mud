@@ -2377,6 +2377,32 @@ async function parkRig(player, forced) {
   if (!forced && (rig.speed || 0) > PARK_STOPPED_MPH) {
     return say('Not while it is still rolling. Bring it to a stand first, then set the brakes.');
   }
+  // ── ⚠ A DRIVER IS NEVER LEFT IN THE VOID WITH A TRUCK THAT STILL RUNS ──────
+  // This used to be `rig.leg !== 'city' && (broken || dry || s > 2)`, which made ANY deliberate
+  // stop out on the road an abandonment: the truck went to the recovery lot, a wreck was marked,
+  // and the driver was left standing on foot in a TRANSIENT void room with the sim closed behind
+  // them. It reads as being dumped, because it is — and it fired on the ordinary act of stopping,
+  // which a driver does for a dozen legitimate reasons.
+  //
+  // Abandonment is now what the word means: you are walking away because you CANNOT drive it. A
+  // rig that still runs turns round instead (`retreat`, below) and takes you back to the tile you
+  // left from — a real zone, with the truck, with the load still on the deck and the contract
+  // still live. Losing the diesel and the day is punishment enough for changing your mind.
+  //
+  // ⚠ A BROKEN OR DRY RIG STILL ABANDONS, and that is not the same failure. There the truck
+  // genuinely cannot move, the void room you are standing in belongs to a crossing that is still
+  // live, and walking out of it is voidwalking's own designed path — you are stranded by the
+  // machine rather than by the verb.
+  const stranded = rig.leg !== 'city' && (rig.broken || rig.dry);
+  const canTurnRound = rig.leg !== 'city' && !stranded && !!rig.instanceId;
+  if (canTurnRound) {
+    await retreat(player, rig);
+    // `retreat` puts the rig back on real tiles and leaves it MOUNTED, which is the whole point —
+    // you are at the gate you left from, in the cab, free to drive into the yard and park properly.
+    // So this park is finished: the driver is somewhere, and that was the entire complaint.
+    return say('<span class="text-amber">You sit for a moment with the engine running, then swing it round and point the nose back the way you came.</span>');
+  }
+
   rig.engineOn = false;   // the key, turned for you — the last step of the sequence, not a gate on it
   dismountRig(player.id);
   // The text tick self-heals (it drops any run whose rig has gone), but stopping it here means the
@@ -2400,7 +2426,7 @@ async function parkRig(player, forced) {
   // `drive` already knows how to settle. Nothing new is invented to charge you — abandonment and
   // confiscation end in the same lot, which is exactly right, and priced off the truck because
   // what you are paying for is somebody going and getting it.
-  const abandoned = rig.leg !== 'city' && (rig.broken || rig.dry || rig.s > 2);
+  const abandoned = rig.leg !== 'city' && (rig.broken || rig.dry);
   if (abandoned) {
     rig.zoneId = rig.fromDepot || null;
     const fee = Math.max(250, Math.round((rig.type?.price || 4000) * 0.05));

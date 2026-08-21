@@ -1,0 +1,10 @@
+{
+  "a": "zone_yard_dryrun",
+  "b": "zone_bunk_dryrun",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_dryrun_shed_north_bunk",
+  "lockable": false,
+  "one_way": false
+}
+

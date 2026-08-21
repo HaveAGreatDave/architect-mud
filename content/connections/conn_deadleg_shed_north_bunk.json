@@ -1,0 +1,10 @@
+{
+  "a": "zone_yard_deadleg",
+  "b": "zone_bunk_deadleg",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_deadleg_shed_north_bunk",
+  "lockable": false,
+  "one_way": false
+}
+

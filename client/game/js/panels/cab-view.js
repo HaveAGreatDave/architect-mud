@@ -2670,6 +2670,9 @@ export function openCab(ctx = {}) {
     if (open) {
       galleyEl.querySelector('.cab-galley-body').innerHTML = '<i class="cab-galley-wait">…</i>';
       paintGalleyVitals(st);
+      // ⚠ FLAGGED AS OURS. See cabGalley: a reply the PANEL asked for must never re-open a flap the
+      // driver has closed in the meantime.
+      st.galleyAsked = true;
       sendCmdSilent('galley');
     }
   };
@@ -2688,6 +2691,7 @@ export function openCab(ctx = {}) {
     const b = e.target.closest?.('.cab-galley-item');
     if (!b) return;
     sendCmdSilent(b.dataset.cmd);
+    st.galleyAsked = true;
     sendCmdSilent('galley');
   });
   st.toggleGalley = toggleGalley;
@@ -2727,9 +2731,20 @@ export function openCab(ctx = {}) {
 // ordinary one and can be typed standing on a forecourt, where the log is the surface and this
 // panel does not exist. Nothing here decides anything: the list, the verbs and the numbers on each
 // row are all the server's, and this only paints them.
+// ⚠ A REPLY WE ASKED FOR PAINTS; A REPLY THE PLAYER ASKED FOR OPENS. This used to open the flap
+// unconditionally, which is why it would not close: opening it sends a silent `galley`, eating from
+// it sends another, and both replies land a moment later and put the flap straight back up. Pressing
+// ✕ during that window — which is most of the window, because the reply is a round trip — looked
+// like a button that did nothing.
+//
+// The panel's own refreshes now stamp `galleyAsked`, so they only ever REPAINT. A player who types
+// `galley` in the log has no stamp, and that still opens the flap, because asking for the galley
+// is a request to see it.
 export function cabGalley(msg) {
   if (!st) return;
-  st.toggleGalley?.(true);
+  const ours = st.galleyAsked;
+  st.galleyAsked = false;
+  if (!ours) st.toggleGalley?.(true);
   st.renderGalley?.(msg);
 }
 

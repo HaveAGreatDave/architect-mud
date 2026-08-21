@@ -1,0 +1,10 @@
+{
+  "a": "zone_yard_bonded",
+  "b": "zone_bunk_bonded",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_bonded_shed_north_bunk",
+  "lockable": false,
+  "one_way": false
+}
+

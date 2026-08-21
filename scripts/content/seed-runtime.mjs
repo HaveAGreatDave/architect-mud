@@ -69,11 +69,57 @@ async function lightAuthoredFixtures() {
   if (rowCount) console.log(`[lighting] switched on ${rowCount} newly-imported fixture(s)`);
 }
 
+// ── THE DEPOT FRIDGES ────────────────────────────────────────────────────────
+// Every truck depot has a bunkroom and every bunkroom has a fridge with something in it. The food
+// is INVENTORY rather than authored content, for the reason all runtime state is: a tin of
+// something in a content file is a tin that reappears on every deploy and is gone forever the
+// moment somebody eats it.
+//
+// ⚠ IT TOPS UP, IT DOES NOT REFILL. The count is a floor, not a target — if a driver has taken
+// three tins and left two, this puts one back, and if the fridge is full it does nothing at all.
+// That is what makes it safe to run on every import (the whole file's contract) and it is also the
+// right fiction: somebody restocks the fridge, they do not audit it.
+//
+// The rows are minted against the same '_restock' pseudo-owner the vendor system already uses, so
+// nothing new owns them and the orphan sweep already understands them.
+const BUNK_FRIDGE_STOCK = [
+  ['item_ration', 4],
+  ['item_water_bottle', 4],
+  ['item_flat_bread', 2],
+  ['item_ration_cheese', 2],
+  ['item_bar_jerky', 2],
+];
+async function stockBunkFridges() {
+  const { rows: fridges } = await query(
+    "SELECT id FROM furniture WHERE flags->>'truck_bunk_fridge' = 'true'");
+  if (!fridges.length) return;
+  let added = 0;
+  for (const f of fridges) {
+    for (const [itemId, floor] of BUNK_FRIDGE_STOCK) {
+      const { rows: [{ n }] } = await query(
+        'SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id = $1 AND item_id = $2',
+        [f.id, itemId]);
+      const need = floor - n;
+      if (need <= 0) continue;
+      // One statement per shortfall rather than a row at a time: `generate_series` mints the whole
+      // delivery in a single round trip, which matters because this runs against a remote Postgres
+      // on every local import.
+      await query(
+        `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id)
+         SELECT gen_random_uuid()::text, '_restock', $2, 1, 1.0, $1 FROM generate_series(1, $3)`,
+        [f.id, itemId, need]);
+      added += need;
+    }
+  }
+  if (added) console.log(`[bunkrooms] put ${added} item(s) into ${fridges.length} depot fridge(s)`);
+}
+
 const TASKS = [
   ['prime item cache', primeItemCache],   // must precede 'restock vendors'
   ['restock vendors', restockAllVendors],
   ['provision ATM units', provisionAtmUnits],
   ['light authored fixtures', lightAuthoredFixtures],
+  ['stock depot bunkroom fridges', stockBunkFridges],
   // ['<label>', <async fn>],  ← add future fresh-start tasks here
 ];
 

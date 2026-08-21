@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The compressor in the fridge shudders, catches, and settles into its hum.",
+    "Out in the shed, a trailer door goes over and somebody swears at it without any real feeling.",
+    "One of the cots creaks as whoever is on it turns over.",
+    "The strip light ticks, dims for a moment, and comes back.",
+    "A truck idles somewhere outside for a long while and then shuts down."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1e2026",
+  "color": "#c9a86a",
+  "description": "The room behind the office, and every depot on the network has one exactly like it. Four cots along the walls with a folded blanket at the foot of each, a television bracketed up in the corner where nobody has to get up to reach it, a fridge that hums, and a steel sink with a strip of mirror over it. Every flat surface has a ring on it. The ones on the windowsill are older than the ones on the table. It is not comfortable and it was never meant to be. It is somewhere to stop, which out here is a different thing and worth more.",
+  "exits": {
+    "west": "zone_yard_lastload"
+  },
+  "flags": {
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_the_reach",
+    "truck_bunkroom": true,
+    "world_exit_zone": "zone_the_reach_872_1958"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bunk_lastload",
+  "map_id": "map_int_yard_lastload",
+  "name": "The Last Load — the bunkroom",
+  "parent_zone": "zone_the_reach_872_1958"
+}
+

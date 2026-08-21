@@ -1,0 +1,22 @@
+{
+  "description": "A flat set on a folding bracket, angled down at the cots. The picture is fine. The bracket is not, and it has been shimmed level with a folded delivery note.",
+  "flags": {
+    "aliases": "tv,television,set",
+    "broadcast_device_type": "tv",
+    "channel_default": 3,
+    "is_tv": true,
+    "tuned_channel": 3,
+    "tv_dial_freq": 3
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bunk_bonded_tv",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a bracketed television",
+  "object_type": "tv",
+  "power_draw_kw": 0.08,
+  "price": null,
+  "zone_id": "zone_bunk_bonded"
+}
+

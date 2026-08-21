@@ -12,6 +12,7 @@
   "description": "The shed floor, high enough to stand a trailer in and long enough to stand two. Diesel, hot iron, and the red grit that gets into everything out here. Trucks nose-in along one wall under a strip light; along the other, racking, a water butt, and a board with the day's rates chalked on it in a careful, patient hand. The door stands open on the redrock south.",
   "exits": {
     "down": "zone_util_zone_yard_deadleg",
+    "north": "zone_bunk_deadleg",
     "south": "zone_scw_1024_956"
   },
   "flags": {
@@ -35,3 +36,4 @@
   "name": "The Deadleg — the shed",
   "parent_zone": "zone_scw_1024_956"
 }
+

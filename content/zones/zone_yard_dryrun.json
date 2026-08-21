@@ -12,6 +12,7 @@
   "description": "The shed floor, high enough to stand a trailer in and long enough to stand two. Diesel, cold iron, and the flat mineral smell the flats push in under the door. Trucks nose-in along one wall; along the other, drums, a bench, and a bulb on a flex burning steady in a region where nothing electric is supposed to work at all. Nobody here remarks on that. The door stands open on the flats south.",
   "exits": {
     "down": "zone_util_zone_yard_dryrun",
+    "north": "zone_bunk_dryrun",
     "south": "zone_dw_812_954"
   },
   "flags": {
@@ -35,3 +36,4 @@
   "name": "The Dry Run — the shed",
   "parent_zone": "zone_dw_812_954"
 }
+

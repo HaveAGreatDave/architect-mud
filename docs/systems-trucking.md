@@ -3457,6 +3457,65 @@ a depot floor.
 
 ---
 
+## The bunkrooms, and not being dumped in the void *(2026-08-21)*
+
+*Built.* Three things that were the same complaint from three directions: a driver who stops should
+be somewhere.
+
+**Parking on the road no longer strands you.** `parkRig` treated any stop on a corridor leg as
+abandonment — `rig.leg !== 'city' && (broken || dry || s > 2)` — so the truck went to the recovery
+lot, a wreck was marked, and the driver was left on foot in a **transient** void room with the sim
+closed behind them. It fired on the ordinary act of stopping. A rig that still runs now **turns
+round** (`retreat`): back to the tile you left from, still in the cab, load still on the deck and
+the contract still live. Losing the diesel and the day is punishment enough for changing your mind.
+
+⚠ **Abandonment now means what the word means** — broken or dry, where the truck genuinely cannot
+move. There the void room belongs to a crossing that is still live and walking out is voidwalking's
+own designed path: you are stranded by the machine rather than by the verb.
+
+⚠ **And the turn-round happens BEFORE `dismountRig`.** `retreat` hands the driver back a *mounted*
+rig, and there is nothing to hand back once park has taken it away.
+
+**Every depot has a bunkroom.** Four cots, a bracketed television, a fridge that hums and a steel
+sink, at all five yards — Kessler Street, The Roadhead, The Deadleg, The Dry Run, The Last Load.
+They are deliberately **identical**, because the point is that a driver two days out knows exactly
+what is waiting at the next one; only what the weather has done to each room differs.
+
+- **Four cot rows, not one "row of cots".** A bed is a thing you lie down *on*, so one furniture row
+  holding four beds is four drivers fighting over one object — and the whole point is that the other
+  three can be occupied while you take the fourth.
+- **The fridge is stocked by the runtime seed, never authored.** Food in a content file is food that
+  reappears on every deploy and is gone forever the moment somebody eats it. `stockBunkFridges` in
+  `seed-runtime.mjs` **tops up to a floor rather than refilling to a target**, which is what makes it
+  safe on every import and is also the right fiction: somebody restocks the fridge, they do not audit
+  it.
+- ⚠ **The door takes a wall the shed is not already using.** Every shed already spends a compass
+  point on the way out to the yard and most spend `down` on the utility room; a second exit on an
+  occupied wall silently overwrites the door to the street.
+- ⚠ **And each room got a light fixture in the same build.** A new interior authored without one is
+  dark forever, and the fault reads as a bug in the lighting engine rather than a missing prop.
+  `light_on` stays absent — it is excluded from content on purpose and `lightAuthoredFixtures`
+  switches new fixtures on.
+
+`flags.truck_bunkroom` is a **label and nothing more**: the cots are ordinary beds and the fridge is
+an ordinary container, so the room works whether or not anything ever reads it. It exists so "where
+can somebody sleep on this network" has one thing to ask.
+
+**The lamps matter now.** The headlight numbers were tuned when the only thing that ever threw a beam
+was an aeroplane on short finals, where a lamp is a detail. In a cab at night it is the instrument
+you drive by, so the throw reaches further (26 → 34 tiles), spreads wider and lands harder, and the
+wash it puts on frontages went with it. The dome lamp inside is now most of the interior light after
+dark rather than a shade.
+
+⚠ **And the other half is that the world without lamps is worse.** Night alone lit the road well
+enough to drive by, so headlamps read as a garnish on a scene you could already see and a driver who
+never found the switch never noticed. A truck running dark after dark now gets a wash of the night's
+own colour — **truck only** (a landing lamp is not a headlamp), **never reaching black** (a screen
+you cannot read is a bug report, not a mood), and painted on the **world** before the cab trim goes
+on, so the instruments stay legible while what is beyond the glass falls away.
+
+---
+
 ## Testing
 
 - `plugins/trucking/regress.js` drives a **real crossing end to end** — synthetic gate, real muster,

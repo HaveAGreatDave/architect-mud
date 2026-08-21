@@ -1,0 +1,21 @@
+{
+  "description": "A steel sink with a strip of mirror screwed above it and a bar of grey soap welded to the dish by its own residue. The hot tap is a courtesy. It runs cold and it runs a long time.",
+  "flags": {
+    "aliases": "sink,basin,tap,mirror",
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bunk_deadleg_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a steel sink",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bunk_deadleg"
+}
+

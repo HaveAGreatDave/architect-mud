@@ -1,0 +1,20 @@
+{
+  "description": "A single strip light in a wire cage, screwed to the ceiling joist. It ticks.",
+  "flags": {
+    "aliases": "light,strip light,strip",
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bunk_deadleg_light",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "caged strip light",
+  "object_type": "light",
+  "power_draw_kw": 15,
+  "price": 40,
+  "zone_id": "zone_bunk_deadleg"
+}
+

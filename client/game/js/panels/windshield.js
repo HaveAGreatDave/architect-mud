@@ -1838,6 +1838,30 @@ export function paintWindshield(id, view) {
   // numbers are the cab interior's own (drawCabInterior: a header at 0.085, pillars at 0.075 of the
   // width, the dash taking CAB_DASH off the bottom), so the weather stops exactly where the trim
   // starts and moves with it if the cab is ever re-proportioned.
+  // ── ⚠ AND WITH THE LAMPS OFF, IT IS DARK ───────────────────────────────────
+  // The beam getting brighter is only half of "the switch matters": the other half is that the
+  // world without it has to be worse. It was not — night alone lights the road well enough to drive
+  // by, so the headlamps read as a garnish on a scene you could already see, and a driver who never
+  // found the switch never noticed.
+  //
+  // So a truck running dark after dark gets a wash of the night's own colour over the world. Three
+  // things keep it honest:
+  //   · IT IS THE TRUCK ONLY. An aeroplane at altitude has nothing to light and no reason to be
+  //     punished for it, and a landing lamp is not a headlamp.
+  //   · IT NEVER REACHES BLACK. Capped well short, because a screen you cannot read is a bug
+  //     report and not a mood — you can always still see the road, you just cannot see FAR.
+  //   · AND IT IS THE WORLD, NOT THE GLASS. Drawn here, before the cab trim and the dash go on, so
+  //     the instruments stay legible while what is beyond the screen falls away. That is the right
+  //     way round: the panel is lit by its own bulbs and the waste is not lit by anything.
+  if (!ext && v.cls === 'truck' && !v.landingLight && worldBlend > 0.02) {
+    const dark = clamp((Math.max(sky.night, wxGloom(wx)) - 0.22) / 0.78, 0, 1) * worldBlend;
+    if (dark > 0.02) {
+      ctx.save();
+      ctx.fillStyle = `rgba(6,8,14,${(0.62 * dark).toFixed(3)})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+  }
   const cabForward = !v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw;
   const glassRect = cabForward
     ? { x: W * 0.075, y: H * 0.085, w: W * 0.85, h: H * (1 - CAB_DASH) - H * 0.085 }
@@ -2466,7 +2490,10 @@ function drawCabInterior(ctx, W, H, v) {
     // spilling onto the board, so with the lamp off it has no source — but it is wound down rather
     // than killed, because a real cab at night is still lit by its own instruments and by what the
     // headlights throw back off the bonnet. Dark, never blind: you can still find the park brake.
-    const k = (0.55 + 2.05 * litK) * (domeOn ? 1 : 1 - 0.78 * litK);
+    // ⚠ AND THE LAMP IS NEARLY THE WHOLE OF IT AFTER DARK. At 0.78 the difference between the dome
+    // being on and off at midnight was a shade; a driver flicking it could not tell they had. It is
+    // now most of the interior light, which is what a single bulb in a small box actually is.
+    const k = (0.55 + 2.35 * litK) * (domeOn ? 1 : 1 - 0.93 * litK);
     const eyebrow = ctx.createRadialGradient(G.x, dash, 0, G.x, dash, Math.max(W * 0.42, H * 0.30));
     eyebrow.addColorStop(0, hexA(T.glow, 0.20 * k));
     eyebrow.addColorStop(0.45, hexA(T.glow, 0.075 * k));
@@ -3696,10 +3723,14 @@ function drawLandingBeam(ctx, W, H, horizonY, vx, night, speed, now) {
 // screen-space — it would be a straight ramp across a shape that is in perspective, so the falloff
 // would be wrong at exactly the far end where all the perspective is. Per-segment alpha is a
 // piecewise approximation of the ramp, in the right space.
+// ⚠ THESE ARE THE "LAMPS MATTER" NUMBERS. They were tuned when the only thing that ever threw a
+// beam was an aeroplane on short finals, where the lamp is a detail. In a cab at night it is the
+// instrument you drive by, so the throw reaches further, spreads wider at the far end, and lands
+// harder — the switch has to be the difference between seeing the road and not.
 const HL_NEAR = 0.9;          // tiles ahead of the eye the pool starts — just past the bumper
-const HL_FAR = 26;            // tiles the beam reaches; past this the falloff has it at nothing
-const HL_SEG = 14;            // strip segments — enough that the banding reads as a gradient
-const HL_W0 = 1.15, HL_W1 = 5.2;   // half-width in tiles, at the near and far ends
+const HL_FAR = 34;            // tiles the beam reaches; past this the falloff has it at nothing
+const HL_SEG = 16;            // strip segments — enough that the banding reads as a gradient
+const HL_W0 = 1.25, HL_W1 = 6.4;   // half-width in tiles, at the near and far ends
 function drawHeadlightBeam(ctx, cam, gloom, now) {
   const str = clamp((gloom - 0.18) / 0.82, 0, 1);
   if (str < 0.03) return;
@@ -3715,7 +3746,7 @@ function drawHeadlightBeam(ctx, cam, gloom, now) {
     // Inverse-square-ish falloff, which is what makes it read as a lamp rather than as a painted
     // wedge: bright at the bumper, gone by the far end.
     const fall = (1 - t0) * (1 - t0);
-    const a = 0.30 * str * flick * fall;
+    const a = 0.52 * str * flick * fall;
     if (a < 0.004) continue;
     const p = [cam.projFL(a0, -w0, 0.004), cam.projFL(a0, w0, 0.004),
                cam.projFL(a1, w1, 0.004), cam.projFL(a1, -w1, 0.004)];
@@ -3750,7 +3781,7 @@ function headlightWash(ctx, cam, dx, dy, h, str) {
   const c = cam.proj(dx, dy, h * 0.45);
   if (c.f <= 0.2) return;
   const dist = 1 - f / HL_FAR;
-  const a = clamp(str * 0.30 * dist * dist * clamp(1.9 - off, 0, 1.35) / 1.35, 0, 0.42);
+  const a = clamp(str * 0.52 * dist * dist * clamp(1.9 - off, 0, 1.35) / 1.35, 0, 0.62);
   if (a < 0.006) return;
   const r = clamp(120 / c.f, 10, 90);
   emitFace(decoDepth(c.f), () => {
