@@ -2627,7 +2627,9 @@ export function wingtipStation(cls) {
 // about where a lamp is will always eventually disagree with the lamp.
 export function vehicleLamps(cls, variant = '') {
   if (cls !== 'truck') return null;
-  const typeId = String(variant).replace(/~.*$/, '').split('+')[0];
+  // Same strip as the mesh (see the ⚠ in buildTruck) — a fitted rig must not read as another type.
+  const typeId = String(variant).replace(/[~^].*$/, '').split('+')[0];
+  const FITS = new Set(String(variant).match(/\^([a-z.]+)/)?.[1].split('.') || []);
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
   const L = truckLampGeom(S);
   // INTO THE MESH'S OWN FRAME. Build (or hit the cache for) the variant so its centring is known,
@@ -2675,6 +2677,22 @@ export function vehicleLamps(cls, variant = '') {
     // `podGlow` above, and only while the engine is running: this is the one lamp on the vehicle
     // that is about the machine being ALIVE rather than about being seen.
     under: [0.18, 0.02, -0.14, -0.30].map((f) => at(L.nose0 + f, 0, 0.004)),
+    // ── AND THE LIGHT SOMEBODY PAID FOR ────────────────────────────────────────
+    // The underglow FITTING, which is a different thing from the machine light above it: that one
+    // is the lifters being alive and is the vehicle's own blue-white, this one is a set of tubes a
+    // driver bought and it wears their running-light colour (the renderer takes it off the livery's
+    // `glow`, which is the same value `pk === 'glow'` paints the fixture itself with — so the tube
+    // and the pool it casts can never be two different colours).
+    //
+    // ⚠ IT IS STATIONS, NOT FACES, and that is the rule written on `pod()`: a lit patch of road
+    // drawn as geometry is a BOX, it takes the shading pass, it has edges, and four of them read as
+    // teal paving slabs bolted to the tarmac. Light spills; a box stops at its corner.
+    neon: FITS.has('ug')
+      ? [0.20, 0.06, -0.10, -0.26, -0.42].flatMap((f) => [at(L.nose0 + f, -S.w * 0.86, 0.004), at(L.nose0 + f, S.w * 0.86, 0.004)])
+      : [],
+    // The beacon is one lamp, high up, and it is the only fitted light that is meant to be seen
+    // FROM somewhere rather than to light something — so it gets a station and no cone.
+    beacon: FITS.has('bc') ? at(L.cab0 - 0.006, 0, S.hi + S.sleeper + 0.034) : null,
   };
 }
 
@@ -2903,8 +2921,36 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
     : cls === 'grasshopper' ? buildCub(detail)
     : buildFixedWing(FW_PARAMS[cls] || FW_PARAMS.prop, detail);
   _cache[key] = faces;
+  // ── ⚠ THE TRUCK KEYS ARE BOUNDED AND NOTHING ELSE IS ───────────────────────
+  // Every other class here has a handful of keys and they are all resident within a minute of
+  // boot. A truck's key is a whole sentence — four types x trailer x parked x TWENTY COSMETIC
+  // FITTINGS in seven slots — and a busy yard is dozens of distinct rigs, so an unbounded map here
+  // is a slow leak keyed on other people's taste. Nothing evicts by age or use because nothing
+  // needs to be clever: past the cap the oldest key goes, and the cost of being wrong is one mesh
+  // rebuilt (about a millisecond) the next time that exact truck is in frame.
+  //
+  // The cap is deliberately well above what any real scene holds — this is a runaway guard, not a
+  // working set. If it were tight it would thrash a depot floor, which is the one place a dozen
+  // trucks are all on screen at once.
+  if (cls === 'truck') {
+    _truckKeys.push(key);
+    while (_truckKeys.length > TRUCK_CACHE_MAX) {
+      const old = _truckKeys.shift();
+      // ⚠ THE META GOES WITH THE FACES. `TRUCK_META` is keyed on `<variant>:<detail>` and the cache
+      // on `truck:<detail>:<variant>`, so the eviction has to re-derive one from the other rather
+      // than assume this call's detail — dropping the faces and leaving the meta is the same leak
+      // one field smaller, and dropping the WRONG meta silently un-places another truck's lamps.
+      if (old !== key) {
+        delete _cache[old];
+        const [, det, ...rest] = old.split(':');
+        TRUCK_META.delete(rest.join(':') + ':' + det);
+      }
+    }
+  }
   return faces;
 }
+const TRUCK_CACHE_MAX = 96;
+const _truckKeys = [];
 
 // ── A truck, seen from somewhere else (THE LONG HAUL) ────────────────────────
 // The first GROUND vehicle in this file, and the reason it has to exist: `drawAircraftModel` is
@@ -3004,7 +3050,10 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // a trailer drawn by its own function is a trailer that drifts from the one you tow, and the two
   // are the same object seen five minutes apart.
   const solo = str.includes('~s');
-  const [typeId, tail] = str.replace(/~.*$/, '').split('+');
+  // ⚠ THE FITTING SUFFIX IS STRIPPED BEFORE THE TYPE IS READ. `^` can follow either the type or
+  // the trailer marker, so a lazy split would hand `hauler+t^rp.lb` a tail of 't^rp.lb' and every
+  // fitted rig would silently render bobtail.
+  const [typeId, tail] = str.replace(/[~^].*$/, '').split('+');
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
   const hitched = tail === 't' || solo;   // solo IS a trailer: the box gets built, the tractor is spliced off after
   const fine = detail >= 1;
@@ -3564,6 +3613,215 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (fine) for (const f of [frame0 + 0.052, frame0 + 0.088]) box(f - 0.003, f + 0.003, S.w * 0.68, 0.112, 0.116, 'strut');   // ratchet straps
   }
 
+  // ── WHAT THE DRIVER BOLTED ON ──────────────────────────────────────────────
+  //
+  // Cosmetic fittings (plugins/trucking/fittings.js). They arrive as a `^ab.cd` suffix on the
+  // variant string — the channel every consumer of this mesh already threads — so a bull bar
+  // reaches the cab, the depot turntable, the dealer wireframe and a stranger's windscreen without
+  // one payload growing a field.
+  //
+  // FOUR RULES, and they are the whole reason this is a hundred lines rather than a subsystem.
+  //
+  // ⚠ IT IS BUILT HERE, INSIDE `buildTruck`, AND NOT COMPOSED OUTSIDE IT. Everything after this
+  // point transforms the mesh — the centring shift, the parked settle, the solo ground-fit — and a
+  // part appended afterwards would be authored in coordinates the model does not stay in. That is
+  // the identical bug the ⚠ on `TRUCK_META.shift` describes as "floating headlights", and a bull
+  // bar is a bigger thing to have floating in the road than a lamp.
+  //
+  // ⚠ AND IT IS BUILT BEFORE `tractorFaces`. Every fitting is bolted to the TRACTOR, and the split
+  // point below is what a dropped box is cut at — so a fitting emitted after it would survive the
+  // splice and a trailer standing on its legs in a yard would be wearing somebody's roof cage.
+  //
+  // NOTHING NEW IS COLOURED. Every part is drawn in `CHROME`, `ACCENT`, or a plain `strut`/`body`
+  // role, which means it takes the player's `bright`, `glow` and `hw` colours through `PK` with no
+  // new key, no new field on the paint and nothing for the booth to learn. That is why the neon
+  // fittings need no colour of their own: they are ACCENT, so they wear the running-light colour
+  // the player already chose, and a rig with a green beltline gets green stack sleeves for free.
+  //
+  // NO FITTING IS EVER LOAD-BEARING GEOMETRY. Nothing here publishes a pod, moves a lamp station,
+  // changes the door rectangle or touches the kingpin. A fitting is faces and nothing else, so
+  // there is no configuration of them that can put a truck's lights, its decal or its trailer in
+  // the wrong place — which is what keeps twenty parts from being twenty ways to break one mesh.
+  const FITS = new Set(String(str).match(/\^([a-z.]+)/)?.[1].split('.') || []);
+  const fitStart = faces.length;
+  if (FITS.size) {
+    const roofZ = S.hi + S.sleeper;
+    const barF = nose1 + 0.014;                 // just ahead of the bumper, where a bar bolts on
+    // ── FRONT BAR ──
+    if (FITS.has('rp')) {                        // Ram Plate — a ploughed wedge across the whole nose
+      box(barF - 0.006, barF + 0.028, S.w * 1.02, 0.030, 0.150, 'strut');
+      poly('strut', 0.86, [[barF + 0.028, -S.w * 1.02, 0.150], [barF + 0.028, S.w * 1.02, 0.150],
+                           [barF + 0.062, S.w * 0.42, 0.104], [barF + 0.062, -S.w * 0.42, 0.104]]);
+      for (const g of [-1, 1]) box(barF - 0.030, barF + 0.004, 0.008, 0.052, 0.070, 'strut', null, g * S.w * 0.7);   // braces back to the frame
+    }
+    if (FITS.has('tu')) {                        // Tusk Bar — four lengths of pipe, sharpened
+      box(barF - 0.004, barF + 0.010, S.w * 0.96, 0.058, 0.074, 'strut');
+      for (const g of [-0.72, -0.24, 0.24, 0.72]) {
+        // Three shrinking boxes on the axis: the same trick `bullet` uses, which at this scale is a
+        // point rather than a cylinder — which is the entire information a tusk carries.
+        for (let i = 0; i < 3; i++) {
+          const k = 1 - i * 0.3;
+          box(barF + 0.010 + i * 0.020, barF + 0.030 + i * 0.020, 0.011 * k, 0.066 - 0.011 * k, 0.066 + 0.011 * k, 'strut', null, g * S.w);
+        }
+      }
+    }
+    if (FITS.has('pb')) {                        // Chrome Push Bar — a hoop with two lamps in it
+      for (const g of [-1, 1]) box(barF - 0.002, barF + 0.010, 0.007, 0.048, 0.132, 'window', CHROME, g * S.w * 0.72);
+      box(barF - 0.002, barF + 0.010, S.w * 0.74, 0.124, 0.136, 'window', CHROME);
+      box(barF - 0.002, barF + 0.010, S.w * 0.74, 0.070, 0.080, 'window', CHROME);
+      for (const g of [-1, 1]) box(barF + 0.008, barF + 0.016, 0.014, 0.096, 0.122, 'glass', [212, 208, 176], g * S.w * 0.34);
+    }
+    if (FITS.has('wn')) {                        // Recovery Winch — drum, fairlead, and cable on it
+      box(barF - 0.004, barF + 0.026, 0.030, 0.052, 0.086, 'strut');
+      box(barF + 0.002, barF + 0.020, 0.034, 0.060, 0.078, 'gear');                       // the drum, wider than its cradle
+      box(barF + 0.024, barF + 0.030, 0.016, 0.058, 0.076, 'window', CHROME);             // the fairlead plate
+    }
+
+    // ── ROOF ──
+    if (FITS.has('rc')) {                        // Roof Cage — bar, cans, a rolled tarp
+      const f0 = cab1 - 0.150, f1 = cab0 + 0.010;
+      for (const g of [-1, 1]) box(f0, f1, 0.005, roofZ + 0.004, roofZ + 0.040, 'strut', null, g * S.w * 0.92);
+      for (const f of [f0, (f0 + f1) / 2, f1]) box(f - 0.004, f + 0.004, S.w * 0.94, roofZ + 0.034, roofZ + 0.040, 'strut');
+      if (fine) {
+        for (const g of [-0.5, 0.5]) box(f0 + 0.014, f0 + 0.048, 0.018, roofZ + 0.006, roofZ + 0.036, 'body', null, g * S.w);   // cans
+        box(f1 - 0.052, f1 - 0.006, S.w * 0.5, roofZ + 0.008, roofZ + 0.032, 'gear');                                           // the rolled tarp
+      }
+    }
+    if (FITS.has('lb')) {                        // Halogen Light Bar — eight lamps on a chrome rail
+      const f = cab1 - 0.062;
+      box(f - 0.008, f + 0.008, S.w * 0.92, roofZ + 0.004, roofZ + 0.012, 'window', CHROME);
+      for (let i = -3; i <= 3; i += 2) {
+        box(f - 0.010, f + 0.010, 0.017, roofZ + 0.012, roofZ + 0.044, 'window', CHROME, i * S.w * 0.24);
+        box(f + 0.008, f + 0.013, 0.014, roofZ + 0.016, roofZ + 0.040, 'glass', [216, 210, 178], i * S.w * 0.24);
+      }
+    }
+    if (FITS.has('bc')) {                        // Amber Beacon — one lamp on a stalk
+      const f = cab0 - 0.006;
+      box(f - 0.004, f + 0.004, 0.005, roofZ, roofZ + 0.022, 'strut');
+      box(f - 0.012, f + 0.012, 0.013, roofZ + 0.022, roofZ + 0.046, 'glass', [236, 158, 48]);
+      box(f - 0.013, f + 0.013, 0.014, roofZ + 0.018, roofZ + 0.024, 'window', CHROME);
+    }
+    if (FITS.has('tm')) {                        // Totem Rack — everything on it was taken off something
+      const f = cab0 - 0.004;
+      box(f - 0.003, f + 0.003, S.w * 0.86, roofZ + 0.002, roofZ + 0.008, 'strut');
+      // Deliberately IRREGULAR — evenly spaced trophies read as a product and a trophy rack is the
+      // one fitting in the catalogue that must not look bought.
+      for (const [g, h, w] of [[-0.78, 0.030, 0.010], [-0.30, 0.046, 0.007], [0.16, 0.024, 0.012], [0.66, 0.038, 0.008]]) {
+        box(f - 0.004, f + 0.004, w, roofZ + 0.008, roofZ + 0.008 + h, 'gear', null, g * S.w);
+      }
+    }
+
+    // ── STACKS ── (only where the truck has any: a scrapper has none, and a fitting that appears
+    // on a truck with nothing to fit it to is worse than one that quietly does not)
+    if (S.stacks > 0) {
+      const stackTop = roofZ + 0.062;
+      for (let i = 0; i < S.stacks; i++) {
+        const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
+        if (FITS.has('cs')) {                    // Straight Cut — the flare gone, the pipe cut square
+          box(cab0 - 0.019, cab0 + 0.019, 0.018, stackTop, stackTop + 0.030, 'gear', null, g);
+        }
+        if (FITS.has('ft')) {                    // Flame Tips — split, flared, heat-blued
+          for (let k = 0; k < 3; k++) box(cab0 - 0.018 - k * 0.003, cab0 + 0.018 + k * 0.003, 0.017 + k * 0.004,
+            stackTop - 0.004 + k * 0.010, stackTop + 0.006 + k * 0.010, 'glass', [84, 96, 150], g);
+        }
+        if (FITS.has('sn')) {                    // Stack Sleeves — lit tubing wound up the pipe
+          for (let k = 0; k < 4; k++) box(cab0 - 0.020, cab0 + 0.020, 0.019, 0.090 + k * 0.038, 0.100 + k * 0.038, 'window', ACCENT, g);
+        }
+      }
+    }
+
+    // ── FLANKS ──
+    for (const g of [-1, 1]) {
+      const gw = g * S.w;
+      if (FITS.has('ap')) {                      // Riveted Plate — mismatched sheet over the doors
+        box(cab1 - 0.118, cab1 - 0.040, 0.006, S.hi * 0.16, S.hi * 0.56, 'gear', null, gw + g * 0.005);
+        box(cab1 - 0.046, cab1 - 0.004, 0.006, S.hi * 0.24, S.hi * 0.50, 'gear', null, gw + g * 0.005);
+        if (fine) for (const z of [S.hi * 0.20, S.hi * 0.52]) for (let i = 0; i < 4; i++)   // the rivet line
+          box(cab1 - 0.112 + i * 0.024, cab1 - 0.108 + i * 0.024, 0.003, z, z + 0.004, 'strut', null, gw + g * 0.010);
+      }
+      if (FITS.has('jc')) {                      // Jerry Rack — range you can see
+        box(cab0 - 0.078, cab0 - 0.020, 0.020, 0.086, 0.094, 'strut', null, gw + g * 0.016);
+        for (let i = 0; i < 3; i++) box(cab0 - 0.074 + i * 0.020, cab0 - 0.058 + i * 0.020, 0.018, 0.094, 0.126, 'body', null, gw + g * 0.016);
+      }
+      if (FITS.has('sw')) {                      // Saw-Blade Skirt — teeth outward
+        box(cab1 - 0.120, cab0 - 0.010, 0.004, 0.028, 0.036, 'strut', null, gw + g * 0.010);
+        for (let i = 0; i < 5; i++) {
+          const f = cab1 - 0.112 + i * 0.026;
+          // A blade is a square standing on its corner: two crossed boxes at this scale, which is
+          // what stops a disc read from costing a dozen facets each, five a side, on every truck.
+          box(f - 0.014, f + 0.014, 0.003, 0.024, 0.030, 'window', CHROME, gw + g * 0.014);
+          box(f - 0.004, f + 0.004, 0.003, 0.014, 0.040, 'window', CHROME, gw + g * 0.014);
+        }
+      }
+      if (FITS.has('sr')) {                      // Chrome Runner — the show-truck answer
+        box(cab1 - 0.108, cab0 - 0.006, 0.012, 0.040, 0.047, 'window', CHROME, gw + g * 0.018);
+        box(cab1 - 0.104, cab0 - 0.010, 0.010, 0.036, 0.040, 'window', ACCENT, gw + g * 0.018);   // lit underneath
+        for (const f of [cab1 - 0.100, cab0 - 0.020]) box(f - 0.003, f + 0.003, 0.010, 0.047, 0.062, 'strut', null, gw + g * 0.014);
+      }
+    }
+
+    // ── UNDERLIGHTS ──
+    // ⚠ TWO OF THESE THREE ARE NOT GEOMETRY AT ALL, and that is the rule written on `pod()`: a lit
+    // patch of road was a BOX, and a box takes the shading pass and has edges, so four of them read
+    // as teal paving slabs bolted to the tarmac. `ug` therefore emits NOTHING here and is answered
+    // entirely at the lamp layer (`vehicleLamps`), where light spills instead of ending at a corner.
+    // What IS drawn is the FIXTURE — a tube has a body, and you can see it from alongside.
+    if (FITS.has('ug')) for (const g of [-1, 1]) box(nose0 + 0.020, frame0 + 0.06, 0.006, 0.022, 0.028, 'window', ACCENT, g * S.w * 0.86);
+    if (FITS.has('hl')) for (const [f, g] of podAt.filter(([, , , deck]) => !deck).map(([f, g]) => [f, g])) {
+      // A ring round a housing, as four short bars — the housing is a box, so a "ring" that is
+      // actually a ring would be the only curved thing on the entire vehicle.
+      box(f - 0.030, f + 0.030, 0.027, 0.030, 0.034, 'window', ACCENT, g);
+      box(f - 0.032, f - 0.026, 0.026, 0.030, 0.052, 'window', ACCENT, g);
+      box(f + 0.026, f + 0.032, 0.026, 0.030, 0.052, 'window', ACCENT, g);
+    }
+    if (FITS.has('bn')) for (const g of [-1, 1]) box(cab0 + 0.014, cab1 - 0.014, 0.004, S.hi * 0.425, S.hi * 0.455, 'window', ACCENT, g * S.w);
+
+    // ── BACK END ──
+    if (FITS.has('ch')) {                        // Chain Rack — loops of load chain, swinging
+      for (const g of [-1, 1]) for (let i = 0; i < 3; i++) {
+        const gg = g * S.w * (0.42 + i * 0.22);
+        box(cab0 - 0.012, cab0 - 0.006, 0.006, 0.070, 0.090, 'strut', null, gg);
+        box(cab0 - 0.011, cab0 - 0.007, 0.010, 0.058, 0.072, 'gear', null, gg);
+      }
+    }
+    if (FITS.has('sp')) {                        // Spare Pod Cradle — a whole lifter, stood on end
+      box(cab0 - 0.030, cab0 - 0.008, 0.048, 0.076, 0.086, 'strut');
+      box(cab0 - 0.028, cab0 - 0.010, 0.044, 0.086, 0.150, 'gear');
+      box(cab0 - 0.029, cab0 - 0.009, 0.046, 0.104, 0.118, 'window', CHROME);   // its hubcap band, the tell that it is a pod
+    }
+    if (FITS.has('bp')) {                        // Banner Pole — a whip with a rag on it
+      const g = S.w * 0.9;
+      box(cab0 - 0.006, cab0 - 0.002, 0.003, 0.070, roofZ + 0.070, 'strut', null, g);
+      box(cab0 - 0.006, cab0 + 0.022, 0.002, roofZ + 0.020, roofZ + 0.062, 'body', null, g);
+    }
+
+    // ── MASCOT ──
+    // On the bonnet where there is one, and on the cowl where there is not — `S.nose` is zero on a
+    // cab-over, and a mascot floating a hand's width ahead of the windscreen is worse than none.
+    if (FITS.has('sk') || FITS.has('cb') || FITS.has('dh')) {
+      const mF = S.nose > 0.02 ? nose1 - 0.030 : cab1 - 0.020;
+      const mZ = S.nose > 0.02 ? 0.128 : S.hi * 0.96;
+      if (FITS.has('sk')) {                      // Bleached Skull
+        box(mF - 0.010, mF + 0.010, 0.011, mZ, mZ + 0.016, 'body', [216, 208, 186]);
+        box(mF + 0.008, mF + 0.020, 0.007, mZ + 0.001, mZ + 0.010, 'body', [216, 208, 186]);   // the muzzle
+        for (const g of [-1, 1]) box(mF + 0.004, mF + 0.009, 0.003, mZ + 0.008, mZ + 0.012, 'glass', [18, 16, 14], g * 0.005);
+      }
+      if (FITS.has('cb')) bullet(mF - 0.014, 0.034, 0, 0.009, mZ + 0.010);   // Chrome Bird, at this scale a chromed dart
+      if (FITS.has('dh')) {                      // Doll Head
+        box(mF - 0.008, mF + 0.008, 0.009, mZ, mZ + 0.016, 'body', [222, 196, 176]);
+        for (const g of [-1, 1]) box(mF + 0.006, mF + 0.009, 0.002, mZ + 0.008, mZ + 0.011, 'glass', [30, 40, 60], g * 0.004);
+      }
+    }
+  }
+
+  // ⚠ AND EVERY FITTING FACE IS MARKED AS ONE. The centring below derives the model's origin from
+  // its own extremes — so a ram plate reaching ahead of the bumper and a banner pole reaching aft of
+  // the cab MOVED THE WHOLE TRUCK relative to its own position, by about a tenth of a truck on a
+  // fully fitted rig. Every lamp station, the door decal and the kingpin are placed through that
+  // shift, so the symptom would have been a fitted truck whose headlights sit inside its own bumper
+  // and whose trailer hangs off the wrong point. A bolt-on must never be able to move the thing it
+  // is bolted to, so the bounds scan skips these. (Caught by regress, not by eye.)
+  for (let i = fitStart; i < faces.length; i++) faces[i].fit = 1;
   const tractorFaces = faces.length;   // the split point: everything before here is the tractor
   if (hitched) {
     // The trailer. It is a SEPARATE body drawn straight behind the tractor, which is honest for
@@ -3670,7 +3928,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // have drawn visibly ahead of where the truck actually is, and spun about its own bumper in the
   // dealer's turntable. Eight variants, eight different lengths; centring is derived, never typed.
   let lo = Infinity, hi = -Infinity;
-  for (const f of faces) for (const p of f.p) { if (p[0] < lo) lo = p[0]; if (p[0] > hi) hi = p[0]; }
+  for (const f of faces) { if (f.fit) continue; for (const p of f.p) { if (p[0] < lo) lo = p[0]; if (p[0] > hi) hi = p[0]; } }
   // ⚠ A DROPPED BOX HANGS OFF ITS PIN, NOT OFF ITS MIDDLE. Centring is right for a vehicle, whose
   // position is its own centre — and wrong for a solo trailer, because the point the server stores
   // for one is the COUPLING POINT (trailers.js: the tractor's pose at the moment the pin came out).

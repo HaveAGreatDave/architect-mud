@@ -73,6 +73,34 @@ let _obsHgt = 0;                // current view altitude fraction — drawers sh
 // variable written once per frame, immediately before the pass that reads it.
 let _hlStr = 0;
 
+// ── ⚠ GROUND SCATTER IS SIZED IN PIXELS, AND A PIXEL IS NOT A UNIT OF THE WORLD ────────────
+//
+// Every building in this file is projected: a wall is a world-z height run through 'cam.proj', so
+// it grows and shrinks with the focal length and with the canvas. The ground scatter — trees,
+// bushes, bollards, street lamps and the people on the pavement — is not. Each of those drawers
+// carries a hardcoded constant over 'p.f', and those constants were eyeballed once against the
+// 560px-tall canvas the flight sim was built in ('focal = H * 0.55', so ~308).
+//
+// That is fine for exactly one canvas. On a taller one — the truck cab, which is the whole window
+// rather than a strip — 'focal' goes up, every projected thing in the frame gets bigger, and the
+// scatter stays the same number of pixels. The people on the pavement do not shrink; everything
+// around them grows past them. Which is exactly what "the pedestrians look tiny from the cab" is:
+// not a figure that is too small, a figure that is the only thing in the frame not drawn in world
+// units.
+//
+// '_propK' is the ratio of this frame's focal length to the one those constants assume, so the
+// scatter tracks the world instead of the raster. At 560px it is exactly 1 and every existing
+// aircraft frame is unchanged. 'v.propMul' is the per-seat override on top — a driver three
+// metres up is far closer to a pedestrian than the flight sim's ground camera ever is, and the cab
+// uses it (see cab-view.js) to bring the street back up to the size a windscreen shows it at.
+//
+// ⚠ THE CLAMPS SCALE WITH IT. Each of these drawers floors and ceils its size in pixels, and
+// a clamp left in raw pixels re-introduces the bug at both ends of the range — a near tree pinned
+// at its old ceiling while the world around it goes on growing.
+const PROP_FOCAL_REF = 560 * 0.55;
+let _propK = 1;
+function propS(k, f, lo, hi) { return clamp(k * _propK / f, lo * _propK, hi * _propK); }
+
 // Live render tuning — mutated by the in-cockpit tuning sliders, read every frame.
 export const RENDER_TUNE = {
   // Reverted to the original 0.001 — turns out this ISN'T purely a render/visual
@@ -1521,6 +1549,7 @@ export function paintWindshield(id, view) {
     drawPad(ctx, W, H, horizonY, height, v.drift || 0);
   } else if (!framed || worldBlend > 0.02) {
     _obsHgt = clamp(v.height || 0, 0, 1);
+    _propK = (focal / PROP_FOCAL_REF) * (v.propMul || 1);
     const cam = makeCam(W, horizonY, focal, vw, chase);
     // Textured 3-D world through the Mode-7 camera (roads/runway ground + extruded buildings),
     // faded in with worldBlend so it crossfades against the airport scenery above. On the deck
@@ -5366,6 +5395,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_kitchen: [74, 68, 58],
   // Meat Your Maker — oxblood-painted brick, the one warm-red frontage on Ironside.
   ty_butcher: [86, 44, 44],
+  // St Garneau's — weathered sandstone that has gone black in the gutter lines.
+  ty_church: [122, 110, 92],
   // Grind House — soot-dark iron; the ember glow comes from the neon field.
   ty_forge: [62, 52, 46],
   // The Yards — semi-industrial freight district models (see TYPE_MODEL). The ribbed-steel keys also join METAL_WALL.
@@ -5546,6 +5577,7 @@ const BLDG_TYPE_3D = {
   outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
   bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
   butcher:          { a: 'oldcoldwater', h: 0.10 }, // Meat Your Maker, single storey with a flat roof
+  church:           { a: 'oldcoldwater', h: 0.16 }, // St Garneau's, nave + a squat bell tower
   comic_shop:       { a: 'oldcoldwater', h: 0.13 }, // Mint Condition, on the last dry corner of Ironside
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — heights come from
   // flags.floors on each facade; these are the archetype/fallback if a model fails to load.
@@ -7472,7 +7504,7 @@ function drawSkyscraper(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, now)
 // dissolves into the same fog wall as the ground+skyline instead of staying crisp on hazy ground.
 function fogTint(col, f) { const w = fogWeight(f); return w > 0.004 ? mix(col, FOG_STATE.col, w) : col; }
 function drawTreeBB(ctx, cam, dx, dy, night, seed, alpha) {
-  const p = cam.proj(dx, dy, 0), s = clamp(34 / p.f, 3, 64), n = 2 + (seed % 3);
+  const p = cam.proj(dx, dy, 0), s = propS(34, p.f, 3, 64), n = 2 + (seed % 3);
   const dark = fogTint([28, 56, 30], p.f), lit = fogTint([56, 94, 50], p.f);
   ctx.globalAlpha = alpha;
   for (let i = 0; i < n; i++) {
@@ -7487,7 +7519,7 @@ function drawTreeBB(ctx, cam, dx, dy, night, seed, alpha) {
 // eye to call it a wood.
 function drawConiferBB(ctx, cam, dx, dy, night, seed, alpha) {
   const p = cam.proj(dx, dy, 0); if (!p || p.f <= 0.06) return;
-  const s = clamp(30 / p.f, 3, 60), nm = night ? 0.55 : 1;
+  const s = propS(30, p.f, 3, 60), nm = night ? 0.55 : 1;
   const h = s * (1.3 + frac(seed) * 0.8), w = s * (0.32 + frac(seed + 5) * 0.14), x = p.sx, by = p.sy;
   const dark = fogTint([22 * nm, 48 * nm, 30 * nm], p.f), lit = fogTint([40 * nm, 76 * nm, 42 * nm], p.f);
   ctx.globalAlpha = alpha;
@@ -7543,7 +7575,7 @@ function drawDeadStand(ctx, cam, dx, dy, night, seed, alpha) {
 // and drifting with nothing — a plume that raced would read as smoke, and this is not a fire.
 function drawSteamPlume(ctx, cam, dx, dy, night, seed, alpha, now) {
   const p = cam.proj(dx, dy, 0); if (!p || p.f <= 0.06) return;
-  const h = clamp(30 / p.f, 2, 54);
+  const h = propS(30, p.f, 2, 54);
   const drift = Math.sin(now / 2600 + seed) * h * 0.16;
   const g = ctx.createLinearGradient(p.sx, p.sy, p.sx + drift, p.sy - h);
   // Warmer and brighter by day; at night it takes what little light there is and mostly vanishes.
@@ -7560,7 +7592,7 @@ function drawSteamPlume(ctx, cam, dx, dy, night, seed, alpha, now) {
 }
 
 function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
-  const p = cam.proj(dx, dy, 0), s = clamp(22 / p.f, 2, 40);
+  const p = cam.proj(dx, dy, 0), s = propS(22, p.f, 2, 40);
   ctx.globalAlpha = alpha; ctx.fillStyle = rgb(fogTint([120, 92, 60], p.f));
   ctx.beginPath(); ctx.moveTo(p.sx - s, p.sy); ctx.lineTo(p.sx - s * 0.3, p.sy - s * 0.7); ctx.lineTo(p.sx + s * 0.4, p.sy - s * 0.5); ctx.lineTo(p.sx + s, p.sy); ctx.closePath(); ctx.fill();
   ctx.globalAlpha = 1;
@@ -7571,7 +7603,7 @@ function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
 // picked per-tile by the world-stable seed so a tile always shows the same thing. drawWildScatter
 // dispatches by biome — rust mesa & spires over redrock, saguaro & dry brush over scrub, charred
 // snags & bleached bone over the ash flats. No authoring: they self-populate the district.
-function _wildBB(cam, dx, dy, k, lo, hi) { const p = cam.proj(dx, dy, 0); return p && p.f > 0.06 ? { p, s: clamp(k / p.f, lo, hi) } : null; }
+function _wildBB(cam, dx, dy, k, lo, hi) { const p = cam.proj(dx, dy, 0); return p && p.f > 0.06 ? { p, s: propS(k, p.f, lo, hi) } : null; }
 function drawMesaBB(ctx, cam, dx, dy, night, seed, alpha) {   // flat-topped rust butte
   const d = _wildBB(cam, dx, dy, 26, 3, 54); if (!d) return; const { p, s } = d, nm = night ? 0.5 : 1;
   const h = s * (1.1 + frac(seed) * 0.9), w = s * (0.9 + frac(seed + 3) * 0.5), topW = w * 0.82, bx = p.sx, by = p.sy, ty = by - h;
@@ -7925,7 +7957,7 @@ function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night) {
   // layer exists so that everything you can see is somebody you could go and talk to, and that is
   // worth half a head of height against a tree: the silhouette has to read as A PERSON at the far
   // kerb rather than merely occupy the correct number of pixels.
-  const s = clamp(17 / p.f, 1.6, 40);            // whole-figure height in px
+  const s = propS(17, p.f, 1.6, 40);             // whole-figure height in px, scaled to this frame's focal length
   if (s < 1.3) return;                            // sub-pixel: nothing legible to draw
   const nm = night ? 0.62 : 1;
   const warm = actorHash(t, 4);
@@ -7950,6 +7982,55 @@ function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night) {
 // queues at its own depth into the shared face sink and a building between you and somebody
 // correctly hides them. Driven off the actor list rather than the tile list, because a figure
 // mid-step is at a fractional position between two tiles and belongs to neither.
+// ── SOMEBODY STANDING AT THE EDGE OF A ROAD THAT HAS NO PAVEMENT ─────────────────────────────
+//
+// The street-actor pass above is a CITY layer twice over: it reads a tile to find a kerb, and it
+// interpolates every figure between server pushes because everybody in it is walking somewhere.
+// Out on the corridor neither holds. There are no placed tiles, so there is no kerb to snap to,
+// and the one person out there is defined by not going anywhere.
+//
+// So this is its own pass over 'v.roadside' — a single figure, at the absolute tile position the
+// server derived from the road's own geometry, standing. It shares 'drawActorFigure' (so a hitcher
+// and a pedestrian are the same person at the same scale) and it queues into the same depth sink,
+// so a rise in the road or a sign between you and them hides them exactly as it would anyone else.
+//
+// THE ARM IS THE WHOLE POINT. Everything else in the figure is deliberately the stock silhouette —
+// this layer's rule is that a person reads as a person and never starts promising detail — but a
+// figure at the roadside with its arm down is scenery, and the arm down is what a driver would
+// read as 'nobody wants anything'. One raised stroke is the difference between a bollard and an
+// ask, and it is the only thing about them that is not the same drawing as everybody else.
+function drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR) {
+  const hh = v.roadside;
+  if (!hh) return;
+  const dx = (hh.x - wcx) - cam.ox, dy = (hh.y - wcy) - cam.oy;
+  const f = dx * cam.sinh - dy * cam.cosh;
+  if (f <= VISIBLE_NEAR_F || f > FAR) return;
+  const a = smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);
+  if (a <= 0.03) return;
+  const tok = hh.t || 'hh';
+  emitFace(f + (cam.fwdOff || 0), () => {
+    drawActorFigure(ctx, cam, dx, dy, a, tok, 0, false, night);
+    // The hand. Drawn after the body so it sits over the shoulder rather than under it, and sized
+    // off the same 'propS' the figure is, or it would drift out of proportion the moment the cab's
+    // canvas changed — which is the exact bug the scatter scale note at the top of this file is
+    // about. A slow wave rather than a fixed pose: a still arm at a distance is a post.
+    const pr = cam.proj(dx, dy, 0);
+    if (!pr || pr.f <= 0.12) return;
+    const sz = propS(17, pr.f, 1.6, 40);
+    if (sz < 3) return;                       // too far for a limb to be anything but a stray pixel
+    const bh = sz * 0.62, wav = Math.sin(now * 0.004) * sz * 0.10;
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = rgb(fogTint([(140) * (night ? 0.62 : 1), 112 * (night ? 0.62 : 1), 98 * (night ? 0.62 : 1)], pr.f));
+    ctx.lineWidth = Math.max(0.8, sz * 0.09);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pr.sx + sz * 0.14, pr.sy - bh * 0.78);
+    ctx.lineTo(pr.sx + sz * 0.30 + wav, pr.sy - bh * 1.34);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+}
+
 function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
   syncStreetActors(v.actors, now);
   if (!ACTORS.size || !map) return;
@@ -9249,6 +9330,24 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
     if (under > 0.02) {
       for (const g of (vl.podGlow || [])) add(g.p, [96, 196, 255], under * 0.55, 0.55, null, null, g.deck);
       for (const p of (vl.under || [])) add(p, [70, 170, 255], under * 0.40, 0.50, null, null);
+    }
+    // ── AND THE LIGHT SOMEBODY BOUGHT ──────────────────────────────────────────
+    // The underglow FITTING, and the two things that make it not a second copy of the block above.
+    // It wears the OWNER'S COLOUR — off `c.livery.glow`, the same value the tube's own facet is
+    // painted with through `pk`, so the fixture and the pool it throws can never disagree — and it
+    // is on with the LIGHTS rather than with the engine, because it is a set of tubes on a switch
+    // and not the machine being alive. A rig parked dark with its underglow on is a real picture
+    // and the block above cannot produce it.
+    const neon = vl.neon || [];
+    if (neon.length && lit) {
+      const col = c.livery?.glow ? hex2rgb(c.livery.glow) : [96, 196, 214];
+      for (const p of neon) add(p, col, 0.42 * nb, 0.44, null, null);
+    }
+    // The beacon: one lamp, high, seen rather than seeing. It PULSES — a rotating beacon that did
+    // not turn would read as a lamp somebody left on, and the turn is the whole of what it says.
+    if (vl.beacon && lit) {
+      const t = (performance.now() / 900) % 1;
+      add(vl.beacon, [255, 176, 56], 0.30 + 0.70 * Math.pow(Math.max(0, Math.sin(t * Math.PI * 2)), 3), 0.5, null, null);
     }
     // ⚠ THE ROOF MARKERS ARE DELIBERATELY LEFT OUT. There are five of them, they are the dimmest
     // lamps on the vehicle, and every one is a full per-pixel light over the whole model. They cost
@@ -11144,7 +11243,7 @@ function drawCityBuilding(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, no
 function drawSmoke(ctx, cam, dx, dy, wz, col, alpha, now, seed) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.12) return;
-  const s = clamp(20 / p.f, 2, 40);
+  const s = propS(20, p.f, 2, 40);
   emitFace(decoDepth(p.f), () => {
     for (let i = 0; i < 3; i++) {
       const t = ((now || 0) * 0.0002 + frac(seed + i)) % 1;
@@ -11444,6 +11543,9 @@ const TYPE_MODEL = {
   // "nearest existing model, bespoke colour" call the Ascendant campus makes.
   kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
   butcher:          { type: 'butcher',   pal: 'ty_butcher', neon: '#ff3e4a' },
+  // St Garneau's. NO NEON, and that is the point: it is the one building on the
+  // street with nothing lit on it except the thing that was bolted on afterwards.
+  church:           { type: 'church',    pal: 'ty_church' },
   bank:             { type: 'bank',      pal: 'ty_marble' },
   // The Reach's Main Street trades. Registered by TYPE as well as by name so a second
   // frontier town gets a false-front mercantile for free rather than a borrowed biome box.
@@ -15149,6 +15251,26 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) glowPool(ctx, cam, dx, dy, h * 0.26, '255,214,140', 12, alpha * 0.22);                 // lit aisles through the glass
       break;
     }
+    case 'church': {   // St Garneau's: a sandstone nave under a barrel roof, a squat boarded bell tower, and the eye bolted over the door
+      // THE CONVERSION IS THE SILHOUETTE. Everything structural here is old and
+      // symmetrical — nave, tower, roof — and the one bright thing on it is a steel
+      // disc that was screwed on afterwards and is lit all night while the building
+      // under it is not. Read from the air that is the whole story of the place, and
+      // nothing anywhere says it out loud.
+      const wallTop = h * 0.66, hw = fh * 0.78;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, true);                          // the nave
+      drawBarrelRoof(ctx, cam, F, 0, fh * 0.98, hw * 0.99, wallTop, h * 0.34, 9, alpha, [92, 84, 74]);       // pitched slate over it
+      // The bell tower. Squat, off to one side, louvres boarded — deliberately NOT a
+      // spire: this is a parish church on a working street, not a cathedral.
+      { const [tx, ty] = F(-fh * 0.55, fh * 0.52); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.30, 0, h * 1.18, pal, seed + 1, night, alpha, true); }
+      { const [tx, ty] = F(-fh * 0.55, fh * 0.52); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.34, h * 1.18, h * 1.26, 'ty_door', seed + 2, night, alpha, false); }   // the cap
+      { const [lx, ly] = F(-fh * 0.55, fh * 0.52); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.26, h * 0.92, h * 1.12, 'ty_door', seed + 3, night, alpha, false); }   // boarded louvres
+      // The rose window over the entrance, and then the thing bolted across it.
+      { const [rx, ry] = F(0, fh * 0.94); drawRing(ctx, cam, rx, ry, wallTop * 0.72, fh * 0.22, 10, `rgba(190,175,140,${alpha * (night ? 0.5 : 0.75)})`, 1.3, alpha); }
+      { const [ex, ey] = F(0, fh * 1.0); drawRing(ctx, cam, ex, ey, wallTop * 0.40, fh * 0.15, 12, `rgba(210,225,240,${alpha * 0.95})`, 1.8, alpha); }        // the eye, in steel
+      { const [ex, ey] = F(0, fh * 1.0); glowPool(ctx, cam, ex, ey, wallTop * 0.40, '190,215,240', 9, alpha * (night ? 0.5 : 0.22)); }                        // lit, always, unlike the rest of it
+      break;
+    }
     case 'butcher': {   // Meat Your Maker: a squat oxblood shopfront under a striped awning, and the smokehouse flue that gives it away from the air
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, 0, h * 0.62, pal, seed, night, alpha, true);              // single-storey shop
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, h * 0.62, h * 0.7, pal, seed + 1, night, alpha, false);    // flat roof with a lipped parapet
@@ -18085,6 +18207,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
+    // The corridor's own figure. Outside the ACTORS map entirely, so an empty city population never
+    // suppresses them — 'drawStreetActors' returns early on an empty set and this must not ride it.
+    drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR);
   }
   pEnd();                      // ── end world:build (queueing) ──
   pBegin('world:flush');

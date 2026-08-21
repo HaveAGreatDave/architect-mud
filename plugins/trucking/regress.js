@@ -10,13 +10,13 @@ import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFr
 import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
-import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
+import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt, sOfNode, roomLenOf,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';   // pure data, no DOM — that is exactly why it is not defined in windshield.js
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
-import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
+import { aircraftFaces, faceBaseRgb, truckMeta, vehicleLamps } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, REGIONS, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
 import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim,
@@ -25,6 +25,9 @@ import { trimCost, sanitizePaint, paintCost, presetPaint, PAINT_DEFAULT, PAINT_P
 import { restoreDrivingState } from './resume.js';
 import { routeOptions } from './routes.js';
 import { damageOf, overall, wearSplit, impactSplit, grindSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
+import { accrueGrime, grimeBand, washCost, WASH_FULL } from './filth.js';
+import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitSuffix, fitByCode, priceFor } from './fittings.js';
+import { truckLivery } from '../../client/shared/truck-livery.js';
 import { isTerminal, TERMINAL_CONDITION } from './rig.js';   // breakChance is already imported below
 import { displayRung, setDisplayRung } from '../../server/engine/presentation.js';
 import { HELP_GROUPS } from '../../server/engine/commands/world.js';
@@ -34,8 +37,9 @@ import { _test as truckTest } from './index.js';
 import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
   posed, stockPose, stockSlots, findStockPose, STOCK_GAP, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY,
   sellTrailer, trailerResale } from './trailers.js';
-import { runScale, scaleAt, clearCustoms } from './scale.js';
+import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
+import { tryDoorBoard, rigLocked } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
 import { resaleValue, TRUCK_TYPES, buyTruck, getTruck } from './fleet.js';
@@ -92,6 +96,27 @@ export default async function regress({ run, check, getPlayer }) {
     const alias = await run('honk');
     check('…and `honk` is the same verb, not an unknown command',
       (alias?.message || '') === (noTruck?.message || ''), alias?.message?.slice(0, 60));
+  }
+
+  // ── ⚠ THE VERB THIS PLUGIN BORROWED, AND MUST GIVE BACK ────────────────────
+  // `lock`/`unlock` are ENGINE builtins (server/engine/commands/doors.js) and plugins beat
+  // builtins outright, so registering them here points every apartment door, shop shutter, cell and
+  // hatch in the game at a truck. It would fail everywhere at once and look nothing like trucking.
+  //
+  // The router only keeps the verb when the answer is unambiguous — behind a wheel, and either
+  // nothing said after it or the cab named. Everything else returns undefined and falls through.
+  // This case is the whole guarantee: no rig, so the trucking handler must not be what answers.
+  {
+    const noRig = await run('lock');
+    const msg = noRig?.message || '';
+    check('`lock` with no truck falls through to the engine door command',
+      !/latch/i.test(msg), msg.slice(0, 70));
+    const noRigU = await run('unlock');
+    check('…and so does `unlock`', !/latch/i.test(noRigU?.message || ''),
+      (noRigU?.message || '').slice(0, 70));
+    // The narrow half: a target that is plainly not the cab is never eaten either, even in a truck.
+    check('…and naming something else is always somebody else\'s verb',
+      !/latch/i.test((await run('lock apartment'))?.message || ''));
   }
 
   // ── 1. The corridor, on its own ────────────────────────────────────────────
@@ -1568,6 +1593,54 @@ export default async function regress({ run, check, getPlayer }) {
       check('a declared load matching the manifest passes',
         (await runScale(player, rig, zone)) === null);
 
+      // ── SOMEBODY LOOKS IN THE CAB ────────────────────────────────────────
+      // The other half of the fugitive fork, and the half that was never built: the sleeper was
+      // fast, free and had no risk attached at all, so 'pickup sleeper' was strictly correct and
+      // the eighty kilos in the trailer bought nothing. These cases pin the two properties that
+      // make the fork a fork, and the one property that must NOT change.
+      {
+        const seat = (kind, inTrailer) => ({ ...rig, rider: { id: kind, inTrailer, look: 'a thin figure' } });
+
+        // ⚠ THE ONE THAT MUST NOT CHANGE. This is the whole scale house in one line: it is looking
+        // at the PAPER against the PLATES. A cab check that also fired at the weighbridge — or one
+        // that taught the weighbridge to recognise a person — would collapse "weight, not
+        // contraband" into the generic contraband scanner this building was designed not to be.
+        const honest = seat('fugitive', false);
+        await afterDrive(player, honest, zone);
+        check('the cab check is a SEPARATE law — it never touches the weighbridge',
+          (await runScale(player, rig, zone)) === null);
+
+        // Found, every time, because the design's own sentence is that anyone who looks FINDS them.
+        // A roll here would make that a lie and hand the sleeper back its free ride.
+        check('a fugitive in the sleeper is found at a scale house', honest.rider === null);
+
+        // ⚠ BOBTAIL, which is the case that made this reachable at all. 'runScale' returns
+        // immediately with nothing on the pin — correct for a weighbridge — so a driver carrying a
+        // person and no trailer was never inspected by anything.
+        const bob = { ...seat('fugitive', false), trailer: null };
+        await afterDrive(player, bob, zone);
+        check('…and bobtail too, where there is nothing to weigh at all', bob.rider === null);
+
+        // A lift is not a crime. Three of the four kinds are ordinary people and a check that took
+        // everybody would make them unpickable on any lawful road for a reason nobody could name.
+        const lift = seat('mechanic', false);
+        await afterDrive(player, lift, zone);
+        check('giving an ordinary person a lift is not a crime', lift.rider !== null);
+
+        // THE TRAILER RIDER IS THE SCALE'S, NOT THE CAB CHECK'S. They are caught as eighty kilos
+        // that are not on the paper — the right answer, reached without anybody knowing what the
+        // eighty kilos is, which is the entire point of the building.
+        const boxed = seat('fugitive', true);
+        await afterDrive(player, boxed, zone);
+        check('somebody in the box is not found by looking in the cab', boxed.rider !== null);
+
+        // …and a lawless region runs neither law.
+        const free = seat('fugitive', false);
+        await afterDrive(player, free, world.zones.get(LAWLESS));
+        check('a lawless region does not look in the cab either', free.rider !== null);
+        clearCustoms(player.id);
+      }
+
       // THE LIE. Eight hundred kilos behind the bulkhead is past the certainty threshold's roll and
       // the scale does not care what it is — it cares that the numbers disagree.
       box.stash = [{ itemId: 'x', name: 'a crate', kg: 2800 }];
@@ -1627,6 +1700,114 @@ export default async function regress({ run, check, getPlayer }) {
     // The fugitive is the one that closes the design: a person in the box is weight the scale sees.
     check('the roster includes somebody who is contraband with legs',
       HITCHER_KINDS.some(k => k.id === 'fugitive'));
+
+    // ── THE DOORS ────────────────────────────────────────────────────────────
+    // 'pickup' is now the INVITATION rather than the only way in: stop on the corridor with the
+    // latches up beside somebody with their hand out and they let themselves into the seat.
+    {
+      const who = HITCHER_KINDS.find(k => k.id === 'fugitive');
+      const mk = (over = {}) => ({ leg: 'corridor', node: 3, speed: 0, cd: {}, rider: null, ...over });
+      const T0 = 1000000;
+
+      // ⚠ THE DWELL. A speed gate on its own turns easing off for a bend into an unavoidable
+      // passenger, so the first tick only STARTS the clock and nothing happens until you have
+      // genuinely stood still.
+      const r1 = mk();
+      check('slowing down is not stopping — the first tick only starts the clock',
+        tryDoorBoard(r1, who, T0) === null && r1.rider === null);
+      check('…and a moment later is still not long enough',
+        tryDoorBoard(r1, who, T0 + 1500) === null);
+      check('stopped long enough, somebody lets themselves in',
+        !!tryDoorBoard(r1, who, T0 + 4000) && r1.rider?.id === 'fugitive');
+
+      // ⚠ ALWAYS THE SEAT. Nobody climbs into a sealed box off their own bat, and if they could the
+      // latch would quietly become a way to smuggle a person without ever deciding to — the
+      // weighbridge would start finding people the driver never chose to hide.
+      check('…into the SEAT, never the trailer', r1.rider.inTrailer === false);
+      check('…and it is recorded as uninvited', r1.rider.invited === false);
+      check('…and the stretch is spent, so they do not reappear behind you',
+        r1.hitchDone?.has(3) === true);
+
+      // The latch is the whole point of the feature.
+      const r2 = mk({ cd: { locked: true } });
+      check('latched doors keep everybody out', rigLocked(r2) === true
+        && tryDoorBoard(r2, who, T0) === null
+        && tryDoorBoard(r2, who, T0 + 9000) === null);
+
+      // Rolling is rolling, however slowly, and the clock resets when you move off.
+      const r3 = mk();
+      tryDoorBoard(r3, who, T0);
+      check('driving off resets the clock', tryDoorBoard({ ...r3, speed: 30 }, who, T0 + 9000) === null);
+
+      // Nothing to get in.
+      check('an empty stretch is quiet however long you sit on it',
+        tryDoorBoard(mk(), null, T0 + 9000) === null);
+      // …and a city street has no hitchers at all, so the law never runs there.
+      check('nobody opens your door in town', tryDoorBoard(mk({ leg: 'city' }), who, T0 + 9000) === null);
+      // Somebody already aboard.
+      check('a full seat is a full seat',
+        tryDoorBoard(mk({ rider: { id: 'local' } }), who, T0 + 9000) === null);
+      check('the doors start OPEN, or nobody ever finds the button', rigLocked(mk()) === false);
+    }
+
+    // ── ⚠ THE ROLL IS PER STRETCH, NOT PER WEEK ──────────────────────────────
+    // This is the case the whole feature turned on and nothing was watching. 'seed' hashed a
+    // 'route.key' that does not exist and took raw FNV-1a as its fraction, so a week's eight nodes
+    // came out inside a band about 0.03 wide — which against a 0.34 threshold is not a chance per
+    // stretch at all, it is a coin flip for the ENTIRE ROAD. Twenty-four eligible stretches across
+    // three consecutive windows produced zero hitchers, and every check above passed the whole time
+    // (they ask whether a hitcher is well-formed, never whether one exists).
+    //
+    // So: sample real ground. Over twenty weeks the rate has to sit near the authored one, and no
+    // single week may be all-or-nothing, which is precisely the shape the old hash produced.
+    {
+      let seen = 0, eligible = 0, allWeeks = 0, emptyWeeks = 0;
+      for (let w = 4240; w < 4260; w++) {
+        const r = corridorFor(VOIDKEY, DESTKEY, w, 8);
+        const row = [...Array(8).keys()].map(n2 => hitcherAt(r, n2, 8));
+        const hits = row.filter(Boolean).length;
+        seen += hits; eligible += 6;                 // nodes 0 and 7 are never eligible
+        if (hits === 6) allWeeks++;
+        if (hits === 0) emptyWeeks++;
+      }
+      const rate = seen / eligible;
+      check('about a third of stretches have somebody on them', rate > 0.15 && rate < 0.6,
+        `${(rate * 100).toFixed(0)}% over 20 weeks`);
+      // ⚠ THE BOUND IS ARITHMETIC, NOT A TASTE CALL, or this case flakes. At the authored 0.34 an
+      // empty week is 0.66^6 ≈ 8%, so ~1.6 of 20 are expected and three is an ordinary sample. Six
+      // is comfortably past noise and still nowhere near the failure this exists for, which drove
+      // roughly THIRTEEN empty weeks in twenty and clustered every value inside one narrow band.
+      check('…and no week is all-or-nothing', allWeeks === 0 && emptyWeeks <= 6,
+        `${allWeeks} full, ${emptyWeeks} empty`);
+    }
+    // …AND WHICH ROAD YOU ARE ON IS PART OF IT. Two corridors in the same week met identical people
+    // on identically numbered stretches, because the road's identity never reached the hash.
+    check('two different roads do not have the same people on them',
+      [...Array(8).keys()].some(n2 => JSON.stringify(hitcherAt(route, n2, 8))
+        !== JSON.stringify(hitcherAt(corridorFor(VOIDKEY, 'slagworks', 4242, 8), n2, 8))));
+
+    // ── WHERE THEY ARE STANDING, so the cab can draw them ────────────────────
+    // The figure out on the road is placed from the corridor's own geometry rather than stored, so
+    // the only thing that can go wrong is the derivation: a hitcher who is not ON the stretch they
+    // belong to, or who is standing in the carriageway. Both would read as a rendering fault and
+    // neither would throw.
+    {
+      const node = [...Array(8).keys()].find(n2 => at(n2));
+      if (node != null) {
+        const hs = sOfNode(route, node) + roomLenOf(route) * 0.5;
+        const half = pavedAt(route, hs);
+        const pos = corridorPos(route, hs, half + 0.45);
+        const back = corridorLocate(route, pos.x, pos.y);
+        check('the figure is on the stretch they belong to',
+          back && nodeAt(route, back.s, 8) === node, `node ${node} → ${back && nodeAt(route, back.s, 8)}`);
+        // ⚠ OFF THE TARMAC, NOT ON IT. '+t' is to the RIGHT of travel and 'pavedAt' is the paved
+        // HALF-width, so anything at or inside it is a person standing in a live lane — which is
+        // not where somebody waiting for a lift stands, and is exactly what a sign error would
+        // produce without ever throwing.
+        check('…and on the verge rather than in the road',
+          back && Math.abs(back.t) > half, `|t| ${back && back.t?.toFixed(2)} vs half ${half.toFixed(2)}`);
+      }
+    }
   }
 
   // ── 4g. City driving ───────────────────────────────────────────────────────
@@ -2186,6 +2367,146 @@ export default async function regress({ run, check, getPlayer }) {
     // a hitched trailer cannot turn one into a write-off.
     check('…within bounds, whatever it is handed', grindSplit(1e6).engine === grindSplit(4).engine
       && grindSplit(0).engine === grindSplit(0.25).engine);
+  }
+
+  // ── 4i. Filth ──────────────────────────────────────────────────────────────
+  // The truck gets dirty and a hose puts it back. Every case here is a rule from filth.js, and the
+  // first one is the one that matters most: this is COSMETIC, and a suite that lets it quietly
+  // become a fifth damage component is a suite that lets a car wash repair an engine.
+  {
+    // IT NEVER TOUCHES THE HEALTH OF THE TRUCK. Not by import and not by arithmetic — the filth
+    // module and the damage module share no reader, so the only way this can go wrong is somebody
+    // wiring `accrueGrime` into the wear split, and this is what catches that.
+    const t = { dmg: { engine: 0.8, wheels: 0.7, body: 0.9 }, condition: 0.74, grime: 0 };
+    const before = overall(t.dmg);
+    for (let i = 0; i < 400; i++) accrueGrime(t, 1, { surface: 'offroad' });
+    check('filth never moves the condition of the truck — it is cosmetic, and that is load-bearing',
+      Math.abs(overall(t.dmg) - before) < 1e-9 && Math.abs((t.condition ?? 1) - 0.74) < 1e-9);
+    check('…and it does saturate, rather than climbing forever', t.grime === 1);
+
+    // THE VERGE IS THE THING THAT DIRTIES A TRUCK. The tarmac is deliberately not zero (a highway
+    // at speed throws grit), but it must never be the thing that maxes the bar over a normal haul,
+    // or the number saturates on every run and stops saying anything at all.
+    const road = { grime: 0 }, verge = { grime: 0 };
+    for (let i = 0; i < 300; i++) { accrueGrime(road, 1, { surface: 'road' }); accrueGrime(verge, 1, { surface: 'shoulder' }); }
+    check('300 tiles of tarmac leaves a truck used, not filthy', road.grime > 0.05 && road.grime < 0.55, road.grime);
+    check('…and the same distance on the shoulder is far worse', verge.grime > road.grime * 2.5, `${road.grime} vs ${verge.grime}`);
+
+    // ⚠ RAIN IS NOT A CAR WASH. It takes the dust off and leaves the film, and the hose at the
+    // depot is the only thing that finishes the job — if weather could finish it, a wash would be
+    // a thing you wait out rather than a thing you buy.
+    const wet = { grime: 1 };
+    for (let i = 0; i < 4000; i++) accrueGrime(wet, 1, { surface: 'road', weather: 'storm' });
+    check('a downpour cleans a truck up to a point and no further', wet.grime > 0.2 && wet.grime < 0.5, wet.grime);
+    const dirty = { grime: 0.05 };
+    for (let i = 0; i < 200; i++) accrueGrime(dirty, 1, { surface: 'shoulder', weather: 'rain' });
+    check('…and below the film the road is still throwing muck at you', dirty.grime > 0.05, dirty.grime);
+
+    // ON DISTANCE, NEVER ON THE CLOCK — the rule fuel and wear already follow. A truck standing in
+    // a shed while somebody reads a job board is not getting dirty, because nothing is happening.
+    const parked = { grime: 0.3 };
+    accrueGrime(parked, 0, { surface: 'offroad' });
+    check('a truck that has not moved does not get dirty', parked.grime === 0.3);
+
+    // The bands, and the price that hangs off them.
+    check('a clean truck is CLEAN and a buried one is BURIED',
+      grimeBand(0).key === 'clean' && grimeBand(1).key === 'buried');
+    check('a wash is free on a clean truck and never more than the top of the scale',
+      washCost(0) === 0 && washCost(1) <= WASH_FULL && washCost(1) >= washCost(0.5));
+
+    // THE TINT IS THE ONE CONVERSION, and this is the case that keeps it honest: a livery must
+    // change with the dirt, must not change WITHOUT it, and must never reach the muck colour
+    // outright — the paint the player bought has to stay legible as itself at the top of the bar.
+    const paint = { base: '#c0392b', trim: '#2e86de', hw: '#23262b', deck: '#c0392b', bright: '#d8dee9',
+      glow: '#60c4d6', glass: '#324a5c', chrome: 1, flash: 'stripe', finish: 'gloss', art: 'none' };
+    const clean = truckLivery(paint, 0), filthy = truckLivery(paint, 1);
+    check('a clean truck renders EXACTLY the paint it was sprayed with (the no-op invariant)',
+      clean.base === paint.base && clean.trim === paint.trim && clean.finish === 'gloss' && clean.chrome === 1);
+    check('a filthy one does not', filthy.base !== paint.base && filthy.trim !== paint.trim);
+    check('…but it is still red under there, not brown-on-brown with every other truck',
+      filthy.base !== filthy.trim && parseInt(filthy.base.slice(1, 3), 16) > parseInt(filthy.base.slice(3, 5), 16));
+    check('the brightwork dies and the LAMPS do not — a lamp is light coming out',
+      filthy.glow === paint.glow && filthy.chrome < 0.5);
+    check('and enough dirt is a matte coat, because it is', filthy.finish === 'matte');
+    check('an unpainted truck still converts to nothing at all, dirty or not',
+      Object.keys(truckLivery(null, 1)).length === 0);
+  }
+
+  // ── 4j. Cosmetic fittings ──────────────────────────────────────────────────
+  // Twenty things that do nothing, and the cases are all about the ways "does nothing" can quietly
+  // become "does something" — to the mesh, to the lamps, or to the wire.
+  {
+    // THE CODE IS THE WIRE AND IT IS STAMPED IN LIVE ROWS. fittings.js throws at import on a
+    // collision, so this is the belt to that braces: two characters, lower case, unique.
+    const codes = FIT_IDS.map((id) => FITTINGS[id].code);
+    check('every fitting has a distinct two-character code',
+      new Set(codes).size === codes.length && codes.every((c) => /^[a-z]{2}$/.test(c)));
+    check('every fitting sits in a real slot',
+      FIT_IDS.every((id) => SLOTS.some((s) => s.id === FITTINGS[id].slot)));
+
+    // ONE PER SLOT, enforced on READ rather than only at the write — a hand-edited bag, an old row
+    // or a fitting that changes slot in a later build would all otherwise put two bars on a truck.
+    const twoBars = installedFits({ fits: ['rampl', 'tusks', 'cage'] });
+    check('two fittings for one place resolve to one, first mention winning',
+      twoBars.length === 2 && twoBars.includes('rampl') && !twoBars.includes('tusks'));
+    check('a junk id in the bag wears nothing rather than crashing a renderer',
+      installedFits({ fits: ['nonesuch', 'skull'] }).join() === 'skull');
+
+    // ⚠ THE SUFFIX MUST BE CANONICAL. It is a client mesh-cache key, so the same truck described in
+    // two orders MUST produce the same string — otherwise a rig holds one cached mesh per
+    // permutation of its own fittings, which is the exact leak the cache cap exists to bound.
+    check('the same fittings in any order produce the same suffix',
+      fitSuffix({ fits: ['skull', 'cage', 'rampl'] }) === fitSuffix({ fits: ['rampl', 'skull', 'cage'] }));
+    check('a bare truck adds nothing to the wire at all', fitSuffix({}) === '' && fitSuffix(null) === '');
+    check('the suffix round-trips through the code table',
+      fitSuffix({ fits: ['rampl'] }) === '^rp' && fitByCode('rp').id === 'rampl');
+
+    // EVERY FITTING ACTUALLY DRAWS SOMETHING. This is the case that catches the real failure mode —
+    // a code in the catalogue that no branch in `buildTruck` matches — which is silent in every
+    // other way: the truck renders, the money is taken, and nothing appears. Tested against the
+    // CONTINENTAL because it is the only rig with every feature a fitting can hang off (two stacks,
+    // a bonnet, a sleeper); a stack sleeve on a scrapper legitimately draws nothing.
+    const bare = aircraftFaces('truck', 1, false, 'continental').length;
+    const silent = FIT_IDS.filter((id) => aircraftFaces('truck', 1, false, 'continental^' + FITTINGS[id].code).length <= bare);
+    check('every fitting in the catalogue puts geometry on the truck', silent.length === 0, silent.join(' '));
+
+    // NO FITTING IS LOAD-BEARING GEOMETRY. Nothing may move the door decal, the kingpin, the lamp
+    // pods or the centring — twenty parts must not be twenty ways to break one mesh.
+    aircraftFaces('truck', 1, false, 'continental');
+    const m0 = truckMeta('continental:1');
+    const all = '^' + FIT_IDS.map((id) => FITTINGS[id].code).join('.');
+    aircraftFaces('truck', 1, false, 'continental' + all);
+    const m1 = truckMeta('continental' + all + ':1');
+    check('a fully fitted truck has the same door panel, pin, cab back and pods as a bare one',
+      m1 && Math.abs(m1.pin - m0.pin) < 1e-9 && Math.abs(m1.door.f0 - m0.door.f0) < 1e-9
+        && Math.abs(m1.cabBack - m0.cabBack) < 1e-9 && m1.pods.length === m0.pods.length,
+      m1 ? `${m1.pin} vs ${m0.pin}` : 'no meta');
+
+    // ⚠ THE SUFFIX MUST NOT EAT THE TRAILER MARKER. `^` can follow `+t`, and a lazy strip would hand
+    // the type parser a tail of 't^rp' — every fitted rig would silently render bobtail, which is
+    // the sort of bug that reads as "the trailer disappeared sometimes".
+    const loaded = aircraftFaces('truck', 1, false, 'hauler+t').filter((f) => f.deck).length;
+    const loadedFit = aircraftFaces('truck', 1, false, 'hauler+t^rp.lb').filter((f) => f.deck).length;
+    check('a fitted rig still has its trailer', loadedFit === loaded && loaded > 20, `${loadedFit} vs ${loaded}`);
+    check('…and is still the same truck, not a fallback hauler',
+      aircraftFaces('truck', 1, false, 'scrapper^sk').length < aircraftFaces('truck', 1, false, 'continental^sk').length);
+
+    // A DROPPED BOX WEARS NOBODY'S FITTINGS. They are bolted to the TRACTOR, and the solo splice is
+    // what a trailer standing in a yard is cut at — a fitting emitted after that split survives it.
+    check('a dropped trailer never wears the tractor that left it',
+      aircraftFaces('truck', 1, false, 'hauler+t~s' + all).length === aircraftFaces('truck', 1, false, 'hauler+t~s').length);
+
+    // THE LIGHT IS LIGHT, NOT GEOMETRY (the rule written on `pod()`), and only the fitting that was
+    // bought lights up.
+    check('underglow adds lamp stations only when it is fitted',
+      (vehicleLamps('truck', 'hauler^ug').neon || []).length > 0 && (vehicleLamps('truck', 'hauler').neon || []).length === 0);
+    check('…and a beacon is one station, not a set', !!vehicleLamps('truck', 'hauler^bc').beacon && !vehicleLamps('truck', 'hauler').beacon);
+    check('a fitted truck lights its headlamps in exactly the same places',
+      JSON.stringify(vehicleLamps('truck', 'hauler^rp.lb.ug').head) === JSON.stringify(vehicleLamps('truck', 'hauler').head));
+
+    // OWNED ONCE, WORN WHENEVER — the rule that makes experimenting free.
+    check('a fitting you already own costs nothing to put back on',
+      priceFor({ owned_fits: ['skull'] }, 'skull') === 0 && priceFor({}, 'skull') === FITTINGS.skull.price);
   }
 
   // ── 5. The whole haul, end to end, through the real verbs ──────────────────

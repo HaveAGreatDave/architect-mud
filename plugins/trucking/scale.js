@@ -117,7 +117,58 @@ export async function runScale(player, rig, zone) {
 // A text driver rolls onto the same plates.
 export async function afterDrive(player, rig, zone) {
   if (!zone) return null;
+  // ⚠ THE CAB FIRST, AND THEY ARE TWO DIFFERENT LAWS. See runCabCheck for why this is not folded
+  // into the weighbridge, and why it runs even when there is nothing to weigh.
+  await runCabCheck(player, rig, zone);
   return runScale(player, rig, zone);
+}
+
+// ── SOMEBODY LOOKS IN THE CAB ────────────────────────────────────────────────
+//
+// The hitchhiker design has always said it: riding in the sleeper is fast and free, and *anyone who
+// looks in the cab finds them*. Nothing ever looked. Every path out of a hitcher — the payout, the
+// dropoff, the scale — read the TRAILER, so a fugitive in the passenger seat was 400₵ at no risk at
+// all and the sleeper/trailer fork had one obviously correct answer.
+//
+// ⚠ THIS IS NOT THE WEIGHBRIDGE, AND IT MUST NEVER BECOME IT. The one rule this whole building is
+// built on is that the scale detects WEIGHT, NOT CONTRABAND — it compares your trailer against your
+// paper and does not know what the difference is. Teaching it to recognise a person would collapse
+// that into "the scale finds smuggled things", which is the generic checkpoint the scale house was
+// deliberately designed not to be. So this is a separate law that happens to be enforced at the same
+// gate: one weighs the box, one looks through the windscreen, and neither knows about the other.
+// (The trailer rider is still caught by the SCALE, as eighty kilos that are not on the paper — which
+// is the correct answer, arrived at without anybody knowing what the eighty kilos is.)
+//
+// ⚠ IT RUNS BOBTAIL. 'runScale' returns immediately with no trailer, which is right for a
+// weighbridge and would have left the entire feature unreachable: a driver with nothing on the pin
+// is never weighed, and a hitcher does not need a trailer.
+//
+// ⚠ AND THERE IS NO ROLL. Every other contest in this file is a skill check, and this one is
+// deliberately not: the design's sentence is that anyone who looks FINDS them, and a Deception roll
+// against an officer holding the door open makes that sentence a lie. The skill is in the decision
+// a mile back — the trailer, or the other route, or not stopping. Once the door is open it is over.
+// That is also what makes the trailer worth its eighty kilos.
+//
+// There is no bribe and no bolt here either, and their absence is the same argument. The three
+// answers at the weighbridge exist because a discrepancy is ARGUABLE — a wet load, a long night. A
+// person sitting in your bunk is not arguable, and offering to negotiate it would hand back the
+// certainty that pays for the fork.
+async function runCabCheck(player, rig, zone) {
+  const cfg = scaleAt(zone);
+  if (!cfg) return null;
+  const who = rig?.rider;
+  // Only the fugitive, and only in the seat. A mechanic in the passenger seat is a mechanic in the
+  // passenger seat — giving somebody a lift is not a crime, and a check that stopped everybody
+  // would make the other three kinds unpickable on any lawful road for no reason anybody could name.
+  if (!who || who.inTrailer || who.id !== 'fugitive') return null;
+
+  rig.rider = null;
+  await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'harbouring' } }).catch(() => {});
+  sendToPlayer(player.id, { type: 'emote', message:
+    `<span class="text-red">An officer walks the length of the rig at ${cfg.name}, puts a hand on the passenger door and opens it.</span>\n\n`
+    + `There is nowhere in a cab to not be. They do not ask you anything — they are already talking to somebody on a radio, and your passenger is out of the seat and face down on the plates before you have finished stopping.\n\n`
+    + `<span class="text-dim">Nobody says what they were wanted for. Nobody says it to you at all.</span>` });
+  return { taken: true };
 }
 
 function scaleText(i) {

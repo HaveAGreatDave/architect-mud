@@ -18,7 +18,7 @@ and a city that resolves out of the haze at the end of it.
 | Corridor geometry + cell synthesis, the sibling limbs, the signs | [plugins/trucking/corridor.js](../plugins/trucking/corridor.js) |
 | The highway sign, drawn | `drawRoadSign` in [windshield.js](../client/game/js/panels/windshield.js) · `sgn` in [plugins/flight/state.js](../plugins/flight/state.js) |
 | Rig state, the clamp, node crossings, the cab push | [plugins/trucking/state.js](../plugins/trucking/state.js) |
-| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `truckpump`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
+| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `galley`, `lock`/`unlock` (routers — see the doors section), `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `truckpump`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
 | The physics (`stepTruck`, the gearbox, the articulation angle, `SURFACES`) | [client/game/js/panels/flight-model.js](../client/game/js/panels/flight-model.js) |
 | The cab (60fps loop, gauges, wheel) | [client/game/js/panels/cab-view.js](../client/game/js/panels/cab-view.js) |
 | Cab interior + mirrors | `drawCabInterior` in [windshield.js](../client/game/js/panels/windshield.js) |
@@ -2487,6 +2487,11 @@ self-centring on release, so the wheel you are steering with is always the one o
 
 ## The scale house — weight, not contraband
 
+> **Two laws, one gate.** The weighbridge is below. The scale house ALSO runs a cab check, which
+> is a separate law that knows nothing about weight — see *And somebody looks in the cab now* in the
+> hitchhiker section. Keep them apart: the moment the weighbridge learns to recognise a person, the
+> sentence this whole building rests on stops being true.
+
 The one idea in this system that is native to trucks rather than borrowed from somewhere else in
 the game. Your manifest says the box holds 3,600 kg of scrap. The weighbridge says 4,400. **It does
 not know what the other 800 is — it knows you lied.** Everything worth having follows from that one
@@ -2590,6 +2595,210 @@ them with nothing to keep in step. Four kinds, and you cannot tell which from th
 system pointed at a person: **the sleeper** is fast and free and anyone who looks in the cab finds
 them; **the trailer** is invisible to a look and is *eighty kilos the weighbridge can see*. Letting
 them out a mile short of the plates is a real, unscripted play, and it is free.
+
+### You can see them now, and the seed was broken *(2026-08-20)*
+
+Everything above was true and almost none of it reached a driver. A hitcher's entire presence was
+**one emote at the moment you crossed a node boundary** — so a driver who was looking at the gearbox
+drove past a person they were never told about, and nothing on the glass, in the room or out of the
+windscreen said otherwise afterwards. Four things changed, and one of them is the reason the feature
+read as absent rather than as quiet.
+
+**The seed was broken, and it turned the roll from per-stretch into per-week.** `seed()` hashed
+`route.key` — a field a route does not have (it carries `voidKey`, `destKey` and `seedKey`), so every
+corridor out of every region hashed the literal string `'road'` and met identical people on
+identically numbered stretches. Worse, it took **raw FNV-1a as its fraction**, and FNV's avalanche
+across a string whose only variation is the trailing digit is poor: a week's eight nodes came out
+inside a band about **0.03 wide**. Against a 0.34 threshold that is not a one-in-three chance per
+stretch, it is a coin flip for the **entire road** — twenty-four eligible stretches across three
+consecutive windows produced *zero*. It now uses the corridor's own `hashSeed` + `mulberry32` pair
+(mulberry32 is the half that avalanches), keyed on the real road identity, with the KIND drawn from
+its own stream rather than resliced out of the presence roll. ⚠ **This changes who is on every
+existing stretch**, which is unavoidable and costs nothing to migrate — a hitcher is derived at read
+and never stored. Regress now samples twenty weeks and asserts both the rate and that no week is
+all-or-nothing; every check that existed before passed throughout the bug, because they all asked
+whether a hitcher was *well-formed* and none asked whether one *existed*.
+
+**They stand on the road.** `cabContext` ships a `hitcher` — token, kind and an absolute tile
+position derived from the corridor (half a room along their node, `t` just past `pavedAt`'s paved
+half-width, so on the verge and on the side you would pull onto). ⚠ **Not an entry in `actors`**:
+that list is walked by the client's own mover, which interpolates between pushes, picks a gait and
+snaps each figure to its tile's KERB — none of which exists out here, and a hitcher is *defined* by
+not going anywhere. So they ride their own field and `drawRoadside` paints them standing, through
+the same `drawActorFigure` and the same depth sink, with one raised arm. The arm is the only thing
+about them that is not the stock silhouette, and it is the difference between a bollard and an ask.
+
+**The alert stays up.** A card on the glass while they are ahead of you, with a PICK UP button that
+sends the **bare** verb — the fugitive's sleeper-or-trailer question is the verb's to ask, and a
+panel that pre-empted it would be making the one decision the system exists to put in front of you.
+
+**A stretch you have worked is spent.** `hitcherAt` is pure, which is what makes the road consistent
+and also means it answers with the same person forever — so dropping somebody off where you found
+them put them straight back on the shoulder with their hand out. `rig.hitchDone` is a per-rig,
+memory-only set of node indices, deliberately *not* persisted: that you have dealt with them is not
+a fact about the road, so another driver still meets them and so do you next window. `state.js`,
+`index.js` and `textdrive.js` all consult it, so both rungs agree. `pickup`/`dropoff` now force the
+push (`pushCab` is throttled on the centre tile, and a pickup happens at a standstill by definition
+— without it the figure went on standing there and the button went on offering to pick up somebody
+already in the seat).
+
+**And somebody looks in the cab now** *(2026-08-20)*. The design has always said the sleeper is fast
+and free and *anyone who looks in the cab finds them*. Nothing ever looked — every path out of a
+hitcher read the TRAILER — so a fugitive in the passenger seat was 400₵ at no risk and `pickup
+sleeper` was strictly the right answer, which left the trailer's eighty kilos buying nothing.
+`runCabCheck` (scale.js) runs off `afterDrive`, so both rungs get it.
+
+⚠ **It is a separate law, and it must never become the weighbridge.** The one rule this building is
+built on is *weight, not contraband* — the scale compares your trailer against your paper and does
+not know what the difference is. Teaching it to recognise a person collapses that into "the scale
+finds smuggled things", which is exactly the generic scanner the scale house was designed not to be.
+So two laws are enforced at one gate and neither knows about the other: one weighs the box, one
+looks through the windscreen. The **trailer** rider is still the *scale's* catch, as eighty kilos
+that are not on the paper — the right answer, reached without anybody knowing what the eighty kilos
+is. Regress asserts a cab check leaves the weighbridge's verdict untouched.
+
+⚠ **It runs bobtail**, which is what made the feature reachable at all: `runScale` returns
+immediately with nothing on the pin (correct for a weighbridge), so a driver carrying a person and
+no trailer was inspected by nothing.
+
+⚠ **There is no roll, no bribe and no bolt**, and all three absences are the same argument. The
+three answers at the weighbridge exist because a discrepancy is *arguable* — a wet load, a long
+night. A person sitting in your bunk is not arguable. The design's sentence is that anyone who looks
+**finds** them, and a Deception check against an officer holding the door open makes that sentence a
+lie. The skill is in the decision a mile back: the trailer, the other route, or not stopping. That
+certainty is what the eighty kilos is paying for.
+
+Only the **fugitive**, and only **in the seat** — giving a mechanic a lift is not a crime, and a
+check that took everybody would make the other three kinds unpickable on any lawful road for a
+reason nobody could name. Charged as `harbouring` (2★, `witness: 'always'` — the officer looking IS
+the witness, and there is no version of this where nobody saw it), deliberately below smuggling: you
+moved a person, not a product. A lawless region runs neither law, so the Coldwater→Reach direction
+is still the free one and the return is still the one where you sweat.
+
+---
+
+### The doors, and letting yourself in *(2026-08-20)*
+
+A hitcher used to arrive exactly one way: you typed `pickup`, which is a decision, made on purpose,
+with the whole system in front of you. Real doors do not work like that. Stop with the passenger
+side open beside somebody who has been stood on a verge for six hours and they will get in, and you
+will find out about it when they shut the door.
+
+So the latch is the actual control and `pickup` becomes the **invitation** rather than the only way
+in. Two routes to a passenger, and what separates them is something you did or forgot to do a mile
+back — the same shape as everything else on this road. `lock` / `unlock`, the `Y` key, or the latch
+button on the glass chrome, which reads out the state it is IN rather than the action pressing it
+would take (a control labelled with its own action is fine for a horn and wrong for a lock, where
+the entire question a driver has is *is it down right now*).
+
+⚠ **It defaults to UNLOCKED, and that is the feature.** A latch that starts down is a latch nobody
+ever meets: the first time it would matter is the first time it saves you, which is to say never,
+because nothing would ever have got in. Starting open means the mechanic teaches itself — somebody
+climbs into your cab, and from then on you know what the button is for. It persists per truck in
+`custom_data` beside paint and trim, so no new column and so learning it only has to happen once.
+
+⚠ **A self-boarder always takes the SEAT, never the trailer.** You did not open the trailer — nobody
+climbs into a sealed box off their own bat, and if they could the latch would quietly become a way
+to smuggle a person without ever deciding to, with the weighbridge finding people the driver never
+chose to hide. So an open door can only hand you the *visible* version of a passenger: the
+weighbridge is never surprised and the scale house's cab check always is. **The latch is the thing
+standing between an idle fuel stop and a harbouring charge.**
+
+⚠ **The dwell is not decoration.** A speed gate on its own fires on any slow crawl, so a driver who
+eased off for a bend beside a hitcher would acquire a passenger they never saw coming and could not
+have prevented. Three seconds at a genuine standstill (`BOARD_MS`, `STOPPED_MPH`) is a *stop*, and a
+stop beside somebody with their hand out is a thing you did. Driving off resets the clock.
+
+⚠ **`lock`/`unlock` are ENGINE builtins and plugins beat builtins.** They belong to
+[commands/doors.js](../server/engine/commands/doors.js), so registering them naively points every
+apartment door, shop shutter, cell and hatch in the game at a truck — failing everywhere at once, in
+a way nobody would connect back to trucking. `cabLatchRouter` is narrow and **falls through**
+(returns `undefined`, the chess `move` pattern): it keeps the verb only when you are behind a wheel
+*and* said nothing after it or named the cab. `lock apartment` from a rig parked in your own garage
+still locks the apartment, and regress asserts all three cases.
+
+`tryDoorBoard` lives in `state.js` and is called from both drive ticks, for the same reason
+`afterDrive` lives in scale.js: a law that is two functions is two laws, and the rungs would drift.
+⚠ On the text rung it sits **outside** the node-crossing branch — the event is about standing still,
+and a rig that is standing still crosses no boundary, so inside that branch it would have been
+unreachable by construction.
+
+The hitcher card on the glass says which it is (*"Doors are open. Stop for a moment and they will
+get in by themselves"* vs *"Doors latched — pick them up if you mean to"*), keyed on the person **and**
+the latch, because keyed on the person alone a driver who locked up mid-approach went on reading a
+card that said the doors were open. It states the fact and never editorialises: stopping with the
+doors open is a legitimate way to pick somebody up.
+
+---
+## The driver, not the truck *(2026-08-20)*
+
+Every instrument on this glass read out the **truck**. The damage strip covers the rig, the fuel
+gauge covers the tank, and the person in the seat had no readout at all — so a driver could die of
+thirst on a long haul looking at a full set of green instruments, with food in the bunk, because the
+only surface that could answer *"what have I got"* was the tablet and reaching it meant leaving the
+windscreen.
+
+**The band.** Top centre, over the road rather than beside it, because it is not a reading — it is
+an interruption, and a driver watching the vanishing point has to catch it without looking anywhere.
+Two rungs: **amber** early, while there is still road to do something about it, and **red, flashing**
+once it bites. Red is `hunger === 0` / `thirst === 0`, which is exactly where `gameLoop.js` starts
+taking HP — the flash is not a prediction, it is the damage, reported. Thirst is named first when
+both are up, because it kills twice as fast (−2 HP a tick against hunger's −1). It says a WORD, not
+a percentage: a number is something you monitor, a word is something you act on.
+`prefers-reduced-motion` drops the animation and keeps the colour, and the band writes its text only
+on change — it sits in an `aria-live` region, and reassigning identical text is what makes a screen
+reader say "HUNGER" forever.
+
+**The galley** (`T`, or the flap on the glass chrome). Bars for food and water over a list of every
+consumable in the pack, one button per row, each sending the ordinary **`eat`/`drink` verb string a
+player could have typed** — the preparation HUD's rule, and it is why the payload ships literal
+commands. There is no cab-only eating path and nothing here re-derives whether a thing is edible.
+Eating refreshes the list rather than closing it.
+
+⚠ **It is answered on demand, never on the push.** `cabContext` runs several times a second on the
+drive, and an inventory join in it is a remote round trip *per push* on the hottest path this plugin
+owns. So the list is the `galley` **verb**: one query when the flap opens, and never again until it
+opens again. The vitals cost nothing at all — hunger and thirst are already on the live player
+object and already reach the browser on every `player_update`, so the band and the bars are drawn
+from what the client had anyway and can never disagree with the log's own vitals rail. They are
+polled off the cab's existing frame loop at 4 Hz rather than hooked into `render.js`, because wiring
+the log's vitals path to a truck is a wire between two things with no other reason to know about
+each other.
+
+⚠ `T`, not `G` — `G` has been cruise control since the box was built, and so had every other obvious
+letter for "food". That is what a cab with twenty-odd controls costs.
+
+---
+
+## Ground scatter is sized in pixels, and a pixel is not a unit of the world *(2026-08-20)*
+
+*"The people in the city seem tiny."* They were, for two reasons that compounded.
+
+Every building in `windshield.js` is **projected** — a wall is a world-z height run through
+`cam.proj`, so it tracks the focal length and the canvas. The ground scatter is not: trees, bushes,
+bollards, street lamps and the figures on the pavement each carry a hardcoded constant over `p.f`,
+and those constants were eyeballed once against the flight sim's 560px-tall strip (`focal = H*0.55`,
+so ~308). The cab is the **whole window**, so its focal length is larger, everything projected in
+the frame grows — and the people stayed the same number of pixels. They did not shrink; the world
+grew past them.
+
+And the constants were wrong to begin with. The depot bay is the one building around this camera
+with a known real size (`BAY.RIDGE` = 2.2 storeys = 26 ft, so ~61 ft to the world-z unit — the same
+unit that fixed the cab's eye height), and the actor drawer's stock `17` works out at **3.4 ft of
+person**: a bollard with a head.
+
+So `propS(k, f, lo, hi)` scales those constants by `_propK`, the ratio of this frame's focal length
+to the one they assume. At 560px it is exactly 1 and **every existing aircraft frame is unchanged**.
+⚠ **The clamps scale with it too** — a floor and ceiling left in raw pixels re-introduce the same bug
+at both ends of the range. `v.propMul` is the per-seat override on top, and the cab passes **1.75**,
+which puts an adult at about 5 ft 10 and takes the street furniture up with them. It is sent for
+**both** seats, unlike `eyeH`/`fovMul` (those are interior-only because they would move the *rig*
+when the chase camera anchors its model against them; this moves nothing but the scatter, and the
+chase view looks at the same street).
+
+The aircraft is deliberately left at 1. The constants are just as wrong up there, but nothing in
+that view is ever close enough to the ground for it to read, and a silent change to nine other
+cameras is not what a truck window is for.
 
 ---
 
@@ -3010,6 +3219,241 @@ drew; and `modelTopAt` answers off the gable directly, needing no capture. ⚠ R
 must raise `BAY_FLOORS` with it — `shapes:smoke`'s **bay** gate fails if they drift, if the eaves or
 the door head drop back under the driver's eye, or if the truck-sized hole in `groundObstructionAt`
 ever closes.
+
+---
+
+## Filth — the road on the outside of the truck *(2026-08-20)*
+
+*Built.* A rig that had just come four hundred miles up a graded shoulder looked exactly like one
+that rolled out of the paint booth that morning. Distance already reached the wear bars, the tank
+and the breakdown die; not one of those is a thing you **look at**. This is: the truck goes brown,
+the wheels throw dust, and a hose at the depot puts the paint back.
+
+`plugins/trucking/filth.js`, and it is small on purpose. Three rules carry it, and each one is a
+decision not to build something.
+
+**It is cosmetic, and that is load-bearing.** Grime touches no parameter, no roll and no price
+anywhere in the plugin — it is not a fifth damage component wearing a different label. The moment a
+filthy truck is a *slower* truck, washing stops being something you do because you want to and
+becomes maintenance you resent, and [the damage model](#damage-per-component-2026-08-13) already
+owns "the bar you have been ignoring is the die you are rolling". So `partEffects` never sees this
+number, `overall` never sees it, and `trucks.condition` is untouched. Regress asserts it directly:
+four hundred tiles of open country moves the grime bar to its cap and moves the condition by
+literally nothing.
+
+**It is one scalar, unlike damage — for the mirror of the reason damage is four.** Damage is four
+components because a rebound off a wall and four hundred miles of gravel are genuinely different
+events a driver must be able to tell apart and price separately. Dirt is not: everything that
+dirties a truck dirties all of it, the answer is always the same hose, and a per-panel filth model
+would be four numbers that always move together and one bill.
+
+**It accrues on distance, never on the clock** — the rule fuel and wear already follow. A truck
+standing in a shed while you read a job board does not get dirty, because nothing is happening to
+it. Rain is the one thing that moves the number the other way, and it moves it on distance too: it
+is the road throwing water at you, not weather passing over a parked truck.
+
+⚠ **And rain is not a car wash.** It knocks the dust off and leaves the film — anybody who has
+driven a wet motorway knows a truck comes out of it grey rather than clean. A downpour can only ever
+pull the bar down toward `RAIN_FLOOR`, never to zero. If weather could finish the job, a wash would
+be a thing you *wait out* rather than a thing you buy.
+
+The multipliers deliberately read like `WHEEL_SURFACE` in `damage.js` without being it: tyres care
+about abrasion and paint cares about what is in the air, which is why the graded shoulder is nearly
+as bad as open country here and half as bad there. The tarmac is **not zero** — a highway at speed
+does throw grit, and that is half of what makes the effect worth having — but it is tuned so a full
+crossing on good road arrives *used* rather than filthy. A number that saturates on every run has
+stopped saying anything.
+
+### Where it is drawn
+
+**One conversion, four painters.** `client/shared/truck-livery.js` already existed precisely because
+a truck is rendered by the cab, by the depot turntable, by another driver's relayed contact and by a
+parked box — and a conversion written down twice is a conversion that is wrong in one of them (it
+had already happened once, with `pattern`). So grime is a **second argument to that same function**,
+and every renderer inherits the dirt without knowing dirt exists.
+
+It is a **tint, not a texture**. The models are flat-shaded facets and there is no muck map; what
+the driver is owed is the flank going brown, the badges going quiet and the chrome dying, and those
+are all colour. Three sub-rules:
+
+- ⚠ **It never reaches the muck colour.** `GRIME_MIX_MAX` caps the mix, because mixing all the way
+  makes every truck in the fleet the identical brown at the top of the bar — which deletes the paint
+  job the player bought, and the whole point of a wash is that there is something underneath worth
+  uncovering.
+- **Brightwork dies fastest and the lamps do not die at all.** Polished metal is the first thing a
+  road takes; a lamp's colour is light coming *out*, so muddying it would read as a bulb failing
+  rather than as a dirty truck.
+- **The finish is derived.** A gloss coat under enough dirt is a matte coat, and the renderer
+  already knows how to draw one — so past the point where a shine could survive, `finish` becomes
+  `matte` rather than being a second thing an author has to keep in step with the muck.
+
+### The dust, and the glass
+
+`drawRoadFilm` in `cab-view.js`, over the windscreen canvas after the world and the rig, because it
+is between them and the eye. It draws **two things that share a cause and must never disagree**:
+`grime` is the history, and `st.dust` is the moment. A single number could not be both — a driver
+who came off the shoulder onto tarmac would go on ploughing an invisible field.
+
+It is **drawn, not simulated**: the windscreen is a 2D overlay over a Mode-7 world, so a real dust
+volume would need depth it cannot have and a frame budget the cab is the tightest consumer of. What
+a driver actually reads is a warm haze low in the frame that pulses with the throttle and dies when
+they stop — two corner veils rather than one band across the floor, because a band reads as *fog*
+and a pair reads as **wheels**, which is the one thing the effect has to say.
+
+⚠ **The specks are hashed, not rolled.** A `Math.random()` per speck per frame is boiling static
+that reads as television snow rather than as dirt; each speck's lane and lifetime come from its own
+index through a stable hash and it moves on a clock, so it drifts past you. Same reason the world
+renderer's star grain is hashed. They rise, because the air off a turning wheel goes up — dust that
+fell would read as snow.
+
+⚠ **And the film never hides a contact.** It is a wash over the outer frame, capped at `FILM_MAX`
+and heaviest in the corners and along the bottom of the glass where a blade does not reach. A driver
+must never fail to see a truck coming because of a cosmetic system: the moment dirt costs you
+information, washing stops being taste and becomes a tax. The wiper stalk **thins** it and never
+clears it, because a dry blade on a dusty screen smears, which every driver knows.
+
+### The hose
+
+`rig wash`, at the bench, and the depot panel's Condition tab carries the button and the price.
+
+⚠ **It is a `rig` subcommand and not the verb `wash`** — the same trap `rig strip` documents. `wash`
+belongs to the **mis** plugin (it is how you get clean, and it is consent-gated), plugin verbs are
+first-come, and a truck one would have silently shadowed it for every player in the game the moment
+they stood at a sink. The bench is where the rest of the work on a truck already happens anyway.
+
+**It puts back nothing but the colour.** No condition, no component, no part consumed, no skill
+check — there is no version of washing a truck you can be bad at, and a fabrication roll on a hose
+would be the system claiming a competence that is not in the fiction. It is priced off the **dirt**
+and not off the truck (a Continental is not four times the work of a Krell), and it is cheap on
+purpose: it must never compete with diesel for the same credits, or "should I wash it" becomes
+arithmetic instead of taste.
+
+⚠ **The row and the live rig are the same truck and must agree.** A wash writes `custom_data.grime`
+and *also* zeroes the number on the mounted rig if that is the truck being washed — otherwise the
+flush on its next park writes the value it is still holding, and every mile of dirt goes straight
+back onto a truck the player just paid to have cleaned. For the same reason the depot panel quotes
+the **live** rig's number when it is showing the truck somebody is sitting in: the row's copy is
+only ever as fresh as the last park.
+
+Storage is `trucks.custom_data.grime`, beside `dmg`/`tune`/`paint`, flushed by the same coalesced
+`persistTruck` UPDATE and nested one `jsonb_set` deeper — so a wash committed at a bench while a rig
+is out cannot be clobbered by that rig's flush.
+
+---
+
+## Fittings — twenty things that do nothing *(2026-08-20)*
+
+*Built.* Paint says what colour your rig is. This says what you are like. A truck is the one
+possession in this game a player owns outright, walks around, and sees from the outside every time
+they climb into it — and the whole of that expression was seven colours and a flash, so two rigs
+with the same paint were the same truck.
+
+Twenty cosmetic fittings across seven slots, running on one deliberate axis: the waste at one end
+(ram plate, tusk bar, saw-blade skirt, riveted plate, totem rack, bleached skull) and the strip at
+the other (chrome push bar, halogen light bar, underglow tubes, lifter halos, stack sleeves, chrome
+runner), with most of the range in the middle where a working truck actually lives — a jerry rack, a
+winch, a chain rack, a beacon, a banner pole. `plugins/trucking/fittings.js` is the catalog and
+every rule; `rig fit` is the till.
+
+**Price tracks metal and nothing else, on purpose.** It is not a ladder — a ₵400 skull on the bonnet
+is not a worse ₵3,200 light bar, it is a different sentence — because a catalog that reads as a
+progression makes everybody feel they are supposed to end up at the top of it, and then everybody's
+truck looks the same again.
+
+### The three rules that make it cheap
+
+**1. It is a list of ids and nothing else.** `trucks.custom_data.fits`, an array of short strings in
+a JSONB bag that is already written on every bench commit. No table, no column, no join, no tick, no
+per-frame server work — the whole feature costs one existing `UPDATE`. Every number that could have
+been stored per truck (where a bar sits, how long a stack is, what colour a tube glows) is derived:
+geometry from the catalog id and the truck's own shape, colour from the paint the player already
+bought.
+
+**2. The wire cost is a suffix on a string that was already being sent.** Every renderer of a truck
+— the cab, the depot turntable, the dealer wireframe, another driver's relayed contact — already
+threads a `variant` string (`<typeId>[+t][~p]`, aircraft3d's grammar). Fittings ride it as
+`^ab.cd.ef`. Nothing new is broadcast, no payload grows a field, and a rig in a pilot's windscreen
+wears its owner's bull bar for free. ⚠ That is also why the codes are two characters — this string
+is on every contact in every window four times a second — and why `fitSuffix` sorts by slot: the
+string is a client **mesh-cache key**, so the same truck described in two orders must produce the
+same key or a rig holds one cached mesh per permutation of its own fittings.
+
+**3. Nothing here is mechanical.** Not one fitting touches a parameter, a roll, a price or a
+capacity. A ram plate does not help you win a collision and an armour plate does not soak one. Same
+rule [filth](#filth--the-road-on-the-outside-of-the-truck-2026-08-20) is built on and load-bearing
+for the same reason: the moment the ugly truck is the *fast* truck, a player who wants to look a
+particular way is paying for it in lap time, and everyone converges again.
+
+### The rest of the rules
+
+**One per slot, and the slot is the whole conflict model.** Two roof racks is not a look, it is a
+bug — fitting into an occupied slot *replaces* what was there and says so. There is deliberately no
+compatibility matrix beyond that: a matrix is a thing an author has to keep in step with a mesh, and
+the slots already say everything the geometry needs. It is enforced on **read** (`installedFits`),
+not only at the write, because a hand-edited bag or a fitting that changes slot in a later build
+would otherwise put two bars on one truck.
+
+**You can take it off and it is still yours.** `rig unfit` costs nothing and refitting is free —
+what you paid for is *owning* it (`custom_data.owned_fits`), not wearing it. A cosmetic system that
+charges rent on your own taste is one nobody experiments with, and "take it off and see" has to be
+free or the catalog is a set of one-way doors.
+
+⚠ **It is `rig fit`, not `rig kit`.** A kit is five things that change how a truck *drives*; a
+fitting is twenty that change nothing. Collapsed into one shelf, a player scrolls past a bull bar to
+find the auxiliary tank with no way to tell which of the two costs them a lap time. The boundary is
+exactly "does this reach `effTruckParams`".
+
+### Where the geometry lives
+
+Inside `buildTruck`, and two ⚠s explain why it could not go anywhere else.
+
+**It is built there rather than composed outside**, because everything after that point *transforms*
+the mesh — the centring shift, the parked settle, the solo ground-fit — and a part appended
+afterwards is authored in coordinates the model does not stay in. That is the same bug the
+`TRUCK_META.shift` note calls "floating headlights", and a bull bar is a bigger thing to have
+floating in the road than a lamp.
+
+**And it is built before `tractorFaces`**, the split point a dropped box is cut at — a fitting
+emitted after it survives the splice, and a trailer standing on its legs in a yard would be wearing
+somebody's roof cage. Regress asserts a solo box with every code in the catalog has exactly the face
+count of a bare one.
+
+**Nothing new is coloured.** Every part is drawn in `CHROME`, `ACCENT` or a plain `strut`/`body`
+role, so it takes the player's `bright`, `glow` and `hw` colours through the existing `PK` channel —
+no new key, no new paint field, nothing for the booth to learn. It is also why the neon fittings need
+no colour of their own: they are `ACCENT`, so a rig with a green beltline gets green stack sleeves
+for free.
+
+**No fitting is load-bearing geometry.** Nothing publishes a pod, moves a lamp station, changes the
+door rectangle or touches the kingpin — regress compares the meta of a *fully fitted* Continental
+against a bare one and demands the pin, the door panel, the cab back and the pod count are identical.
+That is what keeps twenty parts from being twenty ways to break one mesh.
+
+⚠ **The `^` suffix is stripped before the type is read.** It can follow either the type or the
+trailer marker, so the lazy `/~.*$/` strip would hand the parser a tail of `'t^rp'` and every fitted
+rig would silently render bobtail — a bug that reads as "the trailer disappears sometimes".
+
+### The light, and the cache
+
+Two fittings are answered at the **lamp layer instead of as faces**, which is the rule written on
+`pod()`: a lit patch of road drawn as geometry is a *box*, it takes the shading pass, it has edges,
+and four of them read as teal paving slabs bolted to the tarmac. So underglow emits its **fixture**
+(a tube has a body, and you see it from alongside) and its light comes from `vehicleLamps.neon`,
+where it spills instead of ending at a corner. It wears the owner's `glow` colour — the same value
+the tube's own facet is painted with, so the tube and the pool it throws can never disagree — and it
+is on with the **lights** rather than with the engine, because it is tubes on a switch and not the
+machine being alive. A rig parked dark with its underglow on is a real picture the existing block
+cannot produce. The beacon pulses, because a rotating beacon that does not turn reads as a lamp
+somebody left on.
+
+⚠ **The truck mesh cache is now bounded, and nothing else is.** Every other class here has a handful
+of keys, all resident a minute after boot. A truck's key is a whole sentence — four types × trailer
+× parked × twenty fittings in seven slots — and a busy yard is dozens of distinct rigs, so an
+unbounded map is a slow leak keyed on *other people's taste*. Past `TRUCK_CACHE_MAX` the oldest key
+goes and its `TRUCK_META` entry goes with it (dropping the faces and keeping the meta is the same
+leak one field smaller; dropping the *wrong* meta silently un-places another truck's lamps). The cap
+is well above any real scene — it is a runaway guard, not a working set, and a tight one would thrash
+a depot floor.
 
 ---
 

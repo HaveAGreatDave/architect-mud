@@ -119,17 +119,24 @@ export async function persistTruck(rig) {
   // seventh column: it is one more thing about a truck that is YOURS, which is what that bag is for.
   // Nested jsonb_set, not two statements — a lock written separately from the flush is a lock that
   // can disagree with where the truck is parked.
+  // THE DIRT RIDES IT TOO. Same argument as the component bag one paragraph up, and the same
+  // `jsonb_set` on its own key rather than a write over the bag — a truck washed at a bench while
+  // this rig was out must not have its clean paint clobbered by a flush carrying a stale number.
+  // It is nested one deeper for that reason and no other; it is not a condition and it never
+  // touches the `condition` column.
   const dmg = rig.dmg || null;
   await query(
     `UPDATE trucks SET fuel = $1, odometer = odometer + $2, depot_zone = $3, condition = $4,
-       custom_data = jsonb_set(
+       custom_data = jsonb_set(jsonb_set(
          CASE WHEN $6::jsonb IS NULL THEN COALESCE(custom_data,'{}'::jsonb)
               ELSE jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{dmg}', $6::jsonb, true) END,
-         '{locked}', to_jsonb($7::boolean), true)
+         '{locked}', to_jsonb($7::boolean), true),
+         '{grime}', to_jsonb($8::numeric), true)
      WHERE id = $5`,
     [Math.max(0, Math.min(1, rig.fuel)), Math.max(0, rig.travelled || 0), rig.zoneId || null,
       Math.max(0, Math.min(1, rig.condition ?? 1)), rig.truckId,
-      dmg ? JSON.stringify(dmg) : null, !!rig.locked]
+      dmg ? JSON.stringify(dmg) : null, !!rig.locked,
+      +Math.max(0, Math.min(1, rig.grime ?? 0)).toFixed(4)]
   ).catch(() => {});
   rig.travelled = 0;
 }

@@ -32,6 +32,11 @@ import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this vi
 import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the one tiles→miles conversion, shared with the server
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { openTabletToChatTab } from './tablet-os.js';
+// HUNGER AND THIRST COST NOTHING TO READ. They are already on the live player object and already
+// reach this client on every 'player_update' and every 'resource_tick', so the band on the glass
+// and the bars in the galley are drawn from what the browser had anyway — no payload, no push, no
+// query. The only thing the cab has to ask the server for is what is in the bunk to eat.
+import { state as gameState } from '../state.js';
 
 // TELEMETRY CADENCE. This was a flat 250ms — four commands a second through the full dispatch
 // pipeline, forever, including for a rig sitting in a bay with the handbrake on while its driver
@@ -63,6 +68,11 @@ let P = TYPES.hauler;
 let TYPE_ID = 'hauler';
 // Whatever the depot sprayed on it, in the truck paint vocabulary (`truck:` patterns, aircraft3d).
 let PAINT = null;
+// …and what is BOLTED to it: the fitting suffix in the mesh grammar (`^ab.cd`), server-sent. Kept
+// beside PAINT for the same reason TRIM is — it is a property of the truck, not of the view — and
+// as the raw suffix rather than as a parsed list, because the only thing the cab does with it is
+// hand it back to the renderer on the end of the variant string.
+let FITS = '';
 // …and whatever the bench trimmed the INSIDE with: `{ mat, col }` or null for stock. Kept beside
 // PAINT rather than on `st`, because both are properties of the TRUCK and the cab is rebuilt
 // around them — `setParams` runs before the dash is built, and the dash reads the trim.
@@ -71,6 +81,7 @@ const setParams = (ctx) => {
   P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler;
   if (ctx && ctx.typeId) TYPE_ID = ctx.typeId;
   if (ctx && 'paint' in ctx) PAINT = ctx.paint || null;
+  if (ctx && 'fits' in ctx) FITS = ctx.fits || '';
   // The retrim rides beside the paint and is read the same way — the outside of the job and the
   // inside of it arrive together because they are bought at the same bench.
   if (ctx && 'trim' in ctx) TRIM = ctx.trim || null;
@@ -123,6 +134,8 @@ const CONTROLS = [
   ['Q / E / S', 'Look left, right, and over your shoulder. Held — you look, then you come back. There is no dash behind the side glass, so the view out of it is clear.'],
   // The whole map is the flight sim's now — see the sync note in the key handler.
   ['V', 'External view — a chase camera behind the rig, on the same key the cockpit uses. Dolly right in and it settles flat to the road so you can see ahead of you; you can still orbit right round at any distance. (F still works.)'],
+  ['Y / LATCH', 'The cab door latches. They start OPEN, which is what makes the button worth finding: stop on the corridor beside somebody with their hand out and they will let themselves into the passenger seat. Locked, nobody gets in and you pick people up on purpose with pickup. It is remembered per truck.'],
+  ['T / GALLEY', 'What is in the cab to eat or drink, with your food and water bars over it. Every row runs the ordinary eat or drink command, so it does exactly what typing would — this is a flap, not a second way to eat.'],
   ['D', 'Damage. Four bars — engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
   ['⛶ / ⊟', 'Fullscreen, or hide the text panel for more road.'],
 ];
@@ -282,6 +295,19 @@ export function openCab(ctx = {}) {
         <!-- Only in the chase view, and only because a turntable you can spin is a turntable you
              can get lost on. Same glyph the flight sim's orbit reset uses. -->
         <button class="cab-cbtn cab-orbitreset" title="point the camera back down the road" hidden>⟲</button>
+        <!-- THE GALLEY FLAP. On the CHROME rather than on the dash, for the same reason the three
+             above are: the dash is the truck, and a bunk full of sandwiches is not a thing the
+             truck has. It is here at all because a haul is long, hunger and thirst run for the
+             whole of it, and the only surface that could answer "what have I got" was the tablet —
+             which meant stopping and leaving the glass. Every row it opens sends the ordinary
+             eat/drink verb; nothing is eaten by a path that only exists in a cab. -->
+        <!-- THE LATCH. Beside the galley because both are things about the CAB rather than about
+             the truck, and neither belongs on the dash shelf. It is a state readout as much as a
+             button: the whole failure it exists to prevent is a driver who does not know the door
+             beside them is open, so the word on it says what the doors ARE, not what pressing it
+             would do. -->
+        <button class="cab-cbtn cab-latchbtn" title="cab door latches (Y)">◌ OPEN</button>
+        <button class="cab-cbtn cab-galleybtn" title="what is in the cab to eat or drink (T)">▤ GALLEY</button>
         <button class="cab-cbtn cab-helpbtn" title="controls (?)">?</button>
         <!-- HIDE-PANEL THEN FULLSCREEN, in that order — they are one ladder and it should read as
              one, with the biggest rung at the end of the row nearest the corner. The flight sim
@@ -317,6 +343,37 @@ export function openCab(ctx = {}) {
         <div class="cab-fuel-bar"><i class="cab-fuel-fill"></i><i class="cab-fuel-warn"></i></div>
         <div class="cab-fuel-ends"><span>E</span><span class="cab-fuel-note"></span><span>F</span></div>
       </div>
+      <!-- ── THE BAND, AND WHY IT IS SILENT MOST OF THE TIME ──────────────────
+           Starvation and dehydration are the only two things in the game that will kill a driver
+           who is doing everything else right, and until now the cab said nothing about either: the
+           damage strip covers the TRUCK, the fuel gauge covers the TANK, and the person in the
+           seat had no readout at all. A driver could die of thirst looking at a full set of
+           instruments.
+           Two rungs, and the split is deliberate. AMBER is early — it appears while there is still
+           road left to do something about it, which is the whole point of a warning. RED is when
+           the resource-tick is actually taking HP, and it flashes, because at that point it is no
+           longer information, it is an interruption.
+           It reads 'HUNGER'/'THIRST' rather than a percentage on purpose: a number on the glass is
+           something you monitor, and a word is something you act on. The bars, for anyone who
+           wants the number, are in the galley. -->
+      <div class="cab-vitband" hidden aria-live="polite"></div>
+      <!-- WHAT IS IN THE CAB. Filled by the 'galley' verb's own reply, so the panel is a skin over
+           exactly what the log prints — no second source, and no gameplay logic on this side of
+           the wire (the preparation HUD's rule; see plugins/workspace/). -->
+      <div class="cab-galley" hidden role="group" aria-label="Galley">
+        <div class="cab-galley-hd"><b>GALLEY</b><button class="cab-galley-x" aria-label="Close">&times;</button></div>
+        <div class="cab-galley-vit">
+          <div class="cab-galley-row"><span>FOOD</span><i class="cab-galley-bar"><u data-v="hunger"></u></i><b data-p="hunger">--</b></div>
+          <div class="cab-galley-row"><span>WATER</span><i class="cab-galley-bar"><u data-v="thirst"></u></i><b data-p="thirst">--</b></div>
+        </div>
+        <div class="cab-galley-body"><i class="cab-galley-wait">…</i></div>
+      </div>
+      <!-- SOMEBODY ON THE SHOULDER. The figure is drawn out on the road by the renderer; this is
+           the part that survives you looking somewhere else for four seconds. It stands while they
+           are in front of you and goes the moment they are aboard or behind you, and the button
+           sends the plain 'pickup' verb — including for the fugitive, whose sleeper/trailer choice
+           is the VERB's to ask, not this panel's to pre-empt. -->
+      <div class="cab-hitchalert" hidden role="status"></div>
       <div class="cab-help" hidden></div>
       <!-- THE ROUTE PICKER. Opened by tapping the GPS screen on the dash; every row sends the
            ordinary 'route &lt;key&gt;' verb, which is what actually decides. -->
@@ -651,6 +708,12 @@ export function openCab(ctx = {}) {
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
     s: ctx.s || 0, L: ctx.L || 1, node: ctx.node || 0, nodes: ctx.nodes || 1,
     hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', moon: ctx.moon, wind: ctx.wind || 0, wipers: 0,
+    // HOW DIRTY THE TRUCK IS (0..1, the server's number — see plugins/trucking/filth.js) and how
+    // much the wheels are throwing up RIGHT NOW. They are two different things and the split is the
+    // whole effect: `grime` is the history, accrued over a haul and only a hose takes it off;
+    // `dust` is the moment, and it is gone the instant you stop. A single number could not be both,
+    // and a driver who came off the shoulder onto tarmac would go on ploughing an invisible field.
+    grime: ctx.grime || 0, dust: 0,
     // `wasRolling` is the edge detector for the telemetry cadence — see the ⚠ at the send. Seeded
     // false because a cab opens on a stationary truck, so the first frame under way is a real edge
     // rather than an artefact of starting undefined.
@@ -1767,6 +1830,12 @@ export function openCab(ctx = {}) {
     // Shift+/ arrives as '?', so the splitter's own '/' branch above never sees it.
     else if (down && !e.repeat && k === '?') st.toggleHelp?.();
     else if (down && !e.repeat && k === 'd') container.querySelector('.cab-dmg-strip')?.click();
+    // T, not G — G is cruise control and has been since the box was built. Every obvious letter
+    // for 'food' was already a control, which is what a cab with twenty-odd of them costs.
+    else if (down && !e.repeat && k === 't') st.toggleGalley?.();
+    // Y for the latches. Another letter picked by elimination rather than by meaning — L is the
+    // headlights and has been since before there was a door to lock.
+    else if (down && !e.repeat && k === 'y') container.querySelector('.cab-latchbtn')?.click();
     else if (down && k === 'escape' && !container.querySelector('.cab-help')?.hidden) st.toggleHelp?.(false);
     // H is the cord and it HOLDS: down opens it, up closes it and sends the length. (`e.repeat`
     // filtered so autorepeat is not a stream of pulls.)
@@ -2587,6 +2656,50 @@ export function openCab(ctx = {}) {
   helpEl.addEventListener('click', () => toggleHelp(false));
   st.toggleHelp = toggleHelp;
 
+  // ── THE GALLEY FLAP ────────────────────────────────────────────────────────
+  // Opening it ASKS. The list is not on the cab push and must not be — 'cabContext' runs several
+  // times a second and an inventory join in it is a remote round trip per push, on the hottest path
+  // this plugin owns. So one 'galley' the moment the flap opens, and never again until it opens
+  // again. The bars are painted immediately from what the client already has, so the panel is never
+  // blank while the reply is in flight.
+  const galleyEl = container.querySelector('.cab-galley');
+  const toggleGalley = (show) => {
+    const open = show === undefined ? galleyEl.hidden : show;
+    galleyEl.hidden = !open;
+    container.querySelector('.cab-galleybtn')?.classList.toggle('on', open);
+    if (open) {
+      galleyEl.querySelector('.cab-galley-body').innerHTML = '<i class="cab-galley-wait">…</i>';
+      paintGalleyVitals(st);
+      sendCmdSilent('galley');
+    }
+  };
+  // The latch. Sends the ordinary verb and waits for the payload — see paintLatch.
+  container.querySelector('.cab-latchbtn').addEventListener('click', () => {
+    sendCmdSilent(st.locked ? 'unlock cab' : 'lock cab');
+  });
+  paintLatch(st);
+
+  container.querySelector('.cab-galleybtn').addEventListener('click', () => toggleGalley());
+  galleyEl.querySelector('.cab-galley-x').addEventListener('click', () => toggleGalley(false));
+  // Delegated, because the rows are rebuilt on every reply and a listener per row is a listener per
+  // row to lose. Eating REFRESHES rather than closing: the commonest thing a driver wants after a
+  // sandwich is the next sandwich, and the reply that comes back is the authority on what is left.
+  galleyEl.addEventListener('click', (e) => {
+    const b = e.target.closest?.('.cab-galley-item');
+    if (!b) return;
+    sendCmdSilent(b.dataset.cmd);
+    sendCmdSilent('galley');
+  });
+  st.toggleGalley = toggleGalley;
+  st.renderGalley = (msg) => renderGalley(st, msg);
+
+  // The pick-up button. Sends the BARE verb — the fugitive's sleeper-or-trailer question belongs to
+  // the verb, which asks it in the log, and a panel that pre-empted that choice would be making the
+  // one decision this whole system exists to put in front of a driver.
+  container.querySelector('.cab-hitchalert').addEventListener('click', (e) => {
+    if (e.target.closest?.('.cab-hitch-go')) sendCmdSilent('pickup');
+  });
+
 
   st.raf = requestAnimationFrame(frame);
   return st;
@@ -2610,6 +2723,16 @@ export function openCab(ctx = {}) {
 // client owns everything between frames. Position is NOT snapped from here unless the server has
 // actually moved us (a bog), because yanking a driver's position 4×/s is the one thing that would
 // make this feel worse than a text prompt.
+// The 'galley' verb's reply, routed in from dispatch. A no-op with no cab up — the verb is an
+// ordinary one and can be typed standing on a forecourt, where the log is the surface and this
+// panel does not exist. Nothing here decides anything: the list, the verbs and the numbers on each
+// row are all the server's, and this only paints them.
+export function cabGalley(msg) {
+  if (!st) return;
+  st.toggleGalley?.(true);
+  st.renderGalley?.(msg);
+}
+
 export function cabContext(ctx) {
   if (!st) return;
   // A repair or a tune committed at the bench arrives on the next push, so a truck that got its
@@ -2622,11 +2745,20 @@ export function cabContext(ctx) {
   // The street population, paired with the map. An empty list is a real answer, not an absent one —
   // see the same note in cockpit.js flightSimContext.
   if (ctx.actors !== undefined) st.actors = ctx.actors;
+  // The one figure on the corridor. Same 'undefined vs null' rule as the list above: null is the
+  // server saying nobody is out there, and only an absent key leaves the last answer standing.
+  if (ctx.hitcher !== undefined) { st.hitcher = ctx.hitcher; paintHitchAlert(st); }
+  if (ctx.locked !== undefined) { st.locked = !!ctx.locked; paintLatch(st); paintHitchAlert(st); }
   st.s = ctx.s ?? st.s; st.L = ctx.L ?? st.L;
   st.aim = ctx.aim !== undefined ? ctx.aim : st.aim;
   if (ctx.routes !== undefined) { st.routes = ctx.routes; st.renderRoutePicker?.(); }   // what the GPS names — the route verb owns the aiming
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;
   if (ctx.surface) st.input.surface = ctx.surface;
+  // The dirt, four times a second like everything else here. It is assigned rather than merged and
+  // it is the SERVER's number in every case: a wash committed at a bench arrives on this push, and
+  // a client that kept accruing its own would put the muck straight back on.
+  if (ctx.grime != null) st.grime = ctx.grime;
+  if (ctx.fits !== undefined) FITS = ctx.fits || '';
   // …stamped on arrival, which is what gives contactsFor an age to reckon from.
   if (ctx.contacts) st.contacts = ctx.contacts.map(c => ({ ...c, t: performance.now() }));
   // THE BOXES STANDING IN THE YARD. They arrive in the same contact shape the aircraft do (see
@@ -2888,6 +3020,143 @@ function paintFuelGauge(st) {
   el.setAttribute('aria-label', `Fuel ${pct} percent${low ? ', reserve' : ''}`);
 }
 
+// ── THE PERSON IN THE SEAT ───────────────────────────────────────────────────
+// Everything else on this glass reads out the TRUCK. This reads out the driver, and it is the only
+// thing between a long haul and dying of thirst with a full tank and four green damage pips.
+//
+// ⚠ NOTHING HERE ASKS THE SERVER ANYTHING. 'gameState.player' is the same object the vitals rail
+// under the log is drawn from, updated by every 'player_update' and every 'resource_tick'. So the
+// band and the bars are free, they can never disagree with the rail, and there is no cab-only copy
+// of a number the rest of the client already has.
+//
+// The two thresholds are not a taste call. RED is 0, because 0 is exactly where the resource tick
+// starts taking HP (see gameLoop.js) — the flash is not a prediction, it is the damage, reported.
+// AMBER is early enough to still be a decision rather than an announcement.
+const VIT_AMBER = 25;
+function vitalsNow() {
+  const pl = gameState?.player;
+  if (!pl) return null;
+  return {
+    hunger: Math.max(0, Math.min(100, Number(pl.hunger ?? 100))),
+    thirst: Math.max(0, Math.min(100, Number(pl.thirst ?? 100))),
+  };
+}
+function paintVitBand(st) {
+  const el = st?.container?.querySelector('.cab-vitband');
+  if (!el) return;
+  const v = vitalsNow();
+  if (!v) { el.hidden = true; return; }
+  // Thirst first when both are biting. It kills twice as fast (−2 HP a tick against hunger's −1),
+  // so if a driver only reads one word before looking back at the road it has to be that one.
+  const rows = [];
+  if (v.thirst <= VIT_AMBER) rows.push({ w: 'THIRST', dead: v.thirst === 0 });
+  if (v.hunger <= VIT_AMBER) rows.push({ w: 'HUNGER', dead: v.hunger === 0 });
+  if (!rows.length) { el.hidden = true; el.textContent = ''; return; }
+  const txt = rows.map(r => r.w).join('  ·  ');
+  el.hidden = false;
+  // Written only on CHANGE. This runs several times a second and the band sits in an aria-live
+  // region — reassigning identical text is what makes a screen reader say 'HUNGER' forever, which
+  // is the accessibility version of the flashing it is already doing visually.
+  if (el.textContent !== txt) el.textContent = txt;
+  el.classList.toggle('bad', rows.some(r => r.dead));
+}
+// The bars in the flap. Same two numbers, said as figures for anyone who wants to know how much
+// road they have rather than merely that they are in trouble.
+function paintGalleyVitals(st) {
+  const el = st?.container?.querySelector('.cab-galley');
+  if (!el || el.hidden) return;
+  const v = vitalsNow();
+  if (!v) return;
+  for (const k of ['hunger', 'thirst']) {
+    const bar = el.querySelector('[data-v="' + k + '"]'), num = el.querySelector('[data-p="' + k + '"]');
+    if (bar) { bar.style.width = v[k] + '%'; bar.className = v[k] === 0 ? 'bad' : v[k] <= VIT_AMBER ? 'low' : ''; }
+    if (num) { const t = Math.round(v[k]) + '%'; if (num.textContent !== t) num.textContent = t; }
+  }
+}
+// The list itself, from the verb's own reply. One row per thing, one button per row, and the button
+// sends the exact verb string the log printed — a player using this panel and a player typing are
+// running the identical command.
+function renderGalley(st, msg) {
+  const el = st?.container?.querySelector('.cab-galley');
+  if (!el) return;
+  const body = el.querySelector('.cab-galley-body');
+  const items = msg?.items || [];
+  if (!items.length) {
+    body.innerHTML = '<i class="cab-galley-wait">Nothing in the bunk and nothing in the door pockets.</i>';
+    return;
+  }
+  body.innerHTML = items.map(i => {
+    const cmd = (i.verb + ' ' + i.name).replace(/"/g, '&quot;');
+    // What it is WORTH, because the whole reason to open this flap is to decide which of three
+    // things to spend. Straight off the item's own restore tags — the panel derives nothing.
+    const gain = [i.food ? '+' + i.food + ' food' : '', i.water ? '+' + i.water + ' water' : ''].filter(Boolean).join('  ');
+    const qty = i.qty > 1 ? ' ×' + i.qty : '';
+    return '<button class="cab-galley-item" data-cmd="' + cmd + '">'
+      + '<b>' + i.verb.toUpperCase() + '</b>'
+      + '<span>' + i.name + qty + '</span>'
+      + '<em>' + gain + '</em></button>';
+  }).join('');
+  paintGalleyVitals(st);
+}
+// SOMEBODY ON THE SHOULDER, as something that stays on the screen. The renderer draws the figure
+// out on the road; this is the half that survives a driver looking at the gearbox for four seconds,
+// which is the entire reason the feature needed anything at all — a single emote at a node boundary
+// is a notification you can miss by blinking.
+//
+// It shows what the ROADSIDE can tell you and no more: how they are standing, and nothing about
+// what they will do. That restraint is the system's own rule (hitchers.js) — every one of them is
+// worth stopping for and every one can cost you, and you cannot tell which from out here.
+const HITCH_LOOK = {
+  mechanic: 'Somebody sitting on a toolbox, back to the wind.',
+  local: 'A man in a coat two sizes too big, watching the road.',
+  chancer: 'Somebody young, a bag held between their feet.',
+  fugitive: 'A thin figure who has not looked at the road behind them once.',
+};
+function paintHitchAlert(st) {
+  const el = st?.container?.querySelector('.cab-hitchalert');
+  if (!el) return;
+  const hh = st.hitcher;
+  if (!hh) { if (!el.hidden) { el.hidden = true; el.innerHTML = ''; el.dataset.tok = ''; } return; }
+  // ⚠ THE KEY IS THE PERSON *AND* THE LATCH. Keyed on the token alone, a driver who locked up
+  // while somebody was in front of them went on reading a card that said the doors were open.
+  const key = hh.t + (st.locked ? '|L' : '|O');
+  if (el.dataset.tok === key) return;       // unchanged — never rebuild under a hand
+  el.dataset.tok = key;
+  el.hidden = false;
+  // WHAT THE DOOR IS DOING, said here rather than left to the button in the corner. This is the one
+  // moment the latch state is load-bearing, and a driver reading this card is by definition looking
+  // at the road and not at the chrome. It is a statement of fact, never a warning: stopping with the
+  // doors open is a legitimate way to pick somebody up, and the card must not editorialise about a
+  // choice the player has not made yet.
+  el.innerHTML = '<b>ON THE SHOULDER</b>'
+    + '<span>' + (HITCH_LOOK[hh.kind] || 'Somebody with a hand out.') + '</span>'
+    + '<em>' + (st.locked
+        ? 'Doors latched. Stopping is not enough — pick them up if you mean to.'
+        : 'Doors are open. Stop for a moment and they will get in by themselves.') + '</em>'
+    + '<button class="cab-hitch-go">PICK UP</button>';
+}
+
+// THE DOOR LATCHES. Two states, and the button reads out the one you are IN rather than the one
+// pressing it would take you to — a control labelled with its own action is fine for a horn and
+// wrong for a lock, where the entire question a driver has is "is it down right now".
+//
+// The server owns it (it persists per truck in custom_data, and the 'lock' verb can change it
+// without this panel being involved), so this paints 'st.locked' and never toggles it locally. A
+// button that flipped its own class and then waited for the payload would show the wrong state for
+// a round trip, which on the one control whose value is certainty is worse than showing nothing.
+function paintLatch(st) {
+  const el = st?.container?.querySelector('.cab-latchbtn');
+  if (!el) return;
+  const locked = !!st.locked;
+  el.classList.toggle('on', locked);
+  const txt = locked ? '⬤ LOCKED' : '◌ OPEN';
+  if (el.textContent !== txt) el.textContent = txt;
+  el.title = locked
+    ? 'Cab doors are latched. Nobody gets in (Y)'
+    : 'Cab doors are open. Stop beside somebody and they can let themselves in (Y)';
+  el.setAttribute('aria-label', locked ? 'Cab doors locked' : 'Cab doors unlocked');
+}
+
 // ── THE PUMP, AS A SOUND ─────────────────────────────────────────────────────
 // Diesel going into a tank is three things at once and none of them is a sample: the rush of the
 // liquid, the pump's own motor under it, and the meter counting. Built from the shared generator
@@ -2941,6 +3210,128 @@ function drawRigOverlay(st, r) {
   g.font = `700 ${Math.max(10, Math.min(W, H) * 0.028) | 0}px 'DejaVu Sans Mono',monospace`;
   g.textAlign = 'center';
   g.fillText('JACKKNIFING', W / 2, H * 0.16);
+  g.restore();
+}
+
+// ── THE ROAD, ON THE GLASS AND IN THE AIR ────────────────────────────────────
+//
+// Two effects that share a function because they share a cause and must never disagree: the dust
+// the wheels are throwing RIGHT NOW, and the film that dust has left on the windscreen over the
+// last four hundred miles.
+//
+// IT IS DRAWN, NOT SIMULATED. There is no particle system here and there should not be — the
+// windscreen is a 2D overlay over a Mode-7 world, so a real 3D dust volume would need depth it
+// cannot have and would cost a frame budget the cab is already the tightest consumer of. What a
+// driver actually reads is a warm haze low in the frame that pulses with the throttle and dies
+// when they stop, and that is four gradients and a scatter of specks.
+//
+// ⚠ THE SPECKS ARE HASHED, NOT ROLLED. A Math.random() per speck per frame is boiling static that
+// reads as television snow rather than as dirt; each speck's lane and lifetime come from its own
+// index through a stable hash and it moves on a CLOCK, so it drifts past you. Same reason the
+// world renderer's star grain is hashed.
+//
+// ⚠ AND THE FILM NEVER HIDES A CONTACT. It is a wash over the outer frame, capped low — see
+// FILM_MAX. A driver must never fail to see a truck coming because of a cosmetic system: the
+// moment dirt costs you information, washing stops being taste and becomes a tax, which is
+// precisely the design this was built not to be.
+const FILM_MAX = 0.30;                 // the dirtiest a windscreen is ever allowed to get
+// How much loose material each surface has to throw. The same vocabulary the server answers in
+// (`surfaceUnder`), so nothing here maps terrain — and the tarmac is deliberately not zero,
+// because a highway at speed does throw grit and that is half of what was asked for.
+const DUST_SURFACE = { road: 0.22, dirt: 0.8, shoulder: 0.95, offroad: 1 };
+// Rain kills the plume outright: wet ground does not lift. It does NOT clear the film (see the
+// RAIN_FLOOR note in filth.js) — a wet road is exactly when a windscreen is at its worst.
+const DUST_WET = { rain: 0.1, storm: 0.05, snow: 0.15 };
+const hash1 = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+function drawRoadFilm(st, dt) {
+  const cv = document.getElementById(st.id);
+  if (!cv || !cv.getContext || !cv.clientWidth) return;
+  const grime = Math.max(0, Math.min(1, st.grime || 0));
+
+  // ── how hard the wheels are working the ground ──
+  // Speed against a nominal motorway rather than against the truck's own top speed: a Krell flat
+  // out throws what a Continental at the same road speed throws, because it is the same road.
+  const mph = Math.abs(st.sim?.speed || 0);
+  const roll = Math.min(1, mph / 55);
+  const loose = DUST_SURFACE[st.input?.surface] ?? DUST_SURFACE.road;
+  const wet = DUST_WET[st.weather] ?? 1;
+  // …and the throttle, because a driver who stands on it in the dirt should SEE it. Squared, so it
+  // is the last third of the pedal that does it rather than every touch.
+  const dig = 1 + 0.5 * Math.pow(st.input?.throttle || 0, 2);
+  const want = Math.min(1, roll * loose * wet * dig);
+  // The plume has inertia both ways — it builds behind you and it hangs after you lift. Without
+  // the lag it strobes with the throttle, which reads as a fault rather than as air.
+  const k = Math.min(1, (dt || 0.016) * 2.4);
+  st.dust = (st.dust || 0) + (want - (st.dust || 0)) * k;
+  const dust = st.dust;
+
+  // The film thins for as long as the blades are moving, and a little more the faster they go. It
+  // is NOT cleared: a dry wiper on a dusty screen smears, which every driver knows, so the best a
+  // stalk can do in here is take the edge off it.
+  const wipe = 1 - 0.22 * Math.min(3, st.wipers | 0) / 3;
+  const film = Math.min(FILM_MAX, grime * 0.34) * wipe;
+  if (film < 0.004 && dust < 0.01) return;
+
+  const g = cv.getContext('2d');
+  const kx = cv.width / cv.clientWidth;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  g.save();
+  g.setTransform(kx, 0, 0, kx, 0, 0);
+
+  // ── THE FILM ──
+  // Heaviest at the corners and along the bottom of the glass, which is where a blade does not
+  // reach and where the cowl throws it. A flat wash over the whole screen would read as a colour
+  // grade on the world rather than as something ON the glass a hand's width in front of you.
+  if (film > 0.004) {
+    const rad = g.createRadialGradient(W * 0.5, H * 0.46, Math.min(W, H) * 0.18, W * 0.5, H * 0.5, Math.max(W, H) * 0.72);
+    rad.addColorStop(0, 'rgba(126,106,74,0)');
+    rad.addColorStop(0.62, 'rgba(126,106,74,' + (film * 0.5).toFixed(3) + ')');
+    rad.addColorStop(1, 'rgba(108,90,62,' + film.toFixed(3) + ')');
+    g.fillStyle = rad; g.fillRect(0, 0, W, H);
+    // The dried run-off along the bottom edge — the one part of a windscreen nothing ever cleans.
+    const lin = g.createLinearGradient(0, H, 0, H * 0.72);
+    lin.addColorStop(0, 'rgba(96,80,56,' + (film * 1.25).toFixed(3) + ')');
+    lin.addColorStop(1, 'rgba(96,80,56,0)');
+    g.fillStyle = lin; g.fillRect(0, H * 0.72, W, H * 0.28);
+  }
+
+  // ── THE PLUME ──
+  // A warm veil off each bottom corner, where the drive wheels are. Two of them rather than one
+  // band across the floor, because a single band reads as fog and a pair reads as WHEELS, which is
+  // the one thing this effect has to say.
+  if (dust > 0.01) {
+    const a = dust * (0.10 + 0.16 * loose);
+    for (const sx of [0.13, 0.87]) {
+      const r = g.createRadialGradient(W * sx, H * 1.02, 0, W * sx, H * 1.02, Math.min(W, H) * (0.42 + 0.2 * dust));
+      r.addColorStop(0, 'rgba(158,134,96,' + (a * 1.4).toFixed(3) + ')');
+      r.addColorStop(0.5, 'rgba(150,126,90,' + (a * 0.55).toFixed(3) + ')');
+      r.addColorStop(1, 'rgba(150,126,90,0)');
+      g.fillStyle = r; g.fillRect(0, H * 0.5, W, H * 0.5);
+    }
+    // …and the grit itself, going up past the glass. The count scales with the plume, so an idling
+    // truck draws none at all, and every speck is a short streak rather than a dot — a dot at this
+    // speed is a dead pixel, and a streak is something going past you.
+    const n = Math.round(dust * 46);
+    const t = performance.now() / 1000;
+    g.strokeStyle = 'rgba(196,172,132,' + (0.10 + 0.30 * dust).toFixed(3) + ')';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let i = 0; i < n; i++) {
+      // Each speck owns a lane, a lifetime and a phase. Rising, because the air off a turning
+      // wheel goes up — dust that fell would read as snow.
+      const life = 0.5 + hash1(i * 3.1) * 0.9;
+      const ph = (t / life + hash1(i * 7.7)) % 1;
+      const lane = hash1(i * 5.3);
+      // Pushed toward the edges of the screen by the same argument the veils are: the middle of
+      // the glass is the part you are looking through, and is the last place to put moving clutter.
+      const x = W * (lane < 0.5 ? lane * 0.44 : 0.56 + (lane - 0.5) * 0.88);
+      const y = H * (1.02 - ph * (0.34 + 0.26 * dust));
+      const len = 3 + 16 * ph * dust;
+      g.moveTo(x, y); g.lineTo(x + (x < W / 2 ? -2 : 2) * ph, y - len);
+    }
+    g.stroke();
+  }
   g.restore();
 }
 
@@ -3392,7 +3783,10 @@ function frame(now) {
       // So out here a truck with a dead engine went on hovering with its bands lit, which is the
       // exact tell the parked pose was written to kill: a machine holding itself up on light it is
       // not making. It is one suffix, and the whole settle comes with it.
-      variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : ''),
+      // ⚠ THE FITTING SUFFIX GOES LAST, after the trailer and parked markers. The mesh strips from
+      // the first `~` or `^` to read the type, so a suffix in front of `+t` would take the trailer
+      // marker with it and a loaded rig would render bobtail.
+      variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : '') + FITS,
       // WHAT THE ROAD UNDER IT IS LIT BY. The engine drives the lifters, so RPM is the right
       // instrument — what was wrong was the SCALE, not the signal.
       //
@@ -3411,7 +3805,10 @@ function frame(now) {
       // trailer row is the box's own, and it has to win in every view or the same trailer is one
       // colour standing in the yard and another one behind you. Server-sent (see cabContext) —
       // the client is not deciding this, it is being told.
-      livery: { ...truckLivery(PAINT), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
+      // …AND HOW MUCH ROAD IS ON TOP OF IT. Second argument to the one conversion (see
+      // client/shared/truck-livery.js), so the rig in the chase camera browns exactly as the rig on
+      // the depot turntable does and neither of them owns a dirt model.
+      livery: { ...truckLivery(PAINT, st.grime || 0), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.
       // YAW IS THE PLAYER'S, ALWAYS AND AT EVERY DISTANCE — see the ⚠ on chaseAmt. Only the height
@@ -3448,6 +3845,27 @@ function frame(now) {
       //   fovMul 0.82 → ~1.0 effective. The stock focal length pulls the world toward the vanishing
       //          point, which is what made everything out of the glass read small and far.
       ...(st.external ? {} : { eyeH: 0.12, fovMul: 1.22 }),
+      // ── AND HOW BIG THE PEOPLE OUT OF IT ARE ───────────────────────────────
+      // Same unit, same argument, one layer down. The renderer's ground scatter — trees, lamps,
+      // bollards and the figures on the pavement — is sized in raw PIXELS rather than in world-z
+      // (see the ⚠ over 'propS' in windshield.js), so it was doing two wrong things at once from
+      // in here: not growing with the cab's taller canvas, and undersized to begin with.
+      //
+      // The shed gives the second number as plainly as it gave the first. At ~61 ft to the world-z
+      // unit, the actor drawer's stock constant works out at 3.4 ft of person — which is why
+      // everyone on the pavement read as a bollard with a head. 1.75 puts an adult at about
+      // 5 ft 10 and takes the street furniture up with them, because every one of those constants
+      // was eyeballed against the same wrong scale.
+      //
+      // ⚠ SENT FOR BOTH SEATS, UNLIKE THE TWO ABOVE. 'eyeH'/'fovMul' are interior-only because
+      // they would move the RIG when the chase camera is anchoring its model against them. This
+      // one moves nothing but the scatter, and the chase view is a road-level camera looking at
+      // the same street, so it wants the same people.
+      //
+      // The aircraft is deliberately left at 1. The constants are just as wrong up there, but
+      // nothing in that view is ever close enough to the ground for it to read, and a silent
+      // change to nine other cameras is not what a truck window is for.
+      propMul: 1.75,
       height: 0, speed: r.speed / 68, mph: r.speed,
       // ⚠ SIGNED, AND IT IS THE SIM'S OWN SIGN — NOT THE GEARBOX'S.
       // This read `(r.reversing ? -1 : 1) * (r.speed / 68)` on the belief that `truckReadout.speed`
@@ -3548,12 +3966,30 @@ function frame(now) {
       contacts: contactsFor(st),
       map: st.map, mapCenter: { x: st.mapX, y: st.mapY },
       actors: st.actors,   // the people on the pavement either side of the road
+      roadside: st.hitcher || null,   // …and the one standing on the shoulder out on the void road
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
       acX: st.sim.x, acY: st.sim.y,
     });
     // The rig itself is the renderer's now; this is only what the renderer cannot know.
     if (st.external) { st.tier = P.tier; drawRigOverlay(st, r); }
+    // The road, on the glass and in the air. After the world and after the rig, because it is
+    // between them and the eye — and on the same canvas, because it is not a thing in the world.
+    drawRoadFilm(st, dt);
     perfEnd();   // sim:paint
+
+    // ── THE DRIVER, FOUR TIMES A SECOND ────────────────────────────────────
+    // Not once per frame, and not off the vitals message either. Once per frame is sixty DOM reads
+    // a second for two numbers that move every few minutes; hooking the message would mean editing
+    // render.js's update path so the log's vitals rail could tell a truck about itself, which is a
+    // wire between two things that have no other reason to know about each other.
+    //
+    // A throttled poll off the loop that is already running is the cheap, local answer, and both
+    // painters bail on an unchanged string, so the steady state is two number comparisons.
+    if (now - (st.vitAt || 0) > 250) {
+      st.vitAt = now;
+      paintVitBand(st);
+      paintGalleyVitals(st);
+    }
 
     // Stopped and pointing the same way as last time we spoke? Nothing the server needs to know
     // has changed, so drop to the heartbeat. `rolling` is the whole gate — a truck that is not
@@ -4497,6 +4933,80 @@ function ensureCabStyles() {
      visible without reading anything. */
   /* The glass fuel gauge. Top-left, opposite the chrome buttons and clear of the damage strip in
      the bottom corner. Fixed width so the needle does not jog as the digits change width. */
+  /* ── THE WARNING BAND ────────────────────────────────────────────────────
+     Top centre, over the road rather than beside it, because this is the one thing on the glass
+     that is not a reading — it is an interruption, and a driver watching the vanishing point has
+     to catch it without looking anywhere.
+     Amber is steady and red PULSES. The pulse is the difference between "sort this out at the next
+     stop" and "this is taking HP right now", and it is why the amber rung does not move at all:
+     movement is the whole signal, so spending it early leaves nothing to escalate to.
+     'prefers-reduced-motion' drops the animation and keeps the colour, which is the same trade the
+     rest of this client makes — the information is in the red, the urgency is in the flash, and
+     only the second one is negotiable. */
+  .cab-vitband{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:6;
+    padding:4px 14px;border-radius:3px;pointer-events:none;letter-spacing:.16em;
+    font:700 12px/1.2 'DejaVu Sans Mono',monospace;
+    color:#f0c273;background:rgba(28,18,6,.78);border:1px solid #7a5a24;
+    text-shadow:0 0 8px rgba(240,194,115,.45)}
+  .cab-vitband.bad{color:#ff8a72;background:rgba(38,10,8,.84);border-color:#a5372a;
+    text-shadow:0 0 10px rgba(255,110,86,.6);animation:cabVitFlash .85s ease-in-out infinite}
+  @keyframes cabVitFlash{0%,100%{opacity:1}50%{opacity:.28}}
+  @media (prefers-reduced-motion: reduce){.cab-vitband.bad{animation:none}}
+
+  /* ── THE GALLEY FLAP ─────────────────────────────────────────────────────
+     Right-hand side, clear of the fuel gauge (top left) and the damage strip. It is the one panel
+     on this glass you are meant to READ rather than glance at, so it gets a real width and its own
+     scroll — and it is capped in height so a driver with forty tins does not lose the windscreen. */
+  .cab-galley{position:absolute;right:6px;top:40px;z-index:6;width:224px;max-height:56%;
+    display:flex;flex-direction:column;
+    background:rgba(6,10,14,.9);border:1px solid #3a4550;border-radius:4px;
+    font:600 10px/1.25 'DejaVu Sans Mono',monospace;color:#9fb0c0}
+  .cab-galley-hd{display:flex;justify-content:space-between;align-items:center;
+    padding:4px 6px;border-bottom:1px solid #2b3540;letter-spacing:.14em;color:#dfe8f0}
+  .cab-galley-x{background:none;border:0;color:#7d8b98;font:inherit;font-size:14px;cursor:pointer;padding:0 2px}
+  .cab-galley-x:hover{color:#dfe8f0}
+  .cab-galley-vit{padding:5px 6px;border-bottom:1px solid #202932}
+  .cab-galley-row{display:flex;align-items:center;gap:6px;margin:2px 0}
+  .cab-galley-row > span{flex:0 0 40px;color:#7d8b98}
+  .cab-galley-row > b{flex:0 0 34px;text-align:right;color:#dfe8f0;font-weight:600}
+  .cab-galley-bar{flex:1 1 auto;display:block;height:8px;border:1px solid #2b3540;border-radius:2px;
+    background:#0a1016;overflow:hidden}
+  .cab-galley-bar > u{display:block;height:100%;width:0;text-decoration:none;
+    background:linear-gradient(90deg,#2f6a44,#5fc48a);transition:width .2s linear}
+  .cab-galley-bar > u.low{background:linear-gradient(90deg,#7d5a2a,#e0b25c)}
+  .cab-galley-bar > u.bad{background:linear-gradient(90deg,#5c2a24,#d2603f)}
+  .cab-galley-body{flex:1 1 auto;overflow-y:auto;padding:4px}
+  .cab-galley-wait{display:block;padding:8px 4px;color:#6b7887;font-style:normal}
+  /* One row, one command. Three columns rather than a sentence, so the verb, the thing and what it
+     is worth each sit in the same place on every row and the list can be read down a column. */
+  .cab-galley-item{display:grid;grid-template-columns:44px 1fr;gap:0 6px;width:100%;text-align:left;
+    padding:4px 5px;margin:0 0 3px;cursor:pointer;
+    background:rgba(20,28,36,.7);border:1px solid #29323b;border-radius:3px;
+    font:inherit;color:#c8d4de}
+  .cab-galley-item:hover{background:rgba(34,48,60,.9);border-color:#4a5a68;color:#eaf2f8}
+  .cab-galley-item > b{grid-row:1/3;align-self:center;color:#8fb8d8;letter-spacing:.08em;font-size:9px}
+  .cab-galley-item > em{font-style:normal;color:#6b7887;font-size:9px}
+
+  /* ── SOMEBODY ON THE SHOULDER ────────────────────────────────────────────
+     Bottom centre, above the dash lip: out of the vanishing point (which is where you are looking
+     for THEM) and out of the top band's way, which may be up at the same time. It stays put while
+     they are ahead of you rather than fading on a timer — the thing it is fixing is a notification
+     that came and went before a driver looked up. */
+  .cab-hitchalert{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:6;
+    max-width:340px;padding:6px 10px;text-align:center;
+    background:rgba(10,14,18,.88);border:1px solid #6d5a2c;border-left:3px solid #e0b25c;
+    border-radius:3px;font:600 10px/1.35 'DejaVu Sans Mono',monospace;color:#c8d4de}
+  .cab-hitchalert > b{display:block;color:#e0b25c;letter-spacing:.16em;font-size:9px;margin-bottom:2px}
+  .cab-hitchalert > span{display:block;color:#c8d4de}
+  .cab-hitchalert > em{display:block;font-style:normal;color:#6b7887;font-size:9px;margin-top:1px}
+  .cab-hitch-go{margin-top:5px;padding:3px 14px;cursor:pointer;letter-spacing:.12em;
+    background:rgba(224,178,92,.16);border:1px solid #8a6f30;border-radius:3px;
+    font:700 10px/1 'DejaVu Sans Mono',monospace;color:#f0c273}
+  .cab-hitch-go:hover{background:rgba(224,178,92,.3);color:#fff0d0}
+  /* The latch reads out a STATE, so the two look different at a glance rather than differing only
+     by a word — an open door is the dim, unremarkable default and a locked one is lit. */
+  .cab-latchbtn.on{color:#8fd8a8;border-color:#3d6b4e}
+
   .cab-fuel{position:absolute;left:6px;top:6px;z-index:5;width:132px;padding:5px 6px 4px;
     background:rgba(6,10,14,.82);border:1px solid #3a4550;border-radius:4px;
     font:600 9px/1.1 'DejaVu Sans Mono',monospace;color:#9fb0c0;pointer-events:none}

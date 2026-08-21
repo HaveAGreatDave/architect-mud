@@ -32,6 +32,8 @@ import { saveDrivingState, restoreDrivingState } from './resume.js';
 // components are what it is now DERIVED from. See damage.js for why the weakest link and not a mean.
 import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, PARTS, PART_LABELS, partBand,
   isBroken, isCosmetic, PART_ITEMS, PART_SHARE, COSMETIC_MUL, BROKEN_AT } from './damage.js';
+import { grimeOf, grimeBand, washCost } from './filth.js';
+import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, fitSuffix, priceFor } from './fittings.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
@@ -87,7 +89,7 @@ import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
   announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, markWreck, pumpAt, pumpClamp, FUEL_FULL,
-  gatePair,
+  gatePair, rigLocked, tryDoorBoard, doorBoardLine,
   _clearGateCache } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear } from './corridor.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
@@ -151,6 +153,10 @@ async function hydrateFromTruck(rig, owned) {
   // The component bag first, and the headline number derived from it — never the other way round.
   rig.dmg = damageOf({ cd: rig.cd, condition: owned.condition });
   rig.condition = overall(rig.dmg);
+  // The dirt comes back with the truck. It is READ off the bag and never derived from anything —
+  // unlike `dmg`, which falls back to `condition` for a truck that predates components, a truck
+  // that predates this is genuinely clean, because nothing had been dirtying it.
+  rig.grime = grimeOf(rig.cd);
   rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition, rig.dmg);
   rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
   rig.fuel = owned.fuel ?? 1;
@@ -883,6 +889,13 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     // can name the road you would roll out onto.
     bay: bay.id, yard: yard.id, yardName: yard.name, inBay: player.current_zone === bay.id,
     fab,                                    // the hand doing the work — it sets how far the dials go
+    // ── THE COSMETIC CATALOGUE, ONCE ───────────────────────────────────────────
+    // Static data — twenty rows that never change — sent at the PAYLOAD level rather than per
+    // truck, because a fleet of six would otherwise carry six identical copies of it. It is here
+    // rather than duplicated in the client for the reason every other catalogue in this system is:
+    // the price the panel prints has to be the price the verb charges, and the descriptions are
+    // written once, in the file that owns them.
+    fitCat: { slots: SLOTS, items: FIT_IDS.map((id) => ({ id, ...FITTINGS[id] })) },
     fleet: mine.map(t => {
       const cd = t.custom_data || {};
       const kits = installedKits(cd);
@@ -893,7 +906,10 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // What the 3D floor and the wireframes draw: the mesh key, trailer included when there is
         // one on the pin. The panel never decides this — a rig with a box is a different silhouette
         // and that is a fact about the truck, not a presentation choice.
-        variant: `${t.type_id}${towed ? '+t' : ''}`,
+        // …AND WHAT IS BOLTED TO IT. Same suffix, same grammar, same one channel — so the rig on
+        // the depot floor is the rig out of the windscreen without the panel knowing what a
+        // fitting is.
+        variant: `${t.type_id}${towed ? '+t' : ''}${fitSuffix(cd)}`,
         kg: t.type.kg, tank: t.type.tank, top: t.type.topSpeed, price: t.type.price,
         fuel: +(t.fuel ?? 1).toFixed(2), odometer: Math.round(t.odometer || 0),
         hereNow: zonesHere.includes(t.depot_zone),
@@ -920,6 +936,19 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // makes for the same reason, and it is the one place that knows the tier.
         trim: { ...truckStockTrim(t), ...sanitizeTrimResolved(cd.trim) },
         trimPrice: trimCost(t.type),
+        // HOW DIRTY, AND WHAT THE HOSE WANTS FOR IT. The live rig's number wins when this is the
+        // truck somebody is sitting in, because the row's copy is only as fresh as the last park
+        // and a driver who pulls into their own yard filthy must not be quoted for a clean truck.
+        grime: +(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).toFixed(3),
+        grimeBand: grimeBand(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).key,
+        grimeLabel: grimeBand(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).label,
+        grimeText: grimeBand(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).line,
+        washPrice: washCost(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)),
+        // THE COSMETIC SHELF, as data the panel renders and never decides. Prices come through
+        // `priceFor`, so a fitting already in this truck's drawer shows as free on the button for
+        // the same reason the verb charges nothing for it — one answer, two surfaces.
+        fits: installedFits(cd),
+        fitPrices: Object.fromEntries(FIT_IDS.map((id) => [id, priceFor(cd, id)])),
         repairField: repairCost(t.type, t.condition ?? 1, false),
         repairShop: repairCost(t.type, t.condition ?? 1, true),
         canField: (t.condition ?? 1) < FIELD_CAP,
@@ -1396,9 +1425,12 @@ async function cmdRig(args, raw, player) {
   if (sub === 'kit') return await rigKit(player, truck, cd, rest[0]);
   if (sub === 'paint') return await rigPaint(player, truck, cd, rest);
   if (sub === 'trim' || sub === 'interior') return await rigTrim(player, truck, cd, rest);
+  if (sub === 'fit' || sub === 'fittings') return await rigFit(player, truck, cd, rest.join(' '));
+  if (sub === 'unfit') return await rigUnfit(player, truck, cd, rest.join(' '));
+  if (sub === 'wash') return await rigWash(player, truck, cd);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
+  return say('<span class="text-dim">rig fit [&lt;fitting&gt;] | rig unfit &lt;fitting|slot&gt; | rig wash | rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -1526,6 +1558,130 @@ function partCost(type, dmg, part, pro) {
   const at = dmg[part];
   const whole = repairCost(type, at, pro);
   return Math.max(1, Math.ceil(whole * (PART_SHARE[part] ?? 1 / PARTS.length) * (isCosmetic(at) ? COSMETIC_MUL : 1)));
+}
+
+// ── `rig fit` / `rig unfit` — the cosmetic counter ───────────────────────────
+// The catalogue and every rule about it live in fittings.js; this is the till, exactly as `rigKit`
+// above is the till for the performance shelf and `rigPaint` is for the booth.
+//
+// ⚠ IT IS NOT `rig kit`, AND THE SPLIT IS DELIBERATE. A kit is five things that change how a truck
+// DRIVES and a fitting is twenty that change nothing at all, and collapsing them would mean a
+// player scrolling past a bull bar to find the auxiliary tank — with no way to tell, from the list,
+// which of the two is going to cost them a lap time. Two shelves, two verbs, and the boundary is
+// "does this reach `effTruckParams`".
+async function rigFit(player, truck, cd, arg) {
+  const id = (arg || '').toLowerCase();
+  if (!id) return fitCatalogue(truck, cd);
+  const f = FITTINGS[id];
+  if (!f) {
+    // Named by its LABEL as well as its id, because "ram plate" is what is written on the panel
+    // button and on the wall, and refusing the words the game itself used is a puzzle nobody asked
+    // for. Exact match only — a fuzzy one would put a doll's head on somebody's bonnet.
+    const byName = FIT_IDS.find((k) => FITTINGS[k].name.toLowerCase() === id);
+    if (!byName) return say(`Nothing on the shelf by that name. <span class="text-dim">rig fit</span> lists it.`);
+    return await rigFit(player, truck, cd, byName);
+  }
+  const slot = SLOTS.find((s) => s.id === f.slot);
+  const already = fitInSlot(cd, f.slot);
+  if (already === id) return say(`The ${f.name} is already on it.`);
+  const cost = priceFor(cd, id);
+  if ((player.credits || 0) < cost) return say(`The ${f.name} is ${cost}₵ and you have ${player.credits || 0}₵.`);
+
+  // OWNED ONCE, WORN WHENEVER — see rule 5 in fittings.js. The purchase is recorded separately from
+  // what is bolted on, so taking something off and putting it back is free forever. Without the
+  // second list, "take it off and see" costs the full price to undo, and nobody would ever try
+  // anything.
+  const owned = Array.isArray(cd.owned_fits) ? cd.owned_fits.slice() : [];
+  if (!owned.includes(id)) owned.push(id);
+  cd.owned_fits = owned;
+  cd.fits = [...installedFits(cd).filter((k) => FITTINGS[k].slot !== f.slot), id];
+  await saveTruckData(truck.id, player.id, cd);
+  if (cost) {
+    player.credits -= cost;
+    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  }
+  // THE LIVE RIG TOO, for the same reason the wash zeroes it: the suffix is assembled from the bag,
+  // the mounted rig is holding its own copy of that bag, and a fitting bought while somebody is
+  // sitting in the truck must appear on the truck they are sitting in.
+  const live = rigOf(player);
+  if (live?.truckId === truck.id) live.cd = cd;
+  await repush(player, 'bench');
+  const swapped = already ? ` <span class="text-dim">The ${FITTINGS[already].name} comes off and goes in the drawer.</span>` : '';
+  return say(`<span class="item-grant">Fitted: ${f.name}${cost ? ` — ${cost}₵` : ' — already yours, no charge'}.</span> `
+    + `<span class="text-dim">${f.desc}</span>${swapped}`);
+}
+
+// Off, and it stays yours. Takes an id, a name, or the SLOT — `rig unfit roof` is what somebody
+// standing at the bench actually means, and it is the only form that works when you cannot remember
+// what the thing on the roof was called.
+async function rigUnfit(player, truck, cd, arg) {
+  const key = (arg || '').toLowerCase();
+  const fitted = installedFits(cd);
+  if (!fitted.length) return say('There is nothing bolted to it.');
+  if (!key) return say(`Take what off? <span class="text-dim">${fitted.map((k) => `rig unfit ${k}`).join(' · ')}</span>`);
+  const slot = SLOTS.find((s) => s.id === key);
+  const id = slot ? fitInSlot(cd, slot.id)
+    : (FITTINGS[key] ? key : FIT_IDS.find((k) => FITTINGS[k].name.toLowerCase() === key));
+  if (!id || !fitted.includes(id)) return say('Nothing like that is on it.');
+  cd.fits = fitted.filter((k) => k !== id);
+  await saveTruckData(truck.id, player.id, cd);
+  const live = rigOf(player);
+  if (live?.truckId === truck.id) live.cd = cd;
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">Off comes the ${FITTINGS[id].name}.</span> `
+    + `<span class="text-dim">It goes in the drawer — putting it back on costs nothing.</span>`);
+}
+
+// The shelf, as a wall of typable lines. Grouped by slot in the order you walk round a truck, with
+// what is on it now marked and what you already own priced at nothing — so the list doubles as the
+// answer to "what have I got in the drawer" and there is no second command for that.
+function fitCatalogue(truck, cd) {
+  const fitted = new Set(installedFits(cd));
+  const rows = SLOTS.map((s) => {
+    const items = FIT_IDS.filter((id) => FITTINGS[id].slot === s.id).map((id) => {
+      const f = FITTINGS[id], on = fitted.has(id), price = priceFor(cd, id);
+      return `  <b>${on ? '●' : '○'}</b> <b>${f.name}</b> <span class="text-dim">— ${price ? `${price}₵` : 'owned'} · `
+        + `${on ? 'fitted' : `rig fit ${id}`}</span>`;
+    }).join('\n');
+    return `<span class="text-amber">${s.label}</span> <span class="text-dim">${s.note}</span>\n${items}`;
+  }).join('\n');
+  return say(`<span class="text-amber">The cosmetic shelf — ${truck.type.name}</span>\n`
+    + `<span class="text-dim">None of it does anything. One per place; swapping is free once it is yours.</span>\n${rows}`);
+}
+
+// ── `rig wash` — the hose ────────────────────────────────────────────────────
+// ⚠ IT IS A `rig` SUBCOMMAND AND NOT THE VERB `wash`, and that is not a style choice — it is the
+// same trap `rig strip` documents four hundred lines down. `wash` belongs to the mis plugin (it is
+// how you get clean, and it is consent-gated), plugin verbs are first-come, and registering a truck
+// one would have silently shadowed it for every player in the game the moment they stood at a sink.
+// The bench is where the rest of the work on a truck already happens, so this is where it belongs
+// anyway: the panel's button sends this exact string, and so can a driver.
+//
+// IT PUTS BACK NOTHING BUT THE COLOUR. No condition, no component, no part consumed, no skill check
+// — there is no version of washing a truck you can be bad at, and a fabrication roll on a hose
+// would be the system claiming a competence that is not in the fiction. What it costs is credits
+// and what it buys is that you can see the paint you paid for.
+async function rigWash(player, truck, cd) {
+  const grime = grimeOf(cd);
+  if (grime < 0.02) return say(`The ${truck.type.name} is already clean.`);
+  const cost = washCost(grime);
+  if ((player.credits || 0) < cost) return say(`The wash is ${cost}₵ and you have ${player.credits || 0}₵.`);
+  const was = grimeBand(grime);
+  cd.grime = 0;
+  await saveTruckData(truck.id, player.id, cd);
+  // AND THE TRUCK YOU ARE STANDING NEXT TO, IF IT IS ALSO THE TRUCK IN RAM. A rig can be mounted by
+  // somebody else, or parked-but-live in this same yard, and the flush on its next park writes the
+  // number it is holding — which would put every mile of dirt straight back on a truck the player
+  // just paid to have cleaned. The row and the rig are the same truck and must agree.
+  const live = rigOf(player);
+  if (live?.truckId === truck.id) live.grime = 0;
+  player.credits -= cost;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">Hot water and a long brush, and ${cost}₵ of somebody's afternoon. `
+    + `The ${truck.type.name} comes out from under it — ${was.label.toLowerCase()}, and now not.</span>`);
 }
 
 async function rigRepair(player, truck, cd, mode, part) {
@@ -2325,7 +2481,7 @@ async function cmdTruckSync(args, raw, player) {
       }
     }
     cbLine(player, rig);
-    const who = hitcherAt(rig.route, r.node, rig.chain?.length || 1);
+    const who = rig.hitchDone?.has(r.node) ? null : hitcherAt(rig.route, r.node, rig.chain?.length || 1);
     if (who && !rig.rider) {
       sendToPlayer(player.id, {
         type: 'emote',
@@ -2343,6 +2499,20 @@ async function cmdTruckSync(args, raw, player) {
     });
     pushCab(rig);
     return { type: 'noop' };
+  }
+  // ── SOMEBODY TRIES THE DOOR ────────────────────────────────────────────────
+  // Every frame rather than only on a node crossing, because the whole event is about STANDING
+  // STILL — a driver who stopped for a smoke in the middle of a stretch crossed no boundary and
+  // would never have been asked. The gates are all in tryDoorBoard (state.js) so the text rung runs
+  // the identical law; this is the reporting half.
+  {
+    const near = rig.hitchDone?.has(rig.node) ? null : hitcherAt(rig.route, rig.node, rig.chain?.length || 1);
+    const got = rig.leg === 'corridor' ? tryDoorBoard(rig, near) : null;
+    if (got) {
+      sendToPlayer(player.id, { type: 'emote', message: doorBoardLine(got) });
+      pushCab(rig, { boarded: true });
+      return { type: 'noop' };
+    }
   }
   pushCab(rig);
   return { type: 'noop' };
@@ -3336,7 +3506,7 @@ async function cmdPickup(args, raw, player) {
   if (!rig) return say('Not in a truck.');
   if (rig.leg !== 'corridor') return say('There is nobody out here on foot. This is a city.');
   if (rig.rider) return say(`${cap(rig.rider.look)} is already in the sleeper.`);
-  const who = hitcherAt(rig.route, rig.node, rig.chain?.length || 1);
+  const who = rig.hitchDone?.has(rig.node) ? null : hitcherAt(rig.route, rig.node, rig.chain?.length || 1);
   if (!who) return say('Nobody on this stretch. Just the road.');
   if (Math.abs(rig.speed) > 6) return say('Not at this speed. They step back from the wash and you are past them.');
 
@@ -3352,7 +3522,21 @@ async function cmdPickup(args, raw, player) {
   const inTrailer = where === 'trailer';
   if (inTrailer && !rig.trailer) return say('There is no box back there to put anybody in.');
 
+  // ⚠ THE STRETCH IS SPENT, AND IT HAS TO BE RECORDED SOMEWHERE. 'hitcherAt' is a pure function of
+  // the route and the node — that is its whole design, and it is what makes everybody driving this
+  // road this week meet the same person. It also means it goes on answering with them forever. Drop
+  // somebody off where you found them and they are instantly standing on the shoulder again with
+  // their hand out, which is the one reading of this system that is plainly a bug.
+  //
+  // Per-RIG and in memory only, deliberately: the seeded fact is that a person is on that stretch,
+  // and the fact that YOU have already dealt with them is not a fact about the road. A second
+  // driver still meets them, and so do you next week, when the window rolls and the seed changes.
+  (rig.hitchDone || (rig.hitchDone = new Set())).add(rig.node);
   rig.rider = { ...who, inTrailer, boarded: rig.node };
+  // FORCED, not throttled. 'pushCab' with no 'extra' is skipped while the centre tile is unchanged,
+  // and a pickup happens at a standstill by definition — so without this the figure went on standing
+  // on the shoulder and the alert went on offering a PICK UP button for somebody already in the seat.
+  const boarded = { boarded: true };
   if (inTrailer) {
     // THE LINKAGE. A person is eighty kilos, and the weighbridge does not care what the eighty
     // kilos is for. Riding back there makes them contraband in the only sense the scale understands.
@@ -3360,7 +3544,7 @@ async function cmdPickup(args, raw, player) {
     rig.trailer.stash = list;
     await saveLoad(rig.trailer.id, rig.cargo || null, list);
   }
-  pushCab(rig);
+  pushCab(rig, boarded);
   return say(`<span class="text-green">You pull up and ${inTrailer ? 'walk back to open the doors' : 'lean over and shove the passenger door open'}.</span>\n\n`
     + `${cap(who.look)}. ${who.line}\n\n`
     + (inTrailer
@@ -3404,8 +3588,104 @@ async function cmdDropoff(args, raw, player) {
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
     extra = `<span class="item-grant">They put ${purse}₵ on the seat, and they are gone off the shoulder before you have picked it up.</span>`;
   }
-  pushCab(rig);
+  pushCab(rig, { boarded: false });
   return say(`They get down and shut the door.\n\n${extra}`);
+}
+
+// ── lock / unlock ────────────────────────────────────────────────────────────
+//
+// ⚠ THESE ARE ENGINE BUILTINS AND PLUGINS BEAT BUILTINS. `lock` and `unlock` belong to
+// server/engine/commands/doors.js, and a plugin that registers a verb wins outright — so claiming
+// them naively would silently take the door lock away from every apartment, shop shutter, cell and
+// hatch in the game, for everyone, forever. That is the exact trap the chess plugin's `move` note
+// warns about, and it fails in a way nobody would connect back to trucking.
+//
+// So the router is NARROW and it FALLS THROUGH: returning `undefined` hands the input back to the
+// engine, which then runs the ordinary door command as though nothing here existed. It only keeps
+// the verb when the answer is unambiguous — you are behind the wheel of a truck, and you either said
+// nothing after it or named the cab. `lock apartment` while sitting in a rig parked in your own
+// garage still locks the apartment.
+const CAB_WORDS = ['cab', 'door', 'doors', 'truck', 'rig'];
+function cabLatchRouter(want) {
+  return async (args, raw, player) => {
+    const rig = rigOf(player);
+    if (!rig) return undefined;                                  // not driving — it is a door
+    const what = (args[0] || '').toLowerCase();
+    if (what && !CAB_WORDS.includes(what)) return undefined;     // named something else — it is that
+    return setLatch(player, rig, want);
+  };
+}
+async function setLatch(player, rig, want) {
+  if (rigLocked(rig) === want) {
+    return say(want
+      ? 'The latches are already down.'
+      : 'The doors are already open.');
+  }
+  rig.cd = rig.cd || {};
+  rig.cd.locked = want;
+  // Written through immediately rather than coalesced into the park flush. This is a deliberate,
+  // infrequent act — not per-tick state — and the whole value of the latch is that it is still where
+  // you left it next time you climb up. A lock that forgot itself on a disconnect would be worse
+  // than no lock, because you would believe in it.
+  if (rig.truckId) await saveTruckData(rig.truckId, player.id, rig.cd);
+  pushCab(rig, { latch: want });
+  return say(want
+    ? '<span class="text-dim">You reach across and put both latches down. Whatever is out there stays out there.</span>'
+    : '<span class="text-dim">The latches come up. The doors will open from outside now — either side.</span>');
+}
+
+// ── the galley ───────────────────────────────────────────────────────────────
+//
+// WHAT IS IN THE CAB THAT YOU COULD EAT. A haul is long, hunger and thirst run the whole time, and
+// the only surface that could answer "what have I got" was the tablet — which means stopping,
+// leaving the glass, and coming back. A driver was starving to death inside a working truck with
+// food in the bunk, which is not a difficulty curve, it is a missing door.
+//
+// THE RULE THIS FOLLOWS IS THE PREPARATION HUD'S, and deliberately: the panel holds no gameplay
+// logic and every row it draws is a VERB STRING a player could have typed. 'eat sandwich' is what
+// the button sends and 'eat sandwich' is what a keyboard sends; there is no cab-only eating path,
+// no cab-only restore, and nothing here re-derives whether a thing is edible — that is the item's
+// tags and the ordinary consume path's business, exactly as it is everywhere else.
+//
+// ⚠ AND IT IS ANSWERED ON DEMAND, NEVER ON THE PUSH. 'cabContext' runs several times a second on
+// the drive; putting an inventory join in it would be a remote round trip per push, on the hottest
+// path this plugin owns. So this is a verb: one query, when a driver opens the flap, and never
+// again until they open it again. The vitals themselves cost nothing at all — hunger and thirst
+// are already on the live player object and already reach the client on every 'player_update', so
+// the bars and the warning band on the glass are drawn from what the client had anyway.
+async function cmdGalley(args, raw, player) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.quantity, i.name, i.tags
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND pi.container_id IS NULL
+        AND (jsonb_exists(i.tags, 'consumable') OR jsonb_exists(i.tags, 'drinkable'))
+      ORDER BY i.name`,
+    [player.id]
+  );
+  // WHICH VERB EACH ROW WANTS. 'drink' for anything that restores thirst more than it restores
+  // hunger, 'eat' otherwise — the same reading a player makes looking at a bottle, and it is only
+  // ever a LABEL: both verbs route into the identical consume path, so a mislabelled row costs a
+  // word and never a mechanic.
+  const items = rows.map(r => {
+    const t = r.tags || {};
+    const food = Number(t.restore_hunger) || 0, water = Number(t.restore_thirst) || 0;
+    return {
+      id: r.id, name: r.name, qty: r.quantity || 1,
+      verb: water > food ? 'drink' : 'eat',
+      food, water,
+    };
+  });
+  sendToPlayer(player.id, {
+    type: 'truck_galley',
+    items,
+    hunger: player.hunger, thirst: player.thirst,
+  });
+  // The LOG gets the same answer, because a surface a player cannot reach is not the only rung —
+  // display-mode's rule is that the record reaches the log at every rung or the rung is not done.
+  if (!items.length) return say('You go through the bunk and the door pockets. Nothing to eat, nothing to drink.');
+  return say(`<span class="text-dim">In the cab:</span>
+`
+    + items.map(i => `  <b>${i.verb} ${i.name}</b>${i.qty > 1 ? ` <span class="text-dim">×${i.qty}</span>` : ''}`).join('\n'));
 }
 
 // ── customs ──────────────────────────────────────────────────────────────────
@@ -3473,6 +3753,11 @@ export const commands = {
   truckpump: cmdTruckPump,
   trucksync: cmdTruckSync,
   truckevent: cmdTruckEvent,
+  galley: cmdGalley,
+  // ⚠ ROUTERS, NOT HANDLERS. Both fall through to the engine door commands unless you are
+  // actually behind a wheel — see cabLatchRouter.
+  lock: cabLatchRouter(true),
+  unlock: cabLatchRouter(false),
 };
 
 export const hooks = {

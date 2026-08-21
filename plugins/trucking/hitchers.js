@@ -48,13 +48,46 @@ const KINDS = [
 ];
 const TOTAL = KINDS.reduce((n, k) => n + k.weight, 0);
 
-// Deterministic 32-bit hash — the same one shape the corridor and voidwalking use, for the same
-// reason: everyone driving this stretch this week meets the same person.
+// ── ⚠ TWO BUGS LIVED IN THIS FUNCTION, AND BETWEEN THEM THEY TURNED THE FEATURE OFF ──────────
+//
+// It read `route?.key`, and a route has no `key`. It has `voidKey`, `destKey` and `seedKey` (see
+// corridorFor), so every road in the game hashed the literal string 'road' and the only thing left
+// varying was the window and the node — which is to say every corridor out of every region met the
+// same people on the same numbered stretch in the same week.
+//
+// And it was raw FNV-1a, taken straight as a fraction. FNV's avalanche on a string whose only
+// variation is the last character or two is poor, and the eight nodes of a week differ by exactly
+// that — so a week's values came out clustered inside a band of about 0.03. Against a threshold of
+// 0.34 that is not a one-in-three chance per stretch, it is a one-in-three chance PER WEEK that the
+// whole road is lined with them, and otherwise nobody at all on the entire crossing. Sampled over
+// three consecutive windows, twenty-four eligible stretches produced zero hitchers.
+//
+// The fix is to stop hand-rolling it. The corridor already owns the pair this file was imitating —
+// FNV to seed, mulberry32 to draw — and mulberry32 is the half that does the avalanching. Same two
+// functions, spelled the same way, so the road and the people on it are seeded by one idiom.
+//
+// ⚠ THIS CHANGES WHO IS ON EVERY EXISTING STRETCH. That is intended and it is unavoidable: the old
+// numbers were the bug. Nothing persists a hitcher (they are derived at read, which is the whole
+// design), so there is nothing to migrate — a road simply has the people on it that it should have
+// had all along.
+function hashSeed(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// WHICH ROAD THIS IS. The same identity `segSeed` uses inside the corridor: an explicitly seeded
+// route says so, and anything else is the pair of endpoints it runs between.
+const roadKey = (route) => route?.seedKey || `${route?.voidKey || 'void'}|${route?.destKey || 'road'}`;
 function seed(route, node) {
-  let h = 2166136261;
-  const s = `${route?.key || 'road'}:${route?.window || 0}:${node}`;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h >>> 0) / 4294967295;
+  return mulberry32(hashSeed(`${roadKey(route)}|${route?.window || 0}|hitch|${node}`))();
 }
 
 // About one node in three has somebody on it. Node 0 never does — you have not left yet — and nor
@@ -64,7 +97,11 @@ export function hitcherAt(route, node, nodes) {
   if (node <= 0 || node >= nodes - 1) return null;
   const r = seed(route, node);
   if (r > 0.34) return null;
-  let pick = ((r * 1000) % 1) * TOTAL, kind = KINDS[0];
+  // ⚠ A SECOND DRAW, NOT A RESLICE OF THE FIRST. This was `(r * 1000) % 1`, which is the same
+  // number the presence gate just used, shifted three decimal places — so WHICH kind you met was a
+  // function of HOW NARROWLY they showed up at all, and the two were correlated for as long as the
+  // hash was. It is its own stream now, off the same seeded generator.
+  let pick = mulberry32(hashSeed(`${roadKey(route)}|${route?.window || 0}|kind|${node}`))() * TOTAL, kind = KINDS[0];
   for (const k of KINDS) { if (pick < k.weight) { kind = k; break; } pick -= k.weight; }
   return { ...kind, node };
 }

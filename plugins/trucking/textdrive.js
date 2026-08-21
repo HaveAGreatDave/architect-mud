@@ -26,7 +26,8 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, passSign } from './state.js';
+import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, passSign,
+  tryDoorBoard, doorBoardLine } from './state.js';
 import { TILES_PER_ROOM, nodeAt } from './corridor.js';
 import { afterDrive } from './scale.js';
 import { hitcherAt } from './hitchers.js';
@@ -250,11 +251,21 @@ async function stepRun(player, rig, run) {
       cbLine(player, rig);
       // The same figure on the same shoulder. One law, both rungs — `hitcherAt` is a pure function
       // of the route and the node, so there is nothing here to keep in step.
-      const who = hitcherAt(rig.route, node, rig.chain.length);
+      const who = rig.hitchDone?.has(node) ? null : hitcherAt(rig.route, node, rig.chain.length);
       if (who && !rig.rider) {
         narrate(player, `<span class="text-amber">Ahead on the shoulder: ${who.look}. A hand comes up.</span> <span class="text-dim"><b>pickup</b> if you are stopping.</span>`);
       }
       return;
+    }
+    // ── SOMEBODY TRIES THE DOOR ──────────────────────────────────────────────
+    // ⚠ OUTSIDE THE NODE-CROSSING BRANCH, and that placement is the point: the event is about
+    // standing still, and a rig that is standing still crosses no boundary. Inside the branch above
+    // this would be unreachable by construction — which is exactly how a rung quietly becomes a
+    // different game. The law itself is 'tryDoorBoard' in state.js, shared with the cab.
+    {
+      const near = rig.hitchDone?.has(node) ? null : hitcherAt(rig.route, node, rig.chain.length);
+      const got = tryDoorBoard(rig, near);
+      if (got) { narrate(player, doorBoardLine(got)); return; }
     }
     if (++run.since % 2 === 0) narrate(player, `<span class="text-dim">${pick(ROAD_LINES)}</span>`);
     return;

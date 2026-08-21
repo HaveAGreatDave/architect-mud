@@ -22,10 +22,13 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
-  nodeAt, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, attachSigns,
-  joinRoutes, reverseRoute, pairKey } from './corridor.js';
+  nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt,
+  attachSigns, joinRoutes, reverseRoute, pairKey } from './corridor.js';
+import { hitcherAt } from './hitchers.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
+import { accrueGrime, grimeBand } from './filth.js';
+import { fitSuffix } from './fittings.js';
 import { routeOptions } from './routes.js';
 // The crossing's own shape, read rather than reconstructed. ⚠ voidwalking imports nothing from
 // this plugin, so this is a one-way edge and not the load-order tangle routes.js warns about.
@@ -742,6 +745,12 @@ export function reconcileTruck(rig, d, now = Date.now()) {
       wearFor(moved, { surface: surfaceUnder(rig), tune: rig.cd?.tune || {}, condition: rig.condition ?? 1 }),
       { surface: surfaceUnder(rig) }
     ));
+    // THE ROAD ON THE OUTSIDE OF IT, on the same distance, in the same RAM, flushed by the same
+    // coalesced write. Deliberately NOT part of the wear split above: filth is cosmetic and must
+    // never reach `applyDamage`, or the headline condition starts counting dirt as damage and a
+    // run through a car wash quietly makes the engine healthier. See the rules at the top of
+    // filth.js.
+    accrueGrime(rig, moved, { surface: surfaceUnder(rig), weather: skyState()?.weather });
     // A GAUGE THAT NEVER BITES IS DECORATION. For a long time this counted down to zero and the
     // truck simply carried on, which made every tank number in the fleet a label rather than a
     // constraint. Running dry now stops it dead, and the low warning fires once on the way past so
@@ -1110,7 +1119,10 @@ export function truckContactsNear(x, y, range = 26) {
       // bobtail is a real one, so a pilot overhead can tell an Orlov with a box on it from a Barrow
       // running empty. `cls` stays 'truck' because the whole renderer switches on it; this is a
       // fourth, optional channel that only the truck mesh reads.
-      variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' : ''}`,
+      // …AND WHAT IS BOLTED TO IT. The fitting suffix rides the SAME string (see fittings.js rule
+      // 2), so a stranger's ram plate and roof cage reach your windscreen with no new field on the
+      // contact and no second lookup — which is the entire wire cost of the feature.
+      variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' : ''}${fitSuffix(rig.cd)}`,
       x: rig.x, y: rig.y, hdg: rig.heading, ias: Math.round(rig.speed),
       // WHAT THIS TRUCK'S LAMPS ARE DOING, so the rig behind sees the brake lights come on and the
       // rig ahead is a pair of headlights rather than a dark shape. Straight off the telemetry
@@ -1133,7 +1145,10 @@ export function truckContactsNear(x, y, range = 26) {
       // there is one: the same trailer would be one colour hooked to your cab and another hooked to
       // somebody else's, and would change under you at the pin. The stamp on the ROW wins, so a box
       // is the same colour standing in a yard, towed by you, and towed by a stranger.
-      livery: { ...truckLivery(rig.cd?.paint), ...(rig.trailer ? { deck: boxColour(rig.trailer) } : {}) },
+      // …AND THE DIRT ON IT IS PART OF THE LIVERY, for the same reason the paint is: the truck
+      // that just came off the shoulder in front of you should LOOK like it did, from your cab as
+      // much as from its own. One extra argument to the one conversion.
+      livery: { ...truckLivery(rig.cd?.paint, rig.grime ?? 0), ...(rig.trailer ? { deck: boxColour(rig.trailer) } : {}) },
     });
   }
   return out;
@@ -1180,6 +1195,34 @@ export function cabContext(rig, extra = {}) {
     // construction — nothing has to check the leg. The driver is dropped by id, or they would
     // stand in the road underneath their own truck.
     actors: city ? streetActors(cx, cy, CAB_RADIUS, rig.playerId) : [],
+    // ── AND THE ONE PERSON WHO IS OUT THERE ────────────────────────────────────
+    // The line above is empty on a corridor leg by construction, and for the whole of the city it
+    // is right that it is: nothing is placed out on the void road, so there is nobody to stand on
+    // it. A hitcher is the exception, and it is the exception the whole feature turns on — before
+    // this the only thing that ever said somebody was on the shoulder was one emote at the moment
+    // you crossed a node boundary, so a driver who blinked drove past a person they never saw.
+    //
+    // ⚠ NOT AN ENTRY IN 'actors', AND THE DIFFERENCE IS NOT COSMETIC. That list is walked by the
+    // client's own mover: it interpolates between pushes, decides a gait, and puts each figure on
+    // whichever KERB its tile has. None of that is true out here — the hitcher does not move, and a
+    // corridor cell has no kerb to be put on. So they ride their own field and are drawn standing
+    // exactly where the road geometry says, which is also what makes them read as WAITING rather
+    // than as somebody walking who happens to be stationary this frame.
+    //
+    // Position is derived from the corridor, never stored: half a room along the node they belong
+    // to, and 't' past the paved half-width, which is the verge. '+t' is to the RIGHT of travel
+    // (corridorPos' own convention), so they are standing on the side you would pull onto.
+    //
+    // Gone the moment they are aboard, because the seat is where they are now.
+    hitcher: (() => {
+      if (city || rig.rider || rig.hitchDone?.has(rig.node)) return null;
+      const who = hitcherAt(rig.route, rig.node, rig.chain.length);
+      if (!who) return null;
+      const hs = sOfNode(rig.route, rig.node) + roomLenOf(rig.route) * 0.5;
+      const pos = corridorPos(rig.route, hs, pavedAt(rig.route, hs) + 0.45);
+      return { t: `hh:${rig.route.key || 'road'}:${rig.node}`, kind: who.id,
+        x: +pos.x.toFixed(3), y: +pos.y.toFixed(3) };
+    })(),
     x: +rig.x.toFixed(3), y: +rig.y.toFixed(3),
     heading: Math.round(rig.heading), speed: Math.round(rig.speed),
     fuel: +rig.fuel.toFixed(3),
@@ -1188,6 +1231,10 @@ export function cabContext(rig, extra = {}) {
     // through the telemetry's `t`), which is exactly why it has to be on the wire at all: without
     // it the browser's fresh `createTruckState` is always running, whatever the server thinks.
     engineOn: !!rig.engineOn,
+    // THE LATCH. On the payload rather than owned by the client, because it persists per truck and
+    // the verb can change it — a cab keeping its own copy would show the wrong state to a driver
+    // who typed `lock` instead of pressing the button.
+    locked: rigLocked(rig),
     // WHICH TRUCK THIS IS, and what a bench did to it. The cab used to hardcode the Courier's
     // parameters, so the gearbox, the top speed, the brakes and the turn-in of a 31,000₵
     // Continental were the 4,200₵ truck's — you could buy your way up the fleet and feel nothing.
@@ -1210,6 +1257,14 @@ export function cabContext(rig, extra = {}) {
       }
       return out;
     })(),
+    // HOW DIRTY IT IS, as a number and as a word. One scalar, cosmetic everywhere: the cab tints
+    // the livery with it, the depot panel prices a wash off it, and nothing else reads it at all.
+    // What is bolted to it, as the suffix the mesh grammar takes. The cab assembles its own
+    // variant string (it owns the trailer and stalled markers, which move mid-drive), so it is
+    // handed the piece it cannot know rather than the finished key.
+    fits: fitSuffix(rig.cd),
+    grime: +(rig.grime ?? 0).toFixed(3),
+    grimeBand: grimeBand(rig.grime ?? 0).key,
     // The cab clamps its own throttle on both of these for the feel; the server clamps the speed
     // for the truth. Same split as `dry`, which is the shape this followed deliberately.
     broken: rig.broken ? rig.broken.kind : null,
@@ -1332,6 +1387,72 @@ export function pumpClamp(credits, fuel, want) {
 }
 
 const PUSH_MS = 1000;
+// ── THE DOORS ────────────────────────────────────────────────────────────────
+//
+// A hitcher used to arrive exactly one way: you typed `pickup`, which is a decision, made on
+// purpose, with the whole system in front of you. Real doors do not work like that. Stop with the
+// passenger side open beside somebody who has been stood on a verge for six hours and they will get
+// in, and you will find out about it when they shut the door.
+//
+// So the latch is the actual control, and `pickup` becomes the INVITATION rather than the only way
+// in. Two ways to end up with a passenger, and the difference between them is a thing you did or
+// forgot to do a mile back — which is the same shape as everything else on this road.
+//
+// ⚠ IT DEFAULTS TO UNLOCKED, AND THAT IS THE FEATURE. A latch that starts down is a latch nobody
+// ever meets: the first time it would matter is the first time it saves you, which is to say never,
+// because nothing would ever have got in. Starting open means the mechanic teaches itself — somebody
+// climbs into your cab, and from then on you know what the button is for. It persists per TRUCK (in
+// `custom_data`, beside paint and trim, so no new column), so learning it only has to happen once.
+//
+// ⚠ AND A SELF-BOARDER ALWAYS TAKES THE SEAT, NEVER THE TRAILER. You did not open the trailer —
+// nobody climbs into a sealed box off their own bat, and if they could the latch would quietly
+// become a way to smuggle a person without ever deciding to. So an open door can only hand you the
+// VISIBLE version of a passenger: the weighbridge is never surprised, and the scale house's cab
+// check always is. The latch is the thing standing between an idle fuel stop and a harbouring
+// charge.
+const BOARD_MS = 3000;      // how long you have to be genuinely stopped before somebody tries a door
+const STOPPED_MPH = 1;      // …and 'stopped' means stopped, not slowed for a bend
+
+export const rigLocked = (rig) => !!rig?.cd?.locked;
+
+// Called from the drive tick on BOTH rungs — it lives here for the same reason `afterDrive` lives
+// in scale.js: a law that is two functions is two laws, and the rungs would drift.
+//
+// Returns the boarder, or null. Marks the stretch spent exactly as `pickup` does, so somebody who
+// let themselves in and then got out does not reappear on the shoulder behind you.
+export function tryDoorBoard(rig, hitcher, now = Date.now()) {
+  if (!rig || rig.leg !== 'corridor' || rig.rider) return null;
+  if (rigLocked(rig) || !hitcher) return null;
+  // ⚠ THE DWELL IS NOT DECORATION. Without it, the speed gate alone fires on any slow crawl and a
+  // driver who eased off for a bend beside a hitcher acquires a passenger they never saw coming and
+  // could not have prevented. Three seconds at a genuine standstill is a STOP, and a stop beside
+  // somebody with their hand out is a thing you did.
+  if (Math.abs(rig.speed || 0) >= STOPPED_MPH) { rig.stoppedAt = 0; return null; }
+  if (!rig.stoppedAt) { rig.stoppedAt = now; return null; }
+  if (now - rig.stoppedAt < BOARD_MS) return null;
+  rig.stoppedAt = 0;
+  (rig.hitchDone || (rig.hitchDone = new Set())).add(rig.node);
+  rig.rider = { ...hitcher, inTrailer: false, boarded: rig.node, invited: false };
+  return rig.rider;
+}
+
+// The line they arrive on. Deliberately NOT the one `pickup` prints: that one opens with you pulling
+// up and leaning across, and this has to read as a door you did not open. Their own authored line
+// still lands, because what somebody says when they get in is the information this system gives you
+// and it must not depend on how they got there.
+export function doorBoardLine(who) {
+  const look = who.look.charAt(0).toUpperCase() + who.look.slice(1);
+  return [
+    '<span class="text-amber">The passenger door opens.</span>',
+    '',
+    'You did not do that. ' + look + ', already up on the step with a hand on the grab rail, already sitting down.',
+    '',
+    who.line,
+    '',
+    '<span class="text-dim">The latch on your side is a button, and it was not down.</span>',
+  ].join('\n');
+}
+
 export function pushCab(rig, extra) {
   const cx = Math.round(rig.x), cy = Math.round(rig.y), now = Date.now();
   if (!extra && rig.pushX === cx && rig.pushY === cy && now - (rig.pushAt || 0) < PUSH_MS) return;

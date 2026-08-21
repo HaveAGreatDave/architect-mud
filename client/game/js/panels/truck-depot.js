@@ -196,6 +196,7 @@ function footChips() {
   if (sel?.hereNow) out.push(chip(`drive ${sel.id}`, 'drive'));
   if (sel && sel.condition < 1) out.push(chip(`rig repair ${sel.id} shop`, `rig repair · ${money(sel.repairShop)}`, true));
   if (sel && d.fuelHere && sel.fuel < 0.99) out.push(chip(`rig fuel ${sel.id}`, `rig fuel · ${money(sel.refuel)}`, true));
+  if (sel?.washPrice) out.push(chip(`rig wash ${sel.id}`, `rig wash · ${money(sel.washPrice)}`, true));
   if (d.board?.length) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
   if (d.cargo?.kind === 'goods') out.push(chip('market sell'));
   out.push(chip('yard'));
@@ -315,6 +316,8 @@ function truckPane(t) {
         <span class="td-band ${t.band}">${esc(t.bandLabel)}</span>
       </div>
       <div class="td-dim td-note">${esc(t.bandText)}</div>
+      ${t.grimeBand && t.grimeBand !== 'clean'
+        ? `<div class="td-dim td-note"><b>${esc(t.grimeLabel)}</b> — ${esc(t.grimeText)}.</div>` : ''}
       <dl class="td-spec">
         <div><dt>condition</dt><dd>${pct(t.condition)}</dd></div>
         <div><dt>fuel</dt><dd>${pct(t.fuel)}</dd></div>
@@ -521,7 +524,7 @@ function buyScreen() {
 function benchScreen() {
   const t = selected();
   if (!t) return '<div class="td-none">Nothing of yours is here to work on. <button class="td-act" data-screen="buy">The dealer\'s line</button></div>';
-  const tabs = [['condition', 'Condition', '◧'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐']]
+  const tabs = [['condition', 'Condition', '◧'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐'], ['fits', 'Fittings', '⚑']]
     .map(([k, l, ico]) => `<button class="td-tab sm${B.bench.tab === k ? ' on' : ''}" data-bench="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${l}</button>`).join('');
   return `
     <div class="td-floor">
@@ -531,7 +534,8 @@ function benchScreen() {
     <aside class="td-side">
       <div class="td-pane-head"><div><b>${esc(t.name)}</b><div class="td-dim">${esc(t.type)}</div></div>
         <span class="td-band ${t.band}">${esc(t.bandLabel)}</span></div>
-      ${B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t) : conditionTab(t)}
+      ${B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t)
+        : B.bench.tab === 'fits' ? fitsTab(t) : conditionTab(t)}
     </aside>`;
 }
 
@@ -547,6 +551,8 @@ function conditionTab(t) {
           Do it yourself · ${money(t.repairField)}<span class="td-dim"> — up to ${pct(0.8)}, and you can botch it</span></button>
         <button class="td-act primary" data-cmd="rig repair ${esc(t.id)} shop">
           Put it through the shop · ${money(t.repairShop)}<span class="td-dim"> — back to new, no roll</span></button>
+        <button class="td-act" data-cmd="rig wash ${esc(t.id)}" ${t.washPrice ? '' : 'disabled title="Already clean"'}>
+          ${t.washPrice ? `Wash it · ${money(t.washPrice)}` : 'Wash it'}<span class="td-dim"> — the paint back, and nothing else</span></button>
         ${d.fuelHere ? `<button class="td-act" data-cmd="rig fuel ${esc(t.id)}" ${t.fuel < 0.99 ? '' : 'disabled title="Already full"'}>Fill the tanks · ${money(t.refuel)}</button>`
           : '<div class="td-dim td-note">No pump in this yard.</div>'}
       </div>
@@ -590,6 +596,38 @@ function kitsTab(t) {
         : `<button class="td-act" data-cmd="rig kit ${esc(t.id)} ${esc(k.id)}" ${k.afford ? '' : 'disabled title="You cannot afford it"'}>${money(k.price)}</button>`}
     </div>`;
   }).join('')}</div>`;
+}
+
+// ── THE COSMETIC SHELF ───────────────────────────────────────────────────────
+// Twenty things that do nothing, grouped by the place on the truck they go — which is the same
+// grouping the verb prints, off the same server-sent table (`fitCat`), because a shelf whose order
+// differs between the panel and the log is two shelves.
+//
+// ⚠ EVERY BUTTON IS A VERB STRING, exactly as rule 2 at the top of this file says. The panel does
+// not know what a fitting IS: it knows a name, a price the server quoted, and the command to send.
+// It decides nothing — including whether a swap is a swap, which is why the fitted row in an
+// occupied slot renders as REMOVE and every other row in it renders as its own price rather than
+// as some computed difference.
+function fitsTab(t) {
+  const cat = B.data.fitCat;
+  if (!cat) return '<div class="td-pane"><div class="td-dim td-note">No shelf at this counter.</div></div>';
+  const on = new Set(t.fits || []);
+  const price = (id) => (t.fitPrices || {})[id];
+  const rows = cat.slots.map((s) => {
+    const items = cat.items.filter((f) => f.slot === s.id).map((f) => {
+      const fitted = on.has(f.id), p = price(f.id);
+      return `<div class="td-kit-row${fitted ? ' on' : ''}">
+        <div class="td-main"><b>${esc(f.name)}</b><div class="td-dim">${esc(f.desc)}</div></div>
+        ${fitted
+          ? `<button class="td-act" data-cmd="rig unfit ${esc(t.id)} ${esc(f.id)}">Remove</button>`
+          : `<button class="td-act" data-cmd="rig fit ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You cannot afford it"'}>${p ? money(p) : 'Refit'}</button>`}
+      </div>`;
+    }).join('');
+    return `<div class="td-sub-head">${esc(s.label)} <span class="td-dim">${esc(s.note)}</span></div>${items}`;
+  }).join('');
+  return `<div class="td-pane">
+    <div class="td-dim td-note">None of it changes how the truck drives. One per place, and once it is yours, swapping is free.</div>
+    ${rows}</div>`;
 }
 
 // ── THE SEVEN SURFACES ───────────────────────────────────────────────────────
@@ -1263,7 +1301,14 @@ function liveryOf(t, live = false) {
   // AS the finish — a tickbox called 'chrome on the stacks' silently deciding gloss versus matte,
   // which is two different questions wearing one control. It is back to meaning brightwork, and
   // the coat is the coat.
-  return truckLivery(p);
+  // …AND THE DIRT IT CAME IN WITH. The second argument to the one conversion — a truck on the
+  // turntable that was clean while the same truck out of the windscreen was brown is the same
+  // class of bug as a flash rendering in one view and not the other.
+  //
+  // ⚠ IT IS NOT PREVIEWED. Every other value in here can be a live bench edit (`live`, above) so a
+  // dial moves the paint under your hand; dirt is not something you choose, so it is always the
+  // truck's own number and the wash button is what changes it.
+  return truckLivery(p, t.grime || 0);
 }
 
 function sizeCanvas(cv) {
