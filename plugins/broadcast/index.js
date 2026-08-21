@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, resolveLanding } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, resolveLanding, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { escAttr } from '../../server/engine/text.js';
@@ -32,6 +32,7 @@ import {
   getGameshowSubject, gameshowSubjectIds,
 } from './gameshow.js';
 import { installAudienceGate } from './audience.js';
+import { buildTangent, canTangent, tangentHoldMs } from './tangents.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { registerPurchaseStamp } from '../../server/engine/vendor.js';
@@ -285,6 +286,140 @@ function _cameraLabel(camId, idx) {
   return `Camera ${m ? m[1] : idx + 1}`;
 }
 
+// ── Cameras that walk ─────────────────────────────────────────────────────────
+//
+// A studio camera is a `media_cameras` ROW: it is bolted to a room and the room is
+// where it stays. A show shot on location cannot work that way — you do not install
+// four cameras in a church basement for the afternoon — so the crew that goes out is
+// a CAMERA DROID, an ordinary NPC flagged `camera_droid` who is a working camera in
+// whatever room it is currently standing in.
+//
+// The whole integration is this function. `zoneCameras` stays exactly what it was
+// (the bolted-down rows, rebuilt on load) and every reader now asks HERE instead,
+// so the shot picker, the blackout gate and the surveillance relay all inherit
+// walking cameras without one of them being told that such a thing exists. A droid
+// that goes home takes the picture with it, which is correct and is also the entire
+// reason a location shoot is something you have to STAFF.
+//
+// The droid is dispatched by the same machinery as any other cast member: it is on
+// the programme's `npc_staff`, so the schedule walks it to the location and the
+// on-air cast hold keeps it there. Nothing here dispatches anything.
+// ── Getting the signal home ───────────────────────────────────────────────────
+//
+// A studio is wired: its cameras are on the end of a cable that already reaches the
+// gallery, which is why nothing ever had to ask this question before. A church
+// basement is not wired to anything. So a shoot away from the channel's own studio
+// needs a PORTABLE MEDIADECK in the room with it — the case with the aerial that
+// everything in that room talks to and that talks back to the studio deck.
+//
+// It is furniture, deliberately, and that makes it a physical fact of the room
+// rather than a property of the show: it can be switched off, carried out, stolen,
+// or left behind, and the programme then has cameras and no way home. That failure
+// resolves through the path that already exists for a studio with dark cameras
+// (tech difficulties, self-healing the moment it comes back) because from the
+// viewer's side it is the same event and should not need a second explanation.
+function _uplinkOk(state, stageZoneId) {
+  if (!stageZoneId || stageZoneId === state.studioZoneId) return true;   // wired, as ever
+  const furn = getZoneFurniture(stageZoneId) || [];
+  return furn.some(f => f?.flags?.portable_mediadeck && f?.is_powered !== 0 && !f?.flags?.deck_off);
+}
+
+function _camerasIn(zoneId) {
+  const fixed = zoneCameras.get(zoneId) || [];
+  const zone = zoneId && getZone(zoneId);
+  if (!zone?.npcs?.size) return fixed;
+  const out = fixed.slice();
+  for (const npcId of zone.npcs) {
+    const npc = world.npcs?.get(npcId);
+    if (!npc?.flags?.camera_droid) continue;
+    if (npc.hp != null && npc.hp <= 0) continue;           // a downed droid is a dead camera
+    if (npc._ai?.dosedOut) continue;                       // ...as is one somebody has jammed
+    out.push({
+      id: `droid:${npc.id}`,
+      direction: 'all',
+      label: npc.flags.camera_label || _cameraLabel(npc.id, out.length),
+      droid: true,
+    });
+  }
+  return out;
+}
+
+// ── A CAMERA DIRECTION IS AN ORDER, AND A DROID IS THE THING THAT OBEYS IT ─────
+//
+// A bolted-down camera can only ever shoot the room it is screwed to, so a cut to
+// a zone with no unit in it has always simply had no source: the shot does not
+// exist and the graph moves on. That is still true of fixed units and it is the
+// right answer for them.
+//
+// A droid is different, and this is the whole reason it is an NPC rather than a
+// row: it is the physical manifestation of the direction. `CAM 3 FOLLOW to the
+// pantry door` is not a rendering instruction, it is a machine being told to go to
+// the pantry — so it goes, the room it leaves sees it leave, the room it enters
+// sees it arrive, and the shot happens because there is now something there to
+// take it. **Assuming it can follow.** No free unit, or no path, and the direction
+// is one nobody could execute: the cut has no source exactly as before.
+//
+// Which unit: the one the script named, if that unit exists. `CAM 2 …` looks for
+// the droid billed as Camera 2 before it takes anybody else, because a script that
+// numbers its cameras is describing a crew and should get the crew it describes.
+// How far a unit will follow a direction: far enough to cross a location, nowhere
+// near far enough to leave one.
+const MAX_DISPATCH_HOPS = 5;
+const SHOT_VERB_RE = /CAM\s*[—-]\s*(\d+)\s*[—-]\s*([A-Z_]+)/;
+
+function _shotOrder(label) {
+  const m = SHOT_VERB_RE.exec(String(label || ''));
+  return m ? { unit: m[1], verb: m[2].replace(/_/g, ' ').toLowerCase() } : { unit: null, verb: null };
+}
+
+// Every droid this channel currently has in the field, wherever it is standing.
+function _channelDroids(state) {
+  const out = [];
+  const seen = new Set();
+  for (const item of state.playlist || []) {
+    for (const id of item.npcStaff || []) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const npc = world.npcs?.get(id);
+      if (!npc?.flags?.camera_droid) continue;
+      if (npc.hp != null && npc.hp <= 0) continue;
+      if (npc._ai?.dosedOut) continue;
+      out.push(npc);
+    }
+  }
+  return out;
+}
+
+// Send a unit to the room the direction names. Returns true if one is there now.
+function _dispatchDroid(zoneId, stageZoneId, label, state) {
+  if (!zoneId || !getZone(zoneId)) return false;
+  if (_camerasIn(zoneId).length) return true;          // something is already there
+  const { unit } = _shotOrder(label);
+  const droids = _channelDroids(state);
+  if (!droids.length) return false;
+  // The named unit first, then anybody standing on the stage, then anybody at all.
+  const named = unit ? droids.find(d => String(d.flags?.camera_label || '').endsWith(String.fromCharCode(32) + unit)) : null;
+  const pick = named || droids.find(d => d.zone_id === stageZoneId) || droids[0];
+  if (!pick || pick.zone_id === zoneId) return !!pick;
+  // ⚠ It has to be able to GET there. A direction to a room on the other side of a
+  // locked door is a direction nobody could execute, and the honest answer to that
+  // is the same as a dark camera: the shot does not exist.
+  // ⚠ IT HAS TO BE ABLE TO GET THERE, AND GET THERE FROM A SHOT. The first cut of
+  // this was just "is there a path", and the world is connected — so a direction to
+  // a room across the city is technically followable and a unit sets off on a
+  // twenty-minute walk to the Ascendant shrine in the middle of the programme. A
+  // camera direction moves a camera around a LOCATION; anything further is a
+  // direction nobody could execute, and gets the same honest answer as a dark
+  // camera: the shot does not exist.
+  const path = findPath(pick.zone_id, zoneId, pick);
+  if (!path || path.length < 2 || path.length > MAX_DISPATCH_HOPS) return false;
+  const from = pick.zone_id;
+  if (!moveNpcToZone(pick.id, zoneId)) return false;
+  _stageLine(from, `<span style="color:var(--text-dim);font-style:italic">${pick.name} pulls back off its mark and trundles out.</span>`);
+  _stageLine(zoneId, `<span style="color:var(--text-dim);font-style:italic">${pick.name} rolls in, settles, and brings its head round to face the room.</span>`);
+  return true;
+}
+
 // Put a line on the studio floor as a physical event in the room. Tagged so the
 // studio-camera relay (`zone.broadcast`) doesn't pick the show's own performance
 // back up and re-air it — the acting layer already delivers those lines to air by
@@ -313,7 +448,7 @@ function _stageLine(zoneId, message) {
 // Assign the next camera in the zone's roster to a shot, round-robin per channel so
 // a multi-camera studio visibly cuts between its units instead of parking on one.
 function _pickCamera(zoneId, state) {
-  const cams = zoneCameras.get(zoneId);
+  const cams = _camerasIn(zoneId);
   if (!cams?.length) return null;
   const seq = state._camSeq = ((state._camSeq || 0) + 1);
   return cams[seq % cams.length];
@@ -765,7 +900,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.sermon_pools
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.sermon_pools, b.location_zone_id
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -848,6 +983,10 @@ async function loadChannelRuntimes() {
       } else {
         broadcastGraph = null;
       }
+      // The stage travels with the GRAPH, stamped once here rather than threaded
+      // through ten tick call sites. It is a property of the programme, not of the
+      // tick: a show shot in a church basement is shot there every time it airs.
+      if (broadcastGraph && item.location_zone_id) broadcastGraph._locationZone = item.location_zone_id;
       const cond = typeof item.conditions === 'object' ? item.conditions : (item.conditions ? JSON.parse(item.conditions) : {});
       let weatherScript = item.weather_pools;
       if (typeof weatherScript === 'string') { try { weatherScript = JSON.parse(weatherScript); } catch { weatherScript = null; } }
@@ -895,6 +1034,9 @@ async function loadChannelRuntimes() {
         passDuration: broadcastGraph ? naturalDur : null,
         fallbackMessages: Array.isArray(item.fallback_messages) ? item.fallback_messages : (item.fallback_messages ? JSON.parse(item.fallback_messages) : []),
         npcStaff: Array.isArray(cond?.npc_staff) ? cond.npc_staff : [],
+        // ON LOCATION. Null for almost everything, and null means 'the channel studio',
+        // so nothing that already works has to know this field exists.
+        locationZoneId: item.location_zone_id || null,
       });
     }
 
@@ -1022,70 +1164,440 @@ function getScriptedMessage(messages, messageInterval, elapsedSec) {
 // delivery accordingly, in the Paul Masson register: not just slurring, but losing
 // the thread, repeating a word, asking for the line back, going off-script. The
 // script is what they meant to say; this is what aired.
+//
+// ⚠ THIS FILE NEVER KNOWS WHICH DRUG ANYONE TOOK, and that is the whole design.
+// npc-drugs already classifies every substance in the game down to a handful of
+// STATES (`sedated`→loose, `stimulant`→wired, deliriant→paranoid, and so on), so
+// delivery is written against the STATE and never against a drug name. The payoff
+// is that giving an anchor a habit is pure content — set `flags.drug_habit` to any
+// drug in the catalogue, or `flags.booze_habit` to a drink — and their airtime
+// changes to match, with nothing in this file edited. A drug added tomorrow airs
+// in a voice that was written before it existed.
+//
+// A state's VOICE is a row in `_DELIVERY` below, not a branch: how much they slur,
+// how badly they stall, how likely the line is to die before its own full stop,
+// and its own pools of fumbles, off-script asides and collapses. Adding a state is
+// a row. Giving one NPC their own words for a state they are already in is
+// authoring (`flags.delivery_lines`, see `_voiceLines`) — no code either way.
 
-// 0 (sharp) → 1 (unbroadcastable). `out` is its own case — they can't perform at all.
+// The generic voice: what an unclassed impairment sounds like. Every field is
+// present here so a partial row above can't silently fall back to sharp.
+const _DELIVERY_DEFAULT = {
+  level: 0.4,
+  slur: 0.5,       // ×p — how far the consonants go
+  stall: 1,        // ×base — repeating a word while the next one arrives
+  trip: 1,         // ×base — tripping over the start of a clause
+  derail: 1,       // ×base — the line not surviving to its own full stop
+  drift: 0,        // chance of an unfilled pause mid-line
+  fumbles: [
+    'uh —', 'that is —', 'well —', 'hold on —', 'no, wait —', "let's — let's go again —",
+  ],
+  offscript: [
+    "...what is that? What does that even mean?",
+    "...I'm not saying that. Give me the other one.",
+    "...are we rolling? Are we still rolling?",
+    "...no. No, that's not — start me again.",
+    "...I can't read this. Who wrote this?",
+  ],
+  collapse: [
+    'stares into the lens for a long moment and says nothing at all.',
+    'opens their mouth, thinks better of it, and just breathes.',
+    'has lost the script. It is on the floor. So, increasingly, are they.',
+    'gestures at something off-camera and does not finish the gesture.',
+  ],
+};
+
+// One row per state npc-drugs can put someone in. `level` is what that state is
+// worth on the 0→1 scale when nothing else is doing more damage; the transform
+// weights are what make two actors at the SAME level still sound like they are on
+// different things — a wired anchor talks over himself at speed and never slurs a
+// syllable, a loose one slurs everything and keeps losing the end of the sentence.
+const _DELIVERY = {
+  // Drink, and the depressant family that reads like it.
+  drunk: {
+    level: 0.5, slur: 1.15, stall: 1.3, trip: 1.1, derail: 1, drift: 0.1,
+    fumbles: ['sorry —', 'hold on, hold on —', "wait, I've — I've got it —", 'no, that — that was my fault —'],
+    offscript: [
+      "...is there water? Somebody get me a water.",
+      "...I've done this show for nine years. Nine years.",
+      "...you know what, that's a stupid sentence and I didn't write it.",
+      "...how long have we got? How long?",
+    ],
+    collapse: [
+      'sways once, finds the desk with both hands, and rides it out.',
+      'starts the line, loses it entirely, and laughs at nothing for a while.',
+      'looks at the lens like it asked them something personal.',
+    ],
+  },
+  // A depressant dose proper: glassy and candid rather than merry.
+  loose: {
+    level: 0.65, slur: 1.2, stall: 1.2, trip: 1, derail: 1.2, drift: 0.16,
+    fumbles: ['...sorry —', 'nnh —', "what — what's the —", 'hang on —'],
+    offscript: [
+      "...I don't think anyone's watching this. Are they? Genuinely.",
+      "...say the rest of it for me. Just say it.",
+      "...that's not true, by the way. None of that's true.",
+      "...I'm going to sit down. I am sitting down.",
+    ],
+    collapse: [
+      'has gone somewhere behind their own eyes and taken the line with them.',
+      'nods slowly at a question nobody asked.',
+      'is still smiling. Nothing else about them is happening.',
+    ],
+  },
+  // Stimulants. The tell is SPEED, not slurring: they are ahead of the script and
+  // cannot stop editing it live, so `slur` is deliberately zero.
+  wired: {
+    level: 0.4, slur: 0, stall: 1.4, trip: 1.3, derail: 0.7, drift: 0,
+    fumbles: ['— right —', '— no no no —', '— listen —', '— and here it is —', '— which, fine —'],
+    offscript: [
+      "...cut that. Cut it, I'll go again, I'll go again from the top.",
+      "...why is this so slow? Why is any of this so slow?",
+      "...I can do this better. Watch. Watch me do it better.",
+      "...next one. Give me the next one.",
+    ],
+    collapse: [
+      'talks straight through the line, past it, and out the other side into nothing.',
+      'is saying something at considerable speed. None of it is the script.',
+      'has stopped, entirely, mid-word, and is looking at their own hand.',
+    ],
+  },
+  // Deliriants. The line breaks because they keep checking the room.
+  paranoid: {
+    level: 0.8, slur: 0.3, stall: 1.1, trip: 1.4, derail: 1.4, drift: 0.12,
+    fumbles: ['— who said that —', '— hold on —', '— did you hear —', '— no, stop —'],
+    offscript: [
+      "...who's behind that camera? Who is that?",
+      "...take it off. Take the light off me.",
+      "...that isn't what the card said a second ago.",
+      "...somebody's changed this. Somebody has been in here.",
+    ],
+    collapse: [
+      'stares past the lens at something over the crew, and will not be talked round.',
+      'backs off the mark, watching the corner of the room.',
+      'stops dead and asks the studio, quietly, whether they can hear it too.',
+    ],
+  },
+  // Cannabis. Nothing is wrong; everything just takes longer.
+  mellow: {
+    level: 0.45, slur: 0.6, stall: 0.9, trip: 0.8, derail: 0.9, drift: 0.4,
+    fumbles: ['...uh...', '...hm, okay...', '...right, yeah...', '...so...'],
+    offscript: [
+      "...sorry, what was the question.",
+      "...that's a great line, actually. Whoever wrote that.",
+      "...hold on, I want to do that one again properly.",
+      "...where was I. Genuinely, where was I.",
+    ],
+    collapse: [
+      'loses the thread completely and seems entirely at peace about it.',
+      'looks at the autocue for a while, pleasantly, without reading it.',
+      'starts a sentence, thinks better of it, and just enjoys the lights.',
+    ],
+  },
+  // Psychedelics. Delighted, and reading a different document.
+  tripping: {
+    level: 0.7, slur: 0.4, stall: 1, trip: 1.2, derail: 1.3, drift: 0.3,
+    fumbles: ['— oh —', '— wait, look —', '— that is —', '— hah —'],
+    offscript: [
+      "...has that always been there? The red one. Has that always been there.",
+      "...you should see what the letters are doing.",
+      "...I love everyone in this room. I want that on the record.",
+      "...it doesn't mean anything, does it. None of the words mean anything.",
+    ],
+    collapse: [
+      'is watching the studio lights with an expression of open, uncomplicated joy.',
+      'has forgotten the lens, the desk, the show, and appears much happier for it.',
+      'reaches out to touch something in the air about a foot from their face.',
+    ],
+  },
+  // Dissociatives. A bad connection: the words arrive, late, from a long way off.
+  dissociated: {
+    level: 0.75, slur: 0.5, stall: 1.5, trip: 0.7, derail: 1.2, drift: 0.5,
+    fumbles: ['...', '... ...', '...uh...'],
+    offscript: [
+      "...say it again.",
+      "...I heard that. I heard it a second ago.",
+      "...whose voice is that.",
+      "...I'm going to need a moment.",
+    ],
+    collapse: [
+      'is looking directly at the camera from somewhere a very long way behind their own face.',
+      'holds still for so long the gallery cuts away, and comes back to find them exactly as they were.',
+      'answers a question from about four seconds ago.',
+    ],
+  },
+  // The mean drunk. The problem is not the diction, it is what they are saying.
+  belligerent: {
+    level: 0.6, slur: 0.7, stall: 1, trip: 1.1, derail: 1.3, drift: 0,
+    fumbles: ['— no —', "— don't —", '— I said —', '— you know what —'],
+    offscript: [
+      "...who wrote this? No, genuinely. Which one of you.",
+      "...I'm not reading that. Put something else up.",
+      "...say that to me off air. Say it off air.",
+      "...you want to try doing this? Come and do it.",
+    ],
+    collapse: [
+      'is not saying the line. They are looking at the crew, and waiting.',
+      'throws the cards. It takes some time for them all to land.',
+      'walks off the mark mid-sentence to have a word with somebody off-camera.',
+    ],
+  },
+  // The comedown. Not high any more, and it shows.
+  comedown: {
+    level: 0.35, slur: 0.5, stall: 1.2, trip: 0.9, derail: 0.6, drift: 0.25,
+    fumbles: ['—', 'sorry —', 'uh —'],
+    offscript: [
+      "...can we take five. I need five.",
+      "...I'm fine. Keep going, I'm fine.",
+      "...just read it off me, I'll do the rest.",
+    ],
+    collapse: [
+      'closes their eyes for a beat too long, and the beat keeps going.',
+      'rubs their face with both hands and does not come back up for a while.',
+      'is awake. That is as far as it goes.',
+    ],
+  },
+};
+
+// Nootropics and the like — sharper than sober, so no degradation at all. The row
+// exists so `lucid` resolves to something rather than falling to the generic voice
+// and mangling the delivery of a man who is, if anything, reading it better.
+_DELIVERY.lucid = { ..._DELIVERY_DEFAULT, level: 0, slur: 0, stall: 0, trip: 0, derail: 0, drift: 0 };
+
+// A DELIRIANT bolting is its own thing and never reaches a line at all — the panic
+// IS the performance. It resolves through the same `out` path as a blackout.
+_DELIVERY.flee = {
+  ..._DELIVERY.paranoid, level: 1,
+  collapse: [
+    'is off the mark and out of shot before anyone can stop them.',
+    'looks at the door for slightly too long, and then goes through it.',
+    'abandons the desk mid-sentence. The chair is still turning.',
+  ],
+};
+
+// 0 (sharp) → 1 (unbroadcastable). `out` is its own case — they can't perform at
+// all. `state` names the voice this take is read in: a `_DELIVERY` row.
 function _actorImpairment(npcId) {
   const npc = npcId && world.npcs?.get(npcId);
-  if (!npc) return { level: 0, out: false };
+  if (!npc) return { level: 0, out: false, state: null };
   const dose = npc._ai?.dose;
-  // Drink is a meter; a dose is a state. Take whichever is doing more damage.
-  let level = Math.max(0, Math.min(1, (npc.intoxication || 0) / 100));
-  if (dose?.out) return { level: 1, out: true };
-  if (dose?.loose)    level = Math.max(level, 0.65);
-  if (dose?.paranoid) level = Math.max(level, 0.8);
-  if (dose?.wired)    level = Math.max(level, 0.4);
-  return { level, out: false };
+  // Drink is a meter; a dose is a state. Take whichever is doing more damage — and
+  // the STATE follows the damage, so an anchor who is both wired and three drinks
+  // in reads in whichever voice is actually winning, rather than whichever one
+  // this function happened to test for first.
+  let level = 0, state = null;
+  const bid = (lvl, name) => { if (lvl > level) { level = lvl; state = name; } };
+
+  const drink = Math.max(0, Math.min(1, (npc.intoxication || 0) / 100));
+  if (drink > 0) bid(drink, 'drunk');
+
+  if (dose) {
+    if (dose.flee) return { level: 1, out: true, state: 'flee' };
+    // Every state npc-drugs can set, read off the table rather than a branch, so a
+    // state added there needs a `_DELIVERY` row here and nothing else.
+    for (const name of ['wired', 'paranoid', 'mellow', 'tripping', 'dissociated', 'lucid']) {
+      if (dose[name] && _DELIVERY[name]) bid(_DELIVERY[name].level, name);
+    }
+    // HOW MANY, not just whether. Every other state is one dose and one voice, but a
+    // drink is a thing you go back to, and npc-drugs now counts the pours (`doses`)
+    // rather than treating one glass and five as the same evening. One is MERRY —
+    // that is the `drunk` row, which until now was unreachable for an NPC because
+    // nothing ever wrote `intoxication` to one. Two is glassy and candid. Past that
+    // it keeps climbing, and it climbs in whichever sedated voice this person has:
+    // a mean drunk stays belligerent at four pours rather than being quietly
+    // reclassified as maudlin because the number got bigger.
+    if (dose.loose || dose.belligerent) {
+      const pours = Math.max(1, dose.doses || 1);
+      const st = dose.belligerent ? 'belligerent' : (pours <= 1 ? 'drunk' : 'loose');
+      bid(Math.min(0.9, _DELIVERY[st].level + 0.07 * Math.max(0, pours - 2)), st);
+    }
+    // Blacked out outranks everything else in them.
+    if (dose.out) return { level: 1, out: true, state: state || 'loose' };
+  } else if (npc._ai?.comedown) {
+    bid(_DELIVERY.comedown.level, 'comedown');
+  }
+
+  return { level, out: false, state };
 }
 
-const _FUMBLE = [
-  'uh —', 'that is —', 'well —', 'hold on —', 'no, wait —', "let's — let's go again —",
-];
-const _OFFSCRIPT = [
-  "...what is that? What does that even mean?",
-  "...I'm not saying that. Give me the other one.",
-  "...are we rolling? Are we still rolling?",
-  "...no. No, that's not — start me again.",
-  "...I can't read this. Who wrote this?",
-];
+// The style sheet for one take. An unknown or absent state reads in the generic
+// voice, which is exactly what shipped before states existed.
+function _deliveryStyle(state) {
+  return { ..._DELIVERY_DEFAULT, ...(_DELIVERY[state] || null) };
+}
+
+/**
+ * The words for one pool, for one actor, in one state.
+ *
+ * Authoring seam: an NPC may carry their own lines in `flags.delivery_lines`,
+ * keyed by state, with `any` as the catch-all —
+ *
+ *   "delivery_lines": {
+ *     "drunk": { "offscript": ["...Marguerite. Marguerite, are you watching this."] },
+ *     "any":   { "fumbles":   ["— hah —"] }
+ *   }
+ *
+ * Authored lines REPLACE the state's pool rather than joining it: a host given
+ * four of their own drunk asides should be heard saying those four, not those four
+ * diluted by the house set. Anything not authored still falls through to the state
+ * pool, so one bespoke line for one state is a legitimate amount to write.
+ */
+function _voiceLines(style, pool, npc, state) {
+  const authored = npc?.flags?.delivery_lines;
+  const own = authored && ((authored[state] && authored[state][pool]) || (authored.any && authored.any[pool]));
+  if (Array.isArray(own) && own.length) return own;
+  return style[pool] || [];
+}
+
+function _pickVoice(style, pool, npc, state) {
+  const lines = _voiceLines(style, pool, npc, state);
+  return lines.length ? lines[Math.floor(Math.random() * lines.length)] : '';
+}
+
+// Consonants going soft. Scaled, and applied per-occurrence rather than to the
+// whole line, so the same level reads differently take to take. Deliberately a
+// handful of small rules rather than one heavy one: a line where EVERY sibilant
+// has gone reads as a cartoon, and a line where two have gone reads as somebody
+// who has had a drink.
+function _slurLine(text, amount) {
+  if (amount <= 0) return text;
+  const a = Math.min(0.85, amount);
+  return String(text)
+    .replace(/s(?![sh])/g, (m) => (Math.random() < a * 0.5 ? 'sh' : m))
+    .replace(/ing\b/g, (m) => (Math.random() < a * 0.45 ? "in'" : m))
+    .replace(/\band\b/g, (m) => (Math.random() < a * 0.4 ? "an'" : m))
+    .replace(/\bof\b/g, (m) => (Math.random() < a * 0.3 ? "'v" : m))
+    // A vowel held a beat too long while the rest of the word is found.
+    .replace(/([a-z]{3,}?)([aeiou])([a-z])/g, (m, pre, v, post) =>
+      (Math.random() < a * 0.15 ? `${pre}${v}${v}${post}` : m));
+}
 
 // Mangle a line for airtime. Deterministic in shape (always visibly degraded above
-// the floor) but randomised in detail so repeat viewings differ.
-function _garbleLine(text, level) {
+// the floor) but randomised in detail so repeat viewings differ. `state` picks the
+// voice; `npc` is the live row, consulted only for authored lines.
+function _garbleLine(text, level, state = null, npc = null, opts = null) {
   if (!text || level < 0.3) return text;
+  const style = _deliveryStyle(state);
+  // An inert row (`lucid`: sharper than sober) is a state, not an impairment, and
+  // must come back verbatim. Without this the no-op guard at the bottom — which
+  // exists so a real impairment can never air clean — would put an ellipsis into
+  // the delivery of somebody who is, if anything, reading it better than usual.
+  if (!style.stall && !style.trip && !style.derail && !style.drift && !style.slur) return text;
   const p = Math.min(1, (level - 0.3) / 0.6);   // 0 at the floor, 1 at wrecked
   let words = String(text).split(' ');
 
   // Repeat a word — the drunk's stall while the next one arrives.
-  if (Math.random() < 0.35 + p * 0.5 && words.length > 2) {
+  if (Math.random() < (0.35 + p * 0.5) * style.stall && words.length > 2) {
     const i = 1 + Math.floor(Math.random() * (words.length - 1));
     words.splice(i, 0, words[i]);
   }
   // Trip over the start of a clause.
-  if (Math.random() < 0.25 + p * 0.5 && words.length > 3) {
+  if (Math.random() < (0.25 + p * 0.5) * style.trip && words.length > 3) {
     const i = 1 + Math.floor(Math.random() * (words.length - 2));
-    words.splice(i, 0, _FUMBLE[Math.floor(Math.random() * _FUMBLE.length)]);
+    const fumble = _pickVoice(style, 'fumbles', npc, state);
+    if (fumble) words.splice(i, 0, fumble);
+  }
+  // A pause nobody fills — for the states where the problem is TIME rather than
+  // the mouth. Never at the very end, where it reads as the line simply stopping.
+  if (style.drift && Math.random() < style.drift * (0.5 + p) && words.length > 4) {
+    const i = 2 + Math.floor(Math.random() * (words.length - 3));
+    words.splice(i, 0, '...');
   }
   let out = words.join(' ');
-  // Consonants go soft.
-  out = out.replace(/s/g, (m) => (Math.random() < p * 0.5 ? 'sh' : m));
-  // Deep enough in, the line doesn't survive to its own full stop.
-  if (p > 0.55 && Math.random() < p * 0.7) {
-    const cut = out.split(' ');
-    out = cut.slice(0, Math.max(2, Math.floor(cut.length * (0.4 + Math.random() * 0.3)))).join(' ')
-        + ' ' + _OFFSCRIPT[Math.floor(Math.random() * _OFFSCRIPT.length)];
+  // Consonants go soft — how far depends on what they are on.
+  out = _slurLine(out, p * 0.5 * style.slur);
+  // Deep enough in, the line doesn't survive to its own full stop. The aside is
+  // appended AFTER the slur pass, deliberately: what they fall back on when the
+  // script goes is the one thing they can still say clearly.
+  // `noDerail` — a line that is ALREADY off script cannot be derailed off it. Cutting
+  // a tangent beat short to append "...I can't read this. Who wrote this?" throws away
+  // the authored line (the entire point of the tangent) and swaps it for a generic
+  // aside, which on a four-beat run means hearing the same aside three times. The
+  // slur and the stall still apply: he is no less drunk for having gone off book.
+  if (!opts?.noDerail && p > 0.55 && Math.random() < p * 0.7 * style.derail) {
+    const aside = _pickVoice(style, 'offscript', npc, state);
+    if (aside) {
+      const cut = out.split(' ');
+      out = cut.slice(0, Math.max(2, Math.floor(cut.length * (0.4 + Math.random() * 0.3)))).join(' ')
+          + ' ' + aside;
+    }
   }
   // Never silently a no-op once we're past the floor.
   if (out === text) out = text.replace(/\s/, ' ... ');
   return out;
 }
 
+// ── Losing the thread ─────────────────────────────────────────────────────────
+//
+// The garbler works one line at a time, so the worst it can do is mangle a
+// sentence and cut to a one-line aside. A tangent is the other failure: the script
+// is abandoned for a run of lines and somebody has to fetch him back. See
+// tangents.js for the pools and the authoring seam; this half is the plumbing —
+// who is standing there to be the co-host, when it fires, and how often.
+
+// Rare enough to be an event. Scaled by how far gone they are, so a man at the
+// floor of impairment almost never wanders and a wrecked one wanders often.
+const TANGENT_CHANCE = 0.16;
+// ⚠ THIS FLOOR MUST SIT AT OR BELOW THE LOWEST TANGENT-CAPABLE `_DELIVERY` LEVEL.
+// It was 0.45, which is above `wired` (0.4) and `comedown` (0.35) — so a stimulant
+// host had a tangent voice written for him and could never once reach it, and the
+// failure is invisible: nothing errors, the man simply never wanders. Regress now
+// asserts every state with a pool can actually clear this.
+const TANGENT_FLOOR  = 0.35;          // below this level, the thread holds
+const TANGENT_COOLDOWN_MS = 100 * 1000;
+
+// The other person on the studio floor — the cast of THIS programme, minus the man
+// currently talking, minus anyone who isn't actually standing there. A co-host who
+// walked off set does not get to interject from the car park.
+function _tangentCohosts(graph, studioZoneId, hostId) {
+  const ids = _graphCastIds(graph);
+  if (!ids?.size || !studioZoneId) return [];
+  const present = getZone(studioZoneId)?.npcs;
+  if (!present?.size) return [];
+  const out = [];
+  for (const id of ids) {
+    if (id === hostId || !present.has(id)) continue;
+    const npc = world.npcs?.get(id);
+    if (npc && !(npc.hp != null && npc.hp <= 0)) out.push(npc);
+  }
+  return out;
+}
+
+// An actor's ON-AIR BILLING, from the graph that is airing him. A crew member the
+// programme bills as 'PRODUCER' is still an ordinary named NPC everywhere else in
+// the world; the stage name lives on the graph, never on the row. Cached per graph.
+function _anchorDisplayFor(graph, npcId) {
+  if (!graph?.nodes || !npcId) return null;
+  let map = graph._anchorDisplays;
+  if (!map) {
+    map = graph._anchorDisplays = new Map();
+    for (const node of Object.values(graph.nodes)) {
+      const d = node?.type === 'npc_anchor' ? node.data : null;
+      if (d?.npc_id && d.display && !map.has(d.npc_id)) map.set(d.npc_id, d.display);
+    }
+  }
+  return map.get(npcId) || null;
+}
+
+function _maybeStartTangent(bb, graph, state, imp, nowMs) {
+  if (!canTangent(imp.state) || imp.level < TANGENT_FLOOR) return;
+  if (bb.tangent || nowMs < (bb.tangentCooldownUntil || 0)) return;
+  if (Math.random() >= TANGENT_CHANCE * imp.level) return;
+  const host = world.npcs?.get(bb.npcAnchorId);
+  if (!host) return;
+  const tangent = buildTangent({
+    host, cohosts: _tangentCohosts(graph, state.studioZoneId, bb.npcAnchorId), state: imp.state,
+  });
+  if (tangent) bb.tangent = tangent;
+}
+
 // A performer too far gone to deliver anything — the take dies on the studio floor.
-const _COLLAPSE = [
-  'stares into the lens for a long moment and says nothing at all.',
-  'opens their mouth, thinks better of it, and just breathes.',
-  'has lost the script. It is on the floor. So, increasingly, are they.',
-  'gestures at something off-camera and does not finish the gesture.',
-];
+// WHICH way it dies is the state's business: a blackout, a bolt for the door and a
+// man quietly watching the lights are three different pieces of television.
+function _collapseLine(state = null, npc = null) {
+  const style = _deliveryStyle(state);
+  return _pickVoice(style, 'collapse', npc, state) || _DELIVERY_DEFAULT.collapse[0];
+}
 
 function buildCameraSnapshot(zoneId) {
   const zone = getZone(zoneId);
@@ -3466,9 +3978,10 @@ async function getCurrentMessage(state, nowMs) {
     const gameSecondsSinceMidnight = minutes * 60;
     const item = _pickDailySlot(playlist, gameSecondsSinceMidnight, dayOfWeek);
     if (item) {
-      if (item.slotType === 'commercial_break') return _playCommercial(state, nowMs);
+      if (item.slotType === 'commercial_break') { state.currentPlaybackMode = 'commercial'; return _playCommercial(state, nowMs); }
       state.currentFallbackMessages = item.fallbackMessages || [];
       state.currentProgramName = item.broadcastName || null;
+      state.currentPlaybackMode = item.playback_mode || null;
       const segElapsed = gameSecondsSinceMidnight - item.startTime;
       if (item.playback_mode === 'weather') {
         const wxGraph = getWeatherGraph(item);
@@ -3590,6 +4103,7 @@ async function getCurrentMessage(state, nowMs) {
           bb.activeBroadcastId = null;
         }
         state.currentProgramName = null;
+        state.currentPlaybackMode = null;
         return _fillCommercialTail(realElapsed - item.filmRuntime, state.commercialBroadcasts || []);
       } else if (item.broadcastGraph) {
         const r = tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs, segElapsed);
@@ -3629,6 +4143,7 @@ async function getCurrentMessage(state, nowMs) {
     }
     // Nothing scheduled right now — fall through to idle
     state.currentProgramName = null;
+    state.currentPlaybackMode = null;
     if (idleBroadcast?.messages?.length) {
       const result = getScriptedMessage(idleBroadcast.messages, idleBroadcast.message_interval, (nowMs / 1000) % (idleBroadcast.messages.length * (idleBroadcast.message_interval || 5)));
       if (result) return { text: result.text, key: `idle:${result.idx}` };
@@ -3647,7 +4162,11 @@ async function getCurrentMessage(state, nowMs) {
     const elapsed = ((nowMs - loopOriginMs) / 1000) % totalDuration;
     const item = playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);
     if (item) {
-      if (item.slotType === 'commercial_break') return _playCommercial(state, nowMs);
+      if (item.slotType === 'commercial_break') { state.currentPlaybackMode = 'commercial'; return _playCommercial(state, nowMs); }
+      // What KIND of show this is, alongside its name. Read by getZoneNowPlaying
+      // and shipped on `broadcast.message`, so a listener can tell a ball game
+      // from a sermon without re-deriving the schedule for itself.
+      state.currentPlaybackMode = item.playback_mode || null;
       if (item.playback_mode === 'live_camera' && camera) {
         const text = buildCameraSnapshot(camera.zone_id);
         return text ? { text, key: `cam:${nowMs}` } : null;
@@ -4116,6 +4635,59 @@ function _absentCastNames(graph, studioZoneId) {
   return out;
 }
 
+// ── WAITING FOR SOMEBODY WHO IS NOT COMING ────────────────────────────────────
+//
+// A cast member fails to turn up and the viewer gets a stand-by card, which is the
+// station's answer. It was never anybody's answer: the people who DID turn up stood
+// on the floor in total silence, and standing about waiting for a colleague is one
+// of the most reliably characterful things that can happen to a person.
+//
+// So the present cast react, in their own words, to the specific person who is
+// missing. It reads on the studio floor only (it is not on air — nothing is on air,
+// that is the entire problem), and `{missing}` is the name or names.
+//
+// ⚠ EDGE-TRIGGERED, ONE VOICE PER ABSENCE. Level-triggering this puts a man saying
+// the same exasperated line every four seconds for the length of a stand-by card,
+// which turns a character beat into a fault. `bb.absentSpoke` is cleared when the
+// absence is (every path that clears `hostAbsent` clears it), so a second no-show
+// later in the same programme gets its own reaction.
+//
+// Authored per NPC on `flags.absent_lines`; the house pool is the floor, not the
+// intent — the point is that the producer, the host and the priest are not
+// interchangeable when somebody has let them down.
+const ABSENT_HOUSE = [
+  'checks the door, checks the time, and checks the door again.',
+  'asks nobody in particular whether anyone has actually heard from {missing}.',
+  'sits down on the edge of something and stops pretending to be busy.',
+  'says "well" out loud, to a room where nothing is happening.',
+];
+
+function _absentReaction(graph, stageZoneId, bb) {
+  if (!stageZoneId || bb.absentSpoke) return;
+  const present = getZone(stageZoneId)?.npcs;
+  if (!present?.size) return;
+  const missing = _absentCastNames(graph, stageZoneId);
+  if (!missing.length) return;
+  // Whoever is standing there, in the order the programme anchors them — so the
+  // host reacts before the crew, which is how a room like that actually sounds.
+  const ids = [];
+  for (const node of Object.values(graph.nodes || {})) {
+    const id = node?.type === 'npc_anchor' ? node.data?.npc_id : null;
+    if (id && present.has(id) && !ids.includes(id)) ids.push(id);
+  }
+  for (const id of present) if (!ids.includes(id)) ids.push(id);
+  const who = ids.map(id => world.npcs?.get(id)).find(n => n && !(n.hp != null && n.hp <= 0) && !n.flags?.camera_droid);
+  if (!who) return;
+  bb.absentSpoke = true;
+  const pool = Array.isArray(who.flags?.absent_lines) && who.flags.absent_lines.length
+    ? who.flags.absent_lines : ABSENT_HOUSE;
+  const line = pool[Math.floor(Math.random() * pool.length)].replace(/\{missing\}/g, _joinNames(missing));
+  const said = /^["'“]/.test(line);
+  _stageLine(stageZoneId, said
+    ? `<span style="color:var(--yellow)">${who.name} says, ${line}</span>`
+    : `<span style="color:var(--text-dim);font-style:italic">${who.name} ${line}</span>`);
+}
+
 // Is ANY of the graph's scheduled cast standing on the studio floor right now?
 // The stand-by card is for an empty stage — a show that cannot start. A show that
 // has *someone* on set goes ahead, and the absentees just don't get their lines
@@ -4384,7 +4956,15 @@ async function broadcastTick() {
 
       }
       if (formatted) { _recordDeckMessage(channelId, formatted); deckIdleChannels.delete(channelId); }
-      emit('broadcast.message', { channelId, zoneId, text: result.text });
+      // Carry the show's identity alongside the line. A subscriber reacting to
+      // what just aired would otherwise have to look the channel back up, and
+      // by the time it did the next beat could already have replaced it.
+      emit('broadcast.message', {
+        channelId, zoneId, text: result.text,
+        programName, stationName: state.stationName || null,
+        mode: state.currentPlaybackMode || (state.channelType === 'news' ? 'news' : null),
+        style: result.style || 'raw',
+      });
     }
   }
 
@@ -4436,7 +5016,16 @@ async function broadcastTick() {
       deckIdleChannels.delete(channelId);
       for (const [pid, cid] of deckWatchers) if (cid === channelId)
         sendToPlayer(pid, { type: 'deck_broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
-      emit('broadcast.message', { channelId, zoneId: studio, text: result.text });
+      emit('broadcast.message', {
+        channelId, zoneId: studio, text: result.text,
+        programName: result.programName ?? state.currentProgramName ?? null,
+        stationName: state.stationName || null,
+        mode: state.currentPlaybackMode || (state.channelType === 'news' ? 'news' : null),
+        style: result.style || 'raw',
+        // The studio floor, not a set somebody is watching. The cast are SAYING
+        // these lines in the room; nobody in there reacts to them as television.
+        onStage: true,
+      });
     } catch (err) {
       console.error(`[broadcast] studio-acting tick error (${channelId}):`, err.message);
     }
@@ -4816,14 +5405,23 @@ registerNpcStudioZoneLookup((npcId) => {
   const { minutes, dayOfWeek } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
   let anyStaffing = null;
+  // ON LOCATION: THE CALL SHEET SAYS WHERE, NOT JUST WHEN. The slot an actor is due
+  // at may name its own zone, and if it does that is where they are due — not the
+  // building their channel happens to own. Without this the whole cast dutifully
+  // walks to the studio while the programme is being staged in a church basement
+  // across town, the presence gate finds an empty room, and the show that IS
+  // happening reports that nobody turned up to it.
+  const at = (state, item) => (item?.locationZoneId || state.studioZoneId);
   for (const state of channelRuntime.values()) {
     if (!state.studioZoneId) continue;
-    if (!state.playlist.some(i => i.npcStaff?.includes(npcId))) continue;
-    if (!anyStaffing) anyStaffing = state.studioZoneId;
+    const staffed = state.playlist.filter(i => i.npcStaff?.includes(npcId));
+    if (!staffed.length) continue;
+    if (!anyStaffing) anyStaffing = at(state, staffed[0]);
     if (state.scheduleMode !== 'daily') continue;
     const now = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
-    if (now?.npcStaff?.includes(npcId)) return state.studioZoneId;
-    if (_staffCallSlot(state.playlist, gameSecs, dayOfWeek, npcId)) return state.studioZoneId;
+    if (now?.npcStaff?.includes(npcId)) return at(state, now);
+    const call = _staffCallSlot(state.playlist, gameSecs, dayOfWeek, npcId);
+    if (call) return at(state, call);   // _staffCallSlot returns the slot itself
   }
   return anyStaffing;
 });
@@ -5090,7 +5688,7 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   // a working camera in the room to have a picture at all.
   const acted = state.channelType === 'live' || state.graphBlackboard?.activeBroadcastId;
   if (!acted || !state.wasActive) return;
-  if (!zoneCameras.get(zoneId)?.length) return;
+  if (!_camerasIn(zoneId).length) return;
   // Never re-air the show's own performance — those lines reach air by the graph.
   if (msg._fromBroadcast) return;
   // Foot traffic is not television. A busy studio floor generates an arrive/depart
@@ -5768,6 +6366,7 @@ function _dailyLoopFill(state, item, graph, segElapsedGameSec, nowMs) {
     bb.activeBroadcastId = null;
   }
   state.currentProgramName = null;
+  state.currentPlaybackMode = null;
   return { ad: _fillCommercialTail(real - showWindow, state.commercialBroadcasts || [], state, nowMs) };
 }
 
@@ -5817,7 +6416,7 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       // Track speaker so early say nodes have the correct anchor after seeking
       const npcId = node.data?.npc_id;
       const npc = world.npcs?.get(npcId);
-      bb.npcAnchor = npc?.name || _anchorFallbackName(npcId) || null;
+      bb.npcAnchor = node.data?.display || npc?.name || _anchorFallbackName(npcId) || null;
       bb.npcAnchorId = npcId || null;
       nodeId = _resolveEdge(edges, nodeId, 'next');
     } else {
@@ -5889,6 +6488,17 @@ function _subTokens(text, channelId, state, bb) {
 function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   if (!state.graphBlackboard) return null;
   const bb = state.graphBlackboard;
+  // ── WHERE THIS PROGRAMME IS BEING MADE ──────────────────────────────────────
+  // Everything below used to read state.studioZoneId directly, which hard-wired the
+  // idea that a channel has ONE room and every show it airs happens in it. A show
+  // shot on location is the same programme in a different room, so it is one
+  // substitution here rather than a second staging path: the cameras that matter,
+  // the presence gate, the lines the acting layer puts in a room, the stand-by card
+  // and the tangent co-hosts all follow the stage, because they all read this.
+  //
+  // Null location (which is almost everything) is the channel studio, so nothing
+  // that already worked has to know the concept exists.
+  const stageZoneId = graph._locationZone || state.studioZoneId;
   // A broadcast is "acted live" when it runs on a live channel OR the graph demands a
   // present host (weather forecasts set graph._requireHost). Such broadcasts are
   // presence-gated — the host NPC must be in the studio or the channel falls to
@@ -5908,17 +6518,51 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     bb.npcAnchorId = null;
     bb.anchorPresent = true;
     bb.hostAbsent = false;
-    bb.absentDetectedAt = null;
+    bb.absentDetectedAt = null; bb.absentSpoke = false;
     bb.techDiffMode = false;
     // A fresh programme has aired nothing yet, so the delay card is back to
     // "has not yet arrived" until this one puts a frame out.
     bb.airedAny = false;
+    // A digression belongs to the programme it derailed. The next show starts on
+    // script even if the last one ended mid-sentence about somebody's ex-wife.
+    bb.tangent = null;
+    bb.tangentCooldownUntil = 0;
     bb.activeBroadcastId = graph._broadcastId;
     // Seek to mid-program position if tuning in partway through
     if (segElapsedSec > 0) {
       _seekGraph(graph, bb, segElapsedSec * 1000, nowMs);
       return null;
     }
+  }
+
+  // ── TRANSMISSION IS NOT PRESENCE ────────────────────────────────────────────
+  //
+  // Two different questions that used to share one gate. `skipPresence` says: do not
+  // ask whether the cast are standing there. That is right for a scheduled programme,
+  // because a daily slot is a promise the station has already made and a viewer should
+  // not be shown a stand-by card because an actor is four tiles from the door.
+  //
+  // It was ALSO switching off a question that has nothing to do with the cast: is there
+  // a camera in this room, and does its picture reach the gallery? A show can be
+  // perfectly staffed and still be going out to nobody because somebody carried the
+  // deck up the stairs.
+  //
+  // So the transmission check applies to every ACTED programme now, scheduled or not.
+  // It wants a working camera in the room — a bolted-down unit, a camcorder, or a droid
+  // that walked there — and, anywhere that is not the channel's own wired studio, a
+  // portable mediadeck to get the signal home. Either missing is a transmission failure
+  // and reads as one; both heal by themselves the moment the missing piece comes back.
+  // That is what makes the kit a dependency somebody can interfere with rather than
+  // set dressing standing in a basement.
+  if (liveActed && stageZoneId) {
+    const onAir = !!_camerasIn(stageZoneId).length && _uplinkOk(state, stageZoneId);
+    if (!onAir) {
+      bb.techDiffMode = true;
+      bb.cameraBlackout = true;
+      return _techDiffMessage(state, channelId, nowMs);
+    }
+    // Back up — lift the blackout we raised, never a tech-diff some other failure owns.
+    if (bb.cameraBlackout) { bb.cameraBlackout = false; bb.techDiffMode = false; }
   }
 
   // Tech-diff / show-delay only apply to truly-live unscripted channels
@@ -5928,9 +6572,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     if (liveActed) _stampOnAirCast(state, graph, nowMs);
     // Recover the instant the full cast is back on the studio floor.
     // The stage is no longer empty — start the show, even if it's short-handed.
-    if (bb.hostAbsent && state.studioZoneId && _anyCastPresent(graph, state.studioZoneId)) {
+    if (bb.hostAbsent && stageZoneId && _anyCastPresent(graph, stageZoneId)) {
       bb.hostAbsent = false;
-      bb.absentDetectedAt = null;
+      bb.absentDetectedAt = null; bb.absentSpoke = false;
       bb.techDiffMode = false;
     }
     // The stand-by delay card is a duration-0 overlay — it hangs on the client until
@@ -5941,27 +6585,13 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       bb.standbyCardUp = false;
       return { overlay: null, key: `absent-delay-clear:${channelId}:${nowMs}`, style: 'overlay' };
     }
-    // No working camera on the studio floor means no picture, whatever the script
-    // says. A live show with its cameras dark is a transmission failure, and it
-    // recovers by itself the moment a unit comes back up.
-    if (liveActed && state.studioZoneId) {
-      const studioLive = !!zoneCameras.get(state.studioZoneId)?.length;
-      if (!studioLive) {
-        bb.techDiffMode = true;
-        bb.cameraBlackout = true;
-        return _techDiffMessage(state, channelId, nowMs);
-      }
-      // A unit is back up — lift the blackout we raised (but not a tech-diff some
-      // other failure owns).
-      if (bb.cameraBlackout) { bb.cameraBlackout = false; bb.techDiffMode = false; }
-    }
     if (bb.techDiffMode) {
-      if (bb.npcAnchorId && state.studioZoneId) {
-        const zone = getZone(state.studioZoneId);
+      if (bb.npcAnchorId && stageZoneId) {
+        const zone = getZone(stageZoneId);
         if (zone?.npcs?.has(bb.npcAnchorId)) {
           bb.techDiffMode = false;
           bb.hostAbsent = false;
-          bb.absentDetectedAt = null;
+          bb.absentDetectedAt = null; bb.absentSpoke = false;
         }
       }
     }
@@ -6000,7 +6630,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       // keep holding it until they arrive. Re-sent on a 5s slot so late-tuners see it.
       bb.waitUntil = nowMs + 5000;
       bb.standbyCardUp = true;
-      const missing = _absentCastNames(graph, state.studioZoneId);
+      const missing = _absentCastNames(graph, stageZoneId);
       const who = missing.length ? _joinNames(missing) : (bb.npcAnchor || 'a cast member');
       const verb = missing.length > 1 ? 'have' : 'has';
       const slot = Math.floor(nowMs / 5000);
@@ -6034,6 +6664,52 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
 
   if (bb.waitUntil && nowMs < bb.waitUntil) return null;
   bb.waitUntil = null;
+
+  // ── A tangent in progress outranks the script ───────────────────────────────
+  // Drained a beat per tick BEFORE the graph is read, so the running order simply
+  // waits: `bb.currentNode` is already pointing at the next scripted node and is
+  // not touched here. That is the whole reason a tangent needs no branch in the
+  // graph and works on every acted programme ever written, including the ones
+  // authored years before this existed.
+  if (bb.tangent) {
+    const t = bb.tangent;
+    const host = world.npcs?.get(t.hostId);
+    const beat = t.beats[t.i];
+    const hostGone = !host || (liveActed && !skipPresence && bb.anchorPresent === false);
+    // Nobody finishes a digression they have walked out on, or passed out during.
+    if (!beat || hostGone || _actorImpairment(t.hostId).out) {
+      bb.tangent = null;
+      bb.tangentCooldownUntil = nowMs + TANGENT_COOLDOWN_MS;
+    } else {
+      t.i++;
+      const speaker = beat.who === 'cohost' ? world.npcs?.get(t.cohostId) : host;
+      // Each speaker is degraded by their OWN condition: the producer hauling him
+      // back reads clean while the host slurs, unless the producer has had a drink
+      // too, in which case this is a different and much worse show.
+      const sImp = _actorImpairment(speaker?.id);
+      const text = sImp.out ? null
+        : _garbleLine(beat.text, sImp.level, sImp.state, speaker, { noDerail: true });
+      // On air he is whoever the programme bills him as; PRODUCER is a stage name,
+      // and the man himself is an ordinary named NPC the moment he leaves the floor.
+      const billing = (speaker && (_anchorDisplayFor(graph, speaker.id) || speaker.name)) || null;
+      if (text && speaker) {
+        bb.airedAny = true;
+        bb.waitUntil = nowMs + tangentHoldMs(text);
+        if (stageZoneId) {
+          _stageLine(stageZoneId, `<span style="color:var(--yellow)">${billing} says, "${text}"</span>`);
+        }
+        const wrapped = `${billing} says, "${text}"`;
+        return {
+          text: wrapped, key: `tangent:${channelId}:${t.hostId}:${t.i}:${nowMs}`,
+          style: 'raw', duration: (bb.waitUntil - nowMs) / 1000,
+          speech: true, speechText: wrapped,
+        };
+      }
+      // A beat with no one to say it is skipped rather than aired as narration.
+      bb.waitUntil = nowMs + 800;
+      return null;
+    }
+  }
 
   const nodes = graph.nodes;
   const edges = graph.edges || [];
@@ -6069,12 +6745,17 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           const imp = _actorImpairment(bb.npcAnchorId);
           if (imp.out) {
             // Nothing to broadcast — but the studio sees exactly why.
-            _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${bb.npcAnchor || 'The host'} ${_COLLAPSE[Math.floor(Math.random() * _COLLAPSE.length)]}</span>`);
+            _stageLine(stageZoneId, `<span style="color:var(--text-dim);font-style:italic">${bb.npcAnchor || 'The host'} ${_collapseLine(imp.state, world.npcs?.get(bb.npcAnchorId))}</span>`);
             bb.waitUntil = nowMs + 2500;
             nodeId = bb.currentNode; bb.currentNode = null;
             break;
           }
-          raw = _garbleLine(raw, imp.level);
+          raw = _garbleLine(raw, imp.level, imp.state, world.npcs?.get(bb.npcAnchorId));
+          // The line still goes out; the thread goes AFTER it. Rolled here rather
+          // than at the top of the tick so a tangent always hangs off something
+          // that was actually being said — a digression from nothing is just a
+          // monologue.
+          _maybeStartTangent(bb, graph, state, imp, nowMs);
         }
         bb.airedAny = true;   // something has now gone out; see the delay card
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
@@ -6086,15 +6767,15 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         // as captured (never re-wrapped by an anchor) but still leaks to bystanders
         // as [TV] speech, just like genuine dialogue on air.
         const isVerbatim  = style_say === 'verbatim';
-        if (liveActed && state.studioZoneId) {
+        if (liveActed && stageZoneId) {
           if (isNarration) {
             // Unseen announcer — no one is on stage saying this, so it comes over
             // the studio speakers (a NARRATOR:/ANNOUNCER: line, or a SHOT block).
-            _stageLine(state.studioZoneId, `<span style="color:var(--yellow)">The studio speakers announce, "${raw}"</span>`);
+            _stageLine(stageZoneId, `<span style="color:var(--yellow)">The studio speakers announce, "${raw}"</span>`);
           } else if (!isAmbient && bb.npcAnchor) {
-            _stageLine(state.studioZoneId, `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`);
+            _stageLine(stageZoneId, `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`);
           } else if (isAmbient) {
-            _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${raw}</span>`);
+            _stageLine(stageZoneId, `<span style="color:var(--text-dim);font-style:italic">${raw}</span>`);
           }
         }
         const text_say = style_say === 'ticker'
@@ -6117,8 +6798,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         if (songDef || sampleDef) {
           bb.waitUntil = nowMs + nodeHoldMs(node);
           const audioMsg = songDef ? { type: 'audio_music', def: songDef } : { type: 'audio_sample', def: sampleDef };
-          if (liveActed && state.studioZoneId) {
-            sendToZone(state.studioZoneId, audioMsg);
+          if (liveActed && stageZoneId) {
+            sendToZone(stageZoneId, audioMsg);
           }
           return { text, song: songDef || null, sample: sampleDef || null, key: key_music, style: 'music' };
         }
@@ -6140,8 +6821,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.waitUntil = nowMs + nodeHoldMs(node);
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
         const emoteText = bb.npcAnchor ? `${bb.npcAnchor} ${emote}` : emote;
-        if (state.channelType === 'live' && state.studioZoneId) {
-          _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>`);
+        if (state.channelType === 'live' && stageZoneId) {
+          _stageLine(stageZoneId, `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>`);
         }
         return { text: emoteText, key: key_act, style: 'raw' };
       }
@@ -6157,21 +6838,26 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'npc_anchor': {
         const npcId = node.data?.npc_id;
         const npc = world.npcs?.get(npcId);
-        bb.npcAnchor = npc?.name || _anchorFallbackName(npcId) || null;
+        bb.npcAnchor = node.data?.display || npc?.name || _anchorFallbackName(npcId) || null;
         bb.npcAnchorId = npcId || null;
         // Presence check — for live channels and any host-required graph (weather).
         // Two different failures, two different outcomes: nobody at all on the studio
         // floor is a show that can't start (stand-by card); this particular actor
         // missing while the rest are working is just a hole in the programme, and the
         // show carries on around them.
-        if (!skipPresence && npcId && liveActed && state.studioZoneId) {
-          const zone = getZone(state.studioZoneId);
+        if (!skipPresence && npcId && liveActed && stageZoneId) {
+          const zone = getZone(stageZoneId);
           bb.anchorPresent = !!zone?.npcs?.has(npcId);
           if (bb.anchorPresent) {
             bb.hostAbsent = false;
-          } else if (!bb.hostAbsent && !_anyCastPresent(graph, state.studioZoneId)) {
+          } else if (!bb.hostAbsent && !_anyCastPresent(graph, stageZoneId)) {
             bb.hostAbsent = true;
             bb.absentDetectedAt = nowMs;
+          } else if (!bb.anchorPresent) {
+            // The stage is not empty — this one actor is missing and the rest are
+            // standing there waiting for them. That is the case worth a reaction:
+            // an empty stage has nobody in it to react.
+            _absentReaction(graph, stageZoneId, bb);
           }
         } else {
           bb.anchorPresent = true;
@@ -6204,9 +6890,12 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         // working camera actually registered in the target zone; with none there,
         // the shot has no source. Losing the studio's own feed is a transmission
         // failure (tech difficulties); losing a remote feed just kills that cut.
+        // Before asking what can shoot this, send something that can. A fixed unit
+        // cannot move and will not be asked to; a droid is the direction made physical.
+        if (zoneId && liveActed) _dispatchDroid(zoneId, stageZoneId, label, state);
         const cam = zoneId ? _pickCamera(zoneId, state) : null;
         if (!cam) {
-          if (zoneId === state.studioZoneId && !skipPresence) {
+          if (zoneId === stageZoneId && !skipPresence) {
             bb.techDiffMode = true;
             return _techDiffMessage(state, channelId, nowMs);
           }
@@ -6220,8 +6909,15 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         // see the unit take the shot, and anyone standing in a remote zone being cut
         // to sees the lens find them.
         if (liveActed) {
-          _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${cam.label} swings around and takes ${zoneId === state.studioZoneId ? label : `the feed from ${label}`}; its tally light blinks red.</span>`);
-          if (zoneId !== state.studioZoneId) _stageLine(zoneId, `<span style="color:var(--text-dim);font-style:italic">A camera in the corner pivots to face the room. Its tally light comes on.</span>`);
+          // A droid does what it was told, in words: the script says SNAP_TIGHT and
+          // the thing in the room snaps tight. A fixed unit keeps the old line, because
+          // a camera bolted to a wall does not perform.
+          const order = _shotOrder(label);
+          const actor = cam.droid ? (world.npcs?.get(String(cam.id).slice(6))?.name || cam.label) : cam.label;
+          _stageLine(stageZoneId, cam.droid && order.verb
+            ? `<span style="color:var(--text-dim);font-style:italic">${actor} takes the ${order.verb}; its tally light blinks red.</span>`
+            : `<span style="color:var(--text-dim);font-style:italic">${cam.label} swings around and takes ${zoneId === stageZoneId ? label : `the feed from ${label}`}; its tally light blinks red.</span>`);
+          if (zoneId !== stageZoneId) _stageLine(zoneId, `<span style="color:var(--text-dim);font-style:italic">A camera in the corner pivots to face the room. Its tally light comes on.</span>`);
         }
         return { text: `[${cam.label} — ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
       }
@@ -6286,7 +6982,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       // on a timer. _seekGraph walks straight past them without firing, which is exactly
       // right — a late tuner must not open or resolve a round they weren't present for.
       case 'gameshow_round': {
-        gameshowOpenRound(channelId, node, state.studioZoneId);
+        gameshowOpenRound(channelId, node, stageZoneId);
         nodeId = _resolveEdge(edges, nodeId, 'next');
         break;
       }
@@ -6320,8 +7016,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           const themeName = node.data?.theme;
           const themeSong = themeName ? getSongDefByName(themeName) : null;
           const themeSample = themeSong ? null : (themeName ? getSampleDefByName(themeName) : null);
-          if ((themeSong || themeSample) && liveActed && state.studioZoneId) {
-            sendToZone(state.studioZoneId, themeSong ? { type: 'audio_music', def: themeSong } : { type: 'audio_sample', def: themeSample });
+          if ((themeSong || themeSample) && liveActed && stageZoneId) {
+            sendToZone(stageZoneId, themeSong ? { type: 'audio_music', def: themeSong } : { type: 'audio_sample', def: themeSample });
           }
           return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(themeSong ? { song: themeSong } : {}), ...(themeSample ? { sample: themeSample } : {}) };
         }
@@ -6389,8 +7085,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
         // Only relay to room for truly-live channels — never live_relay for recordings
-        if (state.channelType === 'live' && state.studioZoneId) {
-          _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${evText}</span>`);
+        if (state.channelType === 'live' && stageZoneId) {
+          _stageLine(stageZoneId, `<span style="color:var(--text-dim);font-style:italic">${evText}</span>`);
         }
         return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw' };
       }
@@ -7065,6 +7761,87 @@ async function engineerTick() {
     sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer reboots the deck. Normal programming resumes.` });
   }
 }
+// ── The keyholder's pre-show act ──────────────────────────────────────────────
+//
+// A location shoot happens in somebody else's building, and the person whose
+// building it is has their own relationship with it being filmed in. This is the
+// seam for that: an NPC carrying `flags.preshow_act` performs an authored set of
+// beats when a programme staged in the zone they keep enters its CALL WINDOW, and
+// another set once that programme is off the air again.
+//
+// Deliberately generic rather than a hook for one church door, because "the owner
+// of the place does a thing when the crew turn up" is the shape of every location
+// shoot the station will ever do.
+//
+// Three decisions:
+//
+//   • IT IS THE CALL WINDOW, NOT AIRTIME. The act belongs to the run-up — the crew
+//     are unloading, nothing is live, and whatever is being said by doing it is
+//     being said to nobody. Reuses `_staffCallLeadGameSec`, the same lead the cast
+//     themselves are walked in on, so a station that retunes its call time moves
+//     this with it rather than drifting away from it.
+//
+//   • THE BEATS PLAY WHERE THE ACT IS, WHICH IS NOT WHERE THE SHOW IS. `zone` is
+//     authored separately from `stage` because the two are rarely the same room:
+//     the shoot is in a basement and the thing being done is over the front door.
+//
+//   • EDGE-TRIGGERED, and the state lives in RAM. It fires on the transition into
+//     the window and on the transition out, never for as long as the condition
+//     holds — the level-triggered version reads as a man unscrewing the same four
+//     screws every forty seconds for two hours.
+const PRESHOW_ACT_BEAT_MS = [5000, 9000];
+const preshowActState = new Map();   // npcId -> 'idle' | 'call' | 'air'
+
+// Is anything staged in this zone right now, and if so where in its life is it?
+function _locationCallState(stageZoneId) {
+  if (!stageZoneId) return 'idle';
+  const { minutes, dayOfWeek } = getEnvironmentState();
+  const gameSecs = (minutes ?? 0) * 60;
+  const DAY = 86400;
+  const lead = _staffCallLeadGameSec();
+  for (const state of channelRuntime.values()) {
+    for (const i of state.playlist || []) {
+      if (i.locationZoneId !== stageZoneId) continue;
+      if (gameSecs >= i.startTime && gameSecs < i.startTime + i.duration && _slotAirsOn(i, dayOfWeek)) return 'air';
+      const until = ((i.startTime - gameSecs) % DAY + DAY) % DAY;
+      if (until === 0 || until > lead) continue;
+      const airsOn = (gameSecs + until >= DAY) ? (dayOfWeek + 1) % 7 : dayOfWeek;
+      if (_slotAirsOn(i, airsOn)) return 'call';
+    }
+  }
+  return 'idle';
+}
+
+function _playActBeats(zoneId, lines) {
+  if (!zoneId || !lines?.length) return;
+  let i = 0;
+  const step = () => {
+    if (i >= lines.length) return;
+    sendToZone(zoneId, { type: 'zone_event', message: lines[i++] });
+    setTimeout(step, PRESHOW_ACT_BEAT_MS[0] + Math.random() * (PRESHOW_ACT_BEAT_MS[1] - PRESHOW_ACT_BEAT_MS[0]));
+  };
+  step();
+}
+
+function preshowActTick() {
+  if (!hasActivePlayers()) return;
+  const hosts = getNpcsByFlag('preshow_act');
+  if (!hosts?.length) return;
+  for (const npc of hosts) {
+    const act = npc.flags?.preshow_act;
+    if (!act?.stage) continue;
+    if (npc.hp != null && npc.hp <= 0) continue;
+    const now = _locationCallState(act.stage);
+    const was = preshowActState.get(npc.id) || 'idle';
+    if (now === was) continue;
+    preshowActState.set(npc.id, now);
+    // Into the window: they do the thing. Back to idle after it: they undo it.
+    if (was === 'idle' && now === 'call') _playActBeats(act.zone || npc.zone_id, act.before);
+    else if (now === 'idle' && was !== 'idle') _playActBeats(act.zone || npc.zone_id, act.after);
+  }
+}
+schedule('30s', () => { try { preshowActTick(); } catch (e) { console.error('[broadcast] preshow act error:', e.message); } });
+
 schedule('15s', () => engineerTick().catch(e => console.error('[broadcast] engineer tick error:', e.message)));
 
 // Death (which covers a downing/arrest) drops every station the victim held.
@@ -8398,8 +9175,23 @@ export function getZoneNowPlaying(zoneId) {
     number: state.number ?? null,
     channelType: state.channelType || null,
     program: state.currentProgramName || null,
+    // The playback_mode of the item on air — 'sports', 'news', 'gameshow',
+    // 'sermon', 'film', … A news CHANNEL has no playlist item at all, so fall
+    // back to its type; that's the one case where the two agree by definition.
+    mode: state.currentPlaybackMode || (state.channelType === 'news' ? 'news' : null),
+    // The last line the channel actually put out, so a caller can react to the
+    // BEAT rather than only to the programme's name. Never popped, never stale
+    // by more than one beat — `_recordBeat` overwrites it every pass.
+    lastLine: state.lastBeat?.text || null,
   };
 }
+
+// The engine cannot import a plugin, and npc-banter wants to know what's on the
+// screen in the room a scene is starting in. Same shape as the direct export.
+registerAction({
+  type: 'broadcast.getZoneNowPlaying',
+  handler: ({ params = {} } = {}) => getZoneNowPlaying(params.zoneId) || {},
+});
 
 // ── Emergency broadcast verbs (the Echelon's special MediaDeck) ────────────────
 async function cmdAirEmergency(args, raw, player, broadcast) {
@@ -8505,6 +9297,10 @@ export const _test = {
   getGameshowSubject, gameshowSubjectIds,
   subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, otherViewers: _otherViewers,
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
+  collapseLine: _collapseLine, slurLine: _slurLine, deliveryStyle: _deliveryStyle, DELIVERY: _DELIVERY,
+  tangentCohosts: _tangentCohosts, anchorDisplayFor: _anchorDisplayFor,
+  camerasIn: _camerasIn, uplinkOk: _uplinkOk, absentReaction: _absentReaction, ABSENT_HOUSE, dispatchDroid: _dispatchDroid, shotOrder: _shotOrder, channelDroids: _channelDroids, locationCallState: _locationCallState, preshowActTick, maybeStartTangent: _maybeStartTangent,
+  TANGENT_FLOOR, TANGENT_CHANCE,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
   plainAir: _plainAir,
   graphCastIds: _graphCastIds, stampOnAirCast: _stampOnAirCast, isOnAirNow: _isOnAirNow, ON_AIR_CAST_HOLD_MS,
@@ -8564,14 +9360,14 @@ export const routeHandler = async (path, method, body, auth) => {
         const fmMeta = body.film_meta ? JSON.stringify(body.film_meta) : null;
         const smPools = body.sermon_pools ? JSON.stringify(body.sermon_pools) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools,morning_pools,gameshow_pools,film_meta,sermon_pools)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools,morning_pools,gameshow_pools,film_meta,sermon_pools,location_zone_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
            auth?.playerId || 'unknown', graph, body.channel_id || null,
-           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools, mnPools, gsPools, fmMeta, smPools]
+           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools, mnPools, gsPools, fmMeta, smPools, body.location_zone_id || null]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(bid, body.channel_id, tsPools);
         // Same @airtime pinning path — a game show owns its block just like a talk show.
@@ -8598,12 +9394,12 @@ export const routeHandler = async (path, method, body, auth) => {
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,morning_pools=$19,gameshow_pools=$20,film_meta=$21,sermon_pools=$22,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
+           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,morning_pools=$19,gameshow_pools=$20,film_meta=$21,sermon_pools=$22,location_zone_id=$23,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
            body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
-           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id, mnPools, gsPools, fmMeta, smPools]
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id, mnPools, gsPools, fmMeta, smPools, body.location_zone_id || null]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, tsPools);
         if (body.playback_mode === 'gameshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, gsPools);

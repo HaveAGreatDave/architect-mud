@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_003",
+  "lines": [
+    "\"Channel {tv_channel} used to be better.\"",
+    "\"Channel {tv_channel} used to be different. That is not the same thing.\"",
+    "\"It is if you were there.\""
+  ],
+  "personality": null,
+  "sort_order": 512
+}

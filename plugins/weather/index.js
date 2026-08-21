@@ -14,12 +14,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState } from '../../server/engine/environment.js';
-
-const SEASON_BY_MONTH = [
-  'winter', 'winter', 'spring', 'spring', 'spring', 'summer',
-  'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter',
-];
+import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, seasonForDate } from '../../server/engine/environment.js';
 
 const SEASON_BASE_TEMP_C  = { winter: 2,    spring: 12, summer: 24, autumn: 11 };
 const SEASON_BASE_PRECIP  = { winter: 0.35, spring: 0.40, summer: 0.35, autumn: 0.45 };
@@ -52,11 +47,6 @@ function mulberry32(seed) {
 
 function pick(rand, arr) {
   return arr[Math.floor(rand() * arr.length) % arr.length];
-}
-
-function seasonForDate(dateStr) {
-  const month = Number(dateStr.slice(5, 7)) - 1;
-  return SEASON_BY_MONTH[month];
 }
 
 // Turn a climate/season baseline into a concrete day's wind. The weather type sets

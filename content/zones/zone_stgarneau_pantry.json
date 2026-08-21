@@ -1,0 +1,28 @@
+{
+  "ambient_events": [
+    "The shelving ticks under the weight of the tins.",
+    "The pen on its string swings very slightly, and stops."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#26221d",
+  "color": "#c2b394",
+  "description": "A storage room with a hand-lettered sign on the door: ST GARNEAU'S FOOD PANTRY FOR THE POOR. Wire shelving, mostly tins, sorted by somebody who cared enough to face all the labels the same way. A clipboard hangs on a nail by the door with a sheet on it headed TAKEN, and a pen on a string, and the honour system written across the top in the same hand as every note upstairs. The most recent entries are not in that hand and are not entries.",
+  "exits": {
+    "south": "zone_stgarneau_basement"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "St Garneau's",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_925_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_stgarneau_pantry",
+  "map_id": "map_int_stgarneau",
+  "name": "St Garneau's Food Pantry",
+  "parent_zone": "zone_district_925_912"
+}

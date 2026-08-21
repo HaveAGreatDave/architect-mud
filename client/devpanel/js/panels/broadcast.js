@@ -1793,6 +1793,9 @@ async function _bcImportSave({ meta, broadcastGraph, filmScript, sermonScript, w
     gameshow_pools: isGameshow ? (gameshowScript || { host: meta.host, sidekick: meta.sidekick, contestants: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, rounds: null }) : null,
     sermon_pools: isSermon ? (sermonScript || { celebrants: [], verger: meta.verger || '', pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, airDays: null }) : null,
     film_meta: isFilm ? (filmScript || { presents: '', rating: '', director: '', cast: [], title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, runtime: meta.length || null }) : null,
+    // ON LOCATION (`@location <zone_id>`). Null for almost every show, and null means
+    // "wherever the channel lives" — so nothing that already imports has to change.
+    location_zone_id: meta.location || null,
     channel_id: channelId,
   };
   try {

@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "The kettle contracts as it cools, one tick at a time.",
+    "A ledger page turns in a draught nobody can find the source of.",
+    "Somewhere below, a chest freezer cycles on."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2620",
+  "color": "#d6c39c",
+  "description": "A small room off the hall that has been one man's office for longer than most of this district has been standing. A desk with a blotter, a kettle, a shelf of ledgers in a careful hand, and a rail of worn vestments whose colours meant something to somebody. There is a photograph on the wall of a street that is still there and a skyline that is not. On the desk, squared to the edge, is a printed Compliance of Worship certificate with the Architect's eye at its head, and it is the only thing in the room that is not slightly worn, because it is the only thing in the room he does not touch.",
+  "exits": {
+    "west": "zone_stgarneau_nave"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "St Garneau's",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_925_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_stgarneau_vestry",
+  "map_id": "map_int_stgarneau",
+  "name": "Father Jerome's Room",
+  "parent_zone": "zone_district_925_912"
+}

@@ -23,9 +23,164 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
+    "absent_lines": [
+      "\"So {missing} isn't coming. Fine. FINE. I'll do it on my own, I've done everything else on my own.\"",
+      "\"Where is {missing}. No, genuinely, where. Somebody get me a phone that works.\"",
+      "lights one off the last one and stares at the door like it owes him money.",
+      "\"This is what it is now, is it? People just don't come? Nobody comes?\"",
+      "\"I have been here since ten. TEN. And I am the one who is supposedly unreliable.\""
+    ],
     "booze_habit": "embassy reserve",
     "preshow_drink": "embassy reserve",
-    "studio_npc": true
+    "studio_npc": true,
+    "tangents": {
+      "comedown": [
+        [
+          "...I'm alright. I want to say that first, I'm alright.",
+          "I just went a bit far in the lead-up tonight, and that's on me, that's nobody else.",
+          "You do the show, and then the show ends, and then it's a Tuesday and you're down here.",
+          "That's the bit nobody puts in the documentary.",
+          "Anyway. We're fine. Keep rolling."
+        ],
+        [
+          "...does anyone else find the lights loud. The lights are loud tonight.",
+          "I'll tell you the truth, I don't remember doing the first ten minutes of this.",
+          "Was it alright? Was the coupon bit alright?",
+          "...good. Good. Then it happened."
+        ]
+      ],
+      "loose": [
+        {
+          "lines": [
+            "...and that's another thing, that's another thing nobody wants to talk about.",
+            "Barb took the good pans. Not the kids' pictures, not the tax stuff. The PANS.",
+            "You know what that tells you? That tells you it was planned. Nobody grabs pans in a hurry.",
+            "She had a list. My wife had a LIST."
+          ],
+          "topic": "divorce"
+        },
+        {
+          "lines": [
+            "...I price matched that syrup, is my point, I price matched it and then they moved the price.",
+            "So which is the real price? Because it can't be both. It's one or the other and they know which.",
+            "And they do it with everything. Beans. Cheese. The little umbrellas.",
+            "I'm not saying it's connected. I'm saying nobody's checked."
+          ],
+          "topic": "coupon"
+        },
+        {
+          "lines": [
+            "...hang on. Hang on, I want to say something to the guys watching this on their own tonight.",
+            "You're in the basement. I know. I'm in a basement.",
+            "Nobody's coming down here to tell you you did alright. That's not a thing that happens.",
+            "So I'm saying it. You did alright. That's it, that's all I've got."
+          ],
+          "topic": "alone"
+        },
+        {
+          "lines": [
+            "...and I want to talk about Hortons, because nobody will.",
+            "It is harder than Chinese calculus to get a coffee in that place. Twenty minutes. For a coffee.",
+            "They need to get some teenage girls in there, is what I'm saying. Behind the counter. To work.",
+            "Not like that. NOT LIKE THAT. That's not what I said and it's not what I meant.",
+            "Pause. No diddy. Respectfully."
+          ],
+          "topic": "hortons"
+        },
+        {
+          "lines": [
+            "...and our operators are standing by, by the way. For the calls. At the end.",
+            "That phone has not rung once in four years and I don't take that personally.",
+            "It's a payphone. In a basement. That's not nothing, that's infrastructure.",
+            "Somebody had to come down here and install that. Somebody looked at this room and said yeah, that goes there.",
+            "So there's two of us. Him and me. That's who's left."
+          ],
+          "topic": "phone"
+        },
+        {
+          "lines": [
+            "...I'm still not over the Hulkster thing, I'll be honest with you.",
+            "They put him on a graphic telling my audience not to kill themselves. My audience.",
+            "The man was a hero of mine. Twenty-four inch pythons and a friend of Jesus.",
+            "And they smeared him, and we all know why, and I'm NOT going to say it because last time I said it",
+            "there was a whole thing and I had to go outside."
+          ],
+          "topic": "hulkster"
+        },
+        {
+          "lines": [
+            "...now. Now I'm not going to say it.",
+            "I want that on the record. I'm not saying it. I've learned. I have genuinely learned.",
+            "But somebody owns the syrup company, and somebody owns the company that owns that,",
+            "and I have looked into it, and I'm not going to tell you what I found, because I'm a professional.",
+            "I'm just going to sit here. Being right. Quietly."
+          ],
+          "topic": "theone"
+        },
+        {
+          "lines": [
+            "...that board behind me took nine months, by the way.",
+            "Nine months of yarn and pins and a laminator I bought with my own money.",
+            "Barb used to say I should have put that into something. Into a business, or the house.",
+            "This IS the business. This is the house.",
+            "...it's a good board. It's a really good board."
+          ],
+          "topic": "wall"
+        },
+        {
+          "lines": [
+            "...and where is he, by the way. Where is Nguyen tonight.",
+            "That's his stool. That is his actual stool and it's been empty for a while now.",
+            "That man had me on his couch for a year. A YEAR. After Barb, when there was nowhere else and nobody asking.",
+            "And now there's a man with a clipboard where the stool is, and I'm not saying anything happened,",
+            "but the stool's empty and the clipboard's full and I can do arithmetic."
+          ],
+          "topic": "nguyen"
+        },
+        {
+          "lines": [
+            "...he's still in the credits, you know. Every week. I've never taken him out.",
+            "Somebody asked me why. Somebody who works here asked me why, quite recently, in a tone.",
+            "Because he was there first. That's why. He was there when there was nothing to be here for.",
+            "You don't take a man out of the credits because he stopped coming down the stairs."
+          ],
+          "topic": "nguyen"
+        },
+        {
+          "lines": [
+            "...and before I forget, a word from our sponsor, which is a root.",
+            "It's a red root. It comes out of a man's trousers on live television and it is FOR your marriage.",
+            "I have never taken it. I want to be clear. I have no marriage to apply it to.",
+            "But it moves. That's the thing nobody tells you about advertising. It doesn't have to make sense, it has to MOVE."
+          ],
+          "topic": "root"
+        },
+        {
+          "lines": [
+            "...you know this isn't a real basement, right? I should say that. I've never said that on air.",
+            "It's a set. Phil built it. I told him about a room one night and he went and BUILT it.",
+            "It's the room I lived in when I had nothing. Bulb on a string, machines going over your head all night.",
+            "And I sit in it. Every week. On purpose. For money.",
+            "...anyway that's the top ten."
+          ],
+          "topic": "nguyen"
+        }
+      ],
+      "paranoid": [
+        [
+          "...who moved the lizard. The laminated one. Who moved it.",
+          "That was over by Mussolini and now it's by the coupon and I did not do that.",
+          "Somebody has been down here. Somebody has been in my BASEMENT.",
+          "Nguyen. Nguyen, is the door still on the latch. Check the door."
+        ],
+        [
+          "...how many cameras have we got. Two. We've got two.",
+          "So who's operating the third one. Because I can hear a third one.",
+          "Don't look. Don't look at it, just keep doing the show, act like the show is normal.",
+          "The show is completely normal."
+        ]
+      ]
+    }
   },
   "home_activities": [],
   "home_zone": "zone_meridian_unit_303",

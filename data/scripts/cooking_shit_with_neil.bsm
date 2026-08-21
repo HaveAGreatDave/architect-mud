@@ -1,0 +1,359 @@
+@broadcast "Cooking Shit With Neil McManistan"
+@channel st_garneau_stream
+@category cooking
+@host npc_neil_mcmanistan
+@type live
+@location zone_stgarneau_basement
+@titlecard daily_bread_logo
+@length 1500
+
+::actors
+@actor npc_neil_mcmanistan Neil McManistan
+@alias npc_neil_mcmanistan NEIL
+
+@actor npc_phil_mccracken Phil McCracken
+@billing npc_phil_mccracken PRODUCER
+
+@actor npc_father_jerome Father Jerome
+@alias npc_father_jerome JEROME
+
+::endactors
+
+# =============================================================================
+# COOKING SHIT WITH NEIL MCMANISTAN — the sequel show, and a demotion.
+#
+# What happened in between, and every beat of this one leans on it: the root was
+# a front, Nguyen got deported, the network dropped them over "the unregulated
+# drugs and the anti semitism allegations", and the whole operation is now a
+# phone on a tripod in a church basement running on a priest's WiFi.
+#
+# THE PRODUCER IS BILLED, NOT NAMED. `@billing` is what puts PRODUCER on screen
+# while the NPC stays Phil McCracken everywhere else in the world — which is the
+# entire load-bearing joke of the back half, when Neil uses his actual name on
+# air and he asks him not to. Do not "fix" that to @alias.
+#
+# The set is not a set this time. Last show's basement was a replica of somebody
+# else's basement; this is a real kitchen belonging to real women who left real
+# notes on the cupboards, and Neil is stealing from the food bank in it.
+# =============================================================================
+
+::asset daily_bread_logo
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║   ██████╗   █████╗  ██╗ ██╗    ██╗   ██╗                                     ║
+║   ██╔══██╗ ██╔══██╗ ██║ ██║    ╚██╗ ██╔╝                                     ║
+║   ██║  ██║ ███████║ ██║ ██║     ╚████╔╝                                      ║
+║   ██║  ██║ ██╔══██║ ██║ ██║      ╚██╔╝                                       ║
+║   ██████╔╝ ██║  ██║ ██║ ███████╗  ██║                                        ║
+║   ╚═════╝  ╚═╝  ╚═╝ ╚═╝ ╚══════╝  ╚═╝                                        ║
+║                                                                              ║
+║          ██████╗  ██████╗  ███████╗  █████╗  ██████╗                         ║
+║          ██╔══██╗ ██╔══██╗ ██╔════╝ ██╔══██╗ ██╔══██╗                        ║
+║          ██████╔╝ ██████╔╝ █████╗   ███████║ ██║  ██║                        ║
+║          ██╔══██╗ ██╔══██╗ ██╔══╝   ██╔══██║ ██║  ██║                        ║
+║          ██████╔╝ ██║  ██║ ███████╗ ██║  ██║ ██████╔╝                        ║
+║          ╚═════╝  ╚═╝  ╚═╝ ╚══════╝ ╚═╝  ╚═╝ ╚═════╝                         ║
+║                                                                              ║
+║              W I T H   N E I L   M C M A N I S T A N                         ║
+║                                                                              ║
+║   ┌──────────────────────────────────────────────────────────────────────┐   ║
+║   │   ▶  LIVE FROM THE BASEMENT OF ST GARNEAU'S                          │   ║
+║   └──────────────────────────────────────────────────────────────────────┘   ║
+║                                                                              ║
+║        ● REC        UNLICENSED FEED 11        VIEWERS: 4                     ║
+║                                                                              ║
+║        "GIVE US THIS DAY"                                                    ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+::endasset
+
+::scene COLD_OPEN
+
+EVENT FADE_IN
+
+SHOT
+Midday. The commercial kitchen under a rundown church: steel counters, a chest freezer, strip lighting with one tube out. Handwritten notes are taped to every cupboard in the same careful hand. PLEASE WASH YOUR OWN DISHES. CLEANLINESS IS NEXT TO GODLINESS, WASH YOUR HANDS PLEASE. DO NOT TOUCH ANY OF THE FOODS MARKED FATHER JEROME - FATHER JEROME, ST GARNEAU FRENCH CANADIAN ROMAN CATHOLIC CHURCH.
+SHOT_END
+
+CAM 1 WIDE on the kitchen counter
+
+SHOT
+Neil McManistan is behind the counter in a borrowed woman's apron, blue gingham, frilled at the shoulders. It is not his size and it is not close.
+SHOT_END
+
+NEIL:
+I look like fuckin Dorothy in this stupid thing man you couldnt find anything better?
+
+PRODUCER:
+Like the Wizard of Oz? You're making a Wizard of Oz reference in the big '26? We're live dude...
+
+NEIL:
+What do you mean live in thought we couldn't do live anymore
+
+PRODUCER:
+Father Jerome gave me the WiFi password; We had to move to YouTube. They didnt want us on tv after the unregulated drugs and the anti semitism allegations
+
+CAM 2 SNAP_TIGHT on Neil McManistan
+
+NEIL:
+A GOOD MAN GOT DEPORTED THATS YOUR FAULT! THE ROOT WAS GOOD HOW WAS I TO KNOW IT WAS A VIETNAMESE OPIUM FRONT I THOUGHT THAT WAS A CHINESE THING! THANK GOD FOR JEWTUBE IM SURE AS SHIT NOT GONNA GET CANCELLED HERE
+
+PRODUCER:
+You cant be saying that Father Jerome is going to be upset
+
+NEIL:
+Look what they did to Jesus, pal. I think father Jerome would have my back. They try to do that shit and I was around i would have crucified buddy in the audience selling the "I love Jesus" buttons and the "I hate Jesus" buttons in the same stall at the trial. Uncle tom bullshit...
+
+PRODUCER:
+Colonel Tom
+
+NEIL:
+Its Uncle Tom
+
+PRODUCER:
+Colonel Tom was Elvis' manager, and he sold anti Elvis merch as well, thats what you mean right? An uncle tom is a pejorative term for an African American that's subservient to whites
+
+NEIL:
+I bet colonel Tom also controlled the weather...
+
+PRODUCER:
+Colonel Tom was Dutch, not Jewish
+
+NEIL:
+Didja know they have the most lesbians in the world in the Netherlands?
+
+PRODUCER:
+What could that possibly have to do with anything we're doing here?
+
+NEIL:
+They can't keep their fingers out of the dykes over there
+
+PRODUCER:
+I am genuinely sorry that I asked.
+
+EVENT FADE_OUT
+
+::scene TITLES
+
+TITLE daily_bread_logo
+
+MUSIC "Bagpipe Sting"
+DAILY BREAD WITH NEIL MCMANISTAN
+MUSIC_END
+
+SHOT
+Security camera footage, timestamped and greenish. Neil McManistan lets himself into Father Jerome's office and leaves with a bottle of communion wine held low against his leg. A second angle, another night: Neil eating Father Jerome's leftovers standing up in the church basement, straight from the container, with the fridge door open for the light.
+SHOT_END
+
+EVENT DISSOLVE
+
+::scene ACT_1
+
+CAM 1 WIDE on the kitchen counter
+
+NEIL:
+What the hell was that?! You're a fuckin snitch man, where did you get that footage?
+
+PRODUCER:
+Ive got several cameras hidden everywhere man youre a loose cannon i cant believe they're letting us film here
+
+NEIL:
+They probably wont be when youre showing me wheezing the Jesus j-ew-uice and eating the manna out of the house of the lord...
+
+SHOT
+A voice from the other room. It is not raised. It has never needed to be.
+SHOT_END
+
+FATHER JEROME:
+I should have known better but the lord demands forgiveness, you must forget a better path and become an upright man
+
+NEIL:
+Im doing the best I can father but im a fuckin bent over man, ever since Barb bent me over and fucked me good before she left
+
+FATHER JEROME:
+Please try and refrain from that language in here, you cant be eating my leftovers and spouting this virulent antisemitism and speaking ill of your former wife
+
+NEIL:
+Its the only time she ever sucked me dry let me tell ya father. Blood from a stone, but that lawyer of hers played me like a brass instrument and he was Heeb Alpert
+
+PRODUCER:
+Thats a very dated reference and you cant say Heeb in church
+
+FATHER JEROME:
+Was that an encino man reference earlier too?
+
+NEIL:
+Im sorry father. Today we're gonna learn how to make hamburger helper. First things first, we need to do some grocery shopping. Lets see what we have in the pantry.
+
+::scene THE_SHOP
+
+CAM 3 FOLLOW to the pantry door
+
+SHOT
+Neil opens a door into a storage room. The sign on it reads ST GARNEAU'S FOOD PANTRY FOR THE POOR.
+SHOT_END
+
+ACTION npc_neil_mcmanistan takes a box of hamburger helper, a tin of beans and a bag of Doritos off the food pantry shelf and carries them back to the kitchen.
+
+ACTION npc_neil_mcmanistan opens the chest freezer marked SISTERS OF ST GARNEAU SOUP KITCHEN and lifts out a pound of ground beef.
+
+ACTION npc_neil_mcmanistan drops the frozen block into the microwave and shuts the door with his hip.
+
+CAM 1 MEDIUM on Neil McManistan
+
+NEIL:
+Just gonna pop that bad boy in the nuker to defrost, keep an eye on that eh
+
+PRODUCER:
+I don't think thats the best way to do that
+
+NEIL:
+I dont have all day to wait for this shit to thaw, ive got lots to do today
+
+PRODUCER:
+You're practically unemployed, what could you be busy with?
+
+NEIL:
+today we're going to be making hamburger helper. Ive chosen the cheeseburger variety. So you start by cooking up the ground beef...
+
+PRODUCER:
+This is your big cooking show? Making hamburger helper? If you want to do a cooking show you're going to need original recipes. This is just instructions with Neil
+
+NEIL:
+Who the fuck are you, Colonel Sanders?! Don't you judge me I'm gonna add shit, im gonna drive the seasonings to it. Don't forget about the secret ingredient. Didn't think about that did you
+
+::scene THE_COOK
+
+ACTION npc_neil_mcmanistan begins tossing ingredients into the pan without once looking at the box.
+
+ACTION npc_neil_mcmanistan slops milk over the side of the pan and across the counter.
+
+CAM 1 SNAP_TIGHT on the pan
+
+NEIL:
+Fuck sake! Don't film me film that pan ya fuckin maroon
+
+PRODUCER:
+You gotta chill out man Father Jerome is in the livestream right now freaking out in the chat. Also, who the hell is Colonel sanders?
+
+NEIL:
+He invented chicken, you fast food luddite, read a book
+
+ACTION npc_neil_mcmanistan fires in one seasoning after another without reading a single label or naming any of them.
+
+SHOT
+He does not stop. There are eleven of them, and under his breath, not quite off mic, he can be heard saying "heres your fuckin original recipe 11 herbs and spices you prick".
+SHOT_END
+
+FATHER JEROME:
+I HEARD THAT! THE LORD HEARS THAT AND HE ISN'T HAPPY
+
+NEIL:
+WELL I MUST TRULY BE MADE IN THE LORDS IMAGE FATHER, BECAUSE IM NOT TOO HAPPY HERE EITHER! IM MAKING FUCKIN HAMBURGER HELPER IN SOME FUCKIN KITCHENETTE IN SOME LEAKY ALCOVE OF THIS FUCKIN HOUSE OF THE LORD AND YOU KNOW WHAT?!?! THE LORD SHOULD BE PISSED! WE SHOULD ALL BE PISSED! THEY NAILED HIS BOY TO SOME FUCKIN 6X6'S! YOU KNOW THEY DID FATHER
+
+FATHER JEROME:
+We've talked about this Neil, you have to stop all this talk about the Jews, you know christ was a jew?
+
+NEIL:
+If thats how they treat their own imagine what they do to their enemies, father
+
+PRODUCER:
+I think I smell something burning
+
+CAM 2 PAN to the stove
+
+SHOT
+The pan is smoking. Not a wisp of it. The food is going, and it is going fast.
+SHOT_END
+
+ACTION npc_neil_mcmanistan yanks the pan off the heat and throws it into the sink from most of the way across the kitchen.
+
+ACTION npc_neil_mcmanistan turns to the camera, takes out a lighter and a pack of cigarettes, and lights one.
+
+CAM 1 CLOSEUP on Neil McManistan
+
+NEIL:
+I'm glad you were all here to witness it happen, the bitter reality of this cruel world we're living in...
+
+FATHER JEROME:
+You can't be smoking in the church its a sin against the lord we've talked about this-
+
+NEIL:
+BAN FATHER JEROME FROM THE STREAM
+
+PRODUCER:
+I'm not too sure that will do much he's just in other ro-
+
+NEIL:
+I WANT HIM BANNED, IM LOCKING THE DOOR HE'S BANNED
+
+::scene THE_DOOR
+
+ACTION npc_neil_mcmanistan crosses the kitchen and puts his back against the door, barricading it with his own body.
+
+CAM 3 WIDE on the kitchen door
+
+SHOT
+The handle turns from the other side. It turns again, more slowly, the way a patient man tries a thing twice.
+SHOT_END
+
+FATHER JEROME:
+Neil you can't stay on this path, you need to atone for your sins and find a better path
+
+PRODUCER:
+Maybe you should listen to him
+
+NEIL:
+You wanna talk about a path father ive been sliding down so fast im gonna find my ass in China! I've been thrown out of more basements than one of your altar boys when youre finished you don't scare me
+
+PRODUCER:
+JESUS CHRIST!
+
+FATHER JEROME:
+I won't allow you to broadcast this blasphemy on our wifi any longer Neil you need to open this door at once!
+
+ACTION npc_neil_mcmanistan lights a fresh cigarette off the one he is already smoking and takes a long, furious drag.
+
+SHOT
+He stares the lens down while he does it, and beckons off-camera for the bag of chips.
+SHOT_END
+
+CAM 1 SNAP_TIGHT on Neil McManistan
+
+NEIL:
+Gimme those fuckin' chips! Tonight on cooking with Neil we learned how to make hamburger helper. The secret ingredient is fucking it up so bad the hamburger helper catches fire and you ruin it all, cuz thats all thats really happening here! Youre watching a man crash and burn and here i walk in the depth of HELL, father! Im fuckin going through it! So tonight's recipe is a fuckin dinner sized bag of chips, aka the family size, i love that they call em family size, it reminds me of the fact that im having cigarattes and potato chips for dinner and im washing it down with a handle of cheap vodka and I'm gonna eat a gun for dessert if this shit doesnt turn around-
+
+FATHER JEROME:
+just let me in Neil I just want to talk
+
+NEIL:
+HOW MANY ALTAR BOYS HAD TO HEAR THAT LINE FATHER YOU RAT BASTARD I'M NOT OPENING THIS DOOR FOR NO ONE ILL BURN THIS WHOLE BUILDING DOWN PHIL BURN THIS BUILDING DOWN
+
+SHOT
+The producer does not move. On the stream, for a second and a half, the only sound is a chest freezer.
+SHOT_END
+
+PRODUCER:
+Please don't use my name on this program
+
+FATHER JEROME:
+I CANT TAKE THIS ANY LONGER IM CHANGING THE WIFI PASSWORD!
+
+ACTION npc_neil_mcmanistan walks away from the door, opens a drawer and takes out a large bottle of cheap grain alcohol.
+
+ACTION npc_neil_mcmanistan takes a long swig standing up, with the drawer still open.
+
+CAM 1 MEDIUM on Neil McManistan
+
+NEIL:
+Join us next week on dating with Neil where I show you where to find the most available pussy ever. We're coming at you live on location from all the hottest spots for divorced dads to meet eligible run through single moms! IM THINKIN' ARBYS!
+
+SHOT
+The stream does not fade. It stops, mid-room-tone, the way a connection stops.
+SHOT_END
+
+EVENT FADE_OUT
+
+END

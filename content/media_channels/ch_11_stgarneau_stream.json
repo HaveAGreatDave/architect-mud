@@ -1,0 +1,19 @@
+{
+  "channel_type": "live",
+  "commercial_pool": [],
+  "description": "Channel 11 has been dead air since public access folded. It is not dead air on a Tuesday.",
+  "enabled": 1,
+  "id": "ch_11_stgarneau_stream",
+  "idle_broadcast_id": null,
+  "loop_playlist": 1,
+  "name": "St Garneau Stream",
+  "news_categories": [],
+  "number": 11,
+  "offline_graphic_id": null,
+  "priority": 0,
+  "schedule_mode": "daily",
+  "station_name": "UNLICENSED FEED 11",
+  "studio_zone_id": null,
+  "theme_id": null,
+  "updated_at": "1784700000"
+}

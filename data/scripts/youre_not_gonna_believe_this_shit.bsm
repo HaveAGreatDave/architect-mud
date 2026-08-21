@@ -12,6 +12,9 @@
 @actor npc_captain_nguyen Captain Nguyen
 @alias npc_captain_nguyen Nguyen
 
+@actor npc_phil_mccracken Phil McCracken
+@billing npc_phil_mccracken PRODUCER
+
 @actor npc_jerry_rosenberg Jerry Rosenberg
 @alias npc_jerry_rosenberg LAWYER
 
@@ -123,6 +126,13 @@ They must think that I'm retarded. You'd have to be retarded not to put this tog
 
 Captain Nguyen:
 Jesus christ Neil we talked about this shit man you're gonna get us kicked off public access we need this man.
+
+PRODUCER:
+That is the second time in four minutes. I am writing them down.
+
+SHOT
+The voice comes from behind Camera 2, flat and unhurried, from a man who has not looked up. There is a clipboard. There has always been a clipboard.
+SHOT_END
 
 Neil Mcmanistan:
 Im sorry, I'm sorry where was I. I'll tell you where I was, I was at the grocery store and they had a coupon, Tim Horton's iced coffee syrup, save 2 dollars. And you know how I feel about Singh Hortons...
@@ -312,20 +322,24 @@ WHAT THE FUCK WAS THAT MAN?! WAS THAT THE SUICIDE HOTLINE NUMBER?!
 Neil Mcmanistan:
 And why was Hulk Hogan involved?
 
-Captain Nguyen:
+PRODUCER:
 The Hulkster was your idea.
 
 Neil Mcmanistan:
 Why the hell was it my idea when was that ever my idea to have Hulk Hogan telling my audience not to kill themselves?!
 
-Captain Nguyen:
-I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show.
+PRODUCER:
+I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show. I built exactly what you asked for.
 
 Neil Mcmanistan:
 Since when did that mean get the Hulkster to tell my fans not to kill themselves after the divorce?! I was watching the Netflix documentary!
 
-Captain Nguyen:
+PRODUCER:
 That's on me. I thought you'd appreciate the levity.
+
+SHOT
+He says this without any levity whatsoever, and makes a small mark on the clipboard.
+SHOT_END
 
 Neil Mcmanistan:
 The Hulkster wouldn't stand for this. It was all a smear anyways, and we all know why...
@@ -400,13 +414,71 @@ ACTION npc_captain_nguyen reaches into his trousers and produces a strange, gnar
 Captain Nguyen:
 THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG...
 
+PRODUCER:
+You can't pull the plug, Nguyen. You're not on the paperwork.
+
+SHOT
+The basement gets noticeably quieter. Somewhere upstairs a dryer finishes its cycle and buzzes.
+SHOT_END
+
+PRODUCER:
+You're not crew. You're not staff. You're not insured, you're not on a contract, and that root is not a cleared product. I have carried it on my licence for nineteen weeks.
+
+Captain Nguyen:
+...man, this is my HOUSE.
+
+SHOT
+He says it the way you would say it in your own house, which is to say without emphasis, and gestures around the room with the paper bag.
+SHOT_END
+
+PRODUCER:
+It's a set, Nguyen.
+
+Captain Nguyen:
+It's my basement. That's my ceiling. You can hear the machines.
+
+PRODUCER:
+It's a sound cue. We recorded it in your old street because Neil said it wouldn't be right without it.
+
+SHOT
+Nobody says anything for a moment. Somewhere above the ceiling that is not a ceiling, the laundromat that is not a laundromat finishes a cycle exactly on time.
+SHOT_END
+
+Captain Nguyen:
+...he slept on my couch for a year, man.
+
+PRODUCER:
+He did. And you have been on that stool ever since, and one of those is a kindness and the other one is a job.
+
+SHOT
+It is said without cruelty, which is somehow worse, and at the volume of somebody reading a time.
+SHOT_END
+
+Neil Mcmanistan:
+Hey. Hey hey hey. Nguyen's on the crew, I put him on the crew, I said that on air...
+
+PRODUCER:
+You said it on air. That's not the same as it being true, and one of us has to be the one who knows the difference.
+
+ACTION npc_captain_nguyen looks at the camera for a long moment, then at Neil, then puts the paper bag down on the barstool.
+
+Captain Nguyen:
+Neil. I'll be upstairs.
+
+SHOT
+He goes. The stairs take a while. Nobody fills the silence, which is itself a decision, and the man with the clipboard makes another small mark.
+SHOT_END
+
+Neil Mcmanistan:
+...he's coming back down though.
+
+PRODUCER:
+And now a word from our sponsor.
+
 Neil Mcmanistan:
 She took everything. I'm living off tinned beans here. Let a man eat.
 
-Captain Nguyen:
-And now a word from our sponsor.
-
-ACTION npc_captain_nguyen releases Camera 1 and it drops to the concrete floor.
+ACTION npc_neil_mcmanistan lets go of Camera 1 and it drops to the concrete floor.
 
 SHOT
 The camera hits the floor and settles at a forty-five-degree angle. The image holds there. In the background, the argument continues to dissolve into ambient noise.
@@ -497,7 +569,14 @@ SHOT_END
 Neil Mcmanistan:
 Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!
 
-ACTION npc_captain_nguyen rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.
+SHOT
+The camera holds on the barstool, on which there is a paper bag and no Nguyen.
+SHOT_END
+
+PRODUCER:
+Rolling them.
+
+ACTION npc_phil_mccracken produces a large flip chart from behind the second unit with the calm efficiency of a man who was prepared for this.
 
 CREDITS 45
 
@@ -519,6 +598,9 @@ Neil McManistan
 BIG GUY
 Neil McManistan
 
+PRODUCED BY
+PRODUCER
+
 Producer
 Captain Nguyen
 
@@ -529,19 +611,25 @@ END_CREDITS
 
 ::scene postcredits
 
-Captain Nguyen:
+PRODUCER:
 DIVORCE WINNER?!
 
 Neil Mcmanistan:
 Oh fuck off!
 
-Captain Nguyen:
-YOU CAN'T JUST CREDIT YOURSELF AS BIG GUY! I PRODUCE THIS SHOW! I AM THE CAPTAIN!
+PRODUCER:
+You've credited him. He left in the second act and you've credited him as producer, and me as a WORD.
 
-ACTION npc_captain_nguyen flips to the next page of the flip chart.
+Neil Mcmanistan:
+You said you wanted it clean.
 
-Captain Nguyen:
-Real mature, man. Real mature. She was right to leave you, man.
+PRODUCER:
+I did say that. I did say that and I have thought about it every day since.
+
+ACTION npc_phil_mccracken flips to the next page of the flip chart.
+
+PRODUCER:
+Real mature. Real mature. She was right to leave you.
 
 Neil Mcmanistan:
 ... fair observation...

@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_jacket_lined",
+  "name": "lined vat jacket",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 2,
+    "description": "A grey utility jacket with a napped liner sewn in, the sort of garment a dispensary hands out by the hundred and never sees again. The cuffs have gone shiny and the liner has pilled into little grey knots across the back. Somebody wore this before you did, in a body that is no longer available for comment.",
+    "gets_wet": true,
+    "insulation": 3.5,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 40,
+  "weight": 1100
+}

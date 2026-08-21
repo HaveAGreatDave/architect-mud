@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The chest freezer shudders, catches, and settles into its cycle.",
+    "The dead strip light flickers once, decides against it, and stays dead.",
+    "Something drips into the deep sink at a pace just slow enough to be maddening.",
+    "A pipe overhead knocks twice, the way it has since before anyone here was born."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#232624",
+  "color": "#c8cbc4",
+  "description": "A commercial kitchen under the church: steel counters, a six-burner range, a chest freezer stencilled SISTERS OF ST GARNEAU SOUP KITCHEN, and strip lighting with one tube out and nobody in a hurry about it. Handwritten notes are taped to every cupboard in the same careful hand. PLEASE WASH YOUR OWN DISHES. CLEANLINESS IS NEXT TO GODLINESS, WASH YOUR HANDS PLEASE. DO NOT TOUCH ANY OF THE FOODS MARKED FATHER JEROME. Overhead, faintly, the nave.",
+  "exits": {
+    "north": "zone_stgarneau_pantry",
+    "up": "zone_stgarneau_nave"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "St Garneau's",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_925_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_stgarneau_basement",
+  "map_id": "map_int_stgarneau",
+  "name": "St Garneau's Basement Kitchen",
+  "parent_zone": "zone_district_925_912"
+}

@@ -1,0 +1,22 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_coat_quilted",
+  "name": "quilted vat coat",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 3,
+    "description": "A heavy quilted coat in clinic grey, issued off the rack by a dressing gantry that never measured you. The channels are stuffed unevenly, thin at one shoulder and lumpen at the other, and the outer face is treated to bead water rather than drink it. A batch code is stencilled inside the collar in white, and under it, faintly, an older batch code that somebody tried to scrub off.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 4,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 60,
+  "weight": 1500
+}

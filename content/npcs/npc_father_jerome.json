@@ -1,0 +1,403 @@
+{
+  "banter": [
+    [
+      {
+        "npc": "self",
+        "text": "runs a thumb along a pew-back worn into two pale stripes."
+      },
+      {
+        "npc": "self",
+        "text": "\"A hundred and forty years of hands. You cannot buy that and you cannot print it.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "looks up at the steel plate on its much older bracket for a moment longer than the work requires."
+      },
+      {
+        "npc": "self",
+        "text": "\"Well. It is very well made.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "stops in front of the photograph of a street that is still there and a skyline that is not."
+      },
+      {
+        "npc": "self",
+        "text": "\"That corner is a bank now. The corner is fine. It is a good corner.\""
+      }
+    ]
+  ],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "params": {
+          "zone_id": "zone_stgarneau_nave"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "replaces a candle on the rail, and squares the new one to the row.",
+    "wipes the brass on a fitting nobody has needed in forty years.",
+    "\"The building is older than the congregation and the congregation is older than me. That order matters to somebody.\"",
+    "polishes the steel plate at the far end with a cloth kept for it, thoroughly, and without hurry.",
+    "\"They come for the pantry, mostly. That is what a place like this is for, when it is working.\"",
+    "checks the boiler, listens to it, and writes something small in a notebook."
+  ],
+  "description": "An old man in a cassock gone shiny at the elbows, with the build of somebody who was once much larger and the stillness of one who has learned it is usually enough. His hands are steady. He watches the door the way people who remember a different city watch doors, which is to say without appearing to.",
+  "dialogue_tree": {
+    "_start": "root",
+    "nodes": {
+      "aboutneil": {
+        "options": [
+          {
+            "label": "(leave it)",
+            "next": "root"
+          }
+        ],
+        "text": "\"It is about several people,\" Father Jerome says, and does not name any of them."
+      },
+      "before": {
+        "options": [
+          {
+            "label": "And now?",
+            "next": "nowadays"
+          },
+          {
+            "label": "People come to you, though.",
+            "next": "comehere"
+          }
+        ],
+        "text": "\"People want me to say it was better,\" he says. \"It was not, mostly. It was cold and it was unfair and a great many people I liked died of things that are curable now.\" He puts the cloth down. \"But I will tell you one thing that was different, and you may do as you like with it. When something broke, a person came. Not a form. Not a queue. A person you could be angry at, who could be wrong, and who had to look at you.\""
+      },
+      "believe": {
+        "options": [
+          {
+            "label": "That is not much of a creed.",
+            "next": "creed"
+          },
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"That is a larger question than you think you are asking,\" he says, \"and I have watched what I say to it for a very long time, so you will forgive a short answer.\" He sets the cloth down. \"Something made all this and did not stay to explain it. Everything after that is people trying to be decent without the instructions, and arguing about the wording.\" A shrug. \"I was taught a particular wording. Most of the people who could argue it with me are dead. What is left is the decency, and I find that holds up better than the wording ever did.\""
+      },
+      "cameras": {
+        "options": [
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "He considers that for slightly longer than a man would consider a question about screws. \"They film on a Tuesday,\" he says."
+      },
+      "check": {
+        "options": [
+          {
+            "label": "(watch him say nothing else)",
+            "next": "root"
+          }
+        ],
+        "text": "\"Somebody reads a return, I expect,\" he says. \"Nobody has ever come. In fourteen years nobody has come up that road to see whether an old man is saying the right words in an empty room.\" He shrugs, once. \"I say them. They are not hard to say.\""
+      },
+      "comehere": {
+        "options": [
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"They do.\" He almost smiles. \"Nobody is optimising this room. That may be all it is.\""
+      },
+      "creed": {
+        "options": [
+          {
+            "label": "(leave it there)",
+            "next": "root"
+          }
+        ],
+        "text": "\"No,\" he agrees, pleasantly. \"It fits on a card and it took me fifty years, which tells you something about the fifty years.\" He picks the cloth back up. \"The long version is downstairs on a clipboard with a pen on a string.\""
+      },
+      "evenknowing": {
+        "options": [
+          {
+            "label": "(that is about Neil)",
+            "next": "aboutneil"
+          }
+        ],
+        "text": "\"Especially then,\" he says. \"A man who steals tinned beans out of a church is telling you something about his week, and I would rather be told.\" He squares the row of candles. \"The clipboard is not there to catch anybody. It is there so that when he is ready to talk about it, there is already a piece of paper with his handwriting on it and he does not have to start from the beginning.\""
+      },
+      "eye": {
+        "options": [
+          {
+            "label": "You could have refused.",
+            "next": "refused"
+          },
+          {
+            "label": "Does anyone check?",
+            "next": "check"
+          }
+        ],
+        "text": "\"It is,\" he says. \"Compliance of Worship, ninth revision. The certificate is on my desk if you would like to see it, and it is in order.\" He looks up at the plate. \"It was put in by a young man from the ward who did it properly and took two days over it. He drilled through a piece of carving to do it, and he apologised to me, and I told him he had done a good job. Both of those things were true.\""
+      },
+      "howlong": {
+        "options": [
+          {
+            "label": "You remember the old city, then.",
+            "next": "before"
+          },
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"I was born at the turn of the century,\" he says, without any weight on it. \"In the ward, not far. I have been in this building since I was a young man and I expect to be carried out of it.\" He straightens a candle. \"It is not a long time to a building. It is a long time to me.\""
+      },
+      "neil": {
+        "options": [
+          {
+            "label": "Why do you let him stay?",
+            "next": "whystay"
+          },
+          {
+            "label": "You could throw him out.",
+            "next": "throwout"
+          }
+        ],
+        "text": "\"He does.\" A long pause, and no complaint in it at all. \"He is a rude, frightened, unwell man who is very funny about four times an hour, and he steals my supper, and he says things under my roof that I will answer for.\" He puts the cloth down. \"He also turns up. Every week, on time, in a building where nobody makes him. I have buried people who never managed that.\""
+      },
+      "notnothing": {
+        "options": [
+          {
+            "label": "(leave it there)",
+            "next": "root"
+          }
+        ],
+        "text": "He stops what he is doing, briefly. \"No,\" he says. \"It is not nothing. Thank you.\" And then he goes back to it."
+      },
+      "nowadays": {
+        "options": [
+          {
+            "label": "(let it sit)",
+            "next": "root"
+          }
+        ],
+        "text": "He considers the question for a while, which is itself an answer. \"Now it is very efficient,\" he says. \"I want to be fair. It is genuinely very efficient.\" He picks the cloth back up. \"I am old and I am slow and I take up a great deal of room, and I have never once been efficient, and people still come up that road to sit in here. I have thought about why for about fifty years and I have not got to the bottom of it.\""
+      },
+      "pantry": {
+        "options": [
+          {
+            "label": "Even knowing who takes from it?",
+            "next": "evenknowing"
+          },
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"We do.\" He nods downward. \"There is a sheet on a clipboard and a pen on a string and it works on the honour system, and I know precisely what you are about to ask me.\" He does not wait for it. \"Yes. It is abused. It has always been abused. If I put a lock on that door I would keep out nine people who need it to keep out one who does not, and I have run that arithmetic every year since I was forty, and it has never once come out the other way.\""
+      },
+      "plaque": {
+        "options": [
+          {
+            "label": "It always seems to be down when the cameras are here.",
+            "next": "cameras"
+          },
+          {
+            "label": "(let him be)",
+            "next": "root"
+          }
+        ],
+        "text": "\"The fixing is poor,\" he says, without pausing what he is doing. \"Four screws into a hundred-and-forty-year-old lintel. It works loose in the cold and it will crack the stone if it is left to. So it comes down and it goes back up, and I keep the screwdriver on me.\" He squares the cloth on the shelf. \"It is on the return as compliant and it is compliant. Anyone is welcome to come and look at it.\""
+      },
+      "refused": {
+        "options": [
+          {
+            "label": "(that is not nothing)",
+            "next": "notnothing"
+          }
+        ],
+        "text": "\"I could have,\" he agrees, mildly. \"And there would be no pantry, and no boiler, and the building would be a fabrication shop by now with the pews sold on.\" He returns to the brass. \"I am not brave. I want that on the record, because people my age get given credit for a great deal of bravery they never showed. I am here. That is the whole of what I have managed.\""
+      },
+      "root": {
+        "first": "He looks up from the candle rail and takes you in without hurrying about it. \"You are welcome here,\" he says. \"That is not a formula, though it has become one. Father Jerome. The pantry is downstairs and the door is not locked.\"",
+        "options": [
+          {
+            "label": "How long have you been here?",
+            "next": "howlong"
+          },
+          {
+            "label": "What was it like before?",
+            "next": "before"
+          },
+          {
+            "label": "That steel plate is newer than the bracket it's on.",
+            "next": "eye"
+          },
+          {
+            "label": "You take the plaque down sometimes.",
+            "next": "plaque"
+          },
+          {
+            "label": "What is it you actually believe?",
+            "next": "believe"
+          },
+          {
+            "label": "You feed people out of that pantry.",
+            "next": "pantry"
+          },
+          {
+            "label": "Neil McManistan films in your basement.",
+            "next": "neil"
+          },
+          {
+            "label": "(leave him to his work)",
+            "next": null
+          }
+        ],
+        "text": "\"You are welcome here,\" he says, and goes on with what he was doing.",
+        "text_by_relation": {
+          "familiar": "\"Sit down before you ask me anything,\" he says, \"you have a face on you,\" and puts the cloth down.",
+          "known": "\"Back again.\" He does not stop working. \"There is tea in the vestry, and it is not good tea.\""
+        }
+      },
+      "throwout": {
+        "options": [
+          {
+            "label": "(leave him to his work)",
+            "next": "root"
+          }
+        ],
+        "text": "\"And he would go where?\" he asks. It is not rhetorical; he waits, and there is no answer, and he accepts that. \"Quite,\" he says."
+      },
+      "whystay": {
+        "options": [
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"Because he is not finished,\" he says. \"That is not a sentiment, it is an observation, and I have made it about a great many people and been wrong perhaps a third of the time.\" He glances at the stairs down to the kitchen. \"A man who was finished would not bother being angry. The anger is the part I am hopeful about.\""
+      }
+    }
+  },
+  "faction": "ideology_long_watch",
+  "flags": {
+    "absent_lines": [
+      "\"It is not like {missing} to be late. That is not a complaint, it is a fact about {missing}.\"",
+      "goes and stands where he can see the road, without making anything of it.",
+      "\"Has anyone rung? Somebody should ring.\"",
+      "\"There is tea, and there is a chair, and the pair of you have gone very quiet.\""
+    ],
+    "clothing_layers": [
+      "a black cassock gone shiny at the elbows, buttoned to the throat",
+      "a plain clerical shirt with a collar that has been replaced more than once",
+      "stout black shoes, polished, resoled twice"
+    ],
+    "personality": "preacher",
+    "preshow_act": {
+      "after": [
+        "Father Jerome comes back out with the plaque and sets it over the lower line of the carving.",
+        "Father Jerome drives the four screws home and checks with a thumb that it sits square.",
+        "Father Jerome goes back in. The building is compliant, and says so."
+      ],
+      "before": [
+        "Father Jerome comes out with a short screwdriver and looks up at the lintel for a moment.",
+        "Father Jerome backs out four screws, one at a time, and lifts the steel plaque down off the stone.",
+        "Father Jerome stands there with the plaque in both hands, reading the line underneath it.",
+        "Father Jerome carries the plaque inside under one arm, the way you carry a tray."
+      ],
+      "stage": "zone_stgarneau_basement",
+      "zone": "zone_district_925_912"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_stgarneau_vestry",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_father_jerome",
+  "name": "Father Jerome",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_stgarneau_nave"
+}

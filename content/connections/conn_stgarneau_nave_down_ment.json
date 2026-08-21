@@ -1,0 +1,9 @@
+{
+  "a": "zone_stgarneau_nave",
+  "b": "zone_stgarneau_basement",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_stgarneau_nave_down_ment",
+  "lockable": false,
+  "one_way": false
+}

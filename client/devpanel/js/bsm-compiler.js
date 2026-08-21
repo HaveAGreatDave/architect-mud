@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [], unterminatedBlocks: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -14,6 +14,7 @@ function compileBsm(text) {
   //   @actor npc_john_akerson          ← exact entity ID
   //   @alias npc_john_akerson JOHN     ← JOHN: dialogue lines map to npc_john_akerson
   const aliases  = {};  // ALIAS_LABEL (uppercase) → entity id
+  const displays = {};  // entity id → on-air billing (the first alias declared for it)
   const actorIds = [];  // entity ids in declaration order
   let _inActors = false;
   for (const ln of lines) {
@@ -25,6 +26,26 @@ function compileBsm(text) {
     if (mActor) { actorIds.push(mActor[1]); continue; }
     const mAlias = t.match(/^@?alias\s+(\S+)\s+(.+)$/);
     if (mAlias) aliases[mAlias[2].trim().toUpperCase()] = mAlias[1];
+    // ⚠ A BILLING IS NOT AN ALIAS, and deriving one from the other is wrong in a way
+    // that is invisible until it airs. An alias is TYPING SHORTHAND — `@alias
+    // npc_neil_mcmanistan NEIL` exists so the author can write `NEIL:` — so treating
+    // every alias as a stage name puts "NEIL says" and "LAWYER says" on screen for
+    // two men who have perfectly good names.
+    //
+    // A billing is the opposite: a deliberate refusal to use the name. A crew member
+    // the programme credits only as PRODUCER could previously be billed that way ONLY
+    // by naming the NPC "PRODUCER", which then follows him around the world — into
+    // room descriptions, examine, SIFT and his own front door. So it is its own
+    // directive, and it also registers the label, because a man billed as PRODUCER is
+    // always going to be written as `PRODUCER:` in the script:
+    //
+    //   @billing npc_phil_mccracken PRODUCER
+    const mBilling = t.match(/^@?billing\s+(\S+)\s+(.+)$/);
+    if (mBilling) {
+      const name = mBilling[2].trim();
+      displays[mBilling[1]] = name;
+      aliases[name.toUpperCase()] = mBilling[1];
+    }
   }
 
   // Pre-scan @type and the ::cast block. A film's speaker lines compile differently
@@ -220,6 +241,12 @@ function compileBsm(text) {
         // morning: the second host on the couch — a real npc_ id, like @host. The two trade
         // every beat, so the pools are authored as "host line >> cohost line" pairs.
         else if (key === 'cohost')   meta.cohost = val;
+        // ON LOCATION. A programme shot somewhere that is not its channel's studio
+        // names the zone here, and the runner stages the whole thing there: the cast
+        // walk to it, the cameras that count are the ones standing in it, and the
+        // lines the acting layer puts in a room go into that room. Omit for the
+        // overwhelming default, which is that a show happens where the channel lives.
+        else if (key === 'location') meta.location = val;
         // film: the pre-roll cards. @presents is the production company on the
         // distributor card, @rating the certification card, @director the "a film by"
         // credit. All three are plain strings — a film has no studio cast.
@@ -528,7 +555,7 @@ function compileBsm(text) {
     if (ln.startsWith('NPC ')) {
       const npcId = ln.slice(4).trim();
       if (npcId !== activeNpc) {
-        makeNode({ type: 'npc_anchor', npc_id: npcId });
+        makeNode({ type: 'npc_anchor', npc_id: npcId, ...(displays[npcId] ? { display: displays[npcId] } : null) });
         activeNpc = npcId;
       }
       i++; continue;
@@ -590,7 +617,7 @@ function compileBsm(text) {
         continue;
       }
       if (npcId !== activeNpc) {
-        makeNode({ type: 'npc_anchor', npc_id: npcId });
+        makeNode({ type: 'npc_anchor', npc_id: npcId, ...(displays[npcId] ? { display: displays[npcId] } : null) });
         activeNpc = npcId;
       }
       makeNode({ type: 'say', text, style: 'raw' });
@@ -623,7 +650,7 @@ function compileBsm(text) {
     if (ln.startsWith('ENTER ')) {
       const raw = ln.slice(6).trim();
       const npc = raw.startsWith('npc_') ? raw : `npc_${raw}`;
-      if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
+      if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc, ...(displays[npc] ? { display: displays[npc] } : null) }); activeNpc = npc; }
       makeNode({ type: 'npc_action', message: 'enters the frame.' });
       i++; continue;
     }
@@ -635,7 +662,7 @@ function compileBsm(text) {
       const [rawFirst, ...rest] = content.trim().split(/\s+/);
       const npc = rawFirst ? (rawFirst.startsWith('npc_') ? rawFirst : `npc_${rawFirst}`) : activeNpc;
       const act = rest.join(' ');
-      if (npc && npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
+      if (npc && npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc, ...(displays[npc] ? { display: displays[npc] } : null) }); activeNpc = npc; }
       if (act) makeNode({ type: 'npc_action', message: act });
       continue;
     }
@@ -644,7 +671,7 @@ function compileBsm(text) {
       const rawNpc = parts[0] || '';
       const npc = rawNpc.startsWith('npc_') ? rawNpc : `npc_${rawNpc}`;
       const act = parts.slice(1).join(' ');
-      if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
+      if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc, ...(displays[npc] ? { display: displays[npc] } : null) }); activeNpc = npc; }
       if (act) makeNode({ type: 'npc_action', message: act });
       i++; continue;
     }

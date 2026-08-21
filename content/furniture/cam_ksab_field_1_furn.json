@@ -1,0 +1,19 @@
+{
+  "description": "A shoulder-mount camcorder on a light tripod, KSAB asset-tagged, with a pairing light that goes green when the deck answers it. Somebody has taped over the station logo, badly.",
+  "flags": {
+    "broadcast_transmitter": true,
+    "camera_id": "cam_ksab_field_1",
+    "channel_id": "ch_7_1782953079593",
+    "portable": true
+  },
+  "hp": 12,
+  "hp_max": 12,
+  "id": "cam_ksab_field_1_furn",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "field camcorder 1",
+  "object_type": "broadcast_camera",
+  "power_draw_kw": null,
+  "price": 1500,
+  "zone_id": "zone_stgarneau_basement"
+}

@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_jacket_light",
+  "name": "light vat jacket",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 2,
+    "description": "An unlined grey jacket, thin enough to fold into a pocket, cut to the same pattern as the winter issue with everything expensive left out. It stops the wind and makes no other promises. The batch code inside the collar is smudged past reading.",
+    "gets_wet": true,
+    "insulation": 2.5,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 25,
+  "weight": 800
+}

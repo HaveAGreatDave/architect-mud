@@ -52,6 +52,7 @@ export const CRIME_DEFAULTS = {
   jamming_signal:      { label: 'Signal jamming',                stars: 1.5, witness: 'camera', description: "Jamming a security network's transmission." },
   broadcast_piracy:    { label: 'Broadcast piracy',             stars: 3.5, witness: 'always', description: 'Hijacking a station’s media deck and seizing its frequency — a citywide signal takeover reports itself the moment it airs.' },
   bribery_attempt:     { label: 'Attempted bribery',              stars: 0.5, witness: 'camera', description: 'Attempting to bribe an officer on camera.' },
+  harbouring:          { label: 'Harbouring a fugitive',          stars: 2,   witness: 'always', description: "Caught carrying somebody who is wanted. Charged at a scale house when an officer opens the passenger door and finds a person in the sleeper — 'always' witnessed because the officer looking IS the witness, and there is no version of this where nobody saw it. Deliberately below smuggling: you moved a person, not a product." },
 };
 
 let overrides = {}; // key → stars (from DB)

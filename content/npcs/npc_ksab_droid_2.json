@@ -1,0 +1,77 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "rotates in place, unhurried, and stops facing a different wall.",
+    "holds a lens cap in one manipulator for a while, apparently deciding something.",
+    "rises four inches, holds, and settles again with a small hydraulic sigh."
+  ],
+  "description": "The second field droid, identical to the first except for a long scrape down one side and a strip of gaffer tape holding its access panel shut. Its head tracks about a half-second late, which nobody has ever fixed because it makes the cuts feel deliberate.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "camera_droid": true,
+    "camera_label": "Camera 2",
+    "no_attack": true,
+    "personality": "robot"
+  },
+  "home_activities": [],
+  "home_zone": "zone_studio_1782953094650",
+  "hp": 14,
+  "hp_max": 14,
+  "id": "npc_ksab_droid_2",
+  "name": "KSAB field unit 2",
+  "npc_type": "npc",
+  "sex": "none",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [
+      {
+        "from": 9,
+        "to": 13
+      }
+    ],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

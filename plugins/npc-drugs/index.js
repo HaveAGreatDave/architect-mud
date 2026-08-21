@@ -683,6 +683,49 @@ const DRUG_HIGH_MINS    = [90, 150];
 const HABIT_MUTTER_CHANCE = 0.02;           // a slur now and then, not a monologue
 const habitLast = new Map();                // `${npcId}:${flag}` -> ts of last hit
 
+// ── How far he takes it, and you can watch him decide ────────────────────────
+//
+// A habit used to be ONE pour: the ritual played, the dose landed, and every night
+// was identically bad. That is a status effect with a nice animation in front of it,
+// not a man drinking — and it made the worst night of his life indistinguishable
+// from an ordinary Tuesday.
+//
+// So the ritual is the FIRST pour and the night has a size. The extra ones are the
+// same shape as the ritual (a visible beat, re-validated, in the room) because the
+// whole point is that somebody standing there sees him go back to it. `doseNpc`
+// already counts (`d.doses`) and already lets the last dose win on duration, so
+// nothing new is stored — the ladder that was only reachable by force-feeding
+// somebody is now reachable by a man on his own in a basement.
+//
+// Weighted so most nights are ordinary: the bad one has to be rare to read as bad.
+const POUR_WEIGHTS = [0, 0, 0, 0, 1, 1, 2];     // extra pours beyond the ritual's
+const POUR_GAP_MS  = [25000, 70000];            // real ms between them
+const POUR_AGAIN = [
+  `pours another without appearing to have decided to.`,
+  `tops the glass up. There was no gap between the last one and this one.`,
+  `refills, drinks half of it standing, and sits back down heavier.`,
+  `holds the bottle up to the light, finds it emptier than expected, and pours anyway.`,
+  `does not bother with the glass this time.`,
+];
+
+function keepPouring(npc, drinkName, extra, opts) {
+  if (extra <= 0) return;
+  const zoneId = npc.zone_id;
+  let left = extra;
+  const step = () => {
+    // Same re-validation as the ritual, for the same reason: a man who has been
+    // dragged into a fight, put on the floor or moved is not still pouring.
+    const live = world.npcs.get(npc.id);
+    if (!live || live._dead || (live.hp != null && live.hp <= 0)
+        || live.zone_id !== zoneId || live._combatTargetId
+        || live._ai?.homeSleeping || live._ai?.dosedOut) return;
+    sendToZone(zoneId, { type: 'zone_event', message: `${live.name} ${pick(POUR_AGAIN)}` });
+    doseNpc(live, 'sedated', drinkName, opts);
+    if (--left > 0) setTimeout(step, POUR_GAP_MS[0] + Math.random() * (POUR_GAP_MS[1] - POUR_GAP_MS[0]));
+  };
+  setTimeout(step, POUR_GAP_MS[0] + Math.random() * (POUR_GAP_MS[1] - POUR_GAP_MS[0]));
+}
+
 const BOOZE_RITUALS = [
   [`reaches for the {drug} without looking, which tells you where it lives.`,
    `pours a measure with the steadiness of someone who has never once considered that it might be a problem.`,
@@ -703,7 +746,7 @@ const DRUG_RITUALS = [
    `does the {drug} quickly, the way you do a thing you'd rather not be watched doing.`],
 ];
 
-function habitScan(flag, { rituals, mins, kindFor, neverOut }) {
+function habitScan(flag, { rituals, mins, kindFor, neverOut, drink }) {
   if (!hasActivePlayers()) return;
   const npcs = getNpcsByFlag(flag);
   if (!npcs.length) return;
@@ -719,12 +762,18 @@ function habitScan(flag, { rituals, mins, kindFor, neverOut }) {
     habitLast.set(key, now);
     const name = (typeof npc.flags[flag] === 'string' && npc.flags[flag]) ? npc.flags[flag] : 'something';
     const gameMins = mins[0] + Math.random() * (mins[1] - mins[0]);
+    const opts = {
+      durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
+      mutterChance: HABIT_MUTTER_CHANCE,
+      neverOut,
+    };
     runRitual(npc, pick(rituals).map(b => b.replace('{drug}', name)), (live) => {
-      doseNpc(live, kindFor(name), name, {
-        durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
-        mutterChance: HABIT_MUTTER_CHANCE,
-        neverOut,
-      });
+      doseNpc(live, kindFor(name), name, opts);
+      // A DRINK has a size; a hit does not. You measure a hit out — that IS the
+      // ritual — and then it is taken and it is done. A bottle is open on the table
+      // and the next one is a decision you make again in four minutes, so only the
+      // drink columns go back to it.
+      if (drink) keepPouring(live, name, pick(POUR_WEIGHTS), opts);
     });
   }
 }
@@ -734,7 +783,7 @@ schedule('45s', () => {
     // He gets loose, never floored — an NPC who collapses stops running their
     // graph and stops turning up for work. "Often drunk, still on air" is the
     // character; "missing, face down at home" is not.
-    habitScan('booze_habit', { rituals: BOOZE_RITUALS, mins: BOOZE_DRUNK_MINS, kindFor: () => 'sedated', neverOut: true });
+    habitScan('booze_habit', { rituals: BOOZE_RITUALS, mins: BOOZE_DRUNK_MINS, kindFor: () => 'sedated', neverOut: true, drink: true });
     habitScan('drug_habit',  { rituals: DRUG_RITUALS,  mins: DRUG_HIGH_MINS,   kindFor: kindForNamed, neverOut: false });
   } catch (e) { console.error('[npc-drugs] habit error:', e.message); }
 });
@@ -928,6 +977,7 @@ export const _test = {
   classify, parseTargetWith, doseState, TALK_TELL,
   kindForNamed, PRESHOW_RITUALS, PRESHOW_DRINK_RITUALS, BOOZE_RITUALS, DRUG_RITUALS,
   LINE, SOBER, CLASS_KIND,
+  POUR_WEIGHTS, POUR_AGAIN, POUR_GAP_MS, keepPouring,
 };
 
 console.log('[npc-drugs] Plugin loaded.');

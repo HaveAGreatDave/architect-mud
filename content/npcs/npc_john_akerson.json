@@ -199,8 +199,106 @@
   },
   "faction": null,
   "flags": {
+    "absent_lines": [
+      "\"Ladies and gentlemen, {missing} has been detained. By what, we don't know. Ask me again in ten.\"",
+      "\"This is the part of the show nobody writes and everybody watches.\"",
+      "straightens things on a desk that does not need straightening, quickly, twice.",
+      "\"I can do twenty minutes on nothing. I would rather not. But I can.\""
+    ],
     "preshow_habit": "Neural Overclock",
-    "studio_npc": true
+    "studio_npc": true,
+    "tangents": {
+      "comedown": [
+        {
+          "lines": [
+            "...give me a second. Give me a second, I'm going to be honest with the room.",
+            "I came in hot tonight. You could probably tell. I'd like to think you couldn't.",
+            "And now it's leaving, and it takes something with it on the way out.",
+            "That's not a joke. I'll have a joke in a minute. That was just information."
+          ],
+          "topic": "crash"
+        },
+        {
+          "lines": [
+            "...how are we doing for time? Genuinely, not as a bit, how are we doing for time.",
+            "I am going to finish the show. I want that clear. I've finished worse shows in worse shape.",
+            "There was a night in the second year that nobody has ever put on tape, and I finished it.",
+            "So we're fine. This is fine. Roll something."
+          ],
+          "topic": "crash"
+        }
+      ],
+      "wired": [
+        {
+          "lines": [
+            "...and while we're here, while we're actually here, let's do the notes.",
+            "The network sends notes. Every week. This week's note was 'more warmth.'",
+            "More warmth. From me. In a city where the warmth is a billable utility.",
+            "I wrote back and asked what warmth costs, and the second note was 'fewer questions.'",
+            "So that's the relationship. That's the whole relationship, laid out, on air, for free."
+          ],
+          "topic": "notes"
+        },
+        {
+          "lines": [
+            "...no, but this is the thing, and I've been on this all week, this is THE thing.",
+            "We do it live. Everybody asks why. Taped means they'd have time to stop us.",
+            "But go further. Go further with me. Why stop at live? Why stop at an hour?",
+            "You keep the cameras up all night. You don't cut for anything. Somebody eventually says something true.",
+            "I've costed it. I have actually costed it. I'll bring the numbers tomorrow."
+          ],
+          "topic": "live"
+        },
+        {
+          "lines": [
+            "...nineteen years, this man. Nineteen years and I have never once seen him surprised.",
+            "I've tried. I have come out here with things I thought would do it.",
+            "The fire. Remember the fire? Nothing. He announced the sponsors THROUGH the fire.",
+            "That's the job, folks. Not me. That. That's the job."
+          ],
+          "topic": "graham"
+        },
+        {
+          "lines": [
+            "...and the numbers came in, which I'm not supposed to discuss, so let's discuss them.",
+            "We're up. Up in every district that still has power, which is a caveat I want to sit with.",
+            "Because that means the show does well exactly where the lights work, and the lights work where the money is.",
+            "So we're not popular. We're ACCESSIBLE. Those are different words and I want the difference on the record.",
+            "Somebody in the booth is doing the throat thing. I can see you doing the throat thing."
+          ],
+          "topic": "ratings"
+        },
+        {
+          "lines": [
+            "...and the Machine wished everyone a happy productivity quarter, which, fine, but follow it through.",
+            "It does not know what happiness is. It is very confident about it anyway. That's the whole species now.",
+            "I asked it a question once. On air. Years ago, you won't remember.",
+            "It answered in about eleven seconds and I have thought about those eleven seconds every day since.",
+            "Anyway! Anyway. That's a different show. That's a show nobody would let me make."
+          ],
+          "topic": "machine"
+        },
+        {
+          "lines": [
+            "...and our guest tonight, who is a lovely person, is going to sit in that chair and lie to us.",
+            "Not maliciously. Everybody does. You sit there, the light comes up, and something in you starts editing.",
+            "I do it. I'm doing it now. This is the edited version and it's still going badly.",
+            "The chair should have a warning on it. The desk has a warning on it. I put it there."
+          ],
+          "topic": "guest"
+        },
+        {
+          "lines": [
+            "...I want to talk about sleep, because I have been up since a day I'd rather not name.",
+            "Here's what nobody tells you about the penthouse. It's quiet. That's the amenity. Quiet.",
+            "You pay for silence and then you are alone in it at four in the morning with your own head.",
+            "So you come here. Twenty-two hundred. Lights, crowd, band. This is the loud part of my day and it's the only part I can stand.",
+            "That got sad. Let's do the desk bit."
+          ],
+          "topic": "sleep"
+        }
+      ]
+    }
   },
   "home_activities": [
     "pours two fingers of something amber and pointedly does not offer you any",

@@ -38,7 +38,117 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
-    "studio_npc": true
+    "absent_lines": [
+      "\"For the record, and it will be needed: {missing} is not in the building.\"",
+      "\"I am required to fill. I am not required to be interesting while I fill.\"",
+      "checks the run of show, finds it unchanged, and checks it again.",
+      "\"Nineteen years, and this is the fourth time. I could name the other three.\""
+    ],
+    "studio_npc": true,
+    "wrangle_lines": {
+      "crash": {
+        "early": [
+          "I've got it. Take a breath, I'll read the sponsor."
+        ],
+        "late": [
+          "Nobody at home needs to know this, John. I'm saying that as your friend, and I'll say it again as your announcer."
+        ],
+        "recover": [
+          "Ladies and gentlemen, a word from our sponsor. John will be right here when we get back."
+        ]
+      },
+      "early": [
+        "John. The card.",
+        "I'd like to note the time, John. We're four minutes from a break.",
+        "The booth is standing up. They only stand up for two reasons.",
+        "That's not on the run of show. I have the run of show right here.",
+        "You're going somewhere, John, and I would like an address."
+      ],
+      "graham": {
+        "early": [
+          "I'm right here, John."
+        ],
+        "late": [
+          "I'd rather you didn't do me as material. I have asked before, in writing."
+        ],
+        "recover": [
+          "That's very kind and completely off the card. Guest."
+        ]
+      },
+      "guest": {
+        "early": [
+          "The guest can hear you, John."
+        ],
+        "late": [
+          "They are sat in the chair. Right now. Listening to you describe the chair."
+        ],
+        "recover": [
+          "Introduce them. Please just introduce them."
+        ]
+      },
+      "late": [
+        "I'm required to say the views expressed are his. I'm saying it early, to save time.",
+        "Nineteen years, John. This is in the bottom four.",
+        "The band has stopped playing. They do that when they can hear what I can hear.",
+        "I'd like this next part timestamped, please. Whatever it turns out to be.",
+        "Somewhere a lawyer just woke up and does not know why."
+      ],
+      "live": {
+        "early": [
+          "We do an hour, John. We have always done an hour."
+        ],
+        "late": [
+          "You have costed nothing. You have never costed anything in your life."
+        ],
+        "recover": [
+          "Sixty minutes, John. Forty-one of them left. Move."
+        ]
+      },
+      "machine": {
+        "early": [
+          "Careful, John."
+        ],
+        "late": [
+          "I'd like it noted that I did not ask, and that he answered anyway."
+        ],
+        "recover": [
+          "Different show. Different show, John. This one has a guest in it."
+        ]
+      },
+      "notes": {
+        "late": [
+          "The notes are confidential, John. That was the note about the notes."
+        ],
+        "recover": [
+          "We'll take that up with the network. On a phone. Off air. Guest, please."
+        ]
+      },
+      "ratings": {
+        "late": [
+          "You are not supposed to discuss the numbers. That was the entire instruction."
+        ],
+        "recover": [
+          "The booth is now standing on the desk. Break. Now."
+        ]
+      },
+      "recover": [
+        "And we're going to a break. That's not a suggestion, John, that's the clock.",
+        "Bring out the guest. The guest is standing up. The guest has been standing for some time.",
+        "Back to the desk, John. The desk is the most real thing here and it's cardboard.",
+        "Ladies and gentlemen, the monologue. Still. Somehow. John?"
+      ],
+      "sleep": {
+        "early": [
+          "John."
+        ],
+        "late": [
+          "I know. I do know, John."
+        ],
+        "recover": [
+          "...right. The desk bit. Take your time getting there."
+        ]
+      }
+    }
   },
   "home_activities": [],
   "home_zone": "zone_solenne_apt_c",

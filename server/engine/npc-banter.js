@@ -106,9 +106,10 @@ export function eligibleNpcs(zoneId) {
   return out;
 }
 
-// ── Topical tokens (weather & sports) ──────────────────────────────────────────
+// ── Topical tokens (weather, sports & television) ─────────────────────────────
 // Banter lines may embed {tokens} that resolve to live world state, so idle chatter
-// reacts to the day's weather and the DEADBALL standings. Tokens are snapshotted ONCE
+// reacts to the day's weather, the DEADBALL standings, and whatever is on the set in
+// the room the scene is happening in. Tokens are snapshotted ONCE
 // when a scene starts, so a multi-turn exchange stays internally consistent. A thread
 // that references a token with no data right now (e.g. a sports line before any game
 // has been played, or a wind line on a calm day) is skipped in favour of a plain one —
@@ -128,7 +129,10 @@ const WEATHER_WORD = {
 // meaningful right now are left unset so threads that need them get skipped:
 //   • wind is unset on a calm day (so "wind's doing {wind}" only airs when it is)
 //   • sports tokens are unset until games have been played
-async function getTopicContext() {
+//   • tv tokens are unset in a room with no set on, which is most rooms — so a
+//     thread about what's on the screen can only ever air in front of a screen,
+//     and nobody argues about the ball game in an empty stairwell
+async function getTopicContext(zoneId) {
   const tokens = {};
   try {
     const env = getEnvironmentState();
@@ -148,6 +152,16 @@ async function getTopicContext() {
       if (rows.length >= 2) tokens.sports_cellar = rows[rows.length - 1].team;
     }
   } catch { /* sportsleague plugin absent — sports tokens stay unset */ }
+  try {
+    // What's on the screen in THIS room. Via the action registry rather than an
+    // import: broadcast is a plugin and the engine must not reach into one.
+    const tv = await dispatchAction({ type: 'broadcast.getZoneNowPlaying', params: { zoneId } });
+    if (tv?.channelId) {
+      if (tv.program)     tokens.tv_program = tv.program;
+      if (tv.stationName) tokens.tv_station = tv.stationName;
+      if (tv.number != null) tokens.tv_channel = String(tv.number);
+    }
+  } catch { /* broadcast plugin absent — tv tokens stay unset */ }
   return tokens;
 }
 
@@ -217,7 +231,7 @@ async function startScene(zoneId, npcs, broadcast) {
     const thread = pickThread(initiator);
     if (!thread) break;                                   // nothing authored yet
     if (!threadHasTokens(thread)) { turns = thread; break; }
-    if (!tokens) tokens = await getTopicContext();        // fetch once, lazily
+    if (!tokens) tokens = await getTopicContext(zoneId);   // fetch once, lazily
     turns = resolveThread(thread, tokens);                // null → unresolvable, loop
   }
 

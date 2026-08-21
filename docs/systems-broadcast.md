@@ -366,13 +366,157 @@ stand-by card.
 
 **3. Every line is attempted live; the actor's condition decides what lands.** `_actorImpairment(npcId)`
 reads the performer's real state — the dose on their AI blackboard (`npc._ai.dose` from
-[`plugins/npc-drugs`](../plugins/npc-drugs/README.md): `loose`/`wired`/`paranoid`/`out`) and any
-`npc.intoxication` — and `_garbleLine` degrades the delivery in the Paul Masson register: repeated
-words, fumbled clause starts, softened consonants, and past ~0.55 the line doesn't survive to its
-own full stop (*"…I can't read this. Who wrote this?"*). An `out`-cold actor can't perform at all:
-the studio sees them fold, and the air gets nothing. Above the floor the mangling is **never** a
-silent no-op. This is the payoff of `flags.preshow_habit` — Akerson dosing before the cameras roll
-now audibly changes the broadcast.
+[`plugins/npc-drugs`](../plugins/npc-drugs/README.md)), their comedown, and any `npc.intoxication`
+— and returns a **level** *and* a **state**. `_garbleLine` degrades the delivery in the Paul Masson
+register: repeated words, fumbled clause starts, softened consonants, unfilled pauses, and past
+~0.55 the line doesn't survive to its own full stop (*"…I can't read this. Who wrote this?"*). An
+`out`-cold actor can't perform at all: the studio sees them fold (`_collapseLine`), and the air gets
+nothing. Above the floor the mangling is **never** a silent no-op.
+
+⚠ **The broadcast plugin never knows which drug anyone took, and that is the design.** npc-drugs
+already classifies every substance down to a handful of states, so delivery is written against the
+**state** and never against a drug name. Each one is a row in `_DELIVERY` — `drunk`, `loose`,
+`wired`, `paranoid`, `mellow`, `tripping`, `dissociated`, `belligerent`, `comedown`, `lucid`,
+`flee` — carrying four transform weights (`slur`, `stall`, `trip`, `derail`, plus `drift`) and its
+own pools of fumbles, off-script asides and collapses. The weights are what make two actors at the
+**same level** still sound like they are on different things: a wired anchor talks over himself and
+`slur` is deliberately **0**, a loose one slurs everything and keeps losing the end of the sentence.
+`lucid` is inert by design and returns the line verbatim — a state, not an impairment.
+
+The payoff is that **an anchor's habit is pure content**: set `flags.drug_habit` to any drug in the
+catalogue (or `flags.booze_habit` to a drink, or the show-timed `flags.preshow_habit` /
+`flags.preshow_drink`) and their airtime changes to match, with nothing in the plugin edited. A drug
+added tomorrow airs in a voice written before it existed. Adding a *state* is a row; giving one NPC
+their **own words** for a state is authoring —
+
+```json
+"delivery_lines": {
+  "drunk": { "offscript": ["...Marguerite. Marguerite, are you watching this."] },
+  "any":   { "fumbles":   ["— hah —"] }
+}
+```
+
+on the NPC's `flags`, keyed by state with `any` as the catch-all. Authored lines **replace** that
+state's pool rather than joining it (a host given four of their own drunk asides should be heard
+saying those four, not those four diluted by the house set); any pool left unauthored still falls
+through to the state's. Regress asserts every dose state has a row, that all three pools are
+non-empty on each, that a stimulant never slurs while drink does, and that an authored pool shuts
+the house pool out.
+
+**3b. Losing the thread.** The garbler works one line at a time and knows nothing about what is
+being said, so the worst it can do is mangle a sentence and cut to a one-line aside. A **tangent**
+is the other failure, and the one people actually remember from live television: the running order
+is abandoned for a *run* of lines, and somebody has to fetch him back. Lives in
+[`plugins/broadcast/tangents.js`](../plugins/broadcast/tangents.js) — a pure module, no engine
+imports, so regress drives it with object literals.
+
+Rolled at a `say` node **after** the line airs (a digression from nothing is just a monologue),
+gated on `imp.level >= 0.45` and scaled by it, on a ~100s cooldown, and drained one beat per tick
+**before** the graph is read. `bb.currentNode` is never touched, so the running order simply waits
+and **every acted programme ever written gets tangents with no change to its graph**. It aborts if
+the host walks off set or goes `out`.
+
+Three rules:
+
+- **A tangent is a RUN, and stays one.** The pools hold whole runs and one is picked entire. A flat
+  pool of single lines shuffled together is how you get a man who mentions his divorce, then a
+  coupon, then his divorce again, which reads as a bug rather than as a digression.
+- **It is keyed to what they are ON** — the same `_DELIVERY` state names, so a stimulant tangent is
+  a man with a plan talking too fast, a cannabis one wanders and is happy about it, and a deliriant
+  one is about who is in the room. ⚠ **Regress fails the build if a `_DELIVERY` state has no
+  tangent voice** (`lucid` and `flee` exempt: one is sharper than sober, the other never reaches a
+  line). Without that gate a new state degrades lines and can never wander, which reads as the
+  feature being broken on that drug rather than as an authoring gap.
+- **The co-host's lines are the CO-HOST's.** The wrangle is dialogue: spoken by a named second
+  person actually standing on the floor (the graph's own cast, minus the anchor, minus anyone who
+  has left), garbled by their **own** impairment, and authored on them. It lands *inside* the run,
+  because a producer who waits politely for the end of the digression is not wrangling anybody, and
+  the last beat is always theirs and always a return to the running order. With nobody else on the
+  floor there is **no wrangle at all** and the run dies of its own accord, which is the correct and
+  much bleaker version of the same scene.
+
+⚠ **A tangent beat is garbled with `noDerail`.** A line that is already off script cannot be
+derailed off it: cutting a beat short to append *"...I can't read this. Who wrote this?"* throws
+away the authored line — the entire point of the tangent — and on a four-beat run you hear the same
+generic aside three times. Slur and stall still apply; he is no less drunk for having gone off book.
+
+Authoring, on the NPC's `flags`, mirroring `delivery_lines` exactly (authored **replaces** the
+house pool for that state; `any` is the catch-all, consulted only when the state itself is
+unauthored, so one bespoke drunk run doesn't silently disable the character on everything else):
+
+```json
+"tangents": {
+  "loose": [["...and that's another thing.", "Barb took the good pans.", "She had a LIST."]]
+},
+"wrangle_lines": {
+  "early":   ["Neil. Neil. We talked about this."],
+  "late":    ["I am cutting your mic. I am going to do it."],
+  "recover": ["Top ten. You were on the top ten. Go."]
+}
+```
+
+A run may also declare **what it is about** — `{ "lines": [...], "topic": "divorce" }`, with a bare
+array meaning the same thing untagged — and the co-host answers the topic:
+
+```json
+"wrangle_lines": {
+  "divorce": { "late": ["This is the pans again. Every week it's the pans."] },
+  "late":    ["...the register default, for a tangent about anything else"]
+}
+```
+
+Falling through topic → register → `any` → house, so a topic nobody wrote for is an ordinary
+tangent rather than a silent one. ⚠ **A run declares its topic; it never supplies the**
+**interruption.** The shortcut is to let the host's run carry the co-host's lines, and it is wrong
+for the reason the wrangle half exists at all: those words belong to a second person standing on
+the floor. Without the topic seam a producer with one good specific line reads it at random over
+every tangent — *"nobody is watching this for your divorce"* landing on a bit about coffee, which
+is worse than the generic line it displaced.
+
+⚠ **The house pools name nobody** — they are read by whoever happens to be on the floor of whichever
+show, so a default that says "Neil" is one character's dialogue wearing a generic pool's clothes.
+Regress asserts it.
+
+⚠ **The floor must sit at or below the lowest tangent-capable `_DELIVERY` level.** It shipped at
+0.45, which is *above* `wired` (0.4) and `comedown` (0.35) — so a stimulant host had a tangent voice
+written for him and could never once reach it, and nothing errors: the man simply never wanders.
+It is 0.35, and regress asserts every state with a pool can clear it.
+
+Shipped authored, two hosts and two very different failures. **Neil Mcmanistan** loses the thread
+downhill — eight `loose` runs (the pans, the price match, the men watching alone, Singh Hortons, the
+basement payphone, the Hulkster, the one he refuses to say, the conspiracy board), plus two
+`paranoid` and two `comedown` for the states a spiking or a wearing-off can put him in, with
+**Captain Nguyen** answering across all three registers and seven topics. **John Akerson** is not
+lost, he is *launched*: seven `wired` runs (the network's notes, keeping the cameras up all night,
+nineteen years of Graham, the ratings caveat, the Machine's eleven seconds, the chair that makes
+people lie, and the quiet of the penthouse at four in the morning) and two `comedown` runs for the
+lace coming down — the on-air half of the arc whose other half is `ai.crashSleepy` walking him home
+to fold onto the bed mid-sentence. **Graham Mercer** answers him in the register the Tonight Show
+already gave him: he never panics, he *notes*, and he would like it timestamped.
+
+`TANGENT_DUMP=1 node tests/regress.js` prints one tangent per state as it would go to air, garbled
+at that state's own level. The pools are comedy and assembling is not the same as reading well.
+
+**3c. A billing is not a name.** `@billing <npc_id> <NAME>` in a `.bsm` `::actors` block gives an
+actor an **on-air stage name**: the aired line reads `PRODUCER says, "…"` while the NPC row stays
+`Phil McCracken` everywhere else in the world. It rides on the `npc_anchor` node as `display`, which
+is why nothing else had to learn about it — one `||` at each of the two anchor sites. It also
+registers the script label, since a man billed as PRODUCER is always written `PRODUCER:` anyway.
+
+⚠ **Do not derive this from `@alias`.** That was the first attempt and it is wrong in a way that is
+invisible until it airs: an alias is *typing shorthand* (`@alias npc_neil_mcmanistan NEIL` exists so
+the author can write `NEIL:`), so treating every alias as a stage name puts "NEIL says" and "LAWYER
+says" on screen for two men with perfectly good names. A billing is the opposite — a deliberate
+refusal to use the name — and before it existed the only way to get one was to *name the NPC*
+"PRODUCER", which then follows him into room descriptions, examine, SIFT and his own front door.
+
+**3d. Two people on the floor, and only one of them is helping.** `_tangentCohosts` returns *every*
+present cast member, and `buildTangent` picks the wrangler **from the run's topic**: whoever has a
+topical answer, then whoever has any authored voice, then anyone. This is not an optimisation — with
+a producer *and* a mate on a barstool in the same room, picking the first present body makes the
+sober one and the enabler interchangeable, which is the entire distinction between those two
+characters. On *You're Not Gonna Believe This Shit* that means the producer takes the divorce, the
+coupon and the Hulkster; Captain Nguyen takes the magic root, because it is his root.
 
 **4. The audience seam.** The studio-floor relay (`zone.broadcast` → `server/index.js:134`) puts
 **untagged** room events out on air whenever the channel is acting a show there and the room has a
@@ -380,6 +524,165 @@ working camera — so a player can walk into shot, heckle the host, or break som
 sees it. It reaches zone-tuned sets, deck previews, and tablet tuners alike. The show's own
 performance is exempt: every line the acting layer puts in the room goes through `_stageLine`,
 which tags it `_fromBroadcast` so the relay can't pick the performance back up and re-air it.
+
+## On Location
+
+A programme is normally made in the room its channel owns, and until now that was not a default so
+much as an assumption: thirty reads of `state.studioZoneId` inside the runner, each one quietly
+asserting that a channel has ONE room. **A show shot on location is the same programme in a
+different room**, so it is one substitution rather than a second staging path —
+
+```
+const stageZoneId = graph._locationZone || state.studioZoneId;
+```
+
+Everything downstream follows for free, because everything downstream was already reading that
+field: which cameras can execute a shot, the presence gate, the stand-by card, the lines the acting
+layer puts into a room, the tangent co-host lookup, and the camera-blackout check. **Null means the
+channel studio**, so nothing that already worked has to learn the concept exists.
+
+Declared in the script (`@location <zone_id>`), carried on `media_broadcasts.location_zone_id`, and
+stamped onto the stored graph **once at load** rather than threaded through ten tick call sites —
+the stage is a property of the programme, not of the tick.
+
+**The call sheet says where, not just when.** `getNpcStudioZone` now prefers the slot's own
+`locationZoneId`. ⚠ Without this the cast dutifully walk to the studio while the show is being staged
+across town, the presence gate finds an empty room, and the channel tells viewers that nobody turned
+up to a programme that is currently happening.
+
+### The kit
+
+Three pieces, each of which is a physical object in a room rather than a property of the show:
+
+- **Camera droids** (`flags.camera_droid`) — NPCs that ARE a working camera in whatever room they
+  are standing in. The entire integration is `_camerasIn(zoneId)`, which unions the bolted-down
+  `media_cameras` rows with any droid present; the shot picker, the blackout gate and the
+  surveillance relay all inherit walking cameras without one of them being told such a thing exists.
+  They are dispatched by being on the programme's `npc_staff` — the same machinery that walks a human
+  anchor to work — so **nothing in the broadcast plugin dispatches anything**. A droid that is downed,
+  jammed, or simply goes home takes the picture with it, which is what makes a location shoot
+  something you have to STAFF.
+- **The portable mediadeck** (`flags.portable_mediadeck`, furniture) — the case with the aerial. A
+  studio is wired and needs none; a church basement is wired to nothing, so a stage that is not the
+  channel's own studio needs a deck in the room or the signal never reaches the gallery. It is
+  furniture deliberately: it can be switched off, carried out, stolen, or left behind. That failure
+  resolves through the tech-difficulties path that already exists for a studio with dark cameras,
+  because from the couch it is the same event and should not need a second explanation.
+- **Camcorders** — ordinary `media_cameras` rows flagged `portable` + `paired_deck`, which is what
+  makes them work everywhere a studio camera works with nothing taught about them.
+
+First location: **St Garneau's basement kitchen** (`zone_stgarneau_basement`), where *Cooking Shit
+With Neil McManistan* is shot on a priest's WiFi.
+
+### Transmission is not presence
+
+Two questions that used to share one gate. `skipPresence` says **do not ask whether the cast are
+standing there** — right for a scheduled programme, since a daily slot is a promise the station has
+already made and a viewer should not get a stand-by card because an actor is four tiles from the
+door. It was also switching off a question with nothing to do with the cast: **is there a camera in
+this room, and does its picture reach the gallery?** A show can be perfectly staffed and still be
+going out to nobody because somebody carried the deck up the stairs.
+
+So the transmission check now applies to every **acted** programme, scheduled or not. It wants a
+working camera in the room (a bolted-down unit, a camcorder, or a droid that walked there) and —
+anywhere that is not the channel's own wired studio — a `portable_mediadeck` to get the signal home.
+Either missing raises tech difficulties and reads as one; both heal by themselves the moment the
+missing piece comes back. **That is what makes the kit a dependency somebody can interfere with
+rather than set dressing standing in a basement.**
+
+⚠ **`channel_type` decides whether a show is PERFORMED or merely printed.** On a `playlist` channel
+`liveActed` is false, the staffing self-heal strips `npc_staff` to `{}`, and the programme plays as
+text with nobody in a room. It is why KSAB's own basement show has never been acted, and it is the
+first thing to check when a live-authored show is not behaving like one.
+
+⚠ **A crew member who works in more than one building must not carry a fixed `work_zone_id`.**
+`GO_TO_WORK` resolves `params → work_zone_id → studio_zone_id → getNpcStudioZone`, so a pinned zone
+**wins over the call sheet**: the producer walks to the studio on the day the show is in a church,
+and his lines come out of an empty room. The same applies to field units, and doubly — a camera the
+studio sends out is defined by being sendable, so a droid with a pinned work zone can only ever
+serve one location for the rest of its life. Null on both, and the per-slot lookup answers. Note
+broadcast staffing runs off the **playlist** (`npc_staff` + the slot's day mask + the call lead),
+never off `vendor_schedule`, so a shift window wider than the show is a contradiction nothing reads.
+
+### A camera direction is an order
+
+A bolted-down camera can only shoot the room it is screwed to, so a cut to a zone with no unit in it
+has always simply had no source. That is still true of fixed units and it is the right answer for
+them. **A droid is different, and this is the whole reason it is an NPC rather than a row:** it is
+the physical manifestation of the direction. `CAM 3 FOLLOW to the pantry door` is not a rendering
+instruction, it is a machine being told to go to the pantry, so it goes, the room it leaves sees it
+leave, the room it enters sees it arrive, and the shot happens because there is now something there
+to take it. It then performs the shot it was given: the script says `SNAP_TIGHT` and the thing in
+the room snaps tight.
+
+The unit named in the label is taken first — a script that numbers its cameras is describing a crew
+and should get the crew it describes.
+
+⚠ **Bounded by hops, not by reachability.** The first cut of this asked only "is there a path", and
+the world is connected: a direction to a room across the city is technically followable, and a unit
+sets off on a twenty-minute walk to the Ascendant shrine in the middle of the programme. A camera
+direction moves a camera around a **location**; `MAX_DISPATCH_HOPS` is what keeps it there, and
+anything further is a direction nobody could execute and gets the dark-camera answer. This is also
+worth knowing when writing regress: off shift the crew sit at the studio, so a dispatch test has to
+put them on location first or it is only testing the cap.
+
+### Waiting for somebody who is not coming
+
+A cast member fails to turn up, the viewer gets a stand-by card, and that is the *station's* answer.
+It was never anybody's: the people who did turn up stood on the floor in total silence. `flags.absent_lines`
+gives them their own, aimed at the specific person who is missing (`{missing}` is the name or names),
+and it plays on the studio floor only — nothing is on air, that being the entire problem.
+
+⚠ **Edge-triggered, one voice per absence.** Level-triggered, it is a man saying the same exasperated
+line every four seconds for the length of a stand-by card, which turns a character beat into a fault.
+`bb.absentSpoke` clears wherever the absence does, so a second no-show later in the same programme
+gets its own reaction.
+
+Six authored, and deliberately not interchangeable — regress fails if any two of them share a line.
+Neil takes it personally inside four seconds; Phil does not get angry, he documents; Nguyen's
+afternoon has just improved; Father Jerome is the only one who is not inconvenienced but *worried*;
+Graham announces it, for the record, as he has announced everything for nineteen years; and John
+cannot help doing a bit about it, and the bit is thinner than usual.
+
+### The keyholder's pre-show act
+
+A location shoot happens in **somebody else's building**, and the person whose building it is has
+their own relationship with it being filmed in. `flags.preshow_act` on an NPC is the seam for that:
+authored beats that play when a programme staged in the zone they keep enters its **call window**,
+and a second set once it is off the air again.
+
+```json
+"preshow_act": {
+  "stage":  "zone_stgarneau_basement",
+  "zone":   "zone_district_925_912",
+  "before": ["…the crew are unloading and he does the thing…"],
+  "after":  ["…and undoes it…"]
+}
+```
+
+Three decisions:
+
+- **It is the CALL WINDOW, not airtime.** The act belongs to the run-up: the crew are unloading,
+  nothing is live, and whatever is being said by doing it is being said to nobody. It reuses
+  `_staffCallLeadGameSec` — the same lead the cast themselves are walked in on — so retuning the
+  station's call time moves this with it instead of letting it drift.
+- ⚠ **`zone` is authored separately from `stage`, because the two are rarely the same room.** The
+  shoot is in a basement; the thing being done is over the front door. One field for both puts a man
+  unscrewing an outdoor plaque inside a basement kitchen, which is exactly what the first cut did.
+- **Edge-triggered, RAM-only.** It fires on the transition into the window and on the transition
+  out, never for as long as the condition holds — the level-triggered version reads as a man
+  unscrewing the same four screws every forty seconds for two hours.
+
+First use: **Father Jerome and the plaque.** The church's own name is cut into the lintel and an
+Architect compliance plaque is fitted across the lower line, covering it exactly. When the crew
+arrive he takes it down; when the show is over he puts it back. ⚠ **Nothing anywhere says why,
+including him** — asked directly he gives a true and completely unresponsive answer about a loose
+fixing in a hundred-and-forty-year-old lintel, and the only tell is physical: four screw holes gone
+oval, and a rectangle of sandstone at the plaque's edges a shade cleaner than the wall around it.
+Regress fails the build if the words *protest*, *defiance*, *resist* or *statement* ever reach that
+content, on the same principle as the Scarletwastes trophy road: the moment anything names it, it
+stops working.
+
 
 ## Music Cues
 
@@ -1023,6 +1326,36 @@ Condition node → type: CHANNEL_HAS_VIEWERS
 ```
 
 Returns true if any player is currently watching that channel. Implemented via `broadcast-bridge.js` to avoid circular imports. The plugin also registers the **`IS_BROADCAST_SCHEDULED`** and **`AT_WORK_ZONE`** AI conditions (used by the studio-actor default graphs).
+
+### The audience — NPCs reacting to what's on (as built)
+
+Two separate things, deliberately, because they answer different questions.
+
+**The beat that just aired** is the `tv-reactions` plugin ([README](../plugins/tv-reactions/README.md)).
+`broadcastTick()` has always emitted `broadcast.message` for every beat it puts into every room
+with a tuned device; nothing consumed it until now. The emit carries `programName`, `stationName`,
+`mode` (the item's `playback_mode`) and `style` alongside the text, so a subscriber can tell a ball
+game from a sermon without re-deriving the schedule — and would otherwise have to look the channel
+back up, by which time the next beat could already have replaced it. The studio-floor emit is
+flagged `onStage`, because in there the cast are *saying* the lines rather than watching them.
+
+**What's on generally** is a banter token. `getTopicContext()` in
+[npc-banter.js](../server/engine/npc-banter.js) now resolves `{tv_program}`, `{tv_station}` and
+`{tv_channel}` for the zone a scene is starting in, alongside the weather and sports tokens that
+were already there. **They are unset in a room with no set on**, which is most rooms — so the
+existing "a thread whose token has no value is skipped in favour of a plain one" rule means an
+authored thread about the programme can only ever air in front of a screen. Nothing new was needed
+to make that true.
+
+The engine reaches this through the **`broadcast.getZoneNowPlaying`** action rather than an import,
+since npc-banter is engine and must not reach into a plugin. The action returns the same shape as
+the `getZoneNowPlaying()` export, which now also carries `mode` and `lastLine`.
+
+`state.currentPlaybackMode` is the field behind `mode`. It is set wherever the tick selects a
+playlist item (the daily-schedule path and the sequential loop), set to `'commercial'` on a
+commercial break, and cleared everywhere `state.currentProgramName` is cleared. A news *channel*
+has no playlist item at all, so it falls back to its `channel_type`; that is the one case where
+the two agree by definition.
 
 ### `broadcast-bridge.js`
 

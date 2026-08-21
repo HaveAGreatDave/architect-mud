@@ -60,7 +60,7 @@ import { playIntroCinematic } from './panels/intro-cinematic.js';
 import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightBurst, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
-import { openCab, closeCab, cabContext, isCabActive } from './panels/cab-view.js';
+import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/cab-view.js';
 import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/engine-audio.js';
 import { openTruckDepot, closeTruckDepot, isTruckDepotActive } from './panels/truck-depot.js';
@@ -1435,6 +1435,10 @@ const handlers = {
   // The air horn. Pushed to everyone in the zone (plugins/trucking cmdHorn), so you hear somebody
   // else's rig go off in the yard as well as your own — which is the only reason a horn is a verb.
   truck_horn: (msg) => { airHorn(msg.typeId, msg.secs ?? null); },
+  // The galley flap's answer. Dropped on the floor when no cab is up, which is the right
+  // handling rather than a missing case: 'galley' is an ordinary verb and can be typed from a
+  // depot forecourt, where the LOG is the surface and this panel does not exist.
+  truck_galley: (msg) => { cabGalley(msg); },
   // Dismounting takes the set with it — the Deadhead window closes because the radio is gone,
   // not because anybody pressed anything on it.
   truck_sim_close: () => { closeCab(); clearCbContext(); },

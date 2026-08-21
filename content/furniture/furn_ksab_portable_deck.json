@@ -1,0 +1,19 @@
+{
+  "description": "A scuffed grey flight case standing open on its end, aerial up, with a row of pairing lights down one side and a handle worn back to bare metal. It is the single most expensive object in this room by a wide margin and it is sitting on a church floor.",
+  "flags": {
+    "broadcast_transmitter": true,
+    "channel_id": "ch_7_1782953079593",
+    "portable_mediadeck": true,
+    "uplink_channel": "ch_7_1782953079593"
+  },
+  "hp": 30,
+  "hp_max": 30,
+  "id": "furn_ksab_portable_deck",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "portable mediadeck",
+  "object_type": "media_deck",
+  "power_draw_kw": null,
+  "price": 4200,
+  "zone_id": "zone_stgarneau_basement"
+}

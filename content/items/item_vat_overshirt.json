@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_overshirt",
+  "name": "thin vat overshirt",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 1,
+    "description": "A loose grey overshirt in thin cotton weave, barely outerwear at all, issued in the months when the gantry judges a coat to be waste. It hangs off the shoulders and lets the air through, which in fairness is the entire specification. The stencilled batch code sits crooked across one breast pocket.",
+    "gets_wet": true,
+    "insulation": 1,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 15,
+  "weight": 400
+}

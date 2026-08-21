@@ -6203,6 +6203,91 @@ removeLivePlayer(P.id);
   check('brief: an empty room adds no "Also here" line', !/Also here/.test(briefRoom(BARE)), briefRoom(BARE));
 }
 
+// ── The vat issues seasonal outerwear ────────────────────────────────────────
+// Every body that comes back is dressed by one function, so the failure mode here
+// is quiet: a typo'd item id makes the INSERT…SELECT match no row, the .catch()
+// swallows it, and the player walks out of the vat with a bare torso in January.
+// Nothing else in the game would report that. Hence the id-resolution check.
+{
+  const { SEASONAL_TORSO, STARTER_CONDITION, equipStarterOutfit } = await import('../server/engine/gameLoop.js');
+  const { seasonForDate } = await import('../server/engine/environment.js');
+  const { conditionBand } = await import('../server/engine/durability.js');
+
+  check('season: the four seasons map to four distinct garments',
+    new Set(Object.values(SEASONAL_TORSO)).size === 4, Object.values(SEASONAL_TORSO).join(', '));
+
+  const { rows: garments } = await query(
+    `SELECT id, tags->>'slot' AS slot, tags->>'layer' AS layer, (tags->>'insulation')::numeric AS ins
+       FROM items WHERE id = ANY($1)`, [Object.values(SEASONAL_TORSO)]);
+  const byId = new Map(garments.map(r => [r.id, r]));
+  const missing = Object.values(SEASONAL_TORSO).filter(id => !byId.has(id));
+  check('season: every issued garment resolves to a real items row', missing.length === 0, missing.join(', '));
+  check('season: …and every one is torso/outerwear, the cell the basic shirt used to hold',
+    garments.every(r => r.slot === 'torso' && r.layer === 'outerwear'),
+    garments.map(r => `${r.id} ${r.slot}/${r.layer}`).join(' | '));
+
+  // Kit totals. The garment REPLACES item_basic_shirt rather than layering over it,
+  // so the total is the seasonal torso piece plus pants and shoes.
+  const { rows: base } = await query(
+    `SELECT id, (tags->>'insulation')::numeric AS ins FROM items WHERE id = ANY($1)`,
+    [['item_basic_pants', 'item_basic_shoes']]);
+  const baseIns = base.reduce((n, r) => n + Number(r.ins || 0), 0);
+  check('season: pants + shoes are the 2.0°C the kit is built on', baseIns === 2, String(baseIns));
+
+  const EXPECTED = { winter: 6, autumn: 5.5, spring: 4.5, summer: 3 };
+  const totals = Object.fromEntries(Object.entries(SEASONAL_TORSO)
+    .map(([s, id]) => [s, Number(byId.get(id)?.ins || 0) + baseIns]));
+  const offBy = Object.keys(EXPECTED).filter(s => totals[s] !== EXPECTED[s]);
+  check('season: each kit totals its designed insulation', offBy.length === 0,
+    offBy.map(s => `${s} ${totals[s]} != ${EXPECTED[s]}`).join(', '));
+
+  // The migration invariant: summer reproduces exactly what the old fixed kit gave
+  // in EVERY season. If this moves, warm-weather behaviour has silently changed.
+  check('season: summer is exactly the 3.0°C the old fixed kit always issued', totals.summer === 3);
+  check('season: winter is the warmest and summer the thinnest',
+    totals.winter > totals.autumn && totals.autumn > totals.spring && totals.spring > totals.summer);
+
+  // Still well under the parka/snowsuit tier, or bought cold-weather gear is pointless.
+  const { rows: [parka] } = await query(`SELECT (tags->>'insulation')::numeric AS ins FROM items WHERE id='item_thermal_parka'`);
+  check('season: even the winter coat leaves real cold gear worth buying',
+    Number(byId.get(SEASONAL_TORSO.winter).ins) < Number(parka.ins), `${byId.get(SEASONAL_TORSO.winter).ins} vs parka ${parka.ins}`);
+
+  // A missing clock must never produce a naked body. seasonForDate returns null and
+  // the lookup falls through to the mild default.
+  check('season: no game date yields no season rather than a throw', seasonForDate(null) === null);
+  check('season: …and an unparseable date does the same', seasonForDate('not-a-date') === null);
+  check('season: a null season selects no garment, so the fallback is what dresses the body',
+    SEASONAL_TORSO[seasonForDate(null)] === undefined);
+  check('season: months map to the seasons the kits are keyed on',
+    seasonForDate('2076-01-15') === 'winter' && seasonForDate('2076-07-15') === 'summer'
+    && seasonForDate('2076-04-15') === 'spring' && seasonForDate('2076-10-15') === 'autumn');
+
+  // Issued gear is worn. This fires on EVERY respawn, so Pristine would make dying
+  // a free wardrobe refresh.
+  check('season: the issued condition sits in the Battered band, not Pristine',
+    conditionBand(STARTER_CONDITION).id === 'battered', conditionBand(STARTER_CONDITION).id);
+
+  // End to end against a real body: whatever season the world clock is in, the vat
+  // dresses the torso and the rows land worn.
+  const dressed = { id: randomUUID(), handle: 'RegressVatDress', biological_sex: 'male' };
+  await query(`INSERT INTO players (id, handle, biological_sex) VALUES ($1,$2,$3)
+               ON CONFLICT (id) DO NOTHING`, [dressed.id, dressed.handle, 'male']).catch(() => {});
+  await equipStarterOutfit(dressed.id, 'male');
+  const { rows: worn } = await query(
+    `SELECT pi.item_id, pi.condition, pi.layer, i.tags->>'slot' AS slot
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=1`, [dressed.id]);
+  const torsoRow = worn.find(r => r.slot === 'torso' && r.layer === 2);
+  check('season: the vat actually put a garment on the torso',
+    !!torsoRow && Object.values(SEASONAL_TORSO).includes(torsoRow.item_id),
+    worn.map(r => `${r.item_id}@${r.slot}/${r.layer}`).join(' | '));
+  check('season: …and issued the whole kit worn, not pristine',
+    worn.length > 0 && worn.every(r => Number(r.condition) === STARTER_CONDITION),
+    worn.map(r => `${r.item_id} ${r.condition}`).join(' | '));
+  await purgeFakePlayer(dressed.id);
+  await query('DELETE FROM players WHERE id=$1', [dressed.id]).catch(() => {});
+}
+
 await sweepOrphanedPlayerRows();
 stopAll();
 

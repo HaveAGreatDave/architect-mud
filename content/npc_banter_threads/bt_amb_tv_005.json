@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_005",
+  "lines": [
+    "\"How much of {tv_program} do you think is real?\"",
+    "\"The furniture.\"",
+    "laughs once, without much in it."
+  ],
+  "personality": null,
+  "sort_order": 514
+}

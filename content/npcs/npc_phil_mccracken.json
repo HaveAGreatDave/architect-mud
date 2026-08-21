@@ -1,0 +1,432 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "checks a running order nobody else has read.",
+    "writes a time on the back of his hand and looks at the door.",
+    "\"It goes out at eight whether it is ready or not. That is the whole job.\"",
+    "straightens something that was already straight, then puts it back crooked so it looks lived in.",
+    "\"I have never once been thanked on air. I keep a note of it. Not a grudge. A note.\"",
+    "listens to something in an earpiece, closes his eyes briefly, and says nothing."
+  ],
+  "description": "A man in a pressed shirt with a lanyard he has never once been asked for, holding a clipboard against his chest like a shield. He has the specific alertness of somebody who is always four minutes from a problem, and the resting face of somebody who has already solved it and been thanked by nobody.",
+  "dialogue_tree": {
+    "_start": "root",
+    "nodes": {
+      "billing": {
+        "options": [
+          {
+            "label": "You could change it back.",
+            "next": "change"
+          },
+          {
+            "label": "(say nothing)",
+            "next": "root"
+          }
+        ],
+        "text": "\"That was mine,\" he says. \"My idea. I thought it read as clean. No name, no ego, just PRODUCER, like the old shows.\" He looks at the middle distance for slightly too long. \"Turns out a word can't be thanked. A word can't be hired by somebody else. I had a name and I gave it away for a font.\""
+      },
+      "building": {
+        "options": [
+          {
+            "label": "...the set is his old basement?",
+            "next": "theset"
+          },
+          {
+            "label": "So you got rid of him.",
+            "next": "gotrid"
+          }
+        ],
+        "text": "\"He did.\" Phil says it straight away, with no argument in it at all. \"After the marriage went, Neil was on sofas the better part of a year, and one of those sofas was Nguyen's. Basement flat under a laundromat. I have never once said otherwise and I never will.\" He turns a page over. \"You are standing in it, by the way.\""
+      },
+      "change": {
+        "options": [
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"I could.\" He goes back to the clipboard. \"Ask me again after a good one.\""
+      },
+      "else": {
+        "options": [
+          {
+            "label": "(that lands)",
+            "next": "root"
+          }
+        ],
+        "text": "\"I could produce something else,\" he agrees, pleasantly. \"Nothing else in this city goes out live at eight o'clock with a man who genuinely does not know what he is about to say.\" A small, real shrug. \"I like the not knowing. It's the only part of my week that isn't a schedule.\""
+      },
+      "gotrid": {
+        "options": [
+          {
+            "label": "Neil never took it off?",
+            "next": "nevertook"
+          }
+        ],
+        "text": "\"I made it uncomfortable,\" he says, and does not dress it up. \"I put things in front of Neil at the right hours. I let a couple of arguments run that I could have cut. Nothing I said was untrue — that's the part I'd want you to check. I just chose the ten minutes.\" He puts the clipboard down for the first time. \"And then the credits rolled and there it was. Producer, Captain Nguyen. Still there. Nineteen weeks after he stopped coming down the stairs.\""
+      },
+      "hard": {
+        "options": [
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"It is,\" Phil agrees, without defending it. \"He's not a bad man. I want to be accurate, because I have had a lot of time to think about how I say this.\" A pause. \"He gave a man a bed. I run a programme. Those are two different kinds of good and only one of them fits in half an hour.\""
+      },
+      "knows": {
+        "options": [
+          {
+            "label": "(let that sit)",
+            "next": "root"
+          }
+        ],
+        "text": "\"He knows it at four in the afternoon,\" Phil says. \"By eight he's a genius who invented television. That's not a criticism. That's the job description. You can't do what he does at eight if you believe what he believes at four.\""
+      },
+      "neil": {
+        "options": [
+          {
+            "label": "You could produce something else.",
+            "next": "else"
+          },
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"He's worse when he's trying to be good,\" Phil says. \"The nights he behaves, nobody watches. The nights he goes off about his wife's pans for six minutes, the meter moves.\" He checks the stairs. \"I've stopped deciding which of those I want. I just make sure the transmitter's warm.\""
+      },
+      "nevertook": {
+        "options": [
+          {
+            "label": "(leave it there)",
+            "next": "root"
+          }
+        ],
+        "text": "\"Neil doesn't edit,\" Phil says. \"Neil accretes.\" He picks the clipboard back up. \"So I won, and the man I beat is still in the credits, and I'm a word. If you're looking for the moral of the programme, that's nearer than anything Neil says on it.\""
+      },
+      "nguyen": {
+        "options": [
+          {
+            "label": "So you got rid of him.",
+            "next": "gotrid"
+          },
+          {
+            "label": "He put Neil up, though. Back when he had nowhere.",
+            "next": "building"
+          }
+        ],
+        "text": "\"He was a lovely man and he was killing us,\" Phil says flatly. \"He wasn't crew. He wasn't staff. He wasn't anything at all — he was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
+      },
+      "root": {
+        "first": "\"You're not crew,\" he says, not unkindly, checking a clipboard he does not need to check. \"Doesn't matter. Nobody's crew. I'm Phil. I produce the programme, which tonight means I am the programme's entire crew, its legal department and its cleaner.\" He offers a hand. \"Don't touch the board.\"",
+        "options": [
+          {
+            "label": "Who actually runs this show?",
+            "next": "runs"
+          },
+          {
+            "label": "Why does it say PRODUCER in the credits and not your name?",
+            "next": "billing"
+          },
+          {
+            "label": "What happened with Nguyen?",
+            "next": "nguyen"
+          },
+          {
+            "label": "Is he always like that?",
+            "next": "neil"
+          },
+          {
+            "label": "(leave him to it)",
+            "next": null
+          }
+        ],
+        "text": "\"We're up in about an hour,\" he says, without checking anything. \"Or we're up whenever he comes down the stairs. Those are the two schedules.\"",
+        "text_by_relation": {
+          "familiar": "\"Good, you're here.\" He hands you a page. \"Hold that. If he asks what it is, it's the running order. It isn't, but it'll buy me four minutes.\"",
+          "known": "\"Back again.\" He almost smiles. \"Grab a crate, don't sit on the cable.\""
+        }
+      },
+      "runs": {
+        "options": [
+          {
+            "label": "And he knows that?",
+            "next": "knows"
+          },
+          {
+            "label": "(nod)",
+            "next": "root"
+          }
+        ],
+        "text": "\"I do.\" No heat in it at all. \"He talks. I book the slot, I fix the feed, I keep the licence, and I sit in the corner making sure the thing that goes out is a thing and not a man shouting in a basement.\" A beat. \"Some weeks the difference is thin.\""
+      },
+      "satinit": {
+        "options": [
+          {
+            "label": "(leave it)",
+            "next": "root"
+          }
+        ],
+        "text": "Phil is quiet for a second. \"He never once treated it as a set,\" he says. \"Not once, in nineteen weeks. He'd come in, take his coat off, put it over the back of the chair like he was home.\" He squares the clipboard against his chest. \"You can decide for yourself what it means that I let him keep doing that. I have decided several things and none of them stayed decided.\""
+      },
+      "theset": {
+        "options": [
+          {
+            "label": "And Nguyen sat in it every week.",
+            "next": "satinit"
+          },
+          {
+            "label": "(say nothing)",
+            "next": "root"
+          }
+        ],
+        "text": "\"Down to the pull-string on the bulb,\" Phil says, and for the first time there is something like pride in it. \"Neil described it once, at four in the morning, for about ninety minutes. I had it built. The laundromat overhead is a sound cue and we recorded it in the actual street, because he said it wouldn't be right otherwise.\" He looks at the corner where the stool is. \"It is the best thing I have ever made and I do not think one viewer has ever noticed it is a room.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "absent_lines": [
+      "writes the time on the back of his hand and looks at the door.",
+      "\"We can hold four minutes. After four minutes it is a different programme.\"",
+      "\"Has anybody actually heard from {missing}, or are we all just assuming.\"",
+      "sets the clipboard down, which he does not do, and rubs his eyes with two fingers.",
+      "\"I have never once missed one of these. Not one. In nineteen weeks.\""
+    ],
+    "clothing_layers": [
+      "a pressed short-sleeve shirt with a station lanyard tucked into the pocket",
+      "a plain undershirt gone soft from washing",
+      "grey trousers with a clipboard-shaped wear mark on one thigh"
+    ],
+    "personality": "clerk",
+    "studio_npc": true,
+    "wrangle_lines": {
+      "alone": {
+        "early": [
+          "...no, leave it. Leave him, he's alright."
+        ],
+        "late": [
+          "Take your time. I'll hold the break."
+        ],
+        "recover": [
+          "That was good. That was the best thing you've said all week. Now the list."
+        ]
+      },
+      "coupon": {
+        "early": [
+          "Do the coupon. People liked the coupon.",
+          "Is there a number at the end of this?"
+        ],
+        "late": [
+          "You've done four minutes on a bottle of syrup.",
+          "Two dollars. This is a two dollar story, man."
+        ],
+        "recover": [
+          "Back to the coupon. Land the coupon."
+        ]
+      },
+      "divorce": {
+        "late": [
+          "This is the pans again. Every week it's the pans.",
+          "Nobody is watching this for your divorce, man.",
+          "She took the pans because you never washed the pans."
+        ],
+        "recover": [
+          "Right. Ten conspiracies. You promised them ten.",
+          "We're going to break before you say her name again."
+        ]
+      },
+      "early": [
+        "Neil. Neil. We talked about this.",
+        "That's not on the sheet, man.",
+        "Get to the point. Please get to the point.",
+        "We're live. You know we're live?",
+        "Neil. Neil. Look at me. The sheet.",
+        "We are forty seconds into this and you've gone.",
+        "Neil. Running order.",
+        "We are eleven minutes in and we have done one item.",
+        "I've got the board, I've got the feed, and I've got you. Two of those are behaving."
+      ],
+      "hortons": {
+        "early": [
+          "Careful. Careful how you say this next bit."
+        ],
+        "late": [
+          "Jesus christ man you can't keep saying that shit.",
+          "THAT'S NOT HELPING!",
+          "You've made it worse. Every time you explain it you make it worse."
+        ],
+        "recover": [
+          "Nobody says another word about coffee. Next item."
+        ]
+      },
+      "hulkster": {
+        "early": [
+          "The Hulkster was your idea. You know that."
+        ],
+        "late": [
+          "That's on me. I thought you'd appreciate the levity.",
+          "Do not finish that sentence. I am asking you as your producer."
+        ],
+        "recover": [
+          "Brother. Next item, brother."
+        ]
+      },
+      "late": [
+        "You're doing the thing. You said to tell you when you're doing the thing.",
+        "I am cutting your mic. I am going to do it.",
+        "You are going to get us kicked off public access. We need this.",
+        "Jesus christ, man, we talked about this exact thing.",
+        "THAT'S NOT HELPING!",
+        "That is the licence. You understand that is the actual licence you are holding.",
+        "I am writing the time down. Not as a threat. As a record.",
+        "Every week I let one of these run and every week it is the wrong one."
+      ],
+      "nguyen": {
+        "early": [
+          "Four minutes to the break, Neil."
+        ],
+        "late": [
+          "We are running long. That is all I have on that.",
+          "I've got a running order and a transmitter. Those are my two subjects."
+        ],
+        "recover": [
+          "Sponsor, then item three. Cue in five."
+        ]
+      },
+      "phone": {
+        "early": [
+          "It's a payphone, Neil."
+        ],
+        "late": [
+          "No one calls this show. No one has ever called this show.",
+          "That phone isn't even that type of phone."
+        ],
+        "recover": [
+          "Right. Nobody's calling. Top ten."
+        ]
+      },
+      "recover": [
+        "Top ten. You were on the top ten. Go.",
+        "Say 'and now a word from our sponsor'. Say it.",
+        "We're going to break. Neil. Break.",
+        "And now a word from our sponsor. Say it. Say the words.",
+        "Number two on the list. There were ten. You said ten.",
+        "Right, we're back in the room. From the top of that page.",
+        "From the top of the page. I will cue you.",
+        "Sponsor. Then the list. In that order, and then you can say whatever you want."
+      ],
+      "theone": {
+        "early": [
+          "Good. Keep not saying it."
+        ],
+        "late": [
+          "You are saying it. This is you saying it.",
+          "That's not a fact. You've said it like a fact and it isn't one.",
+          "I am going to cut the feed. I have the button right here."
+        ],
+        "recover": [
+          "And now a word from our sponsor. NOW, Neil."
+        ]
+      },
+      "wall": {
+        "early": [
+          "The board is behind you. They can see the board."
+        ],
+        "late": [
+          "Nine months and it's got a lizard on it.",
+          "Don't explain the yarn. Last time you explained the yarn we lost the slot."
+        ],
+        "recover": [
+          "It's a good board. Now do the list."
+        ]
+      }
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_502",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_phil_mccracken",
+  "name": "Phil McCracken",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "mon": [],
+    "sat": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

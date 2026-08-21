@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_009",
+  "lines": [
+    "\"Somebody asked me to put {tv_program} on.\"",
+    "\"Did you?\"",
+    "\"I put {tv_station} on. Close enough, and they never came back to argue.\""
+  ],
+  "personality": "bartender",
+  "sort_order": 518
+}

@@ -122,4 +122,25 @@ export default async function regress({ run, check }) {
   check('the drink rituals are about drinking, not about powder',
     [...PRESHOW_DRINK_RITUALS, ...BOOZE_RITUALS].every(r => r.some(b => drinkWords.test(b)))
       && ![...PRESHOW_DRINK_RITUALS, ...BOOZE_RITUALS].flat().some(b => /\b(line|bump|gums|snort)\b/i.test(b)));
+
+  // ── A night has a size ──────────────────────────────────────────────────────
+  // The habit used to be one pour, so every night was identically bad and the worst
+  // evening of a man's life was indistinguishable from a Tuesday. The extra pours
+  // are what make it watchable: a visible beat in the room, not a bigger number.
+  {
+    const w = _test.POUR_WEIGHTS;
+    check('pours: most nights are ordinary', w.filter((n) => n === 0).length > w.length / 2,
+      JSON.stringify(w));
+    check('pours: a bad night is reachable', Math.max(...w) >= 2, JSON.stringify(w));
+    check('pours: and it can never reach the blackout ladder on its own',
+      1 + Math.max(...w) < 5, String(1 + Math.max(...w)));
+    check('pours: every extra pour is something you can SEE',
+      _test.POUR_AGAIN.length >= 3 && _test.POUR_AGAIN.every((l) => typeof l === 'string' && l.trim()),
+      String(_test.POUR_AGAIN.length));
+    // ⚠ Real seconds apart, never a burst: five lines in one tick is a number going
+    // up, and the entire point is that somebody standing there watches him go back.
+    check('pours: they are spaced far enough apart to be watched',
+      _test.POUR_GAP_MS[0] >= 15000 && _test.POUR_GAP_MS[1] > _test.POUR_GAP_MS[0],
+      JSON.stringify(_test.POUR_GAP_MS));
+  }
 }

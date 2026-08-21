@@ -35,9 +35,10 @@ Appear at the top, one per line, in any order. Recognized keys:
 | `@category general` | `meta.category` | defaults to `"general"` |
 | `@host npc_host_id` | `meta.host` | |
 | `@length 120` | `meta.length` | parsed as float (seconds) |
+| `@location zone_id` | `meta.location` → `media_broadcasts.location_zone_id`. Shoots this programme **on location** in that zone rather than in the channel's studio: the cast are routed there, the cameras that count are the ones standing in it, and every line the acting layer puts in a room goes into that room. Omit for the overwhelming default. Needs a camera in the room (a fixed unit, a camcorder, or a `camera_droid` NPC) **and** a `portable_mediadeck` to get the signal home — see [systems-broadcast.md](systems-broadcast.md#on-location). |
 | `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `film`, `weather`, `sports`, `news`, `talkshow`, `morning`, `gameshow`, `sermon`; defaults to `"live"`. `live`/`scripted`/`film` are **linear** (this document's main body); everything else switches the file to the line-library format — see [Weather](#weather-broadcasts-type-weather), [Sports](#sports-broadcasts-type-sports), [News](#news-broadcasts-type-news), [Talk-Show](#talk-show-broadcasts-type-talkshow), [Morning Shows](#morning-shows-type-morning) and [Game Shows](#game-shows-type-gameshow). `film` is linear like `scripted` but with its own cast model and pre-roll — see [Films](#films-type-film). |
 
-Any other `@key value` line is silently ignored at the top level (only `@actor`/`@alias` are meaningful elsewhere — see below).
+Any other `@key value` line is silently ignored at the top level (only `@actor`/`@alias`/`@billing` are meaningful elsewhere — see below).
 
 ## `::actors` Block
 
@@ -52,6 +53,7 @@ Pre-scanned before the main pass, so actors/aliases can be referenced anywhere i
 
 - `@actor <entity_id>` — registers an exact NPC entity ID, added to `actorIds` (declaration order) and `npcIds`.
 - `@alias <entity_id> <LABEL>` (or `alias` without the `@`) — maps `LABEL` (case-insensitive, stored uppercase) to `entity_id`. `LABEL` may be multiple words (e.g. `Captain Nguyen`, `NARRATOR`) — everything after the entity id is the label. Used to resolve bare `SPEAKER:` lines later; an actor can have several aliases (e.g. a formal name plus `NARRATOR`), all resolving to the same entity id so only one NPC is ever created.
+- `@billing <entity_id> <NAME>` — an **on-air stage name**. The aired line reads `NAME says, "…"` instead of using the NPC row's own name, and it also registers `NAME` as a speaker label so `NAME:` lines resolve (a man billed as `PRODUCER` is written `PRODUCER:` anyway). Rides on the `npc_anchor` node as `display`. ⚠ **Not the same as `@alias`, and never derived from it**: an alias is typing shorthand (`@alias npc_neil_mcmanistan NEIL` exists so the author can write `NEIL:`), so treating aliases as stage names would put "NEIL says" and "LAWYER says" on air for two men with perfectly good names. A billing is a deliberate refusal to use the name — Phil McCracken produces *You're Not Gonna Believe This Shit* and is credited only as `PRODUCER`, and before this existed the only way to get that was to *name the NPC* "PRODUCER", which then follows him into room descriptions, examine, SIFT and his own front door.
 - **Implicit aliases** — a `SPEAKER:` label with no explicit `@alias` still resolves to a declared `@actor` when it matches that actor's derived name: the humanized id (`npc_lucky_chen` → `LUCKY CHEN`), its first word (`LUCKY`), or its last word (`CHEN`). Only applied when exactly one declared actor owns the label; an ambiguous first name falls through to the `npc_<label>` fallback. This is what stops the importer minting a duplicate placeholder NPC for an already-declared actor.
 - Any other `::xxx` line ends the actors block.
 

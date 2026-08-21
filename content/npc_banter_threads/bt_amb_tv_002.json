@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_002",
+  "lines": [
+    "\"Turn it over.\"",
+    "\"To what? {tv_station} is the one that comes in.\"",
+    "gestures at the screen with an open hand, conceding the point."
+  ],
+  "personality": null,
+  "sort_order": 511
+}

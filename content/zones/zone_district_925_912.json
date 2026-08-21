@@ -1,26 +1,37 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "A bell somewhere in the tower shifts a quarter-inch in the wind and does not ring.",
+    "Somebody leaves a bag on the step, knocks twice, and is gone before the door opens.",
+    "Wind comes off the grass at the end of Kessler and finds the gap under the door.",
+    "A truck goes by heading for the Yards and the old glass in the rose window buzzes."
+  ],
   "ambient_theme": "residential",
-  "bg_color": "#332e28",
-  "color": "#b89a72",
-  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "bg_color": "#332e29",
+  "color": "#cbb9a0",
+  "description": "A stone church at the last built corner of Kessler Street, older than the road and plainly older than everything west of it. Sandstone gone black at the gutter-lines, a squat bell tower with the louvres boarded, and a rose window whose glass was replaced at some point with something cheaper and flatter. Cut deep into the lintel over the door, long before anyone thought of the Architect, is ST GARNEAU and a second line of words in a language nobody on this street reads any more. A brushed-steel plaque bearing the open eye is fitted across the lower line and covers it exactly, which took somebody some care. The four screw holes holding it have gone oval, and the stone at the plaque's edges is a shade cleaner than the wall around it.",
   "exits": {
-    "east": "zone_district_926_912",
-    "north": "zone_district_925_911",
+    "north": "zone_stgarneau_nave",
     "south": "zone_district_925_913"
   },
   "flags": {
+    "building_name": "St Garneau's",
+    "building_type": "church",
     "district": "residential",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true,
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_925_913"
   },
   "grid_x": 925,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_925_912",
   "map_id": "map_world",
-  "name": "Residential Area",
+  "marker": "SG",
+  "name": "St Garneau's",
   "parent_zone": null
 }

@@ -82,6 +82,20 @@ of these flags and a pool that says "his" fits exactly one man.
 | **standing** (a dependency: 20-min cooldown × 35%/scan, needs no schedule) | `booze_habit` | `drug_habit` |
 | **pre-show** (an occasion: ~2 game-hours before curtain, one 10% roll per show, 5–6 game hours so it covers the lead-up *and* the broadcast) | `preshow_drink` | `preshow_habit` |
 
+**A night has a size, and you can watch him decide.** A habit used to be ONE pour, so every
+evening was identically bad and the worst night of a man's life was indistinguishable from a
+Tuesday. The ritual is now the FIRST pour; the drink columns then go back to the bottle 0–2 more
+times (57% / 29% / 14%), each one a visible beat in the room, 25–70s apart, re-validated exactly
+like a ritual beat. A hit does not do this: you measure a hit out — that IS the ritual — and then
+it is taken and done, while a bottle is open on the table and the next one is a decision you make
+again in four minutes. `doseNpc` already counted (`d.doses`), so nothing new is stored, and the
+broadcast layer reads that count: one pour is MERRY (the `drunk` voice, previously unreachable for
+an NPC because nothing ever wrote `intoxication` to one), two is glassy and candid, and past that
+it keeps climbing in whichever sedated voice that person has — a mean drunk stays belligerent at
+four pours rather than being quietly reclassified as maudlin because the number got bigger.
+⚠ The ladder still cannot reach the 5-dose blackout on its own (regress asserts it): a habit is
+never allowed to floor somebody, only a player working them up to it.
+
 The **drink** column is always **sedated** and `neverOut`: an NPC who folds stops running
 their graph and stops turning up for work — "often drunk, still on air" is the character,
 "missing, face down at home" is not. The **drug** column takes the drug's own classified

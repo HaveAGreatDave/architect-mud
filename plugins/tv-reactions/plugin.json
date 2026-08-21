@@ -1,0 +1,9 @@
+{
+  "name": "tv-reactions",
+  "version": "1.0.0",
+  "description": "NPCs react to the beat that just aired. Subscribes to `broadcast.message` and, rarely, has one idle NPC in a room with a tuned set answer the screen — keyed on the show's playback_mode, so a ball game gets a groan and a sermon gets something else. Reuses npc-banter's own eligibility (no sleepers, no on-shift staff, no fights) and shares its `_ai.lastSay` cooldown, so this never talks over a running banter scene. Owns the WHEN and the throttle; the lines are its only content and they are voice, not world data. No verbs, no DB, no tick.",
+  "commands": [],
+  "events": {
+    "consumes": ["broadcast.message"]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_007",
+  "lines": [
+    "\"My mother watched {tv_program}. Every night of her life.\"",
+    "\"Was it any good then?\"",
+    "\"No. But it was on, and she was there, and so was I.\"",
+    "says nothing for a moment."
+  ],
+  "personality": null,
+  "sort_order": 516
+}

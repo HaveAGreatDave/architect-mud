@@ -1,0 +1,18 @@
+{
+  "broadcast_id": "bc_cooking_shit_neil",
+  "channel_id": "ch_11_stgarneau_stream",
+  "conditions": {
+    "npc_staff": [
+      "npc_neil_mcmanistan",
+      "npc_phil_mccracken",
+      "npc_ksab_droid_1",
+      "npc_ksab_droid_2"
+    ]
+  },
+  "days": 2,
+  "duration_override": 3600,
+  "id": "stgarneau-tue-1100",
+  "priority": 0,
+  "slot_type": "broadcast",
+  "start_time": 39600
+}

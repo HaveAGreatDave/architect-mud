@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_925_912",
+  "b": "zone_stgarneau_nave",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_925_912_north_nave",
+  "lockable": true,
+  "one_way": false
+}

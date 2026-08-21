@@ -1,0 +1,1710 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11",
+        "style": "raw",
+        "text": "What do you mean live in thought we couldn't do live anymore",
+        "type": "say"
+      },
+      "bsm_100": {
+        "_vine": {
+          "x": 80,
+          "y": 3280
+        },
+        "next": "bsm_101",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_101": {
+        "_vine": {
+          "x": 300,
+          "y": 3280
+        },
+        "next": "bsm_102",
+        "style": "raw",
+        "text": "If thats how they treat their own imagine what they do to their enemies, father",
+        "type": "say"
+      },
+      "bsm_102": {
+        "_vine": {
+          "x": 520,
+          "y": 3280
+        },
+        "display": "PRODUCER",
+        "next": "bsm_103",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_103": {
+        "_vine": {
+          "x": 740,
+          "y": 3280
+        },
+        "next": "bsm_104",
+        "style": "raw",
+        "text": "I think I smell something burning",
+        "type": "say"
+      },
+      "bsm_104": {
+        "_vine": {
+          "x": 960,
+          "y": 3280
+        },
+        "label": "CAM — 2 — PAN to the stove",
+        "next": "bsm_105",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_105": {
+        "_vine": {
+          "x": 80,
+          "y": 3440
+        },
+        "next": "bsm_106",
+        "style": "narration",
+        "text": "The pan is smoking. Not a wisp of it. The food is going, and it is going fast.",
+        "type": "say"
+      },
+      "bsm_106": {
+        "_vine": {
+          "x": 300,
+          "y": 3440
+        },
+        "next": "bsm_107",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_107": {
+        "_vine": {
+          "x": 520,
+          "y": 3440
+        },
+        "message": "yanks the pan off the heat and throws it into the sink from most of the way across the kitchen.",
+        "next": "bsm_108",
+        "type": "npc_action"
+      },
+      "bsm_108": {
+        "_vine": {
+          "x": 740,
+          "y": 3440
+        },
+        "message": "turns to the camera, takes out a lighter and a pack of cigarettes, and lights one.",
+        "next": "bsm_109",
+        "type": "npc_action"
+      },
+      "bsm_109": {
+        "_vine": {
+          "x": 960,
+          "y": 3440
+        },
+        "label": "CAM — 1 — CLOSEUP on Neil McManistan",
+        "next": "bsm_110",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "display": "PRODUCER",
+        "next": "bsm_12",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_110": {
+        "_vine": {
+          "x": 80,
+          "y": 3600
+        },
+        "next": "bsm_111",
+        "style": "raw",
+        "text": "I'm glad you were all here to witness it happen, the bitter reality of this cruel world we're living in...",
+        "type": "say"
+      },
+      "bsm_111": {
+        "_vine": {
+          "x": 300,
+          "y": 3600
+        },
+        "next": "bsm_112",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_112": {
+        "_vine": {
+          "x": 520,
+          "y": 3600
+        },
+        "next": "bsm_113",
+        "style": "raw",
+        "text": "You can't be smoking in the church its a sin against the lord we've talked about this-",
+        "type": "say"
+      },
+      "bsm_113": {
+        "_vine": {
+          "x": 740,
+          "y": 3600
+        },
+        "next": "bsm_114",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_114": {
+        "_vine": {
+          "x": 960,
+          "y": 3600
+        },
+        "next": "bsm_115",
+        "style": "raw",
+        "text": "BAN FATHER JEROME FROM THE STREAM",
+        "type": "say"
+      },
+      "bsm_115": {
+        "_vine": {
+          "x": 80,
+          "y": 3760
+        },
+        "display": "PRODUCER",
+        "next": "bsm_116",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_116": {
+        "_vine": {
+          "x": 300,
+          "y": 3760
+        },
+        "next": "bsm_117",
+        "style": "raw",
+        "text": "I'm not too sure that will do much he's just in other ro-",
+        "type": "say"
+      },
+      "bsm_117": {
+        "_vine": {
+          "x": 520,
+          "y": 3760
+        },
+        "next": "bsm_118",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_118": {
+        "_vine": {
+          "x": 740,
+          "y": 3760
+        },
+        "next": "bsm_119",
+        "style": "raw",
+        "text": "I WANT HIM BANNED, IM LOCKING THE DOOR HE'S BANNED",
+        "type": "say"
+      },
+      "bsm_119": {
+        "_vine": {
+          "x": 960,
+          "y": 3760
+        },
+        "message": "crosses the kitchen and puts his back against the door, barricading it with his own body.",
+        "next": "bsm_120",
+        "type": "npc_action"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "Father Jerome gave me the WiFi password; We had to move to YouTube. They didnt want us on tv after the unregulated drugs and the anti semitism allegations",
+        "type": "say"
+      },
+      "bsm_120": {
+        "_vine": {
+          "x": 80,
+          "y": 3920
+        },
+        "label": "CAM — 3 — WIDE on the kitchen door",
+        "next": "bsm_121",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_121": {
+        "_vine": {
+          "x": 300,
+          "y": 3920
+        },
+        "next": "bsm_122",
+        "style": "narration",
+        "text": "The handle turns from the other side. It turns again, more slowly, the way a patient man tries a thing twice.",
+        "type": "say"
+      },
+      "bsm_122": {
+        "_vine": {
+          "x": 520,
+          "y": 3920
+        },
+        "next": "bsm_123",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_123": {
+        "_vine": {
+          "x": 740,
+          "y": 3920
+        },
+        "next": "bsm_124",
+        "style": "raw",
+        "text": "Neil you can't stay on this path, you need to atone for your sins and find a better path",
+        "type": "say"
+      },
+      "bsm_124": {
+        "_vine": {
+          "x": 960,
+          "y": 3920
+        },
+        "display": "PRODUCER",
+        "next": "bsm_125",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_125": {
+        "_vine": {
+          "x": 80,
+          "y": 4080
+        },
+        "next": "bsm_126",
+        "style": "raw",
+        "text": "Maybe you should listen to him",
+        "type": "say"
+      },
+      "bsm_126": {
+        "_vine": {
+          "x": 300,
+          "y": 4080
+        },
+        "next": "bsm_127",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_127": {
+        "_vine": {
+          "x": 520,
+          "y": 4080
+        },
+        "next": "bsm_128",
+        "style": "raw",
+        "text": "You wanna talk about a path father ive been sliding down so fast im gonna find my ass in China! I've been thrown out of more basements than one of your altar boys when youre finished you don't scare me",
+        "type": "say"
+      },
+      "bsm_128": {
+        "_vine": {
+          "x": 740,
+          "y": 4080
+        },
+        "display": "PRODUCER",
+        "next": "bsm_129",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_129": {
+        "_vine": {
+          "x": 960,
+          "y": 4080
+        },
+        "next": "bsm_130",
+        "style": "raw",
+        "text": "JESUS CHRIST!",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "label": "CAM — 2 — SNAP_TIGHT on Neil McManistan",
+        "next": "bsm_14",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_130": {
+        "_vine": {
+          "x": 80,
+          "y": 4240
+        },
+        "next": "bsm_131",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_131": {
+        "_vine": {
+          "x": 300,
+          "y": 4240
+        },
+        "next": "bsm_132",
+        "style": "raw",
+        "text": "I won't allow you to broadcast this blasphemy on our wifi any longer Neil you need to open this door at once!",
+        "type": "say"
+      },
+      "bsm_132": {
+        "_vine": {
+          "x": 520,
+          "y": 4240
+        },
+        "next": "bsm_133",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_133": {
+        "_vine": {
+          "x": 740,
+          "y": 4240
+        },
+        "message": "lights a fresh cigarette off the one he is already smoking and takes a long, furious drag.",
+        "next": "bsm_134",
+        "type": "npc_action"
+      },
+      "bsm_134": {
+        "_vine": {
+          "x": 960,
+          "y": 4240
+        },
+        "next": "bsm_135",
+        "style": "narration",
+        "text": "He stares the lens down while he does it, and beckons off-camera for the bag of chips.",
+        "type": "say"
+      },
+      "bsm_135": {
+        "_vine": {
+          "x": 80,
+          "y": 4400
+        },
+        "label": "CAM — 1 — SNAP_TIGHT on Neil McManistan",
+        "next": "bsm_136",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_136": {
+        "_vine": {
+          "x": 300,
+          "y": 4400
+        },
+        "next": "bsm_137",
+        "style": "raw",
+        "text": "Gimme those fuckin' chips! Tonight on cooking with Neil we learned how to make hamburger helper. The secret ingredient is fucking it up so bad the hamburger helper catches fire and you ruin it all, cuz thats all thats really happening here! Youre watching a man crash and burn and here i walk in the depth of HELL, father! Im fuckin going through it! So tonight's recipe is a fuckin dinner sized bag of chips, aka the family size, i love that they call em family size, it reminds me of the fact that im having cigarattes and potato chips for dinner and im washing it down with a handle of cheap vodka and I'm gonna eat a gun for dessert if this shit doesnt turn around-",
+        "type": "say"
+      },
+      "bsm_137": {
+        "_vine": {
+          "x": 520,
+          "y": 4400
+        },
+        "next": "bsm_138",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_138": {
+        "_vine": {
+          "x": 740,
+          "y": 4400
+        },
+        "next": "bsm_139",
+        "style": "raw",
+        "text": "just let me in Neil I just want to talk",
+        "type": "say"
+      },
+      "bsm_139": {
+        "_vine": {
+          "x": 960,
+          "y": 4400
+        },
+        "next": "bsm_140",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_140": {
+        "_vine": {
+          "x": 80,
+          "y": 4560
+        },
+        "next": "bsm_141",
+        "style": "raw",
+        "text": "HOW MANY ALTAR BOYS HAD TO HEAR THAT LINE FATHER YOU RAT BASTARD I'M NOT OPENING THIS DOOR FOR NO ONE ILL BURN THIS WHOLE BUILDING DOWN PHIL BURN THIS BUILDING DOWN",
+        "type": "say"
+      },
+      "bsm_141": {
+        "_vine": {
+          "x": 300,
+          "y": 4560
+        },
+        "next": "bsm_142",
+        "style": "narration",
+        "text": "The producer does not move. On the stream, for a second and a half, the only sound is a chest freezer.",
+        "type": "say"
+      },
+      "bsm_142": {
+        "_vine": {
+          "x": 520,
+          "y": 4560
+        },
+        "display": "PRODUCER",
+        "next": "bsm_143",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_143": {
+        "_vine": {
+          "x": 740,
+          "y": 4560
+        },
+        "next": "bsm_144",
+        "style": "raw",
+        "text": "Please don't use my name on this program",
+        "type": "say"
+      },
+      "bsm_144": {
+        "_vine": {
+          "x": 960,
+          "y": 4560
+        },
+        "next": "bsm_145",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_145": {
+        "_vine": {
+          "x": 80,
+          "y": 4720
+        },
+        "next": "bsm_146",
+        "style": "raw",
+        "text": "I CANT TAKE THIS ANY LONGER IM CHANGING THE WIFI PASSWORD!",
+        "type": "say"
+      },
+      "bsm_146": {
+        "_vine": {
+          "x": 300,
+          "y": 4720
+        },
+        "next": "bsm_147",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_147": {
+        "_vine": {
+          "x": 520,
+          "y": 4720
+        },
+        "message": "walks away from the door, opens a drawer and takes out a large bottle of cheap grain alcohol.",
+        "next": "bsm_148",
+        "type": "npc_action"
+      },
+      "bsm_148": {
+        "_vine": {
+          "x": 740,
+          "y": 4720
+        },
+        "message": "takes a long swig standing up, with the drawer still open.",
+        "next": "bsm_149",
+        "type": "npc_action"
+      },
+      "bsm_149": {
+        "_vine": {
+          "x": 960,
+          "y": 4720
+        },
+        "label": "CAM — 1 — MEDIUM on Neil McManistan",
+        "next": "bsm_150",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "raw",
+        "text": "A GOOD MAN GOT DEPORTED THATS YOUR FAULT! THE ROOT WAS GOOD HOW WAS I TO KNOW IT WAS A VIETNAMESE OPIUM FRONT I THOUGHT THAT WAS A CHINESE THING! THANK GOD FOR JEWTUBE IM SURE AS SHIT NOT GONNA GET CANCELLED HERE",
+        "type": "say"
+      },
+      "bsm_150": {
+        "_vine": {
+          "x": 80,
+          "y": 4880
+        },
+        "next": "bsm_151",
+        "style": "raw",
+        "text": "Join us next week on dating with Neil where I show you where to find the most available pussy ever. We're coming at you live on location from all the hottest spots for divorced dads to meet eligible run through single moms! IM THINKIN' ARBYS!",
+        "type": "say"
+      },
+      "bsm_151": {
+        "_vine": {
+          "x": 300,
+          "y": 4880
+        },
+        "next": "bsm_152",
+        "style": "narration",
+        "text": "The stream does not fade. It stops, mid-room-tone, the way a connection stops.",
+        "type": "say"
+      },
+      "bsm_152": {
+        "_vine": {
+          "x": 520,
+          "y": 4880
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "display": "PRODUCER",
+        "next": "bsm_17",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "style": "raw",
+        "text": "You cant be saying that Father Jerome is going to be upset",
+        "type": "say"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "style": "raw",
+        "text": "Look what they did to Jesus, pal. I think father Jerome would have my back. They try to do that shit and I was around i would have crucified buddy in the audience selling the \"I love Jesus\" buttons and the \"I hate Jesus\" buttons in the same stall at the trial. Uncle tom bullshit...",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "next": "bsm_3",
+        "style": "narration",
+        "text": "Midday. The commercial kitchen under a rundown church: steel counters, a chest freezer, strip lighting with one tube out. Handwritten notes are taped to every cupboard in the same careful hand. PLEASE WASH YOUR OWN DISHES. CLEANLINESS IS NEXT TO GODLINESS, WASH YOUR HANDS PLEASE. DO NOT TOUCH ANY OF THE FOODS MARKED FATHER JEROME - FATHER JEROME, ST GARNEAU FRENCH CANADIAN ROMAN CATHOLIC CHURCH.",
+        "type": "say"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "display": "PRODUCER",
+        "next": "bsm_21",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22",
+        "style": "raw",
+        "text": "Colonel Tom",
+        "type": "say"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "style": "raw",
+        "text": "Its Uncle Tom",
+        "type": "say"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "display": "PRODUCER",
+        "next": "bsm_25",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "next": "bsm_26",
+        "style": "raw",
+        "text": "Colonel Tom was Elvis' manager, and he sold anti Elvis merch as well, thats what you mean right? An uncle tom is a pejorative term for an African American that's subservient to whites",
+        "type": "say"
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "next": "bsm_27",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "next": "bsm_28",
+        "style": "raw",
+        "text": "I bet colonel Tom also controlled the weather...",
+        "type": "say"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "display": "PRODUCER",
+        "next": "bsm_29",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "style": "raw",
+        "text": "Colonel Tom was Dutch, not Jewish",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE on the kitchen counter",
+        "next": "bsm_4",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32",
+        "style": "raw",
+        "text": "Didja know they have the most lesbians in the world in the Netherlands?",
+        "type": "say"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "display": "PRODUCER",
+        "next": "bsm_33",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "style": "raw",
+        "text": "What could that possibly have to do with anything we're doing here?",
+        "type": "say"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "style": "raw",
+        "text": "They can't keep their fingers out of the dykes over there",
+        "type": "say"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "display": "PRODUCER",
+        "next": "bsm_37",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38",
+        "style": "raw",
+        "text": "I am genuinely sorry that I asked.",
+        "type": "say"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "event_type": "FADE_OUT",
+        "next": "bsm_39",
+        "type": "event"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "graphic_id": "daily_bread_logo",
+        "next": "bsm_40",
+        "type": "title_card"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "style": "narration",
+        "text": "Neil McManistan is behind the counter in a borrowed woman's apron, blue gingham, frilled at the shoulders. It is not his size and it is not close.",
+        "type": "say"
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "song": "\"Bagpipe Sting\"",
+        "text": "DAILY BREAD WITH NEIL MCMANISTAN",
+        "type": "music"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42",
+        "style": "narration",
+        "text": "Security camera footage, timestamped and greenish. Neil McManistan lets himself into Father Jerome's office and leaves with a bottle of communion wine held low against his leg. A second angle, another night: Neil eating Father Jerome's leftovers standing up in the church basement, straight from the container, with the fridge door open for the light.",
+        "type": "say"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "event_type": "DISSOLVE",
+        "next": "bsm_43",
+        "type": "event"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "label": "CAM — 1 — WIDE on the kitchen counter",
+        "next": "bsm_44",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "next": "bsm_45",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "next": "bsm_46",
+        "style": "raw",
+        "text": "What the hell was that?! You're a fuckin snitch man, where did you get that footage?",
+        "type": "say"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "display": "PRODUCER",
+        "next": "bsm_47",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "raw",
+        "text": "Ive got several cameras hidden everywhere man youre a loose cannon i cant believe they're letting us film here",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "next": "bsm_49",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50",
+        "style": "raw",
+        "text": "They probably wont be when youre showing me wheezing the Jesus j-ew-uice and eating the manna out of the house of the lord...",
+        "type": "say"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "next": "bsm_51",
+        "style": "narration",
+        "text": "A voice from the other room. It is not raised. It has never needed to be.",
+        "type": "say"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53",
+        "style": "raw",
+        "text": "I should have known better but the lord demands forgiveness, you must forget a better path and become an upright man",
+        "type": "say"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55",
+        "style": "raw",
+        "text": "Im doing the best I can father but im a fuckin bent over man, ever since Barb bent me over and fucked me good before she left",
+        "type": "say"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "style": "raw",
+        "text": "Please try and refrain from that language in here, you cant be eating my leftovers and spouting this virulent antisemitism and speaking ill of your former wife",
+        "type": "say"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "next": "bsm_59",
+        "style": "raw",
+        "text": "Its the only time she ever sucked me dry let me tell ya father. Blood from a stone, but that lawyer of hers played me like a brass instrument and he was Heeb Alpert",
+        "type": "say"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "display": "PRODUCER",
+        "next": "bsm_60",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "raw",
+        "text": "I look like fuckin Dorothy in this stupid thing man you couldnt find anything better?",
+        "type": "say"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "style": "raw",
+        "text": "Thats a very dated reference and you cant say Heeb in church",
+        "type": "say"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "next": "bsm_63",
+        "style": "raw",
+        "text": "Was that an encino man reference earlier too?",
+        "type": "say"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "next": "bsm_64",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "next": "bsm_65",
+        "style": "raw",
+        "text": "Im sorry father. Today we're gonna learn how to make hamburger helper. First things first, we need to do some grocery shopping. Lets see what we have in the pantry.",
+        "type": "say"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "label": "CAM — 3 — FOLLOW to the pantry door",
+        "next": "bsm_66",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "next": "bsm_67",
+        "style": "narration",
+        "text": "Neil opens a door into a storage room. The sign on it reads ST GARNEAU'S FOOD PANTRY FOR THE POOR.",
+        "type": "say"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "message": "takes a box of hamburger helper, a tin of beans and a bag of Doritos off the food pantry shelf and carries them back to the kitchen.",
+        "next": "bsm_68",
+        "type": "npc_action"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "message": "opens the chest freezer marked SISTERS OF ST GARNEAU SOUP KITCHEN and lifts out a pound of ground beef.",
+        "next": "bsm_69",
+        "type": "npc_action"
+      },
+      "bsm_69": {
+        "_vine": {
+          "x": 960,
+          "y": 2160
+        },
+        "message": "drops the frozen block into the microwave and shuts the door with his hip.",
+        "next": "bsm_70",
+        "type": "npc_action"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "display": "PRODUCER",
+        "next": "bsm_8",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_70": {
+        "_vine": {
+          "x": 80,
+          "y": 2320
+        },
+        "label": "CAM — 1 — MEDIUM on Neil McManistan",
+        "next": "bsm_71",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_71": {
+        "_vine": {
+          "x": 300,
+          "y": 2320
+        },
+        "next": "bsm_72",
+        "style": "raw",
+        "text": "Just gonna pop that bad boy in the nuker to defrost, keep an eye on that eh",
+        "type": "say"
+      },
+      "bsm_72": {
+        "_vine": {
+          "x": 520,
+          "y": 2320
+        },
+        "display": "PRODUCER",
+        "next": "bsm_73",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_73": {
+        "_vine": {
+          "x": 740,
+          "y": 2320
+        },
+        "next": "bsm_74",
+        "style": "raw",
+        "text": "I don't think thats the best way to do that",
+        "type": "say"
+      },
+      "bsm_74": {
+        "_vine": {
+          "x": 960,
+          "y": 2320
+        },
+        "next": "bsm_75",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_75": {
+        "_vine": {
+          "x": 80,
+          "y": 2480
+        },
+        "next": "bsm_76",
+        "style": "raw",
+        "text": "I dont have all day to wait for this shit to thaw, ive got lots to do today",
+        "type": "say"
+      },
+      "bsm_76": {
+        "_vine": {
+          "x": 300,
+          "y": 2480
+        },
+        "display": "PRODUCER",
+        "next": "bsm_77",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_77": {
+        "_vine": {
+          "x": 520,
+          "y": 2480
+        },
+        "next": "bsm_78",
+        "style": "raw",
+        "text": "You're practically unemployed, what could you be busy with?",
+        "type": "say"
+      },
+      "bsm_78": {
+        "_vine": {
+          "x": 740,
+          "y": 2480
+        },
+        "next": "bsm_79",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_79": {
+        "_vine": {
+          "x": 960,
+          "y": 2480
+        },
+        "next": "bsm_80",
+        "style": "raw",
+        "text": "today we're going to be making hamburger helper. Ive chosen the cheeseburger variety. So you start by cooking up the ground beef...",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "Like the Wizard of Oz? You're making a Wizard of Oz reference in the big '26? We're live dude...",
+        "type": "say"
+      },
+      "bsm_80": {
+        "_vine": {
+          "x": 80,
+          "y": 2640
+        },
+        "display": "PRODUCER",
+        "next": "bsm_81",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_81": {
+        "_vine": {
+          "x": 300,
+          "y": 2640
+        },
+        "next": "bsm_82",
+        "style": "raw",
+        "text": "This is your big cooking show? Making hamburger helper? If you want to do a cooking show you're going to need original recipes. This is just instructions with Neil",
+        "type": "say"
+      },
+      "bsm_82": {
+        "_vine": {
+          "x": 520,
+          "y": 2640
+        },
+        "next": "bsm_83",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_83": {
+        "_vine": {
+          "x": 740,
+          "y": 2640
+        },
+        "next": "bsm_84",
+        "style": "raw",
+        "text": "Who the fuck are you, Colonel Sanders?! Don't you judge me I'm gonna add shit, im gonna drive the seasonings to it. Don't forget about the secret ingredient. Didn't think about that did you",
+        "type": "say"
+      },
+      "bsm_84": {
+        "_vine": {
+          "x": 960,
+          "y": 2640
+        },
+        "message": "begins tossing ingredients into the pan without once looking at the box.",
+        "next": "bsm_85",
+        "type": "npc_action"
+      },
+      "bsm_85": {
+        "_vine": {
+          "x": 80,
+          "y": 2800
+        },
+        "message": "slops milk over the side of the pan and across the counter.",
+        "next": "bsm_86",
+        "type": "npc_action"
+      },
+      "bsm_86": {
+        "_vine": {
+          "x": 300,
+          "y": 2800
+        },
+        "label": "CAM — 1 — SNAP_TIGHT on the pan",
+        "next": "bsm_87",
+        "type": "camera_cut",
+        "zone_id": "zone_stgarneau_basement"
+      },
+      "bsm_87": {
+        "_vine": {
+          "x": 520,
+          "y": 2800
+        },
+        "next": "bsm_88",
+        "style": "raw",
+        "text": "Fuck sake! Don't film me film that pan ya fuckin maroon",
+        "type": "say"
+      },
+      "bsm_88": {
+        "_vine": {
+          "x": 740,
+          "y": 2800
+        },
+        "display": "PRODUCER",
+        "next": "bsm_89",
+        "npc_id": "npc_phil_mccracken",
+        "type": "npc_anchor"
+      },
+      "bsm_89": {
+        "_vine": {
+          "x": 960,
+          "y": 2800
+        },
+        "next": "bsm_90",
+        "style": "raw",
+        "text": "You gotta chill out man Father Jerome is in the livestream right now freaking out in the chat. Also, who the hell is Colonel sanders?",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_90": {
+        "_vine": {
+          "x": 80,
+          "y": 2960
+        },
+        "next": "bsm_91",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_91": {
+        "_vine": {
+          "x": 300,
+          "y": 2960
+        },
+        "next": "bsm_92",
+        "style": "raw",
+        "text": "He invented chicken, you fast food luddite, read a book",
+        "type": "say"
+      },
+      "bsm_92": {
+        "_vine": {
+          "x": 520,
+          "y": 2960
+        },
+        "message": "fires in one seasoning after another without reading a single label or naming any of them.",
+        "next": "bsm_93",
+        "type": "npc_action"
+      },
+      "bsm_93": {
+        "_vine": {
+          "x": 740,
+          "y": 2960
+        },
+        "next": "bsm_94",
+        "style": "narration",
+        "text": "He does not stop. There are eleven of them, and under his breath, not quite off mic, he can be heard saying \"heres your fuckin original recipe 11 herbs and spices you prick\".",
+        "type": "say"
+      },
+      "bsm_94": {
+        "_vine": {
+          "x": 960,
+          "y": 2960
+        },
+        "next": "bsm_95",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_95": {
+        "_vine": {
+          "x": 80,
+          "y": 3120
+        },
+        "next": "bsm_96",
+        "style": "raw",
+        "text": "I HEARD THAT! THE LORD HEARS THAT AND HE ISN'T HAPPY",
+        "type": "say"
+      },
+      "bsm_96": {
+        "_vine": {
+          "x": 300,
+          "y": 3120
+        },
+        "next": "bsm_97",
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
+      },
+      "bsm_97": {
+        "_vine": {
+          "x": 520,
+          "y": 3120
+        },
+        "next": "bsm_98",
+        "style": "raw",
+        "text": "WELL I MUST TRULY BE MADE IN THE LORDS IMAGE FATHER, BECAUSE IM NOT TOO HAPPY HERE EITHER! IM MAKING FUCKIN HAMBURGER HELPER IN SOME FUCKIN KITCHENETTE IN SOME LEAKY ALCOVE OF THIS FUCKIN HOUSE OF THE LORD AND YOU KNOW WHAT?!?! THE LORD SHOULD BE PISSED! WE SHOULD ALL BE PISSED! THEY NAILED HIS BOY TO SOME FUCKIN 6X6'S! YOU KNOW THEY DID FATHER",
+        "type": "say"
+      },
+      "bsm_98": {
+        "_vine": {
+          "x": 740,
+          "y": 3120
+        },
+        "next": "bsm_99",
+        "npc_id": "npc_father_jerome",
+        "type": "npc_anchor"
+      },
+      "bsm_99": {
+        "_vine": {
+          "x": 960,
+          "y": 3120
+        },
+        "next": "bsm_100",
+        "style": "raw",
+        "text": "We've talked about this Neil, you have to stop all this talk about the Jews, you know christ was a jew?",
+        "type": "say"
+      }
+    }
+  },
+  "category": "cooking",
+  "channel_id": "ch_11_stgarneau_stream",
+  "created_by": "codex",
+  "description": "Neil McManistan cooks, in a church, on a priest's WiFi.",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
+  "id": "bc_cooking_shit_neil",
+  "location_zone_id": "zone_stgarneau_basement",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "Midday. The commercial kitchen under a rundown church: steel counters, a chest freezer, strip lighting with one tube out. Handwritten notes are taped to every cupboard in the same careful hand. PLEASE WASH YOUR OWN DISHES. CLEANLINESS IS NEXT TO GODLINESS, WASH YOUR HANDS PLEASE. DO NOT TOUCH ANY OF THE FOODS MARKED FATHER JEROME - FATHER JEROME, ST GARNEAU FRENCH CANADIAN ROMAN CATHOLIC CHURCH."
+    },
+    {
+      "text": "Neil McManistan is behind the counter in a borrowed woman's apron, blue gingham, frilled at the shoulders. It is not his size and it is not close."
+    },
+    {
+      "text": "I look like fuckin Dorothy in this stupid thing man you couldnt find anything better?"
+    },
+    {
+      "text": "Like the Wizard of Oz? You're making a Wizard of Oz reference in the big '26? We're live dude..."
+    },
+    {
+      "text": "What do you mean live in thought we couldn't do live anymore"
+    },
+    {
+      "text": "Father Jerome gave me the WiFi password; We had to move to YouTube. They didnt want us on tv after the unregulated drugs and the anti semitism allegations"
+    },
+    {
+      "text": "A GOOD MAN GOT DEPORTED THATS YOUR FAULT! THE ROOT WAS GOOD HOW WAS I TO KNOW IT WAS A VIETNAMESE OPIUM FRONT I THOUGHT THAT WAS A CHINESE THING! THANK GOD FOR JEWTUBE IM SURE AS SHIT NOT GONNA GET CANCELLED HERE"
+    },
+    {
+      "text": "You cant be saying that Father Jerome is going to be upset"
+    },
+    {
+      "text": "Look what they did to Jesus, pal. I think father Jerome would have my back. They try to do that shit and I was around i would have crucified buddy in the audience selling the \"I love Jesus\" buttons and the \"I hate Jesus\" buttons in the same stall at the trial. Uncle tom bullshit..."
+    },
+    {
+      "text": "Colonel Tom"
+    },
+    {
+      "text": "Its Uncle Tom"
+    },
+    {
+      "text": "Colonel Tom was Elvis' manager, and he sold anti Elvis merch as well, thats what you mean right? An uncle tom is a pejorative term for an African American that's subservient to whites"
+    },
+    {
+      "text": "I bet colonel Tom also controlled the weather..."
+    },
+    {
+      "text": "Colonel Tom was Dutch, not Jewish"
+    },
+    {
+      "text": "Didja know they have the most lesbians in the world in the Netherlands?"
+    },
+    {
+      "text": "What could that possibly have to do with anything we're doing here?"
+    },
+    {
+      "text": "They can't keep their fingers out of the dykes over there"
+    },
+    {
+      "text": "I am genuinely sorry that I asked."
+    },
+    {
+      "text": "Security camera footage, timestamped and greenish. Neil McManistan lets himself into Father Jerome's office and leaves with a bottle of communion wine held low against his leg. A second angle, another night: Neil eating Father Jerome's leftovers standing up in the church basement, straight from the container, with the fridge door open for the light."
+    },
+    {
+      "text": "What the hell was that?! You're a fuckin snitch man, where did you get that footage?"
+    },
+    {
+      "text": "Ive got several cameras hidden everywhere man youre a loose cannon i cant believe they're letting us film here"
+    },
+    {
+      "text": "They probably wont be when youre showing me wheezing the Jesus j-ew-uice and eating the manna out of the house of the lord..."
+    },
+    {
+      "text": "A voice from the other room. It is not raised. It has never needed to be."
+    },
+    {
+      "text": "I should have known better but the lord demands forgiveness, you must forget a better path and become an upright man"
+    },
+    {
+      "text": "Im doing the best I can father but im a fuckin bent over man, ever since Barb bent me over and fucked me good before she left"
+    },
+    {
+      "text": "Please try and refrain from that language in here, you cant be eating my leftovers and spouting this virulent antisemitism and speaking ill of your former wife"
+    },
+    {
+      "text": "Its the only time she ever sucked me dry let me tell ya father. Blood from a stone, but that lawyer of hers played me like a brass instrument and he was Heeb Alpert"
+    },
+    {
+      "text": "Thats a very dated reference and you cant say Heeb in church"
+    },
+    {
+      "text": "Was that an encino man reference earlier too?"
+    },
+    {
+      "text": "Im sorry father. Today we're gonna learn how to make hamburger helper. First things first, we need to do some grocery shopping. Lets see what we have in the pantry."
+    },
+    {
+      "text": "Neil opens a door into a storage room. The sign on it reads ST GARNEAU'S FOOD PANTRY FOR THE POOR."
+    },
+    {
+      "text": "Just gonna pop that bad boy in the nuker to defrost, keep an eye on that eh"
+    },
+    {
+      "text": "I don't think thats the best way to do that"
+    },
+    {
+      "text": "I dont have all day to wait for this shit to thaw, ive got lots to do today"
+    },
+    {
+      "text": "You're practically unemployed, what could you be busy with?"
+    },
+    {
+      "text": "today we're going to be making hamburger helper. Ive chosen the cheeseburger variety. So you start by cooking up the ground beef..."
+    },
+    {
+      "text": "This is your big cooking show? Making hamburger helper? If you want to do a cooking show you're going to need original recipes. This is just instructions with Neil"
+    },
+    {
+      "text": "Who the fuck are you, Colonel Sanders?! Don't you judge me I'm gonna add shit, im gonna drive the seasonings to it. Don't forget about the secret ingredient. Didn't think about that did you"
+    },
+    {
+      "text": "Fuck sake! Don't film me film that pan ya fuckin maroon"
+    },
+    {
+      "text": "You gotta chill out man Father Jerome is in the livestream right now freaking out in the chat. Also, who the hell is Colonel sanders?"
+    },
+    {
+      "text": "He invented chicken, you fast food luddite, read a book"
+    },
+    {
+      "text": "He does not stop. There are eleven of them, and under his breath, not quite off mic, he can be heard saying \"heres your fuckin original recipe 11 herbs and spices you prick\"."
+    },
+    {
+      "text": "I HEARD THAT! THE LORD HEARS THAT AND HE ISN'T HAPPY"
+    },
+    {
+      "text": "WELL I MUST TRULY BE MADE IN THE LORDS IMAGE FATHER, BECAUSE IM NOT TOO HAPPY HERE EITHER! IM MAKING FUCKIN HAMBURGER HELPER IN SOME FUCKIN KITCHENETTE IN SOME LEAKY ALCOVE OF THIS FUCKIN HOUSE OF THE LORD AND YOU KNOW WHAT?!?! THE LORD SHOULD BE PISSED! WE SHOULD ALL BE PISSED! THEY NAILED HIS BOY TO SOME FUCKIN 6X6'S! YOU KNOW THEY DID FATHER"
+    },
+    {
+      "text": "We've talked about this Neil, you have to stop all this talk about the Jews, you know christ was a jew?"
+    },
+    {
+      "text": "If thats how they treat their own imagine what they do to their enemies, father"
+    },
+    {
+      "text": "I think I smell something burning"
+    },
+    {
+      "text": "The pan is smoking. Not a wisp of it. The food is going, and it is going fast."
+    },
+    {
+      "text": "I'm glad you were all here to witness it happen, the bitter reality of this cruel world we're living in..."
+    },
+    {
+      "text": "You can't be smoking in the church its a sin against the lord we've talked about this-"
+    },
+    {
+      "text": "BAN FATHER JEROME FROM THE STREAM"
+    },
+    {
+      "text": "I'm not too sure that will do much he's just in other ro-"
+    },
+    {
+      "text": "I WANT HIM BANNED, IM LOCKING THE DOOR HE'S BANNED"
+    },
+    {
+      "text": "The handle turns from the other side. It turns again, more slowly, the way a patient man tries a thing twice."
+    },
+    {
+      "text": "Neil you can't stay on this path, you need to atone for your sins and find a better path"
+    },
+    {
+      "text": "Maybe you should listen to him"
+    },
+    {
+      "text": "You wanna talk about a path father ive been sliding down so fast im gonna find my ass in China! I've been thrown out of more basements than one of your altar boys when youre finished you don't scare me"
+    },
+    {
+      "text": "JESUS CHRIST!"
+    },
+    {
+      "text": "I won't allow you to broadcast this blasphemy on our wifi any longer Neil you need to open this door at once!"
+    },
+    {
+      "text": "He stares the lens down while he does it, and beckons off-camera for the bag of chips."
+    },
+    {
+      "text": "Gimme those fuckin' chips! Tonight on cooking with Neil we learned how to make hamburger helper. The secret ingredient is fucking it up so bad the hamburger helper catches fire and you ruin it all, cuz thats all thats really happening here! Youre watching a man crash and burn and here i walk in the depth of HELL, father! Im fuckin going through it! So tonight's recipe is a fuckin dinner sized bag of chips, aka the family size, i love that they call em family size, it reminds me of the fact that im having cigarattes and potato chips for dinner and im washing it down with a handle of cheap vodka and I'm gonna eat a gun for dessert if this shit doesnt turn around-"
+    },
+    {
+      "text": "just let me in Neil I just want to talk"
+    },
+    {
+      "text": "HOW MANY ALTAR BOYS HAD TO HEAR THAT LINE FATHER YOU RAT BASTARD I'M NOT OPENING THIS DOOR FOR NO ONE ILL BURN THIS WHOLE BUILDING DOWN PHIL BURN THIS BUILDING DOWN"
+    },
+    {
+      "text": "The producer does not move. On the stream, for a second and a half, the only sound is a chest freezer."
+    },
+    {
+      "text": "Please don't use my name on this program"
+    },
+    {
+      "text": "I CANT TAKE THIS ANY LONGER IM CHANGING THE WIFI PASSWORD!"
+    },
+    {
+      "text": "Join us next week on dating with Neil where I show you where to find the most available pussy ever. We're coming at you live on location from all the hottest spots for divorced dads to meet eligible run through single moms! IM THINKIN' ARBYS!"
+    },
+    {
+      "text": "The stream does not fade. It stops, mid-room-tone, the way a connection stops."
+    }
+  ],
+  "morning_pools": null,
+  "name": "Cooking Shit With Neil McManistan",
+  "news_pools": null,
+  "override_duration": 1500,
+  "playback_mode": "scripted",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1784700000",
+  "weather_pools": null
+}

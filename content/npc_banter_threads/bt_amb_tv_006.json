@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_006",
+  "lines": [
+    "\"{tv_station} put that out with a straight face.\"",
+    "\"They put everything out with a straight face. It is the whole business model.\""
+  ],
+  "personality": null,
+  "sort_order": 515
+}

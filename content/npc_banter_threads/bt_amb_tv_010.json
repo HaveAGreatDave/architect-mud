@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_010",
+  "lines": [
+    "\"What is this?\"",
+    "\"{tv_program}.\"",
+    "\"And what is {tv_program}?\"",
+    "\"Twenty minutes of your life, and then the news.\""
+  ],
+  "personality": null,
+  "sort_order": 519
+}

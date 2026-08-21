@@ -1830,6 +1830,12 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS film_meta JSONB;
   -- Sermons (playback_mode='sermon') store a line library + the celebrant roster here: { celebrants:[{name,title,tag}], verger, pools:{key:[…]}, title, theme, airSlots, airDays }. A fresh service is assembled each in-game day from the LIVE news feed and preached through the celebrants — dynamic, but NOT acted: the celebrants are display NAMES, so no studio NPC is ever spawned and it never presence-gates.
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sermon_pools JSONB;
+
+  -- ON LOCATION. A broadcast that names a location_zone_id is STAGED THERE rather
+  -- than in its channel studio: the cast walk to it, the cameras that matter are the
+  -- ones standing in it, and every line the acting layer puts in a room goes into that
+  -- room. Null (the overwhelming default) means the channel studio, exactly as before.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS location_zone_id TEXT;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 

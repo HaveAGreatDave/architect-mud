@@ -1,0 +1,9 @@
+{
+  "a": "zone_stgarneau_nave",
+  "b": "zone_stgarneau_vestry",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_stgarneau_nave_east_stry",
+  "lockable": false,
+  "one_way": false
+}

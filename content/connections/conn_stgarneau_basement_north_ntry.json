@@ -1,0 +1,9 @@
+{
+  "a": "zone_stgarneau_basement",
+  "b": "zone_stgarneau_pantry",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_stgarneau_basement_north_ntry",
+  "lockable": false,
+  "one_way": false
+}

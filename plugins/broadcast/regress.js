@@ -4,7 +4,7 @@
 // that an off-shift studio actor walks out of the studio building.
 import { readFileSync, readdirSync } from 'fs';
 import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server/engine/ai-behaviour.js';
-import { world } from '../../server/engine/world.js';
+import { world, getZone, getZoneFurniture, moveNpcToZone } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
 import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, getTvChannelList, getTabletTunedChannel, isDeckInputChannel } from './index.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
@@ -12,6 +12,7 @@ import { emit } from '../../server/engine/events.js';
 const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
 import { _audienceTest } from './audience.js';
+import { TANGENT_POOLS, WRANGLE_POOLS, canTangent, tangentRuns, wrangleLines, buildTangent, tangentHoldMs } from './tangents.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 
@@ -1395,6 +1396,82 @@ export default async function regress({ check, run, getPlayer }) {
     // Impairment reads the live NPC; an id that isn't anyone is simply sharp.
     const imp = _test.actorImpairment('__nobody__');
     check('an unknown actor reads as unimpaired', imp.level === 0 && imp.out === false, JSON.stringify(imp));
+
+    // ── The voice of a state ──────────────────────────────────────────────────
+    // Delivery is written against npc-drugs' STATES, never against drug names, so
+    // a habit is pure content. These guard that seam rather than the prose.
+
+    // Every state npc-drugs can set has a row here. A state without one falls to
+    // the generic voice silently — an anchor on a new drug family sounding exactly
+    // like an anchor on a bottle, with nothing to say it went wrong.
+    const NPC_DRUG_STATES = ['loose', 'flee', 'wired', 'belligerent',
+      'mellow', 'tripping', 'dissociated', 'lucid'];
+    const missingVoice = NPC_DRUG_STATES.filter(k => !_test.DELIVERY[k]);
+    check('every dose state npc-drugs can set has a delivery voice',
+      missingVoice.length === 0, 'no voice for: ' + missingVoice.join(', '));
+
+    // A row missing a pool would air an empty aside — the host's name and nothing.
+    const shallow = Object.entries(_test.DELIVERY).filter(([, v]) =>
+      !(v.fumbles || []).length || !(v.offscript || []).length || !(v.collapse || []).length);
+    check('every delivery voice carries all three line pools',
+      shallow.length === 0, 'thin rows: ' + shallow.map(([k]) => k).join(', '));
+
+    // Two actors equally far gone must not sound the same. A stimulant never slurs
+    // (the tell is speed); drink always can. This is the whole reason state is
+    // threaded through at all, so it is asserted rather than assumed.
+    let wiredSlurred = false, drunkSlurred = false;
+    for (let i = 0; i < 60; i++) {
+      if (/sh|in'|an'/.test(_test.garbleLine(line, 0.95, 'wired'))) wiredSlurred = true;
+      if (/sh|in'|an'/.test(_test.garbleLine(line, 0.95, 'drunk'))) drunkSlurred = true;
+    }
+    check('a wired actor never slurs — the tell is speed', !wiredSlurred, 'a stimulant slurred');
+    check('a drunk actor does slur', drunkSlurred, 'drink never softened a consonant');
+
+    // Inert states are states, not impairments: lucid must come back verbatim even
+    // above the floor, or the no-op guard mangles a man reading it better.
+    let lucidClean = true;
+    for (let i = 0; i < 40; i++) if (_test.garbleLine(line, 0.95, 'lucid') !== line) lucidClean = false;
+    check('a lucid actor delivers the line verbatim', lucidClean, 'a nootropic garbled the take');
+
+    // An unknown state falls back to the generic voice rather than throwing — the
+    // pre-state behaviour, which is what makes this safe for any two-argument call.
+    check('an unknown state still degrades in the generic voice',
+      _test.garbleLine(line, 0.9, 'nonsense_state') !== line, 'unknown state aired clean');
+    check('garbleLine with no state at all still degrades',
+      _test.garbleLine(line, 0.9) !== line, 'stateless call aired clean');
+
+    // Authored lines REPLACE the state pool. A host given their own drunk aside
+    // must be heard saying it, not it diluted by the house set.
+    const ownLine = '...Marguerite. Marguerite, are you watching this.';
+    const voiced = { flags: { delivery_lines: { drunk: { offscript: [ownLine] } } } };
+    let houseAside = false, heardOwn = false;
+    for (let i = 0; i < 80; i++) {
+      const took = _test.garbleLine(line, 0.98, 'drunk', voiced);
+      if (took.includes(ownLine)) heardOwn = true;
+      if (/is there water|nine years/i.test(took)) houseAside = true;
+    }
+    check('an authored aside is heard', heardOwn, 'the NPC never said their own line');
+    check('an authored pool replaces the house pool', !houseAside, 'the house set leaked through');
+
+    // 'any' is the catch-all, and a state the author did not cover still falls
+    // through to the state pool rather than to nothing.
+    const anyVoiced = { flags: { delivery_lines: { any: { fumbles: ['— hah —'] } } } };
+    let sawAny = false;
+    for (let i = 0; i < 80; i++) if (_test.garbleLine(line, 0.9, 'mellow', anyVoiced).includes('— hah —')) sawAny = true;
+    check("an 'any' pool reaches a state it does not name", sawAny, 'the catch-all never fired');
+
+    // The take that never happens. Each state dies its own way, and the pool must
+    // never come back empty.
+    for (const st of ['flee', 'loose', 'wired', null, 'nonsense_state']) {
+      check('a collapse always has words (' + (st || 'no state') + ')',
+        (_test.collapseLine(st) || '').length > 8, 'empty collapse for ' + st);
+    }
+    check('a bolting deliriant leaves the set',
+      _test.DELIVERY.flee.collapse.join(' ') !== _test.DELIVERY.paranoid.collapse.join(' '),
+      'fleeing reads identically to standing there paranoid');
+
+    // Slur is scaled, never absolute: at zero it is the identity.
+    check('slur at zero is the identity', _test.slurLine(line, 0) === line, _test.slurLine(line, 0));
   }
 
   // ── Studio audience door ────────────────────────────────────────────────────
@@ -2608,5 +2685,470 @@ export default async function regress({ check, run, getPlayer }) {
         }
       }
     }
+  }
+  // ── Tangents: losing the thread, on purpose ─────────────────────────────────
+  // The delivery layer degrades a LINE; a tangent abandons the script for a run of
+  // them. These cases guard the two things that would silently rot: a delivery
+  // state added with no tangent voice (it would inherit nobody's, and the host
+  // would simply never wander on that drug), and an authored character's own
+  // obsessions being diluted by the house pool.
+  {
+    const states = Object.keys(TANGENT_POOLS);
+    for (const st of states) {
+      const runs = TANGENT_POOLS[st];
+      check(`tangents: '${st}' has runs`, Array.isArray(runs) && runs.length > 0, st);
+      check(`tangents: every '${st}' run is 2+ lines`, runs.every(r => Array.isArray(r) && r.length >= 2), st);
+      check(`tangents: no blank line in '${st}'`, runs.every(r => r.every(l => String(l).trim())), st);
+      // Em dashes are an Ascendants/Architect voice tell and must not appear in
+      // anything a station host says.
+      check(`tangents: no em dashes in '${st}'`, runs.every(r => r.every(l => !String(l).includes('—'))), st);
+    }
+
+    // A NEW DELIVERY STATE MUST DECIDE WHAT ITS TANGENT SOUNDS LIKE. Without this
+    // case, adding a row to _DELIVERY gets you a state that degrades lines and can
+    // never lose the thread, which reads as the feature being broken on that drug
+    // rather than as an authoring gap. Two deliberate exemptions: `lucid` is
+    // sharper than sober and does not wander, and `flee` never reaches a line at
+    // all (it resolves through the collapse path).
+    for (const st of Object.keys(_test.DELIVERY)) {
+      if (st === 'lucid' || st === 'flee') continue;
+      check(`tangents: delivery state '${st}' has a tangent voice`, canTangent(st), st);
+    }
+
+    // The house pools are read by WHOEVER is on the floor of whichever show. A
+    // name in one is a character's dialogue wearing a generic pool's clothes.
+    for (const reg of Object.keys(WRANGLE_POOLS)) {
+      check(`tangents: house wrangle pool '${reg}' names nobody`,
+        WRANGLE_POOLS[reg].every(l => !/(Neil|Nguyen|Akerson|Graham)/.test(l)), reg);
+    }
+
+    // ⚠ A TANGENT VOICE NOBODY CAN REACH. The floor was above 'wired' (0.4) and
+    // 'comedown' (0.35), so a stimulant host had a pool written for him and never
+    // once wandered — nothing errors, the feature is just silently off for him.
+    for (const st of Object.keys(TANGENT_POOLS)) {
+      check(`tangents: '${st}' can actually reach the floor`,
+        _test.DELIVERY[st].level >= _test.TANGENT_FLOOR,
+        `level ${_test.DELIVERY[st].level} < floor ${_test.TANGENT_FLOOR}`);
+    }
+    check('tangents: lucid never wanders', !canTangent('lucid'));
+    check('tangents: an unknown state gets nothing', !canTangent('nonsense'));
+
+    // Authored REPLACES the house pool, and the fallback chain is state → any →
+    // house. A character with one bespoke drunk run must not be silently disabled
+    // on every other state.
+    const authored = { flags: { tangents: { loose: [['mine one', 'mine two']], any: [['catch all', 'second']] } } };
+    check('tangents: authored replaces the house pool',
+      tangentRuns(authored, 'loose')[0][0] === 'mine one');
+    check("tangents: 'any' catches an unauthored state",
+      tangentRuns(authored, 'mellow')[0][0] === 'catch all');
+    check('tangents: an unauthored NPC still falls to the house pool',
+      tangentRuns({ flags: {} }, 'loose').length === TANGENT_POOLS.loose.length);
+
+    // The co-host half. Interleaved INSIDE the run (a producer who waits for the
+    // end of the digression is not wrangling anyone), and the last beat is always
+    // theirs and always a return to the running order.
+    const host = { id: 'h', flags: { tangents: { loose: [['a', 'b', 'c', 'd']] } } };
+    const cohost = { id: 'c', flags: {} };
+    const withCo = buildTangent({ host, cohost, state: 'loose', rand: () => 0 });
+    const solo = buildTangent({ host, cohost: null, state: 'loose', rand: () => 0 });
+    check('tangents: solo run is host-only', solo.beats.every(b => b.who === 'host'));
+    check('tangents: solo run airs every authored line', solo.beats.length === 4);
+    check('tangents: a co-host interrupts inside the run',
+      withCo.beats.some((b, i) => b.who === 'cohost' && i < withCo.beats.length - 1));
+    check('tangents: the last beat is the co-host recovering the script',
+      withCo.beats[withCo.beats.length - 1].who === 'cohost'
+      && WRANGLE_POOLS.recover.includes(withCo.beats[withCo.beats.length - 1].text));
+    check('tangents: an empty pool yields no tangent',
+      buildTangent({ host: { id: 'x', flags: { tangents: { loose: [] } } }, cohost, state: 'nonsense' }) === null);
+
+    // Hold is length-scaled and bounded — a four-word interjection must not sit on
+    // screen as long as a sentence, and nothing may park the graph for a minute.
+    check('tangents: a short beat holds less than a long one',
+      tangentHoldMs('Neil.') < tangentHoldMs('x'.repeat(120)));
+    check('tangents: hold is bounded', tangentHoldMs('x'.repeat(9999)) <= 7000);
+
+    // The shipped cast. Neil is the character the feature was built for; if his own
+    // voice is gone he silently falls back to the house pool and sounds like a
+    // newsreader, which is exactly the gap this replaced.
+    const neil = JSON.parse(readFileSync('content/npcs/npc_neil_mcmanistan.json', 'utf8'));
+    const john = JSON.parse(readFileSync('content/npcs/npc_john_akerson.json', 'utf8'));
+    const graham = JSON.parse(readFileSync('content/npcs/npc_graham_mercer.json', 'utf8'));
+    const nguyen = JSON.parse(readFileSync('content/npcs/npc_captain_nguyen.json', 'utf8'));
+    const phil = JSON.parse(readFileSync('content/npcs/npc_phil_mccracken.json', 'utf8'));
+    check('tangents: Neil has his own drunk tangents', (neil.flags?.tangents?.loose || []).length > 0);
+    check('tangents: Neil is in a state he can tangent from', canTangent('loose') && !!neil.flags?.booze_habit);
+    for (const reg of ['early', 'late', 'recover']) {
+      check(`tangents: Phil has '${reg}' wrangle lines`, (phil.flags?.wrangle_lines?.[reg] || []).length > 0);
+      check(`tangents: Nguyen has '${reg}' lines too`, (nguyen.flags?.wrangle_lines?.[reg] || []).length > 0);
+    }
+    check('tangents: Phil replaces the house wrangle pool',
+      wrangleLines(phil, 'recover')[0] !== WRANGLE_POOLS.recover[0]);
+
+
+    // A run may declare what it is ABOUT, and the co-host answers the topic. Without
+    // this, a producer with one good topical line reads it at random over every
+    // tangent — 'nobody is watching this for your divorce' landing on a bit about
+    // coffee, which is worse than the generic line it displaced.
+    const topicHost = { id: 'h2', flags: { tangents: { loose: [{ lines: ['a', 'b'], topic: 'divorce' }] } } };
+    const topicCo = { id: 'c2', flags: { wrangle_lines: { divorce: { recover: ['the divorce one'] }, recover: ['the general one'] } } };
+    check('tangents: a topic-tagged run still airs its lines',
+      buildTangent({ host: topicHost, cohost: topicCo, state: 'loose', rand: () => 0 }).beats[0].text === 'a');
+    check('tangents: the co-host answers the topic',
+      wrangleLines(topicCo, 'recover', 'divorce')[0] === 'the divorce one');
+    check('tangents: an untagged run gets the general register',
+      wrangleLines(topicCo, 'recover', null)[0] === 'the general one');
+    check('tangents: a topic nobody wrote for falls back rather than going silent',
+      wrangleLines(topicCo, 'recover', 'nothingness')[0] === 'the general one');
+    check('tangents: a bare array run is still a valid run (no topic)',
+      buildTangent({ host: { id: 'h3', flags: { tangents: { loose: [['x', 'y']] } } }, cohost: null, state: 'loose', rand: () => 0 }).topic === null);
+
+    // Neil's runs and the floor's answers are authored as a pair; a topic with
+    // nothing on the other side is legal (it falls back) but is almost always a typo.
+    // EITHER man may own it, and which one is characterisation: Phil answers the
+    // show, Nguyen answers his own root, and the one topic Phil will not engage with
+    // he answers with the clock instead.
+    for (const run of neil.flags.tangents.loose) {
+      if (Array.isArray(run)) continue;
+      check(`tangents: somebody on that floor answers '${run.topic}'`,
+        !!(phil.flags?.wrangle_lines?.[run.topic] || nguyen.flags?.wrangle_lines?.[run.topic]), run.topic);
+    }
+    // ⚠ The tell. Phil has a topical answer for every one of Neil's obsessions, and
+    // on the subject of the man he pushed out he talks about the RUNNING ORDER. If a
+    // future edit gives him an actual opinion there, the joke is gone and nothing
+    // else in the codebase would notice.
+    check('tangents: Phil answers the Nguyen question with the clock',
+      JSON.stringify(phil.flags.wrangle_lines.nguyen || {}).includes('running order')
+      || JSON.stringify(phil.flags.wrangle_lines.nguyen || {}).includes('break'));
+    check('tangents: ...and never once names him',
+      !JSON.stringify(phil.flags.wrangle_lines.nguyen || {}).includes('Nguyen'));
+    // Nguyen is not the foil any more. He is on a barstool. His job is to make it
+    // worse, and the shape of that is that he owns exactly one subject.
+    check('tangents: Nguyen owns the root and nothing else',
+      Object.keys(nguyen.flags.wrangle_lines).filter(k => !['early', 'late', 'recover'].includes(k)).join() === 'root');
+
+    // John Akerson is the OTHER failure: a stimulant host is launched rather than
+    // lost, and his state ('wired') is the one the floor bug hid. His habit flag is
+    // what puts him there, so the pair is asserted together.
+    check('tangents: John has his own wired tangents', (john.flags?.tangents?.wired || []).length > 0);
+    check('tangents: ...and a habit that actually reaches wired',
+      !!john.flags?.preshow_habit || !!john.flags?.drug_habit, JSON.stringify(john.flags));
+    check('tangents: ...and a comedown voice for the crash afterwards',
+      (john.flags?.tangents?.comedown || []).length > 0);
+    for (const run of [...(john.flags.tangents.wired || []), ...(john.flags.tangents.comedown || [])]) {
+      if (Array.isArray(run)) continue;
+      check(`tangents: Graham has something to say about '${run.topic}'`,
+        !!graham.flags?.wrangle_lines?.[run.topic], run.topic);
+    }
+    // Authoring aid, off by default: `TANGENT_DUMP=1 node tests/regress.js` prints
+    // one tangent per state as it would go to air, garbled at that state's own
+    // level. The pools are comedy; assembling is not the same as reading well.
+    if (process.env.TANGENT_DUMP) {
+      const cast = { neil: { ...neil, id: 'npc_neil_mcmanistan' }, nguyen: { ...nguyen, id: 'npc_captain_nguyen' } };
+      for (const st of Object.keys(TANGENT_POOLS)) {
+        const useNeil = st === 'loose';
+        const t = buildTangent({ host: useNeil ? cast.neil : { id: 'h', flags: {} }, cohost: cast.nguyen, state: st });
+        if (!t) continue;
+        const lvl = _test.DELIVERY[st].level;
+        console.log(`\n──────── TANGENT: ${st} (level ${lvl})${useNeil ? ' — Neil, authored' : ''} ────────`);
+        for (const b of t.beats) {
+          const who = b.who === 'host' ? (useNeil ? 'Neil Mcmanistan' : 'The host') : 'Captain Nguyen';
+          // The co-host is sober: his lines air clean while the host comes apart.
+          const text = b.who === 'host' ? _test.garbleLine(b.text, lvl, st, useNeil ? cast.neil : null) : b.text;
+          console.log(`  ${who} says, "${text}"`);
+        }
+      }
+    }
+  }
+  // ── On location ─────────────────────────────────────────────────────────────
+  // A show shot away from its channel's studio. Everything here guards a seam that
+  // fails SILENTLY if it breaks: the cast walk to the wrong building and the show
+  // reports that nobody turned up to a programme that is happening.
+  {
+    const src2 = readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8');
+    const compile = new Function(`${src2}\n;return compileBsm;`)();
+    const cooking = compile(readFileSync(new URL('../../data/scripts/cooking_shit_with_neil.bsm', import.meta.url), 'utf8'));
+    check('location: the script declares where it is shot',
+      cooking.meta.location === 'zone_stgarneau_basement', cooking.meta.location);
+    check('location: ...and that zone exists', !!getZone('zone_stgarneau_basement'));
+    check('location: the church basement is reachable from the world',
+      !!getZone('zone_stgarneau_nave') && !!getZone('zone_district_925_912'));
+
+    // ⚠ A BILLING IS NOT AN ALIAS. If this ever collapses, Neil starts airing as
+    // "NEIL" in capitals and Jerry as "LAWYER", and nobody would think to look here.
+    const anchors = Object.values(cooking.broadcastGraph.nodes).filter(n => n.type === 'npc_anchor');
+    const billed = new Set(anchors.filter(n => n.display).map(n => n.npc_id));
+    check('billing: the producer is billed', billed.has('npc_phil_mccracken'));
+    check('billing: ...and he is billed as PRODUCER',
+      anchors.find(n => n.npc_id === 'npc_phil_mccracken')?.display === 'PRODUCER');
+    check('billing: an ordinary @alias is NOT a billing',
+      !billed.has('npc_neil_mcmanistan') && !billed.has('npc_father_jerome'),
+      [...billed].join(','));
+
+    // The uplink. A studio is wired; a church basement is not, so the deck is the
+    // difference between a location shoot and a room with cameras in it.
+    const studioState = { studioZoneId: 'zone_studio_1782953094650' };
+    check('uplink: a wired studio needs no deck',
+      _test.uplinkOk(studioState, 'zone_studio_1782953094650') === true);
+    check('uplink: the church basement has a portable deck',
+      _test.uplinkOk(studioState, 'zone_stgarneau_basement') === true);
+    check('uplink: ...and a room with no deck cannot reach the studio',
+      _test.uplinkOk(studioState, 'zone_stgarneau_nave') === false);
+
+    // ── The keyholder's pre-show act ────────────────────────────────────────
+    // Generic seam: whoever owns the building does an authored thing when a crew
+    // turns up to film in it. Everything here guards a silent failure — an act
+    // that fires on every tick, or in the wrong room, or never.
+    const jer = JSON.parse(readFileSync('content/npcs/npc_father_jerome.json', 'utf8'));
+    const act = jer.flags?.preshow_act;
+    check('act: the keyholder has one', !!act);
+    check('act: it names the STAGE it watches', act?.stage === 'zone_stgarneau_basement', act?.stage);
+    // ⚠ The room the act happens in is NOT the room the show is made in. Authoring
+    // one field for both puts a man unscrewing a plaque over the front door into a
+    // basement kitchen, which is where this started before it was two fields.
+    check('act: ...and the ROOM it happens in, separately', act?.zone === 'zone_district_925_912', act?.zone);
+    check('act: the two are different rooms', act.stage !== act.zone);
+    check('act: it has both halves', (act.before || []).length > 0 && (act.after || []).length > 0);
+    check('act: the doorway it plays in exists', !!getZone(act.zone));
+    check('act: ...and still says nothing about why',
+      !/protest|defian|resist|statement/i.test(JSON.stringify(act)));
+
+    // ⚠ THE STAGE IS BOOKED NOW, so its call state depends on the GAME CLOCK and
+    // asserting a value here would go red every Tuesday morning and nowhere else.
+    // What is deterministic is the shape: it always answers one of the three, and a
+    // zone nothing is staged in always answers idle.
+    check('act: a booked location answers a real state',
+      ['idle', 'call', 'air'].includes(_test.locationCallState(act.stage)),
+      _test.locationCallState(act.stage));
+    check('act: a zone nothing is staged in is idle', _test.locationCallState('zone_stgarneau_nave') === 'idle');
+    check('act: no stage at all is idle', _test.locationCallState(null) === 'idle');
+    // Edge-triggered: the tick must be a no-op when nothing has changed, and must
+    // not throw with no players about.
+    _test.preshowActTick();
+    _test.preshowActTick();
+    check('act: ticking an idle world twice is a no-op', true);
+
+    // The slot that makes all of it real. Without a booking the location seam, the
+    // droids and the plaque are all correct and all dormant.
+    const slot = JSON.parse(readFileSync('content/media_channel_playlist/stgarneau-tue-1100.json', 'utf8'));
+    check('slot: the show is booked', slot.broadcast_id === 'bc_cooking_shit_neil', slot.broadcast_id);
+    // "They film on a Tuesday" is a line Father Jerome says. Bit 1 is Tuesday, and
+    // this row is the only thing that makes that sentence true rather than flavour.
+    check('slot: ...on a Tuesday, which is what he tells you', slot.days === 2, String(slot.days));
+    const staff = slot.conditions?.npc_staff || [];
+    check('slot: the host is dispatched', staff.includes('npc_neil_mcmanistan'));
+    check('slot: the producer is dispatched', staff.includes('npc_phil_mccracken'));
+    // ⚠ THE DROIDS BEING ON THIS LIST IS THE ONLY REASON THE BASEMENT HAS A PICTURE.
+    // Drop them and the show airs to a dark room and resolves as technical
+    // difficulties, which looks like an engine fault and is a casting mistake.
+    check('slot: ...and so are the cameras',
+      staff.includes('npc_ksab_droid_1') && staff.includes('npc_ksab_droid_2'), staff.join(','));
+    // The AUTHORED call sheet does not dispatch the keyholder — he lives there and he
+    // is not crew. ⚠ Note the boot-time staffing self-heal DOES merge every anchored
+    // actor into npc_staff on a live channel, so the runtime list is longer than this
+    // one; what is asserted here is who we deliberately send, not who ends up listed.
+    check('slot: the authored sheet does not dispatch the keyholder',
+      !staff.includes('npc_father_jerome'));
+    // ⚠ A crew member who works in more than one building must not carry a fixed
+    // work_zone_id: GO_TO_WORK prefers it over the per-slot lookup, so a pinned studio
+    // sends the producer to KSAB on the Tuesday and his lines come out of an empty room.
+    const philRow = JSON.parse(readFileSync('content/npcs/npc_phil_mccracken.json', 'utf8'));
+    check('slot: the producer is routed by the call sheet, not by a pinned studio',
+      !philRow.work_zone_id, String(philRow.work_zone_id));
+
+    const bc = JSON.parse(readFileSync('content/media_broadcasts/bc_cooking_shit_neil.json', 'utf8'));
+    check('slot: the broadcast knows where it is shot', bc.location_zone_id === 'zone_stgarneau_basement', String(bc.location_zone_id));
+    check('slot: ...and it is the zone the keyholder watches', bc.location_zone_id === act.stage);
+    // ⚠ The channel has NO studio. That is the case the whole location seam exists
+    // for, and it is load-bearing: every stage decision on channel 11 comes from the
+    // programme's own location, so a regression to `state.studioZoneId` blacks it out.
+    const chan = JSON.parse(readFileSync('content/media_channels/ch_11_stgarneau_stream.json', 'utf8'));
+    check('slot: the channel is studio-less on purpose', !chan.studio_zone_id, String(chan.studio_zone_id));
+    check('slot: the title card exists as a graphic',
+      !!JSON.parse(readFileSync('content/media_graphics/daily_bread_logo.json', 'utf8')).content);
+
+    // ── The chain that gets a picture out of a church basement ──────────────
+    // Each link fails silently on its own, so each one is asserted on its own.
+    for (const id of ['npc_ksab_droid_1', 'npc_ksab_droid_2']) {
+      const d = JSON.parse(readFileSync(`content/npcs/${id}.json`, 'utf8'));
+      check(`droid ${id}: is a camera`, !!d.flags?.camera_droid);
+      check(`droid ${id}: lives at the studio it is sent out from`, !!d.home_zone);
+      // ⚠ A FIELD UNIT HAS NO FIXED PLACE OF WORK. GO_TO_WORK resolves
+      // params → work_zone_id → studio_zone_id → the call sheet, so a pinned zone
+      // WINS and the unit can only ever serve one location for the rest of its life.
+      check(`droid ${id}: is routed by the call sheet, not pinned`, !d.work_zone_id, String(d.work_zone_id));
+      check(`droid ${id}: ...and its graph does not pin one either`,
+        !d.behaviour_graph?.nodes?.n_work?.params?.zone_id);
+      check(`droid ${id}: walks to work`, d.behaviour_graph?.nodes?.n_work?.action_type === 'GO_TO_WORK');
+      // Broadcast staffing runs off the playlist, not vendor_schedule, so a window
+      // wider than the show is a contradiction nothing reads. Keep them agreeing.
+      const days = Object.entries(d.vendor_schedule || {}).filter(([, v]) => v.length).map(([k]) => k);
+      check(`droid ${id}: works the day the show films`, days.join(',') === 'tue', days.join(','));
+    }
+
+    // TRANSMISSION IS NOT PRESENCE. The gate that used to be switched off for every
+    // scheduled programme — which meant the kit was scenery on exactly the channel it
+    // was built for.
+    check('transmission: the church basement can currently go out',
+      _test.camerasIn('zone_stgarneau_basement').length > 0
+      && _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement'));
+    check('transmission: ...because there are cameras in it',
+      _test.camerasIn('zone_stgarneau_basement').length >= 2,
+      String(_test.camerasIn('zone_stgarneau_basement').length));
+    check('transmission: ...and a deck to get the signal home',
+      _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement'));
+    // Take the deck away and the show is off the air, whatever the schedule says.
+    {
+      const furn = getZoneFurniture('zone_stgarneau_basement') || [];
+      const deck = furn.find(f => f?.flags?.portable_mediadeck);
+      check('transmission: the deck is a real object in the room', !!deck);
+      if (deck) {
+        deck.flags.deck_off = true;
+        check('transmission: switching it off takes the channel down',
+          _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement') === false);
+        delete deck.flags.deck_off;
+        check('transmission: ...and switching it back on heals it',
+          _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement') === true);
+      }
+    }
+    // The channel's own wired studio never needs one — that is what wired means.
+    check('transmission: a wired studio is exempt',
+      _test.uplinkOk({ studioZoneId: 'zone_studio_1782953094650' }, 'zone_studio_1782953094650') === true);
+
+    // ── A camera direction is an order ──────────────────────────────────────
+    // The label is the order sheet, so the parse is load-bearing: get it wrong and
+    // every cut silently falls back to "any unit, generic line".
+    check('order: a cut names its unit and its shot',
+      _test.shotOrder('CAM — 3 — FOLLOW to the pantry door').unit === '3'
+      && _test.shotOrder('CAM — 3 — FOLLOW to the pantry door').verb === 'follow');
+    check('order: an underscored shot reads as words',
+      _test.shotOrder('CAM — 1 — SNAP_TIGHT on Neil McManistan').verb === 'snap tight');
+    check('order: an unparseable label commands nobody',
+      _test.shotOrder('something else').unit === null);
+    // Every cut in the shipped script is an order somebody can be given.
+    {
+      const bc = JSON.parse(readFileSync('content/media_broadcasts/bc_cooking_shit_neil.json', 'utf8'));
+      const cuts = Object.values(bc.broadcast_graph.nodes).filter(n => n.type === 'camera_cut');
+      check('order: the show has cuts', cuts.length > 0, String(cuts.length));
+      const unreadable = cuts.filter(n => _test.shotOrder(n.label).unit === null).map(n => n.label);
+      check('order: every cut in the show parses', unreadable.length === 0, unreadable.join(' | '));
+      check('order: every cut names a zone that exists',
+        cuts.every(n => !n.zone_id || !!getZone(n.zone_id)),
+        cuts.filter(n => n.zone_id && !getZone(n.zone_id)).map(n => n.zone_id).join(','));
+    }
+
+    // The dispatch itself. A droid is the direction made physical, so a cut to a
+    // room it is not in has to MOVE it — and has to fail honestly when it cannot.
+    {
+      const fakeState = { playlist: [{ npcStaff: ['npc_ksab_droid_1', 'npc_ksab_droid_2'] }] };
+      const d1 = world.npcs.get('npc_ksab_droid_1');
+      const home = d1?.zone_id;
+      check('dispatch: the unit is somewhere to begin with', !!home, String(home));
+      // ⚠ Put the crew ON LOCATION first. Off shift they are sitting at the studio,
+      // and the studio is a city away — which is the case the hop cap exists for, and
+      // is why the first cut of these tests only passed by sending a camera droid on
+      // a cross-town walk in the middle of a programme.
+      for (const id of ['npc_ksab_droid_1', 'npc_ksab_droid_2']) moveNpcToZone(id, 'zone_stgarneau_basement');
+      // A room that already has a camera needs nobody sent to it.
+      check('dispatch: a covered room needs no dispatch',
+        _test.dispatchDroid('zone_stgarneau_basement', 'zone_stgarneau_basement', 'CAM — 1 — WIDE on the counter', fakeState) === true);
+      // The pantry is next door and has no camera of its own: the order moves a unit.
+      const before = _test.camerasIn('zone_stgarneau_pantry').length;
+      const moved = _test.dispatchDroid('zone_stgarneau_pantry', 'zone_stgarneau_basement', 'CAM — 3 — FOLLOW to the pantry door', fakeState);
+      check('dispatch: an uncovered room gets a unit sent to it', moved === true);
+      check('dispatch: ...and it is physically there now',
+        _test.camerasIn('zone_stgarneau_pantry').length === before + 1,
+        String(_test.camerasIn('zone_stgarneau_pantry').length));
+      // ⚠ THE NAMED UNIT IS TAKEN FIRST. A script that numbers its cameras is
+      // describing a crew and should get the crew it describes.
+      const d2 = world.npcs.get('npc_ksab_droid_2');
+      const both = [world.npcs.get('npc_ksab_droid_1'), d2];
+      check('dispatch: the script gets the unit it asked for',
+        both.some(d => d && d.zone_id === 'zone_stgarneau_pantry'));
+      // Put everyone back where they were before the next case looks.
+      for (const d of both) if (d) moveNpcToZone(d.id, 'zone_stgarneau_basement');
+      check('dispatch: units are back on the stage',
+        _test.camerasIn('zone_stgarneau_pantry').length === before);
+      // Nowhere to go: an order nobody can execute is refused rather than faked.
+      // A connected world means almost everywhere is technically reachable, so the
+      // rule that matters is DISTANCE: a camera direction moves a unit around a
+      // location, it does not send it across the city mid-programme.
+      check('dispatch: a room across the city is refused',
+        _test.dispatchDroid('zone_asc_shrine_nave', 'zone_stgarneau_basement', 'CAM — 1 — WIDE on nothing', fakeState) === false);
+      check('dispatch: a zone that does not exist is refused',
+        _test.dispatchDroid('zone_nonexistent_xyz', 'zone_stgarneau_basement', 'CAM — 1 — WIDE', fakeState) === false);
+      check('dispatch: with no crew, nobody is sent',
+        _test.dispatchDroid('zone_stgarneau_pantry', 'zone_stgarneau_basement', 'CAM — 1 — WIDE', { playlist: [] }) === false);
+    }
+
+    // ── Waiting for somebody who is not coming ──────────────────────────────
+    // The people who DID turn up used to stand in total silence while a stand-by
+    // card went out over them.
+    for (const id of ['npc_neil_mcmanistan', 'npc_phil_mccracken', 'npc_captain_nguyen',
+                      'npc_father_jerome', 'npc_graham_mercer', 'npc_john_akerson']) {
+      const d = JSON.parse(readFileSync(`content/npcs/${id}.json`, 'utf8'));
+      const lines = d.flags?.absent_lines || [];
+      check(`absent: ${d.name} has something to say about it`, lines.length >= 3, String(lines.length));
+      check(`absent: ${d.name}'s lines are not blank`, lines.every(l => String(l).trim()));
+      // ⚠ The token is what makes it about a PERSON rather than about a delay. At
+      // least one line each has to name whoever it is they are waiting on.
+      check(`absent: ${d.name} names the person`, lines.some(l => l.includes('{missing}')));
+      check(`absent: ${d.name} does not use an em dash`, lines.every(l => !l.includes('—')));
+    }
+    // Six characters, six reactions: if any two pools share a line, somebody has been
+    // copy-pasted and the whole point of authoring them separately is gone.
+    {
+      const all = [];
+      for (const id of ['npc_neil_mcmanistan', 'npc_phil_mccracken', 'npc_captain_nguyen',
+                        'npc_father_jerome', 'npc_graham_mercer', 'npc_john_akerson']) {
+        all.push(...(JSON.parse(readFileSync(`content/npcs/${id}.json`, 'utf8')).flags?.absent_lines || []));
+      }
+      check('absent: nobody shares a line with anybody else', new Set(all).size === all.length,
+        `${all.length - new Set(all).size} duplicate(s)`);
+      check('absent: the house pool exists for everyone unauthored', _test.ABSENT_HOUSE.length > 0);
+      check('absent: ...and it names the person too',
+        _test.ABSENT_HOUSE.some(l => l.includes('{missing}')));
+    }
+    // Edge-triggered: one voice per absence, or a character beat becomes a fault.
+    {
+      const graph = { nodes: {
+        a: { type: 'npc_anchor', data: { npc_id: 'npc_neil_mcmanistan' } },
+        b: { type: 'npc_anchor', data: { npc_id: 'npc_phil_mccracken' } },
+      } };
+      const z = getZone('zone_stgarneau_basement');
+      const had = new Set(z.npcs);
+      z.npcs.add('npc_neil_mcmanistan');           // present
+      z.npcs.delete('npc_phil_mccracken');         // missing
+      const bb = {};
+      _test.absentReaction(graph, 'zone_stgarneau_basement', bb);
+      check('absent: somebody speaks up', bb.absentSpoke === true);
+      const bb2 = { absentSpoke: true };
+      _test.absentReaction(graph, 'zone_stgarneau_basement', bb2);
+      check('absent: ...and does not keep saying it', bb2.absentSpoke === true);
+      // An empty stage has nobody in it to react.
+      const bb3 = {};
+      _test.absentReaction(graph, 'zone_stgarneau_pantry', bb3);
+      check('absent: an empty room says nothing', !bb3.absentSpoke);
+      z.npcs.clear(); for (const id of had) z.npcs.add(id);
+    }
+
+    // Camera droids are cameras. This is the whole integration, so if it regresses
+    // the location goes dark and resolves as "technical difficulties" forever.
+    const before = _test.camerasIn('zone_stgarneau_pantry').length;
+    const droid = { id: 'regress-droid', name: 'test unit', hp: 5, flags: { camera_droid: true }, zone_id: 'zone_stgarneau_pantry' };
+    world.npcs.set(droid.id, droid);
+    const pantry = getZone('zone_stgarneau_pantry');
+    pantry.npcs = pantry.npcs || new Set();
+    pantry.npcs.add(droid.id);
+    check('droid: a camera droid IS a working camera in the room it stands in',
+      _test.camerasIn('zone_stgarneau_pantry').length === before + 1);
+    droid.hp = 0;
+    check('droid: ...a downed one is not', _test.camerasIn('zone_stgarneau_pantry').length === before);
+    droid.hp = 5; droid._ai = { dosedOut: true };
+    check('droid: ...nor is one somebody has jammed',
+      _test.camerasIn('zone_stgarneau_pantry').length === before);
+    pantry.npcs.delete(droid.id);
+    world.npcs.delete(droid.id);
+    check('droid: a droid that leaves takes the picture with it',
+      _test.camerasIn('zone_stgarneau_pantry').length === before);
   }
 }

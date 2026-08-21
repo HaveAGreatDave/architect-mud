@@ -261,9 +261,16 @@ export function getMoonPhase(dateStr) {
   return ((((days - 6.7) / SYNODIC_DAYS) % 1) + 1) % 1;
 }
 
-function seasonForDate(dateStr) {
+// The one definition of what season a date falls in. Exported because the vat's
+// starter outfit and the weather plugin both key off it, and a second copy is a
+// second thing to forget when the calendar changes (the weather plugin carried a
+// verbatim duplicate until 2026-08-20). Null-safe in the same direction as
+// isDeepCleanDay: no date at all means a caller running before the clock has
+// loaded, which is a state to handle rather than an error to throw.
+export function seasonForDate(dateStr) {
+  if (!dateStr) return null;
   const month = Number(dateStr.slice(5, 7)) - 1;
-  return SEASON_BY_MONTH[month];
+  return SEASON_BY_MONTH[month] || null;
 }
 
 function dayOfWeekFor(dateStr) {

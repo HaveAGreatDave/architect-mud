@@ -32,7 +32,7 @@ import { query, logActivity } from '../models/db.js';
 import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
 import { appetiteMessages } from './appetite.js';
-import { getEnvironmentState, getZoneTemperature, feltAmbientC, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, feltAmbientC, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, seasonForDate } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { escAttr } from './text.js';
@@ -620,6 +620,40 @@ export async function spawnPlayerCorpse(victim, zoneId) {
   return { corpseId, corpseName };
 }
 
+// The torso garment the vats issue, by season. Layers are a fixed three with one item
+// per (slot, layer), and `item_basic_shirt` is itself torso/outerwear — so this garment
+// REPLACES the shirt rather than going over it. Legs and feet are unchanged year-round.
+//
+// The numbers are °C of insulation, summed with the rest of the kit by recomputeEquipped
+// and read against COLD_THRESHOLD. Coldwater's climate profile peaks at 16°C in July, so
+// this ladder only ever defends against cold: HOT_THRESHOLD is unreachable outdoors and
+// there is deliberately nothing tuned on the heat side. Kit totals, with pants (1.5) and
+// shoes (0.5): winter 6.0, autumn 5.5, spring 4.5, summer 3.0.
+//
+// Summer reproducing exactly 3.0 is not a coincidence — that is what the old fixed kit
+// issued in every season, which is the evidence it was authored for mild weather and
+// never revisited. A body that came back in January met a -12°C night wearing it.
+//
+// These are deliberately shabby. The vats are not being kind: a body that walks fewer
+// metres is a worse asset, and the winter coat at 4 leaves real cold-weather gear
+// (item_thermal_parka at 8, item_snowsuit at 9) worth every credit it costs.
+export const SEASONAL_TORSO = {
+  winter: 'item_vat_coat_quilted',
+  autumn: 'item_vat_jacket_lined',
+  spring: 'item_vat_jacket_light',
+  summer: 'item_vat_overshirt',
+};
+
+// What to issue when the world clock has not loaded (pre-boot, regress). Autumn is the
+// middle of the ladder, so an unknown date costs the player warmth in winter rather than
+// leaving them in an overshirt at -12°C. Never leave a body naked over a missing date.
+const SEASONAL_TORSO_FALLBACK = SEASONAL_TORSO.autumn;
+
+// Issued gear arrives worn, not box-fresh. This fires on EVERY respawn, so a Pristine
+// kit would make dying a free way to refresh a battered wardrobe. Sits just above the
+// Battered band floor (0.40 — see durability.js BANDS).
+export const STARTER_CONDITION = 0.45;
+
 // Re-equip the default starter outfit (underwear layer 1 + basics layer 2) after death,
 // skipping anything already equipped. Shared by both death paths.
 //
@@ -634,11 +668,12 @@ export function equipStarterOutfit(victimId, sex) {
     : [['item_underwear_female_top', 'torso'], ['item_underwear_female_bottom', 'legs']];
   const equip = (itemId, slot, layer) =>
     query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
-           SELECT $1,$2,i.id,1,1.0,1,$3,$4 FROM items i WHERE i.id=$5
+           SELECT $1,$2,i.id,1,$6,1,$3,$4 FROM items i WHERE i.id=$5
            AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$5 AND is_equipped=1)`,
-      [randomUUID(), victimId, slot, layer, itemId]).catch(() => {});
+      [randomUUID(), victimId, slot, layer, itemId, STARTER_CONDITION]).catch(() => {});
   const pending = underwear.map(([itemId, slot]) => equip(itemId, slot, 1));
-  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) pending.push(equip(itemId, slot, 2));
+  const torso = SEASONAL_TORSO[seasonForDate(gameToday())] || SEASONAL_TORSO_FALLBACK;
+  for (const [itemId, slot] of [[torso,'torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) pending.push(equip(itemId, slot, 2));
   return Promise.all(pending);
 }
 

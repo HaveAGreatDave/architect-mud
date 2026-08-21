@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A candle on the rail gutters, recovers, and goes on burning.",
+    "The building settles somewhere overhead, slow and wooden, the way old roofs do.",
+    "Traffic goes past on Kessler Street, muffled to almost nothing by two feet of sandstone.",
+    "The steel plate at the far end ticks faintly as it warms under its own light."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#2a2622",
+  "color": "#e0d3b4",
+  "description": "Twelve rows of pews in dark wood, worn pale in two stripes down every seat where knees and hands have gone for a hundred and forty years. The vaulting is stone and genuinely old; the light coming through the rose window is the flat grey of a cheap pane. There is an iron bracket at the far end, high up, holding a tall brushed-steel plate with the Architect's eye on it. The bracket is much older than the plate and was not made for it. The rest of the old fittings were not removed so much as worked around: fourteen small carved panels still run the length of the walls in an order nobody here can recite for you, the candle rail is still full, and somebody still refills it.",
+  "exits": {
+    "down": "zone_stgarneau_basement",
+    "east": "zone_stgarneau_vestry",
+    "south": "zone_district_925_912"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "St Garneau's",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_925_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_stgarneau_nave",
+  "map_id": "map_int_stgarneau",
+  "name": "The Nave",
+  "parent_zone": "zone_district_925_912"
+}

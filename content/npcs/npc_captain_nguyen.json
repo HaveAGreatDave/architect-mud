@@ -19,11 +19,50 @@
     }
   },
   "chitchat": [],
-  "description": "A broadcast studio host.",
+  "description": "A wiry man in a coat that was expensive a long time ago, holding a small brown paper bag like it is a business. He has the loose, delighted look of somebody who has not been early for anything in fifteen years, and the particular energy of a man four minutes into something.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
-    "studio_npc": true
+    "absent_lines": [
+      "\"{missing}'s not coming? Hey. Hey. So we've got the room, then.\"",
+      "settles back on the stool with the air of a man whose afternoon has just improved.",
+      "\"This happens. This is normal. In a business like this? Normal.\"",
+      "\"You want to just do it? Just us? I'll do it. I've got things to say.\""
+    ],
+    "drug_habit": "buzz",
+    "studio_npc": true,
+    "uses_drugs": true,
+    "wrangle_lines": {
+      "early": [
+        "Yeah. Yeah! No, keep going.",
+        "See, this is what I'm saying. Tell him what you told me in the car.",
+        "[Extended Vietnamese, warmly, at considerable volume.]",
+        "This is the good part. This is the part I like."
+      ],
+      "late": [
+        "Okay. Okay, but say the other thing. The thing about the pans.",
+        "You want a drink? I feel like this is a drink.",
+        "I'm not stopping you, man. I have never stopped you.",
+        "Nobody's watching. That's the beauty. Say it all."
+      ],
+      "recover": [
+        "...oh. Are we still on? Are we on right now?",
+        "Do the sponsor thing. The thing where you say my root.",
+        "Say the number. Say the number and we'll go.",
+        "Alright, alright. Show. There's a show."
+      ],
+      "root": {
+        "early": [
+          "Hold it up. Hold it up to the lens, they can see it."
+        ],
+        "late": [
+          "Available via PayPal. That is the whole ad, man, you did the ad."
+        ],
+        "recover": [
+          "That's the ad. That's it. Back to your thing."
+        ]
+      }
+    }
   },
   "home_activities": [],
   "home_zone": "zone_yards_tenement_u2_1",
