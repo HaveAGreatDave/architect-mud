@@ -39,9 +39,9 @@ import { TRAILER_TYPES, trailersAt, trailersOf, getTrailer, buyTrailer, hitchTra
   posed, stockPose, stockSlots, findStockPose, STOCK_GAP, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY,
   sellTrailer, trailerResale } from './trailers.js';
 import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
-import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
+import { hitcherAt, hitcherAhead, hitcherSOf, HITCHER_KINDS } from './hitchers.js';
 import { roadNetwork, roadCellAt, worldRoadProvider, clearRoadNet } from './roadnet.js';
-import { tryDoorBoard, rigLocked } from './state.js';
+import { tryDoorBoard, rigLocked, passHitcher } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
 import { resaleValue, TRUCK_TYPES, buyTruck, getTruck } from './fleet.js';
@@ -1957,7 +1957,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('…nor within sight of the far town', at(7) === null);
     let found = 0;
     for (let n = 0; n < 8; n++) if (at(n)) found++;
-    check('the road is not lined with them', found <= 4, `${found} of 8 nodes`);
+    check('the road is not lined with them', found <= 3, `${found} of 8 nodes`);
     check('every hitcher is one of the authored kinds',
       [...Array(8).keys()].every(n => !at(n) || HITCHER_KINDS.some(k => k.id === at(n).id)));
     // The fugitive is the one that closes the design: a person in the box is weight the scale sees.
@@ -2034,13 +2034,19 @@ export default async function regress({ run, check, getPlayer }) {
         if (hits === 0) emptyWeeks++;
       }
       const rate = seen / eligible;
-      check('about a third of stretches have somebody on them', rate > 0.15 && rate < 0.6,
+      check('about one stretch in five has somebody on it', rate > 0.10 && rate < 0.30,
         `${(rate * 100).toFixed(0)}% over 20 weeks`);
-      // ⚠ THE BOUND IS ARITHMETIC, NOT A TASTE CALL, or this case flakes. At the authored 0.34 an
-      // empty week is 0.66^6 ≈ 8%, so ~1.6 of 20 are expected and three is an ordinary sample. Six
-      // is comfortably past noise and still nowhere near the failure this exists for, which drove
-      // roughly THIRTEEN empty weeks in twenty and clustered every value inside one narrow band.
-      check('…and no week is all-or-nothing', allWeeks === 0 && emptyWeeks <= 6,
+      // ⚠ THE BOUND IS ARITHMETIC, NOT A TASTE CALL. At the authored 0.18 an empty week is
+      // 0.82^6 ≈ 30%, so about six weeks in twenty are EXPECTED to be empty and an empty week is
+      // no longer evidence of anything — which is the half of this case that the rarity work cost.
+      // Thirteen is a bit over three standard deviations out and still far short of the failure
+      // this exists for, which drove roughly THIRTEEN empty weeks in twenty with the rate set at
+      // nearly DOUBLE this one, by clustering a week's values inside a band about 0.03 wide.
+      //
+      // ⚠ SO THE LOAD-BEARING HALF IS NOW THE SPREAD rather than the empty count. The old hash
+      // produced weeks that were all six or none; a healthy sample has weeks in between, and that
+      // is what `allWeeks === 0` with a real distribution behind it actually asserts.
+      check('…and no week is all-or-nothing', allWeeks === 0 && emptyWeeks <= 13,
         `${allWeeks} full, ${emptyWeeks} empty`);
     }
     // …AND WHICH ROAD YOU ARE ON IS PART OF IT. Two corridors in the same week met identical people
@@ -2057,7 +2063,13 @@ export default async function regress({ run, check, getPlayer }) {
     {
       const node = [...Array(8).keys()].find(n2 => at(n2));
       if (node != null) {
-        const hs = sOfNode(route, node) + roomLenOf(route) * 0.5;
+        const hs = hitcherSOf(route, node);
+        // ⚠ THE CAB AND THE WARNING HAVE TO AGREE, and until this became one function they were
+        // two copies of the same expression in two files. A call saying "two miles" about somebody
+        // the renderer has drawn somewhere else is worse than no call at all, and the drift would
+        // never throw.
+        check('the cab and the warning place them in the same spot',
+          hs === sOfNode(route, node) + roomLenOf(route) * 0.5);
         const half = pavedAt(route, hs);
         const pos = corridorPos(route, hs, half + 0.45);
         const back = corridorLocate(route, pos.x, pos.y);
@@ -2070,6 +2082,94 @@ export default async function regress({ run, check, getPlayer }) {
         check('…and on the verge rather than in the road',
           back && Math.abs(back.t) > half, `|t| ${back && back.t?.toFixed(2)} vs half ${half.toFixed(2)}`);
       }
+    }
+  }
+
+  // ── 4f-bis. Being told about them in time ──────────────────────────────────
+  // A hitcher used to be announced exactly once, on the node crossing, with no distance in it.
+  // Since they stand half a room in, that line landed fifteen miles and about two and a half
+  // minutes before you were level with them: simultaneously too early to act on and impossible to
+  // act on, because nothing said how far and nothing ever said anything again.
+  {
+    const route = corridorFor(VOIDKEY, DESTKEY, 4242, 8);
+    const node = [...Array(8).keys()].find((n) => hitcherAt(route, n, 8));
+    if (node == null) {
+      check('a seeded week with somebody on it, to test the warning against', false, 'nobody in week 4242');
+    } else {
+      const hs = hitcherSOf(route, node);
+
+      // ⚠ ACROSS THE BOUNDARY, which is the entire reason the lookahead exists rather than being a
+      // tidier spelling of the old check. At 60 tiles out the driver is still in the PREVIOUS node
+      // — if the scan could not see over the join, no warning could ever be earlier than the
+      // crossing itself, whatever number got printed in it.
+      const far = hitcherAhead(route, hs - 60, 8, 60);
+      check('somebody is seen coming from a whole stretch away',
+        far?.node === node && Math.abs(far.tiles - 60) < 0.01, String(far && far.tiles));
+      check('…from the node BEFORE theirs, or the warning can never beat the crossing',
+        nodeAt(route, hs - 60, 8) === node - 1, `${nodeAt(route, hs - 60, 8)} vs ${node - 1}`);
+      check('…and not from beyond the lookahead', hitcherAhead(route, hs - 61, 8, 60) === null);
+
+      // ⚠ UNSIGNED, exactly as signsBetween is. `s` runs back down too (see retreat), and a driver
+      // coming back at somebody is closing on them just the same.
+      check('somebody you are driving back toward is still somebody ahead of you',
+        hitcherAhead(route, hs + 20, 8, 60)?.node === node);
+
+      // ── THE CALLS THEMSELVES ─────────────────────────────────────────────────
+      // Driven through the real function and captured off the wire — the same shape the cab-mount
+      // case uses, and for the same reason: these are pushes rather than return values, which is
+      // the class of thing that has been silently absent in this plugin before.
+      const mk = (at) => ({
+        leg: 'corridor', route, s: at, chain: { length: 8 }, node: nodeAt(route, at, 8),
+        rider: null, playerId: player.id,
+      });
+      const saidAt = (rig, at) => {
+        const out = [];
+        const saved = getBroadcast();
+        setBroadcast((_z, m, _ex, target) => { if (target === player.id) out.push(m); });
+        try { rig.s = at; passHitcher(player, rig); } finally { setBroadcast(saved); }
+        return out.map((m) => m?.message || '').join(' ');
+      };
+      const armed = (at = hs - 200) => { const r = mk(at); saidAt(r, at); return r; };
+
+      const rig = armed();
+      check('nothing is said about a road you cannot see the end of', saidAt(rig, hs - 61) === '');
+
+      const first = saidAt(rig, hs - 60);
+      check('the first call comes twenty miles out', /20 miles/.test(first), first.slice(0, 90));
+      // ⚠ A DISTANCE IS THE FEATURE. Every complaint this answers is "I could not slow down in
+      // time", and a warning with no number in it is not something a driver can plan against.
+      check('…and it carries one at all', /\d+ mile/.test(first));
+      check('…and does not repeat itself for the next forty tiles',
+        saidAt(rig, hs - 40) === '' && saidAt(rig, hs - 19) === '');
+
+      const mid = saidAt(rig, hs - 18);
+      check('the second comes at six miles, in time to come off the throttle',
+        /6 miles/.test(mid), mid.slice(0, 90));
+      const near = saidAt(rig, hs - 6);
+      check('the last is close enough to see who it is, and names the verb',
+        /2 miles/.test(near) && /pickup/.test(near), near.slice(0, 120));
+
+      // ⚠ THE MARKS ARE CROSSINGS OF A CLOSING DISTANCE, so a rung that covers two of them in one
+      // step must report the NEARER. The text rung advances by a slab of road a tick, and saying
+      // "twenty miles" to a driver now six miles off is a call that is stale rather than early.
+      const both = saidAt(armed(), hs - 6);
+      check('a tick that covers two marks reports the nearer one',
+        /2 miles/.test(both) && !/20 miles/.test(both), both.slice(0, 90));
+
+      // Nothing to warn about: the seat is full, or that stretch is already spent.
+      check('a driver who already has one aboard is not told about them again',
+        saidAt(armed(), hs - 60) !== ''
+        && saidAt(Object.assign(armed(), { rider: { id: 'local' } }), hs - 60) === '');
+      check('…nor on a stretch already spent',
+        saidAt(Object.assign(armed(), { hitchDone: new Set([node]) }), hs - 60) === '');
+
+      // ⚠ THE RADIO GATES THE LEAD, NEVER THE FEATURE. Twenty miles is over the horizon and the CB
+      // is the only honest voice for it — but a driver running silent still has to get enough road
+      // to stop in, or switching a radio off would quietly delete a whole system.
+      const quiet = Object.assign(armed(), { cbOff: true });
+      check('a driver with the CB off misses the far call', saidAt(quiet, hs - 60) === '');
+      check('…but still gets the six-mile one, which is what they can actually stop in',
+        /6 miles/.test(saidAt(quiet, hs - 18)));
     }
   }
 
@@ -2276,6 +2376,36 @@ export default async function regress({ run, check, getPlayer }) {
     check('every depot resolves to a drivable yard',
       truckTest.allDepots().every(d => d.grid_x != null && !d.flags?.is_interior),
       truckTest.allDepots().map(d => d.id).join(' '));
+
+    // ── …AND A FOURTH ROOM NOBODY COULD FIND ─────────────────────────────────
+    // Every depot has a bunkroom off the shed floor. `flags.truck_bunkroom` was authored on all
+    // five when they were built and read by nothing at all, which made the room something you
+    // discovered by trying directions at a wall — so the depot panel now carries a door to it.
+    //
+    // ⚠ THE DIRECTION IS DERIVED FROM THE EXIT, and this is the case that justifies deriving it:
+    // four of the five are north of their shed and the Last Load's is east, so the constant
+    // anybody would have written first is right four times out of five. Both halves are asserted —
+    // that every flagged bunkroom is FOUND from its bay, and that the direction reported is a real
+    // exit leading to that exact room.
+    {
+      const bunks = [...world.zones.values()].filter((z) => z.flags?.truck_bunkroom);
+      check('the depots have bunkrooms in them at all', bunks.length >= 4, `${bunks.length}`);
+      const bays = [...world.zones.values()].filter((z) => truckTest.depotAt(z));
+      const found = bays.map((b) => truckTest.bunkFrom(b)).filter(Boolean);
+      check('…and every one of them is on the far side of a door from its shed',
+        found.length === bunks.length, `${found.length} doors for ${bunks.length} bunkrooms`);
+      check('…each reported as a direction that really is an exit to it',
+        bays.every((b) => { const k = truckTest.bunkFrom(b); return !k || b.exits?.[k.dir] === k.id; }),
+        bays.map((b) => { const k = truckTest.bunkFrom(b); return k && `${b.id}:${k.dir}`; }).filter(Boolean).join(' '));
+      // ⚠ NOT A CONSTANT. If this ever comes back true for every depot, somebody has quietly made
+      // the door a fixed direction and the odd one out has stopped working.
+      check('…and they are not all the same direction, which is why it is derived',
+        new Set(found.map((k) => k.dir)).size > 1, [...new Set(found.map((k) => k.dir))].join(' '));
+      // A bunkroom is not a depot: walking into one has to CLOSE the panel rather than keep it up,
+      // which is what the zone.entered handler already does for anything outside the place.
+      check('…and a bunkroom is not itself part of the depot, so the screen comes down in there',
+        bunks.every((z) => !truckTest.depotFrom(z.id)), bunks.map((z) => z.id).join(' '));
+    }
 
     // ── A DEPOT IS THREE TILES, AND THE SET HAS TO SAY SO FROM ANY OF THEM ────
     // `depotZonesOf` named two: the tile you handed it, and the depot's own yard. From inside the

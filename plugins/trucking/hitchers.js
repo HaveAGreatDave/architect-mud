@@ -23,6 +23,8 @@
 // invisible to a look and they are EIGHTY KILOS THE WEIGHBRIDGE CAN SEE. That is the whole scale
 // house pointed at a person, and it is a decision you make a mile before the plates.
 
+import { nodeAt, sOfNode, roomLenOf } from './corridor.js';
+
 const KINDS = [
   {
     id: 'mechanic', weight: 3,
@@ -90,13 +92,27 @@ function seed(route, node) {
   return mulberry32(hashSeed(`${roadKey(route)}|${route?.window || 0}|hitch|${node}`))();
 }
 
-// About one node in three has somebody on it. Node 0 never does — you have not left yet — and nor
+// ── HOW OFTEN ────────────────────────────────────────────────────────────────
+// About one node in five has somebody on it. Node 0 never does — you have not left yet — and nor
 // does the last, because a figure on the shoulder within sight of the far town is somebody who
 // could have walked.
+//
+// ⚠ IT WAS 0.34, AND A THIRD OF STRETCHES IS NOT A RARE EVENT — it is a queue. On a crossing with
+// six eligible nodes that is two people a haul, every haul, which turns the one thing out here that
+// is meant to make you lift off the throttle into a scheduled stop. At 0.18 a full crossing meets
+// about one person and a short one often meets nobody, which is the shape the fiction wants: a
+// figure on the shoulder is worth slowing for BECAUSE the road is usually empty.
+//
+// ⚠ AND THE RATE IS THE ONLY DIAL — do not shorten the warning to compensate. Rarity and lead time
+// answer two different complaints (how often does this happen, versus can I do anything about it
+// when it does), and trading one against the other gets you back to a road you cannot react to,
+// only less often.
+const PRESENCE = 0.18;
+
 export function hitcherAt(route, node, nodes) {
   if (node <= 0 || node >= nodes - 1) return null;
   const r = seed(route, node);
-  if (r > 0.34) return null;
+  if (r > PRESENCE) return null;
   // ⚠ A SECOND DRAW, NOT A RESLICE OF THE FIRST. This was `(r * 1000) % 1`, which is the same
   // number the presence gate just used, shifted three decimal places — so WHICH kind you met was a
   // function of HOW NARROWLY they showed up at all, and the two were correlated for as long as the
@@ -104,6 +120,40 @@ export function hitcherAt(route, node, nodes) {
   let pick = mulberry32(hashSeed(`${roadKey(route)}|${route?.window || 0}|kind|${node}`))() * TOTAL, kind = KINDS[0];
   for (const k of KINDS) { if (pick < k.weight) { kind = k; break; } pick -= k.weight; }
   return { ...kind, node };
+}
+
+// ── WHERE THEY ARE STANDING ──────────────────────────────────────────────────
+// ONE DERIVATION, and it was two. `cabContext` worked this out inline so the cab could draw the
+// figure, and the warning below needs the identical number for a different reason — a call that
+// says "two miles" about somebody the renderer is putting somewhere else is worse than no call at
+// all. Half a room along the node they belong to; the lateral offset stays with the caller, because
+// the cab wants a verge to stand on and a distance does not care.
+export function hitcherSOf(route, node) {
+  return sOfNode(route, node) + roomLenOf(route) * 0.5;
+}
+
+// The nearest hitcher within `within` tiles, or null. Used by the warning — see `passHitcher`.
+//
+// ⚠ IT SCANS THE NEIGHBOURING NODES, and that is the point of it rather than an optimisation. A
+// hitcher stands half a room in, so by the time their own node is under your wheels they are
+// already only fifteen miles off and closing: a warning that cannot look across the boundary can
+// never be earlier than that, whatever distance you write into it.
+//
+// ⚠ AND THE RANGE IS UNSIGNED, exactly as `signsBetween` is. `s` runs back down as well as up (see
+// `retreat`), and a driver coming back at somebody is approaching them just the same. Which side of
+// them you are on is a fact about the driver, not about the road.
+export function hitcherAhead(route, s, nodes, within) {
+  const here = nodeAt(route, s, nodes);
+  let best = null;
+  for (let n = here - 1; n <= here + 1; n++) {
+    const who = hitcherAt(route, n, nodes);
+    if (!who) continue;
+    const hs = hitcherSOf(route, n);
+    const d = Math.abs(hs - s);
+    if (d > within) continue;
+    if (!best || d < best.tiles) best = { ...who, s: hs, tiles: d };
+  }
+  return best;
 }
 
 export const HITCHER_KINDS = KINDS;

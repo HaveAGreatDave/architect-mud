@@ -250,6 +250,23 @@ function footChips() {
   if (d.board?.length && !d.cargo) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
   if (d.cargo?.kind === 'goods') out.push(chip('market sell'));
   out.push(chip('yard'));
+  // ── THE BUNKROOM ───────────────────────────────────────────────────────────
+  // The one room in a depot that is not about trucks, and the screen never admitted it existed.
+  // It goes in the footer rather than on a screen because it is the one action here you want from
+  // wherever you are — you finish at the bench, or you sell a load, and then you go to bed.
+  //
+  // ⚠ THE CHIP RUNS A DIRECTION, and that is the whole reason the server sends one instead of a
+  // zone id: this panel's rule is that every button is a command a player could have typed, and
+  // there is no `bunkroom` verb to type. The label carries the direction too, so pressing it
+  // teaches the way rather than replacing it.
+  //
+  // Dim rather than absent out on the apron: the door is real and it is fifteen feet away, and a
+  // button that disappears when you step outside reads as a bug in the button.
+  if (d.bunk) {
+    out.push(d.bunk.here
+      ? chip(d.bunk.dir, `bunkroom · ${d.bunk.dir}`)
+      : `<button class="td-verb" disabled title="Off the shed floor — get inside first">bunkroom</button>`);
+  }
   return out.join('');
 }
 

@@ -185,7 +185,7 @@ import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
-  announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, markWreck, pumpAt, pumpClamp, FUEL_FULL,
+  announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, passHitcher, markWreck, pumpAt, pumpClamp, FUEL_FULL,
   gatePair, rigLocked, tryDoorBoard, doorBoardLine,
   _clearGateCache, networkRoute,
   ridingRigOf, seatsFree, boardPassenger, alightPassenger } from './state.js';
@@ -656,6 +656,23 @@ function depotFrom(zoneId) {
   if (via) return { bay: via.zone, depot: via.depot, yard: getZone(via.depot.yard) || z };
   return null;
 }
+// ── THE DOOR TO THE BUNKROOM ─────────────────────────────────────────────────
+// `flags.truck_bunkroom` has been authored on all five depot bunkrooms since they were built and
+// read by absolutely nothing — the "owner —" case docs/flags-keys.md exists to record. This is the
+// reader, and the flag is now load-bearing.
+//
+// ⚠ DERIVED FROM THE EXITS, never from a table of directions. Four of the five bunkrooms are north
+// of their shed and the Last Load's is east of it, so a constant would have been right four times
+// out of five and wrong in the one place nobody would have re-checked. It is also what makes a
+// sixth depot work with no code at all: author the flag, hang the door, and the button is there.
+function bunkFrom(zone) {
+  for (const [dir, id] of Object.entries(zone?.exits || {})) {
+    const z = getZone(id);
+    if (z?.flags?.truck_bunkroom) return { dir, id, name: z.name };
+  }
+  return null;
+}
+
 // EVERY PILE OF BOXES ONE DEPOT OWNS. A trailer sits in exactly one zone and a truck can only stand
 // in two of the three, so `hitch` has to search the set rather than the tile — see the ⚠ in cmdHitch
 // for what that cost. Factored out so the verb and the regress case cannot drift apart.
@@ -1116,6 +1133,21 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     // The two zones, so the client can say which side of the door it is showing and the log rung
     // can name the road you would roll out onto.
     bay: bay.id, yard: yard.id, yardName: yard.name, inBay: player.current_zone === bay.id,
+    // ── AND THE THIRD ROOM, WHICH THIS PANEL NEVER MENTIONED ───────────────────
+    // Every depot has a bunkroom off the shed and nothing on the screen said so, which made it a
+    // room you found by trying directions at a wall. It is a button now.
+    //
+    // ⚠ THE DIRECTION IS MEASURED FROM WHERE THE PLAYER IS STANDING, not from the bay, because the
+    // button sends a real movement command (rule 2 — every button here is something you could have
+    // typed) and a direction that is right for the shed is a wall from the apron. On the apron the
+    // door is still reported, with `here: false`, so the chip can go dim and SAY where it is rather
+    // than vanishing — the same "a disabled button that explains itself" the freight tab uses.
+    bunk: (() => {
+      const inRoom = bunkFrom(getZone(player.current_zone));
+      if (inRoom) return { ...inRoom, here: true };
+      const viaBay = bunkFrom(bay);
+      return viaBay ? { ...viaBay, here: false } : null;
+    })(),
     fab,                                    // the hand doing the work — it sets how far the dials go
     // ── THE COSMETIC CATALOGUE, ONCE ───────────────────────────────────────────
     // Static data — twenty rows that never change — sent at the PAYLOAD level rather than per
@@ -2133,6 +2165,10 @@ async function cmdTruckSync(args, raw, player) {
   }
   announceBreak(player, rig);
   passSign(player, rig);
+  // …and the person standing on it. Beside the boards rather than on the node crossing, because
+  // that is the placement the warning needs: a call about somebody eighteen miles up is a fact
+  // about the ODOMETER, and the odometer only moves here. See passHitcher for why it is swept.
+  passHitcher(player, rig);
 
   // ── YOU TOOK THE OTHER ROAD ────────────────────────────────────────────────
   // Steering onto the far limb is a real decision about where this load is going, so it is SAID.
@@ -2236,9 +2272,9 @@ async function cmdTruckSync(args, raw, player) {
   if (r.moved) {
     const zone = await crossToNode(player, rig, r.node);
     if (!zone) { await forcedPark(player); return { type: 'noop' }; }
-    // SOMEBODY ON THE SHOULDER. Announced on the node crossing, because a hitchhiker you were never
-    // told about is a verb nobody types. Same reason the scale announces itself: this whole phase is
-    // decisions taken in advance, and you cannot decide about a thing you did not see.
+    // (SOMEBODY ON THE SHOULDER used to be announced here, once, at the moment the boundary went
+    // under the wheels. It is `passHitcher` now — same principle, three calls and a distance in
+    // each, because being told about a thing you cannot yet stop for is not being told in advance.)
     // THE JUNCTION, ANNOUNCED. The last trunk room is where the two roads part, and a fork you
     // only find out about by having already taken one side of it is not a decision. Same principle
     // as the scale house and the hitchhiker: this whole phase is about choices made in advance.
@@ -2255,14 +2291,6 @@ async function cmdTruckSync(args, raw, player) {
       }
     }
     cbLine(player, rig);
-    const who = rig.hitchDone?.has(r.node) ? null : hitcherAt(rig.route, r.node, rig.chain?.length || 1);
-    if (who && !rig.rider) {
-      sendToPlayer(player.id, {
-        type: 'emote',
-        message: `<span class="text-amber">Ahead on the shoulder: ${who.look}. A hand comes up as you close.</span>`
-          + ` <span class="text-dim">${teachVerb('pickup', 'pickup')} if you are stopping.</span>`,
-      });
-    }
     // The room's own arrival prose goes to the log, so the drive reads in the transcript exactly
     // as the walk does — one of the display-mode contracts (docs/systems-display-mode.md): if a
     // system's record doesn't reach the log, that rung isn't done for it.
@@ -3656,6 +3684,6 @@ setTimeout(async () => {
 // this server is almost always.
 schedule('5s', () => tickHijackers());
 
-export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH, hydrateFromTruck, recoverTrucksFrom };
+export const _test = { boardFor, allDepots, mountSpot, depotFrom, bunkFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH, hydrateFromTruck, recoverTrucksFrom };
 
 console.log('[trucking] Plugin loaded.');

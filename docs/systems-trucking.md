@@ -2806,6 +2806,65 @@ is still the free one and the return is still the one where you sweat.
 
 ---
 
+### Rare, and called in miles *(2026-08-22)*
+
+Two complaints, and the trap is that they *sound* like one. "There are too many of them" and "I
+could never slow down for one" are answered by two different dials, and trading one against the
+other gets you a road you still cannot react to, only less often. Both moved, independently.
+
+**Rarer: `PRESENCE` 0.34 → 0.18.** A third of eligible stretches is not a rare event, it is a queue
+— on a six-eligible-node crossing that is two people a haul, every haul, which turns the one thing
+out there that should make you lift off the throttle into a scheduled stop. At 0.18 a full crossing
+meets about one person and a short one often meets nobody. **That is the point rather than a
+side-effect: a figure on the shoulder is worth stopping for BECAUSE the road is usually empty.**
+
+**And called three times, with a distance in each.** The old announcement was one emote fired on the
+node crossing with no number in it. Since a hitcher stands *half a room in*, that line landed fifteen
+miles and about two and a half minutes out — simultaneously too early to act on and impossible to act
+on, because nothing said how far and nothing ever spoke again. `passHitcher` (state.js) replaces it
+with a ladder:
+
+| Mark | Voice | Says |
+|---|---|---|
+| **20 miles** (60 tiles) | the **CB** | somebody is thumbing it that far up |
+| **6 miles** (18 tiles) | your eyes | a shape on the verge, *come off the throttle now* |
+| **2 miles** (6 tiles) | your eyes | who it actually is, and the `pickup` verb |
+
+⚠ **A distance is the feature, not decoration.** "Ahead on the shoulder" is a mood; a number is the
+thing you divide into your own stopping distance. It is `milesOf` — the same conversion the boards on
+the verge, the `route` verb and the GPS use — because a call reading twenty against a dash counting
+in some other unit is worse than silence. That is not hypothetical: it is exactly what
+[road-units.js](../client/shared/road-units.js) exists to prevent, after `/12` sat on the dash for
+months printing a quarter of the truth.
+
+⚠ **It is a swept range, not "am I near one"** — the same reason `signsBetween` is. The cab
+reconciles four times a second and a text tick covers a slab of road, so a proximity test would have
+one rung repeating the call until you were past and the other stepping clean over it. What is asked
+is which mark the *closing distance* has just crossed, which is one question at both rates. A tick
+that covers two marks reports the **nearer**: saying "twenty miles" to somebody now six miles off is
+stale rather than early, and regress asserts it.
+
+⚠ **The lookahead scans the neighbouring nodes, and that is the whole reason it exists.** They stand
+half a room in, so a warning that cannot see over the node boundary can never be earlier than the
+crossing itself, whatever number you print in it. `hitcherAhead` is also **unsigned**, exactly as
+`signsBetween` is — `s` runs back down as well as up (see `retreat`), and a driver coming back at
+somebody is closing on them just the same.
+
+⚠ **The far call is the radio's, deliberately, and only the far one.** Nobody sees a person at twenty
+miles on any road, so the only honest voice for it is the CB — which already owns *something is up
+ahead* out here, alongside its wreck report. That makes it the one call a driver can switch off, and
+that is a real consequence rather than an oversight: **leaving the radio on is what buys the early
+warning.** The two nearer calls are your own eyes and are never gated, so a driver running silent
+still gets six miles — about half a minute at cruise, which is truck-stopping room. **The feature
+never depends on the radio; the LEAD does**, and regress asserts both halves of that sentence.
+
+**One derivation of where they stand.** `cabContext` worked the position out inline so the cab could
+draw the figure, and the warning needs the identical number for a different reason. It is
+`hitcherSOf` now, in one file: a call saying "two miles" about somebody the renderer has drawn
+somewhere else is worse than no call, and nothing would have thrown.
+
+---
+
 ### The doors, and letting yourself in *(2026-08-20)*
 
 A hitcher used to arrive exactly one way: you typed `pickup`, which is a decision, made on purpose,
@@ -3733,10 +3792,57 @@ what is waiting at the next one; only what the weather has done to each room dif
   dark forever, and the fault reads as a bug in the lighting engine rather than a missing prop.
   `light_on` stays absent — it is excluded from content on purpose and `lightAuthoredFixtures`
   switches new fixtures on.
+- ⚠ **…AND A FIXTURE IS NOT A LIT ROOM. A fixture needs a WIRE** *(2026-08-22)*. All five bunkrooms
+  had their caged strip light — `object_type: light`, 900 lumens, a `switch` interaction, an ambient
+  event about it ticking and dimming — and not one of them had a `power_zones` row, so every one was
+  a working lamp in a room with no supply. The paragraph above is exactly what made it easy to miss:
+  it records the half that was done and reads as though the job were finished. The five rows now
+  hang off each depot's own `gen_zone_util_zone_yard_<depot>`, the same generator the shed and its
+  utility room already run on — a bunkroom is on the depot's supply because it is *part of the
+  depot*, not a second premises. **The check to copy is the one in memory: fixture ✚ `power_zones`
+  ✚ `seed-runtime`, in the same build.** Two of the three is a dark room.
+- ⚠⚠ **AND THE SYMPTOM IS NOT "DARK". IT IS "NO ROOF".** This is the part worth carrying to every
+  other interior, because the failure does not look like a lighting fault and it is why the bug was
+  reported as a *missing roof*. `getZoneVisibility` decides indoor-versus-outdoor by calling the
+  engine's own SSOT — `isIndoorZone` — but it hands it
+  `state.zones.get(zoneId)`, and **`state.zones` is built exclusively from the `power_zones` table**
+  (`loadZonePowerAndLighting`). A room with no row is not in that map, so the SSOT is handed
+  `undefined`, answers *false*, and the room is scored as **open air**: `ambientContrib` becomes
+  `state.ambientLight` rather than window light, `envFactor` picks up the outdoor weather and fog
+  multipliers, and `fieldAt` layers the local cloud and precip cell on top. The room is therefore
+  **lit by the sun, dimmed when it rains, and pitch black at night** — which is exactly what a
+  roofless room would do, and nothing about it reads as "this lamp is unpowered". One missing row
+  produced both halves of the complaint. **After this fix exactly one interior in the world is still
+  without a row** (`zone_dray_lane_den`, "Behind the Pallets"), so the blast radius of hardening that
+  line is now a single zone — see the note filed against it.
 
-`flags.truck_bunkroom` is a **label and nothing more**: the cots are ordinary beds and the fridge is
-an ordinary container, so the room works whether or not anything ever reads it. It exists so "where
-can somebody sleep on this network" has one thing to ask.
+`flags.truck_bunkroom` **has a reader now** *(2026-08-22)*. It was authored on all five rooms when
+they were built and read by nothing at all — the `owner —` case [flags-keys](flags-keys.md) exists
+to record — which meant the bunkroom was a room you found by trying directions at a wall. The depot
+panel carries a door to it: `bunkFrom(zone)` in `index.js` scans the bay's exits for the flag and
+the payload ships `{ dir, id, name, here }`.
+
+⚠ **The direction is derived from the exit, never written down**, and this is the case that earns
+it: four of the five bunkrooms are north of their shed and the Last Load's is east, so the constant
+anybody would write first is right four times out of five and wrong in the one place nobody
+re-checks. Regress asserts the set of directions is **not** all one value, so a future "simplify"
+back to a constant goes red. It is also what makes a sixth depot free: author the flag, hang the
+door, and the button is there.
+
+⚠ **The chip runs a DIRECTION, because there is no `bunkroom` verb to type** — the panel's own rule
+is that every button on it is a command a player could have typed (§ the preparation workspace's
+rule, applied here), and inventing a verb whose only caller is a button would break it. The label
+prints the direction alongside the word, so pressing it teaches the way rather than replacing it. On
+the apron the door is reported with `here: false` and the chip goes **dim rather than absent** — it
+is fifteen feet away through the shed, and a button that vanishes when you step outside reads as a
+bug in the button.
+
+**And walking in closes the depot screen, with no new code.** A bunkroom carries no `truck_depot`
+flag and is not anybody's yard, so `depotFrom` answers null for it and the existing `zone.entered`
+handler already sends `truck_depot_close` — which drops the immersive layout and releases the
+weather-fx suppression too. Coming back into the shed re-opens it. Regress asserts the null, because
+that is the fact the behaviour rests on and it would be silently undone by making a bunkroom part of
+the depot's zone set for some unrelated reason.
 
 **The lamps matter now.** The headlight numbers were tuned when the only thing that ever threw a beam
 was an aeroplane on short finals, where a lamp is a detail. In a cab at night it is the instrument

@@ -23,8 +23,8 @@ import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, pavedAt,
-  attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad } from './corridor.js';
-import { hitcherAt } from './hitchers.js';
+  attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, milesOf } from './corridor.js';
+import { hitcherAt, hitcherAhead, hitcherSOf } from './hitchers.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { accrueGrime, grimeBand } from './filth.js';
@@ -1082,6 +1082,69 @@ export function passSign(player, rig) {
   return true;
 }
 
+// ── SOMEBODY IS ON THE SHOULDER, AND YOU ARE STILL A LONG WAY OFF ────────────
+//
+// THE PROBLEM THIS FIXES. A hitcher was announced on the node crossing and never mentioned again:
+// one line, no distance in it, and then two and a half minutes of empty road before you were level
+// with them. A driver who read it had no way to know whether to come off the throttle now or in a
+// minute — and forty tonnes at cruise does not stop on the line where you decided to.
+//
+// ⚠ A DISTANCE IS THE WHOLE POINT, NOT DECORATION. "Ahead on the shoulder" is a mood; "eighteen
+// miles" is a thing you can act on, because it is the number you divide into your own stopping
+// distance. Every call carries one, and it is `milesOf` — the same conversion the boards on the
+// verge, the `route` verb and the GPS use — because a call that said twenty while the dash counted
+// down in some other unit would be worse than silence (see client/shared/road-units.js, which
+// exists because exactly that happened once already).
+//
+// ⚠ IT IS A SWEPT RANGE, NOT "AM I NEAR ONE", for the same reason `signsBetween` is: the cab
+// reconciles four times a second and a text tick covers a slab of road, so a proximity test would
+// have one rung repeating the call until you were past it and the other stepping straight over it.
+// What is asked is which mark the closing distance has just CROSSED, which is one question at both
+// rates.
+//
+// ⚠ AND THE FAR CALL IS THE RADIO'S, DELIBERATELY. Twenty miles is over the horizon — nobody sees
+// a person at twenty miles, on any road — so the only honest voice for it is the CB, which already
+// owns "something is up ahead" out here (see `cbLine` and its wreck report). That makes it the one
+// call a driver can switch off, and that is a real consequence rather than an oversight: leaving
+// the radio on is what buys you the early warning. The two nearer calls are your own eyes and are
+// never gated, so a driver running silent still gets six miles — about half a minute at cruise,
+// which is enough truck-stopping room. The feature never depends on the radio; the LEAD does.
+const HITCH_CALLS = [
+  { tiles: 60, cb: true, say: (who, mi) =>
+    `<span class="text-dim">CB: “Anybody running this stretch — there is somebody thumbing it about ${mi} miles ahead of me. `
+    + `Been out there a while by the look of it.”</span>` },
+  { tiles: 18, cb: false, say: (who, mi) =>
+    `<span class="text-amber">A shape resolves out of the haze on the right-hand verge, a long way off and not moving.</span>`
+    + ` <span class="text-dim">About ${mi} miles. Come off the throttle now if you are going to stop for them.</span>` },
+  { tiles: 6, cb: false, say: (who, mi) =>
+    `<span class="text-amber">Close enough to see now: ${who.look}. A hand comes up as you close.</span>`
+    + ` <span class="text-dim">${mi} mile${mi === 1 ? '' : 's'} — ${teachVerb('pickup', 'pickup')} if you are stopping.</span>` },
+];
+// The farthest mark, which is also how far ahead the lookahead has to reach.
+const HITCH_LOOK = Math.max(...HITCH_CALLS.map((c) => c.tiles));
+
+export function passHitcher(player, rig) {
+  if (!rig || rig.leg !== 'corridor' || !rig.route || rig.rider) return false;
+  const nodes = rig.chain?.length || 1;
+  const who = hitcherAhead(rig.route, rig.s, nodes, HITCH_LOOK);
+  // Out of range, or that stretch is already spent. ⚠ FORGETTING WHERE WE WERE IS PART OF IT: the
+  // marks are crossings of a CLOSING distance, so a stale reading from the last person on the road
+  // would suppress the first call about the next one.
+  if (!who || rig.hitchDone?.has(who.node)) { rig._hitchNode = null; rig._hitchD = null; return false; }
+  const was = rig._hitchNode === who.node && Number.isFinite(rig._hitchD) ? rig._hitchD : Infinity;
+  rig._hitchNode = who.node;
+  rig._hitchD = who.tiles;
+  // The CLOSEST mark crossed since the last reading, not the first. They are authored far-to-near,
+  // and a tick that covers two of them at once has left the farther one behind — saying "twenty
+  // miles" to somebody now six miles off would be a call that is merely stale rather than early.
+  let call = null;
+  for (const c of HITCH_CALLS) if (who.tiles <= c.tiles && was > c.tiles) call = c;
+  if (!call) return false;
+  if (call.cb && rig.cbOff) return false;
+  sendToPlayer(player.id, { type: 'emote', message: call.say(who, milesOf(who.tiles)) });
+  return true;
+}
+
 // ── The CB ───────────────────────────────────────────────────────────────────
 // Voices on the corridor. It is deliberately NOT a chat channel and deliberately not a tick: lines
 // fire on node crossings, which is where everything else about the drive already happens, so the
@@ -1379,7 +1442,7 @@ export function cabContext(rig, extra = {}) {
       if (city || rig.rider || rig.hitchDone?.has(rig.node)) return null;
       const who = hitcherAt(rig.route, rig.node, rig.chain.length);
       if (!who) return null;
-      const hs = sOfNode(rig.route, rig.node) + roomLenOf(rig.route) * 0.5;
+      const hs = hitcherSOf(rig.route, rig.node);
       const pos = corridorPos(rig.route, hs, pavedAt(rig.route, hs) + 0.45);
       return { t: `hh:${rig.route.key || 'road'}:${rig.node}`, kind: who.id,
         x: +pos.x.toFixed(3), y: +pos.y.toFixed(3) };

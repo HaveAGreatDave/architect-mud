@@ -26,7 +26,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, passSign,
+import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine, passSign, passHitcher,
   tryDoorBoard, doorBoardLine } from './state.js';
 import { TILES_PER_ROOM, nodeAt } from './corridor.js';
 import { afterDrive } from './scale.js';
@@ -240,6 +240,11 @@ async function stepRun(player, rig, run) {
     // of them — and a rung that cannot read the only source of distances out here is a rung with a
     // hole in it.
     passSign(player, rig);
+    // ⚠ AND OUTSIDE THE NODE-CROSSING BRANCH BELOW, for the reason the door-boarding block already
+    // spells out: the calls are crossings of a closing distance, and a rig that has not crossed a
+    // boundary this tick is still closing. Inside that branch the near calls would be unreachable
+    // by construction, which is how a rung quietly becomes a different game.
+    passHitcher(player, rig);
     const node = nodeAt(rig.route, rig.s, rig.chain.length);
     if (rig.s >= rig.route.L - 1) { await run.hooks.arrive(player, rig); return; }
     if (node !== rig.node) {
@@ -249,12 +254,8 @@ async function stepRun(player, rig, run) {
       // whichever cab you are sitting in. A text driver who could not hear a wreck reported ahead
       // would be missing information the other rung gets, which is the one thing a rung may not do.
       cbLine(player, rig);
-      // The same figure on the same shoulder. One law, both rungs — `hitcherAt` is a pure function
-      // of the route and the node, so there is nothing here to keep in step.
-      const who = rig.hitchDone?.has(node) ? null : hitcherAt(rig.route, node, rig.chain.length);
-      if (who && !rig.rider) {
-        narrate(player, `<span class="text-amber">Ahead on the shoulder: ${who.look}. A hand comes up.</span> <span class="text-dim"><b>pickup</b> if you are stopping.</span>`);
-      }
+      // (The figure on the shoulder is `passHitcher`, above — one law, both rungs, and it must not
+      // live in here: a call about somebody eighteen miles up has nothing to do with a boundary.)
       return;
     }
     // ── SOMEBODY TRIES THE DOOR ──────────────────────────────────────────────
