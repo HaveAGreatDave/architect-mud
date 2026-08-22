@@ -304,8 +304,15 @@ export const REGISTRY = [
   // minted by broadcast ensureClipBroadcast, reaped on evidence submission / 3-day
   // retention) — never exported, never deleted by the pipeline. Runtime also toggles
   // tags.cassette_ejected on authored broadcasts (export churn, accepted).
+  // location_zone_id arrived as an ALTER long after the 35 broadcast files were
+  // written, so every one of them omits the key while every DB row carries NULL.
+  // The WIP guard reads that as an unexported local edit on any broadcast a commit
+  // touches, and a plain re-export would answer it by writing "no location" into 34
+  // files. It is an absent-by-default override in exactly the sense above — a
+  // broadcast IS staged in a zone or it is not — and import still forces the NULL,
+  // so unstaging one clears the column.
   { table: 'media_broadcasts', class: 'content', pk: ['id'], readTier: 'boot',
-    where: "id NOT LIKE 'bc_clip_%'",
+    where: "id NOT LIKE 'bc_clip_%'", omitWhenNull: ['location_zone_id'],
     runtimeInserts: 'broadcast ensureClipBroadcast mints bc_clip_* rows (outside predicate); surveillance reaps them' },
   { table: 'media_channels', class: 'content', pk: ['id'], readTier: 'boot' },
   // DEAD SCHEMA: zero readers/writers anywhere — deck state actually lives in
