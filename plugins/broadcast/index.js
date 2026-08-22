@@ -1053,9 +1053,16 @@ async function loadChannelRuntimes() {
       // on-stage — so the AI schedule/studio lookups must never see them as staff.
       // Talk-show, morning-show and game-show items carry their own cast regardless of
       // the channel's declared type.
+      //
+      // ⚠ So does a LOCATION SHOOT (`locationZoneId`), and for a different reason: it is
+      // filmed in a real room by a real crew, which is a fact about the production rather
+      // than about who broadcasts it. Kept in step with the identical rule in
+      // `recalculateNpcSchedules` — if these two ever disagree, the schedule dispatches a
+      // cast the runtime then refuses to believe in.
       const ACTED_MODES = new Set(['weather', 'talkshow', 'morning', 'gameshow']);
       for (const it of pl) {
-        if (ch.channel_type !== 'live' && !ACTED_MODES.has(it.playback_mode)) it.npcStaff = [];
+        if (ch.channel_type === 'live' || it.locationZoneId) continue;
+        if (!ACTED_MODES.has(it.playback_mode)) it.npcStaff = [];
       }
       const totalDuration = pl.length
         ? Math.max(...pl.map(i => i.startTime + i.duration))
@@ -5980,6 +5987,7 @@ async function recalculateNpcSchedules() {
   const { rows: plItems } = await query(`
     SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
            b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.weather_pools,
+           b.location_zone_id,
            c.channel_type, c.studio_zone_id
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
@@ -6064,8 +6072,26 @@ async function recalculateNpcSchedules() {
     // physically staff the studio. For a scripted show, npc_anchor is speaker attribution
     // only — never staff it, and strip any stale staffing a previous (buggy) pass merged
     // into its conditions.
-    const staffsNpcs = row.channel_type === 'live' || isWeather || isTalkshow || isMorning || isGameshow;
-    const studioZoneId = row.studio_zone_id || null;
+    //
+    // ⚠ …AND A LOCATION SHOOT, WHICH IS THE ONE THAT DOES NOT FOLLOW THE CHANNEL.
+    // `location_zone_id` means the show is MADE somewhere real — a crew goes to a room
+    // and films in it — and that is a fact about the production, not about who airs it.
+    // Cooking Shit With Neil McManistan is scripted and was only ever staffed because it
+    // sat on a `live` channel; the day it moved to KSAB (a `playlist` channel) the rule
+    // above would have quietly emptied its call sheet, and per the regress suite that
+    // means "the show airs to a dark room and resolves as technical difficulties, which
+    // looks like an engine fault and is a casting mistake". Staffing follows the SHOOT.
+    const isLocationShoot = !!row.location_zone_id;
+    const staffsNpcs = row.channel_type === 'live' || isLocationShoot
+      || isWeather || isTalkshow || isMorning || isGameshow;
+
+    // ⚠ AND THE CREW GO TO THE LOCATION, NOT TO THE STUDIO. A network channel carries a
+    // real `studio_zone_id`, so without this the call sheet would send the cast to KSAB
+    // on the Tuesday and their lines would come out of an empty room — precisely the
+    // failure the suite pins with "the producer is routed by the call sheet, not by a
+    // pinned studio". On a live channel with no studio of its own this changes nothing,
+    // because the fallback is what was already being used.
+    const studioZoneId = row.location_zone_id || row.studio_zone_id || null;
 
     // Reconcile npc_staff in the item's conditions (merge for live/weather/talkshow, clear otherwise)
     let cond = row.conditions;

@@ -1,0 +1,17 @@
+{
+  "description": "A steel pan behind a plywood partition gone soft at the bottom edge. The cistern fills slowly enough that there is an understood interval between one driver and the next, and everybody keeps to it.",
+  "flags": {
+    "aliases": "toilet,pan,bog,head,cistern",
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bunk_dryrun_toilet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a steel toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bunk_dryrun"
+}
