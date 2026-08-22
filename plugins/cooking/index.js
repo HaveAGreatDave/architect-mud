@@ -12,7 +12,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { emit } from '../../server/engine/events.js';
-import { getZoneFurniture } from '../../server/engine/world.js';
+import { getZoneFurniture, getZone } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { getZonePowerStatus } from '../../server/engine/environment.js';
@@ -132,8 +132,17 @@ const shownName = row => row?.custom_data?.name || row?.name;
 
 const DISH_ITEM = 'item_cooked_dish';
 
+// ⚠ A ZONE CAN BE ITS OWN FIRE, for the reason a zone can be its own water source (see
+// `waterSourceIn`): furniture is a row keyed by `zone_id`, and a TRANSIENT zone can never have one.
+// A wayside camp's firepit out in the waste would otherwise be describable and uncookable. Same tag
+// NAME as the furniture flag, so there is nothing new to author, and it is appended rather than
+// replacing anything — a real stove in the room still wins on tier as it always did.
 function stovesInZone(zoneId) {
-  return getZoneFurniture(zoneId).filter(f => f.flags?.stove_tier);
+  const out = getZoneFurniture(zoneId).filter(f => f.flags?.stove_tier);
+  const z = getZone(zoneId);
+  const tier = z?.flags?.stove_tier;
+  if (tier) out.push({ id: `zonefire_${zoneId}`, zone_id: zoneId, name: z.name, flags: { stove_tier: tier } });
+  return out;
 }
 // A microwave is its own appliance, not a stove tier — it has no heat setting to
 // ride and produces a fundamentally different result (see MICROWAVE_* in config).
@@ -1757,7 +1766,14 @@ async function cmdDrain(args, raw, player) {
 // `vessel` AND `fillable` and stays entirely the other plugin's business.
 const WATER_ITEM = 'item_water';
 
+// ⚠ A ZONE CAN BE ITS OWN WATER SOURCE, AND SOME ZONES HAVE NO OTHER WAY TO SAY SO. Furniture is a
+// DB row keyed by `zone_id`, which is exactly what a TRANSIENT zone cannot have: a void crossing's
+// rooms are synthetic and never persisted, so a hot spring or a camp's water barrel out in the waste
+// would be invisible to this query forever. The zone tag is the same NAME the furniture flag uses, so
+// there is nothing new to learn to author one, and it is checked first because it costs no round trip.
 async function waterSourceIn(zoneId) {
+  const z = getZone(zoneId);
+  if (z?.flags?.water_source) return { id: `zonewater_${zoneId}`, name: z.name };
   const { rows } = await query(
     `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`, [zoneId]);
   return rows[0] || null;

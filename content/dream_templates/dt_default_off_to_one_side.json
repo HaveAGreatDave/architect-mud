@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Something occurs, a step and a half away.",
+    "The edge stays where it is.",
+    "The arranged part gets slightly brighter and no larger."
+  ],
+  "cause": "drug",
+  "description": "Whatever is happening is happening, and you are just next to it, at the edge where the light stops being about anything. Nothing here is hidden from you. You are simply not in the part of it that was arranged.",
+  "drug_id": null,
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dt_default_off_to_one_side",
+  "name": "Off To One Side",
+  "objects": [
+    {
+      "looks": [
+        "Lit, occupied, and about a step and a half away.",
+        "Nobody in it is excluding you. That would take noticing you.",
+        "It carries on being the arrangement whether you attend to it or not."
+      ],
+      "name": "the part that was arranged"
+    },
+    {
+      "looks": [
+        "Comfortable, and not a good place to stay.",
+        "It goes all the way round, so there is no far side to get to.",
+        "You have been standing on it since you got here."
+      ],
+      "name": "the edge you are on"
+    }
+  ],
+  "weather": null
+}

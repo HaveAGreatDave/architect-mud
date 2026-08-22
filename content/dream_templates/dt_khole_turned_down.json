@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Something comes down another step.",
+    "A sensation arrives at its allotted volume and is dealt with elsewhere.",
+    "The level holds, evenly, for a long time."
+  ],
+  "cause": "drug",
+  "description": "Everything is arriving at a level somebody has chosen, and the level is low, and the choosing was not done by you. Sensation is still being delivered. It has simply been brought down until it can be handled comfortably by whatever is handling it now.",
+  "drug_id": "drug_khole",
+  "fx": "snow",
+  "fx_intensity": 0.45,
+  "id": "dt_khole_turned_down",
+  "name": "Turned Down",
+  "objects": [
+    {
+      "looks": [
+        "Low, even, and set with care.",
+        "You look for the thing that sets it and find the setting instead.",
+        "It comes down another step while you are looking at it, and that is fine."
+      ],
+      "name": "the level"
+    },
+    {
+      "looks": [
+        "The shape of things, without any of the insistence.",
+        "Cold, weight, the fact of the floor. All of it at a fraction.",
+        "Enough to know by. Not enough to act on."
+      ],
+      "name": "what is still coming through"
+    }
+  ],
+  "weather": "There is weather, and it has been attenuated until it is only information."
+}

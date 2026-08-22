@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Something is completed at a speed you cannot follow.",
+    "The room gets a new feature and has always had it.",
+    "One of them holds something up. It was for you. It is gone."
+  ],
+  "cause": "drug",
+  "description": "Things are being made here at a speed that has nothing to do with hands. One of the things is the room, and one of the things is the next few seconds. Nobody stops working to look at you. Being allowed to stand here while it happens is the courtesy you are being shown.",
+  "drug_id": "drug_dmt",
+  "fx": "snow",
+  "fx_intensity": 0.9,
+  "id": "dt_dmt_workshop",
+  "name": "The Workshop",
+  "objects": [
+    {
+      "looks": [
+        "It is finished and started at once, with no stage in between.",
+        "You watch a thing get made and it has always been there.",
+        "Some of it is the room. Some of it is what happens next."
+      ],
+      "name": "the work"
+    },
+    {
+      "looks": [
+        "Delighted, busy, and not stopping.",
+        "They fold something over twice and it becomes a place.",
+        "One of them holds a thing up for you and is already doing the next thing."
+      ],
+      "name": "the ones working"
+    }
+  ],
+  "weather": "Warm from the work, and the warmth changes register whenever the work does."
+}

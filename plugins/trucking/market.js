@@ -152,7 +152,7 @@ export function quotesFor(regionId, day = marketDay()) {
 }
 
 // What a trailer holds. This is PER TRUCK (`type.kg`) — it is half of what a truck IS, and the
-// reason a bigger one is worth 31,000₵. The default is the mid-range Drayman's deck so a caller
+// reason a bigger one is worth 16,500₵. The default is the mid-range Drayman's deck so a caller
 // with no truck in hand still gets a sane number to quote.
 export const DEFAULT_TRAILER_KG = 3500;
 export const capacityFor = (commodity, trailerKg = DEFAULT_TRAILER_KG) =>

@@ -17,7 +17,7 @@
   "max_takeoff_weight": 620,
   "name": "Mule",
   "noise": 2,
-  "price_buy": 14000,
+  "price_buy": 9000,
   "price_rent_hourly": 220,
   "seats": 3,
   "takeoff_mode": "stol"

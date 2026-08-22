@@ -18,6 +18,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { canonicalJson } from './lib.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const rd = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -55,7 +56,12 @@ const row = JSON.parse(fs.readFileSync(p, 'utf8'));
 const before = JSON.stringify(row.talkshow_pools);
 row.talkshow_pools = talkshowScript;
 const after = JSON.stringify(row.talkshow_pools);
-fs.writeFileSync(p, `${JSON.stringify(row, null, 2)}\n`, 'utf8');
+// canonicalJson, NOT a plain stringify — the same writer content:export uses. The compiler
+// hands back its pools in authoring order and the exporter writes every content file with its
+// keys sorted, so writing this row raw made the two disagree about a file neither of them had
+// changed: recompiling reordered four hundred lines, and the next export flipped them all back.
+// Sorted here, editing the .bsm shows up as the lines that actually moved.
+fs.writeFileSync(p, canonicalJson(row), 'utf8');
 
 const pools = Object.entries(talkshowScript.pools).sort(([a], [b]) => a.localeCompare(b));
 const total = pools.reduce((s, [, v]) => s + v.length, 0);

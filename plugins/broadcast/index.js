@@ -3110,11 +3110,20 @@ setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
 // the channel falls to camera-idle → technical difficulties, exactly like any live show.
 // Spec: docs/bsm-format.md#talk-show-broadcasts-type-talkshow.
 
-const TALKSHOW_MONOLOGUE = 6;   // base jokes for the monologue (+0..1 more per night); audience
-                                // beats between jokes carry the pacing. Raised from 4 when the
-                                // sidekick's interjections were pulled back to two segments: the
-                                // monologue is the host's, and it now has to be long enough to
-                                // read as one rather than as a frame around Graham's material.
+const TALKSHOW_MONOLOGUE = 4;   // base jokes for the monologue (+0..1 more per night); audience
+                                // beats between jokes carry the pacing.
+                                // IT IS THE POOL THAT HAS TO BE BIG, NOT THE SEGMENT. This was 6–7
+                                // on the theory that a long monologue is what makes it read as the
+                                // host's own segment rather than a frame around Graham's material.
+                                // That was the wrong lever: the segment length is what a viewer
+                                // sits through, and the POOL is what makes it a different show
+                                // tomorrow, so drawing deeply just burned the material faster —
+                                // every extra joke a night is another night sooner that somebody
+                                // who watches regularly starts hearing them twice. Four or five,
+                                // out of a pool three times the size, with a crowd beat after each
+                                // one, plays longer AND lasts longer. The monologue still reads as
+                                // John's because Graham is capped at two interjections inside it,
+                                // which was always the thing doing that work.
 const TALKSHOW_INTERVIEW = 3;   // base host-question / guest-answer exchanges (+0..1 more per night)
 // CALL TIME, in slots. The guest is the only cast member who isn't already at the studio when
 // the show starts: it materialises backstage and has to WALK there. Coming on shift at airtime
@@ -3400,11 +3409,11 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     // each other a long time. Authored host-first, so it reads as John arriving at the desk.
     if (duet(host, sidekick, greetDeck[0])) react();
 
-    // ── SEGMENT 2: the monologue. John's, and long enough to feel like it — 6–7 jokes, each
-    // landing on an audience beat so the room breathes between punchlines. Graham's two
-    // interjections live INSIDE this run rather than bracketing it, which is what makes them
-    // read as heckles from the side of the stage instead of as their own segment.
-    const jokes = talkshowDraw(pools, 'monologue', TALKSHOW_MONOLOGUE + Math.floor(rand() * 2), tok, rand);  // 6–7
+    // ── SEGMENT 2: the monologue. John's — 4–5 jokes, each one landing on an audience beat so
+    // the room breathes between punchlines. SHORT SEGMENT, DEEP POOL: see TALKSHOW_MONOLOGUE.
+    // Graham's two interjections live INSIDE this run rather than bracketing it, which is what
+    // makes them read as heckles from the side of the stage instead of as their own segment.
+    const jokes = talkshowDraw(pools, 'monologue', TALKSHOW_MONOLOGUE + Math.floor(rand() * 2), tok, rand);  // 4–5
     // Where Graham gets in: one heckle and one two-hander, placed at two DIFFERENT joke
     // boundaries in the middle of the run — never before the first joke (John has to get
     // going first) and never after the last (the monologue's own button belongs to John).
@@ -3420,8 +3429,12 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     const asides = wants.slice(0, slots.length).map((kind, i) => ({ at: slots[i], kind }));
     jokes.forEach((joke, i) => {
       line(host, joke);
-      // A reaction after most jokes (always the last one, as the button into what follows).
-      if (i === jokes.length - 1 || rand() < 0.7) react();
+      // A reaction after EVERY joke. It used to be a 0.7 roll, and the nights it came up short
+      // read as a man reciting a list: two punchlines back to back with nothing between them is
+      // not a monologue, it's a page. The crowd IS the timing — it's the only thing on air that
+      // can hold a beat — and now that the segment is four or five jokes rather than six or
+      // seven there is room for the room to answer all of them.
+      react();
       for (const a of asides.filter(x => x.at === i)) {
         // A one-way jab, no reply — Graham needles and John carries on.
         if (a.kind === 'aside') { lines(sidekick, talkshowDraw(pools, 'sidekick_aside', 1, tok, rand)); react(); }
@@ -3474,7 +3487,11 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
       };
       let ex = 0;
       const total = Math.min(exN, deck.length);
-      for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
+      // A crowd beat between exchanges almost every time (0.6 → 0.9): an interview is the one
+      // segment where a silent room is a REAL possibility on the night — a flat answer gets
+      // nothing — so this keeps the roll rather than firing unconditionally like the monologue,
+      // where every line is a punchline and every punchline is owed something.
+      for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.9);
       // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
       if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
     });

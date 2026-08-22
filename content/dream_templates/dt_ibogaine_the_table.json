@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The other one waits, with no impatience in it at all.",
+    "Something in the house settles, the way that house settled.",
+    "A question is not asked, and the not asking goes on."
+  ],
+  "cause": "drug",
+  "description": "A kitchen table with two places set. You are at one of them. The other is taken by you at an age when you were still being asked what you wanted. Neither of you is going to raise their voice. The whole night is available for this.",
+  "drug_id": "drug_ibogaine",
+  "fx": "fog",
+  "fx_intensity": 0.3,
+  "id": "dt_ibogaine_the_table",
+  "name": "The Table",
+  "objects": [
+    {
+      "looks": [
+        "Set properly. Somebody thought about the cutlery.",
+        "The one sitting there is patient, and is you, and is waiting to be told how it went.",
+        "They are not angry. Nobody has told them anything yet."
+      ],
+      "name": "the other place"
+    },
+    {
+      "looks": [
+        "Wiped down. Somebody wipes this table every night, and it was you.",
+        "There is a mark on it you put there and had forgotten and can date exactly.",
+        "It is the correct table. That is not a thing you get to argue with."
+      ],
+      "name": "the table"
+    }
+  ],
+  "weather": "It is night outside, in a season you can identify, and the window is doing what that window did."
+}

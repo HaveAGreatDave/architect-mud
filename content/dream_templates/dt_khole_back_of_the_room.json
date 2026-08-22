@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The front of the room handles something without consulting you.",
+    "The distance holds.",
+    "You almost put a hand up. The intention arrives at the back of the room and stops there."
+  ],
+  "cause": "drug",
+  "description": "You have been moved to the back of your own life, and it is carrying on very competently without you. Your body is up at the front doing the necessary things. From here you can see that it is good at them, and that it does not need watching.",
+  "drug_id": "drug_khole",
+  "fx": "fog",
+  "fx_intensity": 0.6,
+  "id": "dt_khole_back_of_the_room",
+  "name": "The Back Of The Room",
+  "objects": [
+    {
+      "looks": [
+        "Getting on with it. Its posture is better than you would have guessed.",
+        "It does something with its hands that you did not authorise and that was correct.",
+        "It has not looked back once, and there is no reason it should."
+      ],
+      "name": "your body, up at the front"
+    },
+    {
+      "looks": [
+        "Not far. Not crossable. Those are different things and you have time to consider it.",
+        "It is the length of a room and it is the length of an afternoon.",
+        "It does not increase, which is a kindness."
+      ],
+      "name": "the distance to the front"
+    }
+  ],
+  "weather": "The air at the back is cooler and does not circulate, the way it is at the back of any long room."
+}

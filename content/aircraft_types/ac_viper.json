@@ -20,7 +20,7 @@
   "max_takeoff_weight": 380,
   "name": "Viper",
   "noise": 3,
-  "price_buy": 120000,
+  "price_buy": 45000,
   "price_rent_hourly": 2000,
   "seats": 2,
   "takeoff_mode": "vtol"

@@ -3799,13 +3799,17 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   world.zones.delete(streetId); world.zones.delete(facadeId); world.zones.delete(entryId);
 }
 
-// LAW: defaults-and-overrides resolves most-specific-first, and the AUTHORED world
-// actually uses it. resolveDefault is the primitive every later derivation calls
-// (map-pipeline-spec §7.3), so its precedence order is pinned here rather than
-// discovered later from a tile that plays the wrong song. The live half — that a
-// Coldwater tile with no override still gets the region's theme — is what turns
-// 5,785 nulls into 2 authored values; if the region rung ever stops firing, the
-// world goes silent and nothing else would notice.
+// LAW: defaults-and-overrides resolves most-specific-first. resolveDefault is the
+// primitive every later derivation calls (map-pipeline-spec §7.3), so its precedence
+// order is pinned here rather than discovered later from a tile that resolves wrong.
+//
+// ⚠ NOTHING AUTHORS A REGION DEFAULT TODAY, WHICH IS WHY THESE CASES MATTER MORE, NOT LESS.
+// This comment used to say the region rung was "what turns 5,785 nulls into 2 authored values"
+// — true for the month audio_theme_id lived in regions.defaults, and withdrawn in 2988f499a
+// because a song starting when you crossed an invisible boundary read as a bug. Every regions
+// file now ships defaults: {}, so the region rung has NO live consumer and would fail silently
+// forever. These cases are the only thing standing between the mechanism and bit-rot until the
+// next column wants a "everywhere in this region, unless the tile says otherwise" answer.
 {
   const palette = { terrains: { concrete: { audio_theme_id: 'song_from_palette' } } };
   const region = { id: 'region_regress', defaults: { audio_theme_id: 'song_from_region' } };

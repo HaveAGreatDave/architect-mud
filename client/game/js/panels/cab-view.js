@@ -53,7 +53,7 @@ const IDLE_SYNC_MS = 2500;        // stationary — a heartbeat, not a stream
 // early, it is lost — and the stop it was reporting would wait for the heartbeat after all.
 const MIN_SYNC_MS = 120;
 // THE PARAMETERS ARE THE SERVER'S, NOT A CONSTANT. This was `TYPES.hauler` — one hardcoded truck
-// for the whole fleet — so a player who spent 31,000₵ on a Continental drove a Courier with a
+// for the whole fleet — so a player who spent 16,500₵ on a Continental drove a Courier with a
 // different name on the door: same gears, same top speed, same brakes, same turn-in. The server
 // now assembles the real set at mount (plugins/trucking/rig.js effTruckParams: the type, its tune,
 // its kits, and how worn it is) and ships it in the cab context, so a bought truck and a tuned
@@ -286,28 +286,25 @@ export function openCab(ctx = {}) {
   container.innerHTML = `
     <div class="cab-wrap cab-t${P.tier ?? 1}" style="--cab-glow:${cabTrim(P.tier, TRIM).glow}">
       ${windshieldHTML(id, kit.label)}
-      <!-- THE GLASS CHROME. Three buttons over the windscreen, in the same corner and with the same
-           glyphs the flight sim and the hangar use (⛶ / ⊟ / ◎), because a player who has flown
-           already knows what they do. They are on the VIEW rather than on the dash shelf: the dash
-           is the truck, and none of these three is a thing the truck has. -->
+      <!-- ── THE GLASS CHROME, AND WHAT IT IS FOR ────────────────────────────
+           THE CORNER IS THE SYSTEM CORNER. Every panel in this client puts the same things in the
+           top right and nothing else: how big the picture is, which camera it is from, and where
+           the legend lives — fullscreen, hide-panel, view, help. That is a consistent place
+           precisely because its contents are consistent, and a player who has flown already knows
+           what is up there without reading it.
+           ⚠ SO THE LATCH AND THE GALLEY ARE NOT UP HERE ANY MORE. They were, on the argument that
+           the dash is the truck and neither the doors nor a bunk full of sandwiches is a thing the
+           truck has — true, and beside the point. They are not things the SCREEN has either, which
+           is what this corner is for: everything else in it changes how you are LOOKING at the cab,
+           and those two reach into the cab and operate it. Two controls in a row of window
+           furniture read as window furniture. They are switches on the panel now, in the cab group
+           beside the radio — see THE CAB'S OWN GROUP down on the shelf. The classes did not change,
+           so the Y and T keys, the click handlers and paintLatch all still find them. -->
       <div class="cab-chrome">
         <button class="cab-cbtn cab-viewbtn" title="external / cab view (F)">◎ EXT</button>
         <!-- Only in the chase view, and only because a turntable you can spin is a turntable you
              can get lost on. Same glyph the flight sim's orbit reset uses. -->
         <button class="cab-cbtn cab-orbitreset" title="point the camera back down the road" hidden>⟲</button>
-        <!-- THE GALLEY FLAP. On the CHROME rather than on the dash, for the same reason the three
-             above are: the dash is the truck, and a bunk full of sandwiches is not a thing the
-             truck has. It is here at all because a haul is long, hunger and thirst run for the
-             whole of it, and the only surface that could answer "what have I got" was the tablet —
-             which meant stopping and leaving the glass. Every row it opens sends the ordinary
-             eat/drink verb; nothing is eaten by a path that only exists in a cab. -->
-        <!-- THE LATCH. Beside the galley because both are things about the CAB rather than about
-             the truck, and neither belongs on the dash shelf. It is a state readout as much as a
-             button: the whole failure it exists to prevent is a driver who does not know the door
-             beside them is open, so the word on it says what the doors ARE, not what pressing it
-             would do. -->
-        <button class="cab-cbtn cab-latchbtn" title="cab door latches (Y)">◌ OPEN</button>
-        <button class="cab-cbtn cab-galleybtn" title="what is in the cab to eat or drink (T)">▤ GALLEY</button>
         <button class="cab-cbtn cab-helpbtn" title="controls (?)">?</button>
         <!-- HIDE-PANEL THEN FULLSCREEN, in that order — they are one ladder and it should read as
              one, with the biggest rung at the end of the row nearest the corner. The flight sim
@@ -652,12 +649,32 @@ export function openCab(ctx = {}) {
 
           </div>
 
-          <!-- THE CB. The set is a VIEW of server state (cb-radio.js) and decides nothing: the
-               dial sends 'cb <n>' and moves when the answer comes back, exactly as the hitch
-               button runs the real verb rather than reaching into the rig. It is here on the
-               switch panel rather than out on the dash because that is where a radio is bolted,
-               and because everything on this panel is already a control with a lamp on it. -->
-          ${cbRadioHTML()}
+          <!-- ── THE CAB'S OWN GROUP ──────────────────────────────────────────
+               The radio, the door latches and the galley flap, on one line under the switches.
+               The split is the honest one and it is worth keeping legible: the rockers above are
+               the TRUCK — the key, the engine brake, the lamps, the valves — and this row is the
+               CAB, the room you are sitting in. A radio is bolted to the roof of it, the doors are
+               either side of you, and the food is behind the seat.
+               ⚠ THE LATCH IS A STATE READOUT AS MUCH AS A SWITCH. The failure it exists to prevent
+               is a driver who does not know the door beside them is open, so the word on the paddle
+               says what the doors ARE and the tell-tale above it lights when they are shut — which
+               is exactly what every other switch on this panel already does, and is the reason it
+               reads as a control here and read as a caption up in the corner. -->
+          <div class="cab-cabrow">
+            <!-- THE CB. The set is a VIEW of server state (cb-radio.js) and decides nothing: the
+                 dial sends 'cb <n>' and moves when the answer comes back, exactly as the hitch
+                 button runs the real verb rather than reaching into the rig. -->
+            ${cbRadioHTML()}
+            <div class="cab-cabctl" role="group" aria-label="Cab">
+              <button class="cab-btn cab-rocker cab-latchbtn" aria-pressed="false" aria-label="Cab doors unlocked" title="cab door latches (Y)"><i></i><u><span>OPEN</span></u></button>
+              <!-- THE GALLEY FLAP. It is here at all because a haul is long, hunger and thirst run
+                   for the whole of it, and the only surface that could answer "what have I got" was
+                   the tablet — which meant stopping and leaving the glass. Every row it opens sends
+                   the ordinary eat/drink verb; nothing is eaten by a path that only exists in a
+                   cab. -->
+              <button class="cab-btn cab-rocker cab-galleybtn" aria-label="Galley" title="what is in the cab to eat or drink (T)"><i></i><u><span>GALLEY</span></u></button>
+            </div>
+          </div>
           <!-- LOOKING OFF THE NOSE. The flight sim's Q/E/S, and deliberately the same three keys: a
                truck has exactly the same problem an aircraft does (you cannot see behind you) and a
                player who has flown already has the habit. HELD, not toggled, for the reason a
@@ -733,6 +750,27 @@ export function openCab(ctx = {}) {
     range: false,
     fuel: 1,
   };
+
+  // ── THE SHELF'S OWN HEIGHT ─────────────────────────────────────────────────
+  // Everything that floats at the BOTTOM of this panel — the damage strip, the focus tag, the hitch
+  // alert, the GPS, the freecam hint — is a child of .cab-wrap, and .cab-wrap is the glass and the
+  // shelf together. So 'bottom' means the bottom of the SHELF unless somebody tells it otherwise,
+  // and each of those would sit on the switches.
+  //
+  // ⚠ MEASURED, NEVER GUESSED. The shelf wraps (a narrow pane folds the switch panel onto a second
+  // line) and its groups appear and vanish with the world — the trailer valve, the pump handle —
+  // so its height is not a constant anybody could write down. A ResizeObserver is the only thing
+  // that stays correct through all of that, and it costs one style write when the shelf actually
+  // changes shape rather than one per frame.
+  const shelfEl = container.querySelector('.cab-controls');
+  const wrapEl = container.querySelector('.cab-wrap');
+  if (shelfEl && wrapEl && typeof ResizeObserver === 'function') {
+    st.shelfRO = new ResizeObserver(() => {
+      wrapEl.style.setProperty('--cab-shelf', Math.round(shelfEl.offsetHeight) + 'px');
+    });
+    st.shelfRO.observe(shelfEl);
+    wrapEl.style.setProperty('--cab-shelf', Math.round(shelfEl.offsetHeight) + 'px');
+  }
 
   // THE WHEEL IS THE STEERING. Not a decoration beside two arrow buttons — the primary control, and
   // the dash is laid out around that now: it is the biggest thing on the shelf and it sits at the
@@ -3164,8 +3202,13 @@ function paintLatch(st) {
   if (!el) return;
   const locked = !!st.locked;
   el.classList.toggle('on', locked);
-  const txt = locked ? '⬤ LOCKED' : '◌ OPEN';
-  if (el.textContent !== txt) el.textContent = txt;
+  el.setAttribute('aria-pressed', locked ? 'true' : 'false');
+  // ⚠ THE PADDLE, NOT THE BUTTON. This wrote el.textContent while the latch was a chrome pill with
+  // nothing inside it. It is a rocker on the switch panel now — a tell-tale, a paddle and a legend
+  // — and writing textContent on one of those deletes the switch and leaves a word behind.
+  const legend = el.querySelector('u span') || el;
+  const txt = locked ? 'LOCKED' : 'OPEN';
+  if (legend.textContent !== txt) legend.textContent = txt;
   el.title = locked
     ? 'Cab doors are latched. Nobody gets in (Y)'
     : 'Cab doors are open. Stop beside somebody and they can let themselves in (Y)';
@@ -4133,16 +4176,15 @@ function ensureCabStyles() {
   .cab-controls::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;
     background:linear-gradient(90deg,transparent,var(--cab-glow,#e8c07a),transparent);opacity:.35}
   .cab-col{display:flex;flex-direction:column;justify-content:center;gap:6px;flex:0 0 auto}
-  /* ⚠ SPREAD, NOT CENTRED — and this is the fix for controls sitting on top of the steering wheel.
-     Centring a flex row puts every control in the middle of the pane, which is precisely where the
-     painted wheel and the binnacle are, so the hardware ended up stacked over the one part of the
-     dash that was already busy. The wheel is at 42% of the width (cabWheelGeom), so the shelf now
-     pushes its groups out to the two ends and leaves the middle to the column, the way the real
-     dash does: your hands go out to the sides, the wheel is in front of you. */
+  /* SPREAD, NOT CENTRED. Groups out to the two ends and along the shelf, the way a real dash puts
+     the gearbox by your right hand and the pedals under your feet rather than stacking everything
+     in the middle.
+     ⚠ THE PHANTOM 16% GAP IS GONE WITH THE HUD. There was a hole reserved in this row — a
+     content-less ::after — so that no group could drift over the PAINTED WHEEL behind the strip.
+     Nothing is behind the strip any more (see FULLSCREEN IS A BIGGER WINDOW), so the hole was a
+     sixth of the shelf reserved against a collision that can no longer happen, and the switches
+     were wrapping onto a second line to pay for it. */
   .cab-controls{justify-content:space-between;align-items:flex-end}
-  /* The gap the wheel lives in. Not a control — a deliberate hole in the row, so nothing can drift
-     back into the middle as groups are added or reordered. */
-  .cab-controls::after{content:'';flex:0 1 16%;min-width:0}
   .cab-col-wheel{order:-1}
   /* THE RECORD, kept and not shown. The standard visually-hidden clip: it stays in the accessibility
      tree, it is still written by the frame loop, and it takes no space away from the road. */
@@ -4166,7 +4208,7 @@ function ensureCabStyles() {
   .cab-gps-legend{margin-top:6px;font-size:12px;color:#dfe6ef;letter-spacing:0.3px}
   .cab-gps-instr{margin-top:4px;font-size:13px;color:#e8eef6}
   .cab-gps-turn{color:#e8b455}
-  .cab-freecam-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:6;
+  .cab-freecam-hint{position:absolute;left:50%;bottom:calc(var(--cab-shelf,0px) + 10px);transform:translateX(-50%);z-index:6;
     font-size:11px;letter-spacing:0.6px;color:#dfe6ef;background:rgba(8,11,15,0.62);
     padding:4px 12px;border-radius:11px;border:1px solid rgba(255,255,255,0.16);
     pointer-events:none;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
@@ -4347,7 +4389,7 @@ function ensureCabStyles() {
   /* THE HOUSINGS. A recessed black panel with the keys sitting in it — on the reference this is
      most of what separates a control box from a row of buttons, because it gives every group an
      edge and a shadow of its own. */
-  .cab-box,.cab-steer,.cab-look,.cab-rockers{display:flex;gap:6px;flex:0 0 auto;align-items:center;
+  .cab-box,.cab-steer,.cab-look,.cab-rockers,.cab-cabctl{display:flex;gap:6px;flex:0 0 auto;align-items:center;
     padding:5px;border-radius:6px;background:linear-gradient(#0b0f13,#070a0d);
     border:1px solid #1b232b;box-shadow:inset 0 2px 6px rgba(0,0,0,.75)}
   .cab-box{flex-wrap:wrap;max-width:96px;justify-content:center}
@@ -4364,7 +4406,12 @@ function ensureCabStyles() {
      to move independently of the housing — the bezel is screwed to the dash, the paddle pivots.
      The tell-tale is the third piece and it is drilled into the BEZEL, above the paddle, the way a
      lamp is on a real switch panel rather than printed on the thing that moves. */
-  .cab-rockers{display:flex;gap:6px}
+  /* IT WRAPS. Eleven switches is a long row on a 1280 pane and this shelf is the one surface here
+     that must never scroll — so the panel folds onto a second line rather than shoving the pedals
+     off the end of the world. */
+  .cab-rockers{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:660px}
+  /* THE CAB'S OWN LINE. The radio and the two cab switches, side by side under the panel. */
+  .cab-cabrow{display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;justify-content:center}
   .cab-btn.cab-rocker{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px;
     padding:4px 4px 5px;border-radius:4px;
     background:linear-gradient(#171b20,#0e1216);
@@ -4593,7 +4640,7 @@ function ensureCabStyles() {
      than something drawn on the canvas because it is a LIST OF BUTTONS — tab order, focus rings and
      a screen reader all come free from being real elements, and none of them would exist on a
      canvas hit-test. */
-  .cab-routes{position:absolute;right:10px;bottom:76px;z-index:6;min-width:210px;max-width:44%;
+  .cab-routes{position:absolute;right:10px;bottom:calc(var(--cab-shelf,0px) + 40px);z-index:6;min-width:210px;max-width:44%;
     background:rgba(6,10,14,.94);border:1px solid #35404b;border-radius:5px;padding:7px;
     box-shadow:0 10px 26px -10px #000;backdrop-filter:blur(3px)}
   .cab-routes-hd{font:700 9px/1 inherit;letter-spacing:.14em;color:var(--cab-glow,#e8c07a);
@@ -4641,7 +4688,15 @@ function ensureCabStyles() {
      Bottom-right of the glass, quiet while it is right and loud the moment it is not — because
      the failure it exists for is silent by nature: keys going into a text box you are not
      looking at. */
-  .cab-focustag{position:absolute;right:8px;bottom:8px;z-index:5;cursor:pointer;
+  /* ⚠ EVERY BOTTOM-ANCHORED OVERLAY MEASURES FROM THE SHELF, NOT FROM THE PANE. These are children
+     of .cab-wrap, and .cab-wrap is the glass AND the shelf — so a plain 'bottom:8px' put the focus
+     tag and the damage strip on top of the gear collars and the pedals. It was invisible for as
+     long as fullscreen overrode both of them to the TOP of the screen; with the shelf back in the
+     flow there is nothing overriding anything, so the offset has to be real.
+     '--cab-shelf' is the shelf's measured height, written by a ResizeObserver in openCab (see THE
+     SHELF'S OWN HEIGHT). It has a 0px fallback, so a cab whose observer has not fired yet lands
+     exactly where it used to rather than nowhere. */
+  .cab-focustag{position:absolute;right:8px;bottom:calc(var(--cab-shelf,0px) + 8px);z-index:5;cursor:pointer;
     background:rgba(6,10,14,.72);border:1px solid #2f3944;color:#6f7883;
     font:600 9px/1 inherit;letter-spacing:.10em;padding:4px 7px;border-radius:4px}
   .cab-focustag.away{border-color:#d8a24e;color:#f0c777;background:rgba(30,20,6,.85);
@@ -4904,43 +4959,23 @@ function ensureCabStyles() {
   body.cab-fullscreen #bottom-input-wrap{display:none}
   body.cab-hidepanel #output,
   body.cab-hidepanel #look-resize-handle{display:none}
-  /* ── FULLSCREEN GIVES YOU MORE ROAD, NOT A BIGGER DASH ─────────────────────
-     Going fullscreen used to hand the extra height to the shelf as readily as to the glass: the
-     dash is a flex row that grows, so a taller window bought a taller strip of buttons and the
-     windscreen got what was left. Which is backwards — the reason to go fullscreen is the view.
-     So at fullscreen the shelf STOPS BEING A SHELF and becomes a HUD: absolutely positioned over
-     the bottom of the glass, on a gradient that fades into the road rather than cutting it off,
-     with the windscreen running the full height of the screen behind it. The renderer's camera is
-     unchanged and does not need changing — it fills the canvas it is given, so a canvas that is
-     now the whole viewport genuinely shows more world in every direction.
-     Nothing moves, nothing is hidden, and every control is exactly where it was. */
-  body.cab-fullscreen .cab-wrap > .ws-wrap{position:absolute;inset:0;height:100%;border-radius:0}
-  /* ⚠ NO BACKDROP BLUR. There was one, and it was the whole of "the fullscreen gauges are fuzzy":
-     the HUD sits over the bottom of the glass, and the bottom of the glass is where the PAINTED
-     INSTRUMENTS are — the dial faces, their needles, the numerals and the wheel are all on the dash
-     canvas underneath this strip. A backdrop-filter blurs what is behind it, so the scrim meant to
-     separate the shelf from the road was softening the only things on screen you have to read a
-     number off. The gradient alone does the separating; it always did. */
-  body.cab-fullscreen .cab-controls{position:absolute;left:0;right:0;bottom:0;z-index:4;
-    border-top:none;padding-top:26px;
-    background:linear-gradient(to top,rgba(6,8,11,.94) 0%,rgba(6,8,11,.86) 55%,rgba(6,8,11,0) 100%)}
-  body.cab-fullscreen .cab-controls::before{opacity:0}
-  /* ⚠ THE HUD IS A PICTURE, THE CONTROLS IN IT ARE THE TARGETS. Absolutely positioned over the
-     glass, this strip was a full-width sheet of hit-testable nothing lying across the bottom of the
-     scene — and the bottom of the scene is where the PAINTED WHEEL is. So the half of the wheel
-     nearest you, the part with the most leverage and the part a hand reaches for first, could not
-     be grabbed at all: the pointer landed on the scrim. Every miss looked like a bad hit-test in
-     the 'drawCabWheel' geometry, and the geometry was right the whole time.
-     The strip itself takes no pointer, its actual control groups take theirs back, and the gaps
-     between them are glass again — which is what they look like. */
-  body.cab-fullscreen .cab-controls{pointer-events:none}
-  body.cab-fullscreen .cab-controls > *{pointer-events:auto}
-  /* The instruments earn the extra room the shelf gave up. */
-  body.cab-fullscreen .cab-focustag{bottom:auto;top:44px}
-  body.cab-fullscreen .cab-dmg{bottom:auto;top:44px;left:8px}
-  /* Hide-panel is the same idea one rung down: the pane grows, and the shelf is a shelf still —
-     it is only fullscreen that is worth the HUD, because it is only fullscreen where the view is
-     the entire point of what is on the screen. */
+  /* ── ⚠ FULLSCREEN IS A BIGGER WINDOW, NOT A HUD ────────────────────────────
+     The shelf used to STOP being a shelf at fullscreen: absolutely positioned over the bottom of
+     the glass on a gradient, with the windscreen running the full height of the screen behind it.
+     The argument was that the reason to go fullscreen is the view, and it is — but the bottom third
+     of that view is the PAINTED DASH (drawCabInterior takes CAB_DASH of the canvas), the painted
+     dash is where every instrument in this cab lives, and the strip of buttons was lying straight
+     across them. The gearbox sat on the tachometer, the pedals sat on the air gauges, and the one
+     mode a driver plays the whole haul in was the one mode where nothing could be read.
+     Two things could not both be true: the shelf is over the glass, and the shelf is clear of the
+     gauges. There is no arrangement of the groups that fixes it either — the instrument row runs
+     the FULL width of the dash by design (see ONE INSTRUMENT ROW in windshield.js), so anything on
+     the strip is on top of something.
+     So the shelf is a shelf in every mode. The glass gets the rest of the screen, which is still
+     far more road than the windowed pane ever gave it, and the canvas being shorter is not lost
+     dash — the painted dash is a FRACTION of the canvas, so it shrinks with it and stays whole.
+     The only thing fullscreen gives up is the last inch of sky. */
+  body.cab-fullscreen .cab-wrap > .ws-wrap{border-radius:0}
 
   /* ── THE DAMAGE HUD ────────────────────────────────────────────────────────
      Bottom-left of the glass, opposite the view chrome. Small enough to ignore
@@ -4972,10 +5007,19 @@ function ensureCabStyles() {
      Right-hand side, clear of the fuel gauge (top left) and the damage strip. It is the one panel
      on this glass you are meant to READ rather than glance at, so it gets a real width and its own
      scroll — and it is capped in height so a driver with forty tins does not lose the windscreen. */
-  .cab-galley{position:absolute;right:6px;top:40px;z-index:6;width:224px;max-height:56%;
+  .cab-galley{position:absolute;right:6px;top:40px;z-index:6;width:224px;
+    max-height:calc(100% - var(--cab-shelf,0px) - 52px);
     display:flex;flex-direction:column;
     background:rgba(6,10,14,.9);border:1px solid #3a4550;border-radius:4px;
     font:600 10px/1.25 'DejaVu Sans Mono',monospace;color:#9fb0c0}
+  /* ⚠ AND THIS IS WHY IT WOULD NOT CLOSE. 'display:flex' on the panel is an AUTHOR rule and
+     '[hidden]{display:none}' is the user-agent's, so the attribute lost every time: toggleGalley
+     set 'hidden', the flap stayed on the glass, and the search went to the round trip instead —
+     the galleyAsked stamp is a real bug that was fixed for a symptom this one line owned.
+     Every other flap on this glass already carries the same line (.cab-help, .cab-dmg-full); the
+     galley is the one that grew a display and never got it. A panel here that sets a display needs
+     this, and there is no way to have one without the other. */
+  .cab-galley[hidden]{display:none}
   .cab-galley-hd{display:flex;justify-content:space-between;align-items:center;
     padding:4px 6px;border-bottom:1px solid #2b3540;letter-spacing:.14em;color:#dfe8f0}
   .cab-galley-x{background:none;border:0;color:#7d8b98;font:inherit;font-size:14px;cursor:pointer;padding:0 2px}
@@ -5007,7 +5051,7 @@ function ensureCabStyles() {
      for THEM) and out of the top band's way, which may be up at the same time. It stays put while
      they are ahead of you rather than fading on a timer — the thing it is fixing is a notification
      that came and went before a driver looked up. */
-  .cab-hitchalert{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:6;
+  .cab-hitchalert{position:absolute;left:50%;bottom:calc(var(--cab-shelf,0px) + 10px);transform:translateX(-50%);z-index:6;
     max-width:340px;padding:6px 10px;text-align:center;
     background:rgba(10,14,18,.88);border:1px solid #6d5a2c;border-left:3px solid #e0b25c;
     border-radius:3px;font:600 10px/1.35 'DejaVu Sans Mono',monospace;color:#c8d4de}
@@ -5019,8 +5063,15 @@ function ensureCabStyles() {
     font:700 10px/1 'DejaVu Sans Mono',monospace;color:#f0c273}
   .cab-hitch-go:hover{background:rgba(224,178,92,.3);color:#fff0d0}
   /* The latch reads out a STATE, so the two look different at a glance rather than differing only
-     by a word — an open door is the dim, unremarkable default and a locked one is lit. */
-  .cab-latchbtn.on{color:#8fd8a8;border-color:#3d6b4e}
+     by a word — an open door is the dim, unremarkable default and a locked one is lit. GREEN rather
+     than the trim amber, because every other tell-tale on this panel means "this is running" and
+     this one means "you are shut in", which is the one lamp up here that is reassurance.
+     ⚠ IT HAS TO REACH THE PADDLE AND THE BULB, not the button. As a chrome pill the latch was one
+     element and a colour on it was the whole control; a rocker is a bezel with a legend inside it,
+     and '.cab-btn.cab-rocker.on span' would outrank a rule on the outside of that. */
+  .cab-btn.cab-rocker.cab-latchbtn.on{border-color:#3d6b4e}
+  .cab-btn.cab-rocker.cab-latchbtn.on span{color:#8fd8a8}
+  .cab-btn.cab-rocker.cab-latchbtn.on i{background:#8fd8a8;box-shadow:0 0 8px #8fd8a8}
 
   .cab-fuel{position:absolute;left:6px;top:6px;z-index:5;width:132px;padding:5px 6px 4px;
     background:rgba(6,10,14,.82);border:1px solid #3a4550;border-radius:4px;
@@ -5040,7 +5091,7 @@ function ensureCabStyles() {
   .cab-fuel-ends{display:flex;justify-content:space-between;margin-top:2px;font-size:8px;color:#6d7d8c}
   .cab-fuel-note{color:#e0b25c;letter-spacing:.02em}
   .cab-fuel.pumping{border-color:#8a6a34;box-shadow:0 0 0 1px rgba(224,178,92,.25)}
-  .cab-dmg{position:absolute;left:6px;bottom:6px;z-index:5;display:flex;flex-direction:column;
+  .cab-dmg{position:absolute;left:6px;bottom:calc(var(--cab-shelf,0px) + 6px);z-index:5;display:flex;flex-direction:column;
     align-items:flex-start;gap:5px}
   .cab-dmg-strip{display:flex;gap:3px;align-items:flex-end;background:rgba(6,10,14,.8);
     border:1px solid #3a4550;border-radius:4px;padding:4px 5px;cursor:pointer}
@@ -5078,7 +5129,7 @@ function ensureCabStyles() {
   /* The controls card. It sits over the glass rather than in the dash, because
      it is not part of the truck — and it closes on any click, so it can never be
      the thing between a driver and a brake pedal. */
-  .cab-help{position:absolute;inset:8px 8px auto 8px;z-index:6;max-height:calc(100% - 16px);
+  .cab-help{position:absolute;inset:8px 8px auto 8px;z-index:6;max-height:calc(100% - var(--cab-shelf,0px) - 16px);
     overflow:auto;background:rgba(6,9,13,.94);border:1px solid #3a4550;border-radius:6px;
     padding:12px 14px;color:#d5dde7;font-size:12px;line-height:1.45}
   .cab-help[hidden]{display:none}
@@ -5127,6 +5178,7 @@ export function closeCab() {
   // control still has to let go of it). They are not the pane's, so nothing else takes them down,
   // and a driver who parked and drove again would stack another set on top of the last.
   (st.winOff || []).forEach((off) => removeEventListener('pointerup', off));
+  st.shelfRO?.disconnect?.();
   st.wheel?.destroy?.();
   // The knob deregisters itself from the radio's repaint set; the radio's own state survives,
   // because a driver at the log rung still has a set even with no cab on screen.

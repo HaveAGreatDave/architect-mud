@@ -292,6 +292,21 @@
         "buildable": false
       }
     },
+    "scree": {
+      "label": "Scree Slope",
+      "fill": "#8a5a3e",
+      "text": "#e2b18f",
+      "glyph": null,
+      "minimap_class": "scree",
+      "auto_tile": true,
+      "auto_tile_family": "cliff",
+      "props": {
+        "passable": false,
+        "climbable": true,
+        "routable": false,
+        "buildable": false
+      }
+    },
     "ash": {
       "label": "Ash",
       "fill": "#4f4b47",
@@ -365,6 +380,12 @@
     "            not a building: everything else that stops you is mass (a wall's",
     "            building_type) or a missing exit. Water is deliberately NOT this —",
     "            water is a swim, and the boat-or-die gate was retired for it.",
+    "climbable   …and this one has a WAY UP IT. default false. Only ever true on a",
+    "            tile that is also passable:false — it is the exception cliff does",
+    "            not take. scree is the terrain that carries it (see SCREE below);",
+    "            bare cliff never does and must never be given it, because the two",
+    "            terrains being TOLD APART ON THE MAP is the whole basis on which a",
+    "            gear exemption was allowed to exist at all.",
     "routable    GPS and pathfinding may cross it. default TRUE",
     "buildable   the dev-panel builder may place/move a building here. default TRUE",
     "frontage    a street a building front door may face onto. default false",
@@ -397,6 +418,21 @@
     "tiles have always drawn — depth, seen from above. It used to share water's",
     "fill exactly and the difference was carried per-tile; adopting the authored",
     "value moved that distinction into the palette rather than inventing it. What",
-    "REALLY differs is what it does to you, not what it looks like."
+    "REALLY differs is what it does to you, not what it looks like.",
+    "",
+    "SCREE IS THE FOURTH HEIGHT TERRAIN, and it is to cliff what ramp is to plateau:",
+    "the way through, drawn so it can be seen. A ramp is high ground anybody walks; a",
+    "scree slope is a rock face somebody EQUIPPED climbs — broken, loose, and steep",
+    "enough that it costs you. Same cliff family on purpose, so a notch of scree in a",
+    "run of cliff draws no wall between itself and the rock either side and reads as",
+    "one escarpment with a paler seam in it, rather than as a gap in the wall. The",
+    "fill (#8a5a3e) sits between the cliff face it interrupts (#5c3224) and the ramp",
+    "that does the same job on the flat (#9a6238) — a player who has learned what a",
+    "ramp looks like has already half-learned this.",
+    "",
+    "⚠ NEVER PAINT SCREE WHERE A CLIFF IS DOING STRUCTURAL WORK. A cliff that seals a",
+    "town, a quarantine or the far side of a quest is a funnel somebody built; a scree",
+    "tile through it is a back door with no lock on it. Paint scree where the map",
+    "INTENDS a hard way round, and leave the wall a wall everywhere else."
   ]
 }

@@ -22,13 +22,13 @@
   "flags": {
     "lawless": true,
     "region_id": "region_the_reach",
-    "terrain": "scrub"
+    "terrain": "dirt_road"
   },
   "grid_x": 919,
   "grid_y": 1043,
   "grid_z": 0,
   "id": "zone_the_reach_879_1959",
   "map_id": "map_world",
-  "name": "The Long Scrub",
+  "name": "The Scarletwastes Road",
   "parent_zone": null
 }

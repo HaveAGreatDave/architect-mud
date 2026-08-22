@@ -536,6 +536,27 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       // brush exists, you can click it, and the tile comes out with no fill.
       const noFill = [...known].filter(t => !palette.terrains[t]?.fill);
       if (noFill.length) errors.push(`content/map/terrain.json: entry(ies) with no fill: ${noFill.join(', ')}`);
+
+      // ⚠ AND THE TWO TERRAIN LISTS MUST AGREE. The palette says what a terrain IS;
+      // `tagCatalog.terrain.options` says what an author may TYPE — and they are two
+      // copies for exactly one reason, which is that the catalog is loaded by the
+      // browser and cannot read a JSON file off disk. Nothing made them agree until
+      // now, and the two ways they drift both look like somebody else's bug:
+      //
+      //   in the palette only  →  the tile lints RED on a terrain that renders fine
+      //   in the catalog only  →  the tile lints CLEAN and renders with no fill
+      //
+      // Adding `scree` cost one of those (the first) before this check existed. It
+      // is an error rather than a warning because either half alone is unusable.
+      const typeable = new Set(CATALOG?.terrain?.options || []);
+      if (typeable.size) {
+        const missingFromCatalog = [...known].filter(t => !typeable.has(t));
+        const missingFromPalette = [...typeable].filter(t => !known.has(t));
+        if (missingFromCatalog.length)
+          errors.push(`client/shared/tagCatalog.js: terrain(s) in the palette an author cannot type: ${missingFromCatalog.join(', ')} — add them to the terrain enum`);
+        if (missingFromPalette.length)
+          errors.push(`content/map/terrain.json: terrain(s) an author can type with no palette entry: ${missingFromPalette.join(', ')} — those tiles would resolve to no fill at all`);
+      }
     }
   }
 

@@ -10,7 +10,7 @@
     "Tyre ruts, old ones, pressed into the grey and never rained back out."
   ],
   "ambient_theme": "wasteland",
-  "description": "The front of the old flow, where it stopped: a wall of black rock standing clear of the ash, rubbly at the top and sheer in the middle, undercut at the foot where the weather has been at the softer bed under it. There is no way up it here. It runs off in both directions along the same line.",
+  "description": "The old lava lies in coils down the whole height of the wall, thick as a thigh, folded over and over on itself where it cooled. It looks exactly like rope and holds better than most of it.",
   "exits": {
     "east": "zone_dw_732_951",
     "north": "zone_dw_731_950",
@@ -22,13 +22,14 @@
     "lawless": true,
     "no_spawn": true,
     "region_id": "region_deadwater",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 731,
   "grid_y": 951,
   "grid_z": 0,
   "id": "zone_dw_731_951",
   "map_id": "map_world",
-  "name": "The Flow Front",
+  "name": "The Ropes",
   "parent_zone": null
 }
+

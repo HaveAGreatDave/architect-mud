@@ -29,8 +29,11 @@
 //
 // State model:
 //   • Live: player._crossing = { instanceId, seen:Set } — read on every zone.entered.
-//   • Shared: crossings.get(id) = { voidKey, roomSet, detourSet, destSet, dests,
-//     entry, origin, window, members:Set, enemies:Set } — reference-counted.
+//   • Shared: crossings.get(id) = { voidKey, plan, roomSet, detourSet, destSet,
+//     dests, entry, origin, window, members:Set, enemies:Set } — reference-counted.
+//     `plan` is the ROUTE (pure, nothing registered); `roomSet` is what is
+//     currently MATERIALISED. They are the same set today because ensureInstance
+//     is still eager; see planFor for why they had to be separated anyway.
 //   • Durable (per member): crossing_void / crossing_window / crossing_origin /
 //     crossing_instance / crossing_room in player_flags — enough to RE-DERIVE the
 //     instance after a server restart. crossing_room is flushed on player.logout, not
@@ -41,9 +44,13 @@ import { getLivePlayer, getAllLivePlayers, getAllZones, getZone, getZoneEnemies,
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
+// The single named exemption engine:impassable-terrain carries — a body that grew wings. Imported
+// rather than reimplemented so the void and the world agree about what a cliff is.
+import { mutationFlag } from '../../server/engine/mutations.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { getFlag, setFlag, setFlags, clearFlagsIn } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
+import { VOID_TERRAINS, FEATURES, WAYSIDE, groundFlavour, featureFor } from './flavour.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
@@ -77,7 +84,8 @@ export const VOIDS = {
   region_coldwater: {
     origin: 'Coldwater',
     sign: 'Coldwater Basin',
-    trunk: 4,
+    // trunk: was 4 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
+    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
     dests: [
       // The `length: 8` that used to be here is now DERIVED and comes out at 8 unchanged: the gates
       // are 93 tiles apart and a room is 12, so the fork still sits exactly halfway at a trunk of 4.
@@ -91,7 +99,7 @@ export const VOIDS = {
       // went, not a town of that name. The codex is explicit that they will not say where they are
       // going, and Terminus is where they went when they left the Basin, not where they are going.
       //
-      // The `length: 12` here is now derived too, and comes out at MAX_ROOMS: the gates are 282
+      // The `length: 12` here is derived now, and comes out at the real distance: the gates are 282
       // tiles apart, which is 23 rooms before the clamp. That is a real answer rather than a
       // failure — the ROAD is 282 tiles whatever this says — and what the clamp changes is that the
       // longest crossing gets longer rooms rather than a silly number of them.
@@ -149,7 +157,8 @@ export const VOIDS = {
     // the corridor is the same distance it always was and the tank maths in flight-model.js still
     // holds — only the trunk/limb split moved. A trunk of 2 stays detour-free (`trunkLen >= 3`),
     // which is right: the gamble belongs on the way out, not on a leg home.
-    trunk: 2,
+    // trunk: was 2 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
+    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
     dests: [
       // North out of the Reach, back onto the dirt road at the foot of the Coldwater map — the one
       // tile on that whole rim that is `dirt_road` rather than redrock, because it is the road.
@@ -157,11 +166,28 @@ export const VOIDS = {
       // West across the flats to Deadwater's Eastern Ruts. `west` is both true and free (north is
       // Coldwater's), so the Reach is the one region whose two crossings do not compete.
       { key: 'deadwater', dest: 'zone_dw_818_988', region: 'region_deadwater', heading: 'Deadwater', dir: 'west' },
+      // ── EAST TO THE SCARLETWASTES ────────────────────────────────────────────
+      // The edge that closes the loop. Until this the graph was a CHAIN with the Reach at one end
+      // and the Scarletwastes at the other, so the two ends of the world were four crossings apart
+      // through Coldwater — the long way round a map on which they are the two most southerly
+      // places. `east` is true and free (north is Coldwater's, west is Deadwater's), which is the
+      // last cardinal the Reach had.
+      //
+      // ⚠ IT NEEDED A SECOND MOUTH AT BOTH ENDS, AND THAT IS THE POINT OF PLURAL GATES. The Reach's
+      // only road ran west out of Main Street to the Coldwater rim; the Scarletwastes' only one ran
+      // east to Talus. Neither faced the other, and `gatePair` would have paired the two mouths it
+      // had — laying a highway back across both regions' own placed ground. Main Street is now
+      // paved out to the Reach's east rim (922,1039) and the Deadleg's spur down and west to the
+      // Scarletwastes' west rim (1000,968), so each region reaches this neighbour through the exit
+      // that actually points at it, and keeps using its old mouth for its old neighbours. Nothing
+      // in the code chooses that; `gatePair` reads it off the map.
+      { key: 'scarletwastes', dest: 'zone_scw_1000_968', region: 'region_scarletwastes', heading: 'The Scarletwastes', sign: 'Thornwarren', dir: 'east' },
     ],
   },
   region_deadwater: {
     origin: 'Deadwater',
-    trunk: 2,
+    // trunk: was 2 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
+    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
     dests: [
       // NORTH out of Deadwater for Coldwater, and this is the one dest in the table that is NOT the
       // mirror of its outbound leg (`dir: 'west'` from Coldwater). It is not an oversight: Coldwater
@@ -175,17 +201,32 @@ export const VOIDS = {
   },
   region_terminus: {
     origin: 'Terminus',
-    trunk: 1,
+    // trunk: was 1 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
+    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
     // West out of Terminus, onto Coldwater's east rim at the same latitude as the Roadhead — you
     // come back in level with where you left.
     dests: [
       { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', sign: 'Coldwater Basin', dir: 'west' },
       // ── SOUTH TO THE SCARLETWASTES ──────────────────────────────────────────
-      // `dir: 'south'` because west is Coldwater's, and because it is also true: the Scarletwastes
-      // sit south-west, and the only rim of Terminus a road can physically leave by on that side is
-      // the southern one. The WEST rim (x1200) is cliff for its whole length — a limb aimed through
-      // it would deposit a truck on a rock face — so the gate is the westernmost passable tile of
-      // the south rim, (1219,960), painted `dirt_road` to match every other gate in this table.
+      // `dir: 'south'` because west is Coldwater's and south is the free cardinal, and because it
+      // is half true: the Scarletwastes sit west-southwest.
+      //
+      // ⚠ IT LEAVES BY THE ROADHEAD, NOT BY THE SOUTH RIM. This used to read "the WEST rim (x1200)
+      // is cliff for its whole length … so the gate is the westernmost passable tile of the south
+      // rim, (1219,960), painted `dirt_road` to match every other gate in this table", and all
+      // three claims were wrong. The west rim is cliff only from y943 SOUTH — (1200,940) is graded
+      // dirt road through it, because Coldwater's own road comes in there. (1219,960) is not the
+      // westernmost passable south-rim tile either (the ramp at x1201 is, and gravel at x1212).
+      // And a lone tile of `dirt_road` on a hardpan flat is not a road: it is 20 tiles of open
+      // ground from The Gate, with nothing to drive on.
+      //
+      // What made it visible is that NOTHING READ IT. `gatePair` takes the nearest pair of mouths
+      // off the map, so the Scarletwastes road has always joined Terminus at (1200,940) — 109 tiles
+      // against the south gate's 127 — while this table sent the WALKER to (1219,960) and
+      // `crossingPlan` measured that limb's mile boards to it. Two arrivals, one region, and the
+      // paint was the only thing holding the second one up. The tile is hardpan again (which is what
+      // its own description, its name and every neighbour already said) and Terminus publishes the
+      // one gate it has: the roadhead. See docs/systems-overland-void-travel.md.
       { key: 'scarletwastes', dest: 'zone_scw_1092_957', region: 'region_scarletwastes', heading: 'The Scarletwastes', sign: 'Thornwarren', dir: 'south' },
     ],
   },
@@ -211,9 +252,29 @@ export const VOIDS = {
   region_scarletwastes: {
     origin: 'The Scarletwastes',
     sign: 'Thornwarren',
-    trunk: 1,
+    // Raised 1 → 2 when the Reach gave the Scarletwastes a second way out. A trunk of 1 was the
+    // formality a single-destination void gets — there is nothing to fork toward, so the "shared
+    // trunk" is a name and the limb is the crossing. There is a real fork now. It stays below 3,
+    // so detours still do not appear here: the gamble belongs on the way OUT of somewhere with a
+    // full tank, not on a frontier hop between two places at the bottom of the map.
+    // trunk: was 2 ROOMS, when a room was a twelfth of a leg. A room is a TILE now, so the
+    // number no longer means anything and the shared stretch is derived (see trunkTilesFor).
     dests: [
-      { key: 'exodus', dest: 'zone_terminus_1219_960', region: 'region_terminus', heading: 'Terminus', sign: 'Terminus', dir: 'east' },
+      // Terminus has ONE way in and both crossings use it — the roadhead at (1200,940), the same
+      // tile the Basin's own walkers arrive on and the same tile `gatePair` ends the road at. This
+      // pointed at (1219,960) until 2026-08-21; see the ⚠ on Terminus' own scarletwastes limb above
+      // for why that was a gate that only this line believed in.
+      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Terminus', sign: 'Terminus', dir: 'east' },
+      // ── WEST TO THE REACH ────────────────────────────────────────────────────
+      // The other half of the loop-closing edge (see the Reach's own entry for why it exists and
+      // what it cost in tarmac). `west` is true and free — east is Terminus's.
+      //
+      // ⚠ THE ROAD TO IT GOES ROUND THE PLATEAU, NOT OVER IT. The spur west along y957 stops at the
+      // Deadleg's apron (x1024) and the ground beyond is the cliff-ringed mesa at x1011–1017 —
+      // `cliff` being the one terrain `engine:impassable-terrain` refuses. Same trap as Terminus'
+      // west rim, and answered the same way: the road drops south down the Deadleg's own column to
+      // y=968 and runs west under the mesa to the rim at (1000,968), which is the gate.
+      { key: 'reach', dest: 'zone_the_reach_882_1959', region: 'region_the_reach', heading: 'The Reach', dir: 'west' },
     ],
   },
 };
@@ -300,48 +361,83 @@ async function describeRim(zone) {
   return `<span class="ambient">The ground runs out ${where}. There is no horizon that way to read and no distance to judge — only the waste, going on being nothing in particular for as long as you can stand to look at it. People do walk out into it from here. The ones who come back mostly come back somewhere else.</span>`;
 }
 
+// ── A CAMP SAYS WHAT THE SHORT WAY COSTS ─────────────────────────────────────
+//
+// The only genuinely new decision in a crossing is whether to take a cut, and it was invisible. The
+// branch is a real `east` exit so the word appeared in the room, and nothing said what was down it,
+// what it saved, or that it was any different from a detour. A choice nobody can see is not a choice.
+//
+// ⚠ THE SAVING IS ON THE TABLE AND THE RISK IS NOT QUANTIFIED. "Save twenty tiles, lose the road" only
+// works if the twenty is knowable; the other side is deliberately left as prose, because a stated
+// percentage would turn a decision about nerve into arithmetic. And whether the cut is PASSABLE is
+// never hinted at all: you find the face by walking to it, which is the whole of what a cut risks.
+function describeCut(zone) {
+  const c = crossingOfRoom(zone?.id);
+  const r = c?.plan?.rooms?.get(zone.id);
+  if (!r?.cutSaves || !r.exits?.east) return undefined;
+  return `<span class="ambient">A path goes off east from the camp, out across the open where the road will not follow. `
+    + `Boots have been this way: it comes back to the tarmac about <b>${r.cutSaves} tiles</b> sooner than the long way round. `
+    + `There is nothing out there to walk toward and nothing to be seen from.</span>`;
+}
+
+// Which crossing a room belongs to, for a hook that is handed a zone and nothing else.
+function crossingOfRoom(id) {
+  if (!id) return null;
+  for (const c of crossings.values()) if (c.plan?.rooms?.has(id)) return c;
+  return null;
+}
+
+async function describeVoidRoom(zone) {
+  return describeCut(zone) ?? await describeRim(zone);
+}
+
 function destByHeading(vdef, heading) {
   if (!heading) return null;
   const h = heading.toLowerCase();
   return vdef.dests.find(d => d.heading.toLowerCase().includes(h) || d.key === h) || null;
 }
 
-// ── Distance-relative limb length ─────────────────────────────────────────────
+// ── A ROOM IS A TILE ─────────────────────────────────────────────────────────
 //
-// ⚠ 90 IS THE UNANCHORED FALLBACK, AND DIVIDING A REAL DISTANCE BY IT IS WHY EVERY DEST NEEDED A
-// HAND-WRITTEN `length`. `TILES_PER_ROOM` is what a room is worth on a road built with no anchor —
-// the legacy local frame, where `L = nodes * 90` because there was nothing to measure against. An
-// ANCHORED road does not work that way: it is built between two real gates, its length is the
-// distance between them, and it carries its own `roomLen` (= L / nodes, see corridor.js) which is
-// what every node lookup actually divides by.
+// The crossing used to be 5 to 15 abstract rooms whose count was the gate distance divided by
+// ROOM_TILES (12) and clamped. That made the void the ONE place in the game where movement meant
+// something private: a tile is a tile inside a region, under a truck and under an aircraft, and only
+// a walker's `south` bought an eighteenth of a leg. Every conversion in the system came from that one
+// disagreement, and this deletes it. One `south` is one tile of ground. `ROOM_TILES`, `MAX_ROOMS` and
+// the walker's half of `roomLen` are gone with it, and a shortcut now shortens the walk in the only
+// unit anybody counts.
 //
-// The real gate-to-gate distances are 93 to the Reach, 99 Reach-to-Deadwater, 108 to Deadwater and
-// 282 to Terminus. Divided by 90 those are 1, 1, 1 and 3 — every one of them below MIN_ROOMS, so
-// every crossing clamped to 5 and every dest had to override it by hand. The overrides were not
-// papering over a design problem; they were papering over a wrong constant.
+// What the numbers become: Coldwater→Reach 93, Reach→Deadwater 99, Coldwater→Deadwater 108,
+// Terminus→Scarletwastes 109, Coldwater→Terminus 282. Real distances, no clamp, no arithmetic.
 //
-// ROOM_TILES is that constant done honestly: the length of ONE void room on a road that has real
-// coordinates under it. 12 reproduces the Reach's authored 8 exactly (93 / 12 = 7.75 → 8), which is
-// the crossing with the most tuning behind it — the fork sits halfway at a trunk of 4 — so it is a
-// number the world already agreed with rather than one picked to look tidy.
-const TILES_PER_ROOM = 90;   // unanchored roads only; kept in step with corridor.js
-const ROOM_TILES = 12;
+// ⚠ A FLOOR SURVIVES AND A CEILING DOES NOT. `MIN_ROOMS` stays because a degenerate route (a
+// mis-authored dest, two gates on top of each other) must still be a crossing rather than a doorway,
+// and it is a guard rather than a tuning knob. A ceiling is the thing that was wrong: it existed to
+// stop a long haul becoming "a silly number of rooms", and a long haul being a long walk is the point.
 const MIN_ROOMS = 5;
-const MAX_ROOMS = 15;
-const DEFAULT_ROOMS = 8;
+const DEFAULT_ROOMS = 24;        // no gate pairing and no coordinates: a plain unremarkable crossing
+
+// ⚠ THE TRUNK IS DERIVED, IN TILES, AND THE AUTHORED NUMBER IS GONE. `VOIDS[].trunk` was a ROOM count
+// (4, 2, 2, 1, 2) tuned when a room was a twelfth of a leg, so read as tiles it would put the fork
+// four steps off the rim of a ninety-three tile walk. The shared stretch is a FRACTION of the nearest
+// destination instead: far enough out to be a journey, near enough that the fork is still a decision
+// you make rather than one you have already made. Bounded at both ends so a short hop still forks and
+// a long haul does not spend a quarter of itself undecided.
+//
+// An authored `trunk` on a void is honoured as an override, in tiles. Nothing uses one.
+const TRUNK_FRACTION = 0.2, TRUNK_MIN = 6, TRUNK_MAX = 30;
 
 function gridDist(a, b) {
   if (!a || !b || a.grid_x == null || b.grid_x == null || a.grid_y == null || b.grid_y == null) return null;
   return Math.hypot(a.grid_x - b.grid_x, a.grid_y - b.grid_y);
 }
-
 // HOW FAR IS IT, REALLY — from the mouth of one region's road to the mouth of the other's.
 //
 // Registered rather than imported. The gate pairing lives in the trucking plugin (it is the same
 // `gatePair` the road anchors on, so the room count and the geometry cannot disagree about the
-// distance), and trucking already imports THIS module — so importing it back would be a cycle.
-// Pushing the capability in the direction the dependency already runs is the way out, and it is
-// the same shape as registerZoneReloadHook and registerMinimapNodeFilter.
+// distance), and trucking already imports THIS module, so importing it back would be a cycle.
+// Pushing the capability in the direction the dependency already runs is the way out, and it is the
+// same shape as registerZoneReloadHook and registerMinimapNodeFilter.
 let _gateDistance = null;
 export function registerCrossingDistance(fn) { if (typeof fn === "function") _gateDistance = fn; }
 
@@ -363,7 +459,9 @@ export function crossingDistance(fromKey, dest) {
   }
   // No pairing available (trucking not loaded, or a far end that publishes no gate): fall back to
   // the room count at the anchored per-room length, which is the same arithmetic one step removed.
-  return crossingRooms(fromKey, dest) * ROOM_TILES;
+  // A room IS a tile, so the room count and the tile distance are the same number now. This used to
+  // multiply by ROOM_TILES and the multiplication is the thing that went away.
+  return crossingRooms(fromKey, dest);
 }
 
 // THE PUBLIC NAME, because two other places were answering this question for themselves.
@@ -383,28 +481,38 @@ export function crossingRooms(fromKey, dest, originZone = null) {
 
 // Total gate→dest room count.
 //
-// ⚠ ROOM COUNT IS PACING; ROAD LENGTH IS DISTANCE. Only the second has to be exact, and it already
-// is — the road is built between the gates whatever this returns, so fuel, time and the range gate
-// that keeps Terminus behind the fleet ladder do not depend on this number at all. What this sets
-// is how often the crossing hands you a room: an encounter, a hard node, somewhere to stop. Which
-// is why clamping at MAX_ROOMS is a real answer rather than a failure — a very long crossing gets
-// rooms that are longer, not a road that is wrong, and `roomLen` keeps every node lookup honest.
+// ⚠ ROOM COUNT AND ROAD LENGTH ARE NOW THE SAME NUMBER, WHICH IS THE POINT. They used to be two
+// answers to one question: the road was built gate to gate in real tiles while this returned a
+// clamped abstraction, and `roomLen` existed to convert between them. A room is a tile, so there is
+// nothing left to convert and nothing that can disagree.
 //
 // `dest.length` still wins. It is now an author's override rather than a workaround, and nothing in
 // the table uses one — the derivation reproduces what they were hand-set to.
-function totalLength(dest, originZone, destZone, fromKey = null) {
+// ⚠ `window` IS A REAL PARAMETER AND NOT `currentWindow()`. A crossing is re-derived on relog from
+// the window it was STARTED in, so reading the live one here would hand somebody reconnecting into
+// last week's void a route of a different length — and the room they logged out in would not be on it.
+function totalLength(dest, originZone, destZone, fromKey = null, window = currentWindow()) {
   if (dest.length) return dest.length;
-  const rooms = (n) => Math.max(MIN_ROOMS, Math.min(MAX_ROOMS, Math.round(n)));
-  // Gate to gate first — the distance the road is actually built across.
+  // ⚠ NO DIVISION AND NO CEILING. The distance in tiles IS the room count. The floor is a guard
+  // against a degenerate route, not a tuning knob (see MIN_ROOMS).
+  const rooms = (n) => Math.max(MIN_ROOMS, Math.round(n));
+  // ⚠ THE GATE DISTANCE, AND NOT THE TRAIL'S OWN LENGTH — measured, and the question is now CLOSED.
+  // A seam (`registerTrailLength`) sat here unused with a note saying it would become the room count
+  // "the day the road earns it". The road has since earned it — the walk IS shorter than the drive —
+  // and the answer is still no, for a reason the first note missed: the trail is shorter than the
+  // ROAD, never than the straight line between the gates. It is an offset path with swings in to
+  // every camp, so the spine runs about 338 tiles where the gates are 282 apart. Making a crossing as
+  // long as the walk would make every crossing LONGER. The seam is gone rather than left promising
+  // something the evidence has answered.
   if (_gateDistance && fromKey && dest.region) {
     const gd = _gateDistance(fromKey, dest.region);
-    if (gd > 0) return rooms(gd / ROOM_TILES);
+    if (gd > 0) return rooms(gd);
   }
   // …then the tile you left from, which is what this always used. Kept as a fallback for a
   // crossing whose far end publishes no gate, and it now divides by the same honest constant.
   const d = gridDist(originZone, destZone);
   if (d == null) return DEFAULT_ROOMS;
-  return rooms(d / ROOM_TILES);
+  return rooms(d);
 }
 
 // ── Deterministic generator ───────────────────────────────────────────────────
@@ -423,55 +531,126 @@ function mulberry32(a) {
 }
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 
-const TERRAINS = ['scrub', 'ash', 'redrock', 'marsh'];
-const ROOM_NAMES = ['The Open Waste', 'A Sea of Dust', 'Cracked Hardpan', 'The Rust Flats',
-  'A Dead Wash', 'Bone Country', 'The Long Nothing', 'Ashfall', 'Scoured Flat', 'The Grey Miles'];
-const ROOM_DESCS = [
-  'Heat-shimmer boils off a horizon with nothing on it. Every direction looks the same, which is to say: bad.',
-  'Grit hisses across cracked ground. The wind carries a chemical tang and no mercy.',
-  'Rusted wreckage juts from the dust like the bones of something that died mid-crawl.',
-  'The ground crunches, brittle and pale. Whatever grew here gave up a long time ago.',
-  'A dry wash cuts the flat, choked with wind-scoured debris and the smell of old rot.',
-  'Sun-bleached and silent — the kind of quiet that makes you check over your shoulder.',
-  'Distance stops meaning anything out here. You walk, and the nothing walks with you.',
-  'Fine grey ash drifts down from a colorless sky, settling on your shoulders like a verdict.',
-];
-const DETOUR_NAMES = ['A Half-Buried Wreck', 'A Collapsed Bunker', "A Scavenger's Cache",
-  'A Downed Hauler', 'A Wind-Scoured Ruin', 'A Sunken Rig', 'A Buried Silo'];
-const DETOUR_DESCS = [
-  'Wreckage juts from the dust off the line — the kind of place that swallows the desperate and, sometimes, rewards them. No telling which until you are in it.',
-  'A dark opening in the ground, half-collapsed. Salvage, maybe. A grave, maybe. Both, maybe.',
-  'Something went down out here long ago and was never picked clean — or it was, and what picked it is still around.',
-  'A hulk of rusted metal leans in the haze. Worth a look, if the look does not cost you.',
-];
+// ⚠ THE PROSE LIVES IN flavour.js AND IS KEYED BY THE GROUND. Four flat lists used to sit here, and
+// the room's name, its description and its terrain were three INDEPENDENT draws off one stream, so
+// "Bone Country" could hand you drifting ash. Ten names and eight descriptions was already thin on a
+// fifteen-room walk; at one room per tile it is a 93-to-282-room walk and the repetition would be the
+// texture of the whole system. See plugins/voidwalking/flavour.js for the tables and the tone rules.
 
 // void_salt is the room's deterministic identity (the seed salt) — ghost-traces
 // key on it so a scrawl/corpse pins to the same room across every instance this
 // window. lawless: dying out here clone-vats you, never jails you (off-grid waste).
-function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}) {
+// ⚠ THE GROUND IS ROLLED FIRST AND THEN SPEAKS. Terrain used to be drawn AFTER the name and the
+// description off the same stream, which is why they never agreed with each other. Rolling it first
+// and handing it to `groundFlavour` makes the three one decision, and means the landform field can
+// drive the prose the day it lands by doing nothing but supplying a better terrain.
+//
+// ⚠ AND THE HIGHLIGHT GETS ITS OWN STREAM. Seeding the feature roll off `|feat` rather than reading
+// further down the ground's generator keeps the two independent: retuning FEATURE_CHANCE, or adding a
+// kind, must not silently rename and re-surface every room in the world.
+function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}, pt = null, wayside = false) {
   const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}`));
+  const terrain = pick(rng, VOID_TERRAINS);
+  const ground = groundFlavour(rng, terrain);
+  // ⚠ A WAYSIDE OUTRANKS THE HIGHLIGHT ROLL, because it is not a roll. A highlight is seeded onto a
+  // tile; a wayside is the place where the walking route and the road are the same place, which the
+  // trail's geometry decides. Letting a rolled wreck sit on top of the camp would put two landmarks
+  // on one tile and hide the only water on that stretch behind whichever won.
+  const feat = wayside ? null : featureFor(mulberry32(hashSeed(`${voidKey}|${window}|${salt}|feat`)), terrain);
+  const camp = wayside
+    ? { name: WAYSIDE.name, description: pick(mulberry32(hashSeed(`${voidKey}|${window}|${salt}|camp`)), WAYSIDE.descs) }
+    : null;
   return {
-    id, name: pick(rng, ROOM_NAMES), description: pick(rng, ROOM_DESCS),
-    map_id: VOID_MAP, grid_x: null, grid_y: null, grid_z: null,
-    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, lawless: true, void_salt: salt, ...extraFlags },
+    id,
+    // The country, then the thing standing on it. A highlight takes the room's NAME because that is
+    // what a walker would call the place, and appends to the description rather than replacing it,
+    // so the ground underfoot is never contradicted by the landmark on top of it.
+    name: camp ? camp.name : (feat ? feat.name : ground.name),
+    description: camp ? `${ground.description} ${camp.description}`
+      : (feat ? `${ground.description} ${feat.desc}` : ground.description),
+    // ⚠ COORDINATES, AND STILL `map_void`. The room is somewhere now, but it is not PLACED ground:
+    // `getAllZones()` excludes transient zones by the marker rather than by missing coordinates, so
+    // `surfaceAt`, `regionGates` and voidwalking's own rim index never see it — which is what keeps
+    // every road mouth and the map rim exactly where they were. See systems-overland-void-travel.md.
+    map_id: VOID_MAP,
+    grid_x: pt ? Math.round(pt.x) : null,
+    grid_y: pt ? Math.round(pt.y) : null,
+    grid_z: pt ? 0 : null,
+    flags: {
+      terrain, void_crossing: true, lawless: true, void_salt: salt,
+      // Readers wire off the KIND, never off the name (see flavour.js). `void_feature` is the id and
+      // is for traces and debugging; `void_feature_kind` is the mechanical contract.
+      ...(feat ? { void_feature: feat.id, void_feature_kind: feat.kind } : {}),
+      // ⚠ AND ITS MECHANICS, WHICH ARE ORDINARY ZONE TAGS AND NOTHING NEW. A rad pocket sets
+      // `radiation` and the engine's own `getZoneRadiation` charges for it; a spring sets
+      // `water_source`. Nothing here teaches the void a mechanic, it borrows the ones the rest of the
+      // world already runs on, which is why a highlight is a content row rather than a code change.
+      ...(feat?.flags || {}),
+      // The camp's barrel and its fire, as the ordinary tags cooking and the rest already read.
+      ...(camp ? { ...WAYSIDE.flags, void_wayside: true } : {}),
+      ...extraFlags,
+    },
     exits,
   };
 }
-function mkDetour(id, voidKey, window, salt, spineRoomId) {
+// A detour IS a salvage site, so it draws from the one salvage pool rather than keeping a second
+// private list of wreck names that would drift out of step with it.
+function mkDetour(id, voidKey, window, salt, spineRoomId, pt = null) {
   const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}|d`));
+  const terrain = pick(rng, VOID_TERRAINS);
+  const pool = FEATURES.filter(f => f.kind === 'salvage' && (!f.terrains || f.terrains.includes(terrain)));
+  const feat = pick(rng, pool.length ? pool : FEATURES.filter(f => f.kind === 'salvage'));
   return {
-    id, name: pick(rng, DETOUR_NAMES), description: pick(rng, DETOUR_DESCS),
-    map_id: VOID_MAP, grid_x: null, grid_y: null, grid_z: null,
-    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, void_detour: true, lawless: true, void_salt: `d_${salt}` },
+    id, name: feat.name, description: `${groundFlavour(rng, terrain).description} ${feat.desc}`,
+    map_id: VOID_MAP,
+    grid_x: pt ? Math.round(pt.x) : null,
+    grid_y: pt ? Math.round(pt.y) : null,
+    grid_z: pt ? 0 : null,
+    flags: { terrain, void_crossing: true, void_detour: true, lawless: true, void_salt: `d_${salt}`,
+      void_feature: feat.id, void_feature_kind: 'salvage' },
     exits: { east: spineRoomId }, // the only way out is back the way you came in
   };
 }
 
 // ── Encounters (Slice 2) ──────────────────────────────────────────────────────
-const ENCOUNTER_CHANCE = 0.45;
-const DETOUR_ENCOUNTER_CHANCE = 0.7;
+// ⚠ THESE ARE PER TILE NOW, AND THAT IS THE WHOLE OF THE RETUNE. They were per ROOM when a room was
+// a twelfth of a leg, so 0.45 meant "most rooms" across a walk of eight. A room is a tile, and 0.45
+// across the 282 tiles to Terminus is a hundred and twenty-seven fights: not a gauntlet, a queue.
+//
+// The shape to preserve was never the per-step odds, it was **how often something happens per mile
+// walked**, so the numbers are set from a target spacing instead of scaled blindly. At 0.045 an
+// encounter lands roughly every 22 tiles: about 4 crossing to the Reach (93) and about 13 to
+// Terminus (282), against 3.6 and 6.7 before. Nearer to the Reach, meaningfully worse to Terminus,
+// which is the right direction — the long haul SHOULD be the dangerous one, and under the clamp it
+// could not be.
+//
+// ⚠ DETOUR AND HARD-NODE ODDS ARE DELIBERATELY NOT SCALED. Those are not "a tile you walked over",
+// they are a single place you chose to enter or were warned about, and a discrete gamble should read
+// the same whatever the crossing's length is. Only the AMBIENT rate is a function of distance.
+const ENCOUNTER_CHANCE = 0.045;      // per tile: something every ~22 tiles of open waste
+const DETOUR_ENCOUNTER_CHANCE = 0.7; // one room, one gamble, unchanged
 const HARD_ENCOUNTER_CHANCE = 0.85;  // a seeded hard node reliably bites
-const HARD_NODE_CHANCE = 0.22;       // ~1 in 5 spine/limb rooms this window is a hard node
+// Hard nodes were ~1 in 5 ROOMS. At 1 in 5 tiles the Terminus run would carry sixty-two of them and
+// the marking would stop meaning anything. 0.02 puts about 2 on the Reach hop and 6 on the long haul,
+// which keeps "bad ground" rare enough to be worth naming.
+const HARD_NODE_CHANCE = 0.02;
+// ⚠ THE OTHER HALF OF "FEWER ROOMS, EACH HOTTER". A cut is a real saving in tiles and it is paid for
+// per tile: three times the ambient rate is something every ~7 tiles rather than every ~22. It is a
+// multiplier and not the hard-node number on purpose — a cut runs for dozens of tiles, and 0.85 on
+// each of them would not be a gamble, it would be a sentence.
+const CUT_ENCOUNTER_MULT = 3;
+// ⚠ AND SOME OF IT SIMPLY WILL NOT LET YOU PAST. A cut goes over what the road went round, which on a
+// mesa means a face. This is deliberately NOT a difficulty check you can retry your way through and
+// NOT a thing you can buy your way past: it is the engine's own `engine:impassable-terrain` rule, the
+// one whose comment says "nothing you can buy, steal or carry opens a cliff, only a body that grew
+// wings".
+//
+// ⚠ THE ROLL IS PER CUT, NOT PER ROOM, AND GETTING THAT WRONG MADE CUTS UNUSABLE. It was 12% per room
+// — which reads as "sometimes" and is not: a cut is 25 to 70 rooms long, and 0.88^30 is **2%**. Nearly
+// every cut in the game was blocked somewhere, so the shortcut a player weighed up and chose was
+// almost always a wasted walk. One roll decides whether THIS cut has a pitch on it at all; a second
+// decides where along it the pitch stands, so you still find out by walking to it.
+const PITCH_CHANCE = 0.3;      // …of CUTS that carry a pitch somewhere along them
 const VOID_FOE_IDS = [
   'enemy_ash_crawler', 'enemy_bloated_mutant', 'enemy_rad_mutant', 'enemy_feral_dog',
   'enemy_wire_jackal', 'enemy_gutter_hound', 'enemy_scav', 'enemy_scrap_picker',
@@ -549,7 +728,7 @@ function spawnFoe(c, roomId) {
 function showTraces(actor, c, roomId) {
   const salt = getZone(roomId)?.flags?.void_salt;
   if (!salt) return;
-  const trunk = VOIDS[c.voidKey].trunk;
+  const trunk = c.plan.trunkLen;   // derived in tiles; see trunkTilesFor
   const lines = [];
   if (bigScoreOpen(c.voidKey, c.window, salt, trunk))
     lines.push("The hulk of a downed gunship dominates this stretch — real salvage in it, if it's still here. <b>(loot)</b>");
@@ -572,69 +751,426 @@ function maybeEncounter(actor, c, roomId, chance) {
   spawnFoe(c, roomId);
 }
 
+// ── THE PLAN vs THE MATERIALISED WINDOW ──────────────────────────────────────
+//
+// A crossing used to be built the only way it sensibly could be while it was 5 to 15 rooms long:
+// register every room up front and let `roomSet` mean both "the route" and "what exists". At one room
+// per TILE a crossing is 93 to 282 rooms and those two meanings come apart, because the entire point
+// of windowing is that most of the route has not been made yet.
+//
+// They are therefore separated FIRST, while nothing observable changes. `plan` is the route as a pure
+// function of the seed with nothing registered; `roomSet` is what is currently materialised. Today
+// `ensureInstance` materialises the whole plan, so the two are the same set and the suite proves the
+// split is a no-op. Windowing then becomes a change to WHEN a room is made, not to what a crossing is.
+//
+// ⚠ TWO CONSUMERS NEED THE PLAN AND NOT THE WINDOW, AND BOTH WOULD FAIL QUIETLY:
+//   • `crossingChain` — THE LONG HAUL maps an odometer reading onto a room across the WHOLE route,
+//     including the part nobody has walked to. Reading the window would hand a driver a room id that
+//     does not exist and deliver them into nothing.
+//   • the relog re-derive — after a restart the room you logged out in is on the route but is not
+//     materialised, and `!roomSet.has(roomId)` would silently return everybody to the threshold.
+//
+// ⚠ AND THE PLAN CARRIES EACH ROOM'S EXITS, rather than them being written as neighbours are built.
+// Materialising room N on demand means knowing its exits without having built N-1 or N+1, so the
+// wiring has to be a property of the route rather than a side effect of the order it was made in.
+// ── WHERE A ROOM IS, IN THE WORLD ────────────────────────────────────────────
+//
+// A crossing room used to have no position at all: `grid_x: null`, and the walk happened beside the
+// map rather than on it. That was the last place the space between regions was still an abstraction,
+// and the premise settles it — the trail is a weekly path laid across the same country the road
+// crosses, so a room is somewhere, in the same coordinates a truck and an aircraft use.
+//
+// Registered rather than imported, exactly like `registerCrossingDistance` above and for the same
+// reason: the geometry lives in trucking, trucking imports THIS module, and importing back would be
+// a cycle. A LIST of odometer readings goes out and a list of points comes back, so the route is
+// built once per limb instead of once per room, and `corridorPos` never has to leave trucking.
+//
+// ⚠ AND IT DEGRADES TO EXACTLY WHAT SHIPPED BEFORE IT. With no provider registered (trucking not
+// loaded, or a leg whose road cannot be built) every room keeps a null position and behaves as it
+// always did. Coordinates are an enrichment of the crossing, never a requirement of it.
+let _crossingPoints = null;
+export function registerCrossingPoints(fn) { if (typeof fn === "function") _crossingPoints = fn; }
+
+// THE CUTS BRANCHING OFF THAT SPINE — where each leaves and rejoins, how long it is, and whether it
+// is walkable this window. Registered from the same side and for the same reason as the points: the
+// geometry lives in trucking, trucking imports this module, and the edge only runs one way.
+let _trailCuts = null;
+export function registerTrailCuts(fn) { if (typeof fn === "function") _trailCuts = fn; }
+
+
+// How far off the road's centreline the trail runs, in tiles, and how much further a detour strays.
+//
+// ⚠ THE TRAIL IS OFF THE TARMAC AND STILL WITHIN REACH OF IT, AND THAT IS THE POINT. The paved band
+// is about two tiles wide and the corridor's classified ground runs out to `OFFROAD_R` (24). Seven
+// puts a walker clear of the shoulder without putting them out of the world the road belongs to,
+// which is what makes the road a LIFELINE rather than scenery: you can see it, a mile board is
+// readable when the trail runs close, and a truck can pull over for you. Push the trail past the
+// corridor entirely and decision D — that walkers and drivers meet — quietly stops being possible.
+//
+// A DETOUR is the opposite statement and sits deliberately OUTSIDE the corridor: taking one means
+// leaving the road behind, which is the whole of what the gamble costs.
+
+// The trail's SHAPE lives in trucking (plugins/trucking/corridor.js): where it runs, where it
+// comes in to the road, and where the camps are, are all properties of a specific ROAD rather than of
+// a spacing constant — see campsOf. This plugin asks that geometry where each room stands and whether
+// it is a camp (registerCrossingPoints) and holds no copy of the answer.
+// The shared stretch before the fork, in tiles, derived from the nearest destination. See
+// TRUNK_FRACTION for why the authored room count could not simply be reused.
+function trunkTilesFor(voidKey, vdef, originZone, window = currentWindow()) {
+  if (vdef.trunk) return Math.max(1, vdef.trunk);        // an authored override, in tiles
+  let shortest = Infinity;
+  for (const d of vdef.dests) {
+    const n = totalLength(d, originZone, getZone(d.dest), voidKey, window);
+    if (n < shortest) shortest = n;
+  }
+  if (!Number.isFinite(shortest)) return TRUNK_MIN;
+  return Math.max(TRUNK_MIN, Math.min(TRUNK_MAX, Math.round(shortest * TRUNK_FRACTION)));
+}
+
+function planFor(instanceId, voidKey, window, origin, originZone) {
+  const vdef = VOIDS[voidKey];
+  const rooms = new Map();          // id → { salt, kind, exits, hard, spine? }
+  const detourIds = new Set();
+  const cutIds = new Set();      // the FIRST room of each cut, for `the way on` prose
+  const cutSet = new Set();      // every room on a cut
+  const trunkLen = trunkTilesFor(voidKey, vdef, originZone, window);
+  const trunkId = (i) => `${instanceId}_t${i}`;
+  const limbId = (key, i) => `${instanceId}_${key}${i}`;
+
+  // Shared trunk (linear). t0 exits back to the real origin tile, and is never a hard node: it is a
+  // beat to breathe before the country starts charging for it.
+  for (let i = 0; i < trunkLen; i++) {
+    const exits = { north: i === 0 ? origin : trunkId(i - 1) };
+    if (i < trunkLen - 1) exits.south = trunkId(i + 1);   // the fork's forward exits are added below
+    rooms.set(trunkId(i), { salt: `t${i}`, kind: 'trunk', exits,
+      hard: i >= 1 && isHardNode(voidKey, window, `t${i}`) });
+  }
+  const trunkRooms = Array.from({ length: trunkLen }, (_, i) => trunkId(i));
+  const fork = trunkId(trunkLen - 1);
+  const limbs = {};
+
+  // A limb per destination, forking off the last trunk room in that dest's own direction.
+  for (const d of vdef.dests) {
+    const total = totalLength(d, originZone, getZone(d.dest), voidKey, window);
+    const limbLen = Math.max(1, total - trunkLen);
+    limbs[d.key] = [];
+    for (let i = 0; i < limbLen; i++) {
+      const exits = {};
+      // The entry room hangs off the fork by the reciprocal of the fork's direction; deeper rooms
+      // use north for back and south for on.
+      exits[i === 0 ? OPPOSITE[d.dir] : 'north'] = i === 0 ? fork : limbId(d.key, i - 1);
+      exits.south = i === limbLen - 1 ? d.dest : limbId(d.key, i + 1);
+      const id = limbId(d.key, i);
+      rooms.set(id, { salt: `${d.key}${i}`, kind: 'limb', destKey: d.key, exits,
+        hard: isHardNode(voidKey, window, `${d.key}${i}`) });
+      limbs[d.key].push(id);
+    }
+    rooms.get(fork).exits[d.dir] = limbId(d.key, 0);      // fork → this limb
+  }
+
+  // ── Risk-for-loot detours (a lateral `west` gamble) ─────────────────────────
+  //
+  // ⚠ INTERIOR ROOMS ONLY, AND THAT IS A COLLISION RULE RATHER THAN TASTE. A detour is attached by
+  // writing `exits.west` on its spine room, and a limb's FIRST room already spends one lateral exit
+  // on the way back to the fork: `OPPOSITE[d.dir]`, which for an `east` limb IS `west`. A detour hung
+  // there would overwrite the only path back and strand the walker in a dead end that reads exactly
+  // like a gamble. Interior rooms use north and south only, so `west` is free on every one of them.
+  const rollFor = (salt) => mulberry32(hashSeed(`${voidKey}|${window}|${salt}|detour`))();
+  const addTo = (salt, spineId) => {
+    const id = `${instanceId}_d_${salt}`;
+    rooms.set(id, { salt, kind: 'detour', spine: spineId, exits: { east: spineId }, hard: false });
+    rooms.get(spineId).exits.west = id;
+    detourIds.add(id);
+  };
+
+  let trunkDetours = 0;
+  for (let i = 1; i < trunkLen - 1; i++) {
+    if (rollFor(`t${i}`) < 0.5) { addTo(`t${i}`, trunkId(i)); trunkDetours++; }
+  }
+
+  // ⚠ EVERY VOID GETS DETOURS, AND THAT IS A BUG FIX RATHER THAN AN ADDITION. Until 2026-08-21 the
+  // trunk loop above was the whole of it, so a detour needed an INTERIOR TRUNK room, and Coldwater's
+  // trunk of 4 was the only one in the game that has one. The Reach, Deadwater and the Scarletwastes
+  // run a trunk of 2 and Terminus a trunk of 1, so `i = 1; i < trunkLen - 1` never executed for four
+  // of the five voids, the `trunkLen >= 3` fallback could not fire for them either, and four fifths
+  // of the game's crossings carried no gamble at all with nothing to say so. It was found by charting
+  // the generator's output rather than by reading it.
+  //
+  // The length is in the LIMBS (4 to 14 rooms against a trunk of 1 to 4), so that is where the rest
+  // of the gambles live. ⚠ ONE CANDIDATE SLOT PER LIMB, NOT A ROLL PER ROOM: a per-room 0.5 across
+  // the eleven-room Terminus limb is five detours, which is not a gamble but a corridor of them.
+  //
+  // ⚠ AND THE GUARANTEE IS PER ROUTE, NOT PER INSTANCE. The old fallback asked whether the CROSSING
+  // had a detour, which off a multi-limb fork means one heading can carry the only gamble in the void
+  // while the other two walk dry. A limb whose route has nothing on it takes its slot rather than
+  // rolling for it, so no declared heading is ever a detourless walk.
+  //
+  // A trunk detour is shared by every destination out of this void; a limb detour belongs to one
+  // heading. Both are seeded off (void, window, salt) and both are stable for the window. The limb
+  // one is simply narrower, and that is the trade taken knowingly.
+  for (const d of vdef.dests) {
+    const limbLen = limbs[d.key].length;
+    if (limbLen < 3) continue;                       // no interior room to hang one off
+    const slot = 1 + Math.floor(rollFor(`${d.key}|slot`) * (limbLen - 2));
+    if (trunkDetours === 0 || rollFor(`${d.key}|take`) < 0.5) addTo(`${d.key}${slot}`, limbId(d.key, slot));
+  }
+
+  // ── Lay the route on the ground ─────────────────────────────────────────────
+  //
+  // A room's odometer reading is its index along the walk: trunk room i sits at s = i and limb room j
+  // at s = trunkLen + j, because a room is a tile. Each request also carries its own lateral offset,
+  // so the trail, and a detour swinging further off it, come back from ONE call per limb rather than
+  // one per room or one per offset.
+  //
+  // ⚠ THE TRUNK TAKES ITS POINTS FROM WHICHEVER LIMB ANSWERS FIRST, AND THAT IS SAFE BY INVARIANT.
+  // Every road out of a void shares its trunk tile for tile (trucking's own regress asserts it, and
+  // `switchLimb` is licensed by it), so the shared stretch is in the same place whichever destination
+  // is asked. Asking three times for one answer would be waste, not rigour.
+  //
+  // ⚠ A DETOUR HAS NO ODOMETER OF ITS OWN. It is not ON the walk, it is a step sideways off it, so it
+  // takes its spine's `s` and a wider `t`. That is exactly what a lateral gamble is, and it means a
+  // detour is always drawn beside the room it hangs off rather than somewhere along the route.
+  if (_crossingPoints) {
+    const sOfTrunk = (i) => i;
+    const sOfLimb = (j) => trunkLen + j;
+    let trunkDone = false;
+
+    for (const d of vdef.dests) {
+      const limb = limbs[d.key];
+      const reqs = [];                      // [{ id, s, t }]
+      if (!trunkDone) {
+        for (let i = 0; i < trunkLen; i++) {
+          const s = sOfTrunk(i);
+          reqs.push({ id: trunkId(i), s });
+        }
+      }
+      for (let j = 0; j < limb.length; j++) {
+        const s = sOfLimb(j);
+        reqs.push({ id: limb[j], s });
+      }
+      // Detours hanging off anything in this request set, at the wider offset.
+      // A detour has no distance of its own — it is a step sideways off the walk — so it borrows its
+      // spine's. Its lateral offset is applied when the room is made rather than asked for here.
+      for (const did of detourIds) {
+        const r = rooms.get(did);
+        const host = reqs.find(q => q.id === r.spine);
+        if (host) reqs.push({ id: did, s: host.s });
+      }
+
+      let pts = null;
+      // ⚠ DISTANCES ALONG THE TRAIL, NOT ALONG THE ROAD. A room's index IS its distance from the
+      // origin gate because a room is a tile, and the trail is its own path — shorter than the road,
+      // because it cuts over what the road went round. The provider answers where each one stands and
+      // whether it is a camp or on a cut; the offset is the trail's own and no longer this file's.
+      try { pts = _crossingPoints(voidKey, d, window, reqs.map(q => q.s)); }
+      catch { pts = null; }
+      // No road on this leg: those rooms stay placeless, which is precisely how every room behaved
+      // before coordinates existed. A partial answer is refused rather than half-applied.
+      if (!Array.isArray(pts) || pts.length !== reqs.length) continue;
+
+      for (let k = 0; k < reqs.length; k++) {
+        const p = pts[k];
+        if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+        const room = rooms.get(reqs[k].id);
+        if (!room || room.pt) continue;
+        room.pt = { x: p.x, y: p.y };
+        // ⚠ THE TRAIL SAYS WHICH ROOMS ARE CAMPS AND WHICH ARE ON A CUT, rather than this file
+        // recomputing it from a phase. A camp is where the walking route and the road are the same
+        // place, which only the geometry knows; asking twice would be two answers to one question.
+        if (p.wayside) room.wayside = true;
+        if (p.cut) room.cut = true;
+      }
+      trunkDone = true;
+    }
+  }
+
+  // ── THE CUTS: A BRANCH THAT REJOINS ─────────────────────────────────────────
+  //
+  // A detour is a dead end you come back out of. A cut is the other kind of branch: it leaves the
+  // spine at one camp and rejoins it at the next, so the room graph stops being a tree. That loop is
+  // the whole of decision 2 — the long way round is always there, so being refused on a cut is a loss
+  // rather than a dead end, and taking one is a decision rather than something the week decided for
+  // you.
+  //
+  // ⚠ THE SPINE IS STILL A SIMPLE ORDERED LINE, AND IT HAS TO BE. `crossingChain` maps a driver's
+  // odometer onto a room, and a driver is on the ROAD — so the chain is the shadow, the cut hangs off
+  // it, and nothing about the drive learns that walkers have another way round.
+  //
+  // ⚠ CUTS LEAVE BY `east`, WHICH IS THE ONLY LATERAL EXIT LEFT. `west` is the detour's and a limb's
+  // first room already spends one lateral on the way back to the fork (`OPPOSITE[d.dir]`). A camp that
+  // IS a limb's first room therefore gets no cut: overwriting either would strand somebody, and the
+  // same trap has now bitten twice in this file.
+  if (_trailCuts) {
+    for (const d of vdef.dests) {
+      const limb = limbs[d.key];
+      const spine = [...trunkRooms, ...limb];        // room index === distance along the spine
+      let list = [];
+      try { list = _trailCuts(voidKey, d, window) || []; } catch { list = []; }
+      let n = 0;
+      for (const c of list) {
+        if (!c.open || !Array.isArray(c.pts) || c.pts.length < 2) continue;
+        const i = Math.round(c.fromD), j = Math.round(c.toD);
+        const from = spine[i], to = spine[j];
+        if (!from || !to || j <= i + 1) continue;
+        // A limb's first room keeps its lateral exit for the way back to the fork.
+        if (from === limb[0] || rooms.get(from)?.exits?.east) continue;
+        const ids = [];
+        for (let k = 0; k < c.pts.length - 1; k++) ids.push(`${instanceId}_${d.key}c${n}_${k}`);
+        if (!ids.length) continue;
+        // One roll for the whole cut, then one for where the face stands on it. See PITCH_CHANCE.
+        const cutSalt = `${d.key}c${n}`;
+        const hasPitch = mulberry32(hashSeed(`${voidKey}|${window}|${cutSalt}|pitch`))() < PITCH_CHANCE;
+        const pitchAt = hasPitch
+          ? Math.floor(mulberry32(hashSeed(`${voidKey}|${window}|${cutSalt}|pitchat`))() * ids.length)
+          : -1;
+        ids.forEach((id, k) => {
+          const exits = {};
+          exits[k === 0 ? 'west' : 'north'] = k === 0 ? from : ids[k - 1];
+          exits.south = k === ids.length - 1 ? to : ids[k + 1];
+          rooms.set(id, {
+            salt: `${d.key}c${n}_${k}`, kind: 'cut', destKey: d.key, exits,
+            hard: isHardNode(voidKey, window, `${d.key}c${n}_${k}`),
+            pt: { x: c.pts[k].x, y: c.pts[k].y }, cut: true,
+            // ⚠ THE PITCH IS WHAT MAKES A CUT ABLE TO REFUSE YOU, and it is the engine's own rule
+            // rather than a new one: `engine:impassable-terrain` already blocks a cliff and already
+            // carries the single named exemption, a body that grew wings. Nothing purchasable opens
+            // one. Seeded per room, so a cut is not reliably passable OR reliably shut.
+            pitch: k === pitchAt,
+          });
+        });
+        rooms.get(from).exits.east = ids[0];
+        // ⚠ WHAT IT SAVES IS RECORDED ON THE CAMP, because that is where the decision is made. A cut
+        // is the only genuinely new choice in the crossing and it was INVISIBLE: the branch is a real
+        // `east` exit so a player could see the word, and nothing anywhere said what was down it or
+        // what it was worth. "Save twenty tiles, lose the road" only works as a decision if the twenty
+        // is on the table. What is deliberately NOT recorded is whether the cut is passable — you find
+        // the face by walking to it.
+        rooms.get(from).cutSaves = Math.max(1, Math.round(c.saves));
+        rooms.get(from).cutLen = Math.max(1, Math.round(c.len));
+        cutIds.add(ids[0]);
+        for (const id of ids) cutSet.add(id);
+        n++;
+      }
+    }
+  }
+
+  return {
+    rooms, detourIds, cutIds, cutSet, limbs, trunkLen, fork,
+    trunk: trunkRooms,
+    entry: trunkId(0),
+    all: new Set(rooms.keys()),
+    destSet: new Set(vdef.dests.map(d => d.dest)),
+  };
+}
+
+// Bring one planned room into existence. Idempotent through registerTransientZone, which preserves
+// occupant Sets across a re-register, so re-materialising a room somebody is standing in is safe.
+function materialise(c, id) {
+  const r = c.plan.rooms.get(id);
+  if (!r) return null;
+  const z = r.kind === 'detour'
+    ? registerTransientZone(mkDetour(id, c.voidKey, c.window, r.salt, r.spine, r.pt))
+    : registerTransientZone(mkRoom(id, c.voidKey, c.window, r.salt, { ...r.exits },
+        { ...(r.hard ? { void_hard: true } : {}), ...(r.cut ? { void_cut: true } : {}),
+          ...(r.pitch ? { void_pitch: true } : {}) }, r.pt, !!r.wayside));
+  // ⚠ Exits are re-applied from the PLAN on every materialise rather than trusted from the zone. A
+  // room that fell out of the window and came back must not keep a stale copy of a neighbour's id.
+  z.exits = { ...r.exits };
+  c.roomSet.add(id);
+  if (c.plan.detourIds.has(id)) c.detourSet.add(id);
+  return z;
+}
+
+// ── THE WINDOW: a room exists near somebody, and nowhere else ────────────────
+//
+// The plan is the route; this is the part of it that is currently made. At 5 to 15 rooms materialising
+// everything was free and the distinction was academic. At one room per TILE a crossing is 93 to 282
+// rooms per party, and a route that builds itself in full the moment somebody steps off the rim is a
+// memory and teardown problem rather than a pacing one. The generator is a pure function of
+// (route, window, node), so a room is a LOOKUP and not a build: make the ones near people, drop the
+// rest, and the walk is identical either way.
+//
+// ⚠ RADIUS IS IN HOPS ALONG THE PLAN'S OWN EXITS, not in array indices. A BFS over the exits handles
+// the fork, the limbs and the detours without knowing that any of them exist, which is what keeps this
+// correct when the shape changes under it. It must stay comfortably above 1: movement resolves against
+// a zone that has to already be there, so the window needs a skirt of unvisited rooms ahead of
+// whichever way anybody might step next.
+const WINDOW_R = 3;
+
+function windowAround(c, roomId, radius) {
+  const out = new Set();
+  if (!c.plan.rooms.has(roomId)) return out;
+  out.add(roomId);
+  let frontier = [roomId];
+  for (let d = 0; d < radius && frontier.length; d++) {
+    const next = [];
+    for (const cur of frontier) {
+      const r = c.plan.rooms.get(cur);
+      if (!r) continue;
+      for (const to of Object.values(r.exits)) {
+        // An exit that leaves the plan is the origin tile or a destination region: real ground that
+        // is somebody else's to make.
+        if (!c.plan.rooms.has(to) || out.has(to)) continue;
+        out.add(to); next.push(to);
+      }
+    }
+    frontier = next;
+  }
+  return out;
+}
+
+// ⚠ NEVER EVICT A ROOM WITH ANYTHING IN IT. A player is the obvious one and the others are not:
+// unregistering a zone holding an enemy leaks the instance (teardown despawns from `c.enemies`, and
+// this is not teardown), and a corpse is somebody's loot with a timer on it.
+//
+// Ground items are deliberately NOT in this test, and that is safe rather than an oversight: an item
+// on the floor is a `player_inventory` row owned by `_ground_<zoneId>`, so it lives in the DB and was
+// never on the zone object. Room ids are deterministic, so a room that is evicted and later
+// re-materialised comes back under the same id with everything anybody left on its floor still there.
+function canEvict(id) {
+  const z = getZone(id);
+  if (!z) return true;
+  return z.players.size === 0 && z.enemies.size === 0 && z.npcs.size === 0 && z.corpses.size === 0;
+}
+
+// The union of every member's window. Reference counting by hand would need a count per room and a
+// decrement on every move; recomputing the union is O(members × radius) against a plan already in
+// memory, and it cannot drift.
+function refreshWindow(c) {
+  const keep = new Set();
+  for (const pid of c.members) {
+    const p = getLivePlayer(pid);
+    const at = p?.current_zone;
+    if (!at || !c.plan.rooms.has(at)) continue;
+    for (const id of windowAround(c, at, WINDOW_R)) keep.add(id);
+  }
+  // A crossing with nobody placed yet (it is built before the leader is moved in) still needs its
+  // threshold, or there is nowhere to step onto.
+  if (!keep.size) for (const id of windowAround(c, c.plan.entry, WINDOW_R)) keep.add(id);
+
+  for (const id of keep) if (!c.roomSet.has(id)) materialise(c, id);
+  for (const id of [...c.roomSet]) {
+    if (keep.has(id) || !canEvict(id)) continue;
+    removeTransientZone(id);
+    c.roomSet.delete(id);
+    c.detourSet.delete(id);
+  }
+  return c;
+}
+
 // ── Instance generation (trunk → fork → limbs → detours) ──────────────────────
 function ensureInstance(instanceId, voidKey, window, origin) {
   let c = crossings.get(instanceId);
   if (c) return c;
-  const vdef = VOIDS[voidKey];
-  const originZone = getZone(origin);
-  const roomSet = new Set(), detourSet = new Set(), destSet = new Set();
-  const hardFlags = (salt) => isHardNode(voidKey, window, salt) ? { void_hard: true } : {};
-
-  // Shared trunk (linear). t0 exits back to the real origin tile. The threshold
-  // room (t0) is never a hard node — it's a beat to breathe.
-  const trunkLen = Math.max(1, vdef.trunk);
-  const trunkId = (i) => `${instanceId}_t${i}`;
-  for (let i = 0; i < trunkLen; i++) {
-    const exits = { north: i === 0 ? origin : trunkId(i - 1) };
-    if (i < trunkLen - 1) exits.south = trunkId(i + 1); // fork's forward exits added below
-    registerTransientZone(mkRoom(trunkId(i), voidKey, window, `t${i}`, exits, i >= 1 ? hardFlags(`t${i}`) : {}));
-    roomSet.add(trunkId(i));
-  }
-  const fork = trunkId(trunkLen - 1);
-
-  // A limb per destination, forking off `fork` in the dest's `dir`.
-  for (const d of vdef.dests) {
-    destSet.add(d.dest);
-    const total = totalLength(d, originZone, getZone(d.dest), voidKey);
-    const limbLen = Math.max(1, total - trunkLen);
-    const limbId = (i) => `${instanceId}_${d.key}${i}`;
-    for (let i = 0; i < limbLen; i++) {
-      const exits = {};
-      // The entry room hangs off the fork via the reciprocal of the fork's dir;
-      // deeper rooms use north(back)/south(forward).
-      exits[i === 0 ? OPPOSITE[d.dir] : 'north'] = i === 0 ? fork : limbId(i - 1);
-      exits.south = i === limbLen - 1 ? d.dest : limbId(i + 1);
-      registerTransientZone(mkRoom(limbId(i), voidKey, window, `${d.key}${i}`, exits, hardFlags(`${d.key}${i}`)));
-      roomSet.add(limbId(i));
-    }
-    getZone(fork).exits[d.dir] = limbId(0); // fork → this limb
-  }
-
-  // Risk-for-loot detours off shared-trunk interior rooms (a `west` gamble).
-  for (let i = 1; i < trunkLen - 1; i++) {
-    const drng = mulberry32(hashSeed(`${voidKey}|${window}|t${i}|detour`));
-    if (drng() < 0.5) addDetour(instanceId, voidKey, window, `t${i}`, trunkId(i), detourSet, roomSet);
-  }
-  if (detourSet.size === 0 && trunkLen >= 3) {
-    const i = Math.floor(trunkLen / 2);
-    addDetour(instanceId, voidKey, window, `t${i}`, trunkId(i), detourSet, roomSet);
-  }
-
+  const plan = planFor(instanceId, voidKey, window, origin, getZone(origin));
   c = {
-    id: instanceId, voidKey, roomSet, detourSet, destSet, dests: vdef.dests,
-    entry: trunkId(0), origin, window, members: new Set(), enemies: new Set(),
+    id: instanceId, voidKey, plan,
+    roomSet: new Set(), detourSet: new Set(), destSet: plan.destSet, dests: VOIDS[voidKey].dests,
+    entry: plan.entry, origin, window, members: new Set(), enemies: new Set(),
   };
   crossings.set(instanceId, c);
-  return c;
+  return refreshWindow(c);
 }
-function addDetour(instanceId, voidKey, window, salt, spineRoomId, detourSet, roomSet) {
-  const id = `${instanceId}_d_${salt}`;
-  registerTransientZone(mkDetour(id, voidKey, window, salt, spineRoomId));
-  getZone(spineRoomId).exits.west = id;
-  detourSet.add(id); roomSet.add(id);
-}
-
 function teardownInstance(c) {
   for (const eid of c.enemies) removeEnemyInstance(eid); // despawn spawned foes (no-op if already killed)
   // ⚠ ANNOUNCED BEFORE THE ROOMS GO, not after. A subscriber's whole job is to deal with something
@@ -645,8 +1181,13 @@ function teardownInstance(c) {
   // This is the ONE thing that leaves this plugin, and it is an event rather than a call so the
   // edge stays one-way: voidwalking still imports nothing from trucking (which parks trucks out
   // here), and nothing here knows or cares whether anybody is listening.
-  emit('crossing.ended', { instanceId: c.id, rooms: [...c.roomSet], origin: c.origin, voidKey: c.voidKey });
-  for (const id of c.roomSet) removeTransientZone(id);   // trunk + limbs + detours
+  // ⚠ THE WHOLE PLAN, NOT THE WINDOW. A subscriber's job is to deal with what it left out here, and
+  // under windowing most of the route is not materialised at any given moment. Handing over the live
+  // set would tell a listener that rooms it parked something in never existed, which is exactly the
+  // silent break the plan/window split was made to prevent. Only the materialised half is
+  // unregistered below, because only the materialised half exists.
+  emit('crossing.ended', { instanceId: c.id, rooms: [...c.plan.all], origin: c.origin, voidKey: c.voidKey });
+  for (const id of c.roomSet) removeTransientZone(id);   // whatever is currently made
   crossings.delete(c.id);
 }
 async function clearCrossingFlags(player) {
@@ -663,6 +1204,7 @@ async function enterMember(m, c, entry, origin) {
   removePlayerFromZone(m.id, m.current_zone);
   addPlayerToZone(m.id, entry.id);
   m.current_zone = entry.id;
+  refreshWindow(c);   // a member arriving is a new centre for the window
   m._crossing = { instanceId: c.id, seen: new Set([entry.id]) };
   c.members.add(m.id);
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [entry.id, m.id]).catch(() => {});
@@ -923,6 +1465,20 @@ function leaveCrossing(member, zone) {
 // While an enemy stands in your room, the forward exit (`south`, "deeper", the design's
 // one advancing direction) is sealed; you can still retreat (`north`) or take a detour.
 // Clear the foe (kill it, or it flees) and the way opens.
+// ── THE PITCH: A CUT THAT WILL NOT LET YOU PAST ──────────────────────────────
+// The way on goes up a face. ⚠ This is the ENGINE's rule rather than a second one: the same single
+// named exemption `engine:impassable-terrain` carries — a body that grew wings — and nothing you can
+// buy, steal or carry opens it. You lose the water it took to get here and you take the long way,
+// which the spine has never stopped being.
+registerMoveGate(({ player, from, direction }) => {
+  if (direction !== 'south') return;
+  if (!from?.flags?.void_pitch) return;
+  if (mutationFlag(player, 'flight')) return;
+  return { block: true, message:
+    'The ground goes up sheer in front of you, and keeps going. There is no way up it with what you have on you.'
+    + '\n<span class="text-dim">Back the way you came, and round the long side.</span>' };
+}, 'voidwalking:pitch');
+
 registerMoveGate(({ player, from, direction }) => {
   if (!player?._crossing) return;
   if (!from?.flags?.void_crossing) return;
@@ -932,17 +1488,34 @@ registerMoveGate(({ player, from, direction }) => {
 }, 'voidwalking');
 
 // ── Node tracking + teardown + encounters (every move) ────────────────────────
-on('zone.entered', ({ actor, zone }) => {
+// `mounted` is set by anything carrying the actor through the void under its own power — today that
+// is a rig on the road (plugins/trucking, crossToNode). A passenger sees the country and the traces
+// left in it, and is not exposed to what lives there.
+on('zone.entered', ({ actor, zone, mounted }) => {
   try {
     const live = actor?._crossing;
     if (!live) return;
     const c = crossings.get(live.instanceId);
     if (!c) { delete actor._crossing; return; }
     if (c.roomSet.has(zone)) { // a crossing room (trunk / limb / detour)
-      showTraces(actor, c, zone);
-      const chance = getZone(zone)?.flags?.void_hard ? HARD_ENCOUNTER_CHANCE
-        : c.detourSet.has(zone) ? DETOUR_ENCOUNTER_CHANCE : ENCOUNTER_CHANCE;
-      maybeEncounter(actor, c, zone, chance);
+      // Every step moves the window: make what is now within reach, drop what is now behind. This is
+      // the ONLY place the window advances during a walk, and it must run before anything that can
+      // block or divert, or a player can be standing one step from a room that was never made.
+      refreshWindow(c);
+      showTraces(actor, c, zone);   // what happened here is visible from a cab too
+      if (!mounted) {
+        const f = getZone(zone)?.flags;
+        // ⚠ A CUT IS FEWER TILES AND EVERY ONE OF THEM ROLLS HOT. That is the whole trade and it is
+        // deliberately a MULTIPLIER on the ambient rate rather than the hard-node number: a cut is a
+        // long stretch, and 0.85 per tile across sixty of them is not a gamble, it is an execution.
+        // At CUT_ENCOUNTER_MULT something lands every ~7 tiles out there against ~22 on the road,
+        // so the shortcut saves you distance and spends it back in blood.
+        const chance = f?.void_hard ? HARD_ENCOUNTER_CHANCE
+          : c.detourSet.has(zone) ? DETOUR_ENCOUNTER_CHANCE
+          : f?.void_cut ? Math.min(0.9, ENCOUNTER_CHANCE * CUT_ENCOUNTER_MULT)
+          : ENCOUNTER_CHANCE;
+        maybeEncounter(actor, c, zone, chance);
+      }
       return; // crossing_room is RAM (player.current_zone); flushed lazily on logout, not per step
     }
     leaveCrossing(actor, zone); // left the void (arrived at a region, or bailed)
@@ -1065,7 +1638,7 @@ async function cmdLoot(args, raw, player, broadcast) {
   const roomId = player.current_zone;
   const salt = getZone(roomId)?.flags?.void_salt;
   if (!salt) return { type: 'emote', message: 'Nothing here but dust and wind.' };
-  const trunk = VOIDS[c.voidKey].trunk;
+  const trunk = c.plan.trunkLen;   // derived in tiles; see trunkTilesFor
 
   // 1. The weekly big score, first-come and gone (the async claim race).
   if (bigScoreOpen(c.voidKey, c.window, salt, trunk)) {
@@ -1148,14 +1721,18 @@ on('player.login', async ({ id }) => {
 
     const c = ensureInstance(instanceId, voidKey, window, origin);
     let roomId = await getFlag('player', 'crossing_room', player);
-    if (!c.roomSet.has(roomId)) roomId = c.entry;
-    const room = getZone(roomId);
+    // ⚠ AGAINST THE PLAN, NOT THE WINDOW. The room you logged out in is on the route but need not be
+    // materialised yet, and testing `roomSet` would quietly return every reconnecting walker to the
+    // threshold room having thrown away the crossing they had already walked.
+    if (!c.plan.all.has(roomId)) roomId = c.entry;
+    const room = materialise(c, roomId) || getZone(roomId);
 
     removePlayerFromZone(player.id, player.current_zone);
     addPlayerToZone(player.id, room.id);
     player.current_zone = room.id;
     player._crossing = { instanceId, seen: new Set([room.id]) };
     c.members.add(player.id);
+    refreshWindow(c);   // the window follows whoever just reconnected into it
     await query('UPDATE players SET current_zone=$1 WHERE id=$2', [room.id, player.id]).catch(() => {});
 
     const desc = await describeZone(room, player);
@@ -1168,6 +1745,142 @@ on('player.login', async ({ id }) => {
   } catch (e) { console.error('[voidwalking] player.login error:', e.message); }
 });
 
+// ── `camp` — the risky rest site ─────────────────────────────────────────────
+//
+// ⚠ THE VERB IS `camp` BECAUSE `rest` IS AN ENGINE ALIAS FOR `sleep`, and that is a FOURTH way a verb
+// can be taken that the psionics note does not list. Checking plugin manifests, engine builtins and
+// specialized actions all came back clean; `server/engine/commands/aliases.js` maps `rest → sleep`
+// and the dispatcher resolves aliases BEFORE it looks a plugin up, so the handler below was never
+// reached and the player got "it's not safe enough to sleep here" from a system that had never heard
+// of the void. Check the alias table too.
+//
+// The relief half of the crossing, and the reason a hot spring or a camp firepit is worth walking to
+// rather than just worth reading. Nothing out here heals you: the engine's only passive HP regen is
+// `healOverTime` and `wellFedUntil`, and neither fires on its own in a waste room. So a respite site
+// GRANTS one rather than the void suppressing anything, which is the same answer arrived at from the
+// other side and one fewer moving part.
+//
+// ⚠ IT IS PAID FOR IN WATER, AND THAT IS THE WHOLE DESIGN OF IT. Recovery out here is a gamble you
+// choose, never a given: sitting still in the heat costs you the thing the crossing is actually a race
+// against. The gap has real temperature now (the weather interpolation), so a rest on the hot leg to
+// Terminus costs more in practice than one on the way to Deadwater without anything here saying so.
+//
+// ⚠ AND IT ROLLS FOR AN AMBUSH, ON THE ROOM'S OWN ODDS. A camp is not a safe room — the void stays
+// `lawless`, a resting body is a body — so this goes through the ordinary encounter path rather than
+// inventing a second one. The roll happens BEFORE the heal is granted, so being jumped means you got
+// nothing for the water.
+const REST_THIRST = 12;        // what an hour off your feet costs you in the heat
+const REST_HEAL_TICKS = 10;    // …and how long the recovery runs for afterwards
+const REST_HEAL_PER_TICK = 3;
+
+async function cmdRest(args, raw, player) {
+  const live = player._crossing;
+  const c = live && crossings.get(live.instanceId);
+  if (!c) return undefined;   // not in the void: the word is free for anything else that wants it
+  const z = getZone(player.current_zone);
+  const kind = z?.flags?.void_feature_kind;
+  const ok = z?.flags?.void_wayside || kind === 'respite' || kind === 'shelter';
+  if (!ok) return { type: 'error', message: 'There is nowhere here to get off your feet that is any better than where you are standing.' };
+
+  if (getZoneEnemies(z.id).length)
+    return { type: 'error', message: 'Not with that still standing there.' };
+  if ((player.thirst ?? 100) <= REST_THIRST)
+    return { type: 'error', message: 'You are too far gone for that. Sitting still without water is just a slower way of doing the same thing.' };
+  if (player.hp >= player.hp_max && !(player.healOverTime?.length))
+    return { type: 'emote', message: 'You sit for a while. There is nothing about you that needs mending.' };
+
+  player.thirst = Math.max(0, (player.thirst ?? 100) - REST_THIRST);
+
+  // The ambush, on this room's own odds — a camp is quieter than open ground and a detour is not.
+  const chance = z.flags?.void_hard ? HARD_ENCOUNTER_CHANCE
+    : c.detourSet.has(z.id) ? DETOUR_ENCOUNTER_CHANCE
+    : z.flags?.void_cut ? Math.min(0.9, ENCOUNTER_CHANCE * CUT_ENCOUNTER_MULT)
+    : ENCOUNTER_CHANCE;
+  // ⚠ Deliberately NOT `maybeEncounter`: that one fires once per room for ever (`seen`), which is
+  // right for walking into a place and wrong for choosing to stay in it. Resting is a fresh risk
+  // every time you do it, which is what stops a cleared room becoming a free hotel.
+  if (ENCOUNTERS_ON && Math.random() < chance * 2) {
+    spawnFoe(c, z.id);
+    return { type: 'emote', message: '<span class="text-amber">You get your boots off and your back against something, and that is exactly how far you get.</span>' };
+  }
+
+  player.healOverTime = player.healOverTime || [];
+  player.healOverTime.push({ perTick: REST_HEAL_PER_TICK, ticksRemaining: REST_HEAL_TICKS });
+  const warm = z.flags?.stove_tier ? ' The fire does most of the work.' : '';
+  const wet = z.flags?.water_source ? ' You drink, and refill, and drink again.' : '';
+  return { type: 'emote', message:
+    `<span class="text-green">You stop. Boots off, back against something solid, and for a while the country is just weather.</span>${warm}${wet}`
+    + '\n<span class="text-dim">You will feel it mending for a while yet. It cost you water you are not getting back out here.</span>' };
+}
+
+// ── FLAGGING A TRUCK DOWN ────────────────────────────────────────────────────
+//
+// The social half of the crossing. A truck can carry people (`ride`/`hop` in the trucking plugin), so
+// the only thing missing was a way for a walker out in the waste to ASK — and for a driver to know
+// somebody is asking before they have already gone past.
+//
+// ⚠ A BEACON HAS A LIFETIME; IT IS NOT A STATE YOU SIT IN. A permanent flag turns every wayside into
+// a taxi rank and every driver's HUD into a list of them. It expires, and putting your arm out again
+// costs the time it costs.
+//
+// ⚠ AND YOU CAN ONLY DO IT AT A CAMP, which is not an arbitrary gate: a wayside is the place where
+// the walking route and the road are the same place (`campsOf` in trucking), so it is the only ground where
+// a rig CAN stop for you. Flagging from the middle of a cut would be asking a truck to leave the road
+// and come and find you.
+//
+// ⚠ RAM-ONLY AND DELIBERATELY SO. A beacon is worth exactly as long as somebody is standing there;
+// a logout, a crash or a restart should clear it, and nothing about it is worth a row.
+const BEACON_MS = 4 * 60 * 1000;      // how long an arm stays out
+const BEACON_RECHARGE_MS = 45 * 1000; // and how long before you can put it out again
+const beacons = new Map();            // playerId → { until, x, y, zoneId, handle, at }
+
+// Every beacon still burning. Prunes as it goes, which is the only expiry this needs: nothing ticks.
+export function activeBeacons(now = Date.now()) {
+  const out = [];
+  for (const [id, b] of beacons) {
+    if (b.until <= now) { beacons.delete(id); continue; }
+    out.push({ playerId: id, ...b });
+  }
+  return out;
+}
+
+// The ones a driver at (x, y) could plausibly stop for. Distance is the whole test — two people in
+// the same gap are in DIFFERENT transient rooms (a crossing is instanced), so "the same place" out
+// here is a coordinate and can never be a zone id.
+export function beaconsNear(x, y, radius, now = Date.now()) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return [];
+  return activeBeacons(now)
+    .map(b => ({ ...b, dist: Math.hypot(b.x - x, b.y - y) }))
+    .filter(b => b.dist <= radius)
+    .sort((a, b) => a.dist - b.dist);
+}
+
+export function clearBeacon(playerId) { beacons.delete(playerId); }
+
+async function cmdFlag(args, raw, player) {
+  const live = player._crossing;
+  const c = live && crossings.get(live.instanceId);
+  if (!c) return { type: 'error', message: 'There is no road out here to flag anything down on.' };
+  const z = getZone(player.current_zone);
+  if (!z?.flags?.void_wayside)
+    return { type: 'error', message: 'Nothing comes past here. You would have to be at a camp on the road for that.' };
+  if (z.grid_x == null || z.grid_y == null)
+    return { type: 'error', message: 'You cannot tell where the road is from here.' };
+
+  const now = Date.now();
+  const prev = beacons.get(player.id);
+  if (prev && prev.until > now)
+    return { type: 'emote', message: 'You are already standing where they can see you, arm out.' };
+  if (prev && now - prev.at < BEACON_RECHARGE_MS)
+    return { type: 'emote', message: 'You just did that. Give it a minute and try again.' };
+
+  beacons.set(player.id, {
+    until: now + BEACON_MS, at: now, x: z.grid_x, y: z.grid_y, zoneId: z.id, handle: player.handle,
+  });
+  return { type: 'emote', message: '<span class="text-green">You walk out to the edge of the tarmac and put your arm out, and then there is nothing to do but stand there and be seen.</span>'
+    + '\n<span class="text-dim">Anything coming down this road will know you are here for a while. Whether it stops is somebody else\'s decision.</span>' };
+}
+
 // ── Public surface for other systems ─────────────────────────────────────────
 // A crossing is walked room-by-room, so nothing here ever needed to know the ORDER of the chain —
 // you just took the exit in front of you. Driving it does: THE LONG HAUL (plugins/trucking) turns
@@ -1178,21 +1891,17 @@ on('player.login', async ({ id }) => {
 //
 // Returns the trunk followed by one destination's limb: index 0 is the threshold room, the last
 // index is the room whose `south` exit is the destination region itself.
+// ⚠ THIS READS THE PLAN, NEVER THE MATERIALISED SET. It used to walk `roomSet` and parse the order
+// back out of the room IDs with a regex, which worked only because every room existed from the moment
+// the crossing did. A driver asks this about the WHOLE route, including the stretch nobody has walked
+// to, so under windowing that version would return a chain with holes in it and deliver people into
+// rooms that had never been made. The plan is ordered by construction, so there is nothing to parse.
 export function crossingChain(instanceId, destKey) {
   const c = crossings.get(instanceId);
   if (!c) return [];
-  const trunk = [], limb = [];
-  for (const id of c.roomSet) {
-    if (c.detourSet.has(id)) continue;                      // detours hang off the spine, they aren't on it
-    const rest = id.slice(instanceId.length + 1);           // strip the `<instanceId>_` namespace
-    const m = /^t(\d+)$/.exec(rest);
-    if (m) { trunk[+m[1]] = id; continue; }
-    const lm = new RegExp(`^${destKey}(\\d+)$`).exec(rest);
-    if (lm) limb[+lm[1]] = id;
-  }
-  return [...trunk, ...limb].filter(Boolean);
+  return [...c.plan.trunk, ...(c.plan.limbs[destKey] || [])];
 }
-// The destination zone a limb ends at — where the road comes out.
+// The destination zone a limb ends at, where the road comes out.
 export function crossingDest(instanceId, destKey) {
   const c = crossings.get(instanceId);
   return c?.dests?.find(d => d.key === destKey)?.dest || null;
@@ -1216,7 +1925,7 @@ export function crossingInfo(instanceId) {
     // What a ROAD SIGN calls the place you came from — see the `sign` note on VOIDS.
     originSign: vdef?.sign || vdef?.origin || null,
     entry: c.entry, dests: c.dests,
-    trunk: Math.max(1, VOIDS[c.voidKey]?.trunk || 1) };
+    trunk: Math.max(1, c.plan?.trunkLen || 1) };
 }
 
 export const commands = {
@@ -1225,15 +1934,26 @@ export const commands = {
   scrawl: cmdScrawl,
   loot: cmdLoot,
   frontier: cmdFrontier,
+  flag: cmdFlag,
+  camp: cmdRest,
 };
 
 export const hooks = {
   'movement.edge': onMovementEdge,
-  'zone.describeRoom': describeRim,
+  'zone.describeRoom': describeVoidRoom,
 };
 
 export const _test = {
-  crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
+  crossings, VOIDS, totalLength, MIN_ROOMS, TRUNK_FRACTION, TRUNK_MIN, TRUNK_MAX, trunkTilesFor,
+  // The window, so the suite can drive it deliberately rather than inferring it from where a fake
+  // player happens to be standing.
+  planFor, materialise, refreshWindow, windowAround, WINDOW_R, describeVoidRoom,
+  beacons, beaconsNear, clearBeacon, activeBeacons,
+  // ⚠ FOR TESTS THAT ARE NOT ABOUT THE WINDOW. Salvage, the minimap payload and the braid's shape
+  // all want the whole route standing at once, and making them model the window instead would turn
+  // three good tests into three worse ones that break every time the radius is tuned. The window's
+  // own behaviour is asserted separately, on a crossing nobody has forced.
+  materialiseAll: (c) => { for (const id of c.plan.rooms.keys()) materialise(c, id); return c; },
   loadFoes, spawnFoe, foesFor, MAX_VOID_FOES, isHardNode, hardFoePool: () => HARD_FOE_POOL, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath, frontierView, markSurvived,
   stagings, playerStaging, isMapRim, rimDirs, describeRim,
   foePool: () => FOE_POOL,

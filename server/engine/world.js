@@ -1240,10 +1240,24 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
   // client's R in minimap.js.
   const WIN = 4;
   const ids = new Set(visited.keys());
-  if (centerMapId && centerZone.grid_x != null && centerZone.grid_y != null) {
+  // ⚠ THE GRID SWEEP IS FOR PLACED GROUND ONLY, AND TRANSIENT ZONES ARE EXCLUDED AT BOTH ENDS.
+  //
+  // Proximity is a fine way to find a neighbour on the world grid and a wrong one for anything
+  // INSTANCED. Void-crossing rooms are per-instance and share one `map_id` (`map_void`), so the
+  // `map_id` guard below protects a player on real ground from ever seeing somebody's crossing, and
+  // does nothing at all to protect two crossers from each other: the moment a void room carries a
+  // `grid_x`, this sweep would pull in whichever OTHER party is walking the same stretch of gap this
+  // window and draw their rooms onto your minimap. Instancing is enforced by room IDs, never by
+  // position, so position must not be allowed to reach across it.
+  //
+  // A crossing is charted by the exit BFS above instead, which is what the client's ashen-trail view
+  // reads and what "the layout ahead stays fogged" depends on. Hence both guards: a transient CENTRE
+  // takes no sweep at all, and a transient zone is never a candidate for anyone else's.
+  const centerTransient = world.transientZones.has(centerZone.id);
+  if (!centerTransient && centerMapId && centerZone.grid_x != null && centerZone.grid_y != null) {
     const cx = centerZone.grid_x, cy = centerZone.grid_y, cz = centerZone.grid_z ?? 0;
     for (const [id, zone] of world.zones) {
-      if (ids.has(id)) continue;
+      if (ids.has(id) || world.transientZones.has(id)) continue;
       if (zone.map_id !== centerMapId || (zone.grid_z ?? 0) !== cz) continue;
       if (zone.grid_x == null || zone.grid_y == null) continue;
       if (Math.abs(zone.grid_x - cx) <= WIN && Math.abs(zone.grid_y - cy) <= WIN) ids.add(id);

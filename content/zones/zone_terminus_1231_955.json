@@ -12,7 +12,7 @@
     "Absolutely nothing happens for a while, at considerable scale."
   ],
   "ambient_theme": "wasteland",
-  "description": "The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "The rim folds back on itself, and the fold makes a ramp of sorts, if a ramp were vertical for the first part and loose for the rest. You can see where it tops out. That is most of the argument.",
   "exits": {
     "east": "zone_terminus_1232_955",
     "north": "zone_terminus_1231_954",
@@ -21,13 +21,14 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1231,
   "grid_y": 955,
   "grid_z": 0,
   "id": "zone_terminus_1231_955",
   "map_id": "map_world",
-  "name": "The Long Quiet",
+  "name": "Cutback",
   "parent_zone": null
 }
+

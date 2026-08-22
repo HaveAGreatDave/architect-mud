@@ -48,10 +48,11 @@ import { drawHangarScene, drawHangarFloorBay, pickSceneHit, truckLivery } from '
 import { customColourway, CUSTOM_COL } from '../../../shared/cab-trim.js';
 import { suppressWeatherFx } from './weather-fx.js';
 
-let B = null;             // { data, screen, selId, inspect, bench }
+let B = null;             // { data, screen, selId, inspect, bench, toast }
 let raf = null;
 let sceneHits = [];
 let yaw = 0;
+let toastT = null;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // Icon + label chip, the hangar's `tbtn` verbatim (hangar-bay.js): the glyph is decoration and the
@@ -91,30 +92,76 @@ export function openTruckDepot(msg) {
   // height was left on the previous room look. The hangar does exactly this on a fresh open.
   if (first) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
   const keepSel = B?.selId || null;
+  // What the deck held BEFORE this push, so the panel can say out loud what the server just did to
+  // it. Read before B is replaced, used after.
+  const wasCargo = B?.data?.cargo || null;
   B = {
     data: msg,
     screen: SCREEN_FOR_TAB[msg.tab] || (first ? 'floor' : B?.screen) || 'floor',
     selId: (msg.fleet || []).some(t => t.id === keepSel) ? keepSel : (msg.fleet || [])[0]?.id || null,
     inspect: B?.inspect || inspectDefault(),
-    bench: B?.bench || { tab: 'condition', psec: 'scheme', tune: null, paint: null, trim: null },
+    bench: B?.bench || { tab: 'condition', psec: 'scheme', fslot: null, tune: null, paint: null, trim: null },
     lotSel: B?.lotSel || null,
     // Which box is open, kept across a re-push exactly as the truck selection is — a repush lands
     // after every mutation on this screen, and a panel that closed itself each time would make
     // selling a trailer a thing you had to re-find between the click and the confirm.
     boxSel: (msg.trailers || []).some(t => t.id === B?.boxSel) ? B.boxSel : (msg.trailers || [])[0]?.id || null,
+    // A notice survives the re-push that raised it — every mutation rebuilds this object, so a
+    // toast held anywhere else would be thrown away by the very push it is announcing.
+    toast: B?.toast || null,
   };
   // A fresh truck selected (you just bought one) resets any half-turned dials — they belonged to a
   // different machine, and carrying them across would silently propose a tune nobody asked for.
   B.bench.tune = null; B.bench.paint = null; B.bench.trim = null;
+  // …and the deck delta, which is the only thing on this screen that changes without the screen
+  // changing. Not on a first open: arriving at the yard with a load already on the truck is a
+  // state, not an event.
+  if (!first) noteDeckChange(wasCargo, msg.cargo || null);
   document.addEventListener('keydown', onKey);
   document.addEventListener('keyup', onKeyUp);
   render();
 }
 
+// ── The notice ───────────────────────────────────────────────────────────────
+// TAKING A LOAD WAS INVISIBLE ON THE SCREEN YOU TOOK IT FROM. `haul` wrote a line into the log and
+// re-pushed the panel, and the board redrew IDENTICALLY — same four rows, same live Take it on all
+// of them — because the buttons are gated on `canLoad`, which asks whether there is a box here and
+// never whether the box is empty. So the only evidence was in the scrollback, which is the half of
+// the screen a player deep in a pane app is not reading.
+//
+// This does not break rule 3. Nothing here guesses what changed: the deck is a fact on the payload
+// and the only thing derived is that it is DIFFERENT from the fact in the previous push.
+//
+// ⚠ It is deliberately NOT a live region. The same words already reached #output, which IS one
+// (docs/systems-display-mode.md), and a second announcement in a second voice is worse than none.
+// The accessible half of this change is the `disabled` on the buttons below, which needs no ARIA.
+function noteDeckChange(was, now) {
+  const key = (c) => (c ? `${c.kind || 'job'}|${c.name}|${c.qty || ''}|${c.to || ''}` : '');
+  if (key(was) === key(now)) return;
+  if (now) {
+    showToast(now.kind === 'goods'
+      ? `Loaded — ${now.qty} × ${now.name}, ${now.kg} kg on the deck`
+      : `Loaded — ${now.name}, ${now.kg} kg for ${now.to}`, 'good');
+  } else if (was) {
+    showToast(`Deck clear — ${was.name} is off the truck`);
+  }
+}
+
+function showToast(text, kind = '') {
+  if (!B) return;
+  B.toast = { text, kind };
+  const mine = B.toast;
+  if (toastT) clearTimeout(toastT);
+  // One timer, and it re-renders once on the way out. The fade itself is CSS on the same 5.2s, so
+  // there is no second clock to keep in step with this one.
+  toastT = setTimeout(() => { toastT = null; if (B && B.toast === mine) { B.toast = null; render(); } }, 5200);
+}
+
 export function closeTruckDepot() {
   suppressWeatherFx(false, 'depot');
   if (raf) cancelAnimationFrame(raf);
-  raf = null; sceneHits = []; walkKeys.clear();
+  if (toastT) clearTimeout(toastT);
+  raf = null; sceneHits = []; toastT = null; walkKeys.clear();
   document.removeEventListener('keydown', onKey);
   document.removeEventListener('keyup', onKeyUp);
   // Drop the immersive layout, or the room look that follows is left with no log and no command
@@ -171,6 +218,7 @@ function render() {
       : B.screen === 'freight' ? freightScreen()
       : B.screen === 'market' ? marketScreen()
       : floorScreen()}</div>
+    ${B.toast ? `<div class="td-toast${B.toast.kind ? ' ' + B.toast.kind : ''}" aria-hidden="true">${esc(B.toast.text)}</div>` : ''}
     <footer class="td-foot">${footChips()}</footer>
   </div>`);
   wire();
@@ -197,7 +245,9 @@ function footChips() {
   if (sel && sel.condition < 1) out.push(chip(`rig repair ${sel.id} shop`, `rig repair · ${money(sel.repairShop)}`, true));
   if (sel && d.fuelHere && sel.fuel < 0.99) out.push(chip(`rig fuel ${sel.id}`, `rig fuel · ${money(sel.refuel)}`, true));
   if (sel?.washPrice) out.push(chip(`rig wash ${sel.id}`, `rig wash · ${money(sel.washPrice)}`, true));
-  if (d.board?.length) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
+  // …and not while the deck is full, for the same reason the board's own buttons go dim: the footer
+  // is built from what is true right now, and `haul 1` onto a loaded truck is not.
+  if (d.board?.length && !d.cargo) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
   if (d.cargo?.kind === 'goods') out.push(chip('market sell'));
   out.push(chip('yard'));
   return out.join('');
@@ -599,35 +649,80 @@ function kitsTab(t) {
 }
 
 // ── THE COSMETIC SHELF ───────────────────────────────────────────────────────
-// Twenty things that do nothing, grouped by the place on the truck they go — which is the same
-// grouping the verb prints, off the same server-sent table (`fitCat`), because a shelf whose order
-// differs between the panel and the log is two shelves.
+// The catalogue, in the place on the truck each thing goes — off the same server-sent table
+// (`fitCat`) the verb prints from, because a shelf whose order differs between the panel and the
+// log is two shelves.
 //
 // ⚠ EVERY BUTTON IS A VERB STRING, exactly as rule 2 at the top of this file says. The panel does
 // not know what a fitting IS: it knows a name, a price the server quoted, and the command to send.
 // It decides nothing — including whether a swap is a swap, which is why the fitted row in an
-// occupied slot renders as REMOVE and every other row in it renders as its own price rather than
-// as some computed difference.
+// occupied slot renders as TAKE IT OFF and every other row in it renders as its own price rather
+// than as some computed difference.
+//
+// ── AND THE SHEET COMES FIRST, WHICH IS THE WHOLE REDESIGN ───────────────────
+// This began as one column: eight headed sections, every item in the catalogue under them, in a
+// pane about a third of the screen wide. Two things were wrong with it and they were the same
+// thing twice.
+//
+//  1. THE COMMONEST QUESTION HAD THE LONGEST ANSWER. "What has this truck got on it?" was
+//     answerable only by scrolling the entire catalogue and looking for the rows whose button said
+//     Remove — a question about EIGHT facts, answered by reading thirty-eight rows. So the eight
+//     facts are now the first thing on the tab: one cell per place, naming what is in it or saying
+//     *empty*, the whole state of the rig in four lines that never scroll.
+//
+//  2. THE SHEET IS ALSO THE NAVIGATION, so there is no second control to keep in step with it.
+//     Clicking a place opens that place's shelf underneath — four or five rows, which fits — and
+//     the two halves cannot disagree about which place you are looking at because one of them IS
+//     the other. (A segmented control across the top, the way the booth does its four sections,
+//     was the obvious alternative and it would have been a ninth widget saying the same eight
+//     words as the cells directly under it.)
+//
+// The selection lives on `B.bench.fslot` for the same reason the booth's section does: a repush
+// lands after every fit and every unfit, and a tab that reset itself to the front bar each time
+// would make trying two roof racks against each other a thing you had to re-find twice.
 function fitsTab(t) {
   const cat = B.data.fitCat;
   if (!cat) return '<div class="td-pane"><div class="td-dim td-note">No shelf at this counter.</div></div>';
   const on = new Set(t.fits || []);
+  // ⚠ THE PRICE IS THE OWNERSHIP TELL, and it is the server's answer rather than a second list on
+  // the wire. `priceFor` quotes ZERO for anything already in this truck's drawer (fittings.js rule
+  // 5), so `p === 0` is exactly "you own this and putting it back is free" with no `owned_fits`
+  // shipped and nothing here to fall out of step with the till.
   const price = (id) => (t.fitPrices || {})[id];
-  const rows = cat.slots.map((s) => {
-    const items = cat.items.filter((f) => f.slot === s.id).map((f) => {
-      const fitted = on.has(f.id), p = price(f.id);
-      return `<div class="td-kit-row${fitted ? ' on' : ''}">
-        <div class="td-main"><b>${esc(f.name)}</b><div class="td-dim">${esc(f.desc)}</div></div>
-        ${fitted
-          ? `<button class="td-act" data-cmd="rig unfit ${esc(t.id)} ${esc(f.id)}">Remove</button>`
-          : `<button class="td-act" data-cmd="rig fit ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You cannot afford it"'}>${p ? money(p) : 'Refit'}</button>`}
-      </div>`;
-    }).join('');
-    return `<div class="td-sub-head">${esc(s.label)} <span class="td-dim">${esc(s.note)}</span></div>${items}`;
+  const byId = Object.fromEntries(cat.items.map((f) => [f.id, f]));
+  const fittedIn = (sid) => (t.fits || []).map((id) => byId[id]).find((f) => f && f.slot === sid) || null;
+  const sel = cat.slots.some((s) => s.id === B.bench.fslot) ? B.bench.fslot : cat.slots[0].id;
+
+  const sheet = cat.slots.map((s) => {
+    const f = fittedIn(s.id);
+    return `<button class="td-fitcell${f ? ' on' : ''}${s.id === sel ? ' sel' : ''}" data-fslot="${esc(s.id)}"
+        aria-pressed="${s.id === sel ? 'true' : 'false'}" title="${esc(s.note)}">
+        <span class="td-fitslot">${esc(s.label)}</span>
+        <span class="td-fitwhat">${f ? esc(f.name) : 'empty'}</span>
+      </button>`;
   }).join('');
+
+  const cur = cat.slots.find((s) => s.id === sel);
+  const rows = cat.items.filter((f) => f.slot === sel).map((f) => {
+    const fitted = on.has(f.id), p = price(f.id), mine = p === 0;
+    return `<div class="td-kit-row${fitted ? ' on' : ''}">
+      <div class="td-main"><b>${esc(f.name)}</b>${mine && !fitted ? '<span class="td-drawer">YOURS</span>' : ''}
+        <div class="td-dim">${esc(f.desc)}</div></div>
+      ${fitted
+        ? `<button class="td-act ghost" data-cmd="rig unfit ${esc(t.id)} ${esc(f.id)}">Take it off</button>`
+        : `<button class="td-act" data-cmd="rig fit ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You cannot afford it"'}>${p ? money(p) : 'Put it back on'}</button>`}
+    </div>`;
+  }).join('');
+
+  const worn = cat.slots.filter((s) => fittedIn(s.id)).length;
+  const drawer = cat.items.filter((f) => price(f.id) === 0 && !on.has(f.id)).length;
   return `<div class="td-pane">
+    <div class="td-lab">On the truck<span class="td-dim"> — ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
+    <div class="td-fitsheet">${sheet}</div>
+    <div class="td-sub-head">${esc(cur.label)} <span class="td-dim">${esc(cur.note)}</span></div>
+    ${rows}
     <div class="td-dim td-note">None of it changes how the truck drives. One per place, and once it is yours, swapping is free.</div>
-    ${rows}</div>`;
+  </div>`;
 }
 
 // ── THE SEVEN SURFACES ───────────────────────────────────────────────────────
@@ -936,15 +1031,65 @@ function paintCmd(t, cur) {
 }
 
 // ── Freight and the exchange ─────────────────────────────────────────────────
+//
+// WHAT IS ON THE DECK IS THE OTHER HALF OF THIS BOARD, and neither screen used to state it. The
+// buttons were gated on `canLoad` — is there a box standing here — so with a load already on that
+// box every row still offered a live Take it that `haul` was certain to refuse ("Already loaded:
+// …"), and the refusal only ever appeared in the log. A button that is present and refuses is worse
+// than one that is absent and explains itself (see the toolbar note in floorScreen); this is the
+// same rule, applied to the one screen that was breaking it.
+//
+// So: the deck is printed above both boards, the row you are already carrying says so instead of
+// offering itself again, and every remaining button carries the reason it is dim.
+
+// What the deck holds, in one strip. Purely a read-out of facts the server sent — the same three
+// the Yard screen prints, in the place where they answer the question the buttons below are about
+// to be asked.
+function deckStrip() {
+  const d = B.data;
+  const load = d.cargo
+    ? (d.cargo.kind === 'goods'
+      ? `<b>${esc(d.cargo.qty)} × ${esc(d.cargo.name)}</b> · ${d.cargo.kg} kg · paid ${money(d.cargo.paid)}/unit`
+      : `<b>${esc(d.cargo.name)}</b> · ${d.cargo.kg} kg · contracted to ${esc(d.cargo.to)}`)
+    : '<span class="td-dim">empty</span>';
+  return `<div class="td-deck td-deckstrip"><span class="td-lab">On the deck</span> ${load}
+    <div class="td-dim td-note">Rated ${d.deckKg} kg.${d.canLoad || !d.loadWhy ? '' : ` <span class="td-warn">${esc(d.loadWhy)}.</span>`}</div>
+  </div>`;
+}
+
+// Why a load button is dim, in the words the verb itself would use — or null when it is live. One
+// function for both boards, because `haul` and `market buy` refuse for exactly the same reasons.
+function loadBlock() {
+  const d = B.data;
+  if (!d.canLoad) return d.loadWhy || 'Nowhere to put it';
+  if (d.cargo) return `The deck is full: ${d.cargo.name}`;
+  return null;
+}
+
+// Which board row you are already carrying. Matched on the SLOT and on what the load is — a board
+// index means something different at every yard, and the name alone cannot separate two identical
+// runs on one day's board.
+const onDeck = (b, c) => !!c && c.slot === b.i && c.name === b.name && c.to === b.toName;
+
+// ⚠ AND BOTH BOARDS ARE WRAPPED IN A COLUMN. `.td-body` is a flex ROW — it is the yard's
+// scene-beside-sidebar layout — so every top-level node a screen returns becomes a column of its
+// own. These two screens have always returned more than one (the exchange's Sell button and its
+// footnote were sitting to the RIGHT of the table, not under it), and the deck strip would have
+// been a third. The wrapper is what makes "above the board" mean above.
 function freightScreen() {
   const d = B.data;
-  if (!(d.board || []).length) return '<div class="td-none">Nothing on the board today.</div>';
-  return `<div class="td-rows wide">${d.board.map(b => `
-    <div class="td-row">
+  if (!(d.board || []).length) return `<div class="td-col">${deckStrip()}<div class="td-none">Nothing on the board today.</div></div>`;
+  const block = loadBlock();
+  return `<div class="td-col">${deckStrip()}<div class="td-rows wide">${d.board.map(b => {
+    const mine = onDeck(b, d.cargo);
+    return `
+    <div class="td-row${mine ? ' taken' : ''}">
       <div class="td-main"><b>${esc(b.name)}</b><div class="td-dim">${b.kg} kg → ${esc(b.toName)}${b.crosses ? ' <span class="td-warn">across the waste</span>' : ''}</div></div>
       <div class="td-pay">${money(b.pay)}</div>
-      <button class="td-act" data-cmd="haul ${b.i + 1}" ${d.canLoad ? '' : `disabled title="${esc(d.loadWhy || 'Nowhere to put it')}"`}>Take it</button>
-    </div>`).join('')}</div>`;
+      ${mine ? '<span class="td-fitted">✔ On the deck</span>'
+        : `<button class="td-act" data-cmd="haul ${b.i + 1}" ${block ? `disabled title="${esc(block)}"` : ''}>Take it</button>`}
+    </div>`;
+  }).join('')}</div></div>`;
 }
 
 function marketScreen() {
@@ -955,28 +1100,33 @@ function marketScreen() {
       : `<span class="${gain > 0 ? 'td-good' : 'td-dim'}">${money(q.thereBid)}${gain > 0 ? ` (+${gain}/u)` : ''}</span>`
         + (q.thereAge ? ` <span class="td-dim">${q.thereAge}d</span>` : '');
     const fits = Math.min(q.canAfford, q.holds);
+    // Same block as the freight board, plus the one reason that is this screen's own. It used to
+    // ask only `canLoad`, so a full deck left every Buy live and the refusal in the log.
+    const block = loadBlock() || (fits > 0 ? null : 'Not enough credits');
     return `<div class="td-row">
       <div class="td-main"><b>${esc(q.name)}</b><span class="td-dim"> · ${q.kg} kg</span></div>
       <div class="td-num">${money(q.ask)}</div>
       <div class="td-num td-dim">${money(q.bid)}</div>
       <div class="td-num">${there}</div>
-      <button class="td-act" data-cmd="market buy ${q.key} full" ${d.canLoad && fits > 0 ? '' : 'disabled'}
-        title="${!d.canLoad ? esc(d.loadWhy || 'Nowhere to put it') : fits > 0 ? `Fills the deck: ${fits}` : 'Not enough credits'}">Buy ${fits > 0 ? fits : ''}</button>
+      <button class="td-act" data-cmd="market buy ${q.key} full" ${block ? 'disabled' : ''}
+        title="${esc(block || `Fills the deck: ${fits}`)}">Buy ${fits > 0 ? fits : ''}</button>
     </div>`;
   }).join('');
   const sell = d.cargo?.kind === 'goods'
     ? `<div class="td-acts"><button class="td-act primary" data-cmd="market sell">Sell ${esc(d.cargo.qty)} × ${esc(d.cargo.name)} here</button></div>` : '';
-  return `<div class="td-rows wide">
+  // The deck line was a footnote under this table ("Your deck holds N kg"); it is the strip now, at
+  // the top, saying what is ON the deck as well as what it holds — which is the fact every dim Buy
+  // below it is explained by.
+  return `<div class="td-col">${deckStrip()}<div class="td-rows wide">
       <div class="td-row head"><div class="td-main">good</div><div class="td-num">buy</div><div class="td-num">sell</div>
         <div class="td-num">${d.thereName ? esc(d.thereName) : 'there'}</div><div></div></div>
-      ${rows}</div>${sell}
-    <div class="td-dim td-note">Your deck holds ${d.deckKg} kg.${d.canLoad || !d.loadWhy ? '' : ` <span class="td-warn">${esc(d.loadWhy)}.</span>`}</div>`;
+      ${rows}</div>${sell}</div>`;
 }
 
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -1000,6 +1150,11 @@ function onClick(e) {
   // Which screen of the booth. Held on the bench rather than in a module local so that selecting a
   // different truck resets it with everything else — see the `sel` branch above.
   if (t.dataset.psec) { B.bench.psec = t.dataset.psec; return void render(); }
+  // Which PLACE on the truck the cosmetic shelf is showing. Same reasoning as `psec` above, and
+  // the same store — but note that the cells that set it are also the sheet that reports what is
+  // FITTED, so this one field is both "where am I looking" and "which cell is lit". That is the
+  // point of the layout: there is no second control to disagree with the first.
+  if (t.dataset.fslot) { B.bench.fslot = t.dataset.fslot; return void render(); }
   // The interior's two swatch rows, exactly as the paint's are: an edit held locally, previewed,
   // and charged only by the button. ⚠ It is a SEPARATE draft from the paint (`B.bench.trim`), or
   // clicking a colourway would dirty the respray and the booth would quote for both.
@@ -1554,6 +1709,31 @@ function ensureStyles() {
     border-top:1px solid color-mix(in srgb, var(--td-accent) 16%, transparent)}
   .td-kit-row.on{opacity:.72}
   .td-fitted{font:700 11px/1 'Courier New',monospace;letter-spacing:1px;color:#6fcf83}
+  /* ── THE RIG SHEET ─────────────────────────────────────────────────────────
+     Eight cells, two across, and each one answers a question the old shelf made you scroll for:
+     what is on this truck, in this place, right now. The cell is also the tab that opens that
+     place's shelf, so 'on' (something is fitted here) and 'sel' (this is the one you are looking
+     at) have to be legible AT THE SAME TIME and cannot share a channel — 'on' is the fitted name
+     going green, 'sel' is the accent border every other selected thing in this panel wears. */
+  .td-fitsheet{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:2px}
+  .td-fitcell{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 8px;cursor:pointer;text-align:left;
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));border-radius:7px;
+    border:1px solid color-mix(in srgb, var(--td-accent) 18%, transparent)}
+  .td-fitcell:hover{border-color:color-mix(in srgb, var(--td-accent) 55%, transparent)}
+  .td-fitcell.sel{border-color:var(--td-accent);
+    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 28%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
+  .td-fitslot{font:700 9.5px/1 'Courier New',monospace;letter-spacing:1.6px;text-transform:uppercase;color:var(--td-fg-dim2)}
+  /* The empty state is italic and dim; the filled one is the same green the FITTED tag uses on the
+     kits tab, because "there is something here" is one idea and should not be two colours. */
+  .td-fitwhat{font:400 11.5px/1.2 'Courier New',monospace;color:var(--td-fg-dim2);font-style:italic;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  .td-fitcell.on .td-fitslot{color:var(--td-fg-dim)}
+  .td-fitcell.on .td-fitwhat{color:#6fcf83;font-style:normal}
+  /* "You already paid for this one." The price the server quotes is zero for anything in the
+     drawer, so this tag and the button's own label come off the same fact. */
+  .td-drawer{margin-left:7px;padding:2px 5px;border-radius:8px;vertical-align:1px;
+    font:700 9px/1 'Courier New',monospace;letter-spacing:1.2px;color:var(--td-accent);
+    border:1px solid color-mix(in srgb, var(--td-accent) 40%, transparent)}
   .td-kits{display:flex;gap:5px;flex-wrap:wrap}
   .td-kit{font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:11px;
     color:var(--td-fg-dim);background:var(--td-surf-lo);border:1px solid var(--border)}
@@ -1635,6 +1815,35 @@ function ensureStyles() {
   .td-check input{accent-color:var(--td-accent)}
   .td-deck{padding:10px 12px;border-radius:9px;background:var(--td-surf-lo);
     border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
+  /* The two boards stack their own contents — .td-body is a flex ROW (see freightScreen). */
+  .td-col{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px}
+  .td-deckstrip{flex:0 0 auto}
+  /* The row you are already carrying: lit down its leading edge, the same channel the selected box
+     row uses, so "this one is yours" reads the same way everywhere in the panel. */
+  .td-row.taken{background:color-mix(in srgb,var(--td-accent) 9%,transparent);
+    box-shadow:inset 2px 0 0 var(--td-accent)}
+  /* …and its marker sits where the button it replaced sat. */
+  .td-row .td-fitted{text-align:center}
+  /* THE NOTICE. Pinned over the body rather than pushed into it, because a strip that reflows the
+     board would move the button under the cursor at the exact moment the player is looking at it.
+     One 5.2s animation, matching the timer in showToast — there is no second clock. */
+  #td-root .td-toast{position:absolute;left:50%;bottom:64px;z-index:6;max-width:min(78%,64ch);
+    transform:translateX(-50%);pointer-events:none;text-align:center;
+    font:700 12.5px/1.4 'Courier New',monospace;letter-spacing:1px;color:var(--td-fg);
+    padding:9px 16px;border-radius:8px;
+    background:color-mix(in srgb, var(--td-accent) 26%, rgba(6,12,18,.86));
+    border:1px solid var(--td-accent);
+    box-shadow:0 0 18px color-mix(in srgb, var(--td-accent) 40%, transparent),inset 0 1px 0 var(--td-bevel-hi);
+    animation:tdToast 5.2s ease-out forwards}
+  #td-root .td-toast.good{border-color:#6fcf83;color:#d9f5df;
+    background:color-mix(in srgb, #6fcf83 22%, rgba(6,12,18,.86));
+    box-shadow:0 0 18px rgba(111,207,131,.35),inset 0 1px 0 var(--td-bevel-hi)}
+  @keyframes tdToast{0%{opacity:0;transform:translate(-50%,10px)}
+    7%{opacity:1;transform:translate(-50%,0)}
+    86%{opacity:1;transform:translate(-50%,0)}
+    100%{opacity:0;transform:translate(-50%,-4px)}}
+  @media (prefers-reduced-motion:reduce){#td-root .td-toast{animation:tdToastFade 5.2s linear forwards}
+    @keyframes tdToastFade{0%,90%{opacity:1}100%{opacity:0}}}
   /* The boxes you own, under the deck read-out — a list, because a trailer is a capacity and a
      place rather than something you look at from three angles. */
   .td-boxes{margin-top:8px}

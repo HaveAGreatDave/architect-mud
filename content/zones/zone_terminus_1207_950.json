@@ -12,7 +12,7 @@
     "Absolutely nothing happens for a while, at considerable scale."
   ],
   "ambient_theme": "wasteland",
-  "description": "The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "The face is rotten here, red and crumbling, and rotten rock is the only kind you can get your fingers into. Everything you touch comes away a little. Enough of it does not.",
   "exits": {
     "east": "zone_terminus_1208_950",
     "north": "zone_terminus_1207_949",
@@ -21,13 +21,14 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1207,
   "grid_y": 950,
   "grid_z": 0,
   "id": "zone_terminus_1207_950",
   "map_id": "map_world",
-  "name": "Scoured Rock",
+  "name": "Handholds",
   "parent_zone": null
 }
+

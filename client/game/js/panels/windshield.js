@@ -2123,7 +2123,7 @@ const CAB_DASH = 0.33;         // dash height, as a fraction of height
 
 // ── WHAT YOUR MONEY BOUGHT, FROM THE SEAT ────────────────────────────────────
 // Four trucks, four interiors. Until this table existed every rung of the fleet sat behind the
-// same grey plastic and the same two dials, so a 31,000₵ Continental and a 1,300₵ Barrow were the
+// same grey plastic and the same two dials, so a 16,500₵ Continental and a 1,300₵ Barrow were the
 // same room with different numbers underneath it — and the room is where a driver spends the
 // twenty minutes, not the spec sheet.
 //

@@ -29,8 +29,687 @@ its salvage exists nowhere else, even pilots walk it on purpose.
 
 There is **no authored corridor** between regions. The space between them is genuinely empty on the
 grid. A crossing **is** the connective tissue — a generated instance you enter at a region's edge and
-exit at the destination's edge. This is what lets "The Reach is ~1,000 tiles south of Coldwater" stop
-mattering: you never traverse the grid, you traverse an *instance*.
+exit at the destination's edge: you never traverse the grid, you traverse an *instance*.
+
+⚠ **The distances this was argued from are no longer the distances.** The pitch here used to read
+"this is what lets *The Reach is ~1,000 tiles south of Coldwater* stop mattering", and the gap is
+**93 tiles**. Measured gate to gate against `content/zones/`, every leg is: Coldwater–Reach 93,
+Reach–Deadwater 99, Coldwater–Deadwater 108, Reach–Scarletwastes 108, Terminus–Scarletwastes 109,
+Coldwater–Terminus 282. The world compacted and the argument did not follow it.
+
+That does not make the abstraction wrong — a seeded weekly gauntlet is a good system on its own
+terms, and the room count has been *derived* from these real distances since `registerCrossingDistance`
+(the fiction and the geometry agree now, which they did not when the picker was reporting 240 miles
+for a 31-mile road). But the reason it exists changed by an order of magnitude, and the same gap a
+walker abstracts over is one a truck now drives every tile of — and, since the road network overlay,
+one a **pilot can see out of the canopy**.
+
+## The premise, decided *(2026-08-21)*
+
+**The gap is a country. The road is what a truck can do with it; the trail is what a person can do
+with it.** One description, two readings — and the crossing is a walking trail, not a wander through
+trackless nothing.
+
+This was the last place the space between regions was still an abstraction sitting beside a thing a
+truck drives every tile of. It is decided rather than inherited. Three statements, in order of how
+much they carry:
+
+**1. The country is the seed, and both systems have been holding it all along.** The road network is
+rebuilt per window (`roadNetwork(window)`, [plugins/trucking/roadnet.js](../plugins/trucking/roadnet.js))
+and the void is `f(route, window, node)`. **They have always shared a seed and have never shared a
+single derived fact.** So the gap gets one seeded landform field per (gate pair, window) — mesas
+(cliff-ringed plateau, with ramps as the only breaks in the rim), washes, scree, salt — and *both*
+readings come off it. The road's bends stop being arbitrary heading changes with a leash on them:
+**the road bends because there is a mesa there.** The trail's shortcut is that same mesa. One fact
+seen twice, which is the whole of what "one geometry, two presentations" has to mean to be worth
+saying.
+
+**2. The trail is SHORTER than the road, and that is the trade.** The road is long *because it is
+drivable* — a minimum turn radius (a correctness invariant: a tighter bend folds the verge through
+itself and the odometer runs backwards through the fold), no `cliff` (the one terrain
+`engine:impassable-terrain` refuses), and a gradient a loaded truck can take. It goes **round**. A
+person goes **over**: up a ramp, across the plateau, down the far side. So the trail is always fewer
+tiles than the road, and the currency is honest — **fewer tiles, each one worth far more.** You can
+beat the truck to Terminus on foot. You probably will not arrive.
+
+This is not invented for the void; it is the pattern the hand-painted world already uses. The
+Scarletwastes road "goes round the plateau, not over it" — dropping south down the Deadleg's column
+to run west *under* the cliff-ringed mesa at x1011–1017 — and Terminus' own west rim is cliff from
+y943 south for the same reason. The generator does in the gap what an author already did in the
+region.
+
+**3. Every fork is one question with a number on both sides.** *Save twenty tiles, lose the road.*
+That is the branching graph, and it beats "left branch or right branch" because both sides are
+quantities a player can hold. What the weekly window rotates is **which cuts are open and how much
+they save** — same gates, same country, different shortcuts. The map that gets solved and re-lost
+each week (see the window-cadence table below) is now a map of *cuts*, which is the thing players
+will actually trade in the bar.
+
+### What it buys, and the one knob
+
+A crossing room holds a position in the gap: `s` along the corridor from the origin gate, `t` off it.
+**Numbers, not a tile** — the room stays transient, stays off `map_world`, and `surfaceAt` never
+learns it exists (see the ⚠ below on why that line cannot move). `t` is a single axis, and it is
+*how much you cut*:
+
+| | length | danger | lifeline |
+|---|---|---|---|
+| **hug the road** | ≈ the road's own | lowest | mile boards, the verge, a truck going past |
+| **the trail** | shorter | real | intermittent sight of the road |
+| **a hard cut** | shortest | worst | none — ground no vehicle can reach |
+
+Four things listed below as open or unbuilt fall out of that with no new mechanism:
+
+- **Water math** finally has a denominator. Drain-per-tile against a known total, and a cut's saving
+  *is* its tile count. The gamble is priced by the map instead of by a hand-picked multiplier.
+- **The loot-detour value curve** is a function of how far off the road you are: the good salvage is
+  out where nobody drives, because nobody drives there.
+- **The flight off-world read** decides itself. Visible from the air is a low offset; a hard cut is
+  not. No flag, no rule — distance from the centreline.
+- **Retreat** becomes a decision rather than a reversal: run for the road, or back to the gate you
+  left, with different costs depending on where you stand.
+
+And a consequence worth stating rather than discovering: **wings make cuts nobody else can take.**
+Flight is the single named exemption to `engine:impassable-terrain`, so a winged mutant crosses a
+cliff a walker has to go round — a mutation payoff landing in a system that was never built for it.
+
+⚠ **The two lines that must not move.** `corridorAt` must never become `surfaceAt`: `regionGates` and
+`isMapRim` both find the edge of the world by testing that `surfaceAt` *stops*, so synthesised ground
+under the index deletes every road mouth, the whole rim and the void's only entrance in one move. And
+void rooms must stay transient and off `map_world` — the moment they are real tiles the gap has
+become a place by accident, and every argument above is describing something else.
+
+### The four decisions *(settled 2026-08-21)*
+
+**1. The road bends around the landform field. BUILT 2026-08-21.** The gap carries a seeded field of
+landforms (`landformsFor` in [corridor.js](../plugins/trucking/corridor.js)) — mesas, the cliff-ringed
+kind the hand-painted world already uses — as a pure function of the seed, the window and the straight
+line between the two gates. **It is the COUNTRY, not the road's private data**: anything else crossing
+the same gap asks the same question and gets the same answer, which is the whole point. The road bends
+because there is a mesa there, and the walker's shortcut is that same mesa.
+
+⚠ **THE CHANGE IS ONE LINE, AND THAT IS DELIBERATE.** The builder already chose a turn direction; it
+chose it with a coin flip. `avoidTurn` replaces the flip and nothing else — arc length, tightness, the
+minimum-radius floor, the leash and the termination rule are all untouched, which is what keeps the
+fold invariant and the convergence proof intact. The leash still wins outright wherever it is engaged,
+so a mesa can bias where the road goes and can never drag it off the target or stop it arriving.
+
+⚠ **AND IT IS A PREFERENCE, NOT A PROHIBITION.** Measured over six windows on the 282-tile
+Coldwater→Terminus gap, the road spends about **40% less of itself inside a landform than the straight
+line between the same two gates does** (26.9% vs 40.5% on one window, 35.7% vs 69.5% on another). A
+road that NEVER crossed high ground would be a maze rather than a highway; regress asserts the
+proportion, not an absolute, and asserts it holds in most weeks rather than on average by luck.
+
+⚠ **THE LEGACY FRAME IS UNTOUCHED.** An unanchored corridor has no real coordinates for a landform to
+sit at, so the field is empty there and the turn is the coin flip it always was — which is what keeps
+every pinned route in the suite identical, character for character.
+
+The original ⚠ on this decision, kept because it is still the thing to be careful about:
+
+> ⚠ **The road everyone already drives is under test, and those tests are the spec.** Routing around
+> landforms must keep every corridor invariant intact — the **minimum turn radius** (cells are
+> classified by distance from the centreline out to `OFFROAD_R`, and a bend tighter than that folds
+> the verge through itself so the odometer runs backwards through the fold), the **8-connected paved
+> set** (regress flood-fills it and demands one piece; a one-tile band on a diagonal renders as a
+> dotted line of squares), and the **surface tuning invariant** `thrustMax × drive > rollFric × drag`.
+> A landform that forces a tighter bend than the radius allows must move the *road*, never relax the
+> radius. Expect the generator to need a reject-and-reseed pass, and expect the weekly corridor to
+> change for live drivers the week it ships.
+
+> ### ✅ RESOLVED 2026-08-21: the walk is shorter than the drive
+>
+> **Decisions 2 and 3 rest on the trail being shorter than the road, and it now is.** The section below
+> records the measurement that said it could not be, and the two changes that made it wrong. Both are
+> kept, because the reasoning in the first is still the reasoning that constrains the second.
+>
+> ⚠ **MY EARLIER CONCLUSION WAS TOO PESSIMISTIC.** I said the cost was a longer gap between regions or
+> a narrower corridor. It was neither: **the radius floor was never the binding constraint, the HOMING
+> BIAS was.** Two changes, and the second is the one that mattered:
+>
+> **1. The country outranks the homing bias.** Past 24° off course the leash forced a turn back toward
+> the far gate even with a mesa directly in the way, so the road leaned away from the country and
+> immediately straightened. Letting `avoidTurn` win inside the budget — with the hard `HOME_MAX` clamp
+> at 46° **untouched**, so the convergence proof stands — plus holding the turn while the same
+> obstruction is still ahead, takes road sinuosity from about **1.05 to 1.17**.
+>
+> **2. A camp is where the road is back ON COURSE, not at a fixed spacing.** This was the real blocker
+> and it is the sort that hides: camps sat at a fixed arc-length, so one could land **in the middle of
+> a detour**, and because the trail must touch every camp it then walked round the mesa as dutifully as
+> the road did. Anchoring them where the road's heading matches the bearing to its gate (`campsOf`)
+> puts them at the ENDS of detours, so the chord between two of them crosses what the road avoided.
+> Change 1 alone bought nothing. Both together buy the shortcut.
+>
+> It is also the better rule on its own terms: a camp is derived from the road's own geometry rather
+> than from a constant, which is the "derived, never sprinkled" law the waysides were built on, applied
+> one level deeper.
+>
+> ⚠ **THE ROOM COUNT STILL COMES FROM THE GATE DISTANCE, AND THAT QUESTION IS NOW CLOSED.** A seam sat
+> unused promising to become the room count "the day the road earns it". It has, and the answer is
+> still no, for a reason the promise missed: the trail is shorter than the **road**, never than the
+> straight line between the gates. It is an offset path that swings in to every camp, so the spine runs
+> about 338 tiles where the gates are 282 apart — making a crossing as long as the walk would make
+> every crossing longer. The seam has been removed rather than left promising something the evidence
+> answered.
+>
+> ⚠ **AND THE FIRST NUMBER I QUOTED WAS THE CEILING.** "5 to 10% shorter" summed the chord of every
+> stretch, which is what you get if every cut is open. Under the real seeded chance only some are, and
+> an uncut stretch actively costs — the trail still swings in to each camp and out again. **As shipped,
+> measured over six legs × six windows: the walk is 2.9% shorter on average, 8.9% in a good week, and
+> 4.7% LONGER in a bad one.** The spread is the point, not a defect.
+>
+> ⚠ **THE PRICE WAS SUPPOSED TO BE FUEL, AND MEASURED IT IS NOTHING.** Roads are 5 to 17% longer and
+> fuel burns over the real road, so this was flagged as a live balance change. Costed out at
+> `FUEL_FULL = 380` over a 1,050-tile tank: the longest haul in the game went from **115₵ of diesel to
+> 121₵**, against a crossing contract paying 676₵ to 1,664₵. **Six credits.** The concern was real to
+> raise and did not survive arithmetic.
+>
+> ⚠ **BUT COSTING IT FOUND SOMETHING ELSE, AND THAT ONE IS PRE-EXISTING AND REAL: HAUL PAY IS
+> DISTANCE-BLIND.** A contract pays `load × 2.6` for ANY crossing (index.js, the job generator), so
+> Coldwater→Terminus and Coldwater→The Reach pay identically — while Terminus is **3.4× the distance,
+> 3.4× the driving time and 3.4× the diesel** (121₵ against 36₵). There is no reason to ever take the
+> long contract, and the region designed around truck range is the one nobody hauls to. Not caused by
+> the road change; only made easier to see by measuring it. A distance term in that multiplier is the
+> obvious fix and it is a balance decision rather than a bug fix, so it is written down here rather
+> than taken.
+>
+> <details><summary>The superseded measurement, kept for its reasoning</summary>
+>
+> ### ⚠ MEASURED EARLIER: the road is too straight for a shortcut to exist
+>
+> Decisions 2 and 3 both rest on the trail being **shorter** than the road. It is not, and this is a
+> measurement rather than a tuning miss.
+>
+> The trail is its own polyline now (`trailFor` in [corridor.js](../plugins/trucking/corridor.js)),
+> built camp to camp: between two waysides it either runs STRAIGHT across the chord or shadows the
+> road the long way, seeded per window. That machinery works. What it has nothing to bite on is the
+> road: **every leg's built road is only 1.03 to 1.10 times the straight line between its gates.**
+> There are no corners worth cutting, because the chord between two camps IS the road — and once the
+> trail's swings in to each camp are counted it comes out a few per cent LONGER.
+>
+> ⚠ **AND THE CAUSE IS THE FOLD INVARIANT, WHICH IS WHY NO AMOUNT OF TUNING FIXES IT.** A landform
+> now cuts a straight short and starts a bend where the rock is, rather than only choosing the
+> direction of a bend that was going to happen anyway — and it barely moved the number. Denser
+> landforms and a longer look-ahead moved it less. Here is why:
+>
+> | leg | straight | min radius | approach | free to wander over |
+> |---|---|---|---|---|
+> | Coldwater→Reach | 93 | 43 | 45 | **48 tiles (51%)** |
+> | Terminus→Scarletwastes | 109 | 43 | 45 | 64 tiles (58%) |
+> | Coldwater→Terminus | 282 | 43 | 45 | 237 tiles (84%) |
+>
+> `minRadius` is floored at `OFFROAD_R * 1.8` = **43 tiles**, and that floor is the fold invariant:
+> cells are classified by distance from the centreline out to `OFFROAD_R`, so a tighter bend folds the
+> verge through itself and the odometer runs backwards through the fold. The approach cut-off is that
+> same radius again (a curve cannot converge on a point tighter than the circle it can draw; without
+> it the road orbits its own destination). **So on a 93-tile crossing the road has a 43-tile turning
+> radius and 48 tiles to use it in.** It is not straight by choice, it is straight because it cannot
+> physically be anything else at that scale.
+>
+> **The distance half therefore costs one of two things, and both are real decisions:** a LONGER gap
+> between regions, or a NARROWER corridor (`OFFROAD_R` is what sets the radius floor, and it is the
+> drivable verge — narrowing it changes how a truck handles). Neither is a tweak to the trail, and
+> neither should be made to buy a shortcut without wanting it for its own sake.
+>
+> Until then:
+>
+> - **the DANGER half of decision 3 ships** — a cut is a real place, off the road with no lifeline,
+>   and every tile of it rolls encounters at `CUT_ENCOUNTER_MULT` (3×) the ambient rate: something
+>   every ~7 tiles out there against ~22 on the road
+> - **the DISTANCE half does not** (superseded — see the resolution above; it does now)
+> - decision 2's "a cut can refuse you" is untouched by this and still unbuilt: it needs impassable
+>   ground on the cut, which is the same landform work
+>
+> </details>
+
+> ### ✅ BUILT 2026-08-21 — decision 2, and the room graph gained a loop
+>
+> **Both ways now exist at once, and that is the whole of it.** A cut used to REPLACE its stretch of
+> the trail: the seed decided whether you got a shortcut, and if a cut had been able to refuse you
+> there would have been nowhere to go. Now the SPINE is always the shadow — the long way, in sight of
+> the road — and a cut is a BRANCH that leaves it at one camp and rejoins at the next. So the week
+> decides which cuts are OPEN and **you** decide whether to take one: distance on one side, risk on
+> the other. It is also what keeps the promise that a refused cut is a loss and never a dead end.
+>
+> ⚠ **THE SPINE IS STILL A SIMPLE ORDERED LINE, AND IT HAD TO BE.** `crossingChain` maps a driver's
+> odometer onto a room, and a driver is on the ROAD — so the chain is the shadow, the cut hangs off it,
+> and nothing about the drive learns that walkers have another way round. That is what let the graph
+> grow a loop without the trucking side noticing.
+>
+> ⚠ **A CUT LEAVES BY `east`, THE ONLY LATERAL LEFT** — `west` is the detour's, and a limb's first room
+> already spends one lateral on the way back to the fork. A camp that IS a limb's first room gets no
+> cut. That trap has now bitten twice in this file and is guarded in both places.
+>
+> ⚠ **THE PITCH IS THE ENGINE'S OWN RULE, NOT A NEW ONE.** Some rooms on a cut carry `void_pitch`: the
+> way on goes up a face. It is refused by exactly the mechanism `engine:impassable-terrain` already
+> uses, carrying exactly the one named exemption that gate's own comment defends — **a body that grew
+> wings**. Nothing purchasable opens it, no roll retries it. Seeded per room, so a cut is neither
+> reliably walkable nor reliably shut, and you learn where the pitch is by walking to it.
+>
+> **What that costs you** is the water it took to get there, and the long way round afterwards. The
+> spine never stopped being the spine.
+
+**2. A cut is sometimes cheap, sometimes expensive, and sometimes refuses you.** All three costs are
+live, and the mix is the point: **the challenge is what walking is about.** So a cut may be a clean
+saving; may charge more than it saves once it is walked; or may be **genuinely impassable to the body
+attempting it** — a cliff pitch, a flooded wash — in which case you turn back having spent the water
+to find out. Two rules keep that from being a trap rather than a gamble:
+
+- **The safe limb is always there.** A refused cut costs tiles and water; it never strands you and
+  never removes the route. Turning back is a loss, not a dead end.
+- **A gate is a body, not a purchase.** Wings clear a cliff pitch because flight is the one named
+  exemption to `engine:impassable-terrain`. That exemption must never become a *gear* exemption —
+  nothing purchasable may open a cut, or the shortcut becomes a shopping list.
+
+**3. A cut is fewer rooms, and every one of them rolls hot.** Not "same rooms, cheaper" — the cut limb
+is genuinely shorter *and* rolls at the hard rate rather than the 0.45 baseline. Total risk is roughly
+preserved and **compressed**, which makes the gamble a bet on **variance rather than expected value**:
+the same crossing with fewer, worse rooms. This is the hardest of the three to tune and the most
+interesting to play. Floors that must hold: a limb is never shorter than one room, and the crossing's
+own `[MIN_ROOMS, MAX_ROOMS]` clamp still applies to the safe route.
+
+**4. Every void gets detours; today only Coldwater has any.** This was found by charting the generator
+rather than reading it. Detours hang off *interior* trunk rooms —
+`for (let i = 1; i < trunkLen - 1; i++)` — and the fallback that forces one when none rolled requires
+`trunkLen >= 3`. **Coldwater's trunk is 4; the Reach, Deadwater and the Scarletwastes are 2, and
+Terminus is 1**, so four of the five voids can never produce a detour and nothing said so. That is a
+bug, not a design.
+
+> The fix is **to let detours hang off limb rooms as well as trunk rooms**, rather than to raise the
+> short trunks — raising a trunk changes crossing lengths that are currently derived correctly from
+> real gate distances, and would be a content change dressed as a bug fix. ⚠ Note what moves: a
+> trunk detour is **shared by every destination** out of that void, while a limb detour is seen only
+> by walkers who declared that heading. Both are seeded and both are stable for the window; the limb
+> version is simply narrower, and that is the trade to accept knowingly.
+
+### The shape it takes: a weekly path drawn on the map *(settled 2026-08-21)*
+
+**The void is a weekly generated walking path, overlaid on the world map in the gap between regions —
+a third way to travel, beside the truck and the aircraft, with a dungeon's rhythm.** Its ground is the
+same procedurally generated country the windshield and the canopy already render, so a walker, a
+driver and a pilot in the same place describe the same place.
+
+**1. A room IS a tile.** One `south` is one tile of ground, exactly as it is inside a region. The void
+stops being the one place in the game where movement means something private: a tile is a tile in
+Coldwater, under a truck, under an aircraft, and now on the trail. `ROOM_TILES`, `MIN_ROOMS`,
+`MAX_ROOMS`, `DEFAULT_ROOMS` and the walker's half of `roomLen` all delete, and **"room positions"
+stops being a design item** because a room is a position. A shortcut then shortens the walk in the
+only unit anyone counts: tiles saved are steps not taken.
+
+**2. It carries real coordinates and is still not placed ground — and that already works.** ⚠ The
+critical fact, verified rather than assumed: **`getAllZones()` excludes transient zones by the
+`world.transientZones` MARKER, not by the absence of coordinates**
+([server/engine/world.js](../server/engine/world.js)), and `placedCoords` (voidwalking's own rim
+index), `buildCoordIndex` (the flight sim) and `regionGates` all read the world through it. So a void
+room may carry `grid_x`/`grid_y` today and remain invisible to every placement test, with
+`map_id: 'map_void'` as a second guard. **Nothing has to be weakened to put the trail on the map**,
+and the two lines above — `surfaceAt` stays placed-only, void rooms stay transient — both hold
+untouched.
+
+**3. It reaches the map through the seam the road already uses.** `registerCellOverlay`
+([plugins/flight/state.js](../plugins/flight/state.js)) exists precisely because the corridor is real
+ground that the `zones` table does not place; it is handed to `mapWindow` as a cell provider and never
+to `surfaceAt`. The trail is a **second contributor to that same seam**, with the same guarantee. Which
+buys the thing that makes it a travel *method* rather than a side tunnel: the trail is visible from the
+air and from a cab, a truck and a walker can be in the same gap at the same time, and the road is a
+lifeline you can actually see from the path.
+
+**4. The terrain is the country's, not a random pick.** `mkRoom` currently chooses from a hardcoded
+`['scrub','ash','redrock','marsh']` with no relation to anything. Under the landform field it reads
+the ground it is standing on, which hands the trail four shipped systems for free: procedural
+footsteps voice the surface, the minimap colours it, `speed_mult` paces it, and the description
+matches what a pilot sees out of the canopy over the same tile.
+
+**5. ⚠ Lazy windowing is load-bearing, not an optimisation.** At one room per tile a crossing is 93 to
+282 rooms rather than 8 to 15. The generator is already a pure function of `(route, window, node)`, so
+a room is a **lookup, not a build** — register a window around the walker and drop what is behind. Do
+this first or the room count is a memory and teardown problem instead of a pacing one.
+
+**6. ⚠ The encounter model is the real work, and it is a retune rather than a constant.** 0.45 per
+room is tuned for eight rooms; across 282 it is roughly 127 fights. Per-tile it wants to be a couple
+of per cent — better, a distance-since-last-encounter model, so pacing is even rather than streaky.
+That is the same job the water math needs, and they should be done together.
+
+**Still open, and worth deciding before the build rather than during it:** what a tile that is *both*
+road and trail is (they will cross, and that crossing is the lifeline); how a party's window behaves
+when members are far apart on the same instance; and what weather does in the gap, since
+`climate_bias` is authored per region and the void is between them.
+
+### The three seams, settled *(2026-08-21)*
+
+**A. Where the trail meets the road is a WAYSIDE — its own room kind, and the place people meet.**
+Not a road tile the walker happens to be standing on and not scenery: a third kind beside trunk, limb
+and detour. It is where you come down onto the tarmac, read a mile board and know exactly where you
+are, rest, pick over a wreck — and where a truck can stop.
+
+- ⚠ **A wayside is DERIVED from where the trail actually enters the corridor's band, never sprinkled.**
+  Placing them by seed would be a second answer to where the road is, and the two would drift. The
+  trail's path and the corridor's polyline already exist; a wayside is where the first comes inside
+  `OFFROAD_R` of the second.
+- ⚠ **It must not be a safe room.** A lifeline that costs nothing turns the crossing into a series of
+  hops between rest stops. The road is also where the things that work roads are: `enemy_prybar_nomad`
+  already carries `flags.hijacker` and already works a stopped cab, and a wayside is exactly where that
+  reads right for a walker too. The relief is *information and a way out*, not safety.
+
+#### A1. What a wayside looks like from a cab, and what you can do at one
+
+**A camp, not a facility.** Tents at the side of the road, a water barrel, a campfire, a crossing sign
+where the foot path meets the tarmac, and the path itself worn into the ground either side of it.
+Seen from a truck or an aircraft it should read as **temporary** — guy lines, mismatched fabric,
+nothing founded, no concrete, nothing that took a machine to put there.
+
+> **And it is temporary, which is the good part.** The trail reseeds every window, so the camp
+> genuinely will not be there next week. The art direction and the mechanism agree without either
+> being bent to fit the other: it looks like this week's camp because it *is* this week's camp.
+
+⚠ **It is a `mark`, never a `building_type`.** This is the mile board's rule, and the reason is not
+that a truck might plough through the middle of a camp: the camp is on the **verge**, off the paved
+band, which is exactly where it should be. The reason is that **the verge is drivable**. Past the
+tarmac you are slow, never blocked, and pulling onto it is a normal thing to do. `building_type`
+tiles are extruded into collision volumes, so a camp built as one would mean that **the driver who
+pulls over to pick somebody up crashes into the thing they stopped for.** A wayside has to be
+somewhere a rig can come to rest beside, which is the whole point of it.
+
+⚠ **The model goes through `drawTypeModel` / `SHAPE_SINK`, and `shapes:smoke` is the only automated
+coverage the windshield has.** See [reference/building-shapes.md](reference/building-shapes.md): the
+shapes are recorded as data so distance LOD, occlusion culling, ground shadows and CFIT collision all
+read the model's own geometry rather than a second copy of it. Run `npm run shapes:smoke` after
+touching it — the Battery Acid roaster passed a palette KEY where a style FUNCTION was wanted and
+froze the whole sim the first time that cafe came into view, which is exactly what that check exists
+to stop. **And the map icon ships in the same commit as the model, never backfilled.**
+
+**Sleep, cook, water — and none of it is a new mechanic.** A wayside is a room with the right things
+in it, so the verbs that already exist do the work: the campfire is a heat source the cooking plugin
+already understands, the barrel is a `water_source` that `fill <vessel>` already reads, and sleeping
+is the sleep system unchanged. That last one also resolves the tension with *no safe haven* by
+itself: the void is `lawless`, and a sleeping body **stays in the room, lootable and killable**, which
+is the dreams system's own mind/body split. Resting at a wayside is not safety. It is a decision to be
+unconscious next to a road, in a place other people know about.
+
+#### A2a. The passenger seat *(BUILT 2026-08-21)*
+
+**A truck can carry people now** — `ride [driver]` to climb into a stopped rig in your room, `hop` to
+get down. An aircraft has done this since charter (`live.occupants`); a truck was a single-occupancy
+object, so two people crossing the void together had to walk it. Two seats, and the seeded hitcher in
+the sleeper takes one.
+
+⚠ **`rig.passengers` IS DELIBERATELY NOT `rig.rider`.** The rider is the seeded HITCHER — a pure fact
+about a stretch of road (`hitcherAt`), stored as `{ id, look, line }` and read in eleven places
+including `scale.js`, where clearing it is the whole fugitive-at-the-weighbridge mechanic. A passenger
+is a person with an account. Collapsing them would have put a player through code that expects a
+description string and a weight. They are separate fields that happen to share a bench.
+
+⚠ **STOPPED TO BOARD, AND THAT IS THE SAFETY MODEL RATHER THAN A COURTESY.** The rig is
+client-simulated and reconciled four times a second, so boarding one mid-move puts a second player's
+`current_zone` under a position that is already stale. It is also the condition a HIJACKER boards
+under (`hijack.js`, `STOPPED_MPH`), so a cab is boardable by a stranger exactly when it is workable by
+one.
+
+⚠ **BUT `hop` WORKS AT ANY SPEED.** Refusing would make a passenger the only person in the game who
+can be held somewhere by another player, and no narration makes that a feature. Stepping down at
+speed simply costs you.
+
+Two invariants carry the rest, and both are single-path by construction. **Riders are carried inside
+the two zone movers** (`driveToZone` for city tiles, `crossToNode` for the corridor) and nowhere else,
+so nobody is left standing in a street the truck drove out of an hour ago — and the durable write is
+NOT done there, because that is the hot drive path; it lands once when the wheels stop. **And
+everybody is released through `dismountRig`**, so parking, a tow, a breakdown recovery and the driver
+logging out all set passengers down by one path rather than four that each have to remember. A stale
+back-reference to a rig that no longer exists resolves to null and clears itself, because a passenger
+riding a ghost is the failure that would be hardest to see.
+
+#### A2b. What flagging a truck down still costs *(surveyed 2026-08-21, not built)*
+
+The verbs are free: **`flag` and `thumb` collide with nothing** in any of the three classes that can
+shadow a command (plugin manifests, engine builtins, specialized actions — checking `plugin.json`
+alone is not sufficient, see the psionics note in CLAUDE.md). `hitch` is trucking's TRAILERS and
+`wave` is `interactions`, so neither is available.
+
+⚠ **The hard part is not the beacon, it is that a HITCHER IS NOT AN ENTITY.** `hitcherAt` is a pure
+seeded lookup — "a fact about a stretch of road", by its own file header — and `pickup` stores the
+result as `rig.rider = { id, look, line, inTrailer, boarded }`. A person with an account is a
+different kind of thing, and `rig.rider` is read in **eleven places across four files**, including
+`scale.js`, where clearing it is the whole fugitive-at-the-weighbridge mechanic. Every one of those
+has to answer "what if the rider is a player" before this is safe.
+
+**The shape that makes it tractable: boarding ENDS your crossing.** You are not a walker being carried
+through the void, you are a passenger in a truck — `leaveCrossing` fires, the instance releases you,
+and where the rig arrives is where you arrive. That is also exactly the extraction the decision above
+describes, it removes the whole class of questions about a rider whose own crossing tears down under
+them, and it means the only new state is a rider who happens to have a player id.
+
+⚠ **And it is the one piece here the suite cannot verify.** Regress drives a single fake player; two
+live players sharing a moving vehicle is not a thing it can express. Everything else in this system
+shipped because a test could hold it — this wants two people and a road.
+
+#### A2. Flagging down a truck — the crossing's social half
+
+A walker at a wayside can **flag down passing traffic**. A player truck coming up on a flagged walker
+gets a notification with time to slow, and may stop and take them aboard. `hitchers.js`
+(plugins/trucking) already carries NPC hitchhikers, so the boarding half exists; what is new is that
+the hitchhiker is a person, and that the offer is broadcast rather than rolled.
+
+**This is also the answer to the escape-hatch question above, and it is a better one than any rule.**
+A lift out of the void stops being something the system grants and becomes something *another player
+chooses to give*. The gauntlet has no back door; it has other people in it. Three constraints so it
+stays that way:
+
+- ⚠ **Flagging is a beacon with a lifetime, not a state you sit in.** A permanent flag turns every
+  wayside into a taxi rank and every driver's HUD into a list. It expires, and re-flagging costs the
+  time it costs.
+- ⚠ **One notification per truck per walker, and only with room to react.** A rig reconciles four
+  times a second and the cab already knows what is ahead; the alert has to fire far enough out that
+  slowing is a choice rather than a reflex, and never twice for the same person.
+- **Getting in a stranger's cab in the waste is a risk, and it should be.** A driver who stops and
+  then robs you is not an exploit, it is the game. Say nothing to discourage it and build nothing to
+  prevent it.
+
+**B. Windows are per member, unioned, and reference-counted per ROOM.** Each walker carries their own
+window of registered rooms; the instance holds the union and drops what nobody is near. Geometry is a
+pure function of `(route, window, node)`, so this is a diff on each move — register what came into
+range, evict what fell out — and a party may split as far as it likes.
+
+- ⚠ **Teardown counts MEMBERS today, not rooms** (`if (c.members.size === 0) teardownInstance(c)`), and
+  that is no longer sufficient: a room now leaves while the crossing continues. It needs a per-room
+  keep test — is any member's window over it — and **never an eviction of a room with an occupant in
+  it**, which would strand a player in a zone that no longer exists.
+- `registerTransientZone` preserves occupant Sets across a re-register, so walking back into a room
+  that fell out of the window and came back is already safe.
+
+**C. The gap's weather is INTERPOLATED between its two neighbours.** Blend by distance across the
+crossing, so acid fades in as you approach the Scarletwastes and heat builds toward Terminus. The gap
+is the country between two climates, and this is derived rather than authored — it lands as a fallback
+in one function, `regionBiasAt(gx, gy)` ([plugins/weather/index.js](../plugins/weather/index.js)),
+which is already coordinate-based (region bounding boxes, smallest first) rather than membership-based.
+
+Two traps found while checking it, both of which would make the blend quietly wrong:
+
+- ⚠ **COLDWATER HAS NO WEATHER BOX AT ALL, AND NEITHER DOES ANY BASELINE REGION.**
+  `computeRegionBoxes` filters on `eff &&`, and `effectiveBias` returns `null` when a region has no
+  temp, dryness or acid — so a region at baseline contributes no box. Coldwater's `climate_bias` is
+  `null` and it has no `REGION_BIAS` default, so **it is not in the list**. "Blend the two nearest
+  boxes" near Coldwater would therefore blend Deadwater with the Reach and skip the region you are
+  standing next to. The interpolation needs baseline regions present as explicit **zero** boxes; a
+  region with no opinion must contribute *baseline*, not *absence*.
+- ⚠ **THIS CHANGES WEATHER FOR DRIVERS TOO, NOT JUST WALKERS.** The corridor runs through the same
+  gap and is equally outside every box, so today a truck crosses in baseline weather. Interpolating
+  gives the road real weather for the first time — which is right, and is a live behaviour change for
+  everyone already driving.
+
+**D. A walker and a driver in the same place can meet, both ways.** A driver sees a figure on the
+verge and can stop; a walker can flag one down, be robbed, or be run down on the paved band. This is
+the payoff for putting the trail on the map at all, and it reuses plumbing that exists —
+`plugins/trucking/hitchers.js` for the pickup and `collide.js` for the other outcome.
+
+> ⚠ **The open question this creates, and it is a gameplay one rather than a technical one: can a
+> truck carry a walker out of the void?** A lift that reaches the destination is an escape hatch
+> through the entire gauntlet, and the crossing's whole design is that there is no going back to a
+> saved path — only forward or back out the gate. A rescue is a *good story*; a reliable taxi is not a
+> crossing. Decide it before the pickup is wired, not after. The obvious middle is that a lift takes
+> you to the **road's** destination gate rather than yours, on the road's schedule, which is a rescue
+> that costs you the crossing rather than completing it.
+
+### What of this is built *(2026-08-21)*
+
+**BUILT — a room is a tile.** `totalLength` returns the gate distance itself: no division, no ceiling.
+Crossings are their real lengths (Reach 93, Reach–Deadwater 99, Coldwater–Deadwater 108,
+Terminus–Scarletwastes 109, Coldwater–Terminus 282). `ROOM_TILES` and `MAX_ROOMS` are gone;
+`MIN_ROOMS` stays as a guard against a degenerate route, not as a knob.
+
+**BUILT — the trunk is derived, in tiles.** The authored `VOIDS[].trunk` room counts (4, 2, 2, 1, 2)
+were tuned when a room was a twelfth of a leg; read as tiles they would put the fork four steps off
+the rim of a ninety-three tile walk. It is a bounded fraction of the nearest destination now
+(`trunkTilesFor`), and `bigScoreSalt` and `crossingInfo` both read the derived value.
+
+**BUILT — the plan/window split, and lazy materialisation.** `plan` is the route as a pure function of
+the seed with nothing registered; `roomSet` is what currently exists. A room is made when somebody is
+within `WINDOW_R` hops of it and evicted when nobody is, never while it holds a player, an enemy or a
+corpse. ⚠ `crossingChain` and the relog re-derive read the PLAN — the first is THE LONG HAUL's
+odometer-to-room mapping over the whole route, and the second would otherwise return every
+reconnecting walker to the threshold.
+
+**BUILT — encounters are per tile, and a moving truck meets nothing.** 0.045 per tile puts something
+every ~22 tiles (about 4 to the Reach, 13 to Terminus, against 3.6 and 6.7 before); hard nodes drop
+0.22 → 0.02. Detour and hard-node odds are deliberately unscaled: a discrete gamble should read the
+same at any crossing length. ⚠ Driver immunity is an explicit `mounted` flag on `zone.entered` now.
+It used to be done by pre-marking `_crossing.seen` from trucking's `crossToNode`, which skipped the
+roll and SPENT it in the same move, so ground you had driven stayed quiet for the rest of the
+crossing — at one room per tile that would have let a lift launder every tile it covered.
+
+**BUILT — two things on the road that the flip would have broken silently.** `crossToNode` awaited a
+DB write per node boundary (fine at fifteen; several a second at 282, which the persistence tiers
+forbid) and now marks `zoneDirty` like its sibling `driveToZone`. And road terrain was keyed on the
+NODE INDEX, which only looked right because a node happened to be about nineteen tiles: at one node
+per tile the highway would have re-rolled its ground every tile. It bands on distance now
+(`terrainAt`), which is also where the landform field will plug in.
+
+**BUILT — the country has things in it, and their mechanics are ordinary zone tags.**
+[flavour.js](../plugins/voidwalking/flavour.js) holds 54 room names and 36 descriptions keyed by the
+GROUND (so a marsh never crunches underfoot again), plus 32 highlights across six kinds: salvage,
+respite, water, shelter, hazard and marker. ⚠ `kind` is the mechanical contract and the prose is not,
+so a fifteenth salvage site is a content change and a new kind is a code change. A highlight's
+`flags` merge onto the room, and nothing there is new: a rad pocket sets `radiation` and the engine's
+own `getZoneRadiation` charges for it. Regress lints the whole file for em dashes, because that rule
+erodes one edit at a time and nothing else in the suite would notice.
+
+**BUILT — a zone can be its own water source.** `water_source` was a FURNITURE flag, read by a direct
+`SELECT … FROM furniture WHERE zone_id = $1`, which is exactly what a transient room can never have:
+a hot spring or a camp's barrel out in the waste would have been invisible to `fill` forever. Cooking
+and drinks now check the zone's own tag first (same tag NAME, so there is nothing new to author, and
+no round trip). ⚠ The tag catalog still scopes `water_source` to furniture; void rooms are transient
+and never reach `content:lint`, so nothing breaks today, but a hand-authored wayside zone will want
+that scope widened.
+
+**BUILT — the gap between regions has weather.** `regionBiasAt` interpolates between the two nearest
+regions when a point is inside no region's box, so acid drifts out of the Scarletwastes and heat
+builds toward Terminus instead of a hundred miles of flat baseline. ⚠ The trap this needed: a
+BASELINE region contributes no box at all (`effectiveBias` returns null with nothing to say, and the
+list filters those out), so Coldwater — null `climate_bias`, no default — was simply absent, and a
+naive "blend the two nearest" would have skipped the busiest region on the map on all three of its
+roads. Containment reads `regionBoxes` (regions that bias something); the blend reads `regionSpans`
+(every region, zeroed where it has nothing to say). **This gives the ROAD real weather for the first
+time too**, since the corridor is equally outside every box.
+
+**BUILT — the trail is somewhere.** A crossing room carries `grid_x`/`grid_y` now, taken from the
+anchored road between the same two gates: `registerCrossingPoints` is the seam (the sibling of
+`registerCrossingDistance`, pushed in the direction the dependency already runs), a LIST of `{s, t}`
+goes out and a list of points comes back, so the road is built once per limb and `corridorPos` never
+leaves trucking. A room's odometer reading is its index along the walk, because a room is a tile.
+⚠ **And it is still not placed ground** — regress asserts a coordinate-carrying room stays out of
+`getAllZones()`, which is what keeps `surfaceAt`, `regionGates` and the rim index exactly where they
+were. The trunk takes its points from whichever limb answers first, which is safe by the invariant
+trucking's own suite asserts: every road out of a void shares its trunk tile for tile.
+
+`TRAIL_OFFSET` is **7 tiles** off the centreline: clear of the ~2-tile paved band and the shoulder,
+and deliberately INSIDE the corridor's classified ground (`OFFROAD_R` is 24). That is what makes the
+road a lifeline rather than scenery — you can see it, a board is readable when the trail runs close,
+and a truck can pull over for you. Push the trail past the corridor and **decision D quietly stops
+being possible**. A detour sits at 34, outside the corridor entirely, because taking one means
+leaving the road behind and that is the whole of what the gamble costs.
+
+**BUILT — the minimap grid sweep no longer reaches across an instance.** `getMinimapData` charts a
+crossing by walking its exits, but if the centre zone has coordinates it ADDITIONALLY sweeps
+`world.zones` for anything within four tiles. The `map_id` guard only ever protected half the case: a
+player on real ground never sees `map_void`, but every instance's rooms share that one map id, so the
+moment a void room carried a `grid_x` the sweep would have drawn whichever OTHER party is walking the
+same stretch of gap this window onto your minimap. **Instancing is enforced by room ids, never by
+position**, so position must not reach across it. Transient zones are now excluded at both ends: a
+transient centre takes no sweep, and a transient zone is never a candidate for anybody else's.
+
+> ⚠ **The historical note, kept because it is the reason the guard exists:**
+> ([server/engine/world.js](../server/engine/world.js), the `WIN = 4` block.) The minimap normally
+> BFSs a crossing along its exits, which is why the ashen-trail view works at all. But **if the centre
+> zone has coordinates it additionally sweeps `world.zones` for anything within four tiles of them**,
+> and that changes behaviour the moment a void room gets a `grid_x`.
+>
+> The `map_id` guard is what makes this safe today, and it only protects half the case. A player
+> standing on real ground has `centerMapId = 'map_world'`, so `map_void` rooms are skipped and no
+> bystander can ever see somebody else's crossing. **A player INSIDE the void cannot be protected the
+> same way**: every instance's rooms share `map_id: 'map_void'`, so once they carry coordinates the
+> sweep would pull in whatever OTHER party happens to be walking the same stretch of gap this window,
+> and put their rooms on your minimap. Instancing is enforced by room ids, not by position.
+>
+> The fix is one guard — skip `world.transientZones` in that sweep — and it is small and obviously
+> right. It is deliberately NOT made here, because a defensive change to a shared engine function for
+> a feature that does not exist yet is speculative, and this is the note that stops it being
+> rediscovered the hard way.
+
+⚠ **NOT built: DRAWING the trail, and the country it should cross.** The rooms know where they are;
+nothing renders them yet. The landform field and the road routing around it, the cuts, waysides,
+player hitchhiking, and the readers behind `salvage` (beyond the existing detour loot), `respite` and
+`void_shelter` are all still design — a hot spring reads as one, waters you and is warm, and does not
+yet heal.
+
+**BUILT — the road knows where the trail runs, and where the camps are.** `corridorAt` names the band
+the walking route crosses: `The Foot Trail`, and `A Wayside Camp` where the path comes in. ⚠ **A
+tolerance band, never `Math.round(t) === offset`** — the third feature on this verge to need that rule
+after the wreck and the sign, and the one it would have shown worst: at a fixed lateral offset the
+tiles form a clean row on a straight and a DIAGONAL on a bend, so an equality test paints a path that
+appears for forty tiles, vanishes for twenty and comes back. Regress walks the route and asserts the
+longest gap, because a path with holes in it reads as a bug rather than as a trail.
+
+**BUILT — the camp is on the WALK, not just on the road, and you can fill and cook at it.** A room
+whose `s` lands on a wayside is the camp: tents, a water barrel, a firepit, a crossing sign, and the
+path worn in off the country to meet the road right there. ⚠ **A wayside outranks the highlight roll**,
+because it is not a roll — letting a seeded wreck sit on top of the camp would put two landmarks on one
+tile and hide the only water on that stretch behind whichever won. It is **not a safe room**: still
+`lawless`, a sleeping body still stays in it, and the road is also where the things that work roads are.
+
+⚠ **AND THE CAMP'S MECHANICS ARE THE ORDINARY TAGS, WHICH IS THE POINT.** The barrel is
+`water_source` and the firepit is `stove_tier`, the same names furniture uses, so `fill` and `cook`
+work out in the waste with nothing taught about the void. Both needed the same one-function change —
+a zone may be its own water source (`waterSourceIn`) and its own fire (`stovesInZone`) — because
+furniture is a row keyed by `zone_id` and a transient room can never have one.
+
+⚠ **A KIND MAY SHIP WITH NO MECHANIC, AND `shelter` DOES.** Its prose is real; its effect is not. The
+engine's SSOT for "climatically sheltered" is `isIndoorZone`, which reads
+`is_interior`/`is_apartment`/`is_building`, and setting any of those on a culvert in the waste would
+enrol it in the indoor-temperature loop and the building/power network. A `void_shelter` flag nothing
+reads is the unconsumed key this project treats as a build failure, so the kind carries description
+only until weather exposure grows a seam it can use. Regress asserts every flag that IS present has a
+reader — that check is what caught this.
+
+**BUILT — a wayside is derived, not placed, and the geometry is what makes that possible.**
+⚠ **The trail's offset is a FUNCTION of `s`, not a constant** (`trailOffsetAt`), and that is the whole
+trick: two lines running exactly parallel never meet, so a fixed offset would have left "where the
+trail meets the road" with nowhere to happen and a camp would have had to be sprinkled at seeded
+intervals — a second answer to where the road is, drifting the first time either was tuned. The path
+comes IN instead, every `WAYSIDE_EVERY` (48) tiles, from 7 tiles out to 3, on a cosine so it swings
+rather than turning a corner. **A wayside is simply the place where the walking route and the driving
+route are the same place** — which is also what makes pulling over for a hitchhiker possible at all.
+One definition, exported from voidwalking and read by both sides.
+
+> ⚠ **The renderer is deliberately not half-done.** Naming the band is data with a real reader; making
+> it LOOK like a track from the air is not. `ft: 'dust'` is gated on `c.road` in all three of its uses,
+> so it draws nothing on a non-road cell, and the alternatives are a `flags.trail` nothing reads (the
+> unconsumed key this project treats as a build failure) or teaching `deriveSurfaceCell` and the
+> windshield a new ground type — client work whose only automated coverage, `shapes:smoke`, tests
+> building models rather than ground. It wants eyes on a screen.
+> ⚠ And do NOT reach for `terrain: 'dirt_road'` to shortcut it: `surfaceUnder` reads terrain to pick
+> the physics surface, so the band would take the shoulder's grip and render as a second highway
+> running parallel to the first.
+
+The one new tuning knob the decisions above introduce is **how much of the country a cut may cross** —
+how far it may stray and how much it may save — and it is the lever that sets the entire risk curve.
 
 ### The crossing is a deterministic, seeded generator — not stored geometry
 
@@ -108,10 +787,33 @@ same length, and `regress` asserts both for every row in `VOIDS`:
 | From | Limbs |
 |---|---|
 | Coldwater | The Reach (s) · Terminus (e) · Deadwater (w) — **full** |
-| The Reach | Coldwater (n) · Deadwater (w) |
+| The Reach | Coldwater (n) · Deadwater (w) · **The Scarletwastes (e)** — **full** |
 | Deadwater | Coldwater (n) · The Reach (e) |
-| Terminus | Coldwater (w) · **The Scarletwastes (s)** |
-| The Scarletwastes | Terminus (e) |
+| Terminus | Coldwater (w) · The Scarletwastes (s) |
+| The Scarletwastes | Terminus (e) · **The Reach (w)** |
+
+**The Reach↔Scarletwastes edge closed the loop** *(2026-08-21)*. Until it existed the graph was a
+pure chain with the Reach at one end and the Scarletwastes at the other — four crossings apart,
+through Coldwater, despite being the two most southerly places on the map. It is the first edge that
+is not a spur, and the first that needed **new mouths at both ends**: neither region had a road
+facing the other, so `gatePair` would have paired the two they had and laid a highway back across
+both regions' own placed ground. Main Street's **Field Road** now runs east to the Reach's east rim
+at (922,1043), and the Deadleg's spur drops south and runs west to the Scarletwastes' west rim at
+(1000,968).
+
+⚠ **A new mouth can re-aim an old road, silently.** `gatePair` takes the *nearest* facing pair, so
+paving anywhere in a region re-routes every road that region already had if the new mouth is closer.
+The obvious line — Main Street straight east to (922,1039) — sat 92.1 tiles from Coldwater's gate
+against the existing western mouth's 93.2, and the Coldwater highway quietly moved to the far side
+of town from the tiles named "The Coldwater Road" after it. Leaving by the Field Road one row south
+is further from Coldwater and Deadwater and nearer to the Scarletwastes, so every old pairing holds.
+`plugins/trucking/regress.js` now pins **every** region-to-neighbour pairing against a recomputed
+nearest pair, plus the two this edge could have stolen by name.
+
+⚠ **And the road round the mesa is not scenic routing.** The Scarletwastes' spur ends at the
+Deadleg's apron (x=1024) and due west of it is the cliff-ringed plateau at x1011–1017 — `cliff`
+being the one terrain `engine:impassable-terrain` refuses. Same trap as Terminus' west rim, answered
+the same way: drop south down the Deadleg's own column to y=968, then west under the mesa.
 
 ⚠ **It is a chain, not a hub, and it had to become one.** Coldwater's junction has been full since
 Deadwater — a room has four walls and the fourth is the way you came in — so the fourth region could
@@ -123,11 +825,32 @@ Coldwater–Reach–Deadwater on the other. A sixth region joins at a leaf the s
 Terminus x1200–1239 / y921–960 — overlapping in latitude, about 108 tiles apart, the same gap
 Coldwater and Deadwater are, while Deadwater (x812) and the Reach (y1958) are absurd from there.
 
-⚠ **A gate must land on ground you can stand on.** Terminus' **west** rim (x1200) is cliff for its
-whole length, so the obvious westward limb would have deposited a truck on a rock face. The gate is
-the westernmost passable tile of the **south** rim, (1219,960), painted `dirt_road` to match every
-other gate in the table. Check the rim terrain before adding a limb — the table will happily point
-at a cliff.
+⚠ **A gate must land on ground you can stand on** — and it must also land on a ROAD. Terminus'
+**west** rim (x1200) is cliff from y943 south, so a limb aimed at the middle of it would have put a
+truck on a rock face. That much is true and is still the reason to check rim terrain before adding a
+limb: the table will happily point at a cliff.
+
+⚠ **The south gate at (1219,960) is gone, corrected 2026-08-21.** This paragraph used to say the west
+rim was cliff *for its whole length*, and that the gate was therefore "the westernmost passable tile
+of the **south** rim, (1219,960), painted `dirt_road` to match every other gate in the table". Three
+things were wrong with that. The west rim is passable from y921 to y942 and carries **the roadhead at
+(1200,940)** — Coldwater's own road comes in there. (1219,960) is not the westernmost passable
+south-rim tile (the ramp at x1201 is, and gravel at x1212). And a single tile of `dirt_road` on a
+hardpan flat is a *marker*, not a road: it is twenty tiles of open ground from The Gate.
+
+**What kept it invisible is that nothing read it.** `gatePair` takes the nearest pair of mouths off
+the map, so the Scarletwastes road has always joined Terminus at the roadhead — 109 tiles, against
+the south gate's 127 — while the `VOIDS` table sent the **walker** to (1219,960) and `crossingPlan`
+measured that limb's mile boards to it. One region, two arrivals, and the only thing holding the
+second one up was one painted tile. The tile is `hardpan` again (which is what its own description,
+its name and all eight neighbours already said), **Terminus publishes exactly one gate**, and the
+walker now lands where the road ends.
+
+⚠ **This is the general trap, not a Terminus one.** A gate is DERIVED — a rim tile that
+`isRoadCell` accepts — so painting road terrain anywhere on a rim *creates* a gate, and the paint is
+the whole of the authoring. `gatePair` then quietly prefers whichever mouth is nearest, which need
+not be the one you painted. If you want a limb to leave by a particular rim, **build the road to it**;
+a tile of paint on its own will be outvoted by the map and nothing will say so.
 
 The road on the Scarletwastes side is **authored, not generated** (the region is uniformly redrock on
 purpose so it can be hand-painted): it enters at Talus on the east rim, runs west along y957, and
@@ -318,7 +1041,9 @@ system: any edge-of-map transition can use it.
 all. Do not equate "no exit that way" with "edge of the world" — 483 world tiles sit beside a
 neighbour they simply don't connect to (building facades, water margins), and treating those as rim
 opens the muster when you bump a wall downtown. Both landmasses are hole-free rectangles
-(Coldwater 863-955 × 896-947, The Reach 903-922 × 976-995) → 362 boundary tiles.
+(Coldwater 863-955 × 896-947, The Reach 903-922 × **1032-1051**) → 362 boundary tiles.
+*(The Reach's latitude was recorded here as 976-995 until 2026-08-21; the region moved south and
+this line did not follow it. Verified against `content/zones/`.)*
 
 **Water is not the rim.** You cross the waste on foot, so a tile whose `zoneTerrain` reads `water` has no
 rim in any direction — no line, and no way in. The *entire* northern edge of Coldwater (all 93 tiles of
@@ -672,25 +1397,37 @@ options off your *current* room show as branch ticks (**⋔** divert / **?** gam
 you'd honestly know — the layout **ahead stays fogged**; no per-room "seen" state is needed since
 `north` is always "back". All three minimaps (sidebar/HUD/mobile) share the render.
 
-**Not built:** the flight off-world read (a crosser should be invisible from the air, or a deliberate
-"specks in the waste"); the party-coordination extras (leader "hold" at forks, per-follower water toll
-on drag — `dragFollowers` still passes `bypassEncumbrance` — and the radio gear item for a split-party
-channel); environmental "the void itself" hazards; the retreat-re-rolls-hot rule; loot depth-scaling.
+**Not built:** the landform field and room positions (the premise above — the largest of these, and
+the one the rest lean on); the party-coordination extras (leader "hold" at forks, per-follower water
+toll on drag — `dragFollowers` still passes `bypassEncumbrance` — and the radio gear item for a
+split-party channel); environmental "the void itself" hazards; the retreat-re-rolls-hot rule; loot
+depth-scaling.
+
+**Decided but unbuilt:** the flight off-world read. It was open between "a crosser is invisible from
+the air" and "a deliberate specks-in-the-waste", and the premise settles it without a flag — a
+crosser hugging the road is visible and one on a hard cut is not, because that is what distance from
+the centreline already means to the canopy.
 
 ---
 
 ## Open questions (not yet decided)
 
-- **Water math** — exact drain rate vs. carry capacity vs. crossing length. The core tuning lever;
-  needs a pass once the generator exists.
-- **Crossing length** — **BUILT (distance-relative):** the room count is derived from the grid distance
-  between the entry tile and the destination — one room per ~`TILES_PER_ROOM` (90) tiles, clamped to
-  `[MIN_ROOMS 5, MAX_ROOMS 15]`, deterministic so a relog regenerates the same length. Far regions are
-  longer, thirstier crossings; near ones a quick dash; new routes auto-scale with no hand-tuning. A
-  route's explicit `length` overrides it. (Coldwater→Reach ≈ 1040 tiles → ~12 rooms.) `TILES_PER_ROOM`
-  is the one knob. Remaining open: whether to weight by danger/terrain rather than pure Euclidean.
+- **Water math** — **ANSWERED IN PRINCIPLE, UNTUNED.** The premise gives it the denominator it never
+  had: drain-per-tile against a known crossing length, so a cut's saving *is* its tile count and the
+  gamble is priced by the map rather than by a hand-picked multiplier. What is still open is the
+  numbers — drain rate vs. carry capacity — which wants a pass once the landform field exists.
+- **Crossing length** — **SETTLED: a room is a tile.** The room count IS the gate-to-gate distance,
+  deterministic so a relog regenerates the same walk: **Coldwater→Reach 93, Reach→Deadwater 99,
+  Coldwater→Deadwater 108, Terminus→Scarletwastes 109, Coldwater→Terminus 282**. Room count and road
+  length used to be two answers to one question — a clamped abstraction beside a road built gate to
+  gate in real tiles, with `roomLen` converting between them — and there is now nothing to convert
+  and nothing that can disagree. A route's explicit `length` still overrides, and nothing uses one.
+  Still open: whether to weight by danger or terrain rather than pure Euclidean.
 - **Rest-site frequency** and how much they heal vs. cost.
-- **Loot-detour value curve** — how good does the salvage need to be to pull pilots off their aircraft?
+- **Loot-detour value curve** — **ANSWERED BY GEOMETRY:** value scales with how far off the road the
+  detour goes, because the good salvage survives out where nobody drives. Still open is the curve's
+  steepness, and the original question behind it — how good must it be to pull a *pilot* off their
+  aircraft.
 - **Trace purge / griefing** — can a corpse-pack be camped? Does looting a ghost cost anything?
 - **Cross-region generality** — does the same generator serve Exodus, future routes, and eventually
   procedural sewers/dungeons (the instancing seam's stretch payoff)?

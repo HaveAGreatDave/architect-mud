@@ -153,6 +153,14 @@ REM deploys cannot remove a row. Converges: a fixed id list, permanent no-op onc
 REM they are gone.
 call :run "drop-retired-transforms.mjs"    "drop retired drug transform rows"
 
+REM Stands up trailers hitched to a truck row that no longer exists - the residue
+REM of selling a tractor with a box on the pin, back when that was a bare DELETE.
+REM Such a row is unreachable, not just mislabelled: no parked_zone, so it is in
+REM no yard, and a towed_by, so every hitch and every sale refuses it. Converges:
+REM the join can only match a trailer whose truck is GONE, so a box genuinely on
+REM a fifth wheel is invisible to it and this is a no-op once none are left.
+call :run "oneshots/repark-orphan-trailers.mjs" "stand up trailers hitched to sold trucks"
+
 REM --- Policy, not repair: opt in explicitly ---------------------------------
 REM Lifts players carrying negative net XP after a stat retune up to exactly 0.
 REM That debt is real and deliberate - writing it off is a decision, so it only

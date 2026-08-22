@@ -10,7 +10,7 @@
     "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "A wall of caprock standing out of the flats, undercut at the base where the weather has got in and eaten the softer bed away, so the top overhangs slightly and the shade under it is deep and cold.",
+  "description": "Two faces of red rock a shoulder-width apart, going straight up into a slot of sky. You do not climb a thing like this so much as wedge yourself into it and get taller.",
   "exits": {
     "east": "zone_scw_1064_990",
     "north": "zone_scw_1063_989",
@@ -22,13 +22,14 @@
     "no_spawn": true,
     "radiation": 49,
     "region_id": "region_scarletwastes",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1063,
   "grid_y": 990,
   "grid_z": 0,
   "id": "zone_scw_1063_990",
   "map_id": "map_world",
-  "name": "The Drop",
+  "name": "The Chimney",
   "parent_zone": null
 }
+

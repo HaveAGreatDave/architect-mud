@@ -18,6 +18,12 @@ export const SKILLS = {
   fishing:     { id:'fishing',     name:'Fishing',     category:'survival', stats:['stat_reflexes','stat_cool'], desc:'Coaxing something edible — or something with teeth — out of poisoned water. Patience with a hook on the end.' },
   swimming:    { id:'swimming',    name:'Swimming',    category:'survival', stats:['stat_endurance','stat_brawn'], desc:'Staying afloat, hauling yourself through open water, and holding your breath when you go under. The difference between a shortcut and a drowning.' },
   mining:      { id:'mining',      name:'Mining',      category:'survival', stats:['stat_brawn','stat_brains'], desc:'Reading a rock face and knowing where to swing. Prying ore, salvage, and buried worth out of stone and slag.' },
+  // Deliberately NOT folded into mining, which reads a rock face to take something
+  // OUT of it. This one reads the same face for a way UP it, and the two are wanted
+  // by different people in different places. It scales the COST of a climb and
+  // never the outcome — see the ⚠ on engine:impassable-terrain: a climb that
+  // sometimes worked would undo the whole reason cliffs are allowed to be climbed.
+  climbing:    { id:'climbing',    name:'Climbing',    category:'survival', stats:['stat_brawn','stat_endurance'], desc:'Loose rock, bad holds, and the weight of everything you insisted on carrying. Getting up the parts of the world that were not built with stairs.' },
   hacking:     { id:'hacking',     name:'Hacking',     category:'tech',     stats:['stat_brains'], desc:'Talking computers into betraying their owners. Locks, terminals, and ATMs all listen eventually.' },
   electronics: { id:'electronics', name:'Electronics', category:'tech',     stats:['stat_brains'], desc:'Wiring, circuits, and salvaged tech. Making dead gadgets twitch back to life.' },
   fabrication: { id:'fabrication', name:'Fabrication', category:'tech',     stats:['stat_brains'], desc:'Crafting and repairing gear from raw parts. The backbone of building anything worth having.' },

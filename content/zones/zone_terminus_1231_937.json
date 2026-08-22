@@ -12,7 +12,7 @@
     "Absolutely nothing happens for a while, at considerable scale."
   ],
   "ambient_theme": "wasteland",
-  "description": "The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "Two different rocks meet on this face and neither of them is happy about it. The join between them runs up the whole height, a hand wide, full of grit — and a hand wide is a hand wide.",
   "exits": {
     "east": "zone_terminus_1232_937",
     "north": "zone_terminus_1231_936",
@@ -21,13 +21,14 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1231,
   "grid_y": 937,
   "grid_z": 0,
   "id": "zone_terminus_1231_937",
   "map_id": "map_world",
-  "name": "The Waiting Ground",
+  "name": "The Seam",
   "parent_zone": null
 }
+

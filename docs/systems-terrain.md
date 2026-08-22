@@ -2,8 +2,9 @@
 
 Terrain is the **ground surface** of a zone tile (road, concrete, grass, water,
 dock…). It is authored per-zone in `flags.terrain` (a single string) and painted
-through a dev-panel Maps mode. Terrain blocks a step in **exactly one** case: `cliff`, whose
-`props.passable` is false ([High ground](#high-ground-cliff--plateau--ramp-2026-08-12)). Everything
+through a dev-panel Maps mode. Terrain blocks a step in **exactly two** cases: `cliff`, whose
+`props.passable` is false, and `scree`, which is impassable too but carries `props.climbable` and opens
+for somebody with the gear ([High ground](#high-ground-cliff--plateau--ramp-2026-08-12)). Everything
 else is entered — water is a *swim* ([plugins/swimming](../plugins/swimming/index.js)), never a wall.
 The engine's move gates are encumbrance, door locks, and `engine:impassable-terrain`
 ([movement.js](../server/engine/commands/movement.js)).
@@ -151,6 +152,7 @@ Three terrains, one landform, split by what they answer rather than by what they
 | `plateau` | `#7a4029` | yes | the tableland on top |
 | `cliff` | `#5c3224` | **no** | the rim you cannot climb |
 | `ramp` | `#9a6238` | yes | the break in the rim that lets you |
+| `scree` | `#8a5a3e` | **no**, but *climbable* | the broken face somebody equipped goes up ([2026-08-21](#scree-the-fourth-height-terrain-2026-08-21)) |
 
 All three are `auto_tile_family: "cliff"`. **The family is the LANDFORM, not the terrain** — a rim tile
 counts the tableland behind it as its own kind and draws no face inward. Give the top a family of its
@@ -168,9 +170,13 @@ own and every massif gets a second outline drawn one tile inside the first.
   terrain stroke silently rewrites world geometry, and repainting would not restore it.
   `getConnectedDestinations` ([describe.js](../server/engine/commands/describe.js)) drops impassable
   destinations from the player-facing exit list, so a funnel does not offer four ways and refuse three.
-  **No climb and no gear exemption, deliberately** — a wall you can sometimes get over is a difficulty
-  check, not a funnel, and the value of the feature is that the ways through are legible. If a climb is
-  ever wanted it goes in that gate as one named exemption, the way `bypassEncumbrance` is.
+  **A climb now exists, and the rule it had to survive is intact** — see
+  [`scree`](#scree-the-fourth-height-terrain-2026-08-21). The sentence that stood here read: *"No climb
+  and no gear exemption, deliberately — a wall you can sometimes get over is a difficulty check, not a
+  funnel, and the value of the feature is that the ways through are legible."* Every clause of that is
+  still enforced. What changed is that the exemption is a property of the **tile** — a painted, visible
+  one — rather than of the gear, and that passage is deterministic, so no wall is ever one you
+  *sometimes* get over. A bare `cliff` remains absolutely impassable to everything but wings.
 - **`auto_tile_family`** ([derive.mjs](../scripts/content/derive.mjs)) — a second piece set.
   **The letters are the sides that JOIN, in every family, always**: a road draws arms toward its own
   kind, a cliff draws a face where its own kind stops. One payload, one meaning, two directories of
@@ -458,3 +464,43 @@ for the per-tile installer and Auto-Resolve.
     [plugins/flight/snapshot.js](../plugins/flight/snapshot.js), so they can't drift. The JSON is a
     checked-in asset — **commit it** alongside the terrain change. The **live in-game cockpit** flight,
     by contrast, reads terrain live and needs no re-bake.
+
+## `scree`: the fourth height terrain (2026-08-21)
+
+`ramp` is the way through a rim for anybody. **`scree` is the way up a rim for somebody equipped** — a
+broken, loose face with a line on it. It is impassable like a cliff (`passable: false`) and carries one
+more property, `climbable`, which nothing but the impassable-terrain law reads.
+
+**Why the no-gear-exemption rule did not have to be broken to add it.** Read that rule again and the
+objection is to *"sometimes"* and to *"you cannot see it coming"* — not to rope. Both survive:
+
+- **Bare `cliff` never carries `climbable` and must never be given it.** It stays absolutely impassable
+  to everything but mutation flight, exactly as before, and nothing purchasable opens one. The climbing
+  plugin's regress asserts this **with the gear in hand**, because it is the invariant every funnel and
+  every wall in the world rests on.
+- **A scree tile is PAINTED.** Its own terrain, its own fill, its own name on the map. "A player can look
+  at the map and KNOW where the ways through are" is unchanged; there is one more kind of way through and
+  it is drawn. Same `auto_tile_family: "cliff"`, so a notch of scree in a run of cliff reads as one
+  escarpment with a paler seam in it rather than as a gap in the wall.
+- **Passage is deterministic.** Gear and stamina decide it, never a roll. The Climbing skill scales the
+  *cost*, the way Swimming scales a stroke.
+
+⚠ **Never paint scree where a cliff is doing structural work.** A cliff that seals a town, a quarantine
+or the far side of a quest is a funnel somebody built, and a scree tile through it is a back door with no
+lock on it. Paint scree where the map intends a hard way round.
+
+**What it opened.** ~737 tiles were reachable only with wings: **707 in Terminus** (one pocket of 640 —
+the entire southern and eastern outside of that region, more than half its walkable ground), **21 in
+Deadwater** across three mesas, **9 in the Scarletwastes**. **Twelve** scree tiles opened all of them,
+and cost twelve terrain values and *no wiring at all* — the cliff tiles already carried reciprocal exits
+with their neighbours, which is exactly the property "the graph stays true" was protecting. The one tile
+still unreachable on foot afterwards is `zone_echelon_exterior`, the flying base, which is correct.
+
+Each route is named for what it is rather than taking the region's generic tile name — The Notch, The
+Broken Stair, Handholds, The Seam, Cutback, The Clinker Stair, The Cooled Gully, The Ropes, Talus Fan,
+The Scramble, Split Rock, The Chimney. That is not decoration: the cliff boilerplate these tiles used to
+carry says *"There is no way up here. There is a way up somewhere, and this is not it."* The world was
+written expecting passes, and a player who reads that line on nine tiles and something different on the
+tenth has been told where to climb without a quest marker.
+
+The mechanic lives in [plugins/climbing](../plugins/climbing/README.md); this doc owns the terrain.

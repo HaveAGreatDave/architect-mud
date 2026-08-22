@@ -12,7 +12,7 @@
     "Absolutely nothing happens for a while, at considerable scale."
   ],
   "ambient_theme": "wasteland",
-  "description": "The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it.",
+  "description": "The tableland wall runs north and south without a break, except here, where it does not. A seam of shattered rock steps back off the face in ledges the width of a boot, and somebody has been up it: the holds are scoured pale. There is a way up somewhere, the country keeps telling you. This is it.",
   "exits": {
     "east": "zone_terminus_1217_923",
     "north": "zone_terminus_1216_922",
@@ -21,13 +21,14 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1216,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_terminus_1216_923",
   "map_id": "map_world",
-  "name": "Sunstruck Pan",
+  "name": "The Notch",
   "parent_zone": null
 }
+

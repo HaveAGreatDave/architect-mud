@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A relay confirms a route and holds it.",
+    "The needle sits at nothing, with great precision.",
+    "Something changes source. It makes no difference and it was still the right thing to do."
+  ],
+  "cause": "drug",
+  "description": "A wall of jack fields, every cable seated properly, every route correct. You can follow any of them with a finger and arrive at an output with nothing on it. Whoever did this was careful, and that is the part you keep coming back to.",
+  "drug_id": "drug_deadair",
+  "fx": "fog",
+  "fx_intensity": 0.4,
+  "id": "dt_deadair_patch_bay",
+  "name": "The Patch Bay",
+  "objects": [
+    {
+      "looks": [
+        "Dressed, looped and tied off by somebody who cared about it.",
+        "Warm where they are handled. Cold along the runs.",
+        "You follow one and it arrives where it should, which does not help."
+      ],
+      "name": "the cables"
+    },
+    {
+      "looks": [
+        "A meter with the needle resting exactly at nothing.",
+        "It is live. It has been live the whole time.",
+        "You put a hand near it and it does not respond, because it is working."
+      ],
+      "name": "the output"
+    }
+  ],
+  "weather": "The room is kept at the temperature equipment likes, which is slightly too cool for a person."
+}

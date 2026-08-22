@@ -2,11 +2,22 @@
 // Drives the real configured void using SYNTHETIC gate + destination zones, so it
 // doesn't depend on (possibly uncommitted) world content being loaded.
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
-  addPlayerToZone, removePlayerFromZone, getEnemyInstance, removeEnemyInstance, getMinimapData } from '../../server/engine/world.js';
+  addPlayerToZone, removePlayerFromZone, getEnemyInstance, removeEnemyInstance, getMinimapData, getZoneEnemies, getAllZones } from '../../server/engine/world.js';
+import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
-import { VOIDS, _test, commands } from './index.js';
+import { VOIDS, _test, commands, crossingChain } from './index.js';
 import { _test as traces } from './traces.js';
+import { VOID_TERRAINS, CUT_TERRAINS, GROUND, FEATURES, featureFor, _test as _flavour } from './flavour.js';
+
+// A local deterministic generator for the flavour probes below. Deliberately NOT the plugin's own
+// mulberry32: these cases test the tables, not the seeding, and reaching into index.js internals to
+// test a sibling module would couple them for no gain.
+const probeRng = (n) => { let a = (n * 0x9E3779B1) >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 
 const GATE = 'zone_regress_voidgate';
 const NONVOID = 'zone_regress_nonvoid';
@@ -21,6 +32,74 @@ const mkZone = (id, name, extra = {}) => ({
 });
 
 export default async function regress({ run, check, getPlayer }) {
+  // ── VOID COUNTRY: the flavour tables are content, and content can be wrong ──
+  // These cost nothing to run and catch the three ways this file breaks silently: ground with no
+  // words written for it, a feature whose `kind` nothing will ever read, and the em dash.
+  {
+    for (const t of VOID_TERRAINS.concat(CUT_TERRAINS)) {
+      const g = GROUND[t];
+      check(`void ground "${t}" has names and descriptions`,
+        !!g && g.names?.length >= 3 && g.descs?.length >= 3,
+        `names=${g?.names?.length} descs=${g?.descs?.length}`);
+    }
+    const ids = FEATURES.map(f => f.id);
+    check('every void highlight is well formed',
+      FEATURES.every(f => f.id && f.name && f.desc && _flavour.KINDS.includes(f.kind)),
+      FEATURES.filter(f => !(f.id && f.name && f.desc && _flavour.KINDS.includes(f.kind))).map(f => f.id || f.name).join(','));
+    check('void highlight ids are unique', new Set(ids).size === ids.length);
+    // A `terrains` list naming ground nobody wrote words for is a feature that can never appear.
+    const known = new Set(VOID_TERRAINS.concat(CUT_TERRAINS));
+    const orphan = FEATURES.filter(f => f.terrains && f.terrains.some(t => !known.has(t)));
+    check('no highlight is gated to ground that does not exist', orphan.length === 0,
+      orphan.map(f => `${f.id}:${f.terrains}`).join(' '));
+    // Every KIND must be reachable, or it is a contract nothing can ever satisfy.
+    for (const k of _flavour.KINDS) {
+      check(`the "${k}" highlight kind has at least one entry`, FEATURES.some(f => f.kind === k));
+    }
+
+    // ⚠ THE EM DASH IS THE ARCHITECT'S AND THE ASCENDANTS' (docs/story.md). It is a voice marker
+    // rather than punctuation, and it only reads as one if nothing else in the world uses it. The
+    // waste has no opinions and nobody out there is talking, so none of this prose may carry one.
+    // Checked rather than trusted, because it is exactly the kind of rule that erodes one edit at a
+    // time and nothing else in the suite would ever notice.
+    const prose = [
+      ...Object.values(GROUND).flatMap(g => [...g.names, ...g.descs]),
+      ...FEATURES.flatMap(f => [f.name, f.desc]),
+    ];
+    const dashed = prose.filter(s => /[—–]| - | -- /.test(s));
+    check('no void prose uses an em dash (it belongs to the Architect)', dashed.length === 0,
+      dashed.slice(0, 3).join(' | '));
+
+    // The roll that says "something is here" must never be spent on nothing: an unwritten kind for
+    // this ground falls through to a marker rather than returning null after the chance passed.
+    let fired = 0, nulls = 0;
+    for (let i = 0; i < 4000; i++) {
+      const r = featureFor(probeRng(i + 1), VOID_TERRAINS[i % VOID_TERRAINS.length]);
+      if (r === null) continue;
+      fired++;
+      if (!r.id) nulls++;
+    }
+    check('featureFor never fires onto an empty highlight', fired > 0 && nulls === 0, `fired=${fired} empty=${nulls}`);
+
+    // ── A HIGHLIGHT'S MECHANICS ARE ORDINARY ZONE TAGS ────────────────────────
+    // Nothing here teaches the void a mechanic. A rad pocket sets `radiation` and the engine's own
+    // getZoneRadiation charges for it; a spring sets `water_source` and cooking's `fill` reads it.
+    // ⚠ SO AN UNKNOWN KEY IS A TYPO THAT WILL NEVER FIRE AND NEVER COMPLAIN — which is the whole
+    // failure mode this catches, since a highlight with a misspelt flag looks completely correct.
+    const MECHANICAL = new Set(['radiation', 'water_source', 'stove_tier']);
+    const badFlag = FEATURES.filter(f => f.flags && Object.keys(f.flags).some(k => !MECHANICAL.has(k)));
+    check('every highlight flag is a key something reads', badFlag.length === 0,
+      badFlag.map(f => `${f.id}:${Object.keys(f.flags)}`).join(' '));
+    // Each kind that claims a capability must actually carry it, or the prose promises what the
+    // mechanics do not deliver.
+    for (const [kind, key] of [['water', 'water_source']]) {
+      const missing = FEATURES.filter(f => f.kind === kind && !f.flags?.[key]);
+      check(`every "${kind}" highlight carries ${key}`, missing.length === 0, missing.map(f => f.id).join(' '));
+    }
+    check('a rad pocket carries real radiation',
+      (FEATURES.find(f => f.id === 'hazard_rad')?.flags?.radiation || 0) > 0);
+  }
+
   const vdef = VOIDS[VOIDKEY];
   const REACH = vdef.dests[0].dest;   // south limb
   const EXODUS = vdef.dests[1].dest;  // east limb
@@ -85,7 +164,10 @@ export default async function regress({ run, check, getPlayer }) {
       !!c && player.current_zone === c.entry, `zone=${player.current_zone}`);
 
     // ── The braid: the trunk forks toward BOTH regions ────────────────────────
-    const fork = `${c.id}_t${vdef.trunk - 1}`;
+    // The whole braid, on purpose: this is a test of the ROUTE's shape, and the limbs hang four hops
+    // past the threshold the player is standing on, so under windowing they are correctly not made yet.
+    _test.materialiseAll(c);
+    const fork = `${c.id}_t${c.plan.trunkLen - 1}`;
     const reachLimb = getZone(fork)?.exits?.[vdef.dests[0].dir]; // south
     const exodusLimb = getZone(fork)?.exits?.[vdef.dests[1].dir]; // east
     check('the shared trunk forks toward both regions',
@@ -105,10 +187,10 @@ export default async function regress({ run, check, getPlayer }) {
     player.current_zone = GATE; player._lastStepAt = 0;
     await launch();
     const c2 = _test.crossings.get(player._crossing.instanceId);
-    for (let i = 0; i < vdef.trunk - 1; i++) { player._lastStepAt = 0; await run('south'); } // to the fork
-    check('you can walk the shared trunk to the fork', player.current_zone === `${c2.id}_t${vdef.trunk - 1}`, player.current_zone);
+    for (let i = 0; i < c2.plan.trunkLen - 1; i++) { player._lastStepAt = 0; await run('south'); } // to the fork
+    check('you can walk the shared trunk to the fork', player.current_zone === `${c2.id}_t${c2.plan.trunkLen - 1}`, player.current_zone);
     player._lastStepAt = 0; await run('east'); // divert toward Exodus
-    const exodusLimbLen = _test.totalLength(vdef.dests[1], getZone(GATE), getZone(EXODUS)) - vdef.trunk;
+    const exodusLimbLen = _test.totalLength(vdef.dests[1], getZone(GATE), getZone(EXODUS)) - c2.plan.trunkLen;
     for (let i = 0; i < exodusLimbLen; i++) { player._lastStepAt = 0; await run('south'); }
     check('diverting east at the fork reaches Exodus (the other region)', player.current_zone === EXODUS, player.current_zone);
     wipe();
@@ -167,13 +249,263 @@ export default async function regress({ run, check, getPlayer }) {
     player.current_zone = GATE; player._lastStepAt = 0;
     await launch();
     const bc = _test.crossings.get(player._crossing.instanceId);
-    check('a crossing has at least one risk-for-loot detour', bc.detourSet.size >= 1, `detours=${bc.detourSet.size}`);
-    const detourId = [...bc.detourSet][0];
-    const spineWithDetour = [...bc.roomSet].find(id => getZone(id)?.exits?.west === detourId);
-    check('a detour hangs off a trunk room (west) and exits back (east)',
-      isTransientZone(detourId) && !!spineWithDetour && getZone(detourId)?.exits?.east === spineWithDetour,
-      `detour=${detourId} trunk=${spineWithDetour}`);
+
+    // ── THE PLAN IS THE ROUTE; THE WINDOW IS WHAT EXISTS ──────────────────────
+    // Everything below asks the PLAN, deliberately. A route-level guarantee ("this heading offers a
+    // gamble") is about the crossing, not about which twenty yards of it happen to be made right now,
+    // and testing it through `getZone` would have quietly become a test of the window instead. That
+    // is the exact mistake the split exists to make impossible, so the suite has to model it too.
+    check('nothing is materialised that is not on the plan',
+      [...bc.roomSet].every(id => bc.plan.all.has(id)));
+    check('every materialised detour is a planned detour',
+      [...bc.detourSet].every(id => bc.plan.detourIds.has(id)),
+      `live=${bc.detourSet.size} plan=${bc.plan.detourIds.size}`);
+
+    // ⚠ THE WINDOW IS BOUNDED, AND THAT IS THE WHOLE POINT. If this ever equals the plan again,
+    // windowing has silently regressed to eager and the 282-room crossing is back to building itself
+    // in full the moment somebody steps off the rim.
+    check('the window holds only part of the route', bc.roomSet.size < bc.plan.all.size,
+      `live=${bc.roomSet.size} plan=${bc.plan.all.size}`);
+    check('the threshold room is made', bc.roomSet.has(bc.entry));
+
+    // ── THE TRAIL IS SOMEWHERE ────────────────────────────────────────────────
+    // A crossing room had no position at all until the trail went on the map. It has one now, taken
+    // from the anchored road between the same two gates, so the walker's route and the driver's are
+    // the same journey rather than two derivations that would drift.
+    {
+      const placed = [...bc.plan.rooms.values()].filter(r => r.pt);
+      check('the plan lays its rooms on the ground', placed.length > 0,
+        `${placed.length}/${bc.plan.rooms.size}`);
+      const z = getZone(bc.entry);
+      check('a materialised room carries its coordinates',
+        z && Number.isInteger(z.grid_x) && Number.isInteger(z.grid_y), `${z?.grid_x},${z?.grid_y}`);
+
+      // ⚠ AND IT IS STILL NOT PLACED GROUND. This is the line the whole overlay rests on: the world
+      // sweep excludes transient zones by the MARKER, not by missing coordinates, so a room having a
+      // grid_x cannot put it into `surfaceAt`, `regionGates` or voidwalking's own rim index. If this
+      // ever fails, every road mouth and the entire map rim have moved.
+      check('…and is still invisible to the placed-ground sweep',
+        !getAllZones().some(w => w.id === bc.entry));
+      check('…and keeps a non-world map id', z?.map_id !== 'map_world', z?.map_id);
+
+      // ── THE CAMPS ARE ON THE WALK, NOT JUST ON THE ROAD ────────────────────
+      // The corridor names the band a driver crosses; these are the rooms a WALKER stands in. Both
+      // read one geometry (`trailOffsetAt` / `isWaysideAt`), so the camp a trucker pulls over at and
+      // the camp somebody is sleeping in are the same place rather than two things with one name.
+      {
+        const camps = [...bc.plan.rooms.values()].filter(r => r.wayside);
+        check('a long crossing passes wayside camps', camps.length > 0,
+          `${camps.length} of ${bc.plan.rooms.size}`);
+        if (camps.length) {
+          const cid = [...bc.plan.rooms.entries()].find(([, r]) => r.wayside)[0];
+          const cz = _test.materialise(bc, cid);
+          check('a wayside room is the camp', cz?.name === 'A Wayside Camp', cz?.name);
+          // ⚠ The barrel and the fire are the ORDINARY tags, which is the whole reason `fill` and the
+          // cooking heat check work out here without either being taught about the void.
+          check('…and carries water and warmth as ordinary tags',
+            cz?.flags?.water_source === true && (cz?.flags?.stove_tier || 0) > 0,
+            JSON.stringify({ w: cz?.flags?.water_source, f: cz?.flags?.stove_tier }));
+          // A camp is derived, so a rolled highlight must never be sitting on top of it.
+          check('…and no rolled highlight sits on top of it', !cz?.flags?.void_feature, cz?.flags?.void_feature);
+          // It is relief, not safety: the waste does not stop being lawless because there are tents.
+          check('…and it is still lawless ground', cz?.flags?.lawless === true);
+        }
+      }
+
+      // Consecutive rooms are neighbours on the ground, not scattered along it.
+      const a = getZone(bc.plan.trunk[0]), b = getZone(bc.plan.trunk[1]);
+      if (a?.grid_x != null && b?.grid_x != null) {
+        const step = Math.hypot(b.grid_x - a.grid_x, b.grid_y - a.grid_y);
+        check('one room of walking is about one tile of ground', step >= 0.5 && step <= 3, step.toFixed(2));
+      }
+    }
+    // ⚠ AND THE ROOM AHEAD IS ALWAYS MADE. Movement resolves against a zone that must already exist,
+    // so every exit out of an occupied room has to be materialised before the step is taken. A skirt
+    // of one is the minimum; anything less is a walker stepping into a room that was never built.
+    for (const to of Object.values(bc.plan.rooms.get(bc.entry).exits)) {
+      if (!bc.plan.rooms.has(to)) continue;                     // the origin tile: real ground
+      check('every exit out of the threshold leads somewhere that exists', bc.roomSet.has(to), to);
+    }
+
+    // ⚠ crossingChain is THE LONG HAUL's odometer→room mapping and reads the plan rather than parsing
+    // ids back out of the materialised set. It must be the trunk followed by one limb, in order, with
+    // no detours on it, over the WHOLE route including the part nobody has walked to.
+    for (const d of bc.dests) {
+      const chain = crossingChain(bc.id, d.key);
+      check(`the ${d.key} chain is trunk + limb in order`,
+        chain.length === bc.plan.trunk.length + bc.plan.limbs[d.key].length
+        && chain[0] === bc.entry
+        && chain.every(id => !bc.plan.detourIds.has(id)),
+        `len=${chain.length} trunk=${bc.plan.trunk.length} limb=${bc.plan.limbs[d.key].length}`);
+      check(`the ${d.key} chain ends at the room that exits to the region`,
+        bc.plan.rooms.get(chain[chain.length - 1])?.exits?.south === d.dest,
+        `${chain[chain.length - 1]} -> ${bc.plan.rooms.get(chain[chain.length - 1])?.exits?.south}`);
+      check(`the ${d.key} chain is entirely on the plan`, chain.every(id => bc.plan.all.has(id)));
+    }
+
+    check('a crossing has at least one risk-for-loot detour', bc.plan.detourIds.size >= 1,
+      `detours=${bc.plan.detourIds.size}`);
+    const detourId = [...bc.plan.detourIds][0];
+    const spineId = bc.plan.rooms.get(detourId)?.spine;
+    check('a detour hangs off a spine room (west) and exits back (east)',
+      !!spineId && bc.plan.rooms.get(spineId)?.exits?.west === detourId
+      && bc.plan.rooms.get(detourId)?.exits?.east === spineId,
+      `detour=${detourId} spine=${spineId}`);
+
+    // ── RESTING, AND WHAT IT COSTS ─────────────────────────────────────────────
+    // Nothing out here heals you, so a respite site grants a heal-over-time rather than the void
+    // suppressing a regen that does not exist. What is defended is the PRICE: water, always, and a
+    // fresh ambush roll every time — because a rest that got safer the more you did it would turn a
+    // cleared room into a hotel.
+    {
+      const rc = _test.materialiseAll(_test.crossings.get(player._crossing.instanceId));
+      const campId = [...rc.plan.rooms.entries()].find(([, r]) => r.wayside)?.[0];
+      _test.setEncounters(false);           // the ambush is rolled separately below
+      if (campId) {
+        player.current_zone = campId;
+        player.hp = Math.max(1, Math.floor(player.hp_max * 0.5));
+        player.thirst = 90;
+        player.healOverTime = [];
+        const before = player.thirst;
+        const r1 = await run('camp');
+        check('resting at a camp is allowed', !/error/i.test(r1?.type || ''), r1?.message?.slice(0, 60));
+        check('…and grants a heal over time', (player.healOverTime?.length || 0) > 0);
+        check('…paid for in water', player.thirst < before, `${before} → ${player.thirst}`);
+
+        // ⚠ TOO DRY TO REST. Sitting still without water is a slower version of the same problem, and
+        // the refusal has to come before the cost rather than after it.
+        player.thirst = 3;
+        const dry = await run('camp');
+        check('…and refused outright when there is no water left in you',
+          dry?.type === 'error' && player.thirst === 3, `${dry?.type} thirst=${player.thirst}`);
+      }
+      // Nowhere to rest is a refusal, not a free heal.
+      const plain = [...rc.roomSet].find(id => !getZone(id)?.flags?.void_wayside
+        && !['respite', 'shelter'].includes(getZone(id)?.flags?.void_feature_kind));
+      if (plain) {
+        player.current_zone = plain;
+        player.thirst = 90;
+        const r2 = await run('camp');
+        check('open ground is nowhere to rest', r2?.type === 'error', r2?.message?.slice(0, 50));
+      }
+      _test.setEncounters(false);
+    }
+
+    // ── FLAGGING A TRUCK DOWN ──────────────────────────────────────────────────
+    // The social half of the crossing: a walker asks, and a driver decides. What is defended here is
+    // that a beacon EXPIRES (a permanent one turns every camp into a taxi rank) and that it is matched
+    // to a driver by COORDINATE — two people in the same gap are in different transient rooms, because
+    // a crossing is instanced, so position is the only thing they can ever have in common.
+    {
+      const now = Date.now();
+      _test.clearBeacon('probe_a'); _test.clearBeacon('probe_b');
+      check('nothing is flagged to begin with', _test.beaconsNear(0, 0, 500, now).length === 0);
+
+      // Drive the store directly: the verb needs a live crossing and a camp underfoot, and what is
+      // being tested here is the beacon, not the way in.
+      _test.beacons.set('probe_a', { until: now + 60_000, at: now, x: 100, y: 100, zoneId: 'z', handle: 'Walker A' });
+      _test.beacons.set('probe_b', { until: now - 1, at: now - 60_000, x: 101, y: 100, zoneId: 'z', handle: 'Walker B' });
+
+      const near = _test.beaconsNear(100, 100, 20, now);
+      check('a live beacon is seen from the road', near.length === 1 && near[0].playerId === 'probe_a',
+        near.map(b => b.playerId).join(','));
+      check('…and an expired one is not', !near.some(b => b.playerId === 'probe_b'));
+      // ⚠ EXPIRY IS AT READ, NOT ON A TICK. Nothing about a beacon is worth a timer, so the prune
+      // happens where it is asked for — which also means a stale one can never outlive being looked at.
+      check('…and reading it prunes the expired one', !_test.beacons.has('probe_b'));
+
+      check('a beacon out of range is not seen', _test.beaconsNear(400, 400, 20, now).length === 0);
+      check('…and range is a real distance, not a room', _test.beaconsNear(112, 100, 20, now).length === 1);
+      const far = _test.beaconsNear(100, 100, 20, now)[0];
+      check('…and it reports how far off it is', far && far.dist === 0, String(far?.dist));
+
+      _test.clearBeacon('probe_a');
+      check('a cleared beacon is gone', _test.beaconsNear(100, 100, 20, now).length === 0);
+    }
+
+    // ── A CUT IS FINDABLE ──────────────────────────────────────────────────────
+    // The branch is a real `east` exit, so the WORD appeared in the room and nothing said what was
+    // down it or what it was worth. A choice nobody can see is not a choice, and this was the only
+    // genuinely new decision in a crossing.
+    {
+      const campWithCut = [...bc.plan.rooms.entries()].find(([, r]) => r.cutSaves && r.exits?.east);
+      check('some camp offers a way across', !!campWithCut,
+        [...bc.plan.rooms.values()].filter(r => r.kind === 'cut').length + ' cut rooms');
+      if (campWithCut) {
+        const [cid, cr] = campWithCut;
+        const line = await _test.describeVoidRoom(getZone(cid) || { id: cid });
+        check('…and the room says so', /path goes off east/i.test(line || ''), (line || '').slice(0, 60));
+        check('…with what it saves, in tiles', new RegExp(`${cr.cutSaves} tiles`).test(line || ''),
+          `expected ${cr.cutSaves}`);
+        // ⚠ AND NEVER WHETHER IT IS PASSABLE. Finding the face by walking to it is the whole of what a
+        // cut risks; a hint here would refund the gamble before it was taken.
+        check('…and never whether it is walkable', !/pitch|sheer|blocked|cliff/i.test(line || ''));
+      }
+    }
+
+    // ⚠ A PITCH IS ONE ROLL PER CUT, NOT PER ROOM. At 12% per room a 30-room cut was walkable end to
+    // end 2% of the time — so nearly every shortcut a player weighed up and chose was a wasted walk,
+    // and "sometimes it refuses you" meant "always". This pins the shape: at most one face per cut.
+    {
+      const withPitch = [...bc.plan.rooms.values()].filter(r => r.kind === 'cut' && r.pitch);
+      const byCut = new Map();
+      for (const [id, r] of bc.plan.rooms) {
+        if (r.kind !== 'cut') continue;
+        const key = id.replace(/_\d+$/, '');
+        byCut.set(key, (byCut.get(key) || 0) + (r.pitch ? 1 : 0));
+      }
+      check('no cut carries more than one pitch', [...byCut.values()].every(n => n <= 1),
+        [...byCut.entries()].map(([k, n]) => `${k}:${n}`).join(' '));
+      check('…and a pitch is a minority of cuts, not all of them',
+        withPitch.length <= byCut.size, `${withPitch.length} pitches over ${byCut.size} cuts`);
+    }
+
+    // ── A DRIVER IS CARRIED PAST WHAT A WALKER WALKS INTO ─────────────────────
+    // Rolling down the road is not exposure: hijackers work a stopped cab and getting out puts you on
+    // foot, but a moving rig meets nothing. That used to be done by pre-marking `_crossing.seen` from
+    // trucking's crossToNode, which skipped the roll and SPENT it in the same move, so ground you had
+    // driven was quiet for the rest of the crossing. At one room per tile that would make a lift
+    // launder every tile it covered, so the rule is an explicit `mounted` flag on the event now.
+    {
+      const drive = _test.materialiseAll(bc).plan.limbs[bc.dests[0].key][1];
+      const before = new Set(player._crossing.seen);
+      _test.setEncounters(true);
+      emit('zone.entered', { actor: player, zone: drive, mounted: true });
+      check('a mounted traveller rolls no encounter', getZoneEnemies(drive).length === 0);
+      check('…and does not spend the room\'s roll either',
+        !player._crossing.seen.has(drive) || before.has(drive),
+        `seen=${player._crossing.seen.has(drive)}`);
+      _test.setEncounters(false);
+    }
+
+    // ── EVERY DECLARED HEADING GETS A GAMBLE ──────────────────────────────────
+    // Until 2026-08-21 detours needed an INTERIOR TRUNK room, so Coldwater (trunk 4) was the only
+    // void in the game with any: the Reach, Deadwater and the Scarletwastes run a trunk of 2 and
+    // Terminus a trunk of 1, and four fifths of the game's crossings had no detour at all with
+    // nothing to say so. The guarantee is PER ROUTE rather than per instance, because off a
+    // multi-limb fork one heading carrying the only gamble means the other two walk dry, which is
+    // the same bug one level down.
+    for (const d of bc.dests) {
+      const limb = bc.plan.limbs[d.key];
+      const route = [...bc.plan.trunk, ...limb];
+      const gambles = route.filter(id => bc.plan.detourIds.has(bc.plan.rooms.get(id)?.exits?.west));
+      check(`the ${d.key} route offers at least one detour`, gambles.length >= 1,
+        `limb=${limb.length} gambles=${gambles.length}`);
+
+      // ⚠ AND NEVER OFF A LIMB'S FIRST ROOM. That room spends one lateral exit, OPPOSITE[d.dir], on
+      // the way back to the fork, so for an `east` limb it is `west` itself. A detour written there
+      // would overwrite the only path back and read to the player as a gamble rather than as the
+      // dead end it is.
+      const head = bc.plan.rooms.get(limb[0]);
+      check(`the ${d.key} limb keeps its way back (no detour on room 0)`,
+        !!head && !bc.plan.detourIds.has(head.exits?.west),
+        `west=${head?.exits?.west}`);
+    }
     // The minimap payload must flag void rooms so the client swaps to crossing mode.
+    // ⚠ The detour has to be MADE for this: getMinimapData walks exits from a real zone, so a planned
+    // room that is currently outside the window is correctly invisible to it. Materialising on purpose
+    // keeps this a test of the minimap payload rather than an accidental test of the window radius.
+    _test.materialiseAll(bc);
     const mmNodes = getMinimapData(bc.entry, 8, player);
     const mmEntry = mmNodes.find(n => n.id === bc.entry);
     const mmDetour = mmNodes.find(n => n.id === detourId);
@@ -229,10 +561,18 @@ export default async function regress({ run, check, getPlayer }) {
     check('the encounter pack scales to the party, capped',
       _test.foesFor(set(1)) === 1 && _test.foesFor(set(4)) === 2 && _test.foesFor(set(20)) === _test.MAX_VOID_FOES,
       `1→${_test.foesFor(set(1))} 4→${_test.foesFor(set(4))} 20→${_test.foesFor(set(20))}`);
-    // Hard nodes: seeded (a minority of rooms), and spawn one past the cap.
-    const hs = Array.from({ length: 60 }, (_, i) => _test.isHardNode('region_coldwater', 5, `probe${i}`));
-    check('hard nodes are a seeded minority of rooms',
-      hs.some(Boolean) && hs.some(x => !x) && hs.filter(Boolean).length < 30, `hard=${hs.filter(Boolean).length}/60`);
+    // ⚠ THE SAMPLE HAD TO GROW WITH THE DENSITY FLIP, AND THE ASSERTION GOT BETTER FOR IT.
+    // Hard nodes were ~1 in 5 ROOMS across a walk of eight, so sixty probes was generous. They are
+    // ~1 in 50 TILES now (0.22 → 0.02, or the 282-tile haul would carry sixty-two of them and
+    // "bad ground" would stop meaning anything), and sixty probes of a 2% event comes back empty
+    // more often than not. So this pins the RATE rather than merely that both outcomes occur —
+    // which is what it was reaching for all along.
+    const N = 2000;
+    const hs = Array.from({ length: N }, (_, i) => _test.isHardNode('region_coldwater', 5, `probe${i}`));
+    const hardRate = hs.filter(Boolean).length / N;
+    check('hard nodes are a seeded minority of tiles',
+      hs.some(Boolean) && hs.some(x => !x) && hardRate > 0.005 && hardRate < 0.06,
+      `rate=${hardRate.toFixed(4)} over ${N}`);
     check('the hard-foe roster loads (tougher tier)', _test.hardFoePool().length > 0, `hard=${_test.hardFoePool().length}`);
     const hardRoom = [...ec.roomSet].filter(id => id !== ec.entry && id !== foeRoom)[0];
     getZone(hardRoom).flags.void_hard = true;
@@ -289,8 +629,8 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Salvage (Slice 5): scavenge a void room, once, Scavenging-gated ───────
     player.current_zone = GATE; player._lastStepAt = 0;
     await launch();
-    const lc = _test.crossings.get(player._crossing.instanceId);
-    const lcBig = _test.bigScoreSalt(lc.voidKey, lc.window, VOIDS[lc.voidKey].trunk);
+    const lc = _test.materialiseAll(_test.crossings.get(player._crossing.instanceId));
+    const lcBig = _test.bigScoreSalt(lc.voidKey, lc.window, lc.plan.trunkLen);
     const spineRooms = [...lc.roomSet].filter(id => id !== lc.entry && !lc.detourSet.has(id) && getZone(id).flags.void_salt !== lcBig);
     // Three distinct un-salvaged rooms are needed below (good roll, repeat, bad roll,
     // unforced roll). Assert the fixture rather than indexing off the end — a seed that
@@ -332,8 +672,8 @@ export default async function regress({ run, check, getPlayer }) {
     _test.setSalvage(1);
     player.current_zone = GATE; player._lastStepAt = 0;
     await launch();
-    const pc = _test.crossings.get(player._crossing.instanceId);
-    const bsSalt = _test.bigScoreSalt(pc.voidKey, pc.window, VOIDS[pc.voidKey].trunk);
+    const pc = _test.materialiseAll(_test.crossings.get(player._crossing.instanceId));
+    const bsSalt = _test.bigScoreSalt(pc.voidKey, pc.window, pc.plan.trunkLen);
     const packRoom = [...pc.roomSet].find(id => /reach|exodus/.test(getZone(id).flags.void_salt)); // a limb room (not the trunk big-score)
     const packSalt = getZone(packRoom).flags.void_salt;
     await traces.addTrace(pc.voidKey, pc.window, packSalt, 'corpse', 'Kaz', 'killed by a rad-mutant', ['item_water_bottle', 'item_scrap_metal']);
@@ -349,7 +689,7 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Slice 5b: the weekly big score (claimed globally, first-come) ─────────
     player.current_zone = GATE; player._lastStepAt = 0;
     await launch();
-    const gc = _test.crossings.get(player._crossing.instanceId);
+    const gc = _test.materialiseAll(_test.crossings.get(player._crossing.instanceId));
     const bsRoom = [...gc.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
     player.current_zone = bsRoom;
     const bs = await run('loot');
@@ -360,7 +700,7 @@ export default async function regress({ run, check, getPlayer }) {
     // A later crosser (fresh instance, same window/salt) finds it already gone.
     player.current_zone = GATE; player._lastStepAt = 0;
     await launch();
-    const gc2 = _test.crossings.get(player._crossing.instanceId);
+    const gc2 = _test.materialiseAll(_test.crossings.get(player._crossing.instanceId));
     player.current_zone = [...gc2.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
     const bs2 = await run('loot');
     check('the big score is gone for the next crosser (claimed globally)', !/the prize this stretch/i.test(bs2?.message || ''), bs2?.message?.slice(0, 60));

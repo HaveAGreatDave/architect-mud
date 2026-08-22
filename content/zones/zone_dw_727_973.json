@@ -10,7 +10,7 @@
     "Tyre ruts, old ones, pressed into the grey and never rained back out."
   ],
   "ambient_theme": "wasteland",
-  "description": "The front of the old flow, where it stopped: a wall of black rock standing clear of the ash, rubbly at the top and sheer in the middle, undercut at the foot where the weather has been at the softer bed under it. There is no way up it here. It runs off in both directions along the same line.",
+  "description": "Something molten ran down this face and did not quite make it to the bottom before it stopped being liquid. What it left is a channel with walls, which is the difference between a climb and a fall.",
   "exits": {
     "east": "zone_dw_728_973",
     "north": "zone_dw_727_972",
@@ -22,13 +22,14 @@
     "lawless": true,
     "no_spawn": true,
     "region_id": "region_deadwater",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 727,
   "grid_y": 973,
   "grid_z": 0,
   "id": "zone_dw_727_973",
   "map_id": "map_world",
-  "name": "Stopline",
+  "name": "The Cooled Gully",
   "parent_zone": null
 }
+

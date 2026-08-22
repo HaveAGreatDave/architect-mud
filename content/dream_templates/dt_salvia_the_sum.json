@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A number is said. It was you.",
+    "The addition passes over you and continues downward.",
+    "The column is ruled again, one line further on."
+  ],
+  "cause": "drug",
+  "description": "You are a figure in a column, and the column is being added up by something that will not check its work twice. There is a number above you and a number below you and you are between them, and that is the whole of what you are. The total is going to be correct.",
+  "drug_id": "drug_salvia",
+  "fx": "fog",
+  "fx_intensity": 0.2,
+  "id": "dt_salvia_the_sum",
+  "name": "The Sum",
+  "objects": [
+    {
+      "looks": [
+        "It goes up out of sight and down out of sight and you are one line of it.",
+        "The figures either side of you were probably also people.",
+        "It is neat. Somebody rules these."
+      ],
+      "name": "the column"
+    },
+    {
+      "looks": [
+        "Uninterested, fast, and accurate.",
+        "It says a number, and the number is you, and then it says the next one.",
+        "It has done this column before and it will do it again afterwards."
+      ],
+      "name": "the one adding"
+    }
+  ],
+  "weather": "There is no weather in a column of figures, and there never has been."
+}

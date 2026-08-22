@@ -17,7 +17,7 @@ import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
 import { isSneaking } from '../stealth.js';
 import { isDreamZone, pushDreamFx } from '../dreamscape.js';
-import { registerMoveGate, runMoveGates } from '../movement-gates.js';
+import { registerMoveGate, runMoveGates, climbCheck } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment, isResidentOf, getBuildingName } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
@@ -130,20 +130,47 @@ registerMoveGate(async ({ player, opts }) => {
 // Deleting the edges instead would mean a terrain stroke silently rewrites world
 // geometry, and repainting it back would not restore what it removed.
 //
-// No climb, deliberately, and no GEAR exemption. A wall you can sometimes get over
-// is not a funnel, it is a difficulty check, and the whole value of the feature is
-// that a player can look at the map and KNOW where the ways through are. If a climb
-// is ever wanted it goes here, as one named exemption, the way bypassEncumbrance is.
+// FLIGHT is the first named exemption, added 2026-08-13. It takes a body that grew
+// wings, which is a Wildblood mutagen outcome at high expression and costs you your
+// torso armour slot permanently.
 //
-// FLIGHT is that one named exemption, added 2026-08-13. It is deliberately not a
-// gear exemption and cannot become one: nothing you can buy, steal or carry opens
-// a cliff. It takes a body that grew wings, which is a Wildblood mutagen outcome
-// at high expression and costs you your torso armour slot permanently. The map
-// still reads true for everybody who did not do that, which was the property the
-// no-climb rule was protecting.
+// CLIMBING is the second, added 2026-08-21, and it is a GEAR exemption — which the
+// rule written here used to forbid outright, in these words:
+//
+//   > No climb, deliberately, and no GEAR exemption. A wall you can sometimes get
+//   > over is not a funnel, it is a difficulty check, and the whole value of the
+//   > feature is that a player can look at the map and KNOW where the ways through
+//   > are.
+//
+// ⚠ THAT SENTENCE IS STILL THE LAW; WHAT CHANGED IS WHERE IT BINDS. Read it again
+// and the objection is to "sometimes" and to "you cannot see it coming" — not to
+// rope. Both survive here, because the exemption is not a property of the GEAR, it
+// is a property of the TILE:
+//
+//   • Bare `cliff` has no `climbable` prop and never will. It is absolutely
+//     impassable to everything but wings, exactly as before. Nothing you can buy,
+//     steal or carry opens one.
+//   • A `scree` tile is PAINTED — its own terrain, its own fill, its own minimap
+//     class. A player looking at the map still KNOWS where the ways through are;
+//     there is simply one more kind of way through, and it is drawn.
+//   • Passage is DETERMINISTIC. Gear or no gear, stamina or no stamina — never a
+//     roll. "Sometimes" is what the rule forbade, and a climb is never sometimes.
+//     (The Climbing skill scales the COST, the way Swimming scales a stroke; it
+//     does not decide the outcome.)
+//
+// The engine owns the law and the property and knows nothing about rope: what a
+// climber needs is asked of `climbCheck`, and every word of the refusal is the
+// provider's. See the ⚠ in movement-gates.js for why it fails closed.
 registerMoveGate(async ({ player, to }) => {
-  if (!to || propsOf(to.id).passable) return;
+  if (!to) return;
+  const props = propsOf(to.id);
+  if (props.passable) return;
   if (mutationFlag(player, 'flight')) return;
+  if (props.climbable) {
+    const verdict = await climbCheck(player, to);
+    if (verdict?.ok) return;
+    if (verdict?.message) return { block: true, message: verdict.message };
+  }
   return { block: true, message: 'The rock goes up sheer in front of you. There is no way up it here.' };
 }, 'engine:impassable-terrain');
 

@@ -12,7 +12,7 @@
     "Absolutely nothing happens for a while, at considerable scale."
   ],
   "ambient_theme": "wasteland",
-  "description": "The rim of the tableland, a clean red face of it going up out of reach. There is no way up here. There is a way up somewhere, and this is not it. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "A slab has come away from the rim at some point and landed in pieces that happen to be stacked. It is not a stair and calling it one is optimism, but the pieces go up in the right order and the top of them is the top.",
   "exits": {
     "east": "zone_terminus_1207_954",
     "north": "zone_terminus_1206_953",
@@ -21,13 +21,14 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1206,
   "grid_y": 954,
   "grid_z": 0,
   "id": "zone_terminus_1206_954",
   "map_id": "map_world",
-  "name": "The Long Quiet",
+  "name": "The Broken Stair",
   "parent_zone": null
 }
+

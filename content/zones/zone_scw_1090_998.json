@@ -10,7 +10,7 @@
     "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "The face of the tableland: a hundred feet of banded rock with nothing on it but the marks of the rain, and a fan of fallen stone piled at the foot where pieces of it have given up over the years.",
+  "description": "The wall has been shedding itself down onto the flat for a very long time, and the pile it has made reaches better than halfway up. The last part is rock; everything under it is the wall in smaller pieces, and it moves when you do.",
   "exits": {
     "east": "zone_scw_1091_998",
     "north": "zone_scw_1090_997",
@@ -22,13 +22,14 @@
     "no_spawn": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1090,
   "grid_y": 998,
   "grid_z": 0,
   "id": "zone_scw_1090_998",
   "map_id": "map_world",
-  "name": "The Rimrock",
+  "name": "Talus Fan",
   "parent_zone": null
 }
+

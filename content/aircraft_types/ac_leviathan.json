@@ -17,7 +17,7 @@
   "max_takeoff_weight": 1400,
   "name": "Leviathan",
   "noise": 3,
-  "price_buy": 60000,
+  "price_buy": 26000,
   "price_rent_hourly": 900,
   "seats": 6,
   "takeoff_mode": "strip"

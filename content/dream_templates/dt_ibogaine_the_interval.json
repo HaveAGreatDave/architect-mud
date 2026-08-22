@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The dry buzzing continues through the interval, in case you thought it was over.",
+    "Nothing resumes. Nothing has ended either.",
+    "The pause holds, exactly as long as it is going to hold."
+  ],
+  "cause": "drug",
+  "description": "The playback has stopped for a moment, and there is nowhere to go and nothing to do with the moment. Everything you have just been shown is still in the room, at rest, waiting to resume. Nobody is asking you for a verdict. There is going to be more.",
+  "drug_id": "drug_ibogaine",
+  "fx": "ash",
+  "fx_intensity": 0.4,
+  "id": "dt_ibogaine_the_interval",
+  "name": "The Interval",
+  "objects": [
+    {
+      "looks": [
+        "It has not been put away. It is paused, and it keeps.",
+        "You can look at any of it for as long as you like, which is the difficulty.",
+        "None of it has moved since it stopped."
+      ],
+      "name": "what is still in the room"
+    },
+    {
+      "looks": [
+        "Not restful. A gap in something that is going to continue.",
+        "You could use it for something. There is nothing here to use it for.",
+        "It has a length, and you can feel the whole length of it."
+      ],
+      "name": "the moment"
+    }
+  ],
+  "weather": "The night outside has not moved on at all, and it will not until this does."
+}

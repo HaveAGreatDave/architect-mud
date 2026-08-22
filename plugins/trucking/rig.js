@@ -24,7 +24,7 @@
 //     the client model already takes. So the bench cannot drift from the drive: there is no second
 //     copy of the tuning maths in cab-view.js, and there is nothing for one to drift from.
 //     (This is also what finally fixed a much older bug — the cab was hardcoded to TYPES.hauler,
-//     so every truck in the game drove like the 4,200₵ Courier no matter what you had bought.)
+//     so every truck in the game drove like the 3,400₵ Courier no matter what you had bought.)
 //
 //  3. A TUNE IS A TRADE, NEVER AN UPGRADE. Every knob here gives with one hand and takes with the
 //     other, because a dial whose right answer is always "+1" is not a choice, it is a chore you

@@ -2962,7 +2962,7 @@ const _truckKeys = [];
 // Local axes match the rest of the file: [fore, right, up], roughly ±0.5 fore and ±0.2 lateral, so
 // it sits in the same normalised box the airframes do and CONTACT_SIZE scales it like anything else.
 // FOUR TRUCKS, NOT ONE PAINTED FOUR WAYS. The first cut built a single box set and handed it to
-// every type, so the 1,300₵ Krell Barrow and the 31,000₵ Orlov Continental had the same silhouette
+// every type, so the 1,300₵ Krell Barrow and the 16,500₵ Orlov Continental had the same silhouette
 // — which quietly undid the fleet ladder, since the whole reason to want the next truck up is that
 // it is visibly a bigger animal. Each row is a PROPORTION set, not a model: the same builder runs
 // four times with different numbers, so a fifth truck is a row and never a function.
@@ -3641,7 +3641,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // NO FITTING IS EVER LOAD-BEARING GEOMETRY. Nothing here publishes a pod, moves a lamp station,
   // changes the door rectangle or touches the kingpin. A fitting is faces and nothing else, so
   // there is no configuration of them that can put a truck's lights, its decal or its trailer in
-  // the wrong place — which is what keeps twenty parts from being twenty ways to break one mesh.
+  // the wrong place — which is what keeps thirty-eight parts from being thirty-eight ways to break one mesh.
   const FITS = new Set(String(str).match(/\^([a-z.]+)/)?.[1].split('.') || []);
   const fitStart = faces.length;
   if (FITS.size) {
@@ -3675,6 +3675,58 @@ function buildTruck(variant = 'hauler', detail = 1) {
       box(barF - 0.004, barF + 0.026, 0.030, 0.052, 0.086, 'strut');
       box(barF + 0.002, barF + 0.020, 0.034, 0.060, 0.078, 'gear');                       // the drum, wider than its cradle
       box(barF + 0.024, barF + 0.030, 0.016, 0.058, 0.076, 'window', CHROME);             // the fairlead plate
+    }
+    if (FITS.has('sx')) {                        // Spike Rack — rebar, cut, sharpened, stood up in a row
+      box(barF - 0.004, barF + 0.008, S.w * 0.98, 0.050, 0.060, 'strut');
+      for (const g of [-0.84, -0.50, -0.17, 0.17, 0.50, 0.84]) {
+        // Three shrinking boxes UP the axis rather than along it — the tusk trick stood on end,
+        // which is the only way a point reads at a scale where a cone costs a dozen facets.
+        for (let i = 0; i < 3; i++) {
+          const k = 1 - i * 0.3;
+          box(barF - 0.003, barF + 0.007, 0.005 * k, 0.060 + i * 0.016, 0.076 + i * 0.016, 'strut', null, g * S.w);
+        }
+      }
+    }
+    if (FITS.has('gb')) {                        // Grader Blade — a mouldboard on an angle, so what it catches goes SIDEWAYS
+      // The whole read is the rake: a blade square across the nose is a ram plate, and a blade with
+      // one corner low is a machine that clears a road. So the two long edges are at different
+      // heights left and right, which a box cannot be and a quad is for free.
+      poly('strut', 0.80, [[barF + 0.004, -S.w * 1.10, 0.024], [barF + 0.004, S.w * 1.10, 0.050],
+                           [barF + 0.036, S.w * 1.06, 0.106], [barF + 0.036, -S.w * 1.06, 0.080]]);
+      poly('gear', 0.52, [[barF + 0.004, -S.w * 1.10, 0.024], [barF + 0.004, S.w * 1.10, 0.050],
+                          [barF - 0.006, S.w * 1.06, 0.058], [barF - 0.006, -S.w * 1.06, 0.032]]);   // the mouth, under the lip
+      box(barF + 0.030, barF + 0.040, S.w * 1.05, 0.098, 0.108, 'window', CHROME);        // the top edge, polished by use and nothing else
+      for (const g of [-1, 1]) box(barF - 0.028, barF + 0.006, 0.008, 0.044, 0.068, 'strut', null, g * S.w * 0.66);   // the rams back to the frame
+    }
+
+    // ── SCREEN ──
+    // ⚠ EVERYTHING HERE LIVES IN THE WINDSCREEN'S OWN RAKED PLANE, AND STANDS AHEAD OF IT. The
+    // screen is a single `poly`, the painter's sort gives a face ONE depth, and the rule the grille
+    // fins are placed by applies here word for word — NOTHING ON THE FACE MAY SHARE A FORE-AFT
+    // SLICE WITH THE PANEL BEHIND IT. A bar authored in the glass plane is a bar the glass paints
+    // over from one side of the truck and not the other.
+    //
+    // So `scrP` is that plane parameterised 0 (sill) to 1 (header) and pushed forward by `SD`, and
+    // every piece below is quads in it. Nothing here is a box: a box has a fore-aft thickness and
+    // the plane is raked, so a box on it is a brick lying against a slope.
+    if (FITS.has('zm') || FITS.has('zp') || FITS.has('zb')) {
+      const SD = 0.010;
+      const scrP = (t, g) => [scrF0 + (scrF1 - scrF0) * t + SD, g, scrLo + (scrHi - scrLo) * t];
+      const scrQ = (role, sh, t0, t1, g0, g1, tint) =>
+        poly(role, sh, [scrP(t0, g0), scrP(t0, g1), scrP(t1, g1), scrP(t1, g0)], tint);
+      if (FITS.has('zm')) {                      // Screen Mesh — rebar bent to the rake, welded at every crossing
+        for (let i = -3; i <= 3; i++) scrQ('strut', 0.86, 0.03, 0.97, (i - 0.10) * scrW * 0.27, (i + 0.10) * scrW * 0.27);
+        for (const t of [0.26, 0.54, 0.82]) scrQ('strut', 0.92, t - 0.030, t + 0.030, -scrW, scrW);
+        for (const t of [0.03, 0.97]) scrQ('strut', 0.74, t - 0.026, t + 0.026, -scrW * 1.02, scrW * 1.02);   // the frame it is hung on
+      }
+      if (FITS.has('zp')) {                      // Slit Plate — boiler plate, and a hand's width of daylight
+        scrQ('gear', 0.88, 0.02, 0.44, -scrW * 1.02, scrW * 1.02);
+        scrQ('gear', 0.88, 0.60, 0.98, -scrW * 1.02, scrW * 1.02);
+        for (const g of [-1, 1]) scrQ('gear', 0.78, 0.44, 0.60, g * scrW * 0.58, g * scrW * 1.02);   // the cheeks either side of the slot
+        if (fine) for (const t of [0.09, 0.93]) for (let i = -2; i <= 2; i++)                        // the weld line
+          scrQ('strut', 1.00, t - 0.018, t + 0.018, i * scrW * 0.40 - scrW * 0.05, i * scrW * 0.40 + scrW * 0.05);
+      }
+      if (FITS.has('zb')) scrQ('window', 0.94, 0.80, 0.98, -scrW, scrW, [122, 70, 42]);   // Sun Strip — a band of dark tint, and the oldest thing a driver does
     }
 
     // ── ROOF ──
@@ -3710,6 +3762,29 @@ function buildTruck(variant = 'hauler', detail = 1) {
         box(f - 0.004, f + 0.004, w, roofZ + 0.008, roofZ + 0.008 + h, 'gear', null, g * S.w);
       }
     }
+    if (FITS.has('np')) {                        // Roof Parapet — plate up round the sleeper, CUT LOW at the front
+      // The low front wall is the whole sentence. A parapet all the same height is a luggage rack;
+      // one you could rest your elbows on at the front and nothing else is a firing position, and
+      // the model never says so anywhere but in that one number.
+      const f0 = cab1 - 0.150, f1 = cab0 + 0.008;
+      for (const g of [-1, 1]) box(f0, f1, 0.005, roofZ + 0.002, roofZ + 0.032, 'gear', null, g * S.w * 0.90);
+      box(f0, f0 + 0.007, S.w * 0.90, roofZ + 0.002, roofZ + 0.017, 'gear');
+      box(f1 - 0.007, f1, S.w * 0.90, roofZ + 0.002, roofZ + 0.032, 'gear');
+      if (fine) {
+        box(f0 + 0.026, f0 + 0.034, 0.008, roofZ + 0.017, roofZ + 0.050, 'strut', null, -S.w * 0.34);   // a stanchion
+        box(f0 + 0.024, f0 + 0.074, 0.010, roofZ + 0.006, roofZ + 0.020, 'gear', null, S.w * 0.36);     // and something rolled up against the wall
+      }
+    }
+    if (FITS.has('af')) {                        // Aerial Farm — five whips, none of them the same length
+      const f = cab0 + 0.006;
+      box(f - 0.004, f + 0.004, S.w * 0.82, roofZ, roofZ + 0.007, 'strut');
+      // IRREGULAR, for the reason written on the totem rack above: five whips at one height is an
+      // array somebody bought and five at five heights is a pile somebody assembled.
+      for (const [g, h] of [[-0.86, 0.086], [-0.42, 0.052], [0.04, 0.106], [0.50, 0.066], [0.88, 0.040]]) {
+        box(f - 0.002, f + 0.002, 0.002, roofZ + 0.007, roofZ + 0.007 + h, 'strut', null, g * S.w);
+        if (fine) box(f - 0.003, f + 0.003, 0.004, roofZ + 0.005 + h, roofZ + 0.009 + h, 'window', CHROME, g * S.w);   // the tip
+      }
+    }
 
     // ── STACKS ── (only where the truck has any: a scrapper has none, and a fitting that appears
     // on a truck with nothing to fit it to is worse than one that quietly does not)
@@ -3726,6 +3801,12 @@ function buildTruck(variant = 'hauler', detail = 1) {
         }
         if (FITS.has('sn')) {                    // Stack Sleeves — lit tubing wound up the pipe
           for (let k = 0; k < 4; k++) box(cab0 - 0.020, cab0 + 0.020, 0.019, 0.090 + k * 0.038, 0.100 + k * 0.038, 'window', ACCENT, g);
+        }
+        if (FITS.has('so')) {                    // Soot Pipes — tarred to the shield, and a rain flap sitting crooked
+          box(cab0 - 0.021, cab0 + 0.021, 0.020, stackTop - 0.034, stackTop + 0.004, 'gear', null, g);
+          // The flap is OFFSET rather than centred, because a rain cap that has ever been open
+          // never sits square again, and that is the entire difference between this and a new pipe.
+          box(cab0 - 0.026, cab0 + 0.010, 0.022, stackTop + 0.004, stackTop + 0.010, 'gear', null, g);
         }
       }
     }
@@ -3758,6 +3839,26 @@ function buildTruck(variant = 'hauler', detail = 1) {
         box(cab1 - 0.104, cab0 - 0.010, 0.010, 0.036, 0.040, 'window', ACCENT, gw + g * 0.018);   // lit underneath
         for (const f of [cab1 - 0.100, cab0 - 0.020]) box(f - 0.003, f + 0.003, 0.010, 0.047, 0.062, 'strut', null, gw + g * 0.014);
       }
+      if (FITS.has('xr')) {                      // Spear Rack — pipe racked where a ladder would go
+        for (const f of [cab1 - 0.096, cab0 + 0.024]) box(f - 0.004, f + 0.004, 0.013, S.hi * 0.28, S.hi * 0.42, 'strut', null, gw + g * 0.013);
+        // TWO OF THEM ARE GROUND TO A POINT AND TWO ARE JUST PIPE — the catalogue says so, so the
+        // mesh has to: the tapered pair get the shrinking-box treatment off the front end and the
+        // other two run out square.
+        for (let i = 0; i < 4; i++) {
+          const z = S.hi * 0.29 + i * 0.009, gg = gw + g * (0.009 + i * 0.0025);
+          box(cab1 - 0.104, cab0 + 0.030, 0.004, z, z + 0.005, 'gear', null, gg);
+          if (fine && i < 2) for (let k = 0; k < 3; k++) {
+            const kk = 1 - k * 0.3;
+            box(cab1 - 0.104 - (k + 1) * 0.009, cab1 - 0.104 - k * 0.009, 0.004 * kk, z + 0.0025 - 0.0025 * kk, z + 0.0025 + 0.0025 * kk, 'strut', null, gg);
+          }
+        }
+      }
+      if (FITS.has('hd')) {                      // Hide Drape — skins on a rail, weighted at the hem
+        box(cab1 - 0.118, cab1 - 0.022, 0.004, S.hi * 0.60, S.hi * 0.645, 'strut', null, gw + g * 0.008);        // the rail
+        box(cab1 - 0.112, cab1 - 0.028, 0.005, S.hi * 0.20, S.hi * 0.61, 'body', [98, 76, 56], gw + g * 0.006);  // the skins
+        if (fine) for (let i = 0; i < 4; i++)                                                                    // the weights, one per panel
+          box(cab1 - 0.108 + i * 0.022, cab1 - 0.100 + i * 0.022, 0.004, S.hi * 0.165, S.hi * 0.205, 'gear', null, gw + g * 0.008);
+      }
     }
 
     // ── UNDERLIGHTS ──
@@ -3775,6 +3876,20 @@ function buildTruck(variant = 'hauler', detail = 1) {
       box(f + 0.026, f + 0.032, 0.026, 0.030, 0.052, 'window', ACCENT, g);
     }
     if (FITS.has('bn')) for (const g of [-1, 1]) box(cab0 + 0.014, cab1 - 0.014, 0.004, S.hi * 0.425, S.hi * 0.455, 'window', ACCENT, g * S.w);
+    // The one thing in this slot that is not a light, and it is here rather than under the flanks
+    // because it is a thing about the ROAD under the truck — which is what the slot is for.
+    if (FITS.has('dc')) for (const g of [-1, 1]) {   // Drag Chains — hung off both rails, sweeping
+      box(frame0 + 0.020, cab1 - 0.060, 0.004, 0.026, 0.030, 'strut', null, g * S.w * 0.64);
+      const span = (cab1 - 0.060) - (frame0 + 0.020);
+      for (let i = 0; i < 5; i++) {
+        // Uneven lengths, and the shortest is not at either end: a set of chains all reaching the
+        // same point is a curtain, and what this is meant to read as is five separate chains that
+        // have each been dragged a different distance.
+        const drop = [0.020, 0.006, 0.017, 0.009, 0.014][i];
+        box(frame0 + 0.028 + i * (span - 0.016) / 4 - 0.003, frame0 + 0.028 + i * (span - 0.016) / 4 + 0.003,
+          0.003, 0.026 - drop, 0.028, 'gear', null, g * S.w * 0.64);
+      }
+    }
 
     // ── BACK END ──
     if (FITS.has('ch')) {                        // Chain Rack — loops of load chain, swinging
@@ -3794,11 +3909,29 @@ function buildTruck(variant = 'hauler', detail = 1) {
       box(cab0 - 0.006, cab0 - 0.002, 0.003, 0.070, roofZ + 0.070, 'strut', null, g);
       box(cab0 - 0.006, cab0 + 0.022, 0.002, roofZ + 0.020, roofZ + 0.062, 'body', null, g);
     }
+    if (FITS.has('ct')) {                        // Scrap Hopper — a bin on the headboard, and a chute out the back of it
+      box(cab0 - 0.046, cab0 - 0.012, 0.052, 0.076, 0.124, 'gear');
+      box(cab0 - 0.050, cab0 - 0.008, 0.056, 0.124, 0.131, 'strut');                       // the lip round the mouth
+      box(cab0 - 0.056, cab0 - 0.036, 0.028, 0.054, 0.078, 'strut');                       // the chute, and where it is aimed is the joke
+      if (fine) {
+        for (const g of [-1, 1]) box(cab0 - 0.042, cab0 - 0.016, 0.005, 0.131, 0.146, 'gear', null, g * 0.038);   // what is standing proud of the load
+        box(cab0 - 0.034, cab0 - 0.022, 0.020, 0.131, 0.140, 'gear');
+      }
+    }
+    if (FITS.has('wb')) {                        // Water Bowser — four hundred litres, and a tap at the bottom
+      box(cab0 - 0.062, cab0 - 0.010, 0.058, 0.076, 0.126, 'body');
+      for (const z of [0.086, 0.114]) box(cab0 - 0.064, cab0 - 0.008, 0.060, z, z + 0.005, 'strut');   // the straps holding it upright
+      box(cab0 - 0.038, cab0 - 0.028, 0.011, 0.126, 0.136, 'strut');                                   // the filler
+      // THE TAP IS THE WHOLE POINT AND IT IS FOUR MILLIMETRES OF BOX. Out there a tank is a thing
+      // you own; a tank with a tap on the outside is a thing other people can be given some of, and
+      // that is the sentence this fitting is for.
+      if (fine) box(cab0 - 0.070, cab0 - 0.060, 0.006, 0.062, 0.080, 'window', CHROME);
+    }
 
     // ── MASCOT ──
     // On the bonnet where there is one, and on the cowl where there is not — `S.nose` is zero on a
     // cab-over, and a mascot floating a hand's width ahead of the windscreen is worse than none.
-    if (FITS.has('sk') || FITS.has('cb') || FITS.has('dh')) {
+    if (FITS.has('sk') || FITS.has('cb') || FITS.has('dh') || FITS.has('wi')) {
       const mF = S.nose > 0.02 ? nose1 - 0.030 : cab1 - 0.020;
       const mZ = S.nose > 0.02 ? 0.128 : S.hi * 0.96;
       if (FITS.has('sk')) {                      // Bleached Skull
@@ -3810,6 +3943,16 @@ function buildTruck(variant = 'hauler', detail = 1) {
       if (FITS.has('dh')) {                      // Doll Head
         box(mF - 0.008, mF + 0.008, 0.009, mZ, mZ + 0.016, 'body', [222, 196, 176]);
         for (const g of [-1, 1]) box(mF + 0.006, mF + 0.009, 0.002, mZ + 0.008, mZ + 0.011, 'glass', [30, 40, 60], g * 0.004);
+      }
+      if (FITS.has('wi')) {                      // Wheel Idol — a steering wheel stood upright, FACING THE ROAD
+        // A ring is four bars at this scale (the same answer the lifter halos give), and the plane
+        // it stands in is what the fitting means: across the truck, not along it, so the thing is
+        // presented to what is coming rather than to the person driving.
+        box(mF - 0.005, mF + 0.005, 0.007, mZ, mZ + 0.009, 'strut');                                  // the plinth
+        for (const z of [mZ + 0.009, mZ + 0.045]) box(mF - 0.002, mF + 0.002, 0.021, z, z + 0.004, 'window', CHROME);
+        for (const g of [-1, 1]) box(mF - 0.002, mF + 0.002, 0.003, mZ + 0.009, mZ + 0.049, 'window', CHROME, g * 0.019);
+        box(mF - 0.003, mF + 0.003, 0.005, mZ + 0.025, mZ + 0.033, 'window', CHROME);                 // the boss
+        if (fine) for (const g of [-1, 1]) box(mF - 0.002, mF + 0.002, 0.010, mZ + 0.027, mZ + 0.031, 'strut', null, g * 0.010);   // and its spokes
       }
     }
   }

@@ -845,6 +845,11 @@ export const TERRAIN_STEP = {
   redrock: 'stone', hardpan: 'stone', alkali: 'stone', basalt: 'stone',
   cliff: 'stone', plateau: 'stone', ramp: 'stone',
   dirt_road: 'dirt', dirt: 'dirt',
+  // ⚠ THE ONE HEIGHT TERRAIN THAT IS NOT `stone`, and the difference is the point.
+  // Its three siblings are solid rock you walk on; scree is the same rock in pieces,
+  // and a body going up it is displacing them the whole way. `gravel` is exactly
+  // that sound and already exists — a climb should be audibly loose underfoot.
+  scree: 'gravel',
   gravel: 'gravel', sand: 'sand',
   grass: 'grass', park: 'grass',
   scrub: 'scrub', forest: 'scrub', deadwood: 'scrub',

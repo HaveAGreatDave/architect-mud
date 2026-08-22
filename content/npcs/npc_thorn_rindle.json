@@ -217,6 +217,11 @@
       "item_id": "item_wb_mutagen",
       "min_trust": 3,
       "price": 4000
+    },
+    {
+      "item_id": "item_climbing_rack",
+      "min_trust": 0,
+      "price": 275
     }
   ],
   "vendor_restock_rate": 1,
@@ -227,3 +232,4 @@
   "wanders": 0,
   "work_zone_id": "zone_thorn_rindles"
 }
+

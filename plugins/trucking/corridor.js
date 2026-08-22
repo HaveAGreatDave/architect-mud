@@ -44,10 +44,20 @@
 // It was `floor(s / TILES_PER_ROOM)` written out in five files; a room is a fraction of the road's
 // real length now, so that division has one home. See roomLenOf below.
 
-// Kept in step with plugins/voidwalking (TILES_PER_ROOM = 90). It is not exported from there as a
-// public name, and importing the plugin for one integer would drag its whole boot in; the regress
-// suite asserts the two agree, so a change there fails here loudly rather than silently halving
-// the length of every haul.
+// WHAT A ROOM IS WORTH ON A ROAD WITH NO ANCHOR — this file's number, owned here, kept in step with
+// nothing.
+//
+// ⚠ THIS COMMENT USED TO CLAIM A GUARD THAT DID NOT EXIST. It read "kept in step with
+// plugins/voidwalking (TILES_PER_ROOM = 90)… the regress suite asserts the two agree, so a change
+// there fails here loudly". Both halves were false: voidwalking DID export its copy (through
+// `_test`), and no test anywhere compared them. The copy was also dead — every use over there had
+// moved to `ROOM_TILES = 12` when the room count became derived from real gate-to-gate distance —
+// so the answer was to delete it rather than to write the missing assertion, which would have been
+// asserting agreement between a live constant and an unread one.
+//
+// Every ANCHORED road carries its own `roomLen` (= L / nodes) and divides by that instead. This is
+// reached only by the legacy local frame: routes built with no anchor, and the hand-made ones in
+// the regress suite.
 export const TILES_PER_ROOM = 90;
 
 // ── WHICH VOID ROOM AN ODOMETER READING IS IN ────────────────────────────────
@@ -136,6 +146,9 @@ export const OFFROAD_R = CORRIDOR_R * 4;
 // plan. Every test that passed no plan built no signs and never touched it.
 export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
 import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
+// ⚠ ONE DEFINITION OF WHERE THE TRAIL RUNS. voidwalking lays its rooms at this offset and the road
+// names the band it crosses, so the two would disagree the first time either was tuned if this were
+// copied. The edge is one-way and already exists (trucking imports voidwalking, never the reverse).
 
 // ── Seeding (mirrors plugins/voidwalking) ────────────────────────────────────
 function hashSeed(str) {
@@ -253,6 +266,204 @@ function wrapDeg(d) { return ((d % 360) + 540) % 360 - 180; }
 // "toward the target" gets more specific the closer it gets. There is no separate convergence
 // term and no blend weight — the leash was always a homing device, it was just homing on a
 // compass point instead of on a place.
+// ── THE WALKING TRAIL, AS ITS OWN PATH ───────────────────────────────────────
+//
+// The trail used to be an OFFSET: a lateral displacement of the road's own arc-length parameter. That
+// is fine for saying where a walker is beside a truck and it makes one thing impossible — an offset
+// follows the road round every bend by construction, so it can never be shorter than the road.
+//
+// It is two things now, and the split is the point:
+//
+//   • the SHADOW — a polyline that follows the road at a lateral offset, swinging in to touch it at
+//     every camp. This is the SPINE of a crossing: the rooms a walker walks by default and the chain
+//     a driver's odometer maps onto, so it stays a simple ordered line from gate to gate.
+//   • the CUTS — the chord between two consecutive camps, over whatever the road went round. A cut is
+//     a BRANCH off the spine that rejoins it, not a replacement for it.
+//
+// ⚠ BOTH EXIST AT ONCE, AND THAT IS WHAT MAKES A CUT A DECISION. It used to be one or the other,
+// seeded: the week decided whether you got a shortcut. Now the week decides which shortcuts are OPEN
+// and you decide whether to take one — distance on one side, risk on the other. It is also what keeps
+// the promise that a refused cut is a loss and never a dead end: the long way round is always there,
+// because the spine never stopped being the spine.
+//
+// ⚠ A CAMP IS WHERE THE ROAD IS BACK ON COURSE, AND THAT IS WHY ANY OF THIS SAVES DISTANCE. Camps used
+// to sit at a fixed spacing, which puts one wherever the arc-length lands — INCLUDING IN THE MIDDLE OF
+// A DETOUR. Because the trail must touch every camp it then walked round the mesa as dutifully as the
+// road did, and the whole model measured a few per cent LONGER than the road. Anchoring them where the
+// road's heading matches the bearing to its far gate puts them at the ENDS of detours, so the chord
+// between two of them crosses what the road avoided.
+const TRAIL_STEP = 4;           // how finely the trail is sampled, in tiles
+const TRAIL_OFFSET = 6;         // how far off the centreline the trail runs between camps
+const CAMP_OFFSET = 3;          // …and how close it comes at one: inside pulling-over range
+const CAMP_WIDTH = 5;           // the length of the swing in, each side
+const ON_COURSE_DEG = 10;       // how close to the bearing counts as "back on course"
+const CAMP_MIN_FRAC = 0.18;     // camps no closer together than this much of the crossing
+const CAMP_MIN_TILES = 30;
+const CUT_OPEN_CHANCE = 0.75;   // how often a cut that EXISTS is walkable this window
+const CUT_MIN_GAIN = 0.02;      // and it has to save something, or it is just a different walk
+
+export function campsOf(route) {
+  if (route._camps) return route._camps;
+  const out = [0];
+  const last = route.legs[route.legs.length - 1];
+  const brg = route.legs.length
+    ? bearingDegOf(last.x0 + last.ux - route.legs[0].x0, last.y0 + last.uy - route.legs[0].y0)
+    : 180;
+  const gap = Math.max(CAMP_MIN_TILES, route.L * CAMP_MIN_FRAC);
+  for (const leg of route.legs) {
+    if (Math.abs(wrapDeg(leg.deg - brg)) >= ON_COURSE_DEG) continue;
+    if (leg.s0 - out[out.length - 1] < gap) continue;
+    if (route.L - leg.s0 < gap * 0.5) continue;
+    out.push(leg.s0);
+  }
+  out.push(route.L);
+  route._camps = out;
+  return out;
+}
+
+function campPhase(route, s) {
+  let best = Infinity;
+  for (const c of campsOf(route)) { const d = Math.abs(s - c); if (d < best) best = d; }
+  return best;
+}
+
+// The trail's lateral offset at a point on the road. Smooth: a path that jumped from six tiles out to
+// three between one tile and the next is a corner rather than a track.
+export function trailOffsetOn(route, s) {
+  const d = campPhase(route, s);
+  if (d >= CAMP_WIDTH) return TRAIL_OFFSET;
+  const k = 0.5 - 0.5 * Math.cos((d / CAMP_WIDTH) * Math.PI);
+  return CAMP_OFFSET + (TRAIL_OFFSET - CAMP_OFFSET) * k;
+}
+export function isCampOn(route, s) { return campPhase(route, s) < 1.5; }
+
+// The trail: the shadow spine, the camps on it, and every cut that branches off it.
+//
+// Returns { pts, L, camps: [d…], cuts: [{ fromD, toD, len, saves, open }] } where every `d` is a
+// distance along the SHADOW, because that is what a room index is.
+export function trailFor(route, seedKey, window) {
+  if (!route?.legs?.length || !(route.L > 0)) return null;
+  const onRoad = (s) => { const p = corridorPos(route, s, trailOffsetOn(route, s)); return { x: p.x, y: p.y }; };
+  const anchors = campsOf(route);
+
+  // The shadow, sampled end to end, remembering where each camp fell along it.
+  const pts = [{ ...onRoad(0), s: 0, wayside: true }];
+  const campD = [0];
+  let L = 0, prev = pts[0];
+  const push = (p, wayside) => {
+    L += Math.hypot(p.x - prev.x, p.y - prev.y);
+    pts.push({ ...p, wayside });
+    prev = p;
+    return L;
+  };
+  for (let a = 0; a < anchors.length - 1; a++) {
+    for (let s = anchors[a] + TRAIL_STEP; s < anchors[a + 1]; s += TRAIL_STEP) push({ ...onRoad(s), s }, false);
+    campD.push(push({ ...onRoad(anchors[a + 1]), s: anchors[a + 1] }, true));
+  }
+
+  // The cuts: one candidate per pair of consecutive camps, kept only where the chord genuinely saves
+  // something. ⚠ Whether it is OPEN is seeded per window; whether it EXISTS is geometry. Those are
+  // different questions and conflating them is what made the week, rather than the player, decide.
+  const rng = mulberry32(hashSeed(`${seedKey}|${window}|cuts`));
+  const cuts = [];
+  for (let i = 0; i < campD.length - 1; i++) {
+    const fromD = campD[i], toD = campD[i + 1];
+    const a = trailPos({ pts, L }, fromD), b = trailPos({ pts, L }, toD);
+    if (!a || !b) continue;
+    const chord = Math.hypot(b.x - a.x, b.y - a.y);
+    const arc = toD - fromD;
+    const roll = rng();
+    if (!(arc > 0) || chord >= arc * (1 - CUT_MIN_GAIN)) continue;
+    cuts.push({ fromD, toD, len: chord, saves: arc - chord, open: roll < CUT_OPEN_CHANCE,
+      a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } });
+  }
+  return { pts, L, camps: campD, cuts };
+}
+
+// A point a given distance along a polyline. `d` is in tiles from the origin gate.
+export function trailPos(trail, d) {
+  const pts = trail?.pts;
+  if (!pts?.length) return null;
+  if (d <= 0) return { ...pts[0] };
+  let acc = 0;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const seg = Math.hypot(pts[k + 1].x - pts[k].x, pts[k + 1].y - pts[k].y);
+    if (acc + seg >= d) {
+      const t = seg > 0 ? (d - acc) / seg : 0;
+      const near = t < 0.5 ? pts[k] : pts[k + 1];
+      return {
+        x: pts[k].x + (pts[k + 1].x - pts[k].x) * t,
+        y: pts[k].y + (pts[k + 1].y - pts[k].y) * t,
+        wayside: near.wayside === true,
+      };
+    }
+    acc += seg;
+  }
+  return { ...pts[pts.length - 1] };
+}
+// ── THE COUNTRY THE ROAD CROSSES ─────────────────────────────────────────────
+//
+// Until this existed the road's bends were a coin flip. They looked like a road and they meant
+// nothing: there was no reason for the tarmac to go left here rather than right, and so no reason
+// for a walker to be able to cut the corner. The gap gets a seeded set of LANDFORMS — mesas, the
+// cliff-ringed kind the hand-painted world already uses — and the road prefers to go round them.
+//
+// ⚠ THE FIELD IS THE COUNTRY, NOT THE ROAD'S PRIVATE DATA. It is a pure function of (seed, window)
+// and the straight line between the two gates, so anything else crossing the same gap can ask the
+// same question and get the same answer. That is the whole point: the road bends because there is a
+// mesa there, and the walking trail's shortcut IS that mesa. One fact, two readings.
+//
+// ⚠ AND IT ONLY EXISTS ON AN ANCHORED ROAD. An unanchored corridor is the legacy local frame with no
+// real coordinates under it, and every pinned regress case is built on one — so the field is empty
+// there and the turn falls back to the coin flip it always was, character for character.
+const LANDFORM_EVERY = 90;     // roughly one mesa per this much gap
+const LANDFORM_R = [30, 70];   // how big one is, in tiles
+const LANDFORM_SPREAD = 22;    // how far off the straight line they sit
+const LOOKAHEAD = 130;         // how far down the road the builder can see one coming
+const AVOID_MARGIN = 14;       // clearance it tries to keep off the edge
+const AVOID_NEAR = 85;         // …and how close one has to be to cut a straight short and start turning
+
+export function landformsFor(seedKey, window, anch) {
+  if (!anch) return [];
+  const dx = anch.x1 - anch.x0, dy = anch.y1 - anch.y0;
+  const L = Math.hypot(dx, dy);
+  if (!(L > LANDFORM_EVERY / 2)) return [];
+  const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+  const rng = mulberry32(hashSeed(`${seedKey}|${window}|landform`));
+  const n = Math.max(1, Math.round(L / LANDFORM_EVERY));
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    // Spaced along the gap with a seeded wobble, so they are neither a grid nor a clump.
+    const along = Math.max(0, Math.min(L, ((i + 0.5) / n + (rng() - 0.5) * 0.35) * L));
+    const across = (rng() * 2 - 1) * LANDFORM_SPREAD;
+    const r = LANDFORM_R[0] + rng() * (LANDFORM_R[1] - LANDFORM_R[0]);
+    out.push({ x: anch.x0 + ux * along + nx * across, y: anch.y0 + uy * along + ny * across, r, along });
+  }
+  return out;
+}
+
+// Which way to turn to stay off the country ahead. −1 left, +1 right, 0 for "nothing in the way,
+// use the seed". Only the nearest thing actually in the path gets a vote: a road that tried to
+// average every mesa in the gap would wander in the middle of open ground.
+export function avoidTurn(field, x, y, hdg, reach = LOOKAHEAD) {
+  if (!field.length) return 0;
+  const th = hdg * D2R, ux = Math.sin(th), uy = -Math.cos(th);
+  const nx = -uy, ny = ux;
+  let best = null;
+  for (const m of field) {
+    const dx = m.x - x, dy = m.y - y;
+    const ahead = dx * ux + dy * uy;
+    if (ahead <= 0 || ahead > reach) continue;          // behind us, or too far to be steering for yet
+    const lat = dx * nx + dy * ny;                      // + is to the RIGHT of travel
+    if (Math.abs(lat) > m.r + AVOID_MARGIN) continue;   // we already clear it
+    if (!best || ahead < best.ahead) best = { ahead, lat };
+  }
+  if (!best) return 0;
+  // Away from the side it sits on. Dead ahead resolves right rather than by another coin flip: two
+  // roads meeting the same rock must agree, or the trunk two limbs share stops being one road.
+  return best.lat >= 0 ? -1 : 1;
+}
+
 export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, plan = null, anchor = null, seedKey = null) {
   const dests = plan?.dests || null;
   const n = Math.max(1, nodes | 0);
@@ -292,6 +503,9 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
   // character.
   const trunkRng = mulberry32(hashSeed(seedKey ? `${seedKey}|${window}|trunk` : `${voidKey}|${window}|trunk`));
   const limbRng = mulberry32(hashSeed(seedKey ? `${seedKey}|${window}|corridor` : `${voidKey}|${destKey}|${window}|corridor`));
+  // The country this road has to get across. Empty when unanchored, which is what keeps every
+  // legacy-frame route identical.
+  const field = landformsFor(seedKey || `${voidKey}|${destKey}`, window, anch);
   const legs = [];
   const bends = [];           // the s each ARC begins at — where the road changes direction (see signsFor)
   let s = 0, x = anch ? anch.x0 : 0, y = anch ? anch.y0 : 0;
@@ -354,6 +568,23 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
       kappa = away * (1 / minRadius) * R2D * (0.5 + limbRng() * 0.5);
       bends.push({ s, fork: true });
     }
+    // ⚠ A LANDFORM CUTS THE STRAIGHT SHORT, AND THAT IS HOW A ROAD GOES ROUND SOMETHING.
+    // Choosing the DIRECTION of a bend that was going to happen anyway only ever made the road lean
+    // away from the country; it never took it round anything, so there was no corner for a walker to
+    // cut and the trail could not be shorter than the road. Ending the straight early starts the bend
+    // where the rock is, which is what a surveyor would have done.
+    //
+    // ⚠ IT CHANGES WHEN A BEND BEGINS AND NOTHING ELSE. The leash still clamps the heading, the
+    // radius floor still holds, arcs and straights still alternate, and termination is untouched — so
+    // the convergence proof and the fold invariant are exactly as they were. A closer look-ahead than
+    // the steering one, because this is "it is in front of me now", not "it is somewhere ahead".
+    // ⚠ AND THE TURN IS HELD WHILE IT IS STILL BLOCKED. Starting a bend at the rock is half of going
+    // round one; the other half is not straightening out again halfway past it because the arc ran to
+    // its scheduled length. Extending `hold` while the same obstruction is still ahead and the road is
+    // already turning away from it is what makes the detour a detour rather than a swerve.
+    const blk = avoidTurn(field, x, y, hdg, AVOID_NEAR);
+    if (kappa === 0 && hold > 0 && blk) hold = 0;
+    if (kappa !== 0 && blk && Math.sign(kappa) === blk) hold = Math.max(hold, SEG);
     if (hold <= 0) {
       // Straights and bends strictly alternate. Two arcs back to back is a chicane, and nobody
       // builds one of those across a waste.
@@ -362,7 +593,24 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
         // Curvature is capped at the minimum-radius invariant and then softened at random, so most
         // bends are gentler than the tightest one the road is allowed to hold.
         const tightness = 0.35 + rng() * 0.65;
-        const dir = Math.abs(off) > HOME_BIAS ? -Math.sign(off) : (rng() < 0.5 ? -1 : 1);
+        // ⚠ THE COUNTRY GETS THE VOTE THE COIN USED TO. Where the leash is not already forcing the
+        // turn, the road bends AWAY from whatever is in front of it — which is what makes a bend
+        // mean something and gives a walker a corner worth cutting. The leash still wins outright,
+        // so a mesa can bias where the road goes and can never drag it off the target or stop it
+        // converging; and with no field (an unanchored road) this is the coin flip it always was.
+        // ⚠ THE ROCK OUTRANKS THE HOMING BIAS, AND THE HARD CLAMP IS UNTOUCHED. This used to read
+        // `off > HOME_BIAS ? -sign(off) : (avoid || coin)` — so past 24° off course the leash forced a
+        // turn back toward the gate even with a mesa directly in the way, and the road leaned away
+        // from the country and immediately straightened out again. It never went ROUND anything, which
+        // is why there was no corner worth a walker cutting.
+        //
+        // The `HOME_MAX` clamp below is the thing that actually guarantees arrival and it is not
+        // touched: the road still cannot exceed 46° off the bearing to its own gate, ever. What
+        // changes is that inside that budget the country decides, not a coin and not the bias.
+        // Measured: road sinuosity 1.05 → 1.17, and the walk goes from a few per cent longer than the
+        // drive to 5–10% shorter.
+        const avoid = avoidTurn(field, x, y, hdg);
+        const dir = avoid || (Math.abs(off) > HOME_BIAS ? -Math.sign(off) : (rng() < 0.5 ? -1 : 1));
         kappa = dir * (1 / minRadius) * R2D * tightness;
         bends.push({ s, fork: false });
       } else {
@@ -666,6 +914,33 @@ function buildIndex(route) {
   return m;
 }
 
+// WHICH BUCKET A WORLD TILE FALLS IN, for a caller holding several routes at once.
+//
+// The road network (roadnet.js) has to answer "is there any road at this tile" for every cell of a
+// pilot's 73×73 window, against every road in the world. Asking each route in turn is one Map get
+// per route per cell, and the answer is almost always no — so it merges the routes' own indices
+// into one bucket→routes map and needs this to look a tile up in it.
+//
+// ⚠ IT MUST BE THIS FILE'S BUCKET, not a second copy of 32 somewhere else. A caller bucketing on a
+// different grid than `buildIndex` used would miss the routes whose segments sit in the bucket it
+// asked for, and the highway would come and go in 32-tile squares.
+export function bucketOf(x, y) { return bkey(Math.floor(x / BUCKET), Math.floor(y / BUCKET)); }
+
+// Every bucket a route's centreline passes within `pad` tiles of. `buildIndex` above always pads by
+// the full off-road band, which is what `locate` needs; a caller that only cares whether TARMAC
+// could be at a tile wants a far tighter one (see the fast path in `composeRoad`). Same grid, same
+// key function, so the two indices can be looked up with the same `bucketOf`.
+export function routeBuckets(route, pad) {
+  const out = new Set();
+  for (const l of route.legs || []) {
+    const x1 = l.x0 + l.ux * l.len, y1 = l.y0 + l.uy * l.len;
+    const bx0 = Math.floor((Math.min(l.x0, x1) - pad) / BUCKET), bx1 = Math.floor((Math.max(l.x0, x1) + pad) / BUCKET);
+    const by0 = Math.floor((Math.min(l.y0, y1) - pad) / BUCKET), by1 = Math.floor((Math.max(l.y0, y1) + pad) / BUCKET);
+    for (let bx = bx0; bx <= bx1; bx++) for (let by = by0; by <= by1; by++) out.add(bkey(bx, by));
+  }
+  return out;
+}
+
 // ⚠ THE OUTSIDE OF A BEND IS A WEDGE, AND REJECTING ON `d` PUTS A HOLE IN IT. Two consecutive
 // segments overlap on the inside of a turn and leave a gap on the outside — a point out there is
 // past the end of one segment and before the start of the next, so a strict `0 ≤ d ≤ len` test
@@ -811,8 +1086,22 @@ export const _clearWrecks = () => WRECKS.clear();   // regress only — the road
 // Terrain for a node, seeded exactly as voidwalking seeds the room's own — so the ground under the
 // wheels changes room by room, and matches the terrain the walked prose describes.
 const TERRAINS = ['scrub', 'ash', 'redrock', 'marsh'];
-function nodeTerrain(route, node) {
-  return pick(mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}${node}`)), TERRAINS);
+// ⚠ A TERRAIN BAND IS A DISTANCE, NOT A NODE INDEX, AND THAT DISTINCTION IS WHAT SURVIVES THE
+// DENSITY FLIP. This used to key off the node, which was fine only because a node happened to be
+// about nineteen tiles long (282 tiles over 15 rooms). Under one room per tile a node IS a tile, so
+// keying on it would re-roll the ground every single tile and the highway would come out as noise:
+// scrub, ash, redrock, marsh alternating out the windshield, tile after tile. Banding on `s` keeps
+// the bands the size they look right at, whatever the room count does.
+//
+// 18 reproduces today's look (282 / 15 = 18.8). ⚠ The seed key changed with the scheme, so the road
+// re-rolls its ground once when this ships: same character, different draw.
+//
+// This is also where the landform field plugs in when it lands: the country will say what the ground
+// is, and this becomes a lookup rather than a roll.
+const TERRAIN_BAND = 18;
+function terrainAt(route, s) {
+  const band = Math.floor(Math.max(0, s) / TERRAIN_BAND);
+  return pick(mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}b${band}`)), TERRAINS);
 }
 
 // The road piece for a tile: an EXPLICIT icon, always. It matters that this is authored rather
@@ -838,7 +1127,7 @@ export function corridorAt(route, x, y) {
   if (!hit) return branchAt(route, x, y);                 // not our road — try the ones we forked away from
   const { s, t } = hit;
   const node = nodeAt(route, s);
-  const terrain = nodeTerrain(route, node);
+  const terrain = terrainAt(route, s);
   const at = Math.abs(t);
   const id = `corridor_${route.voidKey}_${route.destKey}_${x}_${y}`;
   const danger = 2;
@@ -908,6 +1197,32 @@ export function corridorAt(route, x, y) {
   const rng = mulberry32(hashSeed(`${segSeed(route, s)}|${route.window}|${x},${y}`));
   const flags = { terrain, corridor_s: s, corridor_node: node };
   let name = pick(rng, VERGE_NAMES);
+  // ── THE FOOT TRAIL ─────────────────────────────────────────────────────────
+  // The walking route across the same gap runs parallel to this road, out past the shoulder and still
+  // inside the corridor's own ground (see TRAIL_OFFSET). A driver crosses it constantly and until now
+  // there was nothing to say so: the same tiles came back as anonymous verge, and the busiest thing in
+  // the waste was invisible from the cab.
+  //
+  // ⚠ A TOLERANCE BAND, NEVER `Math.round(at) === TRAIL_OFFSET`. This is the third feature on this
+  // verge to need the rule and it is the one that would have shown it worst: on a straight run the
+  // tiles at a fixed lateral offset form a clean row and rounding lands on exactly one of them, but on
+  // a BEND that row is a diagonal and rounding lands on none of them for stretches at a time. A path
+  // is a continuous thing — one that appears for forty tiles, vanishes for twenty and comes back is
+  // read as a bug rather than as a trail.
+  //
+  // Deliberately a NAME and nothing else. Making it look like a track from the air needs the ground
+  // renderer to learn a new surface, and reaching for `terrain: 'dirt_road'` to shortcut that would
+  // hand this band the shoulder's physics through `surfaceUnder` and draw a second highway running
+  // parallel to the first. See docs/systems-overland-void-travel.md.
+  // ⚠ AND THE OFFSET IS A FUNCTION OF `s`, NOT A CONSTANT. Two lines running exactly parallel never
+  // meet, so a fixed offset would leave "where the trail meets the road" with nowhere to happen and a
+  // wayside would have to be sprinkled at seeded intervals — a second answer to where the road is. The
+  // path comes IN instead, and a camp is simply the place where the walking route and the driving
+  // route are the same place. ⚠ WHERE that happens is a property of THIS ROAD (see `campsOf`): the
+  // camps sit where it is back on course, so a fixed spacing would put one in the middle of a detour
+  // and pin the trail to the very bend it exists to cut.
+  const trailT = trailOffsetOn(route, s);
+  if (Math.abs(at - trailT) < 1.0) name = isCampOn(route, s) ? 'A Wayside Camp' : 'The Foot Trail';
   // A wreck from a real haul, standing where its driver gave up on it. It borrows `reefer` — the
   // roadside table's own dead-truck model — rather than introducing a building type the renderer
   // has never heard of, which is the difference between a hulk on the verge and an untextured box.
@@ -1010,6 +1325,39 @@ function branchAt(route, x, y) {
 // restated by a caller that would then drift from them.
 export const isCarriageway = (cell) =>
   cell?.flags?.terrain === 'road' || cell?.flags?.terrain === 'dirt_road';
+
+// ── ROAD OVER WORLD, IN ONE PLACE ────────────────────────────────────────────
+//
+// The composition rule the paragraph above describes, as a function, because there are now TWO
+// callers and there must never be two rules. `providerFor` composes one rig's own route over the
+// world for the driver; `roadnet.js` composes the whole week's network over it for everybody else
+// (a pilot overhead, the sidebar map). If those two ever disagreed about which of the two worlds
+// owns a tile, a truck and the plane above it would be looking at different ground — which is the
+// exact defect this whole seam exists to close.
+//
+// ⚠ THE QUESTION IS ASKED OF THE CELL, NEVER OF THE PROVIDER. `worldAt(x, y) || roadAt(x, y)` —
+// world first, unconditionally — deleted the highway once already: a region's grid is placed ground
+// for a long way past anything anybody would call a town, so an unconditional world veto took the
+// tarmac away wherever the road crossed it. A road is laid ON ground that already exists and wins;
+// everything the corridor synthesises BESIDE the road is filler for ground the world does not place
+// and loses.
+// `tarmacAt` is an optional FAST PATH, not a third opinion. Where the world already places ground,
+// the only thing a road can do is pave over it — the filler branch below cannot be reached, because
+// `worldAt` wins it. So a caller that can answer the narrower question "could there be TARMAC here"
+// more cheaply than the full one gets asked that instead, and the answer is identical by
+// construction. It is worth having: the full lookup pads every road by twenty-four tiles either
+// side, so a pilot over Coldwater was paying for road geometry on most of a 73×73 window because
+// the highway to Terminus runs along the south edge of the city. Omit it and this behaves exactly
+// as it did.
+export function composeRoad(roadAt, worldAt, tarmacAt = null) {
+  return (x, y) => {
+    const w = worldAt(x, y);
+    if (w && tarmacAt) { const t = tarmacAt(x, y); return t && isCarriageway(t) ? t : w; }
+    const c = roadAt(x, y);
+    if (c && isCarriageway(c)) return c;
+    return w || c;
+  };
+}
 
 // ── A ROAD IS THE PAIR OF GATES IT JOINS ─────────────────────────────────────
 //

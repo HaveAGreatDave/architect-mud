@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "WAH.",
+    "A syllable lands. It was an important one.",
+    "The announcement reaches a part that is definitely about you."
+  ],
+  "cause": "drug",
+  "description": "WAH. Something is being announced, formally, in the voice that things get announced in, and it is about everything, and it is arriving one syllable per throb. You are going to hear all of it. WAH. You are going to hear most of it.",
+  "drug_id": "drug_nitrous",
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dt_nitrous_announcement",
+  "name": "The Announcement",
+  "objects": [
+    {
+      "looks": [
+        "One syllable per throb, and each syllable is definitely part of it.",
+        "It has a structure. It is going somewhere. It is going there very slowly.",
+        "It has already said your part, and you were laughing."
+      ],
+      "name": "the announcement"
+    },
+    {
+      "looks": [
+        "The whole room is on it, and so is the announcement, and so are you.",
+        "It is the structure of everything and it is also just a noise.",
+        "It has got slightly slower, which means something."
+      ],
+      "name": "the throb"
+    }
+  ],
+  "weather": null
+}

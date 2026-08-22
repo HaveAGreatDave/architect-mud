@@ -471,6 +471,8 @@
       help: 'Carrying this rides the player across water dry — no swim stamina cost, no wetness/cold (swimming plugin).' },
     rebreather: { label: 'Rebreather', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Carrying/wearing this supplies air underwater — no breath timer, so you never drown from lack of air (swimming plugin). Stamina still applies.' },
+    climbing: { label: 'Climbing Gear', shape: 'flag', scope: 'class', group: 'Systems',
+      help: 'Carrying this lets you climb a "scree" tile — a rock face the map DRAWS as having a way up it (climbing plugin). Costs stamina, scaled by the Climbing skill, and never a roll. It does NOT open a bare cliff: nothing does, except wings.' },
     accommodates: { label: 'Accommodates Mutations', shape: 'list', scope: 'class', group: 'Systems',
       options: ['TAIL', 'WINGS', 'EXTRA_LIMBS', 'CARAPACE', 'LARGE_HEAD', 'EXPOSED_JOINTS', 'GILLS', 'TENTACLES'],
       help: 'Body shapes this garment is cut for. A mutation that blocks this slot is refused UNLESS the garment accommodates it (mutations plugin). Shapes, never mutation ids — a coat has a slit for a tail, it is not made for one specific tail.' },
@@ -616,7 +618,14 @@
       help: 'Never dark regardless of power/time.' },
     rest_multiplier: { label: 'Rest Multiplier', shape: 'number', scope: 'zone', group: 'Zone: Structure',
       help: 'Scales both stamina regen and HP knit-back for anyone resting in this zone (restRegenTick in gameLoop.js). Default 1. Comfort zones raise it — Solenne units 1.5, penthouse 2.0.' },
-    terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'underwater', 'road', 'dirt_road', 'asphalt', 'concrete', 'grass', 'park', 'forest', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh', 'sewer', 'hardpan', 'alkali', 'cliff', 'plateau', 'ramp', 'basalt', 'deadwood', 'sinter', 'hotspring'], scope: 'zone', group: 'Zone: Structure',
+    // ⚠ THIS LIST AND content/map/terrain.json MUST AGREE, and content:lint now
+    // FAILS if they drift. It is a second copy for one reason only — this file is
+    // loaded by the browser and cannot read a JSON file off disk — so the palette
+    // stays the source of truth for what a terrain IS and this stays the source of
+    // truth for what an author may TYPE. Adding a terrain to one and not the other
+    // is how a painted tile lints clean and renders as nothing, or lints red and
+    // renders fine; the check is in scripts/content/lint.mjs.
+    terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'underwater', 'road', 'dirt_road', 'asphalt', 'concrete', 'grass', 'park', 'forest', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh', 'sewer', 'hardpan', 'alkali', 'cliff', 'scree', 'plateau', 'ramp', 'basalt', 'deadwood', 'sinter', 'hotspring'], scope: 'zone', group: 'Zone: Structure',
       help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Road AND dirt_road tiles auto-tile their connector piece from adjacent road/dirt_road tiles; dirt_road renders as a graded packed-dirt track (brown, wheel ruts, no paint) rather than paved asphalt. NOT render-only for one value: "water" is the SOLE marker for open water — it makes the tile swimmable (stamina, wetness, drowning), impassable to GPS/pathfinding, and a ditching crash to land on. There is no flags.water; test it with zoneTerrain(zone) === \'water\'.' },
     floor: { label: 'Floor Surface', shape: 'enum',
       options: ['boards', 'carpet', 'tile', 'concrete', 'stone', 'metal', 'dirt', 'linoleum'], scope: 'zone', group: 'Zone: Structure',

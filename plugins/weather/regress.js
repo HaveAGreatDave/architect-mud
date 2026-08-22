@@ -5,7 +5,7 @@
 // day that reads "acid rain" on Monday must still be acid rain when it arrives),
 // and every event carrying a complete presentation block (the checklist that
 // stops a future third event shipping with no icon, no bed, and no pools).
-import { heroEventForDate, heroEventPresentation, heroEventAnnounce } from './index.js';
+import { heroEventForDate, heroEventPresentation, heroEventAnnounce, _testWeather } from './index.js';
 import { recomputeInsulation } from '../../server/engine/commands/inventory.js';
 import { skyVantage, isIndoorZone, getWindowsForZone, setWindowState } from '../../server/engine/environment.js';
 import { world } from '../../server/engine/world.js';
@@ -13,6 +13,44 @@ import { world } from '../../server/engine/world.js';
 const PRESENT_KEYS = ['icon', 'fx', 'audio', 'pool', 'sky', 'severe'];
 
 export default async function regress({ check, getPlayer }) {
+  // ── The gap between regions has weather now ───────────────────────────────
+  // A void crossing is walked through it and a highway is driven along it, and until 2026-08-21 both
+  // happened in flat baseline weather: no heat off Terminus, no acid drifting out of the
+  // Scarletwastes, a hundred miles of nothing in every sense. The gap is interpolated between its
+  // neighbours instead of being its own authored thing.
+  {
+    const saved = _testWeather.field.regionSpans;
+    const rb = await _testWeather.computeRegionBoxes();
+
+    // ⚠ THE TRAP THIS EXISTS FOR. `effectiveBias` returns null for a region with no temp, dryness or
+    // acid, and the box list filters those out — so Coldwater (null climate_bias, no REGION_BIAS
+    // default) is absent from `boxes` entirely. A blend that only knew biased regions would skip the
+    // busiest region on the map on all three of its roads and mix Deadwater with the Reach instead.
+    const inSpans = rb.spans.some(r => r.id === 'region_coldwater');
+    const inBoxes = rb.boxes.some(r => r.id === 'region_coldwater');
+    check('a baseline region is in the blend list', inSpans, `spans=${rb.spans.length}`);
+    check('…and correctly absent from the containment list', !inBoxes, `boxes=${rb.boxes.length}`);
+    check('every region is spanned', rb.spans.length >= rb.boxes.length && rb.spans.length >= 4,
+      `${rb.spans.length} spans / ${rb.boxes.length} boxes`);
+
+    _testWeather.field.regionSpans = rb.spans;
+    // Midway along the Coldwater→Terminus road, which is 282 tiles of gap and the longest in the game.
+    const mid = _testWeather.blendedBiasAt(1060, 943);
+    const terminus = rb.spans.find(r => r.id === 'region_terminus');
+    check('the gap between two regions has a climate at all', !!mid, JSON.stringify(mid));
+    if (mid && terminus) {
+      // Between the two: warmer than Coldwater's baseline, cooler than Terminus' own lean.
+      check('…blended between its neighbours rather than taking either whole',
+        mid.temp > 0 && mid.temp < terminus.temp, `${mid.temp?.toFixed(2)} vs terminus ${terminus.temp}`);
+      check('…and it names the pair it came from', /^gap:/.test(mid.id || ''), mid.id);
+    }
+    // Deep inside a region the containment answer still wins, blend or no blend.
+    const inside = _testWeather.regionBiasAt(1220, 940);
+    check('a point inside a region still takes that region whole',
+      inside?.id === 'region_terminus', inside?.id);
+
+    _testWeather.field.regionSpans = saved;
+  }
   // ── Scheduling is a pure function of the date ──
   const d = '2031-04-17';
   check('hero scheduling is deterministic', heroEventForDate(d) === heroEventForDate(d));

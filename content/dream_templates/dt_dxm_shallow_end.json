@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The water takes the weight of an arm you had forgotten about.",
+    "You cover a distance. It is not the distance you intended.",
+    "Something moves past at hip height and does not need explaining."
+  ],
+  "cause": "drug",
+  "description": "Chest deep in something the temperature of a body, walking to the far side of a room that has agreed to be a pool. Every step is a decision and then a wait. The wait is fine. You have plenty of it.",
+  "drug_id": "drug_dxm",
+  "fx": "fog",
+  "fx_intensity": 0.6,
+  "id": "dt_dxm_shallow_end",
+  "name": "The Shallow End",
+  "objects": [
+    {
+      "looks": [
+        "Exactly your own temperature, which is why you keep losing where it starts.",
+        "It resists in a friendly way, the way a crowd resists.",
+        "It has no surface anywhere you look directly."
+      ],
+      "name": "the water"
+    },
+    {
+      "looks": [
+        "Where you are going. Not getting closer at a rate you could complain about.",
+        "There is a step up out of this, and a rail, and both are theoretical.",
+        "You have been most of the way there for some time now."
+      ],
+      "name": "the far side"
+    }
+  ],
+  "weather": "Warm and close and heavy with wet, and none of it is on your face."
+}

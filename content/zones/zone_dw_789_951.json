@@ -10,7 +10,7 @@
     "Tyre ruts, old ones, pressed into the grey and never rained back out."
   ],
   "ambient_theme": "wasteland",
-  "description": "The front of the old flow, where it stopped: a wall of black rock standing clear of the ash, rubbly at the top and sheer in the middle, undercut at the foot where the weather has been at the softer bed under it. There is no way up it here. It runs off in both directions along the same line.",
+  "description": "The flow front stopped here mid-collapse and set that way, all broken plates and black glass edges leaning on each other. It goes up in steps that would be generous if any of them were level, and every one of them is sharp enough to want gloves.",
   "exits": {
     "east": "zone_dw_790_951",
     "north": "zone_dw_789_950",
@@ -22,13 +22,14 @@
     "lawless": true,
     "no_spawn": true,
     "region_id": "region_deadwater",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 789,
   "grid_y": 951,
   "grid_z": 0,
   "id": "zone_dw_789_951",
   "map_id": "map_world",
-  "name": "Stopline",
+  "name": "The Clinker Stair",
   "parent_zone": null
 }
+

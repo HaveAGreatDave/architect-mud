@@ -38,9 +38,16 @@
 //    system that charges rent on your own taste is one nobody experiments with.
 
 // ── The slots ────────────────────────────────────────────────────────────────
-// Seven places on a truck a person can hang something, ordered the way you walk round one.
+// Eight places on a truck a person can hang something, ordered the way you walk round one.
+//
+// ⚠ A NEW SLOT GOES IN ITS WALKING POSITION AND NEVER MOVES AN EXISTING ONE PAST ANOTHER. This
+// array is the sort key `fitSuffix` makes the wire string canonical with, so reordering two slots
+// that both have something in them rewrites the mesh-cache key of every truck already wearing
+// them. Inserting `glass` between `bar` and `roof` leaves every existing pair in the same relative
+// order, which is the only reason it was free to do.
 export const SLOTS = [
   { id: 'bar',    label: 'Front Bar',   note: 'What meets the road first.' },
+  { id: 'glass',  label: 'Screen',      note: 'What is between you and it.' },
   { id: 'roof',   label: 'Roof',        note: 'The skyline of the thing.' },
   { id: 'stack',  label: 'Stacks',      note: 'What comes out of it.' },
   { id: 'flank',  label: 'Flanks',      note: 'The long panel people read you by.' },
@@ -58,6 +65,14 @@ export const SLOTS = [
 // on the bonnet is not a worse ₵3,200 light bar, it is a different sentence. Price tracks how much
 // METAL is involved and nothing else, so nobody can read the catalog as a progression and feel they
 // are supposed to end up at the top of it.
+//
+// ⚠ THE WASTE END IS THE HALF THAT NEEDS DEFENDING, and the reason it now outnumbers the strip end
+// is the map rather than the taste: the road runs out of Coldwater into the Scarletwastes, and a
+// catalog that could only dress a show truck meant every rig on the long haul looked like it had
+// never left the city. A grader blade, a slit plate, a hopper of scrap and a water bowser are the
+// four sentences a driver out there would actually want to say. They still say NOTHING mechanical
+// (rule 3): a bowser carries no water, a hopper drops nothing, a slit plate stops no bullet. What
+// they carry is a claim about where you have been, and the claim is free.
 export const FITTINGS = {
   // ── Front bar ──
   rampl:   { code: 'rp', slot: 'bar',   price: 2400, name: 'Ram Plate',
@@ -68,6 +83,18 @@ export const FITTINGS = {
              desc: 'A polished hoop with a pair of lamps in it. Half of one, anyway — it is for looking at.' },
   winch:   { code: 'wn', slot: 'bar',   price: 2100, name: 'Recovery Winch',
              desc: 'A drum, a fairlead and forty metres of cable. Everybody who owns one has pulled somebody out.' },
+  spikes:  { code: 'sx', slot: 'bar',   price: 1300, name: 'Spike Rack',
+             desc: "Rebar cut to length, sharpened, and stood up in a row along the bumper. It took an afternoon and it works on people who have never seen one." },
+  grader:  { code: 'gb', slot: 'bar',   price: 2900, name: 'Grader Blade',
+             desc: "A road grader's mouldboard hung across the nose on an angle, so whatever it catches goes off the side rather than under you. The edge is polished by use and nothing else." },
+
+  // ── Screen ──
+  screenmesh:{ code: 'zm', slot: 'glass', price: 900, name: 'Screen Mesh',
+             desc: "Reinforcing bar bent to the rake of the glass and welded at every crossing. You see the road in squares now, and you still have a windscreen." },
+  slitplate:{ code: 'zp', slot: 'glass', price: 2300, name: 'Slit Plate',
+             desc: "Boiler plate over the whole screen with a hand's width cut out at eye level. Everyone who fits one says it is temporary." },
+  sunstrip:{ code: 'zb', slot: 'glass', price: 350,  name: 'Sun Strip',
+             desc: 'A band of dark tint across the top of the screen. The oldest thing a driver does to a truck.' },
 
   // ── Roof ──
   cage:    { code: 'rc', slot: 'roof',  price: 1900, name: 'Roof Cage',
@@ -78,6 +105,10 @@ export const FITTINGS = {
              desc: 'A single rotating lamp on a stalk. Official-looking enough that people move over.' },
   totem:   { code: 'tm', slot: 'roof',  price: 700,  name: 'Totem Rack',
              desc: 'A crossbar of trophies off the roof — plate, bone, a length of somebody\'s aerial. Everything on it was taken from something.' },
+  nest:    { code: 'np', slot: 'roof',  price: 2500, name: 'Roof Parapet',
+             desc: 'Plate welded up round the sleeper roof, cut low at the front. It is a place for somebody to lie down and it is not for sleeping.' },
+  aerials: { code: 'af', slot: 'roof',  price: 600,  name: 'Aerial Farm',
+             desc: 'Five whips off one crossbar, none of them the same length, all of them listening to something different.' },
 
   // ── Stacks ──
   cutstack:{ code: 'cs', slot: 'stack', price: 1200, name: 'Straight Cut Stacks',
@@ -86,6 +117,8 @@ export const FITTINGS = {
              desc: 'Split, flared and heat-blued mouths that throw unburnt fuel on every shift.' },
   neonslv: { code: 'sn', slot: 'stack', price: 1400, name: 'Stack Sleeves',
              desc: 'Lit tubing wound up each pipe. Nothing about it is a good idea and everybody looks.' },
+  sootpipe:{ code: 'so', slot: 'stack', price: 500,  name: 'Soot Pipes',
+             desc: 'Tarred black to the shield, with a rain flap that sits crooked. Nobody fits these. They arrive.' },
 
   // ── Flanks ──
   armour:  { code: 'ap', slot: 'flank', price: 2800, name: 'Riveted Plate',
@@ -96,6 +129,10 @@ export const FITTINGS = {
              desc: 'Circular blades bolted along the sill, teeth outward. Nobody walks close to this truck twice.' },
   runner:  { code: 'sr', slot: 'flank', price: 1300, name: 'Chrome Runner',
              desc: 'A polished running board the length of the cab, lit underneath. The old show-truck answer.' },
+  spears:  { code: 'xr', slot: 'flank', price: 1200, name: 'Spear Rack',
+             desc: 'Four lengths of pipe racked along the flank where a ladder would go. Two of them are ground to a point and two of them are just pipe.' },
+  hide:    { code: 'hd', slot: 'flank', price: 800,  name: 'Hide Drape',
+             desc: 'Stitched skins on a rail over the door, weighted at the hem so they do not blow about. It keeps the afternoon off the glass.' },
 
   // ── Underlights ──
   underglow:{ code: 'ug', slot: 'under', price: 1700, name: 'Underglow Tubes',
@@ -104,6 +141,8 @@ export const FITTINGS = {
              desc: 'A lit ring round every pod housing. The machine looks like it is thinking about something.' },
   beltneon:{ code: 'bn', slot: 'under', price: 1500, name: 'Beltline Neon',
              desc: 'A second strip under the first, twice as bright and half as tasteful.' },
+  dragchain:{ code: 'dc', slot: 'under', price: 500, name: 'Drag Chains',
+             desc: 'Short chain hung off both rails, sweeping the road. Half the drivers who run them will tell you it is for the static.' },
 
   // ── Back end ──
   chainrack:{ code: 'ch', slot: 'rear', price: 800,  name: 'Chain Rack',
@@ -112,6 +151,10 @@ export const FITTINGS = {
              desc: 'A whole lifter housing strapped upright behind the cab. A day of the week, out here.' },
   banner:  { code: 'bp', slot: 'rear',  price: 600,  name: 'Banner Pole',
              desc: 'A whip off the back corner with a rag on it, so people know it is you before they can read the plate.' },
+  hopper:  { code: 'ct', slot: 'rear',  price: 1700, name: 'Scrap Hopper',
+             desc: 'A bin of cut scrap on the headboard with a chute out the back of it, pointed at whoever is following. It has never been emptied deliberately.' },
+  bowser:  { code: 'wb', slot: 'rear',  price: 1900, name: 'Water Bowser',
+             desc: 'Four hundred litres strapped upright behind the cab with a tap at the bottom. Out there it is the reason strangers are polite to you.' },
 
   // ── Mascot ──
   skull:   { code: 'sk', slot: 'hood',  price: 400,  name: 'Bleached Skull',
@@ -120,6 +163,8 @@ export const FITTINGS = {
              desc: 'A stylised bird in flight, chromed, on a plinth. Two centuries out of date and it still works.' },
   doll:    { code: 'dh', slot: 'hood',  price: 300,  name: 'Doll Head',
              desc: 'A single doll\'s head, wired down through the bonnet. Nobody who has one will explain it.' },
+  wheelidol:{ code: 'wi', slot: 'hood', price: 500,  name: 'Wheel Idol',
+             desc: 'A steering wheel off something older, chromed and stood upright on a plinth. It faces the road rather than the driver, which is the whole idea.' },
 };
 
 export const FIT_IDS = Object.keys(FITTINGS);

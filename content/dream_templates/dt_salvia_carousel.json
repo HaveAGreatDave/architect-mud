@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Round again, and the note comes round with you.",
+    "The ride takes a fraction longer on this pass.",
+    "Somewhere off the ride an afternoon continues without checking."
+  ],
+  "cause": "drug",
+  "description": "You are one of the painted panels on a fairground ride, in a town you have never been to, at two in the afternoon, going round. The music belongs to the ride and has done since before you were included. Nobody is riding it. It was always going to run anyway.",
+  "drug_id": "drug_salvia",
+  "fx": "wind",
+  "fx_intensity": 0.3,
+  "id": "dt_salvia_carousel",
+  "name": "The Carousel",
+  "objects": [
+    {
+      "looks": [
+        "Thick, chipped at one corner, touched up twice in different reds.",
+        "It is a scene of something. You are the sky part of it.",
+        "It has been warmed by this sun every afternoon for years and you can feel every one of them."
+      ],
+      "name": "the paint on you"
+    },
+    {
+      "looks": [
+        "Steady. There is a note in it that comes round with you.",
+        "It does not accelerate, and there is no reason it would.",
+        "You have been round more times than the town is old."
+      ],
+      "name": "the rotation"
+    }
+  ],
+  "weather": "It is the same two in the afternoon it has always been, warm, with the sun on one side of you."
+}

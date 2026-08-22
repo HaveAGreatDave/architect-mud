@@ -39,3 +39,45 @@ export async function runMoveGates(ctx) {
 }
 
 export function getRegisteredMoveGates() { return gates.map(g => g.owner); }
+
+// ── THE CLIMB SEAM ───────────────────────────────────────────────────────────
+// A gate can only ever VETO — `runMoveGates` returns the first { block: true } and
+// there is deliberately no { allow: true }, because a chain where a later gate can
+// overturn an earlier one has an evaluation order players would have to know. That
+// is the right rule and it is also why the climb exemption cannot be a gate: the
+// impassable-terrain law has already said no by the time a climbing plugin's gate
+// would run.
+//
+// So the law ASKS instead, through here. The engine keeps the law and the property
+// (`propsOf(id).climbable`); the system that knows what a rope is keeps the gear,
+// the stamina, the skill and every word of the prose. Neither imports the other —
+// this is the substrate they meet in (the interaction rule, boundary doc §2).
+//
+// verdict: { ok: true }              — let them through, the provider is satisfied
+//          { ok: false, message }    — refuse, and say it in the PROVIDER's words
+//          null / undefined          — no opinion; the law's own refusal stands
+//
+// ⚠ IT FAILS CLOSED, AND THAT IS THE POINT. With no provider registered — the
+// plugin disabled, or a regress fixture that never loaded it — a climbable tile is
+// an ordinary cliff and the map is exactly as honest as it was before any of this
+// existed. A seam that failed open would mean disabling a plugin silently opened
+// every rock face in the world.
+let climbProvider = null;
+export function registerClimbProvider(fn) {
+  if (typeof fn !== 'function') throw new Error('registerClimbProvider: function required');
+  climbProvider = fn;
+}
+export function hasClimbProvider() { return !!climbProvider; }
+
+// A provider that throws is treated as no opinion, for the same reason a gate that
+// throws is skipped: a broken system must not wall off the map, and it must not
+// open it either.
+export async function climbCheck(player, to) {
+  if (!climbProvider) return null;
+  try {
+    return await climbProvider(player, to);
+  } catch (e) {
+    console.error(`[climbProvider] error: ${e.message}`);
+    return null;
+  }
+}

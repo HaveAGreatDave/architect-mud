@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Everything gets shorter.",
+    "A thought is cut for time and lands better.",
+    "The room packs down another notch."
+  ],
+  "cause": "drug",
+  "description": "The room is being folded down towards the beat, and everything in it is getting shorter, including the distance to the walls and the amount of time a thought is allowed. It is hilarious. It is also happening quite fast now.",
+  "drug_id": "drug_nitrous",
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dt_nitrous_compression",
+  "name": "The Compression",
+  "objects": [
+    {
+      "looks": [
+        "Closer on every beat, and not in a threatening way.",
+        "They are being packed rather than moved.",
+        "There is a great deal less room, and you have not needed any of it."
+      ],
+      "name": "the walls"
+    },
+    {
+      "looks": [
+        "It was going to be enormous. It has been cut for time.",
+        "You get the last third of it, on the beat, and it is funnier that way.",
+        "It fits inside a single throb now, which is efficient."
+      ],
+      "name": "what is left of the thought"
+    }
+  ],
+  "weather": null
+}

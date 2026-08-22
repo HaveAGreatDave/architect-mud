@@ -25,7 +25,7 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 1017,
   "grid_y": 968,

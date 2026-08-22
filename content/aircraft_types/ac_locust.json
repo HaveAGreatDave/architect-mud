@@ -19,7 +19,7 @@
   "max_takeoff_weight": 150,
   "name": "Locust",
   "noise": 2,
-  "price_buy": 6500,
+  "price_buy": 4800,
   "price_rent_hourly": 130,
   "seats": 2,
   "takeoff_mode": "stol"

@@ -395,7 +395,7 @@ export const TYPES = {
     dragP: 0.000361,      // aero drag (∝ speed²)
     brake: 5.75,          // service-brake deceleration (mph/s) at full pedal. Phase 2 gives these
                           // a TEMPERATURE, which is what makes holding a gear down a grade matter.
-    kg: 1800, tank: 1100, price: 4200,
+    kg: 1800, tank: 1100, price: 3400,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     // ⚠ FIRST IS A CRAWLER AND IS DELIBERATELY OFF THE GEOMETRIC LADDER. 2nd→8th stay in
     // step with each other; only 1st is deepened (~25%). The redline speed in a gear is
@@ -413,7 +413,7 @@ export const TYPES = {
     name: 'Vachon Drayman', ground: true, tier: 2,
     mass: 3.2, thrustMax: 3.78, topSpeed: 96, tileMph: 112, wheelbase: 0.31,
     engineLag: 1.9, rollFric: 0.882, dragP: 0.000314, brake: 5.25,
-    kg: 3500, tank: 1400, price: 11500,
+    kg: 3500, tank: 1400, price: 7200,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
@@ -429,7 +429,7 @@ export const TYPES = {
     name: 'Orlov Continental', ground: true, tier: 3,
     mass: 4.6, thrustMax: 3.864, topSpeed: 88, tileMph: 112, wheelbase: 0.41,
     engineLag: 2.6, rollFric: 0.966, dragP: 0.000374, brake: 4.5,
-    kg: 6200, tank: 2100, price: 31000,
+    kg: 6200, tank: 2100, price: 16500,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 5.7, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.7], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it

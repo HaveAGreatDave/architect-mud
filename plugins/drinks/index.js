@@ -21,7 +21,7 @@ import { query } from '../../server/models/db.js';
 import { adjustSanity } from '../../server/engine/condition.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { getZoneFurniture } from '../../server/engine/world.js';
+import { getZoneFurniture, getZone } from '../../server/engine/world.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { useDrug } from '../../server/engine/drugs.js';
@@ -464,7 +464,10 @@ async function cmdRinse(args, raw, player) {
   if (drinkOf(vessel)) return { type: 'error', message: `There's still a drink in the ${vessel.name}.` };
   if (!isDirty(vessel) && !residueOf(vessel)) return { type: 'error', message: `The ${vessel.name} is already clean.` };
 
-  const { rows: src } = await query(
+  // A zone can be its own water source — see cooking's `waterSourceIn` for why a transient room out
+  // in the waste has no other way to say so, and note that the tag name is the furniture flag's.
+  const selfSource = !!getZone(player.current_zone)?.flags?.water_source;
+  const { rows: src } = selfSource ? { rows: [{ name: 'the water' }] } : await query(
     `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
     [player.current_zone]);
   if (!src.length) return { type: 'error', message: `There's no water here to rinse it in.` };

@@ -263,7 +263,8 @@ const field = {
   baseSeverity: 0,    // day-level extreme-weather severity floor from forecast[0]
   bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
   wind: null,         // { angle, kph } — the prevailing wind that drifts every cell
-  regionBoxes: [],    // [{ id, temp, dryness, minX..maxY, area }] — static per-region climate lean
+  regionBoxes: [],    // [{ id, temp, dryness, minX..maxY, area }] — regions that BIAS something
+  regionSpans: [],    // the same shape for EVERY region, baseline included — the gap blend reads this
 };
 
 // ── Per-region climate bias ─────────────────────────────────────────────────
@@ -323,23 +324,101 @@ async function computeRegionBoxes() {
       WHERE z.map_id = 'map_world' AND z.grid_x IS NOT NULL AND z.grid_y IS NOT NULL
       GROUP BY r.id, r.climate_bias`
   ).catch(() => ({ rows: [] }));
-  return rows
-    .map(r => ({ r, eff: effectiveBias(r.id, r.bias) }))
-    .filter(({ r, eff }) => eff && r.minx != null)
-    .map(({ r, eff }) => ({
-      id: r.id, temp: eff.temp, dryness: eff.dryness, acid: eff.acid,
-      minX: r.minx, maxX: r.maxx, minY: r.miny, maxY: r.maxy,
-      area: (r.maxx - r.minx + 1) * (r.maxy - r.miny + 1),
-    }))
-    .sort((a, b) => a.area - b.area);   // smallest first → nested region wins
+  const span = (r, eff) => ({
+    id: r.id, temp: eff?.temp || 0, dryness: eff?.dryness ?? null, acid: eff?.acid ?? null,
+    minX: r.minx, maxX: r.maxx, minY: r.miny, maxY: r.maxy,
+    area: (r.maxx - r.minx + 1) * (r.maxy - r.miny + 1),
+  });
+  const placed = rows.filter(r => r.minx != null);
+  return {
+    // Containment: only regions that actually bias something. A baseline region containing a point
+    // has nothing to say about it, and saying so with a zeroed box would beat a nested region.
+    boxes: placed
+      .map(r => ({ r, eff: effectiveBias(r.id, r.bias) }))
+      .filter(({ eff }) => eff)
+      .map(({ r, eff }) => span(r, eff))
+      .sort((a, b) => a.area - b.area),   // smallest first → nested region wins
+    // ⚠ EVERY REGION, INCLUDING THE BASELINE ONES, FOR THE GAP BLEND. Coldwater has a null
+    // `climate_bias` and no REGION_BIAS default, so it is absent from `boxes` entirely — and a blend
+    // that only knows biased regions would skip the busiest region on the map on all three of its
+    // roads and mix Deadwater with the Reach instead. A region with no opinion contributes BASELINE.
+    spans: placed.map(r => span(r, effectiveBias(r.id, r.bias))),
+  };
 }
+
+// ── WHERE A POINT'S CLIMATE COMES FROM ───────────────────────────────────────
+//
+// A box wins if it contains the point, smallest first, so a nested region beats the one around it.
+// That answered every question while the only places anybody stood were INSIDE a region.
+//
+// ⚠ THE GAP BETWEEN REGIONS IS OUTSIDE EVERY BOX, AND IT IS NOT EMPTY ANY MORE. A void crossing is
+// walked through it and a highway is driven along it, and both used to happen in flat baseline
+// weather: no heat coming off Terminus, no acid drifting out of the Scarletwastes, a hundred miles
+// of nothing in every sense. The gap is the country BETWEEN two climates, so it is interpolated
+// between them by distance rather than being its own authored thing.
+//
+// ⚠ AND A BASELINE REGION HAS TO BE IN THE LIST FOR THAT TO WORK. `computeRegionBoxes` filters on
+// `eff &&`, and `effectiveBias` returns null when a region has no temp, dryness or acid — so a
+// region at baseline contributed NO BOX AT ALL. Coldwater's `climate_bias` is null and it has no
+// REGION_BIAS default, which means the busiest region on the map was simply absent: "blend the two
+// nearest" would have skipped it on all three of its roads and mixed Deadwater with the Reach
+// instead. A region with no opinion has to contribute BASELINE, not ABSENCE, so the blend below
+// reads `field.regionSpans` (every region, zeroed where it has nothing to say) and containment above
+// still reads `regionBoxes` (only regions that actually bias something).
+const BLEND_FALLOFF = 2;   // inverse-distance power: 2 keeps the near region dominant
 
 function regionBiasAt(gx, gy) {
   for (const r of field.regionBoxes) {
     if (gx >= r.minX && gx <= r.maxX && gy >= r.minY && gy <= r.maxY) return r;
   }
-  return null;
+  return blendedBiasAt(gx, gy);
 }
+
+// Squared distance from a point to a box (zero inside it).
+function boxDist2(r, gx, gy) {
+  const dx = gx < r.minX ? r.minX - gx : (gx > r.maxX ? gx - r.maxX : 0);
+  const dy = gy < r.minY ? r.minY - gy : (gy > r.maxY ? gy - r.maxY : 0);
+  return dx * dx + dy * dy;
+}
+
+// Inverse-distance blend of the two nearest regions. Two, not all of them: the gap a player is
+// actually in runs between a specific pair of gates, and letting a region on the far side of the map
+// pull on it would smear every climate into one lukewarm average.
+function blendedBiasAt(gx, gy) {
+  const spans = field.regionSpans;
+  if (!spans || spans.length === 0) return null;
+  const near = spans
+    .map(r => ({ r, d2: boxDist2(r, gx, gy) }))
+    .sort((a, b) => a.d2 - b.d2)
+    .slice(0, 2);
+  if (!near.length) return null;
+  if (near.length === 1 || near[0].d2 === 0) {
+    const r = near[0].r;
+    return (r.temp || r.dryness != null || r.acid != null) ? r : null;
+  }
+  let wsum = 0, temp = 0, dry = 0, acid = 0, anyDry = false, anyAcid = false;
+  for (const { r, d2 } of near) {
+    const w = 1 / Math.pow(Math.max(1, d2), BLEND_FALLOFF / 2);
+    wsum += w;
+    temp += (r.temp || 0) * w;
+    if (r.dryness != null) { dry += r.dryness * w; anyDry = true; }
+    if (r.acid != null) { acid += r.acid * w; anyAcid = true; }
+  }
+  if (!wsum) return null;
+  const out = {
+    id: 'gap:' + near.map(n => n.r.id).join('+'),
+    temp: temp / wsum,
+    dryness: anyDry ? dry / wsum : null,
+    acid: anyAcid ? acid / wsum : null,
+  };
+  // A blend of two baselines is a baseline. Returning a zeroed object instead of null would make
+  // every consumer think the gap had an opinion it does not have.
+  if (!out.temp && out.dryness == null && !out.acid) return null;
+  return out;
+}
+
+// The gap blend, for the suite. `field` rides along so a test can install spans without a DB.
+export const _testWeather = { computeRegionBoxes, blendedBiasAt, regionBiasAt, boxDist2, field };
 
 // ── Named "hero" weather events (step 7) ────────────────────────────────────
 // Rare, announced events that ride ON TOP of the forecast/field with an
@@ -1021,8 +1100,12 @@ export const hooks = {
     const forecast = await loadForecast(setWeatherState, climateProfile);
     const bounds = await computeBounds();
     seedField(forecast[0].date, forecast[0], bounds);
-    field.regionBoxes = await computeRegionBoxes();   // static per-region climate lean
-    if (registerWeatherRegionRefresh) registerWeatherRegionRefresh(async () => { field.regionBoxes = await computeRegionBoxes(); });
+    const rb = await computeRegionBoxes();            // static per-region climate lean
+    field.regionBoxes = rb.boxes; field.regionSpans = rb.spans;
+    if (registerWeatherRegionRefresh) registerWeatherRegionRefresh(async () => {
+      const next = await computeRegionBoxes();
+      field.regionBoxes = next.boxes; field.regionSpans = next.spans;
+    });
     if (registerWeatherField) registerWeatherField(sampleWeatherAt);
     if (registerWeatherFieldSnapshot) registerWeatherFieldSnapshot(getWeatherFieldSnapshot);
     if (registerWeatherFieldAdvance) registerWeatherFieldAdvance(advectField);

@@ -10,7 +10,7 @@
     "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "The face of the tableland: a hundred feet of banded rock with nothing on it but the marks of the rain, and a fan of fallen stone piled at the foot where pieces of it have given up over the years.",
+  "description": "A crack runs the height of the escarpment, wide enough at the bottom to stand in and narrow enough at the top to jam a fist. Somebody has left a sling on a chockstone halfway up, bleached white, older than they were.",
   "exits": {
     "east": "zone_scw_1043_965",
     "north": "zone_scw_1042_964",
@@ -22,13 +22,14 @@
     "no_spawn": true,
     "radiation": 13,
     "region_id": "region_scarletwastes",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1042,
   "grid_y": 965,
   "grid_z": 0,
   "id": "zone_scw_1042_965",
   "map_id": "map_world",
-  "name": "The Escarpment",
+  "name": "Split Rock",
   "parent_zone": null
 }
+

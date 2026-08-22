@@ -83,6 +83,15 @@ export const PROP_DEFAULTS = Object.freeze({
   swimmable: false,   // entering costs stamina; wetness, drowning, hypothermia
   underwater: false,  // submerged BELOW a surface tile: breath timer, colder, dark
   passable: true,     // a body may enter this tile at all — cliff is the one no
+  // A tile that is `passable: false` AND `climbable: true` is a rock face with a
+  // WAY UP IT — broken enough for hands and rope. It is a second key rather than a
+  // third value of `passable` because the two answer different questions and the
+  // readers are different: `passable` is the law (may a body enter), `climbable` is
+  // the exception's own precondition, and a reader that only knows about `passable`
+  // must go on getting the safe answer. Bare `cliff` never carries it, so the
+  // absolute wall stays absolute; see the scree terrain and the ⚠ on the
+  // engine:impassable-terrain gate in commands/movement.js.
+  climbable: false,   // …and this one has a route up it, for somebody equipped
   thermal: false,     // this water is geothermally heated (waterTemperature)
   routable: true,     // GPS and pathfinding may cross it
   buildable: true,    // the dev-panel builder may place/move a building here

@@ -496,11 +496,18 @@ export default async function regress({ run, check, getPlayer }) {
   // out of a 3-room pool used to hand back duplicates, which reads as a bug
   // rather than as a dream.
   const roomsOf = (pid) => [...world.zones.keys()].filter(z => z.includes(pid));
-  const thin = await buildDreamscape('regress-thin', { size: 5, cause: 'drug', drugId: 'drug_khole' });
+  // ⚠ THE POOL SIZE IS ASKED FOR, NOT WRITTEN DOWN. This was `<= 3`, which was the k-hole's pool
+  // when the case was written — so the day somebody authored a fourth k-hole template the suite
+  // went red on a system nobody had touched, reporting correct behaviour as a fault. What the case
+  // is actually about is that `buildDreamscape` never hands back a room twice, so the bound is the
+  // POOL, and the pool is a row count.
+  const { query: qDream } = await import('../../server/models/db.js');
+  const kholePool = (await qDream(`SELECT COUNT(*)::int AS n FROM dream_templates WHERE cause='drug' AND drug_id=$1`, ['drug_khole'])).rows[0].n;
+  const thin = await buildDreamscape('regress-thin', { size: kholePool + 2, cause: 'drug', drugId: 'drug_khole' });
   const thinRooms = roomsOf('regress-thin').map(z => world.zones.get(z).name);
   check('asking for more rooms than exist yields a SHORTER dream, not a repetitive one',
     !!thin && thinRooms.length === new Set(thinRooms).size, thinRooms.join(' / '));
-  check('...and never more rooms than the pool has', thinRooms.length <= 3, thinRooms.length);
+  check('...and never more rooms than the pool has', thinRooms.length <= kholePool, `${thinRooms.length} of ${kholePool}`);
   dissolveDreamscape('regress-thin');
   check('...with somewhere to go', Object.keys(world.zones.get(entry).exits || {}).length > 0);
   check('...and things to poke at', dreamObjectsAt(entry).length > 0);

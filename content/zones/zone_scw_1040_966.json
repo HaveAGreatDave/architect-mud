@@ -10,7 +10,7 @@
     "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "The face of the tableland: a hundred feet of banded rock with nothing on it but the marks of the rain, and a fan of fallen stone piled at the foot where pieces of it have given up over the years.",
+  "description": "Barely a face at all — a steep red mess of ledges and false ledges leaning back just far enough to be argued with. It would be an easy walk lying down and it is hard work standing up.",
   "exits": {
     "east": "zone_scw_1041_966",
     "north": "zone_scw_1040_965",
@@ -22,13 +22,14 @@
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "cliff"
+    "terrain": "scree"
   },
   "grid_x": 1040,
   "grid_y": 966,
   "grid_z": 0,
   "id": "zone_scw_1040_966",
   "map_id": "map_world",
-  "name": "The Escarpment",
+  "name": "The Scramble",
   "parent_zone": null
 }
+

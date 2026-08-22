@@ -80,6 +80,42 @@ no-fly cluster, and one downed Carcass to salvage/rebuild. All of it is CODEX co
 
 ## Architecture (the load-bearing decisions)
 
+### The canopy shows ground the `zones` table does not place — `registerCellOverlay`
+*(2026-08-21)* Another vehicle system may own real ground the world does not store. Today that is
+the **void corridor**: a highway laid between two regions' road mouths, synthesised from a weekly
+seed rather than stored (`plugins/trucking/roadnet.js`). A truck drives it, a walker stands on it, it
+has roadside buildings and mile boards — and until this hook the flight sim could not see a yard of
+it. A pilot flying Coldwater→Terminus crossed 282 tiles of `kind: 'air'`, over tarmac, while a driver
+on the same journey was on a four-lane road. Three people on one journey, no two of whom could
+describe it to each other.
+
+The fix is one seam, not a feature: `mapWindow(a, radius, at)` has always taken a **cell provider**,
+which is how the cab renders the corridor at all. `registerCellOverlay(fn)` lets another plugin
+supply one, and `contextPayload` uses it for the window, the overflight readout and the biome below.
+**Because both sides go through `deriveSurfaceCell`, the pictures are identical by construction** —
+road auto-tiling, lane markings, extrusion, fog and the packed-dirt surface all come from the one
+derivation, and the client's `groundObstructionAt` gets CFIT against roadside buildings for free.
+
+Registered rather than imported, in the direction the dependency already runs (trucking imports this
+file, so this file cannot import trucking) — same shape as `registerCrossingDistance`.
+
+⚠ **It is a RENDER provider and must never become `surfaceAt`.** `surfaceAt` indexes *placed* tiles,
+and three things ask it a question meaning "the world stops here": `regionGates` finds a region's
+road mouths by testing that the map stops beside them, voidwalking's `isMapRim` decides where the
+muster opens, and `bounds`/`nearestAirfield`/the landing paths all read placed ground. Fold
+synthesised ground into the index and every rim tile grows a neighbour — no gates, no rim, no way
+into the void, and the corridor being drawn stops being derivable at all. `onField`, the minimap zone
+graph and every landing path therefore stay on `surfaceAt` by name.
+
+⚠ **And it is not in the bake.** `buildFlightSnapshot` keeps `mapWindow`'s default: the snapshot is a
+file and the corridor reseeds weekly, so a baked highway is wrong by Monday with nothing to say so.
+
+**Cost, measured:** a 73×73 window over open country on the road is ~19 ms; over Coldwater it is
+~13 ms against ~4.5 ms with no overlay, on a 3-second tick per airborne craft. The gap is real work —
+the Terminus highway runs along the city's own south edge — not lookup overhead: of 3,796 placed
+tiles in that window, 2,336 are rejected by the network bounding box or the narrow tarmac index
+before any geometry runs.
+
 ### The aircraft is a first-class object that owns its occupants
 There is **no runtime-created cabin `zones` row** — runtime zone creation would break
 the "content is deliberate" rule. Instead:
@@ -89,6 +125,23 @@ the "content is deliberate" rule. Instead:
 - `aircraft_types` table = per-template **content** (Dragonfly, …): tank, burn,
   speed, ceiling, seats, hull, handling, noise, prices. CODEX content
   (`content/aircraft_types/`), dev-panel editable.
+  - **Hull prices cut 2026-08-21.** Grasshopper 2,400 → 2,200 · Locust 6,500 → 4,800 ·
+    Dragonfly 8,000 → 6,000 · Mule 14,000 → 9,000 · Shrike 48,000 → 21,000 · Leviathan
+    60,000 → 26,000 · Reaper 90,000 → 36,000 · Viper 120,000 → **45,000**. Mayfly (1,200)
+    and Carcass are untouched — the trainer rungs were never the problem. **The reason is
+    `estimateContractPayout`**: a contract pays `(fuel + rental) × margin + risk × 15`, so
+    the board's margin is a percentage of **fuel burn** and barely moves as the airframe
+    grows. A Mule contract nets ~1,500₵ whether you fly it in a Mule or a Leviathan, which
+    made the 120,000₵ Viper ~80 contracts with no contract that pays more *because* you fly
+    it. ⚠ **`price_rent_hourly` was deliberately left alone.** It is income (rental
+    contracts price off it) and it is the can't-afford-to-own path — leaving it up while
+    hulls came down is what makes ownership the goal rather than a rounding error.
+  - ⚠ **`price_buy` is read by three things that are not the dealer** — `insurance`
+    (premium, payout and excess are all fractions of it), `retrieveOffField` (the off-strip
+    tow is 5% of it) and `sellAircraft` (50%). All three fell with the hulls for free; none
+    of them needed touching. Halcyon's `PREMIUM_RATE` was *additionally* cut 0.15 → **0.10**
+    because the term is a **week**, so 15% was 7.8× the hull per year against a board that
+    pays on fuel — see the ⚠ in [plugins/insurance/index.js](../plugins/insurance/index.js).
   - **Two different "ceilings", and they are not the same number.** `altitude_ceiling` on
     the content row is the LEGACY BAND cap (0–3, `computeStats().ceiling`), read only by
     the banded `climb`/`dive` verbs and the HUD's band index. The real service ceiling for
@@ -657,7 +710,7 @@ cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
 reticle deck** (`flight_target` → `strafresolve`) to silence a site.
 
 **The Shrike, and the dive** (`combat.js` → `cmdBomb`). The fleet's fourth armed airframe
-(₵48,000, class `divebomber`) and the only weapon in the game with a *posture* gate rather
+(₵21,000, class `divebomber`) and the only weapon in the game with a *posture* gate rather
 than a range gate. `bomb` is refused unless **every** rung holds, and the ladder is a
 contract — a tuning pass may move the numbers but must not remove a rung:
 

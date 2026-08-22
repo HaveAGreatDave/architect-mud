@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The tone holds.",
+    "The bars settle a fraction and are exactly where they were.",
+    "Somewhere a machine confirms that everything is nominal."
+  ],
+  "cause": "drug",
+  "description": "A landscape made entirely of colour bars, held very steady, with a tone laid across it at a level somebody set once and never went back to. It is here so that you can confirm the equipment is working. The equipment is working. There is nothing else scheduled.",
+  "drug_id": "drug_deadair",
+  "fx": "fog",
+  "fx_intensity": 0.5,
+  "id": "dt_deadair_test_card",
+  "name": "The Test Card",
+  "objects": [
+    {
+      "looks": [
+        "Eight of them, in the correct order, going down to black at the edge of everything.",
+        "They have been steady so long that the steadiness is the only thing happening.",
+        "One of them is fractionally wrong and you cannot find it twice."
+      ],
+      "name": "the bars"
+    },
+    {
+      "looks": [
+        "A single note held by something that does not need to breathe.",
+        "It is at the reference level. Everything here is at the reference level.",
+        "You stop hearing it, and then you hear it again, and it has not changed at all."
+      ],
+      "name": "the tone"
+    }
+  ],
+  "weather": "Conditions are nominal. They have been set to nominal and left."
+}

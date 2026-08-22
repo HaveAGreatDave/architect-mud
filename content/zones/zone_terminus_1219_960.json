@@ -20,7 +20,7 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "dirt_road"
+    "terrain": "hardpan"
   },
   "grid_x": 1219,
   "grid_y": 960,

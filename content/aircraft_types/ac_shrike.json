@@ -19,7 +19,7 @@
   "max_takeoff_weight": 340,
   "name": "Shrike",
   "noise": 3,
-  "price_buy": 48000,
+  "price_buy": 21000,
   "price_rent_hourly": 800,
   "seats": 2,
   "takeoff_mode": "stol"

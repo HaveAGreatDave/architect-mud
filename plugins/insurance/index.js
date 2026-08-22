@@ -17,7 +17,13 @@ import { on } from '../../server/engine/events.js';
 
 // ── Tunables (all knobs — the "soften but don't erase" curve lives here) ──────
 const PERIOD_SEC = 7 * 86400;        // a policy term
-const PREMIUM_RATE = 0.15;           // premium = 15% of agreed value / term (before surcharge)
+// ⚠ THE TERM IS A WEEK, WHICH IS WHAT MAKES THIS RATE A BIGGER NUMBER THAN IT LOOKS. At the
+// original 0.15 a policy cost 15% of the hull EVERY SEVEN DAYS — 7.8× the aircraft's own value
+// over a year, against a contract board that pays a margin on FUEL BURN and therefore barely
+// moves as the airframe grows. Nobody could carry it above the trainer rungs: a Mule's cover was
+// 2,100₵ a week against contracts netting ~1,500₵ each. Cut with the hull-price pass, not instead
+// of it — the two compound, which is the point.
+const PREMIUM_RATE = 0.10;           // premium = 10% of agreed value / term (before surcharge)
 const PAYOUT_FRAC = 0.60;            // a covered total loss pays 60% of agreed value…
 const DEDUCTIBLE_FRAC = 0.12;        // …minus a 12% excess → net ~48% back. You still rebuy at full.
 const SURCHARGE_PER_CLAIM = 0.25;    // each prior paid claim adds 25% to future premiums…

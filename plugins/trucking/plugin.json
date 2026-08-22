@@ -33,7 +33,9 @@
     "truckpump",
     "trucksync",
     "truckevent",
-    "rig"
+    "rig",
+    "ride",
+    "hop"
   ],
   "hooks": [
     "zone.describeRoom",

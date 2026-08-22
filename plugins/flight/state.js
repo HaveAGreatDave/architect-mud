@@ -276,6 +276,37 @@ export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 // worse than either being stale on its own, because the two would disagree.
 export function invalidateCoordIndex() { _coordIndex = null; _bounds = null; }
 
+// ── THE RENDER OVERLAY — GROUND THAT IS THERE WITHOUT BEING PLACED ───────────
+//
+// Another vehicle system may own ground the `zones` table does not: today that is the void
+// corridor, a highway laid between two regions' road mouths and synthesised from a weekly seed
+// rather than stored (plugins/trucking/roadnet.js). It is real ground — a truck drives on it, a
+// walker stands on it, it has buildings and boards — and until this hook the flight sim could not
+// see a yard of it, so a pilot crossed the same journey over `kind: 'air'`.
+//
+// Registered rather than imported, in the direction the dependency already runs: trucking imports
+// this file, so this file cannot import trucking. Same shape as `registerCrossingDistance` and
+// `registerZoneReloadHook`, and for the same reason.
+//
+// ⚠ THIS IS A RENDER PROVIDER. IT MUST NEVER BECOME `surfaceAt`.
+//
+// `surfaceAt` is the index of PLACED tiles, and the question "does a tile exist here" is load-
+// bearing for things that have nothing to do with drawing: `regionGates` finds a region's road
+// mouths by testing that the map STOPS beside them, and voidwalking's `isMapRim` decides where the
+// world runs out and the muster opens. Fold synthesised ground into the index and every rim tile
+// grows a neighbour — no gates, no rim, no way into the void, and the corridor this overlay draws
+// stops being derivable at all. So the overlay is handed to `mapWindow` as its `at` parameter, the
+// seam that already exists for exactly this, and nowhere else.
+//
+// ⚠ AND IT IS NOT IN THE BAKE. `buildFlightSnapshot` keeps `mapWindow`'s default, deliberately:
+// the snapshot is a FILE and the corridor is reseeded every week, so a baked highway would be
+// wrong by Monday with nothing to say so.
+let _cellOverlay = null;
+export function registerCellOverlay(fn) { _cellOverlay = typeof fn === 'function' ? fn : null; }
+// The provider a live surface read should go through: the overlay when one is registered, the
+// placed world otherwise. A caller that wants ONLY placed ground keeps calling `surfaceAt`.
+export function renderCells() { return _cellOverlay || surfaceAt; }
+
 // ── Coarse whole-world terrain (the DEADHEAD map) ─────────────────────────────
 // The world grid downsampled to a fixed cell budget: one character per output cell, packed into
 // row strings. A char, not an object — the whole point is that this ships on a 2s poll, and at
@@ -1239,27 +1270,29 @@ function nearbyLandmarks(x, y) {
 }
 
 // The spatial regions (Coldwater Basin, The Reach…) as coarse waypoints for the same
-// target guide — one entry per region, its centroid derived from its member tiles, in
-// the same {id,name,gx,gy,bearing,dist} shape so the client cycles them alongside fields
-// and landmarks. A region spans many tiles, so this is a "fly toward that place" marker
-// rather than a precise spot; capped to the nearest few centroids so the cycle stays sane.
-// Region display names come from the in-memory regions cache (no DB round trip here).
+// target guide — one entry per region, its centre in the same {id,name,gx,gy,bearing,dist}
+// shape so the client cycles them alongside fields and landmarks. A region spans many tiles,
+// so this is a "fly toward that place" marker rather than a precise spot; capped to the
+// nearest few so the cycle stays sane.
+//
+// THE CENTRE IS `listRegions`'s CENTRE, AND THERE IS ONLY THE ONE. This used to sweep
+// `getAllZones()` itself on every payload (a 2s poll) and average the member tiles, which is
+// a SECOND definition of where a region is: a tile-mean, not the middle of the rectangle the
+// DEADHEAD overlay draws. The two agreed only because all five regions happen to be filled
+// rectangles — the first L-shaped or holed one would have put the waypoint somewhere the drawn
+// overlay has no middle, and nothing would have flagged it. So this reads the memoised sweep
+// instead: one cached answer, one definition of a region's centre, and the payload loses a full
+// pass over every zone in the world. `listRegions()` also works off the deduped SURFACE index,
+// so a stacked zone can no longer vote twice and The Under cannot drag a centre sideways.
+//
+// ⚠ The memo is shared — never sort or mutate the array `listRegions()` hands back.
 const REGION_MAX = 6;
 function nearbyRegions(x, y) {
-  const acc = new Map();   // region_id → { sx, sy, n }
-  for (const z of getAllZones()) {
-    if (z.map_id !== 'map_world' || z.grid_x == null) continue;
-    const rid = z.flags?.region_id; if (!rid) continue;
-    const e = acc.get(rid) || { sx: 0, sy: 0, n: 0 };
-    e.sx += z.grid_x; e.sy += z.grid_y; e.n++;
-    acc.set(rid, e);
-  }
-  const all = [];
-  for (const [rid, e] of acc) {
-    const gx = Math.round(e.sx / e.n), gy = Math.round(e.sy / e.n);
+  const all = listRegions().map(r => {
+    const gx = Math.round(r.cx), gy = Math.round(r.cy);
     const dist = Math.hypot(gx - x, gy - y);
-    all.push({ id: rid, name: getRegion(rid)?.name || rid, gx, gy, bearing: Math.round(bearingDeg(x, y, gx, gy)), dist: Math.round(dist), _d: dist });
-  }
+    return { id: r.id, name: r.name, gx, gy, bearing: Math.round(bearingDeg(x, y, gx, gy)), dist: Math.round(dist), _d: dist };
+  });
   all.sort((a, b) => a._d - b._d);
   return all.slice(0, REGION_MAX).map(({ _d, ...f }) => f);
 }
@@ -1519,11 +1552,17 @@ export function contextPayload(live) {
   // parked_zone_id is the actual field you're at while grounded (null mid-flight —
   // takeoff clears it, parkAt sets it on landing), so it's the authoritative answer.
   const groundedField = !a.airborne && a.parked_zone_id ? getZone(a.parked_zone_id) : null;
-  const surfaceZone = groundedField?.flags?.airfield_id ? groundedField : surfaceAt(a.grid_x, a.grid_y);
+  // ⚠ THE OVERLAY FOR ANYTHING THE PILOT LOOKS AT; `surfaceAt` FOR ANYTHING THAT DECIDES SOMETHING.
+  // The window, the overflight readout and the biome below are what the canopy shows, and a pilot
+  // crossing a highway must see the highway. `onField`, the minimap zone graph and every landing
+  // path stay on placed ground — a synthesised road tile is not somewhere you may put an aircraft
+  // down, and it carries no zone id anything else could resolve. See registerCellOverlay.
+  const cellAt = renderCells();
+  const surfaceZone = groundedField?.flags?.airfield_id ? groundedField : cellAt(a.grid_x, a.grid_y);
   return {
     type: 'flight_ctx',
     fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
-    map: mapWindow(a), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(),   // window centre → client keeps map+centre paired (no recenter pop)
+    map: mapWindow(a, FLIGHT_RADIUS, cellAt), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(),   // window centre → client keeps map+centre paired (no recenter pop)
     // Everyone standing on the surface grid inside the same window, so a low pass shows the
     // street population rather than an empty city. Absolute tile coords, paired with mapX/mapY
     // exactly as `map` is. No exclusion list is needed here: this payload goes to every occupant
@@ -1532,7 +1571,7 @@ export function contextPayload(live) {
     // Overflight readout: the real place under the craft — a named building wins over the
     // raw tile name, so you read "Embassy Hotel & Bar", not the street cell it sits on.
     surface: airfieldOf(surfaceZone)?.name || surfaceZone?.flags?.building_name || surfaceZone?.name || 'open air',
-    biomeBelow: districtBiome(surfaceAt(a.grid_x, a.grid_y)),
+    biomeBelow: districtBiome(cellAt(a.grid_x, a.grid_y)),
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
     landmarks: nearbyLandmarks(a.grid_x, a.grid_y),   // named buildings you can lock the target guide onto

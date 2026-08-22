@@ -1,0 +1,6 @@
+{
+  "name": "climbing",
+  "version": "1.0.0",
+  "description": "Climbing — a rock face the map DRAWS as having a way up it (the scree terrain, props.climbable) is climbed by anyone carrying climbing-tagged gear, for a stamina cost scaled by the Climbing skill. Deterministic: gear and stamina decide it, never a roll. A bare cliff stays absolutely impassable and no gear will ever open one. No player verbs of its own — it is automatic on movement, exactly as swimming is; the engine asks through registerClimbProvider and this plugin answers, so neither side imports the other.",
+  "events": { "consumes": ["zone.entered"] }
+}

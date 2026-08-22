@@ -8,7 +8,7 @@
 // anybody standing in a yard a free rig, because the question then was whether the DRIVE was worth
 // doing. It is, so the question now is whether the run is worth OWNING — and that only bites if the
 // truck was a real purchase with a real opportunity cost. It also gives the economy somewhere to
-// go: the first 1,300₵ buys a Bolt-and-Pray, and 31,000₵ buys a market's worth of deck.
+// go: the first 1,300₵ buys a Bolt-and-Pray, and 16,500₵ buys a market's worth of deck.
 //
 // READ TIER: cold. A player's fleet is fetched when they open the yard or mount a truck, never on a
 // tick and never on the drive — the live rig carries the type in RAM once mounted, and fuel is

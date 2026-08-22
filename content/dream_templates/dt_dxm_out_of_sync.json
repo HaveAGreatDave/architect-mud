@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Something happens. The sound of it catches up.",
+    "You move, and a moment later the movement is reported.",
+    "The fault does not correct itself. It holds steady, competently."
+  ],
+  "cause": "drug",
+  "description": "The room is running about half a second behind the soundtrack of the room, and you are on the soundtrack. You watch yourself decide things and then watch the decision arrive. It is not distressing. It is a technical fault in a building you happen to be inside.",
+  "drug_id": "drug_dxm",
+  "fx": "snow",
+  "fx_intensity": 0.35,
+  "id": "dt_dxm_out_of_sync",
+  "name": "Out Of Sync",
+  "objects": [
+    {
+      "looks": [
+        "Half a second, held very consistently, which is somehow the worst part of it.",
+        "You test it by moving a hand. The hand agrees, late, in good faith.",
+        "It is not getting worse. It has been set."
+      ],
+      "name": "the gap"
+    },
+    {
+      "looks": [
+        "It arrives after the shape of saying it, and it is definitely yours.",
+        "You say something short to check. The checking takes longer than the sentence did.",
+        "It has a room on it that this room does not have."
+      ],
+      "name": "your own voice"
+    }
+  ],
+  "weather": "The air moves half a second after the thing that moved it."
+}

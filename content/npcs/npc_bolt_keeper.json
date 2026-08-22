@@ -305,6 +305,10 @@
     {
       "item_id": "item_sledgehammer",
       "price": 1430
+    },
+    {
+      "item_id": "item_climbing_rack",
+      "price": 300
     }
   ],
   "vendor_restock_rate": 3,
@@ -358,3 +362,4 @@
   "wanders": 0,
   "work_zone_id": "zone_bolt_shop"
 }
+

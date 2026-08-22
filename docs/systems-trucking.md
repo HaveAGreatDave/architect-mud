@@ -16,6 +16,7 @@ and a city that resolves out of the haze at the end of it.
 | Piece | File |
 | --- | --- |
 | Corridor geometry + cell synthesis, the sibling limbs, the signs | [plugins/trucking/corridor.js](../plugins/trucking/corridor.js) |
+| **The week's whole road network, for everybody who is not driving it** | [plugins/trucking/roadnet.js](../plugins/trucking/roadnet.js) |
 | The highway sign, drawn | `drawRoadSign` in [windshield.js](../client/game/js/panels/windshield.js) · `sgn` in [plugins/flight/state.js](../plugins/flight/state.js) |
 | Rig state, the clamp, node crossings, the cab push | [plugins/trucking/state.js](../plugins/trucking/state.js) |
 | Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `galley`, `lock`/`unlock` (routers — see the doors section), `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `truckpump`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
@@ -458,9 +459,20 @@ elsewhere.
 | | price | deck | tank | top | 0–60 |
 | --- | --- | --- | --- | --- | --- |
 | **Krell Barrow** | 1,300₵ | 1,200 kg | 850 tiles | 57 | — |
-| **Ostrek Courier** | 4,200₵ | 1,800 kg | 1,100 | 74 | 9.9 s |
-| **Vachon Drayman** | 11,500₵ | 3,500 kg | 1,400 | 66 | 17.2 s |
-| **Orlov Continental** | 31,000₵ | 6,200 kg | 2,100 | 63 | 18.2 s |
+| **Ostrek Courier** | 3,400₵ | 1,800 kg | 1,100 | 74 | 9.9 s |
+| **Vachon Drayman** | 7,200₵ | 3,500 kg | 1,400 | 66 | 17.2 s |
+| **Orlov Continental** | 16,500₵ | 6,200 kg | 2,100 | 63 | 18.2 s |
+
+> **Repriced 2026-08-21 — the top of the ladder was indexed to an economy that does not exist.**
+> Courier 4,200 → 3,400 · Drayman 11,500 → 7,200 · Continental 31,000 → **16,500**. The Barrow's
+> 1,300₵ entry rung is deliberately untouched. The problem was never the entry price, it was the
+> **shape**: every cost in the system is derived from the truck's list price (resale, `repairCost`,
+> `paintCost`, `trimCost`, `towFee`'s `heft`) while every income is a flat load table or a fixed
+> market return, so climbing the ladder scaled the bills linearly and left the earnings where they
+> were. A crossing haul pays 676–1,664₵; the old Continental was ~19 of them **before** running
+> costs, and a single professional repair from half-condition was 13,020₵ — eight crossings to undo
+> one bad week. At 16,500₵ the top rung is ~10 crossings and its worst repair is 6,930₵. Every
+> derived cost fell with it for free, which is the payoff for having derived them.
 
 **The spread is in different directions, not one "better" axis.** The Mule is the *fastest* thing in
 the fleet and can't carry a full commodity load; the Continental is slower than the Drayman and
@@ -599,6 +611,40 @@ wrong row, and the symptom of that would be a whole fleet turning the colour of 
 Every one of these was **false** when the system first worked end to end. A rig could be parked in a
 public yard, driven through a street full of people, and flown over by a pilot, and none of them saw
 anything at all. A vehicle nobody else can perceive is a private view, not a thing in the world.
+
+**…and the road exists to other people too** *(2026-08-21)*. The last place this was still false was
+the one that mattered most. `truckContactsNear` dropped every rig on the corridor — honestly, on the
+grounds that *"the corridor is not in anybody's world window"* — and the cab returned no aircraft off
+the city leg for the same reason. So the empty waste between regions, the one stretch where passing
+another human being is an event, was the only place in the game with no traffic in it at all.
+
+The corridor has been anchored in real world coordinates since the frame change, so that reason had
+already expired. [`roadnet.js`](../plugins/trucking/roadnet.js) builds the week's whole network from
+the gates — nothing new is authored, and no geometry is invented: `networkRoute` already seeds the
+middle on the sorted gate pair and reverses it for the other direction, so **one road per pair of
+gates** is a fact about the existing builder rather than a rule this file imposes. Flight takes it as
+a cell provider through `registerCellOverlay`, and both halves of the traffic picture now use one
+test (`inWorldFrame`): on the highway a driver and a pilot see each other, in the legacy local frame
+neither does.
+
+Three things worth knowing before touching it:
+
+- ⚠ **Nearest centreline wins, and both simpler rules are wrong.** `corridorAt` answers for the whole
+  band a road claims — carriageway, shoulder, and open filler out to `OFFROAD_R`, 24 tiles either
+  side — so roads overlap in their *filler* long before their tarmac. *First answer wins* put a hole
+  in the Scarletwastes highway wherever the Coldwater–Terminus road passed near it. *Carriageway
+  beats verge* looks like the fix and is not, because `isCarriageway` is true of the **shoulder** as
+  well as the tarmac — it picked one road's dirt margin over another road's highway. The rule is the
+  one corridor.js already applies between segments of one route, one level up.
+- **Roads genuinely share tarmac, by design.** Every road leaving a gate runs down the same spoke to
+  its interchange, which is what makes the fork a place. About a third of tarmac tiles are claimed by
+  more than one road; on those the pilot gets the nearest centreline, and what regress asserts is
+  that it is still *road*, never air.
+- **Direction-of-travel fields differ by direction, and always did.** `road_deg` is the heading as
+  driven and `road_t` the offset to the right of it, so a road built from the far end reports both
+  flipped — 9.3° vs 189.3° on the same tarmac. That is what two drivers passing each other have
+  always seen; the renderer takes `road_deg` as an undirected line and both flips cancel. Compare
+  them modulo 180 and by magnitude, or you will chase a bug that is not there. (I did.)
 
 **Parked rigs are in the room.** `describeDepot` lists them off the `depot_zone` the `trucks` table
 had carried since day one and nothing displayed — modelled on flight's `On the ramp:`, same shape,
@@ -868,6 +914,43 @@ else did. Four things, and each one is a rule rather than a tweak:
   cannot drift out of sync with the noise it is making. **The ride height is real** (the mesh's own
   `HOVER`, overshooting once), light comes up *before* movement so it reads as the cause, and the
   shake is on the **camera**, because what actually moves is you. It still sends the identical verb.
+
+**Taking a load has to be visible on the screen you took it from** *(2026-08-21)*. `haul` wrote a
+line into the log and re-pushed the panel, and the board **redrew identically** — same four rows,
+same live Take it on every one of them — so the only evidence that anything had happened was in the
+scrollback, which is the half of the screen a player deep in a pane app is not reading. Worse, the
+buttons that stayed live were now buttons the verb was certain to refuse: they are gated on
+`canLoad`, which asks *is there a box standing here* and never *is the box empty*. That is the
+toolbar rule (a button that is present and refuses is worse than one that is absent and explains
+itself) being broken by the one screen that displays the most refusable verb in the system.
+
+Three parts, and each is a fact the server already had:
+
+- **Both boards state the deck.** `deckStrip()` prints what is on the truck above the freight board
+  *and* above the exchange — the same read-out the Yard screen carries, in the place where it
+  answers the question the buttons under it are about to be asked. It replaces the exchange's old
+  "Your deck holds N kg" footnote, which said the capacity and never the contents.
+- **Every load button carries the reason it is dim.** One `loadBlock()` for both boards, because
+  `haul` and `market buy` refuse for exactly the same reasons, in the verb's own words. The row you
+  are **already carrying** says `✔ On the deck` instead of offering itself again — matched on the
+  new `cargo.slot` (the board row the contract came off, which travels with the load because the
+  load is a copy of the job) **and** on its name and destination, since ⚠ a board index means
+  something different at every yard. The same rule reaches the list-dialog rung: a full deck takes
+  the Haul and Buy commands off those rows, exactly as unaffordable stock already has no Buy.
+- **And the panel says so out loud.** A transient notice over the body when the deck CHANGES. This
+  does not break rule 3 (the panel never guesses what changed): the deck is a fact on the payload
+  and the only thing derived is that it differs from the previous push, which is why it is also
+  correct for `market buy` and `market sell` with nothing written for either. ⚠ It is deliberately
+  **not** a live region — the same words already reached `#output`, which is one, and announcing
+  them twice in two voices is worse than not announcing them here at all; the accessible half of
+  this change is the `disabled` on the buttons, which needs no ARIA.
+
+⚠ And `setDeckCargo` now re-pushes onto **the tab the click came from**. It always said `freight`,
+which is right for `haul` and wrong for `market buy` — buying on the Exchange threw the panel onto
+the freight board, so the one screen that could have shown you the goods you had just bought was the
+screen the purchase navigated away from. ⚠ Related: `.td-body` is a flex **row**, so every top-level
+node a screen returns becomes a column of its own; both boards are wrapped in `.td-col` now, which
+is also why the exchange's Sell button and footnote had been sitting to the *right* of its table.
 
 **The cockpit nobody has ever seen** *(2026-08-12)*. `openCab` writes straight into `#area-content`
 — the same element `setAreaPane` overwrites — and **the cab was never on `paneFreeForRoom()`'s
@@ -1188,7 +1271,7 @@ nothing to do, which is a punishment with no play in it.
 its output is the `p` object the client model already takes. So the bench cannot drift from the
 drive — there is no second copy of the tuning maths in `cab-view.js`, and nothing for one to drift
 from. It is also what fixed a much older bug: **the cab was hardcoded to `TYPES.hauler`**, so every
-truck in the game drove exactly like the 4,200₵ Courier — same gears, same top speed, same brakes,
+truck in the game drove exactly like the 3,400₵ Courier — same gears, same top speed, same brakes,
 same turn-in — and buying your way up the fleet bought a price tag and a silhouette and nothing else.
 
 > **A tune is a trade, never an upgrade.** Every knob gives with one hand and takes with the other,
@@ -2926,6 +3009,35 @@ all: paid, a low-loader takes you and the rig home; unpaid, it is recovered and 
 fee on the existing `impound_fee` path that `drive` already settles. So nobody is ever stranded and
 nothing new stores the debt.
 
+⚠ **A bay has no coordinates, and `towFee` used to measure from one anyway.** *Fixed 2026-08-21.*
+The fee is a call-out plus a rate per tile of the straight line between where the rig sits and
+where you are standing — but every depot **bay is an interior**, and all 324 interiors in the world
+carry `grid_x`/`grid_y` of **0**, which is not a position, it is the absence of one. That produced
+two opposite wrong answers depending on which end happened to be the shed:
+
+- **shed → shed**, across two regions: `hypot(0,0)` = **zero tiles**. A cross-waste recovery cost
+  the bare call-out.
+- **shed → hardstand** (the common path — `persistTruck` writes `depot_zone = rig.zoneId`, a real
+  tile, and `yard recall` is typed *inside* the bay): `hypot(871, 1958)` = **2,143 tiles**. Fetching
+  a Krell Barrow quoted **10,038₵** for a truck that costs 1,300₵ new; a Continental quoted 21,365₵.
+
+`towGrid()` resolves a coordinate-less zone to the **hardstand outside its door** — the tile a
+recovery driver actually drives to, already named by `truck_depot.yard` — and returns null when
+there is honestly no answer (a transient waste node has no row at all), which bills the nominal
+40-tile call-out rather than guessing at a long haul. **0,0 is treated as no-coordinates, not as a
+place**: the mapped world starts at `grid_x` 726, so a zero pair is always an unset column.
+
+⚠ **`TOW_MAX_FRAC` caps the bill at 40% of the truck's list price, and that cap is the structural
+half of the fix.** The measurement now works; the cap is what stops this *class* of mistake from
+ever producing an absurd bill again, because the distance term reads content rows and content can
+always grow a row whose coordinates are not where the thing is.
+
+Repriced alongside it — call-out 260 → **200₵**, per-tile 7 → **2.2₵**, and the `heft` divisor
+9,000 → **5,000** so the spread across the ladder survives the list-price cut below. A full
+Coldwater→Reach recovery now runs ~520₵ (Barrow) to ~1,510₵ (Continental), against a crossing haul
+that pays 676–1,664₵. It costs you **the run, not the truck** — which is the choice the verb was
+always meant to be, where before it was a wall.
+
 ---
 
 **A wall pushes back; it does not arrest you.** ⚠ *Revised 2026-08-13 — this section previously
@@ -3386,19 +3498,52 @@ is out cannot be clobbered by that rig's flush.
 
 ---
 
-## Fittings — twenty things that do nothing *(2026-08-20)*
+## Fittings — thirty-eight things that do nothing *(2026-08-20, widened 2026-08-21)*
 
 *Built.* Paint says what colour your rig is. This says what you are like. A truck is the one
 possession in this game a player owns outright, walks around, and sees from the outside every time
 they climb into it — and the whole of that expression was seven colours and a flash, so two rigs
 with the same paint were the same truck.
 
-Twenty cosmetic fittings across seven slots, running on one deliberate axis: the waste at one end
-(ram plate, tusk bar, saw-blade skirt, riveted plate, totem rack, bleached skull) and the strip at
-the other (chrome push bar, halogen light bar, underglow tubes, lifter halos, stack sleeves, chrome
-runner), with most of the range in the middle where a working truck actually lives — a jerry rack, a
-winch, a chain rack, a beacon, a banner pole. `plugins/trucking/fittings.js` is the catalog and
-every rule; `rig fit` is the till.
+Thirty-eight cosmetic fittings across eight slots, running on one deliberate axis: the waste at one
+end (ram plate, tusk bar, saw-blade skirt, riveted plate, totem rack, bleached skull) and the strip
+at the other (chrome push bar, halogen light bar, underglow tubes, lifter halos, stack sleeves,
+chrome runner), with most of the range in the middle where a working truck actually lives — a jerry
+rack, a winch, a chain rack, a beacon, a banner pole. `plugins/trucking/fittings.js` is the catalog
+and every rule; `rig fit` is the till.
+
+### The waste half, and the eighth slot *(2026-08-21)*
+
+The first cut shipped twenty-four fittings weighted toward the show truck, and **the map is the
+argument against that**: the road runs out of Coldwater into the Scarletwastes, and a catalog that
+could only dress a strip rig meant every truck on the long haul looked like it had never left the
+city. Fourteen more, most of them at the waste end — a **grader blade** hung on an angle so what it
+catches goes sideways, a **spike rack** of sharpened rebar, a **roof parapet** cut low at the front,
+an **aerial farm** of mismatched whips, **soot pipes**, a **spear rack**, a **hide drape**, **drag
+chains**, a **scrap hopper** with a chute pointed at whoever is following, a **water bowser** with a
+tap on the outside, and a **wheel idol** stood upright on the bonnet facing the road.
+
+They still say nothing mechanical (rule 3 below): **a bowser carries no water, a hopper drops
+nothing, a slit plate stops no bullet.** What they carry is a claim about where you have been, and
+the claim is free — the moment the waste kit is the *fast* kit, the look is a tax and everybody
+converges again.
+
+The eighth slot is **`glass` — the screen**, holding welded **screen mesh**, a **slit plate** with a
+hand's width cut out at eye level, and a **sun strip**. ⚠ **A new slot goes in its walking position
+and never moves an existing one past another.** `SLOTS` is the sort key `fitSuffix` makes the wire
+string canonical with, so reordering two slots that both have something in them rewrites the
+mesh-cache key of every truck already wearing them. `glass` went between `bar` and `roof`, which
+leaves every existing pair in the same relative order — that is the only reason it was free.
+
+⚠ **And everything in that slot lives in the windscreen's own raked plane, standing ahead of it.**
+The screen is a single `poly`, the painter's sort gives a face *one* depth, and the rule the grille
+fins are placed by applies word for word — *nothing on the face may share a fore-aft slice with the
+panel behind it*. So the pieces are quads in a parameterised copy of that plane (`scrP`, 0 at the
+sill to 1 at the header, pushed forward by `SD`) and not one of them is a box: a box has a fore-aft
+thickness, the plane is raked, and a box on it is a brick lying against a slope. Regress asserts
+every screen fitting draws on **all four rigs**, which is the one claim that can be made for the
+whole fleet — a stack sleeve has nothing to hang off a scrapper and a mascot moves to the cowl on a
+cab-over, but every truck in the game has a windscreen.
 
 **Price tracks metal and nothing else, on purpose.** It is not a ladder — a ₵400 skull on the bonnet
 is not a worse ₵3,200 light bar, it is a different sentence — because a catalog that reads as a
@@ -3444,9 +3589,55 @@ charges rent on your own taste is one nobody experiments with, and "take it off 
 free or the catalog is a set of one-way doors.
 
 ⚠ **It is `rig fit`, not `rig kit`.** A kit is five things that change how a truck *drives*; a
-fitting is twenty that change nothing. Collapsed into one shelf, a player scrolls past a bull bar to
-find the auxiliary tank with no way to tell which of the two costs them a lap time. The boundary is
-exactly "does this reach `effTruckParams`".
+fitting is thirty-eight that change nothing. Collapsed into one shelf, a player scrolls past a bull
+bar to find the auxiliary tank with no way to tell which of the two costs them a lap time. The
+boundary is exactly "does this reach `effTruckParams`".
+
+⚠ **Every place on the truck must have something you can put there.** The depot renders one cell per
+slot and opens that slot's shelf when you click it, so an empty slot is a button that opens nothing
+— and the sheet *is* the navigation, so there is no other way back out. Regress asserts it, alongside
+the rule that **no fitting is named after a place**: `rig fit roof` is a listing and `rig fit tusks`
+is a purchase, and the only thing keeping those apart is that no catalog name collides with a slot's
+id or label. A collision would not error, it would silently print a shelf where somebody expected to
+buy something.
+
+### Finding what is on your own truck *(2026-08-21)*
+
+Both surfaces were built the same way and had the same fault: eight sections, the whole catalog
+under them, in one column. **The commonest question had the longest answer** — *what has this truck
+got on it?* is a question about eight facts, and answering it meant scrolling thirty-eight rows
+looking for the ones whose button said Remove.
+
+So the eight facts come first, on both rungs.
+
+**The panel** opens the Fittings tab with a **rig sheet**: one cell per place, naming what is in it
+or saying *empty*, two across, four lines that never scroll. **The sheet is also the navigation** —
+clicking a place opens that place's shelf underneath, four or five rows, which fits. The two halves
+cannot disagree about which place you are looking at because one of them *is* the other, which is
+why there is no segmented control across the top (that was the obvious alternative and it would have
+been a ninth widget saying the same eight words as the cells directly beneath it). `on` (something is
+fitted here) and `sel` (this is the one you are reading) must both be legible at once and therefore
+cannot share a channel: `on` is the fitted name going green, `sel` is the accent border every other
+selected thing in the panel wears. The selection lives on `B.bench.fslot` for the same reason the
+booth's section does — a repush lands after every fit and every unfit, and a tab that reset itself
+would make trying two roof racks against each other a thing you re-find twice.
+
+**The log rung** is now three answers instead of one, and the default is the short one:
+
+| | |
+|---|---|
+| `rig fit` | the **sheet** — one line per place, what is in it, and how to open that shelf |
+| `rig fit roof` | one place's shelf, **with the descriptions**, which is what makes a single shelf worth asking for |
+| `rig fit all` | the wall, deliberately still reachable, because somebody pricing up a whole rig wants it |
+
+⚠ **The panel's sheet and the log's sheet are the same eight facts in the same order**, both derived
+from `SLOTS` + `installedFits` — the existing rule that a shelf whose order differs between the panel
+and the log is two shelves, now covering the summary as well as the catalog.
+
+**Ownership is read off the price, not off a second list on the wire.** `priceFor` already quotes
+zero for anything in this truck's drawer, so `p === 0` is exactly "you own this and putting it back
+is free" — the panel's YOURS tag, its *Put it back on* button and the log's `in the drawer` all come
+off that one fact, with no `owned_fits` shipped and nothing to fall out of step with the till.
 
 ### Where the geometry lives
 
@@ -3472,7 +3663,7 @@ for free.
 **No fitting is load-bearing geometry.** Nothing publishes a pod, moves a lamp station, changes the
 door rectangle or touches the kingpin — regress compares the meta of a *fully fitted* Continental
 against a bare one and demands the pin, the door panel, the cab back and the pod count are identical.
-That is what keeps twenty parts from being twenty ways to break one mesh.
+That is what keeps thirty-eight parts from being thirty-eight ways to break one mesh.
 
 ⚠ **The `^` suffix is stripped before the type is read.** It can follow either the type or the
 trailer marker, so the lazy `/~.*$/` strip would hand the parser a tail of `'t^rp'` and every fitted
@@ -3493,7 +3684,7 @@ somebody left on.
 
 ⚠ **The truck mesh cache is now bounded, and nothing else is.** Every other class here has a handful
 of keys, all resident a minute after boot. A truck's key is a whole sentence — four types × trailer
-× parked × twenty fittings in seven slots — and a busy yard is dozens of distinct rigs, so an
+× parked × thirty-eight fittings in eight slots — and a busy yard is dozens of distinct rigs, so an
 unbounded map is a slow leak keyed on *other people's taste*. Past `TRUCK_CACHE_MAX` the oldest key
 goes and its `TRUCK_META` entry goes with it (dropping the faces and keeping the meta is the same
 leak one field smaller; dropping the *wrong* meta silently un-places another truck's lamps). The cap

@@ -22,8 +22,8 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, isRoadCell, aircraftNearCoord, skyState } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
-  nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, isCarriageway, pavedAt,
-  attachSigns, joinRoutes, reverseRoute, pairKey } from './corridor.js';
+  nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, pavedAt,
+  attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad } from './corridor.js';
 import { hitcherAt } from './hitchers.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
@@ -150,13 +150,12 @@ export function providerFor(rig) {
 }
 // The one composition, so the approach and the crossing can never disagree about which of the two
 // worlds owns a tile — see the ⚠ above providerFor for why it is per-claim rather than an order.
-function composed(road) {
-  return (x, y) => {
-    const c = road(x, y);
-    if (c && isCarriageway(c)) return c;
-    return surfaceAt(x, y) || c;
-  };
-}
+//
+// ⚠ THE RULE MOVED TO corridor.js AND THIS IS NOW A BINDING, NOT A COPY. `roadnet.js` composes the
+// whole week's network over the same world for everybody who is not driving, and the two had to be
+// the same rule rather than the same four lines twice — a driver and the pilot above them looking
+// at different ground is precisely the defect the network exists to close.
+const composed = (road) => composeRoad(road, surfaceAt);
 
 // A rig exists only while somebody is driving one. Mounted in the CITY — the crossing is joined
 // later, by driving to the rim, which is the whole point of starting in a depot.
@@ -332,7 +331,16 @@ export function gatePair(aKey, bKey) {
 // production, off the zone-reload hook in index.js — a gate is derived from tile POSITIONS, so an
 // editor moving a region moves its road mouths and this is what stops the highway anchoring itself
 // to where they used to be. The leading underscore is now a misnomer kept for its callers.
-export const _clearGateCache = () => _gates.clear();
+//
+// ⚠ IT BUMPS A GENERATION, because a second cache is built ON TOP of this one. `roadnet.js` holds
+// the whole week's road network, every metre of which is anchored on a gate — so a cleared gate
+// cache and a live network is a highway running to where a mouth used to be, drawn confidently
+// under a pilot who has no way to know. Making that a second thing to remember to call is how it
+// gets forgotten (regress already clears gates directly, in the middle of a suite), so the network
+// validates against this counter instead and cannot be left behind.
+let _gateGen = 0;
+export const gateGeneration = () => _gateGen;
+export const _clearGateCache = () => { _gates.clear(); _gateGen++; };
 
 // ── THE INTERCHANGE ──────────────────────────────────────────────────────────
 //
@@ -524,7 +532,11 @@ export function buildRoad(fromKey, destKey, toRegion, window, nodes, dests = nul
 // Every destination out of a void, in the shape `buildRoad` and `signsFor` both want. Derived from
 // the crossing where there is one and from the void's own table where there is not, so the approach
 // preview and the live drive are looking at the same list.
-function destsFor(voidKey, info) {
+//
+// Exported for `roadnet.js`, which enumerates every road in the world and must ask this question
+// rather than re-derive it: the `d.length`-versus-`crossingRooms` trap below is exactly the sort of
+// thing a second copy gets wrong, and it did once already (a road with no segments at all).
+export function destsFor(voidKey, info) {
   const src = info?.dests || VOIDS[voidKey]?.dests || [];
   return src.map((d) => ({
     key: d.key,
@@ -690,6 +702,10 @@ export function leaveCorridor(rig, x, y, heading = 180) {
   return rig;
 }
 export function dismountRig(playerId) {
+  // Everyone out first, while the rig still exists to be got out of. Parking, a tow, a breakdown
+  // recovery and the driver logging out all come through here, which is why passengers are set down
+  // in one place rather than in four that each have to remember.
+  setDownPassengers(rigs.get(playerId));
   rigs.get(playerId)?.playerId && rigs.delete(playerId);
   // Out of the cab, out of the box — see mountRig. Cleared unconditionally rather than only when a
   // rig was found, because the failure this guards against is a stale flag making somebody
@@ -698,6 +714,113 @@ export function dismountRig(playerId) {
   if (p) p._inCab = false;
 }
 export function rigOf(player) { return rigs.get(player?.id) || null; }
+
+// ── PASSENGERS ───────────────────────────────────────────────────────────────
+//
+// An aircraft has carried people since charter: `live.occupants` is a Set of player ids and the
+// pilot flies while everyone else rides. A truck is the simpler case of the same thing, and it was
+// missing entirely — a rig was a single-occupancy object, so the only way a second person crossed
+// the void with you was to walk it themselves.
+//
+// ⚠ `rig.passengers` IS NOT `rig.rider`. The rider is the seeded HITCHER: a pure fact about a stretch
+// of road (`hitcherAt`), stored as `{ id, look, line }`, read in eleven places including the
+// weighbridge, where clearing it is the whole fugitive mechanic. A passenger is a person with an
+// account. Collapsing the two would have put a player through code that expects a description string
+// and a weight, so they are deliberately separate fields that happen to share a bench seat.
+//
+// ⚠ AND THE RIG IS KEYED BY ITS DRIVER. `rigs` is a Map from the DRIVER's player id, so a passenger
+// cannot be found by looking themselves up in it — hence the back-reference on the player. One field,
+// set and cleared in the two functions below and nowhere else.
+const CAB_SEATS = 2;            // the passenger seat and the sleeper
+
+export function ridingRigOf(playerOrId) {
+  const id = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
+  const p = typeof playerOrId === 'string' ? getLivePlayer(id) : playerOrId;
+  const host = p?._ridingRig;
+  if (!host) return null;
+  const rig = rigs.get(host);
+  // A rig that has gone (driver parked, logged out, was towed) leaves the flag behind. Clearing it
+  // lazily here means no path has to remember to, which is the failure that would strand somebody
+  // in a truck that no longer exists.
+  if (!rig || !rig.passengers?.has(id)) { if (p) p._ridingRig = null; return null; }
+  return rig;
+}
+
+// How many seats are left. The seeded hitcher takes one when they are aboard, which is what makes
+// picking one up a decision rather than a freebie: the bench is the bench.
+export function seatsFree(rig) {
+  return CAB_SEATS - (rig.passengers?.size || 0) - (rig.rider ? 1 : 0);
+}
+
+export function boardPassenger(rig, player) {
+  if (!rig || !player) return false;
+  rig.passengers = rig.passengers || new Set();
+  if (rig.passengers.has(player.id)) return true;
+  rig.passengers.add(player.id);
+  player._ridingRig = rig.playerId;
+  // In the cab is in the cab: the same flag the driver carries, so everything that already knows a
+  // person in a truck is not standing in the road (the hijack target list, being attackable on foot)
+  // treats a passenger the same way without being told about passengers.
+  player._inCab = true;
+  // The rig's zone is the truth about where the truck is; a passenger who boarded from the verge
+  // needs to be in it rather than beside it.
+  if (rig.zoneId && player.current_zone !== rig.zoneId) {
+    removePlayerFromZone(player.id, player.current_zone);
+    addPlayerToZone(player.id, rig.zoneId);
+    player.current_zone = rig.zoneId;
+  }
+  return true;
+}
+
+// Step down, wherever the truck is now. Returns the zone they were put down in, or null.
+export function alightPassenger(playerOrId) {
+  const id = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
+  const p = getLivePlayer(id);
+  const host = p?._ridingRig;
+  const rig = host ? rigs.get(host) : null;
+  rig?.passengers?.delete(id);
+  if (p) { p._ridingRig = null; p._inCab = false; }
+  return p?.current_zone || null;
+}
+
+// ⚠ EVERY PASSENGER COMES WITH THE TRUCK, AND THIS IS THE ONE PLACE THAT HAPPENS. Both zone movers
+// (`driveToZone` for city tiles, `crossToNode` for the corridor) call it, so a rider cannot be left
+// standing in a street the truck drove out of an hour ago. A passenger who has logged out is dropped
+// from the set rather than moved: `getLivePlayer` is the liveness test, and carrying a ghost would
+// put an offline player's `current_zone` somewhere they never agreed to be.
+function carryPassengers(rig, from, to) {
+  if (!rig?.passengers?.size || from === to) return;
+  for (const pid of [...rig.passengers]) {
+    const p = getLivePlayer(pid);
+    if (!p) { rig.passengers.delete(pid); continue; }
+    if (p.current_zone === to) continue;
+    removePlayerFromZone(pid, p.current_zone);
+    addPlayerToZone(pid, to);
+    p.current_zone = to;
+    // ⚠ The row is NOT written here, for the reason the driver's is not: this is the hot drive path
+    // and a write per tile is what the persistence tiers forbid. A passenger's durable position is
+    // their driver's problem, and it lands when the truck stops (see setDownPassengers).
+  }
+}
+
+// Everyone out — the truck has stopped being a truck you are in. Called from `dismountRig`, so
+// parking, being towed, a breakdown recovery and the driver logging out all set riders down through
+// one path rather than three that each have to remember.
+export function setDownPassengers(rig) {
+  if (!rig?.passengers?.size) return [];
+  const out = [];
+  for (const pid of [...rig.passengers]) {
+    const p = getLivePlayer(pid);
+    rig.passengers.delete(pid);
+    if (!p) continue;
+    p._ridingRig = null; p._inCab = false;
+    out.push(p);
+    // The durable write happens here and not on the road: one statement per passenger, once, when
+    // the wheels stop.
+    query('UPDATE players SET current_zone=$1 WHERE id=$2', [p.current_zone, pid]).catch(() => {});
+  }
+  return out;
+}
 
 // ── Reconcile: the one place a client number becomes a server fact ───────────
 // `d` is the unpacked telemetry frame. Returns { moved, node, bogged } for the caller to act on.
@@ -1030,6 +1153,7 @@ export function driveToZone(player, rig, zoneId) {
   player.current_zone = zoneId;
   rig.zoneId = zoneId;
   rig.zoneDirty = true;
+  carryPassengers(rig, from, zoneId);   // anybody riding comes with the truck
   // The new tile's standing trailers, into the RAM cache the cab draws from. Fire-and-forget: this
   // is the one place a DB read touches the drive and it must never block it, so the boxes appear a
   // beat after you roll in rather than holding the move up for a round trip. (A yard you have just
@@ -1082,13 +1206,36 @@ export async function crossToNode(player, rig, node) {
   if (!to || to === player.current_zone) { rig.node = node; return null; }
   const zone = getZone(to);
   if (!zone) return null;                                   // instance torn down under us — caller aborts
+  const from = player.current_zone;
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, to);
   player.current_zone = to;
   rig.node = node;
-  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [to, player.id]).catch(() => {});
-  if (player._crossing) player._crossing.seen.add(to);
-  emit('zone.entered', { actor: player, zone: to });
+  // ⚠ COALESCED, LIKE ITS SIBLING TWELVE LINES UP. `driveToZone` moves a driving player between city
+  // tiles in RAM and marks the row dirty for `flushZone` to write once, on park/arrive/logout, citing
+  // the persistence tiers. This did the opposite and awaited an UPDATE on every node boundary. At
+  // fifteen nodes a crossing that was fifteen writes and nobody noticed; at ONE ROOM PER TILE it is
+  // two hundred and eighty-two, several a second at road speed, which is exactly the per-tick write
+  // docs/architecture.md forbids. The failure mode of coalescing is the one already accepted for the
+  // city path and for voidwalking's own `crossing_room`: a hard crash puts you back where you last
+  // stopped.
+  rig.zoneDirty = true;
+  carryPassengers(rig, from, to);   // anybody riding crosses the node with the truck
+  // ⚠ `mounted` IS WHAT KEEPS A MOVING TRUCK OUT OF A FIGHT, AND IT SAYS SO.
+  // A driver does not meet what a walker meets: hijackers work a STOPPED cab (hijack.js gates on
+  // STOPPED_MPH) and getting out puts you on foot in the waste like anybody else, but rolling down
+  // the road is not exposure. voidwalking's encounter roll reads this flag and skips.
+  //
+  // ⚠ IT USED TO DO THAT BY PRE-MARKING `_crossing.seen` BEFORE THE EMIT, WHICH WORKED AND MEANT
+  // SOMETHING ELSE AS WELL. `seen` is "this room has had its one encounter roll", so marking it from
+  // the cab did not just skip the roll, it SPENT it: break down forty tiles on, walk back, and the
+  // ground you drove through was quiet forever. Tolerable at fifteen rooms and not at one room per
+  // tile, where a lift would launder every tile it covered. The rule is explicit now and `seen`
+  // means only what it says.
+  //
+  // Traces are deliberately NOT suppressed. You can still see what happened at a spot from the cab;
+  // you simply do not walk into it.
+  emit('zone.entered', { actor: player, zone: to, mounted: true });
   return zone;
 }
 
@@ -1104,10 +1251,24 @@ export async function crossToNode(player, rig, node) {
 // description, not in a pilot's contact list where it would sit as a permanent blip. Mirrors
 // flight's own rule (`isGroundRolling` gates a taxiing aircraft into the picture at 5 kt).
 const TRAFFIC_MPH = 6;
+// IS THIS RIG SOMEWHERE THE REST OF THE WORLD CAN SEE?
+//
+// It used to be `leg === 'city'`, on the honest grounds that the corridor was not in anybody's
+// world window. It is now: the road is anchored in real coordinates and the flight sim renders it
+// through the cell overlay (roadnet.js), so a truck out on the highway is a truck at a tile a pilot
+// is looking at, and dropping it made the one place traffic matters most the one place there was
+// none of it.
+//
+// ⚠ ANCHORED ONLY, AND THAT IS NOT BELT AND BRACES. An unanchored route is the legacy LOCAL frame —
+// origin at the gate, x and y measured from there — and those numbers are perfectly good positions
+// in a coordinate system nothing else uses. Reported as world tiles they would put a truck a
+// hundred tiles off the map, drawn confidently, with nothing to say it was wrong.
+const inWorldFrame = (rig) =>
+  rig.leg === 'city' || (rig.leg === 'corridor' && !!rig.route?.anchored);
 export function truckContactsNear(x, y, range = 26) {
   const out = [];
   for (const rig of rigs.values()) {
-    if (rig.leg !== 'city') continue;            // the corridor is not in anybody's world window
+    if (!inWorldFrame(rig)) continue;
     if ((rig.speed || 0) < TRAFFIC_MPH) continue;
     if (Math.max(Math.abs(x - rig.x), Math.abs(y - rig.y)) > range) continue;
     out.push({
@@ -1236,8 +1397,8 @@ export function cabContext(rig, extra = {}) {
     // who typed `lock` instead of pressing the button.
     locked: rigLocked(rig),
     // WHICH TRUCK THIS IS, and what a bench did to it. The cab used to hardcode the Courier's
-    // parameters, so the gearbox, the top speed, the brakes and the turn-in of a 31,000₵
-    // Continental were the 4,200₵ truck's — you could buy your way up the fleet and feel nothing.
+    // parameters, so the gearbox, the top speed, the brakes and the turn-in of a 16,500₵
+    // Continental were the 3,400₵ truck's — you could buy your way up the fleet and feel nothing.
     // `params` is the client model's own `p` object, assembled once at mount by rig.js.
     typeId: rig.typeId || null,
     params: rig.params || rig.type || null,
@@ -1303,9 +1464,14 @@ export function cabContext(rig, extra = {}) {
     surface: surfaceUnder(rig),
     // The other half of the traffic picture: aircraft near the truck, so a driver sees a Mule come
     // over the yard at two hundred feet. `aircraftNearCoord` already builds exactly this list for
-    // the yacht helm, so a driver's sky costs one call and no new channel. City leg only — nothing
-    // flies over the corridor, which is off the map entirely.
-    contacts: city ? aircraftNearCoord(cx, cy, 22) : [],
+    // the yacht helm, so a driver's sky costs one call and no new channel.
+    //
+    // ⚠ IT USED TO SAY "CITY LEG ONLY — nothing flies over the corridor, which is off the map
+    // entirely", and that stopped being true when the road was anchored. Both halves of this
+    // picture now use the same test (`inWorldFrame`), so a driver and a pilot appear to each other
+    // or not for one reason rather than two: on the highway they see each other, in the legacy
+    // local frame neither does.
+    contacts: inWorldFrame(rig) ? aircraftNearCoord(cx, cy, 22) : [],
     // THE BOXES STANDING IN THIS YARD, as world objects rather than as a list in a menu. Same
     // contact shape as the aircraft above, so the cab draws a dropped trailer with the renderer it
     // already has; served from the per-zone RAM cache (trailers.js) because this runs on the drive

@@ -30,21 +30,36 @@ labelling layer on top of the grid. See [systems-world.md](../systems-world.md).
 ### Region — the spatial "place" (renamed 2026-07-19 from *district*)
 A **region** is a named rectangle of the `map_world` grid — the big world-map places a pilot would
 navigate toward: **Coldwater**, **The Reach**, **Terminus**, **The Scarletwastes**, **Deadwater**. SSOT is the **`regions` table**
-(`id/name/base_terrain/grid_z/defaults`); member tiles point back with **`flags.region_id`**. Bounds are
+(`id/name/base_terrain/grid_z/climate_bias/defaults`); member tiles point back with **`flags.region_id`**. Bounds are
 derived from member tiles at read time, never stored (so moving a region can't desync them). Authored
 in the dev-panel **World Editor** ("New Region", "Region Maps", drag-to-move), published through
 staging (`region_create` / `region_move`). Loaded into RAM at boot (`world.regions`, `getRegion` /
 `getAllRegions`, refreshed on `reloadMaps`) so runtime readers resolve a region name without a DB hit.
 The flight target guide waypoints regions — see [systems-flight.md](../systems-flight.md).
 
-**A region also says what its tiles sound like by default.** `regions.defaults` is a JSONB bag
-keyed by *zone column* — the region rung of `resolveDefault`
+**A region can say what its tiles are like by default — and today it says nothing.**
+`regions.defaults` is a JSONB bag keyed by *zone column* — the region rung of `resolveDefault`
 ([scripts/content/derive.mjs](../../scripts/content/derive.mjs), spec §1.3), resolved
-**tile override → region default → palette → global**. Today it holds one key, `audio_theme_id`:
-two authored values covering 5,237 tiles, replacing a column that was null on every one of them.
-A tile overrides by setting the column; blank means inherit, and the dev panel's Audio Theme
-select names what blank would give you. Most-specific wins, so a region default deliberately
-outranks anything terrain-derived — refining below a region means refining the region.
+**tile override → region default → palette → global**. Most-specific wins, so a region default
+deliberately outranks anything terrain-derived; a tile overrides by setting the column, and blank
+means inherit. `content:lint` validates every key in the bag against the zone-column registry,
+because a JSONB reference has no foreign key and one typo would silently retune thousands of tiles.
+
+⚠ **`defaults` is `{}` on all five regions, and has been since 2026-08-01** (corrected
+2026-08-21 — this paragraph previously said it held `audio_theme_id` on two regions covering
+5,237 tiles, which was true for the five days between `036b99d67` on 2026-07-27 and
+`2988f499a` on 2026-08-01). It was withdrawn on purpose: **a song starting because you crossed an invisible boundary
+read as a bug**, and the music slot belongs to things a player can point at. So the *mechanism* is
+live and pinned by regress (`resolveDefault`'s four rungs are asserted in
+[tests/regress.js](../../tests/regress.js)) but has **no authored consumer** — it is a seam waiting
+for a column where "everywhere in this region, unless the tile says otherwise" is the right
+sentence, which for music it was not. Don't read an empty bag as a broken pipeline.
+
+**`climate_bias` is a sibling COLUMN, not a `defaults` key** — `{ temp, dryness, acid }`, read
+directly by the weather field sampler ([plugins/weather/index.js](../../plugins/weather/index.js))
+and editable from the dev panel's Weather tab. It is the one region-level lean that is authored
+today — on Deadwater, Terminus and the Scarletwastes; Coldwater and the Reach are baseline. It sits outside `defaults` because it is not a zone column
+being defaulted through — nothing on a tile overrides it.
 
 > **Region > district** in scale: a region contains districts. (Regions were called "spatial
 > districts" before 2026-07-19; the rename exists purely to end that collision.)

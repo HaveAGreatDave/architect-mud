@@ -131,6 +131,16 @@ Tonight: everything's fine, nothing's fine, and somewhere in between there's a m
 # --- Audience reactions: unattributed crowd beats dropped between jokes and around --
 # --- the guest exchanges. They render as ambient stage business (dim italic, no name, --
 # --- not read aloud) and give the room time to breathe between lines. -----------------
+#
+# THE CROWD CARRIES THE PACING NOW. A beat lands after every joke rather than after most of
+# them, which is what lets the monologue run short without feeling clipped: fewer punchlines,
+# more room around each one. That means one episode draws a LOT of these, so the pool is sized
+# to outlast a night comfortably — the deck is dealt without repeats, and a reaction heard
+# twice in one show is the thing that gives the studio away as a loop.
+#
+# Keep them SHORT, and keep them varied in KIND: laughs, groans, silences, applause, small
+# accidents offstage. A pool of nothing but laughter reads as a laugh track, which is the
+# failure this is meant to avoid.
 ::lines audience
 ( The audience laughs. )
 ( A big laugh rolls through the studio. )
@@ -156,6 +166,46 @@ Tonight: everything's fine, nothing's fine, and somewhere in between there's a m
 ( Laughter, and the distinct sound of someone leaving. )
 ( The audience murmurs, unsure if that was allowed. )
 ( A wave of laughter, cut short by a flicker of the lights. )
+( The room laughs, then goes quiet fast, the way people do here. )
+( A big laugh. Somebody in the third row is crying and it is not clear why. )
+( One long, low groan from four hundred people at once. )
+( Laughter, then applause, then more laughter, in that order. )
+( The crowd whoops. The band hits a sting. )
+( Somebody shouts a name. It is not anybody's name. )
+( Applause from one side of the studio only. )
+( The audience laughs; a light fixture sways in agreement. )
+( A hard laugh, cut off by a cough that goes on too long. )
+( Delighted, appalled laughter. )
+( The crowd thinks about it, then laughs late. )
+( Two people laugh. Then everybody laughs at those two. )
+( A whoop, a whistle, and a chant that is abandoned immediately. )
+( The audience claps in that slow sarcastic way, then normally. )
+( Somebody boos. Somebody else deals with it. Order restored. )
+( Laughter with an edge on it. )
+( The crowd howls. )
+( A murmur of recognition, which is worse than a laugh and lands harder. )
+( Silence, and then, from the balcony, one word: "Yeah." )
+( The audience applauds a joke that has not finished landing. )
+( Groans, and then applause for the groan. )
+( The audience laughs. Somewhere behind them, a door closes. )
+( One person laughs alone for a long time and nobody stops them. )
+( The room goes up. The floor manager makes a signal nobody understands. )
+( A laugh, a beat, and then the room works out what he said. )
+( Applause, some of it from the band. )
+( The audience says "awww" and means none of it. )
+( Laughter, and one person applauding with a single hand. )
+( A shocked laugh from the front row and nothing at all from the back. )
+( The crowd laughs, and keeps laughing, and has to be brought back. )
+( A groan that turns into a cheer halfway through. )
+( Somebody laughs like a door hinge. It gets a bigger laugh than the joke. )
+( The room laughs. Somewhere in it, one man does not. )
+( Applause that starts before the punchline and has to commit. )
+( The audience winces, then laughs at the wince. )
+( A laugh, and then the sound of four hundred people deciding not to think about it. )
+( Warm laughter. It is nice in here. It will not last. )
+( The crowd goes very still, and then breaks. )
+( Laughter, a whistle, and a small crash offstage that nobody acknowledges. )
+( The audience laughs at the wrong part, which is somehow better. )
 ::endlines
 
 # --- Applause: bigger crowd swells for entrances and the sign-off. --------------------
@@ -210,64 +260,152 @@ He's got jokes, he's got debts, and tonight he's got a microphone, {host}!
 Still cleared to broadcast as of this sentence, your host, {host}!
 ::endlines
 
-# --- Monologue: the host's opening jokes (5–8 drawn per night) -------------------
+# --- Monologue: the host's opening jokes. FEWER PER NIGHT, OUT OF A MUCH BIGGER POOL. -----
+#
+# Two things keep this segment from going stale, and they pull against each other on purpose.
+# The RUNNER draws only 4-5 jokes a night (TALKSHOW_MONOLOGUE in plugins/broadcast/index.js)
+# and leans on the crowd between them, so somebody who watches every night takes months to
+# work through the pool instead of a fortnight. The POOL therefore has to be deep enough for
+# that to be true: drawing shallowly from a small pool is the same show either way.
+#
+# EVERY LINE HERE CARRIES A [topic], and that is the second lever. The pool holds more than
+# one joke about rent, about the Machine, about what comes out of the taps — it should — but
+# two of them in one monologue reads as a man with one subject rather than a man with an act.
+# Tag coarsely, by what the joke is ABOUT, and REUSE an existing tag when a new joke covers
+# ground an old one already covers: two lines sharing a tag can never reach the same episode,
+# which is exactly the promise you want them making to each other.
 ::lines monologue
-Thank you, thank you! Sit down, we've got a fantastic show, assuming the power holds.
-Big crowd tonight. Or it was. We lost a few during the metal detector portion.
-Did everyone survive the commute? Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles.
-Corporate Security says crime is down again. Apparently they stopped counting anything that happens outside corporate property.
-I stopped by a pharmacy today. They've started locking up the bottled water. The cybernetic organs? Still self-service.
-You know times are tough when the mugger accepts store credit.
-My landlord says the building is structurally sound. Turns out that's a completely different thing from "safe."
-The city announced a new mental health initiative. It's a billboard that says "Have you considered being richer?"
-They renamed my district again. It's now "Opportunity Basin." Same craters, better font.
-I got a parking ticket today. For a car I don't own. In a district I've never been to. The Machine is very thorough.
-Weather service says it's going to rain tomorrow. They didn't say water. They were very careful not to say water.
-The transit authority added a new express line. It's the same line, but now it doesn't stop for the people who fall in.
-Great news from the hospital: they've reduced wait times by simply removing the chairs.
-A man tried to sell me a map to the surface today. I said, "Buddy, I've seen the surface." He said, "Then you know why I'm selling the map."
-The Machine wished everyone a happy productivity quarter today. It does not know what happiness is. It's very confident about it anyway.
-Rent went up again. My landlord calls it "market rate." The market is a hole in the ground and the rate is everything you have.
-I tried the new soylent flavor. It's called "Original." I asked original what. They stopped returning my calls.
-Somebody firebombed the DMV today and honestly the lines moved faster.
-The mayor gave a speech about hope. Then the teleprompter caught fire, which, frankly, was the more honest part.
-They opened a new luxury tower downtown. Forty floors. The elevator only goes up. Think about that.
-I saw a billboard for a class-action lawsuit against a billboard. We've achieved something here, folks.
-The bank called to say my account was compromised. I said by whom. They said by the bank. At least they're honest now.
-Undermarket's booming. You can buy anything down there. I bought a warranty. It came with a warning label about the warranty.
-Public transit unveiled a new safety mascot. It's a skeleton. It waves. Nobody approved this and nobody can stop it.
-They say the air quality is "moderate" today. Moderate means you can see the person mugging you.
-I joined a gym. It's just a room where they charge you to feel bad, so, you know, same as everywhere else.
-Corporate rolled out a loyalty program. You give them loyalty, and in exchange they remember your name while they do it.
-The lottery jackpot hit a record high tonight. The odds also hit a record high. Those are the same number now.
-A drone delivered my mail today, then asked for a tip, then filed a complaint about me. I've never felt so seen.
-The news anchor cried on air tonight. Ratings went up. They've made it a segment now. It's called "The Weather."
-My doctor told me to reduce stress. I asked how. He looked out the window for a while and then just quietly left.
-There's a new dating app in the Basin. You match based on who owes the same people money. It's called Mutual.
-Good news, folks: the city says the water's safe to drink now. They didn't say for whom.
-I got a letter from the tax office today. It was addressed to "Occupant or Next of Kin." They're just covering their bases.
-The Machine rolled out facial recognition downtown. Great system. It recognized my face and immediately asked if I was sure.
-They put up a statue of the founder in the plaza. It's already been stolen twice. That's the most honest tribute you could pay the man.
-My building installed a new security door. It locks perfectly. From the inside. We're all still in there. Say hi to my family.
-The clinic offered me a loyalty card. Ten checkups and the eleventh organ failure is free.
-The corporates announced record profits and record layoffs on the same day. They're calling it "efficiency." I'm calling it from a payphone, because they took my line.
-I saw a kid selling lemonade on the corner. Then a licensing drone shut him down. Then the drone bought the stand. That kid's going to run this city someday, if it's still here.
-The subway added a "quiet car." It's quiet because the speakers are broken and so is the door and so are we.
-My horoscope said today was a good day to take risks. My horoscope has never been outside. My horoscope doesn't know about the district.
-They're calling this the worst heat wave in fifty years. Fifty years ago they said the same thing. We've been winning that award every year. Consistency.
-I applied for a permit to complain about permits. It's under review. The review is also under review.
-The Machine sent everyone a birthday message today. Everyone. Same day. It has decided we all have the same birthday now. It's easier for the servers.
-I passed a "Now Hiring" sign at a place that burned down last week. That's not optimism, that's the market. Somebody's already hiring for the fire.
-The news said the crime rate dropped forty percent. Turns out they just moved the border of the district forty percent inward. We're all outside now.
-I bought a smoke detector. It went off immediately and hasn't stopped. I checked. No fire. It just knows something. I trust it now. We're friends.
-A charity came to my door asking for donations to fight poverty. I said I'd love to help but I AM the poverty. They gave ME a leaflet. Full circle.
-The mayor promised to fix the potholes. Then he fell in one. We haven't seen him since. Honestly, best he's polled in years.
-My neighbor got a robot dog. It guards the apartment, walks itself, and last week it unionized. Now it guards the apartment forty hours a week with breaks.
-They opened a museum of the old world. One exhibit. It's a working light switch. There's a two-hour line. People weep.
-I tried to cancel a subscription today. The retention specialist cried. Then I cried. Then we agreed to see other services.
-Corporate wellness sent me a meditation app. It reminds me to breathe. Then it reminds me the air is a premium feature. Then it upsells me the good air.
-The bank foreclosed on a building, then the building foreclosed on the bank. Nobody knows who owns the block now. The block seems happy about it.
-Somebody asked me if things could get worse. I said absolutely, and then, out of professional courtesy, I didn't elaborate.
+[welcome] Thank you, thank you! Sit down, we've got a fantastic show, assuming the power holds.
+[crowd] Big crowd tonight. Or it was. We lost a few during the metal detector portion.
+[traffic] Did everyone survive the commute? Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles.
+[crimestats] Corporate Security says crime is down again. Apparently they stopped counting anything that happens outside corporate property.
+[pharmacy] I stopped by a pharmacy today. They've started locking up the bottled water. The cybernetic organs? Still self-service.
+[mugging] You know times are tough when the mugger accepts store credit.
+[landlord] My landlord says the building is structurally sound. Turns out that's a completely different thing from "safe."
+[mentalhealth] The city announced a new mental health initiative. It's a billboard that says "Have you considered being richer?"
+[rebrand] They renamed my district again. It's now "Opportunity Basin." Same craters, better font.
+[ticket] I got a parking ticket today. For a car I don't own. In a district I've never been to. The Machine is very thorough.
+[rain] Weather service says it's going to rain tomorrow. They didn't say water. They were very careful not to say water.
+[transit] The transit authority added a new express line. It's the same line, but now it doesn't stop for the people who fall in.
+[hospital] Great news from the hospital: they've reduced wait times by simply removing the chairs.
+[surface] A man tried to sell me a map to the surface today. I said, "Buddy, I've seen the surface." He said, "Then you know why I'm selling the map."
+[machine] The Machine wished everyone a happy productivity quarter today. It does not know what happiness is. It's very confident about it anyway.
+[rent] Rent went up again. My landlord calls it "market rate." The market is a hole in the ground and the rate is everything you have.
+[soylent] I tried the new soylent flavor. It's called "Original." I asked original what. They stopped returning my calls.
+[dmv] Somebody firebombed the DMV today and honestly the lines moved faster.
+[mayor] The mayor gave a speech about hope. Then the teleprompter caught fire, which, frankly, was the more honest part.
+[tower] They opened a new luxury tower downtown. Forty floors. The elevator only goes up. Think about that.
+[billboard] I saw a billboard for a class-action lawsuit against a billboard. We've achieved something here, folks.
+[bank] The bank called to say my account was compromised. I said by whom. They said by the bank. At least they're honest now.
+[warranty] Undermarket's booming. You can buy anything down there. I bought a warranty. It came with a warning label about the warranty.
+[mascot] Public transit unveiled a new safety mascot. It's a skeleton. It waves. Nobody approved this and nobody can stop it.
+[air] They say the air quality is "moderate" today. Moderate means you can see the person mugging you.
+[gym] I joined a gym. It's just a room where they charge you to feel bad, so, you know, same as everywhere else.
+[loyalty] Corporate rolled out a loyalty program. You give them loyalty, and in exchange they remember your name while they do it.
+[lottery] The lottery jackpot hit a record high tonight. The odds also hit a record high. Those are the same number now.
+[drone] A drone delivered my mail today, then asked for a tip, then filed a complaint about me. I've never felt so seen.
+[newsanchor] The news anchor cried on air tonight. Ratings went up. They've made it a segment now. It's called "The Weather."
+[doctor] My doctor told me to reduce stress. I asked how. He looked out the window for a while and then just quietly left.
+[dating] There's a new dating app in the Basin. You match based on who owes the same people money. It's called Mutual.
+[water] Good news, folks: the city says the water's safe to drink now. They didn't say for whom.
+[tax] I got a letter from the tax office today. It was addressed to "Occupant or Next of Kin." They're just covering their bases.
+[facerec] The Machine rolled out facial recognition downtown. Great system. It recognized my face and immediately asked if I was sure.
+[statue] They put up a statue of the founder in the plaza. It's already been stolen twice. That's the most honest tribute you could pay the man.
+[securitydoor] My building installed a new security door. It locks perfectly. From the inside. We're all still in there. Say hi to my family.
+[clinic] The clinic offered me a loyalty card. Ten checkups and the eleventh organ failure is free.
+[layoffs] The corporates announced record profits and record layoffs on the same day. They're calling it "efficiency." I'm calling it from a payphone, because they took my line.
+[lemonade] I saw a kid selling lemonade on the corner. Then a licensing drone shut him down. Then the drone bought the stand. That kid's going to run this city someday, if it's still here.
+[subway] The subway added a "quiet car." It's quiet because the speakers are broken and so is the door and so are we.
+[horoscope] My horoscope said today was a good day to take risks. My horoscope has never been outside. My horoscope doesn't know about the district.
+[heatwave] They're calling this the worst heat wave in fifty years. Fifty years ago they said the same thing. We've been winning that award every year. Consistency.
+[permit] I applied for a permit to complain about permits. It's under review. The review is also under review.
+[birthday] The Machine sent everyone a birthday message today. Everyone. Same day. It has decided we all have the same birthday now. It's easier for the servers.
+[hiring] I passed a "Now Hiring" sign at a place that burned down last week. That's not optimism, that's the market. Somebody's already hiring for the fire.
+[crimestats] The news said the crime rate dropped forty percent. Turns out they just moved the border of the district forty percent inward. We're all outside now.
+[smokedetector] I bought a smoke detector. It went off immediately and hasn't stopped. I checked. No fire. It just knows something. I trust it now. We're friends.
+[charity] A charity came to my door asking for donations to fight poverty. I said I'd love to help but I AM the poverty. They gave ME a leaflet. Full circle.
+[mayor] The mayor promised to fix the potholes. Then he fell in one. We haven't seen him since. Honestly, best he's polled in years.
+[robotdog] My neighbor got a robot dog. It guards the apartment, walks itself, and last week it unionized. Now it guards the apartment forty hours a week with breaks.
+[museum] They opened a museum of the old world. One exhibit. It's a working light switch. There's a two-hour line. People weep.
+[subscription] I tried to cancel a subscription today. The retention specialist cried. Then I cried. Then we agreed to see other services.
+[air] Corporate wellness sent me a meditation app. It reminds me to breathe. Then it reminds me the air is a premium feature. Then it upsells me the good air.
+[foreclosure] The bank foreclosed on a building, then the building foreclosed on the bank. Nobody knows who owns the block now. The block seems happy about it.
+[worse] Somebody asked me if things could get worse. I said absolutely, and then, out of professional courtesy, I didn't elaborate.
+[insurance] My insurer wrote to say my policy now excludes acts of God, acts of Corporate, and acts that are "frankly indistinguishable." That last clause took a lawyer three years and it's the truest thing anybody wrote this decade.
+[funeral] A funeral home downtown is offering a payment plan. Twelve months. They do not check whether you make it to month twelve. That's the plan. That IS the plan.
+[chrome] Fella at the bar showed me his new arm. Financed. Eighteen percent. Every time he waves at somebody it costs him money, so he's very selective about who he's pleased to see now.
+[optics] My neighbor got the discount optics. They work beautifully. Every third thing he looks at has a coupon on it. He proposed to his wife and a burger appeared.
+[dentist] Went to a dentist in the Basin last week. He is not a dentist. He is very good, though. That's the part that keeps me up.
+[barber] The barbershop on my block does haircuts and minor surgery now. Same chair, same man, same question: "How short?"
+[laundry] The laundromat put up a sign. "Not responsible for garments, contents, or outcomes." Outcomes. I have been thinking about outcomes all week.
+[plumbing] My building's plumbing finally got fixed. Turns out it was never broken, it was rerouted. Somebody upstairs has been showering in my water pressure for six years, and honestly, good for him.
+[elevator] The elevator in my building talks now. It says "Going up." It has never once said going down. We've all quietly agreed not to raise it.
+[grid] The power went out on my floor for nine hours. The grid called it a load-balancing event. I was the load. I was balanced.
+[pirateradio] There's a pirate station broadcasting on the emergency band. All they play is weather from thirty years ago. It's the most soothing thing in this city and they'll shut it down by spring.
+[tourism] The district launched a tourism campaign this week. The slogan is "Coldwater: You're Already Here."
+[selfcheckout] The corner store went full self-checkout. No staff, no cashier, just you, the machine, and the machine's opinion of you.
+[vendingmachine] A vending machine downtown has started accepting apologies. Not credits. Apologies. Fairest transaction I've had all year.
+[escalator] They put an escalator in the transit hub. It's been broken since the day it opened, which makes it stairs, which makes it the only thing in this city doing its job.
+[rats] The rats in my building have organized. Not unionized. Organized. There's a difference and I learned it the hard way and I'd rather not go into it.
+[pigeons] Corporate built surveillance drones shaped like pigeons so they'd blend in. The pigeons noticed within a day. There's a war on now. I'm not taking sides publicly, but the pigeons are winning.
+[stray] There's a stray cat in my alley with a bionic paw. Nobody knows where she got it. Nobody asks her. She's doing better than I am.
+[school] The school by the Yards added a new subject this term. It's called Consent Forms. It isn't part of the curriculum. It IS the curriculum.
+[wedding] Went to a wedding in the Basin last week. Beautiful ceremony. Both of them had to sign a non-compete.
+[divorce] My cousin's divorce was settled by an algorithm. It awarded the apartment to the algorithm.
+[neighbor] My neighbor plays music through the wall at three in the morning. I finally knocked. He apologized, turned it down, and asked whether I could hear the screaming better now.
+[holiday] Corporate declared a new public holiday. It's unpaid, attendance is mandatory, and it's called Gratitude Day.
+[joblisting] I saw a listing for entry level, ten years experience, must supply own oxygen. Forty applicants. I counted. I nearly made it forty-one.
+[jobinterview] A friend of mine had a job interview. They asked where he sees himself in five years. He said "alive," and they wrote it down like it was ambitious.
+[pension] The pension office sent me my retirement projection. It's a photograph of a hole.
+[credit] My credit score went up eleven points this month. I asked why. They said good behavior. I don't know what I did and I'm now terrified of stopping.
+[debt] I got a call from a debt collector representing another debt collector. They're eating each other out there. Give it a month and the whole problem solves itself.
+[atm] The ATM on my corner charges a fee to tell you your balance, and a bigger fee if the balance is bad. It calls that "context."
+[bankapp] The bank's app congratulates you when you save money. It has never congratulated me. Last week it sent a wellness check.
+[casino] The casino's put in a machine that pays out in job offers. People still play it. That's the part that keeps me awake.
+[deadball] Went to a Deadball game Saturday. Nine innings, four ambulances, and the crowd cheered exactly once, and it was not for anything that happened on the field.
+[clusterpuck] I watched a Cluster Puck match. I don't understand the rules. Neither do they. They've replaced the referee twice, once mid-period and once mid-sentence.
+[supplement] There's a supplement going round the gym called Yield. Makes you stronger. Also makes you agreeable. Nobody's asking about the second part, and I think that's the supplement talking.
+[diet] New diet in the district: eat whatever you want, then worry about it. They're calling it a lifestyle. I've been on it thirty years.
+[restaurant] A place opened downtown where the menu changes based on what the kitchen found that day. There's a rating system. Tonight it's a four.
+[coffee] Real coffee's up again. The kind grown in dirt, by hands. It is now cheaper to buy the MEMORY of coffee, which they sell, which is legal, and which we have all apparently decided is fine.
+[noodles] The noodle place on Fifth has a sign that says "All Meat Is Meat." I've read it forty times. It gets worse every time and I keep eating there.
+[waterbill] My water bill came with a note thanking me for my conservation. I haven't had water since spring. Apparently that's what winning looks like.
+[recycling] The city started a recycling program. You sort your waste into six bins, then a truck comes and puts all six in the same hole. But you sorted it. That's the civic part. That's your contribution.
+[sewers] They're calling the sewer system "underutilized real estate" now. There are people living down there. Corporate refers to them as early tenants.
+[realestate] A realtor showed me a studio with a window. An actual window, with an outside behind it. I cried. She raised the price. Honestly, fair.
+[holding] Holding's overcrowded again, so they've started releasing people alphabetically. My last name starts with an A. I've never felt luckier or more nervous.
+[bodycam] Corporate Security got new body cameras. They record everything. The footage goes to Corporate Security. Airtight system. No notes.
+[lawyer] My lawyer says I have a very strong case. My lawyer also says he is not a lawyer. I'm choosing to focus on the first part.
+[jury] I got called for jury duty. The verdict was already printed. They just needed twelve people to hold it.
+[camera] There's a camera on my street pointed at another camera. I've watched them for a week. Neither has blinked. Something is happening there and I don't believe it involves us.
+[assistant] My apartment has an assistant now. It listens for emergencies. Last night I sneezed and it asked whether I'd like to speak to a representative about my life.
+[terms] I read a terms-of-service agreement all the way through this week. Page forty says I have agreed to be "reasonably surprised." That's the entire clause. That's all it says.
+[passwords] Corporate made everyone change their passwords. New rules: twelve characters, one symbol, and it cannot be anything you actually believe.
+[maintenance] The Machine went down for maintenance for six minutes yesterday. Six minutes. Crime dropped, the trains ran, and a man in the Yards reported feeling briefly optimistic.
+[photograph] Somebody found a photograph of the old skyline. We all stood round looking at it. Then someone pointed out the sky was a different color, and we all went home.
+[cleanrain] It rained clean water in the north district for eleven minutes on Tuesday. Nobody knows why. Two hundred people stood outside with their mouths open like idiots. I was one of them. I'd do it again tomorrow.
+[radiation] My doctor says my rad count is "within range." I asked whose range. He said it's a big range. It is a very big range, folks.
+[mutation] A man on my block grew a third arm this spring. Everyone has been extremely polite about it, which is the most Coldwater thing I have ever seen. Three arms, and not one question.
+[cloning] The clone clinic's got a special on this month. Two for one. Sit with that. Think about who walks in wanting that.
+[memories] They sell memory implants now. Real ones, off real people. I tried a demo. It was somebody's Tuesday. Nothing happened in it. Best day I've had in years.
+[dreamshop] There's a shop selling dreams by the hour. I asked for something with a beach. They gave me a beach. There was a fence.
+[insomnia] I haven't slept properly in eleven years. My doctor calls it insomnia. I call it paying attention.
+[therapy] Therapy's covered by corporate now. Six sessions, and the therapist is an employee of the thing you're upset about. It's efficient. It isn't therapy, but it's efficient.
+[church] The Church of the Reasonable Refund opened a second location. Same god, better parking.
+[gala] There was a charity gala downtown for the district's poor. Tickets were nine hundred credits. The poor were not invited, on the grounds that they couldn't afford it, and everyone agreed that was ironic, and nobody agreed to do anything about it.
+[awards] Corporate held an awards ceremony for itself last night. Nineteen categories. It swept.
+[survey] The hospital sent me a satisfaction survey. Question one: how likely are you to recommend this experience. Well. I'm still here, so: cautiously.
+[warrantycard] I found the warranty card in my new heater. The warranty is void if the unit is used. Not misused. Used.
+[heater] My heater has two settings. Off, and a sound.
+[mirrorglass] The tower across from mine put in mirrored glass so nobody can see in. Now I just watch myself watching them. Six months of that. We've grown close.
+[smog] The smog was so thick this morning I walked into a wall, and the wall apologized. Somebody is already charging for that. I guarantee it.
+[roadsign] There's a sign out on the Deadleg road that says HELP IS 40 MILES. It does not say in which direction. I have thought about that sign more than I have thought about my own family.
+[hauler] I met a hauler who runs the void road. Twelve hours out, twelve hours back, no radio. I asked what he thinks about out there. He said "the road." I gave him nine more minutes to add something to that. It's the road.
+[flying] A man at the airfield offered me a flight over the Basin for two hundred credits. I said what's the catch. He said there's no catch, there's no landing gear. We both laughed. Then only one of us was laughing.
+[forecast] The forecast has said "clear" for six days running. Last night the forecaster stood outside and said "clear" while visibly in weather. That is not incompetence, folks. That's commitment.
+[acidrain] It rained out in the Scarletwastes last week and three people's coats are still fizzing. The coat shop is calling it a finish.
+[fishing] They reopened the fishing pier. The fish are back. They are not exactly fish anymore, but they're back, the pier's open, people are happy, and I am not going to be the one who ruins it.
+[bird] I saw a bird this morning. A real one. It looked at me with what I can only describe as disappointment, and then it left, and I have been thinking about it all day.
 ::endlines
 
 # --- News bit: the host riffs on ONE real headline pulled from the live news feed --

@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A beat lands late and everything in the room notes it.",
+    "The room contracts, holds, and lets go.",
+    "Something skips. The visions do not pause for it."
+  ],
+  "cause": "drug",
+  "description": "You are inside the muscle that has been doing this for you your whole life without being thanked, and it has just missed one. The room is the size of that miss. It goes again a moment later and the room does not entirely believe it.",
+  "drug_id": "drug_ibogaine",
+  "fx": "ash",
+  "fx_intensity": 0.55,
+  "id": "dt_ibogaine_irregular_beat",
+  "name": "The Irregular Beat",
+  "objects": [
+    {
+      "looks": [
+        "It arrives. Then it arrives. Then there is a place where one was supposed to be.",
+        "You have never once had to attend to this, and you are attending to it now.",
+        "It picks back up in a way that is not quite an apology."
+      ],
+      "name": "the beat"
+    },
+    {
+      "looks": [
+        "Wet, warm and working. Everything here is working very hard.",
+        "They move with it, and there is a moment where they wait as well.",
+        "They have been doing this since before you were a person with opinions."
+      ],
+      "name": "the walls"
+    }
+  ],
+  "weather": "It is blood warm and there is no air, and none has ever been required."
+}

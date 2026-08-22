@@ -17,7 +17,7 @@
   "max_takeoff_weight": 500,
   "name": "Reaper",
   "noise": 3,
-  "price_buy": 90000,
+  "price_buy": 36000,
   "price_rent_hourly": 1500,
   "seats": 2,
   "takeoff_mode": "stol"

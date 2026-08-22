@@ -10,11 +10,12 @@ import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFr
 import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
-import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt, sOfNode, roomLenOf,
+import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt, sOfNode, roomLenOf, landformsFor, avoidTurn, trailFor, trailPos, campsOf, trailOffsetOn, isCampOn,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';   // pure data, no DOM — that is exactly why it is not defined in windshield.js
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute } from './state.js';
+  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute,
+  ridingRigOf, seatsFree, boardPassenger, alightPassenger, driveToZone, dismountRig } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta, vehicleLamps } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, REGIONS, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -39,6 +40,7 @@ import { TRAILER_TYPES, trailersAt, trailersOf, getTrailer, buyTrailer, hitchTra
   sellTrailer, trailerResale } from './trailers.js';
 import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
+import { roadNetwork, roadCellAt, worldRoadProvider, clearRoadNet } from './roadnet.js';
 import { tryDoorBoard, rigLocked } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
@@ -613,11 +615,10 @@ export default async function regress({ run, check, getPlayer }) {
           const gd = dist(fromKey, d.region);
           check(`${fromKey.replace('region_', '')}→${d.key}: the gates are a real distance apart`, gd > 0, String(gd));
           const rooms = totalLength(d, null, getZone(d.dest), fromKey);
-          check('…and its room count is derived from that distance, clamped',
-            rooms === Math.max(5, Math.min(15, Math.round(gd / 12))), `${rooms} for ${gd.toFixed(0)} tiles`);
+          check('…and its room count IS that distance',
+            rooms === Math.max(5, Math.round(gd)), `${rooms} for ${gd.toFixed(0)} tiles`);
         }
       }
-
       // ⚠ AND OUT AND BACK AGREE BY CONSTRUCTION. The old table kept the two directions equal by
       // copying a number into both rows; `gatePair` picks the same two mouths whichever end asks,
       // so a return leg is the same length as its outbound without anything having to be edited
@@ -636,13 +637,30 @@ export default async function regress({ run, check, getPlayer }) {
         check(`${ak}/${bk}: the way back is the same length as the way out`, out != null && out === back, `${out} vs ${back}`);
       }
 
-      // The Reach is the crossing with the most tuning behind it — a trunk of 4 is meant to put the
-      // fork exactly halfway — and the derivation has to reproduce it, or the braid stops meaning
-      // what it was drawn to mean. It is the reason the per-room constant is 12 and not a rounder
-      // number somebody liked the look of.
-      check('the Reach still forks exactly halfway', roomsFor('region_coldwater', 'reach') === V.region_coldwater.trunk * 2,
-        `${roomsFor('region_coldwater', 'reach')} rooms, trunk ${V.region_coldwater.trunk}`);
-
+      // ⚠ THE FORK IS A FRACTION OF THE NEAREST DESTINATION, NOT A HALFWAY POINT.
+      // This used to assert that Coldwater→Reach forked exactly halfway, because a trunk of 4 on an
+      // 8-room crossing was the tuned case the per-room constant of 12 existed to reproduce. A room
+      // is a TILE now: the Reach is 93 tiles rather than 8 rooms, the authored trunk is gone, and
+      // the shared stretch is derived from the nearest destination. Halfway would put the fork 46
+      // tiles out on the short hop and mean nothing at all on the 282-tile haul, which is why the
+      // rule changed rather than the number.
+      //
+      // What has to hold is that the shared stretch is a real journey, is bounded at both ends, and
+      // still leaves the fork a decision rather than a formality.
+      {
+        const trunk = voidTest.trunkTilesFor('region_coldwater', V.region_coldwater, null);
+        const nearest = Math.min(...V.region_coldwater.dests.map(d => roomsFor('region_coldwater', d.key)));
+        check('the shared trunk is derived, in tiles, and bounded',
+          trunk >= voidTest.TRUNK_MIN && trunk <= voidTest.TRUNK_MAX, String(trunk));
+        check('…as a fraction of the nearest destination',
+          trunk === Math.max(voidTest.TRUNK_MIN, Math.min(voidTest.TRUNK_MAX,
+            Math.round(nearest * voidTest.TRUNK_FRACTION))), `${trunk} of ${nearest}`);
+        // The fork has to leave something on the other side of it, or committing to a heading is a
+        // thing that happens at the gate and never again.
+        check('…and every limb is longer than the trunk it hangs off',
+          V.region_coldwater.dests.every(d => roomsFor('region_coldwater', d.key) - trunk > 0),
+          V.region_coldwater.dests.map(d => `${d.key}=${roomsFor('region_coldwater', d.key) - trunk}`).join(' '));
+      }
       // ── ONE JOURNEY, ONE DISTANCE ────────────────────────────────────────────
       // The `route` picker used to print a room count times 90 — the UNANCHORED per-room constant —
       // so it called the Reach 720 tiles while the road it builds is 93 and the mile board on that
@@ -847,6 +865,190 @@ export default async function regress({ run, check, getPlayer }) {
         check('…and it starts on the gate, not on wherever somebody happened to stand',
           Math.hypot(corridorPos(pre, 0, 0).x - gate.x, corridorPos(pre, 0, 0).y - gate.y) < 0.01);
       }
+    }
+  }
+
+  // ── 1c-bis. THE ROAD EXISTS FOR EVERYBODY, NOT JUST FOR THE TRUCK ON IT ────
+  // The corridor has been anchored in real world coordinates since the frame change, and the only
+  // thing that ever looked at it was the cab of the truck on it. So the flight sim rendered the
+  // same journey as nothing at all — `kind: 'air'` over 282 tiles of tarmac — and `truckContactsNear`
+  // dropped corridor rigs on the honest grounds that the corridor was not in anybody's world window.
+  // roadnet.js builds the week's whole network from the gates, and flight takes it as a cell
+  // provider. These are the four things that has to mean.
+  {
+    const win = voidTest.currentWindow();
+    clearRoadNet();
+    const net = roadNetwork(win);
+    check('the world has a road network without anybody driving on it',
+      net.routes.length > 0, `${net.routes.length} roads`);
+
+    // ⚠ ONE ROAD PER PAIR OF GATES, NOT ONE PER DESTINATION ROW. VOIDS lists both directions of
+    // every leg and `networkRoute` hands back the same tarmac for both, so building every row lays
+    // each highway twice on top of itself — and the two copies carry different destKeys and
+    // different boards, so which one answered for a tile would depend on iteration order.
+    {
+      const pairs = new Set();
+      for (const k of Object.keys(VOIDS)) {
+        for (const d of VOIDS[k].dests || []) {
+          const p = d.region ? gatePair(k, d.region) : null;
+          if (p) pairs.add(pairKey(p.from.id, p.to.id));
+        }
+      }
+      check('…one road per PAIR of gates, not one per direction',
+        net.routes.length === pairs.size, `${net.routes.length} built vs ${pairs.size} pairs`);
+    }
+
+    const pre = _previewRoute(VOIDKEY, win);
+    const provider = worldRoadProvider();
+    if (pre) {
+      // THE WHOLE POINT, STATED AS A COMPARISON. The driver reads their own route; everybody else
+      // reads the network. If those two ever answer differently for a tile, a truck and the plane
+      // above it are looking at different ground — which is the defect this exists to close, and it
+      // would be invisible from either seat.
+      let tested = 0, agreed = 0, bad = null, shared = 0, sharedBad = null;
+      // A tile several roads pave still has to BE a road to the pilot. That is the whole claim for
+      // the shared-spoke tiles, and it is the one that would fail if the picker ever handed back a
+      // verge or nothing at all.
+      const check_shared = (cell, px, py) => {
+        shared++;
+        if (!isCarriageway(cell) && !sharedBad) sharedBad = `${px},${py} → ${cell?.name || 'nothing'}`;
+      };
+      // ⚠ THE DIRECTION-OF-TRAVEL FIELDS ARE COMPARED MODULO THE DIRECTION, AND THAT IS THE HONEST
+      // INVARIANT RATHER THAN A WEAKENED ONE. `road_deg` is the heading of the road AS DRIVEN and
+      // `road_t` is the tile's offset to the RIGHT of that heading, so a road built from the far
+      // end reports both flipped — 9.3° vs 189.3°, −0.365 vs +0.365, on the same piece of tarmac.
+      // That asymmetry is not something this overlay introduced: it is exactly what two drivers
+      // passing each other have always seen, because each builds the road from their own end. The
+      // renderer takes `road_deg` as an undirected line (the marking span is symmetric about the
+      // tile and `road_t` shifts the paint back along a normal derived from the same angle, so both
+      // flips cancel), which is why the picture is identical. What must NOT differ is the road:
+      // where the tarmac is, how wide, how many lanes, what it is surfaced in.
+      // ⚠ WRAPPED BOTH WAYS. JS `%` keeps the sign of its left operand, so the tidy
+      // `((a - b + 90) % 180) - 90` reads 0 when the driver is the larger angle and 180 when the
+      // pilot is — the same pair of headings passing or failing depending on argument order. It
+      // cost a debugging pass on a test that was reporting a bug the code did not have.
+      const sameLine = (a, b) => { const d = ((a - b) % 180 + 180) % 180; return Math.min(d, 180 - d) < 0.5; };
+      for (let s = 6; s < Math.min(pre.L, 600); s += 7) {
+        const p = corridorPos(pre, s, 0);
+        const px = Math.round(p.x), py = Math.round(p.y);
+        if (surfaceAt(px, py)) continue;              // over placed ground the world wins for both
+        const driver = corridorAt(pre, px, py);
+        if (!driver || !isCarriageway(driver)) continue;
+        // ⚠ TILES TWO ROADS BOTH PAVE ARE SKIPPED, AND THEY ARE A THIRD OF THE NETWORK. Every road
+        // leaving a gate runs down the SAME spoke to its interchange — that is what makes the fork
+        // a place rather than a room boundary — so near a mouth several roads genuinely share one
+        // piece of tarmac. The pilot gets the nearest centreline, which on shared tarmac may be a
+        // different road's; both answers are the same ground. What is asserted for those tiles is
+        // the thing that matters (it is still road, never air), just below.
+        const claims = roadNetwork(win).routes.filter((r) => corridorAt(r, px, py)?.flags?.terrain === 'road');
+        const pilot = provider(px, py);
+        if (claims.length > 1) { check_shared(pilot, px, py); continue; }
+        tested++;
+        const df = driver.flags, pf = pilot?.flags || {};
+        if (pilot && isCarriageway(pilot) && pf.terrain === df.terrain && pf.icon === df.icon
+          && pf.road_lanes === df.road_lanes && Math.abs((pf.road_w || 0) - (df.road_w || 0)) < 1e-9
+          && Math.abs(Math.abs(pf.road_t || 0) - Math.abs(df.road_t || 0)) < 1e-9
+          && sameLine(pf.road_deg || 0, df.road_deg || 0) && !!pf.road_dirt === !!df.road_dirt) agreed++;
+        else if (!bad) bad = `${px},${py}: driver ${df.icon}/${df.road_deg}/${df.road_lanes} vs pilot ${pf.icon}/${pf.road_deg}/${pf.road_lanes}`;
+      }
+      check('the pilot and the driver see the same tarmac, tile for tile',
+        tested > 0 && agreed === tested, bad || `${agreed}/${tested} tiles`);
+      check('…and where several roads share a spoke, it is still road under the plane',
+        !sharedBad, sharedBad || `${shared} shared tile(s) all road`);
+
+      // ⚠ AND IT IS STILL NOT PLACED GROUND. `regionGates` finds a road mouth by testing that the
+      // map STOPS beside it, and voidwalking's `isMapRim` opens the void on the same question — so
+      // an overlay that leaked into `surfaceAt` would delete every gate, every rim and the void's
+      // only entrance, while looking exactly like this feature working.
+      const mid = corridorPos(pre, pre.L / 2, 0);
+      const mx = Math.round(mid.x), my = Math.round(mid.y);
+      check('…over ground the placed world still says is not there', surfaceAt(mx, my) === null);
+      check('…so the gates the road hangs off still exist', regionGates(VOIDKEY).length > 0);
+      {
+        // ⚠ THE ZONE, NOT THE SURFACE CELL. `surfaceAt` hands back a light `{id,name,flags,danger}`
+        // with no `map_id` or coordinates on it, so `rimDirs` reads it as "not a placed tile" and
+        // answers `[]` — which looks exactly like the rim having been destroyed. It cost a
+        // debugging pass to find that out; it costs one comment not to.
+        const g = regionGates(VOIDKEY)[0];
+        const gz = (await import('../../server/engine/world.js')).getZone(g.id);
+        check('…and the rim the void opens at is still a rim',
+          voidTest.rimDirs(gz).length > 0, `${voidTest.rimDirs(gz).join(',') || 'none'} at ${g.x},${g.y}`);
+      }
+
+      // END TO END, THROUGH THE RENDERER. Not "the provider returns a cell" — `mapWindow` +
+      // `deriveSurfaceCell` is what actually reaches the canopy, and the pair below is the before
+      // and the after of this whole change in two numbers.
+      const count = (at) => {
+        let road = 0, air = 0;
+        for (const row of mapWindow({ grid_x: mx, grid_y: my }, 8, at)) {
+          for (const c of row) { if (c.road) road++; if (c.kind === 'air') air++; }
+        }
+        return { road, air };
+      };
+      const withRoad = count(provider), bare = count(surfaceAt);
+      check('a pilot over the highway sees highway', withRoad.road > 0,
+        `${withRoad.road} road cells, ${withRoad.air} air`);
+      check('…where the placed world alone shows open air and nothing else',
+        bare.road === 0 && bare.air > 0, `${bare.road} road / ${bare.air} air`);
+
+      // TRAFFIC, THE OTHER HALF. A road nobody can be seen on is scenery.
+      {
+        const fake = { playerId: 'rt_road', leg: 'corridor', route: pre, x: mid.x, y: mid.y,
+          heading: 180, speed: 45, typeId: 'hauler', cd: {}, trailer: null, type: { name: 'Test Rig' } };
+        rigs.set('rt_road', fake);
+        const seen = truckContactsNear(mid.x, mid.y, 26);
+        check('a truck on the highway is traffic a pilot can see',
+          seen.some((c) => c.id === 'truck_rt_road'), `${seen.length} contacts`);
+        // ⚠ THE LEGACY LOCAL FRAME IS STILL WITHHELD, and that is not belt and braces: an
+        // unanchored route measures x/y from the gate, so those are good positions in a coordinate
+        // system nothing else uses. Reported as world tiles they put a truck off the map, drawn
+        // confidently, with nothing to say it was wrong.
+        fake.route = { ...pre, anchored: false };
+        check('…and one in the legacy local frame is not',
+          !truckContactsNear(mid.x, mid.y, 26).some((c) => c.id === 'truck_rt_road'));
+        rigs.delete('rt_road');
+      }
+    }
+
+    // A miss costs one Map lookup and answers null — the case that runs 26,000 times a push for a
+    // pilot who is nowhere near a road.
+    check('a tile nowhere near a road has no road on it', roadCellAt(-9999, -9999) === null);
+
+    // ── EVERY REGION REACHES EVERY NEIGHBOUR THROUGH THE EXIT THAT FACES IT ──
+    //
+    // ⚠ THIS IS THE TEST THAT CATCHES A NEW ROAD RE-ROUTING AN OLD ONE, AND IT HAS ALREADY EARNED
+    // ITSELF ONCE. `gatePair` takes the NEAREST pair of mouths, so paving a new one anywhere in a
+    // region silently re-aims every road that region already had if the new mouth happens to be
+    // closer. Running the Reach's Scarletwastes road straight out the end of Main Street put a
+    // mouth 92.1 tiles from Coldwater's gate against the existing 93.2 — and the Coldwater highway,
+    // shipped and named for on both sides, moved to the other end of town with nothing to say so.
+    // (It leaves by the Field Road instead, one row south, which is further from Coldwater and
+    // nearer to the Scarletwastes.) Nothing about that failure is visible in a diff.
+    for (const fromKey of Object.keys(VOIDS)) {
+      for (const d of VOIDS[fromKey].dests || []) {
+        if (!d.region) continue;
+        const pair = gatePair(fromKey, d.region);
+        if (!pair) continue;
+        const A = regionGates(fromKey), B = regionGates(d.region);
+        let best = null;
+        for (const a of A) for (const b of B) {
+          const d2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+          if (!best || d2 < best.d2) best = { a, b, d2 };
+        }
+        check(`${fromKey}→${d.key} leaves by the mouth that faces it`,
+          pair.from.id === best.a.id && pair.to.id === best.b.id,
+          `${pair.from.id} → ${pair.to.id}`);
+      }
+    }
+    // The two pairings the new Reach↔Scarletwastes edge could have stolen, named explicitly so a
+    // failure says WHICH road moved rather than "a pairing changed".
+    {
+      const cw = gatePair('region_coldwater', 'region_the_reach');
+      check('the Coldwater highway still lands on the Reach road named after it',
+        cw?.to?.id === 'zone_the_reach_863_1955', String(cw?.to?.id));
+      const scw = gatePair('region_the_reach', 'region_scarletwastes');
+      check('…and the Scarletwastes road leaves the Reach by the Field Road, not Main Street',
+        scw?.from?.id === 'zone_the_reach_882_1959', String(scw?.from?.id));
     }
   }
 
@@ -1567,6 +1769,67 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── 4d-ter. SELLING THE TRACTOR MUST NOT ORPHAN THE BOX ────────────────────
+  // A player's yard listed THREE reefers 'on the pin' and they owned one truck. The other two were
+  // hitched to tractors that had been sold months apart: `sellTruck` is a bare DELETE and
+  // `towed_by` is a plain TEXT column with no foreign key, so nothing anywhere stopped the trailer
+  // row outliving the truck it pointed at.
+  //
+  // ⚠ AND THE RESULT IS NOT A MISLABELLED ROW, IT IS AN UNREACHABLE ONE, which is why this is a
+  // case rather than a copy fix. A towed box holds no `parked_zone`, so `trailersAt` cannot see it
+  // and it is standing in no yard; it holds a `towed_by`, so `hitchTrailer` (guarded on IS NULL),
+  // `sellTrailer` (same guard) and BOTH branches of `yardSellTrailer` refuse it. Four figures of
+  // capital, listed on the panel, and nothing a player can type will ever touch it again.
+  //
+  // So the case sells a truck with a box on the pin through the real verb, and then asks the two
+  // questions the owner would ask: is it standing here, and can I get rid of it?
+  {
+    const D = 'zone_regress_sellyard';
+    const prevD = world.zones.get(D);
+    const savedZone = player.current_zone, savedCredits = player.credits || 0;
+    world.zones.set(D, mkZone(D, 'Test Yard', {
+      map_id: 'map_world', grid_x: 3310, grid_y: 3310,
+      flags: { truck_depot: { name: 'Test Yard', yard: D } },
+    }));
+    removePlayerFromZone(player.id, savedZone);
+    player.current_zone = D; addPlayerToZone(player.id, D);
+    setLivePlayer(player.id, player);   // (pid, data) — see the ⚠ on the one-arg call above
+    let truck = null, box = null;
+    try {
+      truck = await buyTruck(player.id, 'hauler', D, 'REGRESS');
+      box = await buyTrailer(player.id, 'box', D);
+      check('a box is on the pin before the tractor is sold', !!await hitchTrailer(box.id, truck.id, D));
+
+      const sold = await run(`yard sell ${truck.id}`);
+      check('a truck with a trailer on it still sells', /Sold the/i.test(sold?.message || ''), sold?.message?.slice(0, 60));
+      check('…and the line says what happened to the box, rather than leaving it to be discovered',
+        /pin|legs|standing/i.test(sold?.message || ''), sold?.message?.slice(0, 120));
+
+      const after = await getTrailer(box.id);
+      check('THE BUG: the box comes off the pin instead of following the truck into the void',
+        !!after && !after.towedBy, after?.towedBy || 'off the pin');
+      check('…onto the concrete of the yard it was sold in, where it can be found again',
+        after?.parkedZone === D, after?.parkedZone);
+      check('…so looking for what is standing here finds it',
+        (await trailersAt(D)).some(t => t.id === box.id));
+
+      // The whole point of the drop: it is an ORDINARY trailer again. Through the verb, not through
+      // `sellTrailer` — the orphan's other half was that both branches of the sale could not reach
+      // it, and a helper call would prove the easy half and skip the one that failed.
+      const gone = await run(`yard sell ${box.id}`);
+      check('…and it is a box you can now actually get rid of', /Sold/i.test(gone?.message || ''), gone?.message?.slice(0, 60));
+      check('…which really left the table', !await getTrailer(box.id));
+    } finally {
+      if (box) await query('DELETE FROM trailers WHERE id = $1', [box.id]).catch(() => {});
+      if (truck) await query('DELETE FROM trucks WHERE id = $1', [truck.id]).catch(() => {});
+      removePlayerFromZone(player.id, player.current_zone);
+      player.current_zone = savedZone; addPlayerToZone(player.id, savedZone);
+      setLivePlayer(player.id, player);
+      player.credits = savedCredits;
+      if (prevD) world.zones.set(D, prevD); else world.zones.delete(D);
+    }
+  }
+
   // ── 4e. The scale house ────────────────────────────────────────────────────
   // Phase 3, and the only genuinely new idea in the system: THE SCALE DETECTS WEIGHT, NOT
   // CONTRABAND. Every case here is a restatement of that sentence, because every interesting
@@ -2234,10 +2497,17 @@ export default async function regress({ run, check, getPlayer }) {
   // road: if the shared rooms had different tarmac per destination, switching would teleport the
   // rig sideways onto a road that had been somewhere else all along.
   {
-    const trunk = vdef.trunk;
+    // Derived, in tiles. The authored room count is gone (see voidwalking's trunkTilesFor) and a
+    // corridor built against `undefined` puts its fork at zero, which reads as "both roads share
+    // the whole trunk" and passes for the wrong reason.
+    const trunk = voidTest.trunkTilesFor(VOIDKEY, vdef, null);
     const other = vdef.dests[1];
-    const a = corridorFor(VOIDKEY, vdef.dests[0].key, 4242, 8, trunk);
-    const b = corridorFor(VOIDKEY, other?.key || 'x', 4242, 12, trunk);
+    // ⚠ THE NODE COUNTS HAVE TO EXCEED THE TRUNK, AND THEY USED TO BY ACCIDENT. Hard-coded 8 and 12
+    // were comfortably past a trunk of 4 rooms; against a trunk derived in TILES they are shorter
+    // than the shared stretch itself, so the fork lands past the end of the road and `trunkL` comes
+    // back as the whole thing. Sized off the trunk now, so this cannot drift again.
+    const a = corridorFor(VOIDKEY, vdef.dests[0].key, 4242, trunk * 3, trunk);
+    const b = corridorFor(VOIDKEY, other?.key || 'x', 4242, trunk * 4, trunk);
     const trunkLegs = (r) => r.legs.filter(l => l.trunk).map(l => [l.s0, l.s1, l.x0, l.y0, l.ux, l.uy].join(','));
     check('both roads out of a void share the same trunk, tile for tile',
       trunkLegs(a).join('|') === trunkLegs(b).join('|'), trunkLegs(a).length + ' legs');
@@ -2257,13 +2527,256 @@ export default async function regress({ run, check, getPlayer }) {
     check('a crossing reports its own trunk length', typeof trunk === 'number' && trunk >= 1, trunk);
   }
 
+    // ── THE FOOT TRAIL IS CONTINUOUS, INCLUDING ROUND THE BENDS ───────────────
+    // The walking route runs parallel to this road and a driver crosses it constantly. What is
+    // defended here is the thing that would break it invisibly: placement by TOLERANCE rather than by
+    // rounding. On a straight the tiles at a fixed lateral offset form a clean row and
+    // `Math.round(at) === TRAIL_OFFSET` lands on exactly one of them; on a BEND that row is a diagonal
+    // and rounding lands on none for stretches at a time, so the path appears for forty tiles, goes
+    // missing for twenty and comes back. That reads as a bug, not as a trail — and it is the third
+    // feature on this verge to need the rule, after the wreck and the sign.
+    {
+      const tr = corridorFor(VOIDKEY, DESTKEY, 4242, 120, 20);
+      let sampled = 0, named = 0, longestGap = 0, gap = 0;
+      // Walk the route and, at each step, probe the tile nearest the trail's own offset on both sides.
+      for (let s = 4; s < Math.min(tr.L - 4, 400); s += 2) {
+        let hit = false;
+        for (const side of [1, -1]) {
+          const p = corridorPos(tr, s, side * trailOffsetOn(tr, s));
+          const cell = corridorAt(tr, Math.round(p.x), Math.round(p.y));
+          if (cell?.name === 'The Foot Trail' || cell?.name === 'A Wayside Camp') hit = true;
+        }
+        sampled++;
+        if (hit) { named++; gap = 0; } else { gap++; if (gap > longestGap) longestGap = gap; }
+      }
+      check('the road knows where the foot trail runs', named > 0, `${named}/${sampled}`);
+      // A path is a continuous thing. Rounding-based placement produced runs of misses on the bends;
+      // a tolerance band should never leave more than a couple of probes unhit in a row.
+      check('…and it does not go missing round the bends', longestGap <= 3, `longest gap ${longestGap}`);
+      check('…on the great majority of the route', named / Math.max(1, sampled) > 0.8,
+        `${((named / Math.max(1, sampled)) * 100).toFixed(0)}%`);
+      // ⚠ AND IT IS NOT THE ROAD. Naming a band must not have made it drivable or paved: the trail
+      // keeps the verge's own terrain, so `surfaceUnder` still charges verge physics for it.
+      const p0 = corridorPos(tr, 40, trailOffsetOn(tr, 40));
+      const trailCell = corridorAt(tr, Math.round(p0.x), Math.round(p0.y));
+      check('…and the trail is not tarmac', trailCell?.flags?.terrain !== 'road', trailCell?.flags?.terrain);
+
+      // ── A WAYSIDE IS WHERE THE TWO ROUTES ARE THE SAME PLACE ────────────────
+      // Not a seeded landmark. The path comes IN to the road every WAYSIDE_EVERY tiles, which is why
+      // there is somewhere for a camp to be and somewhere for a rig to pull over beside it. Two lines
+      // running exactly parallel would never have met at all.
+      let camps = 0;
+      for (let s = 0; s < Math.min(tr.L - 4, 400); s += 1) {
+        if (!isCampOn(tr, s)) continue;
+        for (const side of [1, -1]) {
+          const p = corridorPos(tr, s, side * trailOffsetOn(tr, s));
+          if (corridorAt(tr, Math.round(p.x), Math.round(p.y))?.name === 'A Wayside Camp') { camps++; break; }
+        }
+      }
+      check('the trail comes in to the road at intervals', camps > 0, `${camps} wayside tiles`);
+      // The approach is smooth. A path that jumped from seven tiles out to three between one tile and
+      // the next is a corner rather than a track, and the room coordinates would step sideways with it.
+      let maxStep = 0;
+      for (let s = 0; s < 200; s++) {
+        maxStep = Math.max(maxStep, Math.abs(trailOffsetOn(tr, s + 1) - trailOffsetOn(tr, s)));
+      }
+      check('…and swings in smoothly rather than turning a corner', maxStep < 1.2, maxStep.toFixed(3));
+      // At the camp it is close enough that a rig on the shoulder is beside it, and away from one it
+      // is properly off the road. Both halves matter: the first is what makes a pickup possible, the
+      // second is what stops the walk being a hundred miles of hard shoulder.
+      {
+        const camps = campsOf(tr);
+        const mid = camps.length > 1 ? (camps[0] + camps[1]) / 2 : tr.L / 2;
+        // Relative rather than absolute, so retuning the offsets cannot break a test that is about
+        // the SHAPE: in close at a camp, out in the country between them.
+        const atCamp = trailOffsetOn(tr, camps[0]), between = trailOffsetOn(tr, mid);
+        check('…close at the camp, out in the country between them',
+          between > atCamp * 1.5, `${atCamp.toFixed(1)} at the camp / ${between.toFixed(1)} between`);
+        // ⚠ AND THE CAMPS ARE WHERE THE ROAD IS BACK ON COURSE, not at a fixed spacing. A camp landing
+        // in the middle of a detour pins the trail to the very bend it exists to cut, which is exactly
+        // how the fixed-spacing version came out LONGER than the road on every leg.
+        check('…and camps sit where the road is on course, not at a fixed interval',
+          camps.length >= 2 && camps[0] === 0 && camps[camps.length - 1] === tr.L, camps.length + ' camps');
+      }
+    }
+
+  // ── 4i. Passengers ─────────────────────────────────────────────────────────
+  // An aircraft has carried people since charter; a truck was a single-occupancy object, so two
+  // people crossing the void together had to walk it. What is defended here is the pair of things
+  // that would strand somebody: a rider who does not come with the truck, and a rider who is never
+  // let go of.
+  //
+  // ⚠ THIS NEEDS A SECOND LIVE PLAYER, which is why it is worth writing rather than assuming. The
+  // suite drives one fake player; a passenger system is by definition about two.
+  {
+    const drv = getPlayer();
+    const PAX = 'player_regress_pax';
+    const A = `${PAX}_a`, B = `${PAX}_b`;
+    world.zones.set(A, mkZone(A, 'Pax Yard A', { map_id: 'map_world', grid_x: 3400, grid_y: 3400 }));
+    world.zones.set(B, mkZone(B, 'Pax Yard B', { map_id: 'map_world', grid_x: 3401, grid_y: 3400 }));
+    const paxZone = A;
+    const pax = {
+      id: PAX, handle: 'Regress Passenger', current_zone: paxZone,
+      stat_brawn: 5, stat_reflexes: 5, hp: 50, max_hp: 50,
+    };
+    setLivePlayer(PAX, pax);          // ⚠ TWO ARGS. One poisons world.players with undefined.
+    addPlayerToZone(PAX, paxZone);
+
+    const rig = { playerId: drv.id, zoneId: paxZone, speed: 0, passengers: new Set(), rider: null };
+    rigs.set(drv.id, rig);
+
+    check('a cab has room before anybody is in it', seatsFree(rig) === 2, String(seatsFree(rig)));
+    boardPassenger(rig, pax);
+    check('a passenger boards', rig.passengers.has(PAX) && pax._ridingRig === drv.id);
+    check('…and reads as being in the cab', pax._inCab === true);
+    check('…and the rig can be found from the passenger', ridingRigOf(pax) === rig);
+    check('…and the seat is taken', seatsFree(rig) === 1, String(seatsFree(rig)));
+
+    // ⚠ THE SEEDED HITCHER SHARES THE BENCH. `rig.rider` is a different field holding a different
+    // KIND of thing, and the only place the two meet is the seat count.
+    rig.rider = { id: 'local', look: 'a wiry man' };
+    check('…and the hitcher in the sleeper fills the cab', seatsFree(rig) === 0, String(seatsFree(rig)));
+    rig.rider = null;
+
+    // The truck moves. The passenger goes with it — this is the whole feature.
+    const dest = B;
+    {
+      driveToZone(drv, rig, dest);
+      check('a passenger is carried when the truck moves', pax.current_zone === dest, pax.current_zone);
+      check('…and is actually in the destination zone', world.zones.get(dest)?.players?.has(PAX));
+      check('…and is not left in the one it drove out of', !world.zones.get(paxZone)?.players?.has(PAX));
+    }
+
+    // ⚠ AND EVERYBODY IS LET GO OF. Parking, a tow, a recovery and a driver logging out all come
+    // through dismountRig, so this is the one release path rather than four that each remember.
+    const wasAt = pax.current_zone;
+    dismountRig(drv.id);
+    check('parking sets a passenger down', !pax._ridingRig && pax._inCab === false);
+    check('…where the truck stopped, not where they got in', pax.current_zone === wasAt, pax.current_zone);
+    check('…and the rig is gone', !rigs.has(drv.id));
+
+    // A stale back-reference must never resolve to a rig that no longer exists: that is a passenger
+    // riding a ghost, and it is the failure that would be hardest to see.
+    pax._ridingRig = drv.id;
+    check('a stale ride reference resolves to nothing', ridingRigOf(pax) === null);
+    check('…and clears itself rather than lingering', !pax._ridingRig);
+
+    removePlayerFromZone(PAX, pax.current_zone);
+    removeLivePlayer(PAX);
+    world.zones.delete(A); world.zones.delete(B);
+  }
+
+    // ── 4j. The road bends because there is something there ────────────────────
+    // The bends used to be a coin flip: they looked like a road and meant nothing, so there was no
+    // reason for the tarmac to go left here rather than right and no corner worth a walker cutting.
+    // The gap carries a seeded field of landforms now and the road prefers to go round them.
+    //
+    // ⚠ WHAT IS ASSERTED IS A PREFERENCE, NOT A PROHIBITION, and that is the honest claim. The leash
+    // still wins outright wherever it is engaged (a mesa may bias the road and must never drag it off
+    // the target or stop it converging), and bends alternate with straights, so a road that NEVER
+    // crossed high ground would be a maze rather than a highway. What has to hold is that it crosses
+    // less of it than a straight line between the same two gates would.
+    {
+      const anch = { x0: 918, y0: 947, x1: 1200, y1: 940 };   // Coldwater → Terminus, the long gap
+      const seed = 'region_coldwater|region_terminus';
+      const inside = (field, x, y) => field.some(m => Math.hypot(x - m.x, y - m.y) < m.r);
+
+      let wins = 0, sumStraight = 0, sumRoad = 0, windows = 0;
+      for (const w of [4242, 4243, 4244, 4245, 4246, 4247]) {
+        const field = landformsFor(seed, w, anch);
+        if (!field.length) continue;
+        windows++;
+        let sIn = 0, sN = 0;
+        for (let t = 0; t <= 1; t += 0.005) {
+          sN++;
+          if (inside(field, anch.x0 + (anch.x1 - anch.x0) * t, anch.y0 + (anch.y1 - anch.y0) * t)) sIn++;
+        }
+        const route = corridorFor('region_coldwater', 'exodus', w, 282, 20, null, anch, seed);
+        let rIn = 0, rN = 0;
+        for (let s = 0; s <= route.L; s += 2) {
+          const p = corridorPos(route, s, 0);
+          rN++;
+          if (inside(field, p.x, p.y)) rIn++;
+        }
+        const sf = sIn / Math.max(1, sN), rf = rIn / Math.max(1, rN);
+        sumStraight += sf; sumRoad += rf;
+        if (rf <= sf) wins++;
+      }
+      check('the gap has a seeded landform field', windows > 0, `${windows} windows`);
+      check('the road goes round more of it than a straight line would',
+        windows > 0 && sumRoad < sumStraight * 0.85,
+        `road ${(sumRoad / Math.max(1, windows) * 100).toFixed(1)}% vs straight ${(sumStraight / Math.max(1, windows) * 100).toFixed(1)}%`);
+      check('…and it is better in most weeks rather than on average by luck',
+        wins >= Math.ceil(windows * 0.75), `${wins}/${windows}`);
+
+      // ── THE TRAIL IS A REAL PATH, AND IT IS NOT A SHORTCUT ────────────────
+      // ⚠ THIS PINS A MEASUREMENT THAT CONTRADICTS THE DESIGN, ON PURPOSE. The premise says the walk
+      // is shorter than the drive because the road goes round what a person goes over. It is not: the
+      // built road is only about 1.03 to 1.10 times the straight line between its gates, so there are
+      // no corners worth cutting and the trail comes out slightly LONGER once its swings in to each
+      // camp are counted. If this check ever starts failing because the trail got shorter, the road
+      // has learned to genuinely detour — and THAT is when the room count moves onto the trail
+      // (see `registerTrailLength` in voidwalking).
+      {
+        const t = trailFor(corridorFor('region_coldwater', 'exodus', 4242, 282, 20, null, anch, seed), seed, 4242);
+        check('the trail is its own path with real length', !!t && t.L > 0, t ? t.L.toFixed(0) : 'none');
+        check('…that starts and ends on the road it shadows',
+          !!t && Math.hypot(t.pts[0].x - anch.x0, t.pts[0].y - anch.y0) < 40
+             && Math.hypot(t.pts[t.pts.length - 1].x - anch.x1, t.pts[t.pts.length - 1].y - anch.y1) < 40);
+        // ⚠ AND THE WALK IS NOW SHORTER THAN THE DRIVE, which is the premise finally being true. This
+        // check used to assert the OPPOSITE and carried a note saying that when it started failing the
+        // road had learned to detour. It did: the country outranks the homing bias (the hard clamp is
+        // untouched) and camps anchor where the road is back on course, so the chord between two of
+        // them crosses what the road went round.
+        {
+          const rd = corridorFor('region_coldwater', 'exodus', 4242, 282, 20, null, anch, seed);
+          // ⚠ THE SHORTCUT BELONGS TO A WALK THAT TAKES THE CUTS, NOT TO THE SPINE. `t.L` is the
+          // SHADOW — it follows the road, so of course it is about as long as the road. The claim is
+          // that a walker who takes every cut open to them this week gets there sooner than the truck.
+          const open = (t?.cuts || []).filter(c => c.open);
+          const best = t ? t.L - open.reduce((a, c) => a + c.saves, 0) : Infinity;
+          check('the spine is the long way round, and tracks the road', !!t && Math.abs(t.L - rd.L) < rd.L * 0.12,
+            t ? `spine ${t.L.toFixed(0)} vs road ${rd.L.toFixed(0)}` : 'none');
+          check('taking the cuts beats the drive', best < rd.L,
+            `best walk ${best.toFixed(0)} vs road ${rd.L.toFixed(0)} (${open.length} cuts open)`);
+          check('…and the road is longer than the straight line it could not take',
+            rd.L > Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0) * 1.08,
+            `x${(rd.L / Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0)).toFixed(2)}`);
+          // ⚠ AND BOTH WAYS ALWAYS EXIST. A cut that replaced the spine would make being refused on it
+          // a dead end; a cut that branches off it makes being refused a loss. That is decision 2.
+          check('every cut leaves and rejoins the spine rather than replacing it',
+            (t?.cuts || []).every(c => c.toD > c.fromD && c.len < (c.toD - c.fromD)));
+        }
+        // A cut is still a real place even when it saves nothing: off the road, no lifeline, and it
+        // rolls encounters hot. The DANGER half of the trade ships; the distance half does not.
+        check('…and every camp is on the route, never cut across',
+          !!t && t.pts.some(p => p.wayside));
+      }
+
+      // The turn itself, unit-tested, because the statistic above cannot tell you WHY it improved.
+      check('a rock dead ahead turns the road away', avoidTurn([{ x: 0, y: -100, r: 30 }], 0, 0, 0) === -1);
+      check('…one behind you does not', avoidTurn([{ x: 0, y: -100, r: 30 }], 0, -200, 0) === 0);
+      check('…and one you already clear does not', avoidTurn([{ x: 300, y: -100, r: 30 }], 0, 0, 0) === 0);
+      // ⚠ TWO ROADS MEETING THE SAME ROCK MUST AGREE. A coin flip for the dead-ahead case would let
+      // the trunk two limbs share peel apart on a tile neither of them chose.
+      check('…and dead-centre resolves the same way twice',
+        avoidTurn([{ x: 0, y: -100, r: 30 }], 0, 0, 0) === avoidTurn([{ x: 0, y: -100, r: 30 }], 0, 0, 0));
+
+      // ⚠ AND THE LEGACY FRAME IS UNTOUCHED. Every pinned route in this suite is unanchored, which
+      // has no real coordinates for a landform to sit at — so the field is empty there and the turn
+      // is the coin flip it always was, character for character.
+      check('an unanchored road has no country and no avoidance',
+        landformsFor(seed, 4242, null).length === 0);
+    }
+
   // ── 4h. Wrecks and the CB ──────────────────────────────────────────────────
   // The road remembers hauls that did not finish. What is defended here is that a wreck is a
   // PLACE rather than a decoration: the same tile for everybody, reported before you reach it,
   // and capped so a corridor never turns into a scrapyard.
   {
     _clearWrecks();
-    const route = corridorFor(VOIDKEY, DESTKEY, 4242, 8, vdef.trunk);
+    const wreckTrunk = voidTest.trunkTilesFor(VOIDKEY, vdef, null);
+    const route = corridorFor(VOIDKEY, DESTKEY, 4242, wreckTrunk * 3, wreckTrunk);
     const w = addWreck(route, { s: 300, what: 'A dead Krell Barrow', who: 'Somebody' });
     check('a wreck lands on the verge, not on the road', w && Math.abs(w.off) >= 3 && Math.abs(w.off) <= route.R, w?.off);
     const cell = corridorAt(route, ...Object.values(corridorPos(route, 300, w.side * w.off)).slice(0, 2));
@@ -2433,8 +2946,8 @@ export default async function regress({ run, check, getPlayer }) {
   }
 
   // ── 4j. Cosmetic fittings ──────────────────────────────────────────────────
-  // Twenty things that do nothing, and the cases are all about the ways "does nothing" can quietly
-  // become "does something" — to the mesh, to the lamps, or to the wire.
+  // Thirty-eight things that do nothing, and the cases are all about the ways "does nothing" can
+  // quietly become "does something" — to the mesh, to the lamps, or to the wire.
   {
     // THE CODE IS THE WIRE AND IT IS STAMPED IN LIVE ROWS. fittings.js throws at import on a
     // collision, so this is the belt to that braces: two characters, lower case, unique.
@@ -2443,6 +2956,19 @@ export default async function regress({ run, check, getPlayer }) {
       new Set(codes).size === codes.length && codes.every((c) => /^[a-z]{2}$/.test(c)));
     check('every fitting sits in a real slot',
       FIT_IDS.every((id) => SLOTS.some((s) => s.id === FITTINGS[id].slot)));
+    // A SLOT WITH NOTHING IN IT IS A DEAD CELL. The depot's rig sheet renders one cell per slot and
+    // opens that slot's shelf when you click it, so an empty slot is a button that opens nothing —
+    // and the sheet is also the navigation, so there is no other way back out of it.
+    check('every place on the truck has something you can put there',
+      SLOTS.every((s) => FIT_IDS.some((id) => FITTINGS[id].slot === s.id)),
+      SLOTS.filter((s) => !FIT_IDS.some((id) => FITTINGS[id].slot === s.id)).map((s) => s.id).join(' '));
+    // ⚠ `rig fit <place>` IS A LISTING AND `rig fit <thing>` IS A PURCHASE, and the only thing
+    // keeping those apart is that no fitting is NAMED after a place. A collision would not error —
+    // it would silently print a shelf where somebody expected to buy something (or, if the
+    // precedence in `rigFit` were ever flipped, charge them for a listing).
+    const places = new Set(SLOTS.flatMap((s) => [s.id, s.label.toLowerCase()]).concat('all'));
+    const clash = FIT_IDS.filter((id) => places.has(id) || places.has(FITTINGS[id].name.toLowerCase()));
+    check('no fitting is named after a place on the truck', clash.length === 0, clash.join(' '));
 
     // ONE PER SLOT, enforced on READ rather than only at the write — a hand-edited bag, an old row
     // or a fitting that changes slot in a later build would all otherwise put two bars on a truck.
@@ -2470,8 +2996,21 @@ export default async function regress({ run, check, getPlayer }) {
     const silent = FIT_IDS.filter((id) => aircraftFaces('truck', 1, false, 'continental^' + FITTINGS[id].code).length <= bare);
     check('every fitting in the catalogue puts geometry on the truck', silent.length === 0, silent.join(' '));
 
+    // …AND THE SCREEN SLOT DRAWS ON EVERY SHAPE, which is the one place that claim can be made for
+    // all four rigs: a stack fitting has nothing to hang off a scrapper and a mascot moves to the
+    // cowl on a cab-over, but every truck in the game has a windscreen. The pieces are quads in the
+    // screen's own raked plane rather than boxes, and that plane is derived per shape — so this is
+    // the case that would catch a cab-over's screen fittings being authored against a bonneted
+    // truck's stations and landing in mid-air, on the two cheapest rigs only.
+    const glassIds = FIT_IDS.filter((id) => FITTINGS[id].slot === 'glass');
+    const blindShapes = ['scrapper', 'hauler', 'drayman', 'continental'].filter((sh) => {
+      const bareN = aircraftFaces('truck', 1, false, sh).length;
+      return glassIds.some((id) => aircraftFaces('truck', 1, false, sh + '^' + FITTINGS[id].code).length <= bareN);
+    });
+    check('everything for the screen draws on every truck, bonnet or not', blindShapes.length === 0, blindShapes.join(' '));
+
     // NO FITTING IS LOAD-BEARING GEOMETRY. Nothing may move the door decal, the kingpin, the lamp
-    // pods or the centring — twenty parts must not be twenty ways to break one mesh.
+    // pods or the centring — thirty-eight parts must not be thirty-eight ways to break one mesh.
     aircraftFaces('truck', 1, false, 'continental');
     const m0 = truckMeta('continental:1');
     const all = '^' + FIT_IDS.map((id) => FITTINGS[id].code).join('.');
@@ -2608,7 +3147,7 @@ export default async function regress({ run, check, getPlayer }) {
       player.credits = 40000;
       const tooRich = await run('yard buy continental');
       check('a truck you can afford is bought', !!tooRich && !/cannot|have \d/.test(tooRich?.message || ''), tooRich?.message?.slice(0, 45));
-      check('…and it cost the sticker price', player.credits === 40000 - 31000, player.credits);
+      check('…and it cost the sticker price', player.credits === 40000 - TYPES.continental.price, player.credits);
       // ── A YARD IS WHERE A FLEET LIVES ─────────────────────────────────────
       // This used to assert the opposite: a yard held ONE of yours and the second buy was refused,
       // so that `drive` never had to ask which. What that bought was an unambiguous verb and what
@@ -2694,7 +3233,7 @@ export default async function regress({ run, check, getPlayer }) {
       // dealer — the assertions above are about owning two, not about the fixture keeping them.
       await query('DELETE FROM trucks WHERE id=$1', [tB]);
       await query("UPDATE trucks SET custom_data='{}'::jsonb WHERE id=$1", [both[0].id]);
-      player.credits = 40000 - 31000;
+      player.credits = 40000 - TYPES.continental.price;
 
       // ── Recovery: a truck you did not drive home ──────────────────────────
       // The whole point of the verb is a rig that is somewhere else, so the case has to put one
@@ -2730,7 +3269,7 @@ export default async function regress({ run, check, getPlayer }) {
         const again = await run(`yard recall ${truckId}`);
         check('…and fetching one that is already here is refused, not billed twice',
           /already standing here/i.test(again?.message || ''), again?.message?.slice(0, 40));
-        player.credits = 40000 - 31000;
+        player.credits = 40000 - TYPES.continental.price;
       }
 
       // WHAT THE CLIENT IS ACTUALLY HANDED AT THE TURN OF THE KEY. This is captured rather than
@@ -2927,7 +3466,7 @@ export default async function regress({ run, check, getPlayer }) {
           `${rigs.get(player.id)?.leg} truck=${rigs.get(player.id)?.truckId === truckId}`);
 
         // AND THE ROOM GOING AWAY MUST NOT TAKE THE TRUCK WITH IT. The safety property is that the
-        // row points at somewhere real either way — losing a 31,000₵ rig to a torn-down transient
+        // row points at somewhere real either way — losing a 16,500₵ rig to a torn-down transient
         // zone is the failure this whole path exists to prevent.
         const home = t?.void_home;
         const moved = await truckTest.recoverTrucksFrom([roomBefore], null);
@@ -3179,6 +3718,15 @@ export default async function regress({ run, check, getPlayer }) {
         panelNow?.canLoad === true && !panelNow?.driving, `canLoad=${panelNow?.canLoad} driving=${panelNow?.driving}`);
       check('…and shows the load that is on the deck, which on foot it never used to',
         !!panelNow?.cargo, panelNow?.cargo?.name || 'no cargo on the panel');
+      // …AND NAMES THE BOARD ROW IT CAME OFF. Without this the freight screen has no way to tell
+      // which of the four rows it is already carrying, so it redrew a live Take it on all of them
+      // after a load — the button the verb was certain to refuse. The client matches on the slot
+      // AND on the name and destination, so all three have to be here.
+      check('…and names the board slot the contract came off, so the row can dim',
+        panelNow?.cargo?.slot === footSlot - 1
+          && panelNow.cargo.name === footBoard[footSlot - 1].name
+          && panelNow.cargo.to === footBoard[footSlot - 1].toName,
+        `slot=${panelNow?.cargo?.slot} want ${footSlot - 1} · ${panelNow?.cargo?.to}`);
       check('…and quotes the box\'s real rating rather than a default',
         panelNow?.deckKg === footBox.ratedKg, `${panelNow?.deckKg} vs ${footBox.ratedKg}`);
 
@@ -3239,6 +3787,12 @@ export default async function regress({ run, check, getPlayer }) {
         check('…and can stop', !rigs.has(player.id) && !isTextDriving(player.id));
       } finally { if (savedRung) await setDisplayRung(player, savedRung); }
     } finally {
+      // ⚠ THE BOXES GO WITH THE TRUCKS. This block hitches a trailer and loads it on foot, and
+      // deleting the tractor out from under it leaves exactly the orphan `yardSell` was just fixed
+      // to stop creating: `towed_by` pointing at a truck row that no longer exists, `parked_zone`
+      // null, and nothing in the game able to reach it again. Harmless in a scratch DB and residue
+      // in a dev one — a `test_regress_*` box was found standing on a ghost in the local database.
+      await query('DELETE FROM trailers WHERE owner_id = $1', [player.id]).catch(() => {});
       await query('DELETE FROM trucks WHERE owner_id = $1', [player.id]).catch(() => {});
       for (const [z, f] of realDepots) z.flags.truck_depot = f;
       rigs.delete(player.id);
