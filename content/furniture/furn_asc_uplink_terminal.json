@@ -1,0 +1,16 @@
+{
+  "description": "A single slab of dark glass set directly into the Curtain, so that the hard white light is behind it rather than on it. There is no keyboard and no seat. There are two shallow depressions at hand height, worn smooth, and they are worn smooth from the inside of the glass as well, which takes a moment to work out and then does not stop being true.\n\nA line of text stands in the surface, unlit, the way a thing waits rather than advertises: COMMIT.",
+  "flags": {
+    "asc_rite": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_asc_uplink_terminal",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the Uplink terminal",
+  "object_type": "machine",
+  "power_draw_kw": 4,
+  "price": 0,
+  "zone_id": "zone_asc_shrine_uplink"
+}

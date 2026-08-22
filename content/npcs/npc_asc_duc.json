@@ -40,11 +40,84 @@
           "next": "line"
         },
         {
-          "label": "Nothing today.",
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "asc_pledged",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_asc_fav_tolerance",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Got anything that needs breaking in?",
+          "next": "tolerance_offer"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_tolerance",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "It's still in one piece.",
+          "next": "tolerance_report"
+        },
+        {
+          "label": "Nothing.",
           "next": "bye"
         }
       ],
       "text": "Duc doesn't look up from the gantry. \"If you're lost, the Spire's back up the plaza. If you're not lost\"—now he looks—\"tell me what you need built.\""
+    },
+    "tolerance_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_fav_tolerance"
+        }
+      ],
+      "options": [
+        {
+          "label": "I'll break something.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Kesh will fit it. Then go and do something stupid with it and come back here so I can listen to it.\""
+    },
+    "tolerance_offer": {
+      "options": [
+        {
+          "label": "And me?",
+          "next": "tolerance_accept"
+        },
+        {
+          "label": "Not my line of work.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You have got a pulse and a poor sense of self-preservation. That is the whole specification.\" Duc wipes his hands on the apron and does not look up. \"I need a piece run in. Not tested — tested is a bench and a week and it tells you nothing. Run in. Out there, doing work, on somebody.\"\n\n\"The piece comes back. I am being clear about the piece.\""
+    },
+    "tolerance_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_fav_tolerance"
+        }
+      ],
+      "options": [
+        {
+          "label": "(let him listen)",
+          "next": "bye"
+        }
+      ],
+      "text": "He puts a hand flat on your chest and goes very still, listening to something inside you that you cannot hear. \"Mm.\" A grunt that could mean anything. \"Good numbers. You can go.\""
     }
   },
   "faction": "ideology_ascendants",

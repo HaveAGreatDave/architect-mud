@@ -1,0 +1,47 @@
+{
+  "category": null,
+  "description": "Curator Vess hands you a slate and a route. Halcyon prices a district by walking it, because a satellite cannot smell a stairwell. Walk the line, stand where the slate tells you to stand, and bring back numbers nobody will ever read back to you.",
+  "fail_on": [],
+  "id": "quest_asc_fav_actuarial",
+  "meta": {},
+  "name": "Actuarial",
+  "objectives": [
+    {
+      "desc": "Take the first reading on Halcyon Boulevard.",
+      "emotes": [
+        "{who} holds the slate up, turns slowly on the spot, and waits for it to stop thinking."
+      ],
+      "id": "o0",
+      "taskSeconds": 8,
+      "type": "visit",
+      "zone": "zone_district_894_907"
+    },
+    {
+      "desc": "Take the second reading on Meltwater Row.",
+      "emotes": [
+        "{who} logs a number, and the slate declines to say whether it is a good one."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 8,
+      "type": "visit",
+      "zone": "zone_district_907_911"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 55,
+    "rep": [
+      {
+        "delta": 40,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 12
+  },
+  "updated_at": "1787377233"
+}

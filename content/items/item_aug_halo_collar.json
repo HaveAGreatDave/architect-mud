@@ -1,0 +1,12 @@
+{
+  "description": "A chromed half-collar in a fitted case, the sensor weave inside it still and grey until somebody powers it. Curator issue. The case is nicer than most furniture in the Basin.",
+  "flags": {},
+  "id": "item_aug_halo_collar",
+  "name": "a cased halo collar",
+  "tags": {
+    "augment_hardware": "aug_halo_collar"
+  },
+  "type": "misc",
+  "value": 3400,
+  "weight": 240
+}

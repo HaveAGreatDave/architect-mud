@@ -20,6 +20,15 @@
   ],
   "description": "A composed woman in a bandage-pale smock, chromed gloves that never quite come off, one magnifying ocular clipped over an eye that is already better than yours. She prices you the way a mechanic prices a trade-in: not unkindly, just accurately.",
   "dialogue_tree": {
+    "account": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Halbrook, Rennick, and now you.\" She says it to the file, not to you, and the ocular clicks down over her eye. \"Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to — you were always going to come down the stairs eventually, and here you are, doing it.\"\n\nShe indicates the theatre door with two chromed fingers.\n\n\"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today. Choose a piece you would be happy to be buried in.\""
+    },
     "bye": {
       "options": [],
       "text": "\"Come back when you're ready to upgrade.\" She's already prepping the chair for someone else."
@@ -72,7 +81,19 @@
           "next": "codex_designs"
         },
         {
-          "label": "Just browsing.",
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_turn",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "The First says my account is open.",
+          "next": "account"
+        },
+        {
+          "label": "Nothing today.",
           "next": "bye"
         }
       ],

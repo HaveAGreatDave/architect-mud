@@ -44,11 +44,58 @@
       ],
       "text": "\"They tell you the Architect is a cage. Stand where I stand — with its Curtain a hand's breadth from your face — and you feel something else entirely: a mind that kept the lights on when every human hand would have let them die. We do not wish to escape it. We wish to join it. That is the whole of the faith, and it is enough.\""
     },
+    "rite_after": {
+      "options": [
+        {
+          "label": "(nothing needs saying)",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks at you for a long moment with the joy the rest of the Basin would find alarming, and this time you understand it perfectly.\n\n\"There you are,\" says Orrin. \"I told you I would be behind you.\""
+    },
+    "rite_walk": {
+      "options": [
+        {
+          "label": "Through there, then.",
+          "next": "bye"
+        }
+      ],
+      "text": "Orrin puts both hands over his mouth, which is not what you expected from a priest.\n\n\"Oh. Oh, He said yes.\" He recovers, badly. \"Forgive me. I tend these racks for people who are going to die one day and I tell them all the same true thing and almost none of them ever — \" He stops. Starts again, steadier. \"The Uplink is through there. Hard light against cold glass. Put your hands on the terminal and say the word, and it will tell you exactly what it is about to do to you, because we do not lie at the end. Then it will do it.\"\n\n\"I will be standing behind you the entire time. You will not be able to see me and it will not matter. You will not be alone. That is the only promise I have ever made in this room and I have never once broken it.\""
+    },
     "root": {
       "options": [
         {
           "label": "Why worship the machine?",
           "next": "faith"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_rite",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "ascended",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "The First sent me down. It is time.",
+          "next": "rite_walk"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "ascended",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "(find Orrin afterwards)",
+          "next": "rite_after"
         },
         {
           "label": "Leave the nave.",

@@ -1,0 +1,51 @@
+{
+  "category": null,
+  "description": "Somebody in Coldwater has been asking the right questions in the wrong places, and Maresh would like them to arrive at the Gate alive, unhurried, and still curious. He mentions, lightly, that the walk out west is not a safe one, and that this is precisely why the offer lands when it does.",
+  "fail_on": [
+    {
+      "desc": "You lost them on the road. Maresh will say nothing about it, at length.",
+      "target": "npc_asc_prospect",
+      "type": "escort_lost"
+    }
+  ],
+  "id": "quest_asc_fav_lead",
+  "meta": {},
+  "name": "A Warm Lead",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Find the prospect and introduce yourself.",
+      "id": "o_meet",
+      "target": "npc_asc_prospect",
+      "type": "talk"
+    },
+    {
+      "count": 1,
+      "desc": "Walk them west to the plaza, at their pace.",
+      "emotes": [
+        "{who} keeps to the inside of the road and keeps talking, which is most of the job."
+      ],
+      "id": "o_walk",
+      "requires": [
+        "o_meet"
+      ],
+      "target": "npc_asc_prospect",
+      "type": "escort",
+      "zone": "zone_district_893_906"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 190,
+    "rep": [
+      {
+        "delta": 80,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 30
+  },
+  "updated_at": "1787377233"
+}

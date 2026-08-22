@@ -1,0 +1,14 @@
+{
+  "description": "A chromed half-collar with the weave burned out of it. It still looks the part, which is the only thing anybody will ever buy it for.",
+  "flags": {},
+  "id": "item_ruined_halo_collar",
+  "name": "a dulled halo collar",
+  "tags": {
+    "no_install": true,
+    "no_repair": true,
+    "scrap": true
+  },
+  "type": "misc",
+  "value": 90,
+  "weight": 240
+}

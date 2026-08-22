@@ -19,6 +19,7 @@ import { getPlayerIdeologyRep, REP_TIERS } from '../../server/engine/ideologies.
 import { applyStrikeToPlayer } from '../../server/engine/combat.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { riteAction, _test as rite } from './rite.js';
 
 const ASCENDANTS = 'ideology_ascendants';
 const TIER_RANK = Object.fromEntries(REP_TIERS.map((t, i) => [t.id, i]));
@@ -87,5 +88,16 @@ export async function thresholdGate({ player, from, to }) {
 }
 registerMoveGate(thresholdGate, 'ascendant:threshold');
 
+// The Rite of Ascension — `ascend` at the Uplink. Campus-side ceremony over an
+// economy plugins/augments already owns, which is why it lives here beside the
+// Threshold rather than inside the augment mechanic itself.
+//
+// Exported for the LOADER to register rather than self-registered in rite.js:
+// a plugin exporting none of {hooks, commands, routeHandler, specializedActions}
+// is skipped by server/engine/plugins.js and never reaches getLoadedPlugins(),
+// so until now this plugin worked entirely by import side effect and was
+// invisible to the regress manifest sweep. See the note in rite.js.
+export const specializedActions = [riteAction];
+
 // Exposed for the regression harness.
-export const _test = { thresholdGate, isCleared };
+export const _test = { thresholdGate, isCleared, rite };

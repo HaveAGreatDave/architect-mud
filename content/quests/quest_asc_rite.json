@@ -1,0 +1,64 @@
+{
+  "category": null,
+  "description": "Celebrant Orrin will walk you to the Uplink himself, which he does not do often. There is a terminal set into the Curtain where hard light meets cold glass, and what happens at it is not a metaphor: your pattern is already held, your account is current, and the only thing still in the way is the body. Orrin says none of that. He says it will be over quickly and that you will not be alone, and both are true.",
+  "fail_on": [],
+  "id": "quest_asc_rite",
+  "meta": {},
+  "name": "The Rite of Ascension",
+  "objectives": [
+    {
+      "desc": "Stand in the Nave with Orrin while the racks are made ready.",
+      "emotes": [
+        "{who} stands among the humming racks and lets a gaunt, delighted man explain what is about to happen to them."
+      ],
+      "id": "o_nave",
+      "taskSeconds": 10,
+      "type": "visit",
+      "zone": "zone_asc_shrine_nave"
+    },
+    {
+      "desc": "Take your place at the Uplink, where the Curtain meets the glass.",
+      "emotes": [
+        "{who} puts both hands flat on the terminal and the hum stops being a sound.",
+        "{who} does not look away from the white fire, which is harder than it sounds."
+      ],
+      "id": "o_uplink",
+      "requires": [
+        "o_nave"
+      ],
+      "taskSeconds": 25,
+      "type": "visit",
+      "zone": "zone_asc_shrine_uplink"
+    },
+    {
+      "count": 1,
+      "desc": "Ascend. (`ascend` at the Uplink terminal. It tells you what it costs before it does it.)",
+      "id": "o_ascend",
+      "requires": [
+        "o_uplink"
+      ],
+      "type": "restore"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "ascended",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 400,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 250
+  },
+  "updated_at": "1787377233"
+}

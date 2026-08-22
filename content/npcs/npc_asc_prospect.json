@@ -1,0 +1,116 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Somebody out west is paying claims nobody filed. That is not a rumour, that is arithmetic.\"",
+    "\"I am not frightened of them. I am frightened of being wrong in front of them.\""
+  ],
+  "description": "A thin man at the end stool with a cold cup and a notebook he keeps turning back a few pages in. He has the specific look of somebody who has asked the same question in four places and got four answers he did not believe.",
+  "dialogue_tree": {
+    "asking": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_lead",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "I could take you there.",
+          "next": "walk"
+        },
+        {
+          "label": "Keep asking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Where the money goes.\" He says it like it is obvious, and it is. \"Halcyon settles a claim and the money leaves the Basin westward and does not come back and nobody at the counter will say the word for where it went. I have asked eleven people. Four laughed. Six changed the subject. One got frightened.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "He opens the notebook again."
+    },
+    "root": {
+      "first": "He has the notebook open and does not close it, which tells you he has decided you are worth the risk before you have said anything. \"You came from out there,\" he says. \"The road west. I can tell by the dust, it goes a different colour.\"",
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_lead",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Somebody out west would like to meet you.",
+          "next": "walk"
+        },
+        {
+          "label": "What is it you have been asking?",
+          "next": "asking"
+        },
+        {
+          "label": "Nothing. Sorry.",
+          "next": "bye"
+        }
+      ],
+      "text": "He turns the notebook back a couple of pages. \"You again. Good. I have more.\""
+    },
+    "walk": {
+      "actions": [
+        {
+          "action": "ESCORT_START",
+          "npc_id": "npc_asc_prospect"
+        }
+      ],
+      "options": [
+        {
+          "label": "At your pace.",
+          "next": "bye"
+        }
+      ],
+      "text": "He shuts the notebook properly for the first time. \"You are serious.\" A breath. \"All right. I have wanted somebody to say that for a year and now that it is said I would quite like to sit down, which I already am.\" He stands up anyway. \"Slowly. I am not built for the road and I would rather arrive.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a much-mended field jacket with too many pockets",
+      "a shirt buttoned to the throat against the cold",
+      "boots chosen for walking, not for looking at"
+    ],
+    "escortable": true,
+    "mis_willing": false,
+    "personality": "scientist"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_906_912",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_asc_prospect",
+  "name": "Corin Halbrook",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_906_912"
+}

@@ -2,7 +2,10 @@
 // The campus zones may not be imported in every dev DB, so we test the move-gate
 // function directly with mock ctx objects rather than driving real movement.
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
-import { thresholdGate } from './index.js';
+import { getRegisteredSpecializedActions } from '../../server/engine/specializedActions.js';
+import { query } from '../../server/models/db.js';
+import { world } from '../../server/engine/world.js';
+import { thresholdGate, specializedActions, _test } from './index.js';
 
 export default async function regress({ check, getPlayer }) {
   check('threshold gate registered', getRegisteredMoveGates().includes('ascendant:threshold'));
@@ -46,4 +49,73 @@ export default async function regress({ check, getPlayer }) {
   check('forcing the line draws turret FIRE (HP taken)',
     fire?.block === true && /fire/i.test(fire.message || '') && rusher.hp < 100,
     `hp=${rusher.hp} msg=${(fire?.message || '').slice(0, 60)}`);
+
+  // ── The Rite of Ascension ──────────────────────────────────────────────────
+  //
+  // Nothing below ever runs the handler to completion, and that is deliberate:
+  // the last thing it does is kill the shared harness player through the real
+  // death path. What IS worth pinning is every refusal in front of that, plus
+  // the room gate — because the failure mode of this verb is not an exception,
+  // it is a player dying in the ordinary way after two quests told them they
+  // would not.
+  {
+    check('the rite is exported for the loader, not self-registered',
+      Array.isArray(specializedActions) && specializedActions[0]?.verb === 'ascend');
+    const reg = getRegisteredSpecializedActions();
+    check('ascend is registered, gated on furniture flags.asc_rite',
+      (reg.ascend || []).some(e => e.requiredFlag === 'asc_rite'),
+      JSON.stringify(reg.ascend));
+
+    const player = getPlayer();
+    const handler = specializedActions[0].handler;
+
+    // The room gate. `requiredFlag` only drives discoverability, so a handler
+    // that forgot to check the room would let `ascend` be typed in a bar.
+    const savedZone = player.current_zone;
+    const EMPTY = 'zone_regress_no_uplink';
+    world.zones.set(EMPTY, { id: EMPTY, name: EMPTY, exits: [], npcs: new Set(), enemies: new Set(), players: new Set(), flags: {} });
+    try {
+      player.current_zone = EMPTY;
+      const away = await handler([], 'ascend', player, null);
+      check('ascend falls through anywhere there is no Uplink terminal', away === undefined, JSON.stringify(away));
+    } finally {
+      player.current_zone = savedZone;
+      world.zones.delete(EMPTY);
+    }
+
+    // The refusal ladder, in order. Each names the missing thing, because a
+    // ceremony that hides its cost is the one thing this system must not be.
+    const { refusal } = _test.rite;
+    const all = { chrome: true, pattern: true, policy: true, clean: true };
+    check('no hardware is refused first', /nothing here to copy/i.test(refusal({ ...all, chrome: false }) || ''));
+    check('no policy is refused as an empty account', /photograph/i.test(refusal({ ...all, policy: false }) || ''));
+    check('no committed pattern is refused and sent to the Registry', /backup/i.test(refusal({ ...all, pattern: false }) || ''));
+
+    // ⚠ THE ONE THAT MATTERS. plugins/augments' respawn hook declines to claim
+    // the death of anybody at 1★+, so a wanted player at the Uplink would die
+    // UNCLAIMED: no restore, chrome corrupted, quest not advanced. If this
+    // refusal ever regresses, the Rite silently becomes a way to lose a
+    // character, and it will look exactly like it worked right up until it did.
+    check('a WANTED player is refused before the terminal fires',
+      /warrant/i.test(refusal({ ...all, clean: false }) || ''), refusal({ ...all, clean: false }));
+
+    check('a ready player is refused nothing', refusal(all) === null);
+
+    // Readiness reads the two tables it claims to. The harness player has no
+    // rows in either, so every gate must read false rather than throwing.
+    const r = await _test.rite.readiness(player);
+    check('readiness reports no chrome for a player with no augments row', r.chrome === false);
+    check('readiness reports no policy for a player with no backup row', r.policy === false && r.pattern === false);
+
+    // And the arm-then-run confirm is the Purifier's, not a bespoke one.
+    check('the rite arms before it runs', _test.rite.CONFIRM_MS >= 10_000, String(_test.rite.CONFIRM_MS));
+
+    // The terminal is placed. A ritual whose furniture never shipped is a quest
+    // objective nobody can finish, and content:lint has no opinion about that.
+    const { rows: term } = await query(
+      "SELECT id, zone_id FROM furniture WHERE flags->>'asc_rite' = 'true'",
+    );
+    check('the Uplink terminal exists in the world', term.length >= 1,
+      term.map(t => `${t.id}@${t.zone_id}`).join(', ') || 'none');
+  }
 }

@@ -1,0 +1,47 @@
+{
+  "category": null,
+  "description": "The Weave line makes it and the clinic fits it, and in between there is a walk across a campus that nobody senior has ever had to make. The tray is cold, it must stay cold, and Vess thanks you with the exact warmth she would give a working machine.",
+  "fail_on": [],
+  "id": "quest_asc_fav_coldchain",
+  "meta": {},
+  "name": "Cold Chain",
+  "objectives": [
+    {
+      "desc": "Collect the tray from the fabrication line.",
+      "emotes": [
+        "{who} takes the tray in both hands, the way they were shown, once."
+      ],
+      "id": "o_pick",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_asc_weave_line"
+    },
+    {
+      "desc": "Deliver it to the theatre.",
+      "emotes": [
+        "{who} sets the tray down and somebody takes it without looking up."
+      ],
+      "id": "o_drop",
+      "requires": [
+        "o_pick"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_asc_clinic_theatre"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 60,
+    "rep": [
+      {
+        "delta": 35,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 10
+  },
+  "updated_at": "1787377233"
+}

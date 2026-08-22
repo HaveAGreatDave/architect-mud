@@ -1,0 +1,51 @@
+{
+  "category": null,
+  "description": "A client has stopped paying and is still wearing the collateral. Vess is at pains to point out that this is not a punishment: the account remains open, the hardware simply comes home until it is current. She is also at pains to point out that the client is not to be killed. Halcyon does not kill clients. Halcyon repossesses.",
+  "fail_on": [
+    {
+      "desc": "You killed a client. A dead client pays nothing, ever, and Halcyon is very clear about the difference.",
+      "target": "npc_lapsed_client",
+      "type": "assassinate"
+    }
+  ],
+  "id": "quest_asc_fav_lapse",
+  "meta": {},
+  "name": "Lapsed",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Put the lapsed client down — DOWN, not out. Halcyon does not kill clients.",
+      "emotes": [
+        "{who} waits for the shoulders to drop, and takes them across the back of the head."
+      ],
+      "id": "o_down",
+      "target": "npc_lapsed_client",
+      "type": "subdue"
+    },
+    {
+      "count": 1,
+      "desc": "Recover the collateral.",
+      "id": "o_asset",
+      "item_id": "item_aug_dermal_jack",
+      "requires": [
+        "o_down"
+      ],
+      "type": "retrieve",
+      "zone": "zone_district_913_908"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 140,
+    "rep": [
+      {
+        "delta": 60,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 22
+  },
+  "updated_at": "1787377233"
+}

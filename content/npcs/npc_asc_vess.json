@@ -35,9 +35,181 @@
       ],
       "text": "\"Take the Gallery first — it's just inside. Walk it slowly. The exhibit does the persuading; I merely open the doors.\""
     },
+    "actuarial_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_fav_actuarial"
+        }
+      ],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Stand where it asks you to stand and let it finish thinking. It will not tell you what it concluded. It never does.\""
+    },
+    "actuarial_offer": {
+      "options": [
+        {
+          "label": "I'll walk it.",
+          "next": "actuarial_accept"
+        },
+        {
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A slate, and a route.\" She hands you both without ceremony. \"Halcyon prices a district by walking it, because no instrument yet built can smell a stairwell. You will take a reading on the Boulevard and another on Meltwater Row.\" A small, serene pause. \"They are, I am told, the same road. The model disagrees, and the model is what we sell.\""
+    },
+    "actuarial_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_fav_actuarial"
+        }
+      ],
+      "options": [
+        {
+          "label": "(hand it back)",
+          "next": "bye"
+        }
+      ],
+      "text": "She takes the slate, glances at nothing on it, and files it. \"Lovely. Two more points of resolution on a map that already knew the answer.\" She means it kindly, which is somehow worse."
+    },
+    "adjuster_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_fav_adjuster"
+        }
+      ],
+      "options": [
+        {
+          "label": "Quietly.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Quietly, then. Quiet is the whole commission.\""
+    },
+    "adjuster_offer": {
+      "options": [
+        {
+          "label": "Nobody will remember me.",
+          "next": "adjuster_accept"
+        },
+        {
+          "label": "Find somebody else.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"An adjustment.\" Vess does not blink. \"There is a claim we would rather not contest in the open, and a terminal on the records approach holding the one document that would oblige us to. I am not asking you to burn anything. I am asking you to go and read it, and to be the sort of person nobody remembers reading it.\"\n\n\"If you are seen, we did not send you. If a camera has you, we did not send you and we will be sorry about it in writing.\""
+    },
+    "adjuster_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_fav_adjuster"
+        }
+      ],
+      "options": [
+        {
+          "label": "(nothing to remember)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"And nobody remembers you.\" She does not look at what you brought her. \"That is the part that was difficult. The document was always going to be there.\""
+    },
     "bye": {
       "options": [],
       "text": "\"Ascend well.\" She presses her palms together and is serene again."
+    },
+    "coldchain_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_fav_coldchain"
+        }
+      ],
+      "options": [
+        {
+          "label": "Cold.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Both hands. It is heavier than it looks and it is worth more than you are, at present.\""
+    },
+    "coldchain_offer": {
+      "options": [
+        {
+          "label": "Both hands.",
+          "next": "coldchain_accept"
+        },
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The line makes it and the theatre fits it, and in between there is a walk across a campus which nobody senior has ever had to make.\" She says this without any edge at all. \"The tray is cold. It stays cold. That is the entire brief.\""
+    },
+    "coldchain_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_fav_coldchain"
+        }
+      ],
+      "options": [
+        {
+          "label": "(wipe your hands)",
+          "next": "bye"
+        }
+      ],
+      "text": "Somebody takes the tray from you without looking up. Vess thanks you with the exact warmth she would give a working machine, which on this campus is not an insult."
+    },
+    "lapse_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_fav_lapse"
+        }
+      ],
+      "options": [
+        {
+          "label": "Gently.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Gently, if you can manage it. It costs nothing and she will remember it.\""
+    },
+    "lapse_offer": {
+      "options": [
+        {
+          "label": "Down, not out.",
+          "next": "lapse_accept"
+        },
+        {
+          "label": "I'd rather not.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A recovery.\" The word is chosen. \"A client on Marrow Street has stopped paying and is still wearing the collateral. She is not in trouble, you understand — the account remains open, it always remains open. The hardware simply comes home until she is current.\"\n\nHer hands come apart, which is as close as she gets to emphasis. \"She is not to be killed. I want to be very clear, because people hear 'recovery' and reach for the simple version. A dead client never resumes payments. Put her down and take the jack. Nothing else.\""
+    },
+    "lapse_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_fav_lapse"
+        }
+      ],
+      "options": [
+        {
+          "label": "(let it go)",
+          "next": "bye"
+        }
+      ],
+      "text": "She turns the jack over once and sets it in a tray. \"Home. Good.\" She does not ask how it went, and you understand that she has never once asked."
     },
     "root": {
       "options": [
@@ -58,6 +230,70 @@
           "next": "tour_talk"
         },
         {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "asc_pledged",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Vess. Put me to work.",
+          "next": "work_hub"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_actuarial",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "The readings are done.",
+          "next": "actuarial_report"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_lapse",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "I have the jack.",
+          "next": "lapse_report"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_adjuster",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "Nobody saw me.",
+          "next": "adjuster_report"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_coldchain",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "The tray is delivered.",
+          "next": "coldchain_report"
+        },
+        {
           "label": "Just looking.",
           "next": "bye"
         }
@@ -76,6 +312,62 @@
         }
       ],
       "text": "\"Then let me show you the Spire the way we show it to the promising. The Gallery of Rungs, to see the ladder whole. The Vats, to see what waiting at the top actually buys. And then the crown — where you'll understand, finally, what Halcyon has been selling all along.\""
+    },
+    "work_hub": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_actuarial",
+              "op": "neq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "What needs walking?",
+          "next": "actuarial_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_lapse",
+              "op": "neq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "What needs collecting?",
+          "next": "lapse_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_adjuster",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "What needs nobody to notice?",
+          "next": "adjuster_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_coldchain",
+              "op": "neq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "What needs carrying?",
+          "next": "coldchain_offer"
+        },
+        {
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Work.\" Vess presses her palms together, delighted. \"Yes. Not glamorous work — glamour is what the Gallery is for. Ordinary work, the kind that keeps a building standing. It is how everybody here started, including, I am told, the one upstairs.\""
     }
   },
   "faction": "ideology_ascendants",

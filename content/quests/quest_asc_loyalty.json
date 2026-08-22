@@ -1,0 +1,66 @@
+{
+  "category": null,
+  "description": "The First does not want a body. Bodies are cheap and He has a building full of them. What He wants is the eastern approaches back in service — the cameras the Watch have spent years quietly blinding, working again by morning. You know where every one of them is. That is the point, and everybody in the room knows it.",
+  "fail_on": [
+    {
+      "desc": "You did not come back from the eastern approaches, and the Watch are not fools about who was out there.",
+      "type": "died"
+    }
+  ],
+  "id": "quest_asc_loyalty",
+  "meta": {},
+  "name": "Restoring Service",
+  "objectives": [
+    {
+      "desc": "Restore the street camera on the Precinct 9 approach.",
+      "emotes": [
+        "{who} seats a fresh core in a housing they emptied themselves, not so long ago.",
+        "{who} waits for the amber light, and it comes back on."
+      ],
+      "id": "o_p9",
+      "taskSeconds": 12,
+      "type": "visit",
+      "zone": "zone_district_922_911"
+    },
+    {
+      "count": 1,
+      "desc": "Push the Watch's blind-spot map back onto the civic net.",
+      "id": "o_records",
+      "requires": [
+        "o_p9"
+      ],
+      "type": "hack",
+      "zone": "zone_district_922_910"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 500,
+    "flags": [
+      {
+        "flag": "asc_loyal",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_burned",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 200,
+        "ideology": "ideology_ascendants"
+      },
+      {
+        "delta": -400,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 90
+  },
+  "updated_at": "1787377233"
+}

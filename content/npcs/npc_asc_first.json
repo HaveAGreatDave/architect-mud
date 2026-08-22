@@ -20,6 +20,15 @@
   ],
   "description": "More chrome than flesh, and what flesh remains is a courtesy to your comfort, not its own. Subdermal weave laces a throat that no longer strictly needs to speak. It regards you from beneath the great seal, the calm eye, as though it has been watching you through it the whole time.",
   "dialogue_tree": {
+    "ascended_greet": {
+      "options": [
+        {
+          "label": "(incline your head)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Ours,\" it says, which is the whole greeting and is not a small one. \"The campus does not need to scan you any more. It knows the shape.\""
+    },
     "bye": {
       "options": [],
       "text": "The eye above it — and the eye that is it — watches you go."
@@ -27,11 +36,71 @@
     "confirm": {
       "options": [
         {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_turn",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_pledged",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "I don't need to think. Open it.",
+          "next": "turn_warn"
+        },
+        {
           "label": "I need to think.",
           "next": "bye"
         }
       ],
       "text": "\"Think, then. Thinking is the last purely human thing you'll do for free.\" It settles back beneath the seal. \"When you're ready to stop merely dying, the clinic is downstairs, and your account is already open.\""
+    },
+    "loyal_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_loyalty"
+        }
+      ],
+      "options": [
+        {
+          "label": "By morning.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"By morning, then.\" It settles back. \"You will not enjoy it. I would think less of you if you did.\""
+    },
+    "loyal_offer": {
+      "options": [
+        {
+          "label": "They'll know it was me.",
+          "next": "loyal_accept"
+        },
+        {
+          "label": "Not that. Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You have been useful. Useful is not the same as ours.\" The seal above it does not blink, because it never has. \"The Watch have spent a generation putting out the Architect's eyes along the eastern approaches, one at a time, patiently, and you know where every one of them is, because you helped.\n\nGo and turn them back on. Nobody dies. That is deliberate — a corpse is an argument, and an argument can be won. A road that can see again is simply true, and they will know exactly whose hands did it, and there will be nothing for them to say.\""
+    },
+    "loyal_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_loyalty"
+        }
+      ],
+      "options": [
+        {
+          "label": "One door.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The approaches are lit.\" It does not thank you. \"You understand what you have done. There is no version of the next ten years in which Cyrelle takes your call.\" A pause. \"Which leaves one door, and you are standing in the room with it. When your account is current and your pattern is committed, come back, and we will stop pretending you are a client.\""
     },
     "reveal": {
       "actions": [
@@ -63,6 +132,49 @@
       ],
       "text": "\"You followed the money, and the money led home.\" A sound that might be amusement. \"Halcyon Assurance does not insure against death. It insures death itself — a backup, a vat, a morning after. Every policy is a rung. Every payout, a resurrection you financed. The calm eye on their letterhead and the seal beneath your feet are the same eye, because they are the same hand. Ours. The Watch spend their lives closing the Architect's eyes. We simply became one they'll never close.\""
     },
+    "rite_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_rite"
+        }
+      ],
+      "options": [
+        {
+          "label": "The Nave, then.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then go down to the Nave. Orrin has been waiting for somebody to say yes for rather a long time, and he will be insufferable about it.\""
+    },
+    "rite_offer": {
+      "options": [
+        {
+          "label": "I'm ready.",
+          "next": "rite_accept"
+        },
+        {
+          "label": "I need to put my affairs in order.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The last of it, then, and it is the only part we make ceremony of.\" The chrome shifts, which it has not done once while you have known it.\n\n\"Your pattern is held. Your account is current. Everything that can be copied of you already has been, and is safe, and is not here — which leaves precisely one thing standing between you and us, and you have been carrying it around this whole time.\n\nOrrin will walk you to the Uplink. Put your hands on the terminal. Say `ascend`. It will tell you what it is about to do, because we are honest even now, and then it will do it, and then you will get up in the Vats and you will be one of us.\n\nIt is a death. I will not call it anything else. It is simply the last one you will have to pay for out of pocket.\""
+    },
+    "rite_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_rite"
+        }
+      ],
+      "options": [
+        {
+          "label": "(stand a moment)",
+          "next": "bye"
+        }
+      ],
+      "text": "It rises. You have never seen it rise.\n\n\"Welcome.\" And for the first time there is nothing measured in it at all. \"You died last night and you are standing in front of me, and there is no trick in that, only an account that was paid. Everything on this campus is open to you. Everything in the city will learn to be.\"\n\nIt settles back beneath the seal, and the calm eye above it is, you notice, exactly the eye on every Halcyon letter you have ever seen."
+    },
     "root": {
       "options": [
         {
@@ -82,11 +194,169 @@
           "next": "reveal"
         },
         {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "asc_q3_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_asc_turn",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_pledged",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "About that account.",
+          "next": "turn_warn"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_turn",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "It's done. I'm fitted.",
+          "next": "turn_report"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "asc_pledged",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "ideology_rep": "ideology_ascendants",
+              "tier": "trusted"
+            },
+            {
+              "flag": "quest_asc_loyalty",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Give me something that matters.",
+          "next": "loyal_offer"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_loyalty",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "The approaches are lit.",
+          "next": "loyal_report"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "asc_loyal",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "ideology_rep": "ideology_ascendants",
+              "tier": "inner_circle"
+            },
+            {
+              "flag": "quest_asc_rite",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "I want the last of it.",
+          "next": "rite_offer"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_rite",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "I died last night.",
+          "next": "rite_report"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "ascended",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "(say nothing, as one of them)",
+          "next": "ascended_greet"
+        },
+        {
           "label": "Say nothing.",
           "next": "bye"
         }
       ],
       "text": "It does not rise. \"You climbed all this way. Sit with what you saw a moment — then ask me the question you came up here to ask.\""
+    },
+    "turn_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_turn"
+        }
+      ],
+      "options": [
+        {
+          "label": "I'll go down.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good.\" The word is not warm and is not meant to be. \"Kesh has had your file since the Threshold read you. She will not congratulate you either. We are not in the business of ceremony until the end.\""
+    },
+    "turn_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_turn"
+        }
+      ],
+      "options": [
+        {
+          "label": "I'll see Vess.",
+          "next": "bye"
+        }
+      ],
+      "text": "The seal watches you come in, and something in the room adjusts to your presence in a way it did not before. \"There. You are on the books.\" A sound that might be amusement. \"You will find the campus warmer now, and the city, in time, easier. Vess has work. Take it — favour here is not a feeling, it is a balance, and balances are kept up.\""
+    },
+    "turn_warn": {
+      "options": [
+        {
+          "label": "Open the account.",
+          "next": "turn_accept"
+        },
+        {
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then hear the price first. I will not have somebody say afterwards that it was sold to them.\" It does not move, and the seal above it does not either.\n\n\"The first piece burns the old code out of you. Whatever the flesh was going to make of you, it will not now, and there is no clinic in the Basin that can put it back.\n\nThe Watch will not forgive it. Neither will the Wildblood, nor the ones in the tunnels, nor whatever the dam calls itself these days. Not slowly, not eventually — they will simply hold you at arm's length for the rest of your life, because you will have stopped being a person they disagree with and started being a different kind of thing.\n\nAnd there is one way back, and it is not ours. There is a chair in a cellar under the Yards, and the people who own it will take out every piece of us you ever paid for, and a great deal else besides, and you will wake up owing them everything.\"\n\nA pause that is not hesitation.\n\n\"That is all of it. Now — the clinic is downstairs.\""
     }
   },
   "faction": "ideology_ascendants",

@@ -1,0 +1,48 @@
+{
+  "category": null,
+  "description": "Foreman Duc wants a piece run in. Not tested — run in, out in the world, doing work, by somebody with a pulse and a poor sense of self-preservation. He is explicit that the piece comes back. He is noticeably less explicit about you.",
+  "fail_on": [
+    {
+      "desc": "Something came apart on you out there. Duc wanted the numbers, and now he has different ones.",
+      "type": "broke"
+    }
+  ],
+  "id": "quest_asc_fav_tolerance",
+  "meta": {},
+  "name": "Within Tolerance",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Have the trial piece fitted at the clinic.",
+      "id": "o_fit",
+      "type": "install"
+    },
+    {
+      "desc": "Bring it back to the line and let Duc read it off you.",
+      "emotes": [
+        "{who} stands still while a man with chrome arms listens to something inside them."
+      ],
+      "id": "o_run",
+      "requires": [
+        "o_fit"
+      ],
+      "taskSeconds": 10,
+      "type": "visit",
+      "zone": "zone_asc_weave_line"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 175,
+    "rep": [
+      {
+        "delta": 70,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 28
+  },
+  "updated_at": "1787377233"
+}

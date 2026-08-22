@@ -76,6 +76,49 @@
       ],
       "text": "\"Up the plaza, the twisting tower — you can't miss it, it's the only honest building for miles.\""
     },
+    "lead_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_fav_lead"
+        }
+      ],
+      "options": [
+        {
+          "label": "Beside him.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Walk beside him, not ahead of him. And do keep talking. A silence out there does more of our work than I would like to admit.\""
+    },
+    "lead_offer": {
+      "options": [
+        {
+          "label": "I'll bring him in.",
+          "next": "lead_accept"
+        },
+        {
+          "label": "Find your own converts.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Recruiting.\" He says it the way other men say the name of a sport. \"There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon's money goes, and getting lied to by people who do not even know they are lying. He is nearly there. He wants somebody to say the word out loud.\"\n\n\"Bring him to the plaza. Alive, unhurried, still curious — in that order. The road west is not a kind one, which is precisely why the offer lands when it does.\""
+    },
+    "lead_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_fav_lead"
+        }
+      ],
+      "options": [
+        {
+          "label": "(leave them to it)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There he is.\" Maresh watches the thin man staring up at the Gate with his notebook shut. \"A year of asking, and the answer was a building. It usually is.\""
+    },
     "offer": {
       "options": [
         {
@@ -183,11 +226,56 @@
           "next": "codex_field"
         },
         {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "asc_pledged",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "I took the account.",
+          "next": "turned"
+        },
+        {
+          "_src": "asc_turn",
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_lead",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "He walked in on his own feet.",
+          "next": "lead_report"
+        },
+        {
           "label": "Just passing.",
           "next": "bye"
         }
       ],
       "text": "The immaculate man turns to you before you've said a word. \"Maresh. I recruit — which is to say I recognise. And I recognise something in you the Watch would rather I didn't.\""
+    },
+    "turned": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_fav_lead",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "People?",
+          "next": "lead_offer"
+        },
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"So the meat disappointed you after all.\" He is not gloating; he genuinely is not. \"Everyone arrives by a different road and they all think theirs was the interesting one. Go and be useful. Vess has doors, and I have people.\""
     }
   },
   "faction": "ideology_ascendants",

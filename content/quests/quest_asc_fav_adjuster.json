@@ -1,0 +1,53 @@
+{
+  "category": null,
+  "description": "There is a claim Halcyon would rather not contest in public, and a terminal on the Hall of Records approach holding the paperwork that would make contesting it necessary. Vess does not ask you to destroy anything. She asks you to go and look, and to be the sort of person nobody remembers looking.",
+  "fail_on": [
+    {
+      "desc": "Somebody looked straight at you. An adjuster who is remembered is not an adjuster.",
+      "type": "spotted"
+    },
+    {
+      "desc": "It reached a camera. Halcyon can settle a great many things, but not a recording.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_asc_fav_adjuster",
+  "meta": {},
+  "name": "Adjuster",
+  "objectives": [
+    {
+      "desc": "Get onto the records approach and wait for the floor to go quiet.",
+      "emotes": [
+        "{who} finds a doorway with a good angle on the corridor and becomes furniture."
+      ],
+      "id": "o_in",
+      "taskSeconds": 6,
+      "type": "visit",
+      "zone": "zone_district_922_910"
+    },
+    {
+      "count": 1,
+      "desc": "Pull the contested claim off the terminal.",
+      "id": "o_pull",
+      "requires": [
+        "o_in"
+      ],
+      "type": "hack",
+      "zone": "zone_district_922_910"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 220,
+    "rep": [
+      {
+        "delta": 90,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 34
+  },
+  "updated_at": "1787377233"
+}

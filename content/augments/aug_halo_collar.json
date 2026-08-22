@@ -1,0 +1,29 @@
+{
+  "cost": 3400,
+  "description": "The chromed half-collar the Curators wear, issued rather than sold — a ring of pattern-grade sensor weave that sits behind the neck and reads the room a half-second before you do. It is not subtle and is not meant to be. On this campus it is a uniform. In Coldwater it is a statement somebody else has to decide how to take.",
+  "failure_messages": {
+    "burnout": "The collar browns out and the room goes flat and simultaneous, every sound arriving at once with equal weight.",
+    "dead": "The halo collar dulls, goes grey, and becomes a heavy ring of scrap you are wearing on your spine.",
+    "fault": "The collar drops half a second behind and hands you a room you were standing in a moment ago.",
+    "strain": "The collar runs hot against the back of your neck and the room arrives a half-second LATE, which is worse than not having it at all."
+  },
+  "heat_rate": 0.45,
+  "id": "aug_halo_collar",
+  "install_difficulty": 10,
+  "item_id": "item_aug_halo_collar",
+  "licensed": 1,
+  "name": "Halcyon Halo Collar",
+  "overclock_max": 2,
+  "power_draw": 2.2,
+  "rep_gate": "trusted",
+  "salvage_item_id": "item_ruined_halo_collar",
+  "slot": "neural",
+  "soak": {},
+  "special": null,
+  "stat_modifiers": {
+    "stat_cool": 1,
+    "stat_senses": 2
+  },
+  "tier": 3,
+  "visible": 1
+}

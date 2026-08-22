@@ -1,0 +1,54 @@
+{
+  "category": null,
+  "description": "The First Ascended said your account was already open. It is. Dr Kesh is downstairs in the consult room and has been expecting you since the Threshold read you, which was some time ago. Nothing is signed. You simply go down, and you come back up as something with a warranty.",
+  "fail_on": [],
+  "id": "quest_asc_turn",
+  "meta": {},
+  "name": "The Account",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "See Dr Kesh in the clinic consult room. The account is in your name already.",
+      "id": "o_consult",
+      "target": "npc_asc_kesh",
+      "type": "talk"
+    },
+    {
+      "count": 1,
+      "desc": "Have your first piece fitted. Any piece — it is the fitting that matters, not the hardware.",
+      "emotes": [
+        "{who} lies back under the light and lets somebody open them up on purpose."
+      ],
+      "id": "o_fitted",
+      "requires": [
+        "o_consult"
+      ],
+      "type": "install"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "asc_pledged",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 250,
+        "ideology": "ideology_ascendants"
+      },
+      {
+        "delta": -150,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 60
+  },
+  "updated_at": "1787377233"
+}

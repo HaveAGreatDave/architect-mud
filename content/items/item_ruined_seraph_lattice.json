@@ -1,0 +1,14 @@
+{
+  "description": "A tangle of fine dead weave that will not lie flat again. Somewhere in it is a great deal of money that stopped being money.",
+  "flags": {},
+  "id": "item_ruined_seraph_lattice",
+  "name": "a dead lattice",
+  "tags": {
+    "no_install": true,
+    "no_repair": true,
+    "scrap": true
+  },
+  "type": "misc",
+  "value": 240,
+  "weight": 240
+}
