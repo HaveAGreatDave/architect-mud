@@ -173,6 +173,20 @@ Events emitted/consumed, Tick usage, Dependencies, Config, Data schema, Extensio
 generated from it, leaving only **Purpose** and prose as hand-written. Most plugins have no README
 yet — write one when the plugin gains Actions/Events worth listing; backfilling empty sections is noise.
 
+**And the manifest wins arguments, which is now a gate.** `npm run docs:readmes`
+([scripts/docs/readmes.mjs](../scripts/docs/readmes.mjs)) runs inside `docs:lint`, so it is on every
+regress and every push. It fails when a README files a verb under work-not-done — a section headed
+"Not yet built", "Later slices", "TODO", "Deferred" — while `plugin.json` **declares** that verb. The
+loader registers exactly what the manifest lists, so a declared verb cannot be future work; either the
+prose is stale or the manifest is wrong, and both are worth stopping for. It also runs `docs:lint`'s
+own status-header rule over `plugins/**/*.md`.
+
+It exists because voidwalking's README described a "walking skeleton" with "**no** loot, encounters,
+parties, ghost-traces, or frontier map yet" for months, three lines above a manifest declaring `loot`,
+`frontier`, `scrawl`, `camp`, `flag` and `ready`. ⚠ It reads **headings only** — a first cut that also
+swept prose for a "no … yet" sentence produced three false positives across 89 READMEs, because
+English puts "not" and "later" in one sentence all the time and means nothing by it.
+
 ## `regress.js` — per-plugin regression suite
 
 The regression harness (`npm run test:regress`, [tests/regress.js](../tests/regress.js) — see

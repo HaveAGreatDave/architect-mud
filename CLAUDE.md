@@ -182,12 +182,12 @@ scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `s
 never runs in production (`npm start` has no pre-hook). If a sweep can't reach it, wait ~90 s. Player
 stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 
-`pretest:regress` also runs **`docs:lint`**, which is **three checks**, not one — and the hook now
+`pretest:regress` also runs **`docs:lint`**, which is **four checks**, not one — and the hook now
 invokes the npm script rather than one of its files, so there is a single definition of what doc
 linting is. (It called `scripts/docs/lint.mjs` directly until 2026-08-14. The two read identically in
 prose — "docs:lint runs" — so `docs:verbs` and `docs:links` were never gated at all, and a real gap
-sat behind that wording for months. If you add a fourth check, add it to `docs:lint` and the gate
-picks it up.) The three: **`docs:links`**, which fails when a doc link does not resolve;
+sat behind that wording for months. The fourth was added on 2026-08-21 by the route this paragraph
+already prescribed: add it to `docs:lint` and the gate picks it up.) The four: **`docs:links`**, which fails when a doc link does not resolve;
 **`docs:verbs`**, which fails when a plugin verb is not named in [docs/plugins.md](docs/plugins.md)
 (a verb a player can never type — a client handshake like `readresolve` — goes in `NOT_PLAYER_TYPED`
 in [scripts/docs/verbs.mjs](scripts/docs/verbs.mjs) *with a reason*); and
@@ -199,7 +199,16 @@ every error traced to a stale status line; `systems-weather-extreme.md` was titl
 above a roadmap complete through step 7d. **A compound status is fine and is NOT flagged** — "Phases 0–2
 built; rest design" or "STATUS: BUILT (design intent below)" pass, because mixed status is the normal case
 for a living system. When you finish a system, update the line at the TOP of its doc, not just the roadmap
-at the bottom.
+at the bottom. And **`docs:readmes`** ([scripts/docs/readmes.mjs](scripts/docs/readmes.mjs)), which points
+that same status rule at `plugins/*/README.md` and adds one that only a plugin folder can have: it fails
+when a README files a verb under work-not-done while `plugin.json` **declares** it. That manifest is the
+one thing in the folder that cannot lie — the loader registers exactly what it lists — so it is the fact
+to check the prose against. It exists because voidwalking's README said it had "**no** loot, encounters,
+parties, ghost-traces, or frontier map yet" for months, three lines above a manifest declaring `loot`,
+`frontier`, `scrawl`, `camp`, `flag` and `ready`. ⚠ **It reads HEADINGS ONLY, and that cost a draft to
+learn**: a first cut that also swept running prose for a "no … yet" sentence found the one real case and
+three inventions across 89 READMEs, because English puts "not" and "later" in one sentence constantly and
+means nothing by it. A heading is a deliberate act of filing something under future work; a sentence is not.
 
 `pretest:regress` also runs **`content:lint`** (and a `precontent:import` hook runs it before any
 `npm run content:import`), so a hand-authored content file carrying a runtime column — an

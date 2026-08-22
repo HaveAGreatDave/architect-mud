@@ -29,7 +29,7 @@
     "map:derive": "node scripts/content/derive-cli.mjs",
     "studio": "node tools/studio/serve.mjs",
     "content:lint": "node scripts/content/lint.mjs",
-    "docs:lint": "node scripts/docs/lint.mjs && node scripts/docs/verbs.mjs && node scripts/docs/links.mjs",
+    "docs:lint": "node scripts/docs/lint.mjs && node scripts/docs/verbs.mjs && node scripts/docs/links.mjs && node scripts/docs/readmes.mjs",
     "client:smoke": "node scripts/client/parse-smoke.mjs && node scripts/client/automation-smoke.mjs",
     "shapes:smoke": "node scripts/shapes/smoke.mjs && node scripts/shapes/freecam.mjs && node scripts/shapes/frustum.mjs && node scripts/shapes/walltex.mjs && node scripts/shapes/pathreuse.mjs",
     "rink:smoke": "node scripts/shapes/rink-smoke.mjs",
@@ -43,7 +43,8 @@
     "db:reset-chars": "node server/models/temp/reset-chars.js",
     "textui:smoke": "node scripts/shapes/textui-smoke.mjs",
     "a11y:smoke": "node scripts/a11y/smoke.mjs && node scripts/a11y/verb-smoke.mjs && node scripts/a11y/tablet-smoke.mjs && node scripts/a11y/focus-smoke.mjs && node scripts/a11y/speech-smoke.mjs",
-    "db:query-lint": "node scripts/db/query-lint.mjs"
+    "db:query-lint": "node scripts/db/query-lint.mjs",
+    "docs:readmes": "node scripts/docs/readmes.mjs"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",

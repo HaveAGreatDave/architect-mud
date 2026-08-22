@@ -177,11 +177,11 @@ Four vacant units across Coldwater, priced by frontage:
 
 ## Not built yet
 
-- **A clerk who is a real walking NPC.** Staff are presence + odds, for the content/player
+- **A clerk who is a real walking NPC.** A hired hand is presence + odds, for the content/player
   boundary reason above. Giving them a body means solving "a player action creates an NPC"
   first — probably a runtime-only NPC class the exporter skips.
-- **Corp-owned shops.** A deed is strictly personal (`ownsShop` is deliberately not
+- **Corp-owned shops.** Ownership is strictly personal (`ownsShop` is deliberately not
   `playerControlsApt`'s org-aware shape).
-- **Hiring another *player* as staff.** `isStaffOf()` is the stub seam for it.
-- **Buying stock over the counter face-to-face** — that's what `trade <player>` is for, and it
+- **Hiring another *player* to mind the counter.** `isStaffOf()` is the stub seam for it.
+- **Buying goods over the counter face-to-face** — that's what `trade <player>` is for, and it
   already works anywhere including inside your shop.
