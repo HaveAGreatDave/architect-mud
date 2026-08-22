@@ -36,6 +36,7 @@ import { getEnvironmentState, getZoneTemperature, feltAmbientC, waterTemperature
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { escAttr } from './text.js';
+import { getItem } from './items-cache.js';
 
 // Rest/regen tunables (restRegenTick, every 15 seconds).
 // Stamina only regenerates once you've been idle (no movement) for a short delay,
@@ -677,6 +678,21 @@ export function equipStarterOutfit(victimId, sex) {
   return Promise.all(pending);
 }
 
+// What the gantry SAYS it put on you. The torso garment is the only part of the kit
+// that moves (SEASONAL_TORSO), so it is read out of the item cache rather than typed
+// out here a second time — the line promised "a t-shirt" through a January respawn
+// that actually issued a quilted coat, which is the drift a hand-written list buys.
+// Underwear stays a category rather than the two rows equipStarterOutfit inserts: the
+// message is a body being clothed, not a packing slip.
+export function starterOutfitPhrase() {
+  const id = SEASONAL_TORSO[seasonForDate(gameToday())] || SEASONAL_TORSO_FALLBACK;
+  const name = getItem(id)?.name;
+  // No cache (pre-boot, or the row was pulled) falls back to the generic noun rather
+  // than to nothing — the sentence still has to name four garments.
+  const garment = name ? `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}` : 'a shirt';
+  return `underwear, pants, ${garment}, a pair of shoes`;
+}
+
 // How long after the gantry finishes before the witness system is allowed to look
 // at you again. The inserts have landed by then; this is slack for a scan tick
 // that sampled you mid-dress and would otherwise resolve against a stale read.
@@ -708,7 +724,7 @@ function scheduleVatEmergence(player) {
     // Cloning is free for everyone — the vat still dresses you and prints the invoice,
     // it just stamps the total COMPLIMENTARY and never touches the balance.
     const balance = player.credits ?? 0;
-    send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press, then slaps an invoice against your account and stamps it before you can read the line items: <span class="credits">COMPLIMENTARY</span>. The Architect eats the cost of cloning, tailoring, and incidental resurrection — not out of generosity but because a debt you could die to escape is no leash at all. Balance: <span class="credits">₵${balance}</span>.</span>`);
+    send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — ${starterOutfitPhrase()} — with the tenderness of an industrial press, then slaps an invoice against your account and stamps it before you can read the line items: <span class="credits">COMPLIMENTARY</span>. The Architect eats the cost of cloning, tailoring, and incidental resurrection — not out of generosity but because a debt you could die to escape is no leash at all. Balance: <span class="credits">₵${balance}</span>.</span>`);
     broadcastFn(null, { type: 'player_update', credits: balance }, null, player.id);
   }, VAT_DRESS_MS);
 }

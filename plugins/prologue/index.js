@@ -796,10 +796,14 @@ function firstClothing(actor) {
   }, 2600);
   setTimeout(async () => {
     let grace = 4000;
+    // Named by the engine, never here — the vat's torso garment is seasonal, so a
+    // list typed into this file is a promise the gantry stops keeping in October.
+    let outfit = 'underwear, pants, a shirt, a pair of shoes';
     try {
-      const { equipStarterOutfit, VAT_DRESS_GRACE_MS } = await import('../../server/engine/gameLoop.js');
+      const { equipStarterOutfit, VAT_DRESS_GRACE_MS, starterOutfitPhrase } = await import('../../server/engine/gameLoop.js');
       grace = VAT_DRESS_GRACE_MS ?? grace;
       await equipStarterOutfit(actor.id, actor.biological_sex || 'male');
+      outfit = starterOutfitPhrase();
     } catch (e) {
       console.error('[prologue] starter outfit failed:', e.message);
     } finally {
@@ -808,7 +812,7 @@ function firstClothing(actor) {
       // the one this fixes.
       setTimeout(() => { actor._vatDressing = false; }, grace);
     }
-    out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press. No invoice prints. The first clone, it seems, is free.</span>`);
+    out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — ${outfit} — with the tenderness of an industrial press. No invoice prints. The first clone, it seems, is free.</span>`);
   }, 5200);
   // The place-name lands HERE and nowhere earlier: the cold open alludes to
   // Coldwater as history and the prologue refuses to name it, so the first time
