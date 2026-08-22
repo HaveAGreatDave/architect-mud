@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architect MUD — Two Months In: A Gameplay Report</title>
+<style>
+  /* Architect house palette — lifted from client/game/styles.css so this reads
+     like the thing it's about: deep navy-black, hairline navy rules, cyan for
+     signal, magenta reserved for the one accent the game reserves it for. */
+  :root{
+    --bg:#05050a; --panel:#0d0d16; --panel2:#15151f;
+    --line:#2a2a40; --line-soft:#1b1b2b;
+    --ink:#e8e8f5; --muted:#9aa8c7; --hint:#6b7a9c;
+    --cyan:#28e5ff; --blue:#5b9dff; --accent:#ff2ec4;
+    --good:#39ff8f; --bad:#ff3b5c; --amber:#f5b942;
+    --mono:"Courier New",Courier,ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    font-family:var(--sans); color:var(--ink); margin:0; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background:
+      linear-gradient(rgba(40,229,255,.028) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, rgba(40,229,255,.028) 1px, transparent 1px) 0 0/28px 100%,
+      radial-gradient(1200px 600px at 50% -10%, #101a2e 0%, var(--bg) 70%);
+  }
+  .wrap{max-width:880px; margin:0 auto; padding:56px 32px 96px}
+
+  .plate{border:1px solid var(--line); background:linear-gradient(180deg,var(--panel) 0%,rgba(13,13,22,.5) 100%); padding:26px 28px; margin:0 0 34px; position:relative}
+  .plate::before{content:""; position:absolute; inset:5px; border:1px solid var(--line-soft); pointer-events:none}
+  .stamp{font-family:var(--mono); font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--cyan); margin:0 0 12px}
+  h1{font-family:var(--mono); font-size:27px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px; color:#fff; line-height:1.25}
+  .sub{color:var(--muted); margin:0 0 6px; font-size:15px}
+  .meta{color:var(--hint); font-size:12px; margin:0; font-family:var(--mono); letter-spacing:.04em}
+
+  h2{
+    font-family:var(--mono); font-size:16px; font-weight:700; color:var(--cyan);
+    letter-spacing:.16em; text-transform:uppercase; margin:56px 0 16px;
+    padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  h2::before{content:"▸ "; color:var(--accent)}
+  h3{font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); margin:32px 0 10px}
+  h4{font-family:var(--mono); font-size:12.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:24px 0 8px}
+  p{font-size:15px; margin:0 0 15px}
+  .lead{font-size:16.5px; color:#f2f2fb}
+  strong{color:#fff}
+  em{color:var(--muted)}
+
+  .haiku{
+    background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent);
+    padding:22px 26px; margin:26px 0 30px; color:var(--ink);
+    white-space:pre-line; font-family:var(--mono); font-size:15.5px; line-height:2;
+  }
+  .haiku .attrib{display:block; font-family:var(--sans); font-size:12px; color:var(--hint); margin-top:14px; white-space:normal; line-height:1.6}
+  .haiku.small{font-size:14px; padding:16px 22px; margin:20px 0 24px; border-left-color:var(--cyan)}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:22px 0 10px}
+  .card{background:var(--panel); border:1px solid var(--line); padding:16px 18px; position:relative; overflow:hidden}
+  .card::after{content:""; position:absolute; left:0; top:0; width:2px; height:100%; background:var(--cyan); opacity:.55}
+  .card .label{font-family:var(--mono); font-size:10.5px; color:var(--hint); margin:0 0 8px; text-transform:uppercase; letter-spacing:.18em}
+  .card .val{font-family:var(--mono); font-size:20px; font-weight:700; margin:0; color:#fff}
+  .card .val.g{color:var(--good)} .card .val.a{color:var(--amber)} .card .val.r{color:var(--bad)}
+  .card .note{font-size:11.5px; color:var(--muted); margin:6px 0 0; font-family:var(--mono)}
+
+  table{border-collapse:collapse; width:100%; font-size:13.5px; margin:10px 0 6px; background:var(--panel)}
+  th,td{border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top}
+  th{background:var(--panel2); color:var(--cyan); font-family:var(--mono); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.13em}
+  td.num,th.num{text-align:right; font-family:var(--mono)}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  td.g{color:var(--good); font-weight:700} td.r{color:var(--bad); font-weight:700} td.a{color:var(--amber); font-weight:700}
+  td.m{font-family:var(--mono); font-size:12.5px}
+  .scroll{overflow-x:auto}
+
+  ul{padding-left:20px; margin:8px 0} li{font-size:15px; margin:7px 0}
+  li::marker{color:var(--cyan)}
+  code{background:var(--panel2); border:1px solid var(--line-soft); padding:1.5px 6px; font-size:12.5px; font-family:var(--mono); color:var(--cyan)}
+
+  .callout{background:rgba(245,185,66,.06); border:1px solid rgba(245,185,66,.32); border-left:3px solid var(--amber); padding:15px 19px; margin:20px 0}
+  .callout.bad{background:rgba(255,59,92,.06); border-color:rgba(255,59,92,.32); border-left-color:var(--bad)}
+  .callout.good{background:rgba(57,255,143,.05); border-color:rgba(57,255,143,.28); border-left-color:var(--good)}
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:7px}
+  .callout.bad .tag{color:var(--bad)} .callout.good .tag{color:var(--good)}
+  .aside{color:var(--muted); font-size:14px}
+
+  /* density strip — one block per 1% of the map */
+  .strip{display:flex; flex-wrap:wrap; gap:2px; margin:14px 0 10px}
+  .strip i{width:14px; height:14px; display:block; background:var(--line)}
+  .strip i.on{background:var(--cyan)}
+  .strip i.half{background:var(--blue); opacity:.55}
+  .legend{font-family:var(--mono); font-size:11px; color:var(--muted); display:flex; flex-wrap:wrap; gap:20px; margin-bottom:8px}
+  .legend b{display:inline-block; width:10px; height:10px; vertical-align:-1px; margin-right:6px}
+
+  /* month bars */
+  .bars{display:grid; gap:8px; margin:14px 0 6px}
+  .bar{display:grid; grid-template-columns:96px 1fr 72px; align-items:center; gap:10px}
+  .bar .k{font-family:var(--mono); font-size:12px; color:var(--muted)}
+  .bar .track{height:16px; background:rgba(255,255,255,.05); position:relative}
+  .bar .fill{height:100%; background:var(--cyan); opacity:.75}
+  .bar .fill.b{background:var(--blue)} .bar .fill.a{background:var(--accent)}
+  .bar .v{font-family:var(--mono); font-size:12px; text-align:right; color:var(--ink)}
+
+  .foot{margin-top:56px; padding-top:18px; border-top:1px solid var(--line); color:var(--hint); font-size:11.5px; font-family:var(--mono); line-height:1.8}
+  @media print{ body{background:#fff} .wrap{max-width:none} h2{page-break-after:avoid} table{page-break-inside:avoid} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="plate">
+    <p class="stamp">Architect MUD · Gameplay Report · Two Months In</p>
+    <h1>Sixty-Four Days, Six Hundred<br>and Sixty-Six Verbs, and a<br>City That Runs Without You</h1>
+    <p class="sub">What the game actually is to play, measured from the working tree rather than from the roadmap</p>
+    <p class="meta">2026-08-22 &nbsp;·&nbsp; branch main &nbsp;·&nbsp; day 64 of the project &nbsp;·&nbsp; figures counted, not quoted</p>
+  </div>
+
+  <div class="haiku">Sixty-four days in.
+    The city keeps its own time
+    whether you log in.
+    <span class="attrib">— composed after checking, and finding that the weather field, the streetlights, the rent calendar and two hundred and forty-three commutes all advance off a single one-minute driver tick that does not care whether anybody is watching</span>
+  </div>
+
+  <p class="lead">This is a report about <strong>gameplay</strong>, not architecture. The question it answers is the only one that matters two months in: <em>if somebody opens a tab right now, what is there to do, how deep does it go, and where does it run out?</em> Every number below was counted out of <code>content/</code>, <code>plugins/</code> and the engine at commit time. Where something is thin, it says so with the measurement attached.</p>
+
+  <div class="cards">
+    <div class="card"><p class="label">Days live</p><p class="val">64</p><p class="note">19 Jun → 22 Aug</p></div>
+    <div class="card"><p class="label">Distinct verbs</p><p class="val g">666</p><p class="note">87 engine · 598 plugin</p></div>
+    <div class="card"><p class="label">Rooms</p><p class="val">17,258</p><p class="note">5 regions · 13 z-levels</p></div>
+    <div class="card"><p class="label">Systems shipped</p><p class="val g">49</p><p class="note">one systems doc each</p></div>
+    <div class="card"><p class="label">Plugins</p><p class="val">133</p><p class="note">120 with a test suite</p></div>
+    <div class="card"><p class="label">Regress checks</p><p class="val g">8,349</p><p class="note">gate on every push</p></div>
+  </div>
+
+  <!-- ============================ 01 LEDGER ============================ -->
+  <h2>I. The ledger</h2>
+
+  <p>Two months ago this was a chat server with a room description. The counted state of it today:</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Measure</th><th class="num">Count</th><th>What it means at the keyboard</th></tr></thead>
+    <tbody>
+      <tr><td>Commits</td><td class="num">2,386</td><td>~37/day across two contributors, every one of them behind a regress-gated push hook</td></tr>
+      <tr><td>Lines of code</td><td class="num">459,999</td><td>client 182,749 · plugins 170,362 · server 58,373 · scripts 29,542 · tools 12,662 · tests 6,311</td></tr>
+      <tr><td>Lines of design prose</td><td class="num">50,846</td><td>49 <code>systems-*.md</code> docs, each one describing something you can type today</td></tr>
+      <tr><td>Content files in git</td><td class="num">40,946</td><td>one JSON per entity; a push to <code>main</code> is the deploy</td></tr>
+      <tr><td>Database tables</td><td class="num">151</td><td>schema and content both ship through the same gated pipeline</td></tr>
+      <tr><td>Rooms</td><td class="num">17,258</td><td>585 interiors, 486 building tiles, 64,659 exits — <strong>3.75 exits per room</strong></td></tr>
+      <tr><td>Room prose</td><td class="num">3.66M chars</td><td>but only <strong>857 distinct descriptions</strong>. See §XIII; this is the headline finding</td></tr>
+      <tr><td>NPCs</td><td class="num">243</td><td>190 with dialogue trees, 161 with behaviour trees, 69 vendors, 182 banter threads</td></tr>
+      <tr><td>Enemies</td><td class="num">67</td><td>64 with VINE behaviour graphs; HP 14–100; 328 zones carry a spawn timer</td></tr>
+      <tr><td>Items</td><td class="num">702</td><td>202 consumable, 172 misc, 60 clothing, 42 chemical, 31 weapon, 33 furniture</td></tr>
+      <tr><td>Quests</td><td class="num">77</td><td>132 objectives; 62 hand-authored, 15 flight templates, 44 repeatable</td></tr>
+      <tr><td>Furniture placements</td><td class="num">1,413</td><td>across 599 rooms — every one of them examinable, many of them sit-on-able</td></tr>
+      <tr><td>Skills</td><td class="num">29</td><td>combat 6 · survival 9 · tech 8 · social 4 · arcane 2. XP by use, rank 0–10</td></tr>
+      <tr><td>Plugin hooks in use</td><td class="num">52</td><td>97 registrations; <code>furniture.describe</code> alone is claimed by 15 plugins</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout good">
+    <span class="tag">The number that surprised us</span>
+    <p><strong>666 distinct verbs</strong> — 87 from the engine, 598 declared across 133 plugin manifests, with 19 shared between them where a plugin deliberately overrides a builtin. The engine is now less than an eighth of the command surface. Whatever else is true, the engine/plugin boundary is real rather than aspirational: you could delete the game and keep the machine.</p>
+  </div>
+
+  <!-- ============================ 02 ARC ============================ -->
+  <h2>II. Three phases, and what each one was for</h2>
+
+  <p>The commit graph tells a misleading story on its own — August looks like a slowdown. It isn't. It's the month the work stopped being <em>new mechanisms</em> and started being <em>new answers wired into mechanisms that already existed</em>, which is cheaper in lines and more expensive in thinking.</p>
+
+  <div class="bars">
+    <div class="bar"><span class="k">June</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">1,014</span></div>
+    <div class="bar"><span class="k">July</span><span class="track"><span class="fill b" style="width:99.2%"></span></span><span class="v">1,006</span></div>
+    <div class="bar"><span class="k">August (22d)</span><span class="track"><span class="fill a" style="width:36.1%"></span></span><span class="v">366</span></div>
+  </div>
+  <p class="aside">Commits per month. August is three weeks, not four — but the rate is genuinely down about a third, and it should be.</p>
+
+  <h3>Phase I — June: is there a place?</h3>
+  <p>Survival, economy, world simulation, posture, ATMs, broadcast. Three system docs date from June and they are the three the game cannot exist without: <code>systems-world</code>, <code>systems-survival</code>, <code>systems-economy</code>. The output of June was a city with a clock, a weather roll, a power grid, five meters that deplete, and somewhere to spend money.</p>
+
+  <h3>Phase II — July: is there anything to do in it?</h3>
+  <p>Thirty-one system docs appear in July. Crime and policing, jail, surveillance, corporations, ideologies, scavenging, fishing, mining, swimming, flight, the casino, weather that kills you by name, void travel between regions, dreams, stealth, senses, hygiene, durability, NPC relationships, the library, drinks, procedural audio. This is the month the game stopped being a place and became a set of loops — and, critically, the month the loops started <em>sharing substrate</em> rather than each carrying their own copy of everything.</p>
+
+  <h3>Phase III — August: is there anyone to be?</h3>
+  <p>The five disciplines land in a single week — <strong>mutations</strong>, <strong>augments</strong>, <strong>psionics</strong>, <strong>mastery</strong>, <strong>nullcraft</strong> — and with them the first real answer to "what kind of character am I". Alongside: chess, playable instruments, bounties on players' heads, long-haul trucking, a stray cat, the display-mode ladder, the accessibility surface, and client automation. Fourteen docs, 366 commits.</p>
+
+  <div class="callout">
+    <span class="tag">Why the rate fell and that's the good news</span>
+    <p>August's biggest system, nullcraft, integrates with the rest of the game through <strong>one line in <code>deviceStatus()</code> and one filter in <code>getAugments()</code></strong>. Psionics reads a decaying event buffer that no other system had to be modified to feed. Mastery grants <em>no permanent passive at all</em>. When new gameplay costs a hundred lines instead of four thousand, the commit count drops and the game gets deeper faster. That's the shape you want at month two.</p>
+  </div>
+
+  <!-- ============================ 03 FIRST HOUR ============================ -->
+  <h2>III. The first hour</h2>
+
+  <p>A new player opens a tab, registers, and gets a <strong>thirty-second cold open</strong> — a cinematic that plays before the prologue is allowed to speak. The prologue holds every line of arrival prose until the client echoes <code>introdone</code>, so the backstory never talks over itself.</p>
+
+  <p>Then you wake in a cloning vat. The tablet is issued <em>there</em>, not in the corridor before it, and the smartbar offers its own twenty-five-second tutorial as a dismissible chip rather than a modal. The CODEX app — the game's backstory as a readable system — opens sealed, and unlocks a chapter at a time as NPCs explain things to you. A sealed chapter's prose never leaves the server.</p>
+
+  <p>What the first hour actually teaches, in order: <strong>move</strong> (the room pane is clickable; every exit, NPC, item and enemy is a link that types the command for you), <strong>look</strong> and <strong>examine</strong>, <strong>take</strong> and <strong>wear</strong>, and then the meters start to bite. New verbs are introduced with a shimmer on their first mention and a ripple on the room-pane link that would run them — a house convention, applied everywhere.</p>
+
+  <p>By the end of the first hour a player who follows the nudges has: a tablet whose home screen seeds sixteen apps in deliberate reading order, a job board posting, a vendor who remembers them, somewhere warm, and a reason to be worried about at least two of hunger, thirst, radiation, body temperature and sanity.</p>
+
+  <!-- ============================ 04 VERBS ============================ -->
+  <h2>IV. The verb surface, and what its shape says</h2>
+
+  <p>You can learn a lot about a game by counting what its verbs are <em>about</em>. Here are the ten largest command surfaces in the game:</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Plugin</th><th class="num">Verbs</th><th>Sample</th></tr></thead>
+    <tbody>
+      <tr><td class="m">flight</td><td class="num">100</td><td class="m">takeoff land throttle heading flaps gear checkride charter contracts strafe flares hangar paintset salvage</td></tr>
+      <tr><td class="m">mis</td><td class="num">35</td><td class="m">double opt-in mature layer; unopted, every one answers <em>Unknown command</em></td></tr>
+      <tr><td class="m">gametable</td><td class="num">34</td><td class="m">seat bet raise fold allin showhand · chessmove chesspick threats resign offerdraw</td></tr>
+      <tr><td class="m">trucking</td><td class="num">33</td><td class="m">drive hitch revs coast jake park fix tow cb horn route haul market yard fuel</td></tr>
+      <tr><td class="m">cooking</td><td class="num">26</td><td class="m">cook plate flip stir doneness mise prep taste tenderise marinate deglaze cookbook shoplist</td></tr>
+      <tr><td class="m">surveillance</td><td class="num">26</td><td class="m">plant retrieve sweep feed hub record clip wipe hijack pilot wanted bribe scrub purge</td></tr>
+      <tr><td class="m">interactions</td><td class="num">23</td><td class="m">sit stand lie kneel stretch wave shrug point smile frown laugh cry sigh nod dance pace</td></tr>
+      <tr><td class="m">storefront</td><td class="num">18</td><td class="m">deed buyshop stock till hire sack staff buyorder supply shutters</td></tr>
+      <tr><td class="m">broadcast</td><td class="num">15</td><td class="m">tune watch tv load eject patch pirate air airemergency guess</td></tr>
+      <tr><td class="m">psionics</td><td class="num">13</td><td class="m">psi dwell still draw reach press ward bulwark spark burn cascade</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Two things fall out of that table. First: <strong>combat is not the largest thing in this game and is not close.</strong> The single biggest verb surface is an aircraft. The third is a card table. The fifth is a kitchen. Second: the verb namespace is now crowded enough that <em>naming a verb is a design constraint</em> — psionics cost three renames on the way in, because <code>attune</code> and <code>pull</code> were engine builtins, <code>read</code> was a specialized action in six plugins, and plugin commands silently beat both classes.</p>
+
+  <div class="callout bad">
+    <span class="tag">A real trap, met repeatedly</span>
+    <p>Bare <code>call</code> and <code>summon</code> belong to poker, which is why calling the stray cat is an input matcher rather than a command and every pattern but <code>pspsps</code> carries her name. Speedwalk (<code>3n2e</code>) requires a digit, because "only direction letters" matches <code>use</code>, <code>sew</code>, <code>wed</code> and <code>dune</code>. The verb table is a shared resource and it has started to behave like one.</p>
+  </div>
+
+  <!-- ============================ 05 BODY ============================ -->
+  <h2>V. The body you are playing</h2>
+
+  <p>The character sheet is 29 skills across five categories, ranked 0–10, raised by use rather than by spend. Sitting underneath it are the meters — HP, sanity, hunger, thirst, radiation, stamina, body temperature, hygiene — and <strong>22 status effects</strong> that hang off them. None of that is remarkable; MUDs have had it for thirty years. What's new this month is what you can do to the body itself.</p>
+
+  <h3>Five disciplines, five prices</h3>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Order</th><th>Discipline</th><th>The move</th><th>What it costs you</th></tr></thead>
+    <tbody>
+      <tr><td>Ascendants</td><td class="m">augments</td><td>Buy a better machine and have it installed in you.</td><td>Money, a surgery roll with five bands, heat, and hardware that fails <em>as hardware</em>. A botched install permanently caps calibration.</td></tr>
+      <tr><td>Wildblood</td><td class="m">mutations</td><td>Let the flesh answer instead. 56 authored mutations.</td><td>Every turn is a real injury — HP that must be mended, most of your stamina, floored at 1 HP so it can never kill you. And a city that recoils.</td></tr>
+      <tr><td>Exodus</td><td class="m">psionics</td><td>Still a room and move what's in it without a touch.</td><td>Nosebleed → blood from the ears → seizure → real damage. The mind spends the body.</td></tr>
+      <tr><td>Long Watch</td><td class="m">mastery</td><td>Change nothing. Learn the <em>enemy</em>, fight by fight.</td><td>Purity. Chrome and mutation lower your ceiling, and removing them leaves a decaying stain.</td></tr>
+      <tr><td>The Null</td><td class="m">nullcraft</td><td>Make somebody else's machine stop working.</td><td>Trace — the city's growing certainty that it was you.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The elegant part, mechanically, is that <strong>mastery's purity cap is what makes the other four cost anything.</strong> Chrome and mutation used to be free upside. They aren't now, because there is exactly one build in the game they lock you out of — and it is the build that looks, on inspection, like nothing at all.</p>
+
+  <p>Mastery is also the only progression in the game that runs the <em>opposite way</em> to everything else: every other build gets worse over a long fight, and this one gets better, because <code>read</code> accumulates against an enemy's template id and learns from misses as well as hits.</p>
+
+  <div class="callout">
+    <span class="tag">The design rule shared by all five</span>
+    <p>Nothing is baked into <code>players.stat_*</code>. Every contribution is <strong>derived at read time</strong> and netted by the same readers that already net gear and status effects. A mutation at expression 100 reproduces its authored value exactly; an augment defaults to calibration 100 for the identical reason. That invariant is what made both migrations net-zero for existing characters — and it is what makes <em>partial</em> treatment possible at all.</p>
+  </div>
+
+  <h3>What you can be done to</h3>
+  <p>Radiation deliberately cannot roll a mutation above expression 84, because a legendary mutation you could pick up by standing in a hot room would delete the reason to walk south and find the Wildblood. The mutagen flask <em>is</em> on a vendor's shelf — behind a trust gate that nothing raises except finishing the Quickening arc, so for anyone who hasn't been through the Pool it does not exist.</p>
+  <p>Medically there are three tiers at three prices: <strong>diagnose</strong> gives you a name and deliberately nothing else (an unseen mutation reads as "Something unnamed" until a physician names it — a diagnostic that also <em>helped</em> would make not-knowing a penalty rather than an information state); <strong>suppress</strong> holds it down temporarily; <strong>treat</strong> permanently reduces it, expensively, and buys your social standing back.</p>
+
+  <!-- ============================ 06 COMBAT ============================ -->
+  <h2>VI. Combat, and dying</h2>
+
+  <p>A swing is <strong>3,500 ms</strong> at base, shifted by whichever of five stances you're locked into (<code>berserk</code>, <code>aggressive</code>, <code>normal</code>, <code>cautious</code>, <code>pacifist</code>), floored at 1,000 ms. That is HellMOO pacing, not an action game: you have time to read the room, and the decisions are made before the swing rather than during it.</p>
+
+  <p>Every hit rolls a body part off a weight table — <strong>torso 40, arms 12 each, legs 11 each, head 10, feet 4</strong> — and the head crit converts into a stun rather than a damage spike. Soak is typed. Injuries hang off damage events and have to be mended. Gear wears out <em>on use rather than on the clock</em>, with capacity derived from item value so nothing needs authoring, and at zero condition an ordinary item is destroyed outright.</p>
+
+  <div class="cards">
+    <div class="card"><p class="label">Base swing</p><p class="val">3.5 s</p><p class="note">1.0 s floor, stance-scaled</p></div>
+    <div class="card"><p class="label">Enemy templates</p><p class="val">67</p><p class="note">64 with behaviour trees</p></div>
+    <div class="card"><p class="label">Combat tick</p><p class="val">1 s</p><p class="note">real time, never scaled</p></div>
+    <div class="card"><p class="label">Corpse loot window</p><p class="val">10 min</p><p class="note">full loot, anyone</p></div>
+  </div>
+
+  <p>Death is a cloning vat: skills retained, body reset, gear on the floor where you fell. Installed chrome corrupts on death <em>unless</em> the death was claimed by a cortical backup — an ordering constraint that matters because getting it backwards deletes the rows a restore is about to write back.</p>
+
+  <div class="callout good">
+    <span class="tag">The best small decision in the combat model</span>
+    <p><strong>A knockout is always something somebody chose.</strong> There is no random KO mid-fight, because auto-attack would finish an unconscious body a tick later and every fight would become ambiguous about whether you meant to kill. So the cosh is a deliberate 2★ camera-only crime, finishing someone who is already down is charged as <em>execution</em> at 5★, and police at 4★ or above now take you alive rather than killing you — closing the one route that used to skip jail entirely.</p>
+  </div>
+
+  <p>Combat also, quietly, has no parallel implementations. A mutant's claw is a <code>weaponStats</code> object — the same plain object a pipe produces, handed to the same attack function — so soak, crits, injury and body parts treat a clawed hand identically, and picking up a pipe means you use the pipe. Psionic telekinesis fires <em>existing verbs</em> at a distance rather than reimplementing them.</p>
+
+  <!-- ============================ 07 MONEY ============================ -->
+  <h2>VII. Making a living</h2>
+
+  <p>Money is dual-pool — carried credits can be stolen, banked credits can't — and moves between them through ATMs with per-network fees, limits, faction rules, a replenish tick and a power dependency. There are 69 vendors with inventories, restock rates and schedules, and they hold grudges.</p>
+
+  <p>The ways to earn, roughly in order of how early you can reach them:</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Loop</th><th>Verbs</th><th>Shape of it</th></tr></thead>
+    <tbody>
+      <tr><td>Job board</td><td class="m">gigs · postings</td><td>Rotating legal gigs over the quest system, across 3 boards. The deliberate early-money floor.</td></tr>
+      <tr><td>Shift work</td><td class="m">work shift clock serve bill douse soothe bounce courier deliver</td><td>Clock on somewhere and do the job — pour drinks, bill patients, put out fires, run parcels.</td></tr>
+      <tr><td>Scavenging &amp; mining</td><td class="m">scavenge mine search fish</td><td>Posture-based perpetual work against per-zone tables — 12 scavenging tables, 74 entries. You sit down and keep going.</td></tr>
+      <tr><td>Crafting</td><td class="m">craft recipes synthesize splice</td><td>51 recipes, skill-checked, station-gated. <strong>27 of them are synthesis</strong> — the drug economy is the single largest crafting surface in the game, which is a statement about the setting.</td></tr>
+      <tr><td>Cooking &amp; mixing</td><td class="m">cook plate mix brew</td><td>61 authored dishes and 22 drinks, sold or eaten. Improvised dishes cap at <em>superb</em> so <em>masterful</em> stays the authored catalogue's alone.</td></tr>
+      <tr><td>Storefronts</td><td class="m">deed buyshop stock till hire staff supply buyorder</td><td>Own the shop. Stock it, run the till, hire staff, place purchase orders, pull the shutters.</td></tr>
+      <tr><td>Trucking</td><td class="m">haul market yard route drive</td><td>Freight between regions. The odometer is derived <em>server-side from your position against its own geometry</em> — a self-reported distance would let a client weave and get paid for the tarmac.</td></tr>
+      <tr><td>Flight contracts</td><td class="m">contracts jobs manifest loadcargo customs</td><td>Cargo runs, charters, freight licences, and customs risk at the other end.</td></tr>
+      <tr><td>Corps</td><td class="m">corp org shakedown</td><td>Faction + owner + treasury + members + territory, with an influence tug-of-war and five power levers.</td></tr>
+      <tr><td>Crime</td><td class="m">steal peddle pinch crack hijack</td><td>Theft, dealing, burglary, till-cracking, feed-hijacking. All of it witnessed, all of it priced in stars.</td></tr>
+      <tr><td>Gambling</td><td class="m">bet raise fold · spin · wager</td><td>Poker and chess at real tables, slots, and sports betting on two live leagues.</td></tr>
+      <tr><td>Bounties</td><td class="m">bounty redeem</td><td>Money on another player's head. The head is a <em>physical item in the corpse</em>, so the bounty pays whoever carries it to a board — not the killer.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Why the bounty system is the sharpest economic design in the game</span>
+    <p>Because the head is an object, the theft, the ambush at the board, and the third party who was watching your fight for free all come <em>out of the inventory system</em> rather than being written. The sheet names nobody — a bounty you had to sign would be a declaration of war nobody would post — and the target pays to un-mask it. Escrow is the number printed on the sheet, so a poster can never advertise more than the hunter is paid.</p>
+  </div>
+
+  <!-- ============================ 08 QUIET ============================ -->
+  <h2>VIII. The quiet game</h2>
+
+  <p>Roughly half the verb surface has nothing to do with fighting or earning. This is the part of the game that surprised us most in the counting, and it is the part most likely to be why somebody stays.</p>
+
+  <h3>The kitchen</h3>
+  <p>61 authored dishes matched on <em>ingredient signature</em> rather than name — which is why renaming a saved recipe is free, why one combination can only be saved once, and why seasoning isn't part of the identity. Dry starch cooks in liquid rather than in heat, so <code>cook</code> refuses a dry pan of pasta and you fill the pan at a water source. A recipe you invent is a tradeable card or is taught face-to-face with <code>recipe teach</code>, and travels with your name on it either way. The shopping list stores <em>what you want, never what you have</em>, so it can't go stale.</p>
+
+  <h3>The bar</h3>
+  <p>22 drinks, mixed onto the vessel's own data rather than into a new item row — because the whole point of a mug is that you keep it. Alcohol is derived from ABV times pours and lands on the ordinary intoxication path, so a mixed drink and a bottled one get you drunk identically. Water and ice fill a glass without scoring it.</p>
+
+  <h3>The piano</h3>
+  <p>Furniture flagged as an instrument is sat down at with <code>play</code> and then played <strong>key by key on your own keyboard</strong>, and the room hears it. Notes ride a thin websocket route rather than the command dispatcher, because noodling is 8–12 inputs a second. Your own note sounds in the same tick as the keydown and tells the server after — a round trip between pressing a key and hearing it is the difference between an instrument and a website. It is the only thing in the game with <strong>no skill roll at all</strong>: the skill is your hands.</p>
+
+  <h3>The board</h3>
+  <p>Chess with full legal rules, perft-verified, on a two-seat table rendered server-side as an isometric neon set — the pieces counter-rotate so they stand up off the tilted plane; the shadow deliberately doesn't. Selection is two-step and server-side, so the client never computes legality. It shares its seat/spectator/host-NPC machinery with poker.</p>
+
+  <h3>The rest of it</h3>
+  <ul>
+    <li><strong>13 books</strong> — a real reader with page and chapter navigation, RP narration with the spoken line highlighted, minimize-and-keep-reading, and a tap-to-gloss vocabulary layer over prose that is never rewritten. The bar for inclusion is US public domain.</li>
+    <li><strong>Trading cards</strong> — mint yourself at a terminal, or open a foil sleeve from a vending machine. Buying and opening are two separate acts and the roll happens at <code>openpack</code>, so an unopened sleeve is untradeable-with-known-contents.</li>
+    <li><strong>Television</strong> — 3 channels, 35 authored broadcasts, five live-assembled show modes, two sports leagues with narrated play, camera feeds, cassettes you load and eject, and a <code>pirate</code> verb for when you'd rather be on it.</li>
+    <li><strong>A cat.</strong> Cathode is a stray with a bionic paw. Petting pays sanity on a six-hour cooldown and still works inside it, because you never punish a player for petting a cat. Kill her and the game never tells you why she stopped coming.</li>
+    <li><strong>Housekeeping</strong> — hygiene, laundry, cleaning, mopping. A room you own keeps its mess for a full rent cycle while unowned space is swept nightly, which is the entire reason a mop is worth carrying.</li>
+  </ul>
+
+  <!-- ============================ 09 TRAVEL ============================ -->
+  <h2>IX. Getting around</h2>
+
+  <p>17,258 rooms and 64,659 exits across five regions and thirteen vertical levels (−2 sewer to +10 tower). There are five ways to cross it and they are genuinely different activities:</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Mode</th><th>What it is</th><th>The interesting bit</th></tr></thead>
+    <tbody>
+      <tr><td>On foot</td><td>Compass movement with <code>run</code>/<code>walk</code>/<code>sprint</code>, GPS routing, an ASCII minimap BFS-rendered from the live zone graph.</td><td>Terrain drives pacing but never passability — impassability is its own gate, with exactly one named exemption, and that exemption belongs to <em>wings</em> and must never become a gear exemption.</td></tr>
+      <tr><td>Flight</td><td>10 aircraft, 8 airfields, a continuous client-sim/server-reconcile loop, stalls with teeth, a licence checkride, air-to-air and air-to-ground, 4 AA sites.</td><td>~83 building models render out the canopy, and their geometry now drives distance LOD, occlusion culling, ground shadows and terrain collision — the shapes record themselves rather than being rewritten per feature.</td></tr>
+      <tr><td>Trucking</td><td>A road between regions you actually drive, with gears, revs, a jake brake, a CB, fuel, breakdowns and a freight market.</td><td>The corridor <em>synthesises zones</em>, not render cells, so encounters and hazards along it are implemented by the void-travel plugin and nowhere in the truck. The road <strong>bends</strong>, and a bend tighter than the minimum turn radius would fold the verge through itself and run the odometer backwards.</td></tr>
+      <tr><td>Voidwalking</td><td>The same crossing on foot: transient, non-DB waste rooms off a region's rim, with encounters, ghost-traces, camps and a frontier map.</td><td>A breakdown on the highway finishes on foot for free, because both sides emit the same zone events.</td></tr>
+      <tr><td>Water</td><td>Swimming with stamina-scaled strokes, drowning, diving on a breath timer, and soak into hypothermia. Yachts with invites and a helm.</td><td>The one place the game is honestly incomplete: boat boarding and underwater content are still pending.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <span class="tag">The detail that says the most about the road</span>
+    <p>The highway signs itself, <strong>in miles</strong>, off one shared conversion used by the board, the <code>route</code> verb and the GPS — because a board saying 240 while the dash says 720 means nobody can budget a tank. A sign is snapped to a single tile at build time (a tolerance band renders a post as four identical boards in a row), the junction board looks <em>210 tiles past the fork</em> because at ordinary look distance the limbs haven't separated yet, and passing a board is a swept range rather than a proximity test, because the cab reconciles four times a second and a text tick covers a slab of road.</p>
+  </div>
+
+  <!-- ============================ 10 CRIME ============================ -->
+  <h2>X. Crime, and the law</h2>
+
+  <p>Crime here is <strong>witnessed</strong>, not detected. 53 security devices sit in the world with status flags — jammed, spoofed, hijacked, looping, blinded — that predate the Null discipline by months and were promoted into it rather than duplicated. SPECTER lets players run their own spy networks: plant a device, retrieve it, sweep a room, pull a feed, record and clip it, or smash somebody else's.</p>
+
+  <p>The star ladder is priced by act rather than by outcome: a cosh is 2★ and camera-only; finishing someone already unconscious is <em>execution</em> at 5★. Get taken and jail is a real place — gear confiscation into an evidence locker, a hackable cell door, a sentence you can serve or escape, and a respawn zone seam that puts you in Holding rather than the vat.</p>
+
+  <p>Also available, for the enterprising: <code>steal</code>, <code>peddle</code>, <code>pinch</code>, burglary through hololocks with alarms, safecracking, till-cracking, graffiti, feed hijacking, broadcast piracy, and bribing your way off the wanted list.</p>
+
+  <!-- ============================ 11 SIM ============================ -->
+  <h2>XI. The city with nobody in it</h2>
+
+  <div class="haiku small">Nobody logged in.
+    The streetlights still came on at
+    dusk, and rent came due.
+    <span class="attrib">— on the one-minute driver tick, which advances the clock by scaled game-minutes and fires the 30-game-minute and game-day boundaries it crossed, so the calendar can never desync from a sped-up day</span>
+  </div>
+
+  <p>This is the section that separates a world from a menu, so it gets the specifics.</p>
+
+  <ul>
+    <li><strong>One clock, one driver.</strong> A single <code>1m</code> tick advances game time at a configurable scale and fires everything downstream on <em>game-minute boundaries</em>. Day 07:00–17:00, dusk 17:00–20:00, night 20:00–05:00, dawn 05:00–07:00. Temperature swings on a cosine peaking +5°C at 14:00 and troughing −12°C at 02:00.</li>
+    <li><strong>Weather is a field, not a flag.</strong> Drifting cloud, precipitation and storm cells over the outdoor map, fully re-derivable from the date plus tomorrow's forecast — no table, no per-tick writes. Cells drift along one seeded prevailing wind and torus-wrap. A cell pulls temperature down by up to 4°C at its core.</li>
+    <li><strong>There is no free safe haven.</strong> A powered interior heads for 20°C at 2.0°C/min. An <em>unpowered</em> one bleeds toward outdoor temperature proportionally to the gap — a mild outage stays survivable, and a −30°C snap drops an interior to 10°C in about 23 minutes and to 0°C in about 51. A truck cab reaches its setpoint in a minute and loses it twenty times faster than a building, which is what makes a breakdown in a cold snap a problem rather than a wait.</li>
+    <li><strong>The grid is real.</strong> 168 generators. Storms fault them, brownouts redistribute every five minutes but only when something is actually overloaded, and streetlights reconcile map-wide whenever ambient visibility drops below 0.35.</li>
+    <li><strong>People have lives.</strong> All 243 NPCs have a home zone; 191 have a work zone. 85 ambient routines, 65 residences, 182 banter threads. NPCs commute, sleep, change clothes, and remember you: familiarity and warmth on a six-rung ladder, hydrated once at login and read from memory thereafter — <strong>zero runtime queries</strong>, by contract.</li>
+    <li><strong>Rent falls due on the game calendar</strong>, not a real-world timer, so at 3× speed it lands roughly every two and a third real days.</li>
+  </ul>
+
+  <p class="aside">Enemies spawn on a 10-second sweep against 328 authored spawn points. Ambient events fire every 45 seconds with a five-message recent window to avoid immediate repeats. Combat, and only combat, stays on real-world time.</p>
+
+  <!-- ============================ 12 CLIENT ============================ -->
+  <h2>XII. The surface you play it through</h2>
+
+  <p>182,749 lines — the client is the single largest body of code in the repo, and it is vanilla JavaScript with no build step. What that buys a player:</p>
+
+  <ul>
+    <li><strong>A three-rung display ladder</strong> — visual, textgames, log — covering every system that has both a graphical presentation and a written one. The split is decided by one question: <em>if I delete this surface, is the player stuck?</em> Surfaces you act through degrade to text minigames; surfaces you only read degrade to log lines.</li>
+    <li><strong>Client automation that is genuinely a language.</strong> Triggers, timers, aliases, macro variables, and macros that call macros with arguments and return values. Conditions are real expressions rather than a regex, which is what finally allowed <code>if $hp_pct &lt; 30 and has bandage</code>. State triggers ride the vitals funnel and are <em>edge</em>-triggered, because level-triggering means drinking your entire inventory in one fight. A runaway budget <em>disables</em> rather than throttles, because a throttled runaway spams forever with nothing to explain it.</li>
+    <li><strong>Output routing and split panes</strong> — a route is a trigger whose action is "put it over there", so it reuses that grammar exactly, and panes exist because a rule names one.</li>
+    <li><strong>Accessibility as a first-class surface.</strong> One options table rendered by two surfaces — a tablet page and an <code>accessibility</code> verb with no tablet gate, because the light switch cannot be inside the dark room. Voice input is off by default; a player who never asks for a microphone is never asked for one. Read Aloud is off by default too, because the log is already a live region and on-by-default would speak every line twice in two voices.</li>
+    <li><strong>Procedural audio</strong> — sound generated from action plus material plus intensity rather than per-thing assets, with 171 instrument presets, 195 samples and 26 effects. Footsteps are voiced by the ground you just stepped onto, alternate feet (random jitter reads as noise; an alternating pair reads as <em>walking</em>), and take wetness from the live precipitation as a delta.</li>
+  </ul>
+
+  <!-- ============================ 13 THIN ============================ -->
+  <h2>XIII. Where it runs out</h2>
+
+  <p>Everything above is what's built. This is the honest half, and every line of it is measured.</p>
+
+  <h3>The map is enormous and mostly unwritten</h3>
+
+  <div class="legend">
+    <span><b style="background:var(--cyan)"></b>Individually written rooms — 643</span>
+    <span><b style="background:var(--line)"></b>Rooms sharing a terrain template — 16,615</span>
+  </div>
+  <div class="strip" id="strip" aria-label="4 of every 100 rooms are individually written"></div>
+  <p class="aside">One block per 1% of the map. Four blocks are individually authored rooms.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Measure</th><th class="num">Now</th><th class="num">27 Jul</th><th>Reading</th></tr></thead>
+    <tbody>
+      <tr><td>Rooms</td><td class="num">17,258</td><td class="num">5,822</td><td>Tripled in under a month — mostly the Scarletwastes, uniformly redrock <em>on purpose</em> so it can be hand-painted later</td></tr>
+      <tr><td>Distinct room descriptions</td><td class="num">857</td><td class="num">—</td><td>Five templates alone cover 6,492 tiles</td></tr>
+      <tr><td>Individually written rooms</td><td class="num">643</td><td class="num">—</td><td><strong>3.7% of the map</strong></td></tr>
+      <tr><td>Rooms per NPC</td><td class="num">71</td><td class="num">34</td><td class="r">Worse — the map grew 3× and the cast grew 1.4×</td></tr>
+      <tr><td>Rooms per quest</td><td class="num">224</td><td class="num">92</td><td class="r">Worse</td></tr>
+      <tr><td>Rooms per enemy template</td><td class="num">258</td><td class="num">149</td><td class="r">Worse</td></tr>
+      <tr><td>Bespoke rooms per NPC</td><td class="num">2.6</td><td class="num">—</td><td class="g">The fair denominator — and it's <em>dense</em></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout good">
+    <span class="tag">The nuance the raw ratio hides</span>
+    <p>Measured against the whole map, population density looks like it collapsed. Measured against <em>authored</em> rooms, there are 2.6 hand-written rooms per NPC — the city is properly inhabited. What tripled is deliberately empty ground, and two systems shipped this month whose entire job is to make crossing empty ground a thing you do rather than a thing you endure. The honest statement is not "the world is too thin"; it is <strong>"the world now has two densities, and only one of them is finished."</strong></p>
+  </div>
+
+  <h3>The quest count is the real gap</h3>
+  <p>77 quests. 132 objectives. Of those, 62 are hand-authored standard quests and 15 are flight templates; 44 are repeatable. Against 133 plugins and 666 verbs, that is <em>the</em> shortfall — the game has an enormous number of things you <em>can</em> do and a small number of reasons anybody tells you to. Job-board rotation papers over this for the first few hours and stops helping after that.</p>
+
+  <h3>Coverage and the manual step</h3>
+  <ul>
+    <li><strong>13 of 133 plugins have no regress suite</strong> (90% covered, up from 83% in July). The ones that matter are the ones players touch constantly: <code>scavenging</code>, <code>food</code>, <code>lighting</code>, <code>interactions</code>, <code>butchering</code>, <code>container</code>.</li>
+    <li><strong>Prod one-shots are still manual.</strong> CI never runs the seed-runtime pass, so lights, ATM units, vendor stock and NPC placements need a hand-run after a deploy. A deploy that isn't finished until a human remembers something isn't a deploy. This was flagged in July and is still true.</li>
+    <li><strong>Only 16 NPCs carry inline banter</strong> against 182 authored threads — the threads exist, the cast wired to them doesn't yet.</li>
+  </ul>
+
+  <h3>Named design-only work</h3>
+  <p>Explicitly unbuilt and documented as such: corp <strong>espionage</strong> and <strong>NPC corp AI</strong>; the Wildlands <code>perimeter</code> plugin and its faction NPCs (the map and wall are built content); <strong>boat boarding and underwater content</strong> for swimming; the helm's <strong>tablet mount</strong>; psionics beyond phase 1 — telepathy, precognition, biokinesis, <strong>dreamwalking</strong>, compulsion; nullcraft's <strong>network ladder</strong>; trucking's <strong>gearbox, trailer articulation, the yard and the weigh station</strong>; the card <strong>portrait renderer</strong>. That is a healthy backlog: every item on it is an extension of something shipped, not a foundation still missing.</p>
+
+  <!-- ============================ 14 VERDICT ============================ -->
+  <h2>XIV. The verdict</h2>
+
+  <p>Two months in, Architect is a game you could put in front of somebody today and lose them for an evening — and the evening would probably not involve combat. They would end up cooking something, or flying badly, or sitting at a piano, or driving a truck three hundred miles to find out what a sign said.</p>
+
+  <p>The engineering position is strong and is not the interesting part. What's interesting is that the <em>gameplay</em> position matured in a specific direction this month: from adding mechanisms to adding <strong>answers</strong>. The five disciplines don't add systems so much as they finally make the four factions mean something at the keyboard, and they do it by asking questions of substrate that was already there. That is the pattern to keep.</p>
+
+  <p>The one thing that would change the game most is not on any system roadmap. It is <strong>ninety more quests</strong> — or whatever the equivalent is: authored reasons to walk into the 666 verbs. The machinery to deliver them shipped weeks ago; VINE authors them as a prerequisite DAG with a visual editor. The world is built, the loops are built, the body is built, and the city keeps its own time whether anyone logs in.</p>
+
+  <p>What it needs now is somebody in it with somewhere to be.</p>
+
+  <div class="foot">
+    Architect MUD · Gameplay Report · Two Months In<br>
+    Figures counted from the working tree on 2026-08-22 · branch main · 2,386 commits · contributors HaveAGreatDave, Akerson<br>
+    Room, NPC, enemy, item, quest and furniture counts scanned from <code>content/</code>. Verb counts from the 133 plugin manifests plus the engine handler tables. Combat, clock and thermal constants read from <code>server/engine/</code>. Regress total as of the 2026-08-21 run.
+  </div>
+
+</div>
+
+<script>
+  (function () {
+    var s = document.getElementById('strip');
+    if (!s) return;
+    // 100 blocks, one per percent of the map. 643 of 17,258 rooms carry a
+    // description no other room shares: 3.7%, which rounds to 4 blocks.
+    for (var i = 0; i < 100; i++) {
+      var d = document.createElement('i');
+      if (i < 4) d.className = 'on';
+      s.appendChild(d);
+    }
+  })();
+</script>
+</body>
+</html>
