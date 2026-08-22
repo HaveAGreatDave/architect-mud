@@ -75,16 +75,25 @@ slot.channel_id = KSAB;
 // conditions.npc_staff is KEPT — see the corrected note above.
 save('media_channel_playlist', slot);
 
-// 3. Channel 11's own copy was written around this show and is now false.
+// 3. Channel 11 goes.
 //
-// Its description read "Channel 11 has been dead air since public access folded.
-// It is not dead air on a Tuesday." — a line that exists ONLY because the show
-// was on it. Moving the show without touching this leaves the channel promising
-// something it no longer carries, which is a worse defect than the one being
-// fixed. The channel itself is left enabled and in place: it is a working
-// unlicensed feed and somewhere for the next pirate broadcast to land.
-const ch = load('media_channels', 'ch_11_stgarneau_stream');
-ch.description = 'Channel 11 has been dead air since public access folded. It was not dead air on a Tuesday, for a while, until the network came down to the church basement with a contract and took the only thing on it. It is dead air again now. Somebody will find it eventually — they always do.';
-save('media_channels', ch);
+// It existed to carry exactly one programme — its whole description was "dead air
+// since public access folded… not dead air on a Tuesday", a line with no meaning
+// once the Tuesday moved. An enabled channel with an empty playlist is not
+// atmosphere, it is a number on the dial that resolves to nothing whichever way a
+// viewer reaches it.
+//
+// Deleting the FILE is the whole operation: the importer's deletion pass is
+// git-diff driven, so the row goes on the next import, prod included. Nothing
+// else in content referenced it, and the broadcast plugin's own integrity sweep
+// already covers the shapes that could have — it NULLs any `media_broadcasts`
+// row pointing at a deleted channel and removes orphaned playlist slots — so the
+// order of operations above (move the show first) is belt and braces rather than
+// the only thing standing between this and a dangling reference.
+const dead = path.join(ROOT, 'media_channels', 'ch_11_stgarneau_stream.json');
+if (fs.existsSync(dead)) {
+  fs.unlinkSync(dead);
+  console.log('  deleted content/media_channels/ch_11_stgarneau_stream.json');
+}
 
 console.log('done.');

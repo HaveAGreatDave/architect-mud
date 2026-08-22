@@ -2958,11 +2958,22 @@ export default async function regress({ check, run, getPlayer }) {
     const bc = JSON.parse(readFileSync('content/media_broadcasts/bc_cooking_shit_neil.json', 'utf8'));
     check('slot: the broadcast knows where it is shot', bc.location_zone_id === 'zone_stgarneau_basement', String(bc.location_zone_id));
     check('slot: ...and it is the zone the keyholder watches', bc.location_zone_id === act.stage);
-    // ⚠ The channel has NO studio. That is the case the whole location seam exists
-    // for, and it is load-bearing: every stage decision on channel 11 comes from the
-    // programme's own location, so a regression to `state.studioZoneId` blacks it out.
-    const chan = JSON.parse(readFileSync('content/media_channels/ch_11_stgarneau_stream.json', 'utf8'));
-    check('slot: the channel is studio-less on purpose', !chan.studio_zone_id, String(chan.studio_zone_id));
+    // ⚠ THE CHANNEL NOW HAS A STUDIO, AND THE LOCATION STILL HAS TO WIN.
+    //
+    // This used to assert the opposite — channel 11 was studio-less, so every stage
+    // decision fell through to the programme's own location by default and nothing
+    // had to prefer one over the other. The show moved to KSAB, which has a real
+    // studio across town, and that turned a fallback into a genuine contest: the
+    // seam is only load-bearing now BECAUSE there is something for it to beat.
+    // Get this backwards and the cast are called to KSAB on the Tuesday while the
+    // programme films in a church basement, and their lines come out of an empty
+    // room. Same failure the old assertion guarded, one rung harder to reach.
+    const chan = JSON.parse(readFileSync(`content/media_channels/${bc.channel_id}.json`, 'utf8'));
+    check('slot: the show now airs on a channel that HAS a studio of its own',
+      !!chan.studio_zone_id, String(chan.studio_zone_id));
+    check('slot: ...and the shoot still beats it', bc.location_zone_id !== chan.studio_zone_id);
+    check('slot: ...which is the rule the engine applies',
+      (bc.location_zone_id || chan.studio_zone_id) === 'zone_stgarneau_basement');
     check('slot: the title card exists as a graphic',
       !!JSON.parse(readFileSync('content/media_graphics/daily_bread_logo.json', 'utf8')).content);
 
