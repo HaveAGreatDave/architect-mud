@@ -1045,6 +1045,27 @@ const wreckKey = (route) => `${route.voidKey}|${route.destKey}|${route.window}`;
 export function addWreck(route, { s, what, who }) {
   if (!route) return null;
   const key = wreckKey(route);
+  // ⚠ OLD WINDOWS GO, BUT NOT THE ONE JUST BEHIND THIS ONE. The key carries the window, so once it
+  // has rolled twice an entry is unreachable — `wrecksOn` keys on the live route and can never
+  // return it, and nothing else holds a reference. They were simply never dropped, so a long-lived
+  // process kept one dead map per route per week that no reader could reach.
+  //
+  // ⚠ AND THE OBVIOUS SWEEP — "delete every key that is not mine" — IS WRONG, in a way that only
+  // shows for an hour a week. A rig that set out before the roll goes on driving a route stamped
+  // with the OLD window until it re-derives, so during the overlap two drivers hold live routes on
+  // two different windows, and "not mine" has each of them wiping the other's ghosts on every
+  // contact. Keeping window−1 costs one extra map per route and makes the rollover uneventful.
+  //
+  // Swept here rather than on a tick, for the reason everything else in this file is lazy: the road
+  // only changes when somebody drives it. Read off the LAST segment rather than with `endsWith`, so
+  // a destKey that happens to end in digits can never be mistaken for a window.
+  const win = Number(route.window);
+  if (Number.isFinite(win)) {
+    for (const k of WRECKS.keys()) {
+      const w = Number(k.slice(k.lastIndexOf('|') + 1));
+      if (Number.isFinite(w) && w < win - 1) WRECKS.delete(k);
+    }
+  }
   const list = WRECKS.get(key) || [];
   // Side and offset are derived from the tile, not rolled, so the same wreck is in the same place
   // for every driver who comes past it — including the one who left it.

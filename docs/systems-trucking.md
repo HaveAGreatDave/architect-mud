@@ -19,7 +19,8 @@ and a city that resolves out of the haze at the end of it.
 | **The week's whole road network, for everybody who is not driving it** | [plugins/trucking/roadnet.js](../plugins/trucking/roadnet.js) |
 | The highway sign, drawn | `drawRoadSign` in [windshield.js](../client/game/js/panels/windshield.js) · `sgn` in [plugins/flight/state.js](../plugins/flight/state.js) |
 | Rig state, the clamp, node crossings, the cab push | [plugins/trucking/state.js](../plugins/trucking/state.js) |
-| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `galley`, `lock`/`unlock` (routers — see the doors section), `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `truckpump`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
+| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `galley`, `lock`/`unlock` (routers — see the doors section), `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `fuel`, `truckpump`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
+| `rig` and everything behind the counter — repair, parts, spares, `rig strip`, tune, kit, paint, trim, fittings, wash, pump, signwriter | [plugins/trucking/bench.js](../plugins/trucking/bench.js) |
 | The physics (`stepTruck`, the gearbox, the articulation angle, `SURFACES`) | [client/game/js/panels/flight-model.js](../client/game/js/panels/flight-model.js) |
 | The cab (60fps loop, gauges, wheel) | [client/game/js/panels/cab-view.js](../client/game/js/panels/cab-view.js) |
 | Cab interior + mirrors | `drawCabInterior` in [windshield.js](../client/game/js/panels/windshield.js) |

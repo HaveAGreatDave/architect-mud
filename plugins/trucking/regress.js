@@ -2788,6 +2788,23 @@ export default async function regress({ run, check, getPlayer }) {
     for (let i = 0; i < 40; i++) addWreck(route, { s: 600 + i * 20, what: 'A dead thing' });
     check('a road lined with wrecks stops being a road — so the list is capped',
       wrecksOn(route).length <= 12, wrecksOn(route).length);
+    // THE WINDOW ROLLS AND THE OLD DEAD GO WITH IT — but only once it has rolled TWICE. A rig that
+    // set out before the roll drives a route stamped with the previous window until it re-derives,
+    // so window−1 has to survive or two live drivers wipe each other's ghosts for the length of the
+    // overlap. Asserted through the public surface, on three windows at once.
+    _clearWrecks();
+    const stale = corridorFor(VOIDKEY, DESTKEY, 4240, wreckTrunk * 3, wreckTrunk);
+    const prev  = corridorFor(VOIDKEY, DESTKEY, 4241, wreckTrunk * 3, wreckTrunk);
+    addWreck(stale, { s: 300, what: 'A dead thing from two weeks ago' });
+    addWreck(prev,  { s: 300, what: 'A dead thing from last week' });
+    check('a wreck on an older window is on its own road and nobody else\'s',
+      wrecksOn(stale).length === 1 && wrecksOn(prev).length === 1);
+    addWreck(route, { s: 900, what: 'A dead thing from this week' });
+    check('rolling the window sweeps what nothing can still be driving',
+      wrecksOn(stale).length === 0, wrecksOn(stale).length);
+    check('…and spares the window a rig may still be out on',
+      wrecksOn(prev).length === 1 && wrecksOn(route).length === 1,
+      `${wrecksOn(prev).length}/${wrecksOn(route).length}`);
     _clearWrecks();
     check('and a clean road has none on it', wrecksOn(route).length === 0);
   }
