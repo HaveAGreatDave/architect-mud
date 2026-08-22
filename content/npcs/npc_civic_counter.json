@@ -1,0 +1,78 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 75,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Doorways. That is all. I do not ask what is behind them, that is a different department.\"",
+    "\"It is a job. You do not have to like the ledger to eat off it.\""
+  ],
+  "description": "A damp, apologetic man with a clipboard held against his chest like a shield, counting doorways on Foundry Way and writing each one down. He has a lanyard nobody has ever asked to see and the specific patience of somebody paid by the hour to do something pointless.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He goes back to the doorways."
+    },
+    "root": {
+      "first": "He looks up from the clipboard, sees somebody who is not a doorway, and is briefly at a loss. \"Ah. Are you — is this your door?\"",
+      "options": [
+        {
+          "label": "What are you counting?",
+          "next": "why"
+        },
+        {
+          "label": "(leave him to it)",
+          "next": "bye"
+        }
+      ],
+      "text": "He has moved eleven feet along the street and is counting again. \"Still going. Long street.\""
+    },
+    "why": {
+      "options": [
+        {
+          "label": "No. You do not.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Doorways.\" He shows you the clipboard as though it settles something. \"Every one on the Row, and whether it opens. I do not ask what is behind them. That is a different department and I have never met anybody from it.\"\n\nHe writes another number down.\n\n\"It is a job. You do not have to like the ledger to eat off it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a municipal weatherproof two sizes too big",
+      "a knitted tie under a damp collar",
+      "shoes that were never meant to be walked in this much"
+    ],
+    "mis_willing": false,
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_912_912",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_civic_counter",
+  "name": "Wexley Tolliver",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_912_912"
+}

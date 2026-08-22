@@ -62,6 +62,7 @@ import {
   isOnCooldown, setCooldown, clearCooldown, getCooldownRemaining,
 } from '../../server/engine/combat.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { registerConditionShape } from '../../server/engine/flags.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 
 const WAS_MUTATED_FLAG = 'mastery_was_mutated';
@@ -74,6 +75,41 @@ const MOVE_KEY = 'combat_move';
 const FOCUS_COST = 3;
 
 const LONG_WATCH = 'ideology_long_watch';
+
+/**
+ * The `mastery` dialogue/script condition shape.
+ *
+ *   { mastery: 'body', min: 40 }     — that discipline is worth at least 40
+ *   { mastery: 'any',  min: 40 }     — your best discipline is
+ *   { mastery: 'any',  pure: true }  — and the body is carrying nothing
+ *
+ * ⚠ IT READS `effectiveRank`, NEVER `storedRank`. The purity cap applies on
+ * READ by design (docs/systems-mastery.md) — a chromed player keeps their raw
+ * number and simply cannot use it — so a gate on the stored number would let
+ * somebody bolt on an arm and still walk through a door the discipline is
+ * supposed to hold shut. `pure` is the separate, stricter claim: a cap of 100
+ * means no chrome, no mutation, and no STAIN, which is what makes "clean" cost
+ * time rather than a trip to a surgeon.
+ *
+ * ⚠ AND IT MUST NEVER READ `regardOf`/`standingGreeting`. Those exist to be
+ * SAID, not checked (purity.js says so at length). This shape is the sanctioned
+ * way to gate on the body; the social ladder is not and never will be.
+ *
+ * Sync by contract, like everything in state.js/purity.js — no query.
+ */
+registerConditionShape('mastery', (cond, player) => {
+  if (!player) return false;
+  const want = String(cond.mastery || 'any');
+  const min = Number(cond.min) || 0;
+
+  if (cond.pure && purityCap(player) < 100) return false;
+
+  if (want === 'any') {
+    return DISCIPLINES.some(d => effectiveRank(player, d) >= min);
+  }
+  if (!DISCIPLINES.includes(want)) return false;   // typo: fail closed, as every shape does
+  return effectiveRank(player, want) >= min;
+});
 
 // What an instructor moves you by in one session. Small on purpose: the ceiling
 // is the thing they sell, and the number is meant to come from being hit.

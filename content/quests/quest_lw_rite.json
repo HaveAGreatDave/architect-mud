@@ -1,0 +1,45 @@
+{
+  "category": null,
+  "description": "There is no ceremony. Pike gets off the stool, and does not explain, and does not come back.\n\nYou sit the Blind alone until somebody relieves you. The mirror shows the length of the wash. The shortwave mutters. Nothing happens, and nothing is supposed to, and the entire point of the order you are joining is that somebody was sitting here the whole time anyway.\n\nDo not open the door. Do not go and check. Do not do anything at all.",
+  "fail_on": [],
+  "id": "quest_lw_rite",
+  "meta": {},
+  "name": "The Long Watch",
+  "objectives": [
+    {
+      "desc": "Stand the watch. Anything you do ends it and you start again.",
+      "emotes": [
+        "{who} watches the mirror, and the wash is empty, and stays empty.",
+        "{who} stops noticing the shortwave, which is the first useful thing that happens.",
+        "{who} has been here long enough to hear the base breathing above them.",
+        "{who} does not check the door. There is nothing at the door.",
+        "{who} sits, and the hours the Watch are named for start to mean something."
+      ],
+      "id": "o_watch",
+      "taskSeconds": 180,
+      "type": "visit",
+      "zone": "zone_lw_blind"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "watch_kept",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 260,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 220
+  },
+  "updated_at": "1787379039"
+}

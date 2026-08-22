@@ -135,6 +135,7 @@ nothing, silently; wire a reader first.
 | `bank_teller` | atm | a bank counter clerk — `deposit`/`withdraw <amount> from <them>` bypasses the terminal entirely (no cap, no fee, no power gate). Presence alone does NOT lift the cap; they must be addressed |
 | `audience_door` | broadcast | studio doorman — while alive, present on the tile outside a channel's `studio_zone_id`, and on shift (08:00–02:00), the way in needs a `custom_data.show_pass` stamped for the showing airing right now. Kill him, wait him out, or catch him off shift and the door is just a door (see [systems-broadcast.md](systems-broadcast.md#studio-audience-door)) |
 | `battle_cries` | combat | lines shouted in combat |
+| `mastery_instructor` | mastery | `{disciplines:[], rep_required, max_rank}` — this NPC teaches. ⚠ **The verb finds a teacher by standing in the room with them and nothing else**, so an unplaced flag means the discipline has no front door: it returned zero matches across all of `content/` for months while mastery shipped as built, and `train` could only ever answer "nobody here teaches that". `rep_required` is Long Watch standing and `max_rank` is that teacher's ceiling — together they are the order's reward ladder ([systems-ascension.md](systems-ascension.md#8a-mastery-had-no-front-door-at-all)) |
 | `repairman` | wear | bench repair — standing in this NPC's zone turns `repair <item>` from a capped field patch into full restoration, priced off item value and discounted by your standing with them ([systems-durability.md](systems-durability.md)) |
 | `surgeon` | augments | marks this NPC as someone who fits chrome. The ZONE opts in with `augment_clinic` (the theatre); this is the person, so a clinic with nobody in it refuses you ([systems-augments.md](systems-augments.md)) |
 | `surgeon_skill` | augments | 0–10. Their hands. Drives the install roll directly, so this is the whole difference between a specialist and a hack |
@@ -207,6 +208,7 @@ nothing, silently; wire a reader first.
 | `architect_wink` | flavor | Architect easter-egg examine text |
 | `atm` | atm | ATM terminal (pairs with `atm_units` row) |
 | `bed` | posture/sleep | sleepable |
+| `asc_rite` | ascendant | the Uplink terminal — gates `ascend`, the Rite of Ascension. Content decides where the ritual stands; the plugin never names a room. Sibling of `psi_purifier`, and the two rituals undo each other ([systems-ascension.md](systems-ascension.md)) |
 | `broadcast_device_type` / `broadcast_receiver` / `broadcast_transmitter` | broadcast | broadcast hardware role |
 | `bulletin` | leaderboard | READ shows the server leaderboard — **also carries bounty sheets** (bounty treats it as a board) |
 | `wanted_board` | bounty | a WANTED board: `bounty` posts here, `redeem` pays out here, `read` lists the open contracts |

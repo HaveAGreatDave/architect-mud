@@ -1,0 +1,45 @@
+{
+  "category": null,
+  "description": "The Quartermaster keeps a ledger of everything the Watch owns and a shorter one of everything it has lost. There is a cache under the Fisherman's Green that has been on the second list for a month, which she considers a personal failing. It is not a dangerous errand. She would like it back all the same.",
+  "fail_on": [],
+  "id": "quest_lw_fav_carry",
+  "meta": {},
+  "name": "Carry It Back",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Recover the cache from under the Fisherman's Green.",
+      "id": "o_get",
+      "item_id": "item_lw_package",
+      "type": "retrieve",
+      "zone": "zone_district_909_912"
+    },
+    {
+      "desc": "Carry it back to the Quartermaster.",
+      "emotes": [
+        "{who} sets it on the counter and waits to be told which shelf."
+      ],
+      "id": "o_home",
+      "requires": [
+        "o_get"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_lw_bunk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 110,
+    "rep": [
+      {
+        "delta": 55,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 22
+  },
+  "updated_at": "1787379039"
+}

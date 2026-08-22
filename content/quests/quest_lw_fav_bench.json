@@ -1,0 +1,33 @@
+{
+  "category": null,
+  "description": "Halloran does not need the help and says so, twice, while clearing you a space at the bench. The Watch run on things that were made rather than bought, and the making is done by whoever is standing there. Today that is you.",
+  "fail_on": [],
+  "id": "quest_lw_fav_bench",
+  "meta": {},
+  "name": "Bench Time",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Make something. Anything. Bring it back made rather than bought.",
+      "emotes": [
+        "{who} works with their hands and does not look up for a while."
+      ],
+      "id": "o_make",
+      "type": "craft"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 45,
+    "rep": [
+      {
+        "delta": 45,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 14
+  },
+  "updated_at": "1787379039"
+}

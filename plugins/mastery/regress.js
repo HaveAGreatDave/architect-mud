@@ -30,6 +30,8 @@ import {
   canArm, armWindow, resolveWindow, clearWindow, takeAnswer, OPTIONS, _test as _readTest,
 } from './readgame.js';
 import { isOnCooldown, setCooldown, clearCooldown } from '../../server/engine/combat.js';
+import { evalCondition } from '../../server/engine/flags.js';
+import { query } from '../../server/models/db.js';
 import { bandOf, _internals } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -514,6 +516,66 @@ export default async function regress({ run, check, getPlayer }) {
   const t = await run('train');
   check('train in a room with no instructor falls through rather than eating the verb',
     t === undefined || t?.type === 'error', JSON.stringify(t));
+
+  // ── THERE IS AT LEAST ONE TEACHER IN THE WORLD ────────────────────────────
+  //
+  // This whole plugin — the verb, the rep gate, the purity gate, the per-teacher
+  // ceiling, the teaching step — shipped with `grep -rl mastery_instructor
+  // content/` returning NOTHING for months. Every unit of it worked and the
+  // system was unreachable, because `train` can only ever find a teacher who is
+  // standing in the room. A content check, in the plugin that would be dead
+  // without it.
+  {
+    const { rows } = await query("SELECT id, name, flags->'mastery_instructor' AS cfg FROM npcs WHERE flags ? 'mastery_instructor'");
+    check('at least one NPC in the world actually teaches', rows.length > 0,
+      'no NPC carries flags.mastery_instructor — the discipline has no front door');
+
+    // A config the plugin cannot read is the same as no teacher at all.
+    const bad = rows.filter(r => !Array.isArray(r.cfg?.disciplines)
+      || !r.cfg.disciplines.length
+      || r.cfg.disciplines.some(d => !DISCIPLINES.includes(d)));
+    check('every instructor offers real disciplines', bad.length === 0,
+      bad.map(r => `${r.id}: ${JSON.stringify(r.cfg?.disciplines)}`).join('; '));
+
+    // The ladder has to reach the top, or the cap is a ceiling nobody can touch.
+    const top = rows.filter(r => (Number(r.cfg?.max_rank) || 0) >= 100);
+    check('somebody can teach to the ceiling', top.length > 0,
+      rows.map(r => `${r.id}:${r.cfg?.max_rank}`).join(', '));
+  }
+
+  // ── the `mastery` condition shape ─────────────────────────────────────────
+  //
+  // ⚠ It must read effectiveRank, never storedRank. The cap applies on READ by
+  // design, so a gate on the raw number would let somebody bolt on an arm and
+  // still open a door the discipline is meant to hold shut.
+  {
+    const C = { id: `mastcond_${P.id}`, _disciplines: new Map(), _disciplinesDirty: new Set() };
+    // 95 deliberately: ONE augment costs 12 load, so the ceiling lands at 88 —
+    // above 40 and below 95. The gate has to close because the CAP moved, which
+    // only shows up if the stored rank is above where the cap lands.
+    setRank(C, 'body', 95);
+
+    check('mastery shape passes on a discipline that is high enough',
+      (await evalCondition({ mastery: 'body', min: 90 }, C)) === true);
+    check('…and fails on one that is not',
+      (await evalCondition({ mastery: 'body', min: 99 }, C)) === false);
+    check("'any' reads the best discipline, not a named one",
+      (await evalCondition({ mastery: 'any', min: 90 }, C)) === true);
+    check('an unknown discipline fails CLOSED, like every other shape',
+      (await evalCondition({ mastery: 'wisdom', min: 1 }, C)) === false);
+    check('a clean body satisfies pure',
+      (await evalCondition({ mastery: 'any', min: 90, pure: true }, C)) === true);
+
+    // The one that matters: chrome must close the gate even though the STORED
+    // rank is untouched — which is exactly the round trip this file exists for.
+    C._augments = new Map([['aug_regress_arm', { augment_id: 'aug_regress_arm', slot: 'arms', condition: 1, calibration: 100 }]]);
+    const cappedBelow = purityCap(C) < 95;
+    check('chrome lowers the ceiling under the stored rank', cappedBelow, `cap=${purityCap(C)} stored=${storedRank(C, 'body')}`);
+    check('…so the gate closes on a chromed body',
+      (await evalCondition({ mastery: 'body', min: 95 }, C)) === false);
+    check('…and pure fails outright', (await evalCondition({ mastery: 'any', min: 1, pure: true }, C)) === false);
+    check('…while the STORED rank is untouched', storedRank(C, 'body') === 95, String(storedRank(C, 'body')));
+  }
 
   // Leave the harness player as we found it.
   P._disciplines = new Map(); P._disciplinesDirty = new Set();

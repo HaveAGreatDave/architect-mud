@@ -71,6 +71,49 @@
       "options": [],
       "text": "\"Keep it clean.\" She's already back to her ledger."
     },
+    "carry_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_fav_carry"
+        }
+      ],
+      "options": [
+        {
+          "label": "By the week.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Both books balance by the end of the week or I will be unpleasant about it, and I am very good at that.\""
+    },
+    "carry_offer": {
+      "options": [
+        {
+          "label": "I'll fetch it.",
+          "next": "carry_accept"
+        },
+        {
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "She turns a page. \"I keep two ledgers. One is everything the Watch owns. The other is everything it has lost, and it is shorter, and I take it personally.\"\n\n\"There is a cache under the Fisherman's Green that has been in the second book for a month. It is not dangerous and it is not clever. I would simply like it back where it belongs.\""
+    },
+    "carry_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_fav_carry"
+        }
+      ],
+      "options": [
+        {
+          "label": "(let her have the moment)",
+          "next": "bye"
+        }
+      ],
+      "text": "She takes it, checks it against the page without any visible pleasure, and strikes a line through the entry. Then she looks at the line for a second longer than she needs to."
+    },
     "creed": {
       "options": [
         {
@@ -84,6 +127,49 @@
       ],
       "text": "\"Everything here works without the grid, without an augment, without a wire to the machine. That's the whole idea.\" She taps a rifle's iron sights. \"The chromed will tell you flesh and steel is obsolete. Then a storm rolls through, their fancy optics die, and it's us still standing, still shooting straight over plain iron. Master the simple thing and nothing can take it from you.\""
     },
+    "loyalty_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_loyalty"
+        }
+      ],
+      "options": [
+        {
+          "label": "And myself.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Bring the parts back. And bring yourself back.\" She does not look away as you go, and does not pretend she is doing anything else."
+    },
+    "loyalty_offer": {
+      "options": [
+        {
+          "label": "I know what this is.",
+          "next": "loyalty_accept"
+        },
+        {
+          "label": "Ask somebody else.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Quartermaster puts a purse on the counter. It is heavier than the errand needs to be and both of you can see that.\n\n\"Parts we cannot make. All of it sells on Halcyon Boulevard, and the last of it is behind the clinic counter, and you will be waiting there a while.\"\n\nShe slides the list across.\n\n\"They will offer you things while you wait. They are very good at it, they will be kind about it, and there is a discount for anybody who looks like they are thinking it over.\" A beat. \"I am not telling you not to. I am telling you I will be here when you get back, and so will the ledger.\""
+    },
+    "loyalty_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_loyalty"
+        }
+      ],
+      "options": [
+        {
+          "label": "(let her look)",
+          "next": "bye"
+        }
+      ],
+      "text": "She counts the parts, and then the change, and then she looks at you — at your hands, at the sides of your throat, at the way you are standing — for a great deal longer than four seconds.\n\n\"Right,\" says the Quartermaster, and writes something in the first ledger."
+    },
     "root": {
       "options": [
         {
@@ -95,11 +181,96 @@
           "next": "__shop__"
         },
         {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Will you teach me?",
+          "next": "teach"
+        },
+        {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_lw_fav_carry",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Anything missing from the books?",
+          "next": "carry_offer"
+        },
+        {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "quest_lw_fav_carry",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "Your cache is on the counter.",
+          "next": "carry_report"
+        },
+        {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "ideology_rep": "ideology_long_watch",
+              "tier": "trusted"
+            },
+            {
+              "flag": "quest_lw_loyalty",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Is there something harder?",
+          "next": "loyalty_offer"
+        },
+        {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "quest_lw_loyalty",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "Parts, and the change.",
+          "next": "loyalty_report"
+        },
+        {
           "label": "Nothing today.",
           "next": "bye"
         }
       ],
       "text": "She looks up, marks her place in the ledger with one finger. \"So they let you in. Good for you.\" A measuring glance, head to boots. \"I'm the quartermaster. What the Watch trusts you with depends on what you've done for the Watch, but you're inside the door, so let's see what fits.\""
+    },
+    "teach": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I fit gear to people,\" she says, without looking up from the ledger. \"Which means most of my job is looking at somebody for four seconds and knowing what they will do under load. You can learn that. It is not a gift, it is a habit with a very long run-up.\"\n\nShe closes the ledger.\n\n\"Senses, and will. Noticing, and not giving in. `train senses` or `train will`, and bring me your hands clean.\""
     }
   },
   "faction": "ideology_long_watch",
@@ -109,6 +280,14 @@
       "a plain wool jumper, elbows patched",
       "hard-wearing trousers and good boots"
     ],
+    "mastery_instructor": {
+      "disciplines": [
+        "senses",
+        "will"
+      ],
+      "max_rank": 65,
+      "rep_required": 500
+    },
     "mis_willing": false,
     "personality": "vendor"
   },

@@ -1,0 +1,81 @@
+{
+  "category": null,
+  "description": "The Quartermaster hands you a purse heavy enough to be a point, and a list of parts the Watch cannot make and will not do without. All of it is sold on Halcyon Boulevard, and the clinic on that same street will fit you anything you like while you wait, at a discount, to anybody who looks like they are considering it.\n\nShe does not tell you not to. She says: bring the parts back, and bring yourself back, and she watches you the whole way to the door.",
+  "fail_on": [
+    {
+      "desc": "You had something fitted. The parts are on the counter and so is the receipt, and the Quartermaster reads the second one first.",
+      "type": "install"
+    },
+    {
+      "desc": "You came back a different shape. The Watch have a word for that and it is not one they say to your face.",
+      "type": "mutate"
+    }
+  ],
+  "id": "quest_lw_loyalty",
+  "meta": {},
+  "name": "Nothing Bought",
+  "objectives": [
+    {
+      "desc": "Work the length of Halcyon Boulevard for the parts on the list.",
+      "emotes": [
+        "{who} works down the list, counter by counter, and is offered something better at every one of them."
+      ],
+      "id": "o_street",
+      "taskSeconds": 10,
+      "type": "visit",
+      "zone": "zone_district_894_907"
+    },
+    {
+      "desc": "The last part is behind the clinic counter. Wait for it.",
+      "emotes": [
+        "{who} sits in a warm, clean waiting room while somebody explains what could be done about the ache in their hands.",
+        "{who} is handed a brochure, and holds it, and does not read it."
+      ],
+      "id": "o_wait",
+      "requires": [
+        "o_street"
+      ],
+      "taskSeconds": 20,
+      "type": "visit",
+      "zone": "zone_asc_clinic_consult"
+    },
+    {
+      "desc": "Take the parts back to the Quartermaster.",
+      "emotes": [
+        "{who} puts the parts and what is left of the purse on the counter, in that order."
+      ],
+      "id": "o_back",
+      "requires": [
+        "o_wait"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_lw_bunk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 400,
+    "flags": [
+      {
+        "flag": "lw_loyal",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 220,
+        "ideology": "ideology_long_watch"
+      },
+      {
+        "delta": -60,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 85
+  },
+  "updated_at": "1787379039"
+}

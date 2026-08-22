@@ -72,6 +72,49 @@
   ],
   "description": "A lean, grey-stubbled man in a canvas apron gone shiny at the pockets, reading glasses pushed up into iron-coloured hair. His hands are the story: burn-flecked, sure, never quite still, forever turning some small dead thing over to see how it died. He watches you the way a man watches a stranger's hands, not their face.",
   "dialogue_tree": {
+    "bench_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_fav_bench"
+        }
+      ],
+      "options": [
+        {
+          "label": "Out of my hands.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Make me something. I do not much care what. I care that it came out of your hands.\""
+    },
+    "bench_offer": {
+      "options": [
+        {
+          "label": "(sit down at the bench)",
+          "next": "bench_accept"
+        },
+        {
+          "label": "Another day.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I do not need the help.\" He says it while clearing a space at the bench, and then says it again, and keeps clearing.\n\n\"The Watch run on things that were made rather than bought. That is not a philosophy, it is a supply problem — nobody sells us anything and the ones who would want paying in the wrong currency. So the making gets done by whoever is standing there.\"\n\nHe pushes a stool out with his foot without turning round.\n\n\"Today that is you.\""
+    },
+    "bench_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_fav_bench"
+        }
+      ],
+      "options": [
+        {
+          "label": "(leave it on the shelf)",
+          "next": "bye"
+        }
+      ],
+      "text": "Halloran turns it over twice, the way he turns everything over, and puts it on the shelf with the rest instead of handing it back. Which is the review."
+    },
     "bye": {
       "options": [],
       "text": "\"Mind the step.\" He's already turned back to the bench, and the shop is just a shop again."
@@ -404,7 +447,38 @@
           "next": "lw_member"
         },
         {
-          "label": "Just looking.",
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_lw_fav_bench",
+              "op": "neq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "Need a pair of hands at the bench?",
+          "next": "bench_offer"
+        },
+        {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "quest_lw_fav_bench",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "I made you something.",
+          "next": "bench_report"
+        },
+        {
+          "label": "Later.",
           "next": "bye"
         }
       ],

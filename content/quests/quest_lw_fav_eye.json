@@ -1,0 +1,53 @@
+{
+  "category": null,
+  "description": "There is a camera on the Meltwater side that has been looking at a doorway people need to use. Nyall has chalked the wall under it, which is his way of putting a thing on the list. Go and close it, and do not be a story afterwards.",
+  "fail_on": [
+    {
+      "desc": "Somebody watched you do it. A blind spot everyone knows about is just a place people get arrested.",
+      "type": "spotted"
+    },
+    {
+      "desc": "Another lens had you the whole time. The Watch will have to start again somewhere else.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_lw_fav_eye",
+  "meta": {},
+  "name": "Closing an Eye",
+  "objectives": [
+    {
+      "desc": "Get under the camera on Meltwater Row and wait for the street to lose interest.",
+      "emotes": [
+        "{who} stands in a doorway doing nothing at all, which takes practice."
+      ],
+      "id": "o_reach",
+      "taskSeconds": 6,
+      "type": "visit",
+      "zone": "zone_district_907_912"
+    },
+    {
+      "count": 1,
+      "desc": "Close the eye.",
+      "id": "o_close",
+      "requires": [
+        "o_reach"
+      ],
+      "type": "hack",
+      "zone": "zone_district_907_912"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 130,
+    "rep": [
+      {
+        "delta": 65,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 26
+  },
+  "updated_at": "1787379039"
+}

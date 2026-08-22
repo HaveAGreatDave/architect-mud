@@ -70,6 +70,49 @@
       ],
       "text": "Something almost like approval crosses her face. \"Noticed that, did you.\" She adjusts the sling. \"Things that breed down here breed toward the warm. Somebody decided a while back that they weren't going to breed toward this particular warm.\" She starts walking. \"That's all you get from me tonight.\""
     },
+    "quiet_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_fav_quiet"
+        }
+      ],
+      "options": [
+        {
+          "label": "Cold and confused.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Across the back of the head, and walk away, and let him wake up cold and confused and alive.\""
+    },
+    "quiet_offer": {
+      "options": [
+        {
+          "label": "Alive. Understood.",
+          "next": "quiet_accept"
+        },
+        {
+          "label": "Find somebody with fewer scruples.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is a man on Foundry Way counting doorways.\" Teague says it flatly. \"Municipal. Damp. Harmless as a person and not harmless as a ledger, because in six weeks somebody upstairs will have a list of every door in the quarter that opens.\"\n\n\"Stop the counting. Leave the counter.\" Her eyes come up. \"I want to be understood on the second half. We do not leave bodies. Not because we are gentle — because a body is a reason for somebody to come and look, and looking is the only thing that has ever hurt us.\""
+    },
+    "quiet_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_fav_quiet"
+        }
+      ],
+      "options": [
+        {
+          "label": "(nothing to add)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"And he is breathing.\" She does not make you say it twice. \"Good. In a month he will tell it as the night he was mugged on Foundry Way, which is a story nobody investigates.\""
+    },
     "root": {
       "first": "She has been standing in the dark long enough to have watched you arrive. When she finally speaks it is from somewhere off to your left. \"Middle of the tunnel,\" she says. \"Nothing good stands where you are standing.\" She steps into your light: oilskins, carbine, no particular hurry.",
       "options": [
@@ -82,11 +125,66 @@
           "next": "clean"
         },
         {
-          "label": "Nothing. Passing through.",
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "They said you could teach me.",
+          "next": "teach"
+        },
+        {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "ideology_rep": "ideology_long_watch",
+              "tier": "trusted"
+            },
+            {
+              "flag": "quest_lw_fav_quiet",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Anything down here need doing?",
+          "next": "quiet_offer"
+        },
+        {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "quest_lw_fav_quiet",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "The counting has stopped.",
+          "next": "quiet_report"
+        },
+        {
+          "label": "Nothing.",
           "next": "bye"
         }
       ],
       "text": "She stops a comfortable distance off, carbine still slung, and looks at you with the patience of somebody who has all night. \"You're a long way in,\" she says. \"Most people don't get this deep and stay this healthy.\""
+    },
+    "teach": {
+      "options": [
+        {
+          "label": "Movement, then.",
+          "next": "bye"
+        }
+      ],
+      "text": "Teague looks at you for long enough that the lantern on her belt stops swinging.\n\n\"Someone sent you all the way down here, so someone thinks you are worth the walk.\" She unslings the carbine and leans it against the wall, muzzle down, which is not a small thing. \"Moving. Pain. Keeping your head. Fighting, when it comes to that, and it does.\"\n\n\"There is no ceiling on what I can show you and there is a hard one on what you can hold, and it is your own body, and you brought it here yourself. `train` and name the thing.\""
     },
     "work": {
       "options": [
@@ -105,6 +203,16 @@
       "a jumper darned at both elbows",
       "wading boots turned down below the knee"
     ],
+    "mastery_instructor": {
+      "disciplines": [
+        "movement",
+        "pain",
+        "mind",
+        "combat"
+      ],
+      "max_rank": 100,
+      "rep_required": 900
+    },
     "mis_willing": false
   },
   "home_activities": [],
