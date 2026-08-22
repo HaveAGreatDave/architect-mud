@@ -425,8 +425,16 @@
       help: 'This item is a cassette tape. It should also have flags.broadcast_id pointing to a media_broadcasts row.' },
 
     // --- Furniture capabilities (presence-only, on a furniture row) ---
-    water_source: { label: 'Water Source', shape: 'flag', scope: 'furniture', group: 'Capabilities',
-      help: 'Players can drink from and wash at this furniture. Enables the water-plugin verbs (drink/wash). The verb is blind to what the furniture is — sink, fountain, well, leaking pipe — it only asks for this capability.' },
+    // ⚠ THE ONE CAPABILITY THAT IS ALSO A ZONE TAG, and `targets` is how that is said. A transient
+    // void room can never own a furniture row, so a hot spring or a wayside barrel out in the waste
+    // had to be a property of the GROUND — `cook`, `fill` and `drink` check the zone's own tag
+    // first, under this same name and with no extra round trip. Catalogued as furniture-scoped for
+    // months while void rooms used it as a zone flag, which broke nothing (validateTags is
+    // presence-only, and transient rooms never reach content:lint) and meant the Studio would not
+    // OFFER it on a tile: the first hand-authored wayside would have had to be written by hand.
+    water_source: { label: 'Water Source', shape: 'flag', scope: 'furniture',
+      targets: ['furniture', 'zone'], group: 'Capabilities',
+      help: 'Players can drink from and wash at this furniture — or at this TILE, for open water with nothing to install a sink on. Enables the water-plugin verbs (drink/wash), and satisfies cooking\'s `fill` at a pan. The verb is blind to what it is — sink, fountain, well, leaking pipe, hot spring, rain barrel — it only asks for this capability.' },
     fuel_source: { label: 'Fuel Source', shape: 'number', scope: 'furniture', group: 'Capabilities',
       help: 'A fuel point `fill` draws from — a forecourt pump, a bowser, a drum with a hand pump. The VALUE is the price in ₵ per fluid unit; leave it 0 (or set the flag bare) and the fill is free, which is what every fuel source in the world did before forecourts existed. Blind to what the furniture is, exactly like Water Source. Note this does NOT fuel a truck: a rig fuels off the ZONE (building_type `fuel_yard`, or the Truck Fuel zone flag), because a truck parks on a tile rather than walking up to a pump.' },
     fuel_price_sign: { label: 'Fuel Price Board', shape: 'flag', scope: 'furniture', group: 'Capabilities',

@@ -125,7 +125,13 @@ const INSANE_REFUSALS = [
   'Your body refuses to be told. It has other ideas now, and it will not share them.',
 ];
 
-export async function handleCommand(input, player, broadcast) {
+// `opts.silent` is the client's own `sendCmdSilent` flag, forwarded from the socket. It says the
+// PLAYER did not type this — the tablet map re-nav, the post-move look refresh, a minigame handing
+// back a result. The distinction already decided idle-logoff stamping and the log rung's brief; it
+// reaches `player.command` too now, because anything that wants to be interrupted BY THE PLAYER
+// needs to tell the two apart. Without it, an ongoing action would be cancelled by the client
+// repainting its own tablet — silently, and on the very first step.
+export async function handleCommand(input, player, broadcast, opts = {}) {
   let raw = input.trim();
   if (!raw) return null;
 
@@ -205,7 +211,7 @@ export async function handleCommand(input, player, broadcast) {
   // Let plugins react to the player taking any action — fired BEFORE the command
   // runs, so a move/act that lands on a tile doesn't cancel the very task it's about
   // to start. The quests plugin uses this to interrupt an in-progress timed tile task.
-  emit('player.command', { player, cmd });
+  emit('player.command', { player, cmd, silent: !!opts.silent });
 
   // OUT COLD. Unlike sleep there is no allowlist and no verb to end it: somebody
   // else decided this and only time undoes it. Checked before the sleep gate

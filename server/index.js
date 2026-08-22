@@ -107,7 +107,7 @@ import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
 import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
 import { hydrateDisplayRung, loggedPanelsSync, seedDisplayRungIfUnset, setDisplayRung, RUNGS as DISPLAY_RUNGS } from "./engine/presentation.js";
-import { arrivalRoom } from "./engine/room-brief.js";
+import { stampToLog } from "./engine/room-brief.js";
 import { hydrateRelations, flushRelations } from "./engine/relations.js";
 import { hydrateIdeologyProfile } from "./engine/ideologies.js";
 import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
@@ -151,46 +151,6 @@ setGhostTokenStore((token, playerId, zoneId) => {
 	ghostTokens.set(token, { playerId, zoneId, expires: Date.now() + 2 * 60 * 1000 });
 });
 
-// Mark a room description for the scrolling log when the player is on the bottom
-// Display Mode rung. Only `look`/`move` carry one; everything else is already a
-// log message. See the note at the handleCommand call site.
-// ⚠ `silent` is load-bearing, not bookkeeping. The client fires
-// `sendCmdSilent('look')` from about fifteen places that have nothing to do with
-// the player asking to look: the 800ms zone_event refresh (somebody ELSE walked
-// out of the room), the post-swing combat refresh, take, hangar/cockpit/poker
-// close. Every one of those arrives here as `type: 'look'` — which used to mean
-// FULL — so at the bottom rung a bystander heading east read the entire room
-// description aloud, and a fight repainted it every 300ms.
-//
-// A silent look exists to repaint the area pane, and at this rung the pane is
-// aria-hidden. So it is never full, and it is dropped outright when it would
-// only repeat the room we last logged: the event that triggered it ("Graham
-// Mercer heads east") is its own log line and IS the record. The contract holds
-// — an explicit `look` is still always full, and it is still one keystroke away.
-function stampToLog(player, message, silent = false) {
-	if (!message || (message.type !== 'look' && message.type !== 'move')) return message;
-	if (!loggedPanelsSync(player)) return message;
-	const zone = message.zone || player?.current_zone;
-	if (silent && message.type === 'look') {
-		// Same room as the last one we spoke ⇒ nothing has been said that this
-		// would add to. Say nothing.
-		if (player._logLastRoom === zone) return message;
-		player._logLastRoom = zone;
-		// Housekeeping that happens to have landed you somewhere new — the same
-		// arrival line a move gets, for the same reason: nobody asked to look.
-		return { ...message, toLog: true, logMessage: arrivalRoom(message.message) };
-	}
-	// WALKING IS NOT READING. A move logs where you are and what can hurt you and
-	// nothing else (`arrivalRoom`) — not even on the first arrival, because the
-	// player on this rung asked for as little as possible and a room they have
-	// never seen is exactly the room they would type `look` in. An explicit
-	// `look` is never abbreviated at all, which is the whole safety property:
-	// nothing is lost, only deferred by one keystroke. See engine/room-brief.js.
-	// The PANE copy stays full either way; only `toLog` carries the short one.
-	player._logLastRoom = zone;
-	const logMessage = message.type === 'look' ? message.message : arrivalRoom(message.message);
-	return { ...message, toLog: true, logMessage };
-}
 
 function broadcast(
 	zoneId,
@@ -1553,7 +1513,7 @@ async function handleGameCommand(ws, session, msg) {
 		);
 		return;
 	}
-	const result = await handleCommand(msg.command, player, broadcast);
+	const result = await handleCommand(msg.command, player, broadcast, { silent: !!msg.silent });
 	// SIFT PICKER RIDES THE REPLY, for the same reason stampToLog does. Sixty-eight
 	// call sites open a disambiguation picker and all of them return plain text;
 	// rather than teach all sixty-eight to also send a dialog, the state records

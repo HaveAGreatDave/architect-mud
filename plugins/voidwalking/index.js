@@ -42,7 +42,7 @@
 import { getLivePlayer, getAllLivePlayers, getAllZones, getZone, getZoneEnemies, getMinimapData, addPlayerToZone, removePlayerFromZone,
   registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, propsOf } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 // The single named exemption engine:impassable-terrain carries — a body that grew wings. Imported
 // rather than reimplemented so the void and the world agree about what a cliff is.
@@ -56,6 +56,8 @@ import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { randomUUID } from 'crypto';
 import { loadWindow, getTraces, addTrace, claimTrace } from './traces.js';
+// The traversal verb. It reads the plan and nothing else, and imports nothing back — see wireMarch.
+import { cmdMarch, wireMarch, isMarching, _test as _march } from './march.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
@@ -1254,10 +1256,13 @@ export async function launchCrossing(leader, gate, broadcast, heading) {
   }
   const dests = gate.void.dests.map(d => d.heading).join(' or ');
   const aimLine = aim ? ` You set your heading for ${aim.heading}.` : '';
+  // The one place `march` is taught, because it is the one place where the number of tiles ahead of
+  // somebody stops being a figure of speech. See plugins/voidwalking/march.js.
+  const marchLine = `\n<span class="text-dim">It is a long way on foot. ${teachVerb('march')} to walk it until something needs deciding.</span>`;
   const desc = await describeZone(entry, leader);
   return {
     type: 'move',
-    message: `${VOID_ENTRY_BANNER}\nYou strike out into the waste. The edge of the map falls away behind you and the road is gone — only the going. Somewhere ahead it splits toward ${dests}.${aimLine}\n\n${desc}`,
+    message: `${VOID_ENTRY_BANNER}\nYou strike out into the waste. The edge of the map falls away behind you and the road is gone — only the going. Somewhere ahead it splits toward ${dests}.${aimLine}${marchLine}\n\n${desc}`,
     zone: entry.id,
     minimap: getMinimapData(entry.id, 8, leader),
   };
@@ -1928,6 +1933,11 @@ export function crossingInfo(instanceId) {
     trunk: Math.max(1, c.plan?.trunkLen || 1) };
 }
 
+// The march reads the plan (which room hosts a detour, what a cut saves, where a room sits along the
+// spine) and never the materialised set, for the same reason `crossingChain` does not: most of the
+// route is not made at any given moment. Handing it the map is enough — it owns no crossing state.
+wireMarch({ crossings });
+
 export const commands = {
   voidwalk: cmdVoidwalk,
   ready: cmdReady,
@@ -1936,6 +1946,7 @@ export const commands = {
   frontier: cmdFrontier,
   flag: cmdFlag,
   camp: cmdRest,
+  march: cmdMarch,
 };
 
 export const hooks = {
@@ -1955,7 +1966,7 @@ export const _test = {
   // own behaviour is asserted separately, on a crossing nobody has forced.
   materialiseAll: (c) => { for (const id of c.plan.rooms.keys()) materialise(c, id); return c; },
   loadFoes, spawnFoe, foesFor, MAX_VOID_FOES, isHardNode, hardFoePool: () => HARD_FOE_POOL, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath, frontierView, markSurvived,
-  stagings, playerStaging, isMapRim, rimDirs, describeRim,
+  stagings, playerStaging, isMapRim, rimDirs, describeRim, isMarching, march: _march,
   foePool: () => FOE_POOL,
   invalidateRimIndex: () => { coordIndex = null; },
   setEncounters: (on) => { ENCOUNTERS_ON = on; },

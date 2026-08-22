@@ -2,7 +2,7 @@
 //
 // ── The problem this solves ──────────────────────────────────────────────────
 // At the `log` rung the room description is appended to the scrolling log on
-// every move (server/index.js stampToLog). That is the ONLY way a screen-reader
+// every move (stampToLog, at the foot of this file). That is the ONLY way a screen-reader
 // player learns where they are, so it cannot simply be dropped — but the full
 // description is a prose paragraph, and a player crossing six rooms gets six
 // paragraphs READ ALOUD. Walking down a street becomes a wall of text nobody can
@@ -64,6 +64,8 @@
 // The safety contract is unchanged and the TALLY tier is what preserves it:
 // nothing becomes invisible, because the brief still says the category is there
 // and `look` is still always full. One keystroke, as before.
+
+import { loggedPanelsSync } from './presentation.js';
 
 // Tier 1 — always printed.
 const VITAL = [
@@ -265,4 +267,54 @@ export function arrivalRoom(html) {
 // object, written on the every-move path, and state nothing consults is exactly
 // the kind of thing that gets re-consulted later by mistake.
 
-export const _test = { briefRoom, arrivalRoom, KEEP, DROP, VITAL, TALLY, ARRIVAL };
+// ── Marking a room description for the log rung ──────────────────────────────
+//
+// ⚠ THIS LIVES HERE RATHER THAN IN server/index.js, AND THAT IS THE POINT OF MOVING IT. It is not
+// the socket's business, it is the room-brief rule stated once — and anything that pushes a room
+// description WITHOUT going through dispatch has to obey the same rule or the bottom rung quietly
+// stops getting the record. The walker's `march` (plugins/voidwalking/march.js) is the first such
+// thing: it sends a `move` payload per tile from a scheduler tick, and a plugin cannot import the
+// server entrypoint to borrow a rule that was private to it.
+//
+// Mark a room description for the scrolling log when the player is on the bottom
+// Display Mode rung. Only `look`/`move` carry one; everything else is already a
+// log message. See the note at the handleCommand call site.
+// ⚠ `silent` is load-bearing, not bookkeeping. The client fires
+// `sendCmdSilent('look')` from about fifteen places that have nothing to do with
+// the player asking to look: the 800ms zone_event refresh (somebody ELSE walked
+// out of the room), the post-swing combat refresh, take, hangar/cockpit/poker
+// close. Every one of those arrives here as `type: 'look'` — which used to mean
+// FULL — so at the bottom rung a bystander heading east read the entire room
+// description aloud, and a fight repainted it every 300ms.
+//
+// A silent look exists to repaint the area pane, and at this rung the pane is
+// aria-hidden. So it is never full, and it is dropped outright when it would
+// only repeat the room we last logged: the event that triggered it ("Graham
+// Mercer heads east") is its own log line and IS the record. The contract holds
+// — an explicit `look` is still always full, and it is still one keystroke away.
+export function stampToLog(player, message, silent = false) {
+  if (!message || (message.type !== 'look' && message.type !== 'move')) return message;
+  if (!loggedPanelsSync(player)) return message;
+  const zone = message.zone || player?.current_zone;
+  if (silent && message.type === 'look') {
+    // Same room as the last one we spoke ⇒ nothing has been said that this
+    // would add to. Say nothing.
+    if (player._logLastRoom === zone) return message;
+    player._logLastRoom = zone;
+    // Housekeeping that happens to have landed you somewhere new — the same
+    // arrival line a move gets, for the same reason: nobody asked to look.
+    return { ...message, toLog: true, logMessage: arrivalRoom(message.message) };
+  }
+  // WALKING IS NOT READING. A move logs where you are and what can hurt you and
+  // nothing else (`arrivalRoom`) — not even on the first arrival, because the
+  // player on this rung asked for as little as possible and a room they have
+  // never seen is exactly the room they would type `look` in. An explicit
+  // `look` is never abbreviated at all, which is the whole safety property:
+  // nothing is lost, only deferred by one keystroke.
+  // The PANE copy stays full either way; only `toLog` carries the short one.
+  player._logLastRoom = zone;
+  const logMessage = message.type === 'look' ? message.message : arrivalRoom(message.message);
+  return { ...message, toLog: true, logMessage };
+}
+
+export const _test = { briefRoom, arrivalRoom, stampToLog, KEEP, DROP, VITAL, TALLY, ARRIVAL };

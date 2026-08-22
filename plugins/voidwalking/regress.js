@@ -745,7 +745,165 @@ export default async function regress({ run, check, getPlayer }) {
           `out ${d.length}, back ${back.length}`);
       }
     }
+    // ── `march`: the traversal verb ──────────────────────────────────────────
+    //
+    // The tick is driven by hand rather than by the scheduler, and `_lastStepAt` is cleared before
+    // each one: the pacing plugin's move gate vetoes SILENTLY (cmdMove returns null), so back-to-back
+    // ticks in a test would stall the walk instead of failing it, which is exactly the shape of red
+    // that looks like a march bug and is not one.
+    {
+      const M = _test.march;
+      const savedThirst = player.thirst;
+      const marchTick = async () => { player._lastStepAt = 0; await M.tick(); };
+
+      wipe();
+      player.current_zone = GATE;
+      M.runs.clear();
+      const nowhere = await run('march');
+      check('march is refused when you are not on a crossing', nowhere?.type === 'error' && !M.runs.size, `${nowhere?.type}`);
+
+      await launch();
+      const mc = _test.materialiseAll(_test.crossings.get(player._crossing.instanceId));
+      player.thirst = 100;
+
+      const started = await run('march');
+      check('march starts a run on the trail', started?.type === 'emote' && M.runs.has(player.id), `${started?.type} runs=${M.runs.size}`);
+
+      // One tile per tick, and it is the ORDINARY move — the player is genuinely in the next room.
+      const before = player.current_zone;
+      await marchTick();
+      check('a march tick walks exactly one tile', player.current_zone === getZone(before)?.exits?.south,
+        `${before} -> ${player.current_zone}`);
+
+      // ⚠ RE-ARM BEFORE EVERY CASE BELOW. A tick can legitimately have halted the march (that is the
+      // whole point of it), so asserting "still running" against a run left over from the previous
+      // case tests nothing on a good day and fails on a seeded one.
+      // It also stands the player back on the threshold, which is the one room in the plan that is
+      // guaranteed plain (no highlight roll, no encounter roll) and always has a way on.
+      const arm = async () => {
+        _test.materialiseAll(mc);
+        player.current_zone = mc.plan.trunk[0];
+        M.runs.clear();
+        await run('march');
+      };
+
+      // A silent command is the CLIENT talking (the tablet map re-nav fires on every single move).
+      // If this cancels, a march dies on its first tile for anybody with the map open.
+      await arm();
+      emit('player.command', { player, cmd: 'look', silent: true });
+      check('a silent client command does not stop a march', M.runs.has(player.id));
+      emit('player.command', { player, cmd: 'look', silent: false });
+      check('a command the player typed stops a march', !M.runs.has(player.id));
+
+      // `stop` is what the verb's own prompt points at, and it must report itself.
+      await arm();
+      const stopped = [];
+      emit('player.stop', { player, stopped });
+      check('the unified stop ends a march and says so', !M.runs.has(player.id) && stopped.includes('walking'), stopped.join(','));
+
+      // ⚠ A BRANCH IS READ OFF THE PLAN, NEVER OFF THE ZONE'S EXITS. A limb's first room carries a
+      // lateral exit back to the fork (OPPOSITE of the fork direction, which for an east limb IS
+      // west), so an exits-based test would halt a march at the head of every limb in the game.
+      // ⚠ RE-MATERIALISE FIRST. These probes stand the player in a room chosen off the PLAN, and the
+      // window only makes rooms near somebody — the ticks above have since walked on and evicted
+      // them. Without this the zone is null and every case below fails as "the ground stops making
+      // sense", which is a true statement about the test and nothing at all about the march.
+      {
+        _test.materialiseAll(mc);
+        const eastKey = mc.dests[1].key;
+        const head = mc.plan.limbs[eastKey][0];
+        const hz = getZone(head);
+        check('a limb head really does carry a lateral exit back to the fork', !!hz?.exits?.west, JSON.stringify(hz?.exits));
+        const wasZone = player.current_zone;
+        player.current_zone = head;
+        check('…and a march does not treat that as a branch', M.haltReason(mc, player) === null,
+          String(M.haltReason(mc, player)));
+        player.current_zone = wasZone;
+      }
+
+      // Scenery is not a decision (KIND_WEIGHTS puts marker at 34% of all features).
+      {
+        _test.materialiseAll(mc);
+        const probe = mc.plan.limbs[mc.dests[0].key][2];
+        const pz = getZone(probe);
+        const wasFlags = { ...pz.flags };
+        const wasZone = player.current_zone;
+        player.current_zone = probe;
+        pz.flags.void_feature_kind = 'marker';
+        check('a marker highlight does not halt a march', M.haltReason(mc, player) === null);
+        for (const kind of [...M.ACTIONABLE_KINDS]) {
+          pz.flags.void_feature_kind = kind;
+          check(`a "${kind}" highlight halts a march`, typeof M.haltReason(mc, player) === 'string', kind);
+        }
+        pz.flags = wasFlags;
+        player.current_zone = wasZone;
+      }
+
+      // ⚠ THE FORK, AND THE TRAP IT CARRIES. The obvious reading is that the fork stops a march for
+      // free because the trunk loop never writes it a `south`. It is wrong, and this is the case that
+      // proved it: each limb hangs off the fork in ITS OWN direction, and Coldwater's first
+      // destination heads south — so the fork DOES have a forward exit, and a march that trusted the
+      // exits would have walked the player onto a heading nobody chose. Both halves are asserted, in
+      // this order, so the day somebody "simplifies" the identity check back to an exit test the
+      // first line here tells them why they cannot.
+      {
+        _test.materialiseAll(mc);
+        const fork = mc.plan.fork;
+        const wasZone = player.current_zone;
+        player.current_zone = fork;
+        check('the fork carries a limb SOUTH — it is not stopped by having no way on',
+          !!getZone(fork)?.exits?.south, JSON.stringify(getZone(fork)?.exits));
+        const why = M.haltReason(mc, player);
+        check('…and a march halts there anyway, naming the headings',
+          typeof why === 'string' && why.includes(mc.dests[0].heading), String(why));
+        const refused = await run('march');
+        check('and march refuses to start at the fork', refused?.type === 'error', `${refused?.type}`);
+        player.current_zone = wasZone;
+      }
+
+      // ⚠ THIRST HALTS ARE GATES YOU CROSS, NOT A LEVEL YOU ARE AT. A flat "stop below 40" would
+      // halt every single tile for the rest of a crossing — the verb would stop working exactly
+      // where a player most wants it.
+      {
+        _test.materialiseAll(mc);
+        player.current_zone = mc.plan.trunk[0];   // the threshold: plain ground, and it always has a way on
+        M.runs.clear();
+        player.thirst = 100;
+        await run('march');
+        check('a full canteen arms every thirst gate', M.runs.get(player.id)?.gates?.length === M.THIRST_GATES.length,
+          JSON.stringify(M.runs.get(player.id)?.gates));
+        player.thirst = 35;
+        await marchTick();
+        check('crossing a thirst gate halts the march', !M.runs.has(player.id), `thirst=${player.thirst}`);
+
+        _test.materialiseAll(mc);
+        player.current_zone = mc.plan.trunk[0];
+        M.runs.clear();
+        player.thirst = 35;
+        await run('march');
+        // The gate is the assertion, not a second tick: whether the NEXT tile happens to hold a
+        // highlight is the seed's business, and a case that depends on it is a flake waiting to
+        // happen. That a march keeps walking is proved by the one-tile case above.
+        check('setting off already dry does not arm a gate you are past',
+          M.runs.has(player.id) && !M.runs.get(player.id).gates.includes(40),
+          JSON.stringify(M.runs.get(player.id)?.gates));
+      }
+
+      // A crossing torn down under somebody's feet takes the march with it.
+      _test.materialiseAll(mc);
+      player.current_zone = mc.plan.trunk[0];
+      M.runs.clear();
+      await run('march');
+      emit('crossing.ended', { instanceId: player._crossing.instanceId, rooms: [], origin: GATE, voidKey: VOIDKEY });
+      check('a crossing ending ends every march on it', !M.runs.has(player.id));
+
+      M.runs.clear();
+      player.thirst = savedThirst;
+      wipe();
+    }
+
   } finally {
+    _test.march.runs.clear();
     _test.setEncounters(true);
     _test.setSalvage(null);
     _test.setWindow(null);

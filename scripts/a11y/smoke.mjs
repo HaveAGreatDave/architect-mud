@@ -79,13 +79,17 @@ else bad(`only ${guardedHides} setPaneSilent call(s) are gated on paneFreeForRoo
 // every single step, which is the difference between a playable transcript and
 // an unusable one.
 {
+  // ⚠ `stampToLog` LIVES IN room-brief.js NOW, not in server/index.js. It moved when the walker's
+  // `march` needed it (plugins/voidwalking/march.js pushes a `move` payload per tile from a
+  // scheduler tick, and a plugin cannot import the server entrypoint) — so the rule is stated once,
+  // beside `arrivalRoom`, and anything that pushes a room description obeys it. The call site is
+  // still asserted against server/index.js below.
   const brief = readFileSync('server/engine/room-brief.js', 'utf8');
-  const server2 = readFileSync('server/index.js', 'utf8');
-  if (/arrivalRoom/.test(server2)) ok('the server shortens a walked-into room in the log');
-  else bad('server/index.js no longer calls arrivalRoom — every step logs a full paragraph');
+  if (/arrivalRoom/.test(brief)) ok('the server shortens a walked-into room in the log');
+  else bad('stampToLog no longer calls arrivalRoom — every step logs a full paragraph');
   // The safety property. An abbreviated `look` would make the information GONE
   // rather than one keystroke away, and the whole contract rests on that.
-  if (/message\.type === 'look' \? message\.message/.test(server2)) ok("…and never abbreviates an explicit `look`");
+  if (/message\.type === 'look' \? message\.message/.test(brief)) ok("…and never abbreviates an explicit `look`");
   else bad('the full-render condition has changed — an explicit `look` MUST stay full, or the short arrival becomes lossy');
   if (/appendHtml\(msg\.logMessage \|\| msg\.message/.test(dispatch)) ok('…and the client honours the brief copy');
   else bad('the client ignores msg.logMessage — the brief is computed and thrown away');
@@ -114,7 +118,7 @@ else bad('server/index.js no longer stamps toLog — the client will never be to
 if (/stampToLog\(player, result, !!msg\.silent\)/.test(server)) {
   ok('a silent look is distinguished from an explicit one before it reaches the log');
 } else bad('stampToLog no longer receives msg.silent — every pane refresh will read the full room aloud');
-if (/silent && message\.type === 'look'/.test(server)) {
+if (/silent && message\.type === 'look'/.test(readFileSync('server/engine/room-brief.js', 'utf8'))) {
   ok('a silent look is never rendered full');
 } else bad('stampToLog no longer special-cases a silent look — the brief contract is only half enforced');
 

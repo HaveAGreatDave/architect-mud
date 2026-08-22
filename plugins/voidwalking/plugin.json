@@ -9,7 +9,8 @@
     "loot",
     "frontier",
     "flag",
-    "camp"
+    "camp",
+    "march"
   ],
   "hooks": [
     "movement.edge",
