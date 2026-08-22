@@ -14,10 +14,12 @@
     "west": "zone_yard_lastload"
   },
   "flags": {
+    "allow_sleep": true,
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "region_id": "region_the_reach",
+    "sanctuary": true,
     "truck_bunkroom": true,
     "world_exit_zone": "zone_the_reach_872_1958"
   },

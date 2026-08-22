@@ -14,10 +14,12 @@
     "south": "zone_yard_bonded"
   },
   "flags": {
+    "allow_sleep": true,
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "region_id": "region_coldwater",
+    "sanctuary": true,
     "truck_bunkroom": true,
     "world_exit_zone": "zone_district_922_907"
   },

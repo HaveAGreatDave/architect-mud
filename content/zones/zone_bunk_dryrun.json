@@ -14,10 +14,12 @@
     "south": "zone_yard_dryrun"
   },
   "flags": {
+    "allow_sleep": true,
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "region_id": "region_deadwater",
+    "sanctuary": true,
     "truck_bunkroom": true,
     "world_exit_zone": "zone_dw_812_954"
   },

@@ -14,10 +14,12 @@
     "south": "zone_yard_roadhead"
   },
   "flags": {
+    "allow_sleep": true,
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "region_id": "region_terminus",
+    "sanctuary": true,
     "truck_bunkroom": true,
     "world_exit_zone": "zone_terminus_1202_939"
   },

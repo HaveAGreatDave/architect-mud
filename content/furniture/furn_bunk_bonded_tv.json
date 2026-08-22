@@ -3,10 +3,14 @@
   "flags": {
     "aliases": "tv,television,set",
     "broadcast_device_type": "tv",
-    "channel_default": 3,
-    "is_tv": true,
-    "tuned_channel": 3,
-    "tv_dial_freq": 3
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7
   },
   "hp": null,
   "hp_max": null,
