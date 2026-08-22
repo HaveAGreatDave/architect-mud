@@ -23,6 +23,7 @@ import { query } from '../../server/models/db.js';
 import { world } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { emit } from '../../server/engine/events.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { burnAllMutations } from '../../server/engine/mutations.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
@@ -296,6 +297,16 @@ export async function installAugment(rest, player) {
     await dispatchAction({ type: 'ADJUST_REPUTATION', actor: player, params: { ideology_id: opp, delta: OPPOSED_REP_HIT, reason: 'augment install' } });
   }
   await refresh(player);
+
+  // The act, announced. Nothing in this plugin consumes it — it exists because a
+  // fitting was the one thing chrome could do that the world never heard about,
+  // so no quest could ask for it and no observer could react to it. Emitted after
+  // the row, the roster, the path and the opposed-rep hit have all landed, so
+  // anything listening sees a body that is already fitted rather than one mid-cut.
+  emit('augment.installed', {
+    actor: player, augment_id: aug.id, slot: aug.slot,
+    quality: band.id, condition, calibration,
+  });
 
   const capNote = band.id === 'botched'
     ? `\n<span class="text-red">It will never tune past ${BOTCHED_CALIBRATION_CAP}%. That is not something a better technician can fix.</span>`

@@ -112,6 +112,32 @@ win the lean): `ideology_prometheans`, `ideology_synthesis`,
 > `scripts/add-jobboard-content.js` still references old `faction_*` ids and an
 > `ADJUST_ARCHITECT` action that has no handler — that script is dead.
 
+## What actually moves standing (added 2026-08-22)
+
+Worth stating plainly, because it was not true until now and the decay above was
+built assuming it would be. **Every caller of `adjustReputation`:**
+
+| Path | Direction |
+|---|---|
+| `ADJUST_REPUTATION` (the dialogue Action above) | either — authored on ~24 dialogue options across 13 NPCs |
+| `plugins/augments/install.js` — fitting chrome | **negative only**, to the three orders opposed to it |
+| `quests.penalties.rep` — a quest you blew | **negative only** |
+| `quests.rewards.rep` — a quest you finished | either — **new** |
+
+Until the last row existed, that table read as: talking to somebody moves your
+standing, and everything you *do* can only ever lower it. No kill, crime, trade,
+delivery or favour paid a single point to anybody. That is the gap
+`rewards.rep` closes ([plugins/quests](../plugins/quests/README.md)).
+
+**The decay is what makes it a requirement rather than a nicety.** Standing slides
+back toward its resting point on a 30-day half-life *on purpose* — being Trusted is
+something you keep being. An order with only a one-off intro arc therefore has no
+mechanism by which a player stays in it: they finish the arc, stop, and drift back
+to nobody in particular with nothing they could have done about it. **An order
+meant to be lived in needs repeatable work that pays `rep`.** As of this writing
+none of the five has any — every repeatable quest in the game is a job-board gig, a
+flight contract or a Reach errand, and none of them touches an ideology.
+
 ## Player command & tablet reader
 
 - **`ideologies`** (alias **`rep`**), `cmdIdeologies` — standing per order (tier +

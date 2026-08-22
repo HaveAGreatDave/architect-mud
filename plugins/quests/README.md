@@ -39,14 +39,35 @@ only when it equals `completed`:
 - `item.given`    → advances `give` objectives on the **recipient** whose `item_id` matches.
 - `zone.entered`  → advances `visit` objectives whose `zone` matches.
 
+…and the rest of the table below. `augment.installed` is the only one of them this plugin caused to
+exist; every other Event was already on the bus when its objective type was written.
+
 ## Tick usage
 
 None.
 
 ## Dependencies
 
-`economy` (`adjustCredits` for credit rewards); the core graph-engine Actions `GRANT_ITEM` / `SET_FLAG`
-for item and flag rewards.
+`economy` (`adjustCredits` for credit rewards); `server/engine/ideologies.js` (`adjustReputation`, for
+both `rewards.rep` and `penalties.rep`) — the engine service, deliberately not a dispatched
+`ADJUST_REPUTATION`, so standing is still paid when the ideologies plugin is absent; the core
+graph-engine Actions `GRANT_ITEM` / `SET_FLAG` for item and flag rewards.
+
+### `rewards.rep` — how faction work pays
+
+The mirror of `penalties.rep`, and the newer half by a long way. Until it existed, failing a quest
+could cost you standing and finishing one could not pay you any: `adjustReputation` had two callers
+in the whole codebase, and one of them was a punishment. Nothing a player *did* moved an order's
+opinion of them — standing was a conversation, authored on dialogue options.
+
+That mattered because [standing is maintained, not banked](../../docs/systems-ideologies.md): it
+decays toward a resting point on a 30-day half-life, by design, so that being Trusted is something
+you keep being. An order you want players to stay inside therefore needs **repeatable** work that
+pays `rep`; a one-off arc alone drifts back to nothing on its own.
+
+The player is told only when a reward crosses them into a new **tier**. A move within one passes
+without comment — raw standing is what `rep`/`ideologies` is for, and a repeatable that announced a
+number every hand-in would be noise.
 
 ## Config
 
@@ -61,7 +82,7 @@ None.
 - `player_quests` also carries `progress_keys` (the objective ids `progress` was built against, so a
   quest can be edited without corrupting live progress) and `spawned` (row ids of auto-spawned
   `retrieve` items, so they can be taken back out of the world).
-  - `rewards`: `{ credits?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}] }`
+  - `rewards`: `{ credits?, xp?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}], rep?:[{ideology,delta}] }`
 - `player_quests` — `player_id, quest_id, status ('active'|'completed'|'turned_in'|'abandoned'|'failed'), progress JSONB (index-aligned counters), started_at, updated_at`.
 
 Dev CRUD lives under `/api/quests` (GET/POST, PUT/DELETE by id) for devpanel authoring.
@@ -88,13 +109,21 @@ whose predicate matches it. The systems that fire those events do not know quest
 | `hack` | `hack.success` | `zone` (optional) | any successful hack: till, surveillance node, vendor safe |
 | `spend` | `credits.changed` | `target` (reason substring, optional) | **counted in credits, not purchases** — `count: 5000` means ₵5000. Bank transfers excluded |
 | `survive` | `weather.event` | `target` (storm type, optional) + `zone` | outdoors from the storm's peak through to the all-clear |
+| `install` | `augment.installed` | `target` (augment id, optional) | chrome fitted in a theatre. **The one Event this plugin caused to exist** |
+| `mutate` | `mutation.gained` | `target` (mutation id, optional) | one Event covers every grant path — radiation, flask, authored `GRANT_MUTATION` |
+| `subdue` | `knockout.landed` | `target` (npc id, or name substring) | names a **person**, like `assassinate`. ⚠ Credits the hand that swung, never the body on the floor |
+| `restore` | `player.death` (`claimed`) | — | a death somebody arranged for in advance: the only kind that skips augment corruption |
 
-`buy`/`sell`/`craft`/`hack`/`spend`/`survive` treat a blank target as "anything counts".
-`kill`/`talk`/`assassinate`/`escort` require one, because they name a thing.
+`buy`/`sell`/`craft`/`hack`/`spend`/`survive`/`install`/`mutate` treat a blank target as "anything
+counts". `kill`/`talk`/`assassinate`/`escort`/`subdue` require one, because they name a thing.
+`restore` takes none at all — it either happened to you or it did not.
 
-Three of those Events had to be **added**, because the act was never announced at all:
-`item.crafted` (`server/engine/crafting.js`), `vendor.sale` (`server/engine/vendor.js`) and
-`npc.talked` (`server/engine/dialogue.js`). Everything else was already on the bus.
+Only four of those Events ever had to be **added**, because the act was never announced at all:
+`item.crafted` (`server/engine/crafting.js`), `vendor.sale` (`server/engine/vendor.js`),
+`npc.talked` (`server/engine/dialogue.js`) and `augment.installed`
+(`plugins/augments/install.js` — the augments plugin emitted nothing whatsoever before it).
+Everything else was already on the bus, which is the point: `mutate`, `subdue`, `restore` and all
+four constraint conditions below cost a predicate each and no change to the system they watch.
 
 ### A predicate may return a number
 
@@ -127,12 +156,22 @@ fail_on: [
 ]
 ```
 
-Two shapes are **failure-only**, having no advancing counterpart:
+Six shapes are **failure-only**, having no advancing counterpart:
 
 | | |
 |---|---|
 | `{ type:'timeout', count:<seconds> }` | measured from `player_quests.started_at` |
 | `{ type:'escort_lost', target:<npc> }` | the escortee died or was separated with no way back |
+| `{ type:'spotted' }` | **"and nobody sees you"** — `stealth.noticed`, which is per observer, so the first NPC to clock you blows it |
+| `{ type:'witnessed', target:<crime key> }` | the act reached a camera or a cop. Blank target = any charge |
+| `{ type:'broke' }` | a piece of gear was destroyed under you. Untargeted: `item.broken` carries an inventory row id, not an item id |
+| `{ type:'died' }` | an **ordinary** death. A `claimed` one — the `restore` objective's case — deliberately does not trip it |
+
+The four new ones are what let a quest state a **constraint** rather than a task, which is the half
+of an infiltration job that makes it one: the objective says get the thing, the condition says and
+nobody sees you. ⚠ `restore` and `died` read the same Event with opposite predicates and share **one
+subscription**, so the two can never drift on what `claimed` means — getting that pair backwards
+would fail an Ascendant policy quest at the exact moment it was meant to succeed.
 
 Authored in the VINE quest editor as a **Fails if** node. Fail nodes take no edges — a fail condition
 is live for as long as the quest is, so there's nothing for a wire to say.

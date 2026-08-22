@@ -2,22 +2,65 @@
   "name": "quests",
   "version": "1.0.0",
   "description": "Quest domain: lifecycle Actions plus event-driven objective tracking.",
-  "commands": ["quests", "quest", "ql"],
+  "commands": [
+    "quests",
+    "quest",
+    "ql"
+  ],
   "hooks": [],
   "routePrefix": "/quests",
   "actions": {
-    "registers": ["START_QUEST", "ADVANCE", "COMPLETE", "TURN_IN", "ABANDON_QUEST", "FAIL_QUEST"],
+    "registers": [
+      "START_QUEST",
+      "ADVANCE",
+      "COMPLETE",
+      "TURN_IN",
+      "ABANDON_QUEST",
+      "FAIL_QUEST"
+    ],
     "tagGated": []
   },
   "events": {
-    "emits": ["quest.started", "quest.advanced", "quest.completed", "quest.turned_in", "quest.abandoned", "quest.failed"],
+    "emits": [
+      "quest.started",
+      "quest.advanced",
+      "quest.completed",
+      "quest.turned_in",
+      "quest.abandoned",
+      "quest.failed"
+    ],
     "consumes": [
-      "enemy.killed", "item.given", "zone.entered", "item.taken",
-      "npc.killed", "escort.arrived", "escort.lost", "npc.talked", "vendor.purchase", "vendor.sale",
-      "item.crafted", "hack.success", "item.equipped", "credits.changed", "weather.event",
-      "player.command", "quest.completed"
+      "enemy.killed",
+      "item.given",
+      "zone.entered",
+      "item.taken",
+      "npc.killed",
+      "escort.arrived",
+      "escort.lost",
+      "npc.talked",
+      "vendor.purchase",
+      "vendor.sale",
+      "item.crafted",
+      "hack.success",
+      "item.equipped",
+      "credits.changed",
+      "weather.event",
+      "augment.installed",
+      "mutation.gained",
+      "knockout.landed",
+      "stealth.noticed",
+      "crime.witnessed",
+      "item.broken",
+      "player.death",
+      "player.command",
+      "quest.completed"
     ]
   },
-  "dependencies": ["economy"],
-  "dataSchema": ["quests", "player_quests"]
+  "dependencies": [
+    "economy"
+  ],
+  "dataSchema": [
+    "quests",
+    "player_quests"
+  ]
 }

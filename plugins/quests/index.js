@@ -54,11 +54,19 @@
  * As an objective "assassinate npc_vale" means kill him; as a fail condition it
  * means he must not die. That symmetry is why failure cost no new per-event code:
  * every objective type was usable as a failure trigger the moment it existed.
- * `timeout` and `escort_lost` are failure-only (no advancing counterpart). A failed
- * quest is retryable unless `meta.failPermanent`. See the Failure section below.
+ * `timeout`, `escort_lost`, `spotted`, `witnessed`, `broke` and `died` are
+ * failure-only (no advancing counterpart). A failed quest is retryable unless
+ * `meta.failPermanent`. See the Failure section below.
  *
  * Reward shape (quests.rewards JSONB):
- *   { credits:50, items:[{item_id,quantity}], flags:[{scope,flag,value}] }
+ *   { credits:50, xp:10, items:[{item_id,quantity}], flags:[{scope,flag,value}],
+ *     rep:[{ideology,delta}] }
+ *
+ * `rep` is the mirror of `penalties.rep`, and until it existed the asymmetry was
+ * the whole problem with faction work: failing a quest could cost you standing
+ * and finishing one could not pay you any, so no questline could be a ladder.
+ * `docs/systems-ideologies.md` decays standing on a 30-day half-life precisely
+ * because it is meant to be MAINTAINED — this is what maintains it.
  */
 import { query } from '../../server/models/db.js';
 import { spawnOnGround } from '../../server/engine/inventory.js';
@@ -1034,6 +1042,102 @@ on('weather.event', ({ type, phase }) => {
     (!obj.zone || obj.zone === p.current_zone))));
 });
 
+// --- The discipline objectives ---------------------------------------------
+//
+// The faction arcs could only ever say "go there": twelve of the sixteen of them
+// are `visit`, not because anybody wanted an errand but because `visit` was
+// nearly all this file could express. The types below are the ones the orders
+// actually turn on — fitting chrome, being changed, putting somebody down — and
+// every one of them but `install` rides an Event that was ALREADY on the bus.
+// Nothing below asked another system to change.
+
+// install — chrome fitted, in a theatre, by somebody who knows how. `target` is
+// an augment id; blank counts any fitting ("get chromed", which is the Ascendant
+// bridge). The one new Event in this batch (plugins/augments/install.js), because
+// a fitting was the single thing the augments plugin never announced.
+on('augment.installed', ({ actor, augment_id }) => {
+  if (!actor?.id) return;
+  return trackEvent(actor, (obj) =>
+    obj.type === 'install' && (!obj.target || String(obj.target) === String(augment_id)));
+});
+
+// mutate — the body changed. One Event covers every grant path (the radiation
+// roll, the flask, an authored GRANT_MUTATION), so an objective cannot be
+// satisfied by one route and blind to another. `target` is a mutation id.
+on('mutation.gained', ({ player, id }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) =>
+    obj.type === 'mutate' && (!obj.target || String(obj.target) === String(id)));
+});
+
+// subdue — somebody put down and left breathing, which is a different act from
+// killing them and has to count differently. Matches a person like `assassinate`
+// does (exact id, then name substring), NOT a species: a cosh is aimed.
+//
+// ⚠ The payload's `player` is the one who SWUNG. Crediting the target would be
+// the easy mistake here and would pay a quest out to the body on the floor.
+on('knockout.landed', ({ player, target }) => {
+  if (!player?.id || !target) return;
+  const id = String(target.id || target.instanceId || '');
+  const name = (target.name || target.handle || '').toLowerCase();
+  return trackEvent(player, (obj) =>
+    obj.type === 'subdue' && obj.target &&
+    (id === String(obj.target) || (name && name.includes(String(obj.target).toLowerCase()))));
+});
+
+// --- Failure-only conditions ------------------------------------------------
+//
+// `escort_lost` set the precedent: a condition with no advancing counterpart,
+// routed through trackEvent like everything else, so a quest carrying no
+// `fail_on` entry for it simply never notices. These four are what let a quest
+// state a CONSTRAINT rather than a task, which is the half of an infiltration
+// job that makes it one — the objective says get the thing, the condition says
+// and nobody sees you.
+
+// spotted — the stealth roll went against you. Per observer, so the first NPC to
+// clock you blows it; that is the point.
+on('stealth.noticed', ({ sneaker }) => {
+  if (!sneaker?.id) return;
+  return trackEvent(sneaker, (c) => c.type === 'spotted');
+});
+
+// witnessed — the act reached a camera or a cop. `target` narrows it to one
+// crime key, so "steal it, and not on camera" and "you may be seen doing
+// anything but THIS" are both authorable.
+//
+// ⚠ This payload's `player` is a flattened {id, handle}, not the live object, so
+// resolve it — trackEvent reads `_activeQuests` off the live player to skip a
+// query, and a stub would cost a round trip on every witnessed crime in the game.
+on('crime.witnessed', ({ player, key }) => {
+  const actor = player?.id ? getLivePlayer(player.id) : null;
+  if (!actor) return;
+  return trackEvent(actor, (c) =>
+    c.type === 'witnessed' && (!c.target || String(c.target) === String(key)));
+});
+
+// broke — gear destroyed under you. `item.broken` carries the inventory row id
+// rather than an item id, so this is deliberately untargeted: it means "bring
+// your tools back whole", which is the Long Watch's whole argument and does not
+// need to name the tool.
+on('item.broken', ({ actor }) => {
+  if (!actor?.id) return;
+  return trackEvent(actor, (c) => c.type === 'broke');
+});
+
+// restore / died — ONE subscription over ONE Event, because they are the same
+// question asked in opposite directions and two subscriptions could drift on
+// what `claimed` means. A claimed death is one somebody had arranged for in
+// advance (a cortical backup, custody) and is the ONLY kind that skips the
+// corruption pass; an unclaimed one is just dying.
+//
+// So `restore` is an objective — go and die on a policy, and get up again — and
+// `died` is a condition: and you come back.
+on('player.death', ({ player, claimed }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (o) =>
+    (claimed ? o.type === 'restore' : o.type === 'died'));
+});
+
 // Doing anything other than waiting cancels an in-progress tile task. Fired for
 // every command (server/engine/commands/index.js) BEFORE it runs, so the move/act
 // that arrives on the tile never cancels the task it's about to start. A short
@@ -1263,11 +1367,36 @@ registerAction({
       });
     }
 
+    // Standing. The exact mirror of `penalties.rep` below, down to the guard and
+    // the swallowed failure, and deliberately a DIRECT call rather than a
+    // dispatched ADJUST_REPUTATION: the surrounding block's "canonical Action
+    // paths" rule is about not re-implementing a service, and this is the same
+    // service the ideologies plugin's Action calls. Dispatching would make the
+    // quests plugin refuse to pay standing whenever that plugin is absent, for no
+    // behaviour the direct call does not already have.
+    const tiered = [];
+    for (const r of (Array.isArray(rewards.rep) ? rewards.rep : [])) {
+      const delta = Number(r?.delta) || 0;
+      if (!r?.ideology || !delta) continue;
+      try {
+        const res = await adjustReputation(actor.id, r.ideology, delta, 'quest:reward');
+        // A CROSSING is worth saying; a number is not. Raw standing is shown by
+        // `rep`/`ideologies` and deliberately nowhere else, so a reward that moves
+        // you within a tier passes without comment — which is also what keeps a
+        // repeatable from printing a line every single hand-in.
+        if (res?.tiered_up) tiered.push(res.new_tier_label);
+      } catch (e) {
+        // A reward naming an ideology that no longer exists must not swallow the
+        // turn-in — the objectives were met and the player is owed the rest.
+        console.error('[quests] reward rep adjust failed:', r.ideology, e.message);
+      }
+    }
+
     await setQuestFlag(actor, quest_id, 'turned_in');   // status itself was claimed above
     // Any spare copies the auto-spawn left unclaimed go with it — the quest is over,
     // and a second relic on the sewer floor helps nobody.
     await despawnQuestItems(actor.id, quest_id);
-    const gains = [rewards.credits ? `+${rewards.credits}₵` : null, rewards.xp ? `+${rewards.xp} XP` : null].filter(Boolean);
+    const gains = [rewards.credits ? `+${rewards.credits}₵` : null, rewards.xp ? `+${rewards.xp} XP` : null, ...tiered].filter(Boolean);
     const creditLine = gains.length ? ` (${gains.join(', ')})` : '';
     msg(actor.id, `<span class="msg-system">Quest turned in: ${quest.name}.${creditLine}</span>`);
     emit('quest.turned_in', { actor, quest_id });

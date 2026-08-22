@@ -6,6 +6,7 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
+import { clearEffect } from '../../server/engine/effects.js';
 import { world } from '../../server/engine/world.js';
 import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest } from './index.js';
 
@@ -416,6 +417,84 @@ export default async function regress({ run, check, getPlayer }) {
       world.zones.delete(IN);
     }
 
+    // ── The discipline objectives ────────────────────────────────────────────
+    //
+    // These are what let a faction quest name the thing the order actually turns
+    // on. The shared risk across all four is a predicate that is too LOOSE — it
+    // fires, the case goes green, and the objective quietly counts things it was
+    // never meant to. So every one of them is tested in both directions.
+
+    // install — the one new Event in the batch (plugins/augments/install.js).
+    await mkQuest([{ id: 'o0', type: 'install', target: 'aug_regress_arm', count: 1, desc: 'Get fitted' }]);
+    emit('augment.installed', { actor: player, augment_id: 'aug_regress_other' });
+    await settle();
+    check('install does not advance for a different augment', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    emit('augment.installed', { actor: player, augment_id: 'aug_regress_arm' });
+    await settle();
+    check('install advances on augment.installed', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
+
+    // …and blank means any fitting, which is the shape the Ascendant bridge quest
+    // wants ("get chromed", not "get chromed with this specific piece").
+    await mkQuest([{ id: 'o0', type: 'install', count: 1, desc: 'Any chrome' }]);
+    emit('augment.installed', { actor: player, augment_id: 'aug_regress_whatever' });
+    await settle();
+    check('install with no target counts any fitting', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
+
+    // mutate — ONE event covers every grant path (radiation, flask, authored
+    // GRANT_MUTATION), so an objective can't be satisfied by one route and blind
+    // to another. The payload carries `player`, not `actor`.
+    //
+    // ⚠ MUTATING IS AN INJURY, and this suite shares one fake player with every
+    // other suite. `plugins/mutations/onset.js` hangs off this exact Event and
+    // takes 90% of your stamina and a slice of HP the moment it fires — so
+    // emitting it here and walking away turns the sneak and weightbench suites
+    // red with "you haven't got the wind for it", which looks like anything
+    // except a quest change. Snapshot and put it back. (docs/systems-mutations.md
+    // warns about this in as many words; it is easier to re-learn than to read.)
+    const savedHp = player.hp, savedStam = player.stamina;
+    try {
+      await mkQuest([{ id: 'o0', type: 'mutate', target: 'mut_regress_gills', count: 1, desc: 'Change' }]);
+      emit('mutation.gained', { player, id: 'mut_regress_spurs', expression: 40, source: 'radiation' });
+      await settle();
+      check('mutate does not advance for a different mutation', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+      emit('mutation.gained', { player, id: 'mut_regress_gills', expression: 40, source: 'mutagen' });
+      await settle();
+      check('mutate advances on mutation.gained', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
+    } finally {
+      player.hp = savedHp; player.stamina = savedStam;
+      delete player._turning;
+      clearEffect(player, 'turning');
+      clearEffect(player, 'turning_deep');
+    }
+
+    // subdue — a person put down and left breathing. THE failure mode here is
+    // crediting the body on the floor instead of the hand that swung, which would
+    // pay a quest out to the victim; the payload's `player` is the attacker.
+    await mkQuest([{ id: 'o0', type: 'subdue', target: 'npc_regress_mark', count: 1, desc: 'Cosh them' }]);
+    emit('knockout.landed', { player: { id: 'player_regress_stranger' }, target: player, kind: 'player', zoneId: player.current_zone });
+    await settle();
+    check('subdue does not credit the player who was knocked out', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    emit('knockout.landed', { player, target: { id: 'npc_regress_bystander', name: 'Someone Else' }, kind: 'npc', zoneId: player.current_zone });
+    await settle();
+    check('subdue does not fire for a different person', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    emit('knockout.landed', { player, target: { id: 'npc_regress_mark', name: 'The Mark' }, kind: 'npc', zoneId: player.current_zone });
+    await settle();
+    check('subdue advances on knockout.landed by the player', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
+
+    // restore — a CLAIMED death, the only kind that was arranged for in advance
+    // and the only kind that skips augment corruption. It shares one subscription
+    // with the `died` fail condition precisely so the two can never disagree about
+    // what `claimed` means, which is what these two cases pin down.
+    await mkQuest([{ id: 'o0', type: 'restore', count: 1, desc: 'Die on a policy' }]);
+    emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Ordinary' }, deathZone: player.current_zone, claimed: false });
+    await settle();
+    check('restore does not advance on an ordinary death', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Claimed' }, deathZone: player.current_zone, claimed: true });
+    await settle();
+    check('restore advances on a claimed death', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
+    // The deaths plugin catalogues both of those; don't leave them on the sheet.
+    await query('DELETE FROM player_deaths WHERE player_id=$1', [player.id]).catch(() => {});
+
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);
     await query('DELETE FROM quests WHERE id=$1', [TYPES_QUEST]);
   }
@@ -494,6 +573,68 @@ export default async function regress({ run, check, getPlayer }) {
     emit('enemy.killed', { actor: player, enemy: { name: 'Supervisor, Halcyon Compliance' } });
     await settle();
     check('a kill fail_on matches the enemy name by substring', (await failed('failed')) === 'failed', await statusOf());
+
+    // ── The constraint conditions ────────────────────────────────────────────
+    //
+    // Failure-only, like `timeout` and `escort_lost`. These are what let a quest
+    // state a CONSTRAINT rather than a task — the objective says get the thing,
+    // the condition says and nobody sees you — which is the half of an
+    // infiltration job that makes it one.
+
+    // spotted — the stealth roll went against you. Per observer, so the FIRST NPC
+    // to clock you blows it.
+    await mkFail(
+      [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Get in' }],
+      [{ type: 'spotted', desc: 'Somebody saw you.' }]
+    );
+    emit('stealth.noticed', { sneaker: { id: 'player_regress_stranger' }, observer: { id: 'npc_regress_guard' }, zoneId: player.current_zone });
+    await settle();
+    check('spotted does not fail on somebody ELSE being seen', (await statusOf()) === 'active', await statusOf());
+    emit('stealth.noticed', { sneaker: player, observer: { id: 'npc_regress_guard' }, zoneId: player.current_zone });
+    await settle();
+    check('spotted fails the quest when the player is noticed', (await failed('failed')) === 'failed', await statusOf());
+
+    // witnessed — the act reached a camera or a cop. ⚠ Its payload carries a
+    // FLATTENED {id, handle}, not the live player, so the subscription has to
+    // resolve it; a stub would read as a player with no quests and silently never
+    // fail anything.
+    await mkFail(
+      [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Do it quietly' }],
+      [{ type: 'witnessed', target: 'burglary', desc: 'A camera got you.' }]
+    );
+    emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key: 'loitering', zoneId: player.current_zone, label: 'Loitering' });
+    await settle();
+    check('witnessed does not fail for a different crime key', (await statusOf()) === 'active', await statusOf());
+    emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key: 'burglary', zoneId: player.current_zone, label: 'Burglary' });
+    await settle();
+    check('witnessed fails on the named crime, resolving the flattened payload', (await failed('failed')) === 'failed', await statusOf());
+
+    // broke — gear destroyed under you. Deliberately untargeted: `item.broken`
+    // carries an inventory row id rather than an item id, and "bring your tools
+    // back whole" does not need to name the tool.
+    await mkFail(
+      [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Do the work' }],
+      [{ type: 'broke', desc: 'You broke it.' }]
+    );
+    emit('item.broken', { actor: player, invId: 'inv_regress_pipe', reason: 'combat' });
+    await settle();
+    check('broke fails the quest when gear is destroyed', (await failed('failed')) === 'failed', await statusOf());
+
+    // died — the mirror of the `restore` objective, over the SAME subscription, so
+    // an ordinary death blows the quest and a claimed one does not. Getting this
+    // pair backwards would fail every Ascendant policy quest at the exact moment
+    // it was meant to succeed.
+    await mkFail(
+      [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Come back' }],
+      [{ type: 'died', desc: 'You did not come back.' }]
+    );
+    emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Claimed' }, deathZone: player.current_zone, claimed: true });
+    await settle();
+    check('died does not fail on a claimed death', (await statusOf()) === 'active', await statusOf());
+    emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Ordinary' }, deathZone: player.current_zone, claimed: false });
+    await settle();
+    check('died fails the quest on an ordinary death', (await failed('failed')) === 'failed', await statusOf());
+    await query('DELETE FROM player_deaths WHERE player_id=$1', [player.id]).catch(() => {});
 
     // …and a failed quest is not turn-in-able, whatever its progress says.
     await mkFail(
@@ -748,6 +889,45 @@ export default async function regress({ run, check, getPlayer }) {
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_mark', name: 'Mark' } });
     await sleep(250);
     check('a penalty never pushes the player below zero', (Number(player.credits) || 0) >= 0, String(player.credits));
+
+    // ── rewards.rep ──────────────────────────────────────────────────────────
+    //
+    // Until this existed the asymmetry was the whole problem with faction work:
+    // `penalties.rep` could take standing off you and nothing could give any, so
+    // `adjustReputation` had exactly two callers in the codebase and one of them
+    // was a punishment. Standing decays on a 30-day half-life BY DESIGN — it is
+    // meant to be kept up — and there was nothing in the game to keep it up with.
+    const REP_ORDER = 'ideology_ascendants';
+    const repOf = async (id = REP_ORDER) => {
+      const { rows: rr } = await query(
+        'SELECT reputation FROM player_ideology_rep WHERE player_id=$1 AND ideology_id=$2', [player.id, id]);
+      return Number(rr[0]?.reputation) || 0;
+    };
+    await query('DELETE FROM player_ideology_rep WHERE player_id=$1', [player.id]);
+
+    await mk({ rewards: { credits: 0, rep: [{ ideology: REP_ORDER, delta: 40 }] } });
+    check('standing is untouched while the quest is merely active', (await repOf()) === 0, String(await repOf()));
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: AUDIT, index: 0 } });
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: AUDIT } });
+    check('turning a quest in pays its rewards.rep', (await repOf()) === 40, String(await repOf()));
+
+    // A negative delta is legal here too — an order can pay you in ill will for
+    // work you did for somebody else, which is what a cross-faction quest is.
+    await mk({ rewards: { credits: 0, rep: [{ ideology: REP_ORDER, delta: -15 }] } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: AUDIT, index: 0 } });
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: AUDIT } });
+    check('a negative rewards.rep entry costs standing', (await repOf()) === 25, String(await repOf()));
+
+    // A reward naming an order that no longer exists must not swallow the hand-in.
+    // The objectives were met; the player is owed the rest of the payout and the
+    // status flip regardless. This is the mirror of the same guard on penalties.
+    await mk({ rewards: { credits: 0, xp: 3, rep: [{ ideology: null, delta: 10 }, { ideology: REP_ORDER, delta: 5 }] } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: AUDIT, index: 0 } });
+    const repR = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: AUDIT } });
+    check('a malformed rewards.rep entry does not blow the turn-in', repR?.turned_in === true, JSON.stringify(repR)?.slice(0, 120));
+    check('…and the well-formed entries beside it still pay', (await repOf()) === 30, String(await repOf()));
+
+    await query('DELETE FROM player_ideology_rep WHERE player_id=$1', [player.id]);
 
     // ── #8 the quest flag key is the BARE quest id ───────────────────────────
     // The comment claimed a `quest_<id>` prefix the code never applied, so a

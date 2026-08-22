@@ -69,6 +69,8 @@ const _Q_KINDS = [
   ['talk', 'Talk to an NPC'], ['buy', 'Buy from a vendor'], ['sell', 'Sell to a vendor'],
   ['craft', 'Craft an item'], ['equip', 'Equip / wear an item'],
   ['hack', 'Hack something'], ['spend', 'Spend credits'], ['survive', 'Survive a storm outdoors'],
+  ['install', 'Install an augment'], ['mutate', 'Gain a mutation'],
+  ['subdue', 'Knock someone out (alive)'], ['restore', 'Die and be restored (a claimed death)'],
 ];
 // Kinds carrying a SECOND zone field alongside their target ('Spawn / find zone' for
 // retrieve, 'Deliver them to' for escort). Both round-trip through the objective's
@@ -80,15 +82,22 @@ const _Q_ZONE_ONLY = new Set(['visit', 'deliver', 'hack']);
 // Kinds where a blank target legitimately means "anything counts" (buy 3 of ANYTHING,
 // hack ANY till, survive ANY storm). Says so in the field label so it doesn't read
 // like an unfilled box.
-const _Q_ANY_OK = new Set(['buy', 'sell', 'craft', 'hack', 'spend', 'survive']);
+const _Q_ANY_OK = new Set(['buy', 'sell', 'craft', 'hack', 'spend', 'survive', 'install', 'mutate', 'witnessed']);
+// Kinds with NO target field at all — the event either happened to you or it did
+// not, and there is nothing to narrow it to. An empty box the author can't fill
+// reads as a thing they forgot, so these hide it rather than label it.
+const _Q_NO_TARGET = new Set(['restore', 'spotted', 'broke', 'died']);
 // Failure conditions reuse every objective kind (an event that ADVANCES a quest
-// reads just as well as one that BLOWS it), plus two that only make sense as
+// reads just as well as one that BLOWS it), plus the ones that only make sense as
 // failures. Timeout leads because it's the common case.
 const _Q_FAIL_KINDS = [
   ['timeout', 'Ran out of time'], ['escort_lost', 'Lost the escortee'],
+  ['spotted', 'Was seen (stealth blown)'], ['witnessed', 'The crime was witnessed'],
+  ['broke', 'Broke a piece of gear'], ['died', 'Died (an ordinary death)'],
   ..._Q_KINDS.filter(([k]) => k !== 'deliver'),
 ];
 function _qTargetLabel(kind) {
+  if (_Q_NO_TARGET.has(kind)) return [null, ''];
   if (kind === 'escort_lost') return ['NPC id (or part of their name) — blank = any escortee', 'npc_vale'];
   const any = _Q_ANY_OK.has(kind) ? ' — blank = anything counts' : '';
   if (kind === 'give' || kind === 'retrieve') return ['Item ID', 'medkit'];
@@ -98,6 +107,10 @@ function _qTargetLabel(kind) {
   if (kind === 'assassinate' || kind === 'escort' || kind === 'talk') return ['NPC id (or part of their name)', 'npc_vale'];
   if (kind === 'spend') return [`Spent-on filter${any}`, 'vendor'];
   if (kind === 'survive') return [`Storm type${any}`, 'acid_rain'];
+  if (kind === 'install') return [`Augment ID${any}`, 'aug_cortical_stack'];
+  if (kind === 'mutate') return [`Mutation ID${any}`, 'mut_gill_slits'];
+  if (kind === 'subdue') return ['NPC id (or part of their name)', 'npc_vale'];
+  if (kind === 'witnessed') return [`Crime key${any}`, 'burglary'];
   return ['Enemy target', 'sewer_rat'];
 }
 // 'spend' counts CREDITS, everything else counts repetitions — worth saying on the
@@ -214,7 +227,7 @@ const _questNodeDefs = {
         'kind: retrieve\ntarget: ancient_relic\nspawnZone: zone_sewers\ncount: 1\ndesc: Recover the ancient relic from the sewers'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_KINDS, n.data.kind))}
-      ${_qField(tlabel, _qInput('data.target', n.data.target, tph))}
+      ${tlabel ? _qField(tlabel, _qInput('data.target', n.data.target, tph)) : ''}
       ${n.data.kind === 'retrieve' ? `
       ${_qField('Spawn / find zone', _qInput('data.spawnZone', n.data.spawnZone, 'zone_sewers'))}
       ${_qField('Auto-spawn the item?', _qSelect('data.spawn', [['spawn', 'Yes — drop it in that zone on quest start'], ['nospawn', 'No — it already exists in the world']], n.data.spawn || 'spawn'))}
@@ -260,7 +273,7 @@ const _questNodeDefs = {
       ${_qField('Kind', _qSelect('data.kind', _Q_FAIL_KINDS, kind))}
       ${kind === 'timeout'
         ? _qField('Seconds allowed (from taking the quest)', _qInput('data.count', n.data.count ?? 300, '300', 'number'))
-        : _qField(tlabel, _qInput('data.target', n.data.target, tph))}
+        : (tlabel ? _qField(tlabel, _qInput('data.target', n.data.target, tph)) : '')}
       ${_qField('Failure line shown to the player (blank = a generic one)', _qTextarea('data.desc', n.data.desc, 2))}
       <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the field.</div>
     `;
@@ -297,24 +310,27 @@ const _questNodeDefs = {
   reward: {
     label: 'Reward',
     color: '#b8912b',
-    defaultData: { credits: 0, xp: 0, items: [], flags: [] },
+    defaultData: { credits: 0, xp: 0, items: [], flags: [], rep: [] },
     renderBody: (n) => {
       const items = Array.isArray(n.data.items) ? n.data.items.length : 0;
+      const reps = Array.isArray(n.data.rep) ? n.data.rep.length : 0;
       const bits = [];
       if (n.data.credits) bits.push(`₵${n.data.credits}`);
       if (n.data.xp) bits.push(`${n.data.xp} xp`);
       if (items) bits.push(`${items} item${items > 1 ? 's' : ''}`);
+      if (reps) bits.push(`${reps} standing${reps > 1 ? 's' : ''}`);
       return `<div style="font-size:11px;color:#b8912b">${bits.join(' + ') || '(no reward)'}</div>`;
     },
     getOutPorts: () => [],
     renderProperties: (n, ed, id) => `
       ${_qHelp(id,
-        'Granted when every objective feeding this node is complete. Items and flags are JSON arrays; leave blank for none.',
-        'credits: 250\nxp: 50\nitems: [{"item_id":"pistol","quantity":1}]\nflags: [{"scope":"player","flag":"super_trusts_me","value":"true"}]'
+        'Granted when every objective feeding this node is complete. Items, flags and reputation are JSON arrays; leave blank for none. Reputation is the mirror of the Penalty node\'s — a list of {ideology, delta} — and it is how faction work PAYS. Standing decays on a 30-day half-life by design (it is meant to be kept up, not banked), so an order you want players to stay in needs repeatable work that pays it. The player is told only when a reward crosses them into a new TIER; a move within one passes without comment, which is what stops a repeatable printing a line every hand-in.',
+        'credits: 250\nxp: 50\nitems: [{"item_id":"pistol","quantity":1}]\nrep: [{"ideology":"ideology_ascendants","delta":40}]\nflags: [{"scope":"player","flag":"super_trusts_me","value":"true"}]'
       )}
       ${_qField('Credits', _qInput('data.credits', n.data.credits ?? 0, '0', 'number'))}
       ${_qField('XP', _qInput('data.xp', n.data.xp ?? 0, '0', 'number'))}
       ${_qField('Items (JSON)', _qTextarea('data.items', JSON.stringify(n.data.items || [], null, 2), 3, true))}
+      ${_qField('Reputation (JSON)', _qTextarea('data.rep', JSON.stringify(n.data.rep || [], null, 2), 3, true))}
       ${_qField('Flags (JSON)', _qTextarea('data.flags', JSON.stringify(n.data.flags || [], null, 2), 3, true))}
     `,
   },
@@ -426,7 +442,7 @@ window.VineQuestSchema = {
     // Reward node, fed by terminal objectives (or the quest itself if no objectives).
     const rewards = rec.rewards && typeof rec.rewards === 'object' ? rec.rewards : {};
     const rewardPos = rewards._vine || { x: rewardCol * 300 + 40, y: 60 };
-    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, xp: rewards.xp || 0, items: rewards.items || [], flags: rewards.flags || [] } };
+    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, xp: rewards.xp || 0, items: rewards.items || [], rep: rewards.rep || [], flags: rewards.flags || [] } };
     const terminals = objs.filter(o => !dependedOn.has(o.id));
     if (terminals.length) terminals.forEach(o => edges.push({ fromNode: o.id, fromPort: 'unlocks', toNode: 'reward' }));
     else edges.push({ fromNode: 'quest', fromPort: 'start', toNode: 'reward' });
@@ -514,11 +530,14 @@ window.VineQuestSchema = {
     // xp must be carried here as well as rendered. It is paid at runtime
     // (plugins/quests TURN_IN → grantXp) and shipped content relies on it, so a
     // reward node that forgets it silently zeroes the XP of every quest ever
-    // opened and saved in this editor.
+    // opened and saved in this editor. `rep` is here for the same reason and is
+    // the newer of the two — a faction quest that loses its standing on a save
+    // still pays credits, so the loss reads as nothing at all.
     const rewards = rewardNode ? {
       credits: Number(rewardNode[1].data.credits) || 0,
       xp: Number(rewardNode[1].data.xp) || 0,
       items: Array.isArray(rewardNode[1].data.items) ? rewardNode[1].data.items : [],
+      rep: Array.isArray(rewardNode[1].data.rep) ? rewardNode[1].data.rep : [],
       flags: Array.isArray(rewardNode[1].data.flags) ? rewardNode[1].data.flags : [],
       _vine: { x: rewardNode[1].x, y: rewardNode[1].y },
     } : {};

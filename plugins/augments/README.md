@@ -53,6 +53,14 @@ fire-and-forget and will not order three of them. Corruption is skipped only on
 `custody` (jail), **not** on `claimed`: a cortical restore wants its old chrome
 destroyed, so the vats can print new hardware honestly.
 
+Emits **`augment.installed`** `{actor, augment_id, slot, quality, condition, calibration}` on a
+successful fitting, after the `player_augments` row, the roster, the machine-path nudge and the
+opposed-order rep hit have all landed — so a subscriber sees a body that is already fitted rather
+than one mid-cut. Nothing in this plugin consumes it. It exists because a fitting was the one thing
+chrome could do that the world never heard about: this plugin emitted **nothing at all**, so no
+quest could ask a player to get chromed and no observer could react to it. `plugins/quests` is the
+first reader (the `install` objective type, which is the Ascendant bridge).
+
 ## Hooks
 
 `player.respawnZone` — the cortical restore CLAIM. It yields whenever the player
