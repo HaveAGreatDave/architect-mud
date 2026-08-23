@@ -2662,7 +2662,14 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // moving into one (this fixture drives a real cmdMove, not just an exits-map
   // read) hits prologueMoveGate's story-flag block regardless of where the move
   // originates from.
-  const interiors = zones.filter(z => (z.flags?.is_interior || z.flags?.is_apartment) && z.name && !z.flags?.prologue);
+  // Shop interiors are excluded for the same class of reason: `commerce:shop-hours`
+  // blocks a walk into a zone whose only vendor is off the clock, so a fixture that
+  // happened to pick one passed or failed on the WALL CLOCK the suite was run at.
+  // Mirrors shopVendorsFor()'s own test — a vendor with stock and a timetable.
+  const shopZoneIds = new Set([...world.npcs.values()]
+    .filter(n => n?.work_zone_id && !n.flags?.covert && n.vendor_inventory?.length && n.vendor_schedule && Object.keys(n.vendor_schedule).length)
+    .map(n => n.work_zone_id));
+  const interiors = zones.filter(z => (z.flags?.is_interior || z.flags?.is_apartment) && z.name && !z.flags?.prologue && !shopZoneIds.has(z.id));
   const uniqByName = [...new Map(interiors.map(z => [z.name.toLowerCase(), z])).values()];
   if (uniqByName.length >= 2) {
     const [A, B] = uniqByName;
