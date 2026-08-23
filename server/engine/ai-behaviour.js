@@ -308,13 +308,24 @@ export function isVendorAbsent(npc) {
   return entityZone(npc) !== npc.work_zone_id;
 }
 
-// Game-hours until this vendor's next scheduled block opens, or null (no schedule,
-// or nothing scheduled in the coming week). Same clock + day-keying as
-// isVendorWorkTime, so it agrees with whatever just told the player "closed".
+// Game-hours until this vendor's next scheduled block opens: 0 when one is
+// already running, or null (no schedule, or nothing scheduled in the coming
+// week). Same clock + day-keying as isVendorWorkTime, so it agrees with whatever
+// just told the player "closed".
+//
+// ⚠ The 0 is load-bearing, and it is the whole bug this function used to have.
+// The loop below only counts blocks that START in the future (`gap > 0`), so the
+// moment today's block opens it walks straight past it to TOMORROW's. Every
+// caller asking about a shop that is shut for the OTHER reason — the shopkeeper
+// simply isn't behind the counter yet — got "opens again in about 24 hours" at
+// five past six in the morning. An in-progress block is the one question a
+// countdown cannot answer, so it answers zero and lets the caller say something
+// true instead.
 export function hoursUntilOpen(npc) {
   const schedule = npc?.vendor_schedule;
   if (!schedule || !Object.keys(schedule).length) return null;
   const env = getEnvironmentState();
+  if (isVendorWorkTime(npc, env).working) return 0;
   const nowMinutes = env.minutes;
   const todayIdx = env.dayOfWeek % 7; // ISO 1=Mon…7=Sun → DAY_KEYS 0=Sun…6=Sat
   let best = null;
@@ -329,10 +340,12 @@ export function hoursUntilOpen(npc) {
 }
 
 // "about 3 hours" / "about 20 minutes" — the wait an off-shift vendor quotes you.
-// Empty string when they have no schedule to quote from.
+// Empty string when they have no schedule to quote from, and equally when they
+// are ON the clock right now (hoursUntilOpen 0): there is no wait, and every
+// caller already has a no-time sentence for the empty string.
 export function openInPhrase(npc) {
   const h = hoursUntilOpen(npc);
-  if (h == null) return '';
+  if (!h) return '';
   if (h < 1) { const m = Math.max(1, Math.round(h * 60)); return `about ${m} minute${m === 1 ? '' : 's'}`; }
   const r = Math.round(h);
   return `about ${r} hour${r === 1 ? '' : 's'}`;

@@ -18,7 +18,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { registerAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
-import { isVendorClosed, vendorClosedLine, openInPhrase, formatChitchat } from '../../server/engine/ai-behaviour.js';
+import { isVendorClosed, isVendorAbsent, isVendorOffHours, vendorClosedLine, openInPhrase, formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { propagateSound } from '../../server/engine/sounds.js';
@@ -256,6 +256,23 @@ function reopensPhrase(npc) {
   return when ? `in ${when}` : 'during business hours';
 }
 
+// ── TWO REASONS A SHOP IS SHUT, AND ONLY ONE OF THEM HAS A TIME ──────────────
+// `isVendorClosed` folds together the clock (off the timetable) and presence (on
+// the timetable, but not behind the counter yet — walking in, stepped out, late).
+// Both shut the door; only the first can be answered with a wait.
+//
+// Quoting one for the second is where "opens again in about 24 hours" came from:
+// the shopkeeper's block had already started, so the next START was tomorrow's.
+// A player read that as a shop closed round the clock and reported it as such.
+// `vendorClosedLine` has refused to quote a time for an absent vendor since it
+// was written ("nobody is behind the counter to say a line, and quoting the next
+// scheduled block would be a lie if they're merely running late"); the door and
+// the closing sweep were the two surfaces that never got the same rule.
+//
+// Belt and braces with hoursUntilOpen's own 0: this decides WHICH SENTENCE, and
+// that stops the number being wrong in the first place.
+const shutOnPresenceOnly = (npc) => isVendorAbsent(npc) && !isVendorOffHours(npc);
+
 // ── WHOSE DOOR IS THIS? ──────────────────────────────────────────────────────
 // The refusal named the SHOPKEEPER and not the SHOP: "Angus Malcolm opens again in
 // about six hours" is a sentence about a stranger unless you already knew what he
@@ -290,6 +307,9 @@ registerMoveGate(({ player, to }) => {
   if (!shut) return;
   if (livesHere(player, to)) return;   // you live here; the hours aren't about you
   const place = shopPlaceName(to);
+  if (shutOnPresenceOnly(shut)) {
+    return { block: true, message: `The door won't give. ${place || 'The shop'} keeps these hours, but ${shut.name} isn't behind the counter yet.` };
+  }
   return { block: true, message: `The door won't give — shutters down, lights off. ${shut.name} opens ${place ? `${place} ` : ''}again ${reopensPhrase(shut)}.` };
 }, 'commerce:shop-hours');
 
@@ -316,7 +336,11 @@ async function closingSweep() {
     // …and he says the name too, for the same reason: it is the one word that tells a
     // customer standing on the pavement what they will be coming back to.
     const place = shopPlaceName(zone);
-    sendToPlayer(player.id, formatChitchat(shut.name, `"That's us. Out you go — ${place ? `${place} opens` : 'we open'} again ${reopensPhrase(shut)}."`));
+    // Presence-only: there is nobody in the room to say a line, so it is narrated
+    // rather than quoted — and it quotes no time, for the reason above.
+    sendToPlayer(player.id, shutOnPresenceOnly(shut)
+      ? { type: 'output', message: `<span class="text-dim">With ${shut.name} out, ${place ? `${place} isn't` : "the shop isn't"} open to browse. You see yourself out.</span>` }
+      : formatChitchat(shut.name, `"That's us. Out you go — ${place ? `${place} opens` : 'we open'} again ${reopensPhrase(shut)}."`));
     await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: getBroadcast() } });
     const dz = getZone(dest);
     if (dz) sendToPlayer(player.id, { type: 'move', message: await describeZone(dz, player), zone: dest, minimap: getMinimapData(dest, 8, player) });

@@ -75,6 +75,17 @@ error between the two steps can't tear them:
   which is why the covert dealer is excluded from it as well. Listing a closed vendor there made the
   room promise something the trade path then refused, and hid the shift system entirely: you learned
   a shopkeeper's hours by being turned away rather than by looking.
+- ⚠ **Only ONE of the two reasons has a time attached, and quoting the wrong one said "24 hours".**
+  `hoursUntilOpen` counts blocks that *start* in the future, so the instant a block opens it walks
+  past it to **tomorrow's** — which is the honest answer for a vendor who is genuinely off the clock,
+  and a lie for one who is merely absent from a shop that is *in* its hours. It said "opens again in
+  about 24 hours" at five past six in the morning, and a player read that as a shop closed round the
+  clock. `vendorClosedLine` had refused to quote a time for an absent vendor since it was written; the
+  **door gate and the closing sweep** in [commerce/index.js](../plugins/commerce/index.js) never got
+  the same rule. Fixed on both sides so neither can drift back: `hoursUntilOpen` returns **0** for a
+  block already running (and `openInPhrase` an empty string), and commerce picks the sentence off
+  `shutOnPresenceOnly` — absent-but-on-shift says nobody is behind the counter, and says it as
+  *narration*, because the shopkeeper isn't in the room to be quoted.
 - **Off the clock, the dialogue tree shuts too.** A vendor's tree *is* their shop front (the wares
   option, the job hand-off), so leaving it open after hours let a player walk past a closed counter
   and buy through the panel anyway. `talk` ([social.js](../server/engine/commands/social.js)) and

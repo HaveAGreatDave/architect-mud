@@ -68,6 +68,19 @@ export default async function regress({ run, check, getPlayer }) {
   check('a stallholder with no work_zone_id is unaffected by presence',
     !isVendorClosed({ name: 'Stallie', zone_id: 'zone_street', vendor_schedule: onShift }));
 
+  // ── The 24-hour lie ────────────────────────────────────────────────────────
+  // hoursUntilOpen only counted blocks that START in the future, so a shop whose
+  // block was ALREADY RUNNING — shut purely because the shopkeeper hadn't walked
+  // in — was quoted tomorrow's opening. At five past six that reads "opens again
+  // in about 24 hours", and a player reported Two-Cell Supply as permanently shut
+  // on the strength of it. `onShift` runs 00:00–24:00, so it is always in progress.
+  check('a block already in progress counts as zero, not tomorrow',
+    hoursUntilOpen({ name: 'Walker', vendor_schedule: onShift }) === 0,
+    `h=${hoursUntilOpen({ name: 'Walker', vendor_schedule: onShift })}`);
+  check('an on-the-clock vendor quotes no wait at all',
+    openInPhrase({ name: 'Walker', vendor_schedule: onShift }) === '',
+    openInPhrase({ name: 'Walker', vendor_schedule: onShift }));
+
   // Covert dealers keep their own window and are exempt from both.
   const covert = { name: 'Shade', flags: { covert: true }, vendor_schedule: { [today]: [{ from: 0, to: 0 }] } };
   check('covert dealers ignore vendor hours', !isVendorClosed(covert));
