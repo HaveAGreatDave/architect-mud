@@ -1,9 +1,4 @@
 {
-  "ambient_events": [
-    "Water moves through the dark somewhere close, then further off.",
-    "Your light finds a waterline stain, old and high, and loses it.",
-    "The drip here keeps a rhythm the tunnel seems to like."
-  ],
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
@@ -14,6 +9,7 @@
     "south": "zone_under_902_910"
   },
   "flags": {
+    "ambient_pool": "world_sewer_line",
     "district": "sewer",
     "floor": "stone",
     "is_interior": true,

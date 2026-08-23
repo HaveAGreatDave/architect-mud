@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "The wall throws a hard cold shadow out across the ash, with an edge you could measure.",
-    "Columns, all the same width, all the way along, and nobody cut them.",
-    "A block has come off the face recently, and it lies where it landed with the ash not yet blown over it.",
-    "You walk the foot of it for a while looking for a break, and there is not one here.",
-    "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
-    "The wind comes across the flat and there is nothing here for it to make a noise against.",
-    "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out."
-  ],
   "ambient_theme": "wasteland",
   "description": "A face of frozen rock, columnar where it cooled slowly, so the whole wall is a rank of black pillars standing shoulder to shoulder. Broken stuff piled at the foot of it. It is one piece and it does not offer a hold.",
   "exits": {
@@ -17,6 +7,7 @@
     "west": "zone_dw_817_953"
   },
   "flags": {
+    "ambient_pool": "deadwater_the_flow_front",
     "emp_shadow": true,
     "lawless": true,
     "no_spawn": true,

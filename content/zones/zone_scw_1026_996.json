@@ -1,15 +1,4 @@
 {
-  "ambient_events": [
-    "A bird goes over below you, which takes a moment to make sense of.",
-    "The wind comes up the face of the drop in one long push and then drops away to nothing.",
-    "A stone goes off the edge. You do not hear it land.",
-    "Heat coming off the caprock in a shimmer, so the horizon detaches and floats a hand above the ground.",
-    "Rain marks up here too, a thousand pale rings, on rock nothing has stood on in years.",
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it."
-  ],
   "ambient_theme": "wasteland",
   "description": "The top of a mesa, flat as a floor and red as an old brick, with the whole region laid out under it in bands of colour going away to nothing. The caprock rings under a boot. At the edge the ground simply stops and the drop is a long one, and the wind comes up it hard enough to lean on.",
   "exits": {
@@ -19,6 +8,7 @@
     "west": "zone_scw_1025_996"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_the_long_shelf",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",

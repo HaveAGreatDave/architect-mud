@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "A slab lets go somewhere along the face, a long way off, and the sound arrives well after it.",
-    "Birds are nesting in the undercut, a whole colony of them, and they are not interested in you.",
-    "The shadow of the wall lies out across the flats, cold, with a hard edge on it.",
-    "You follow the foot of it for a while looking for a break, and there is not one here.",
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it."
-  ],
   "ambient_theme": "wasteland",
   "description": "The rock goes up in one piece, banded red on red, too high to see the top of from underneath and too sheer to argue with. It runs away in both directions along the same line and does not offer anything that could be called a way up.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_scw_1011_988"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_the_rimrock",
     "lawless": true,
     "no_spawn": true,
     "radiation": 9,

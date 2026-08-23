@@ -1,7 +1,4 @@
 {
-  "ambient_events": [
-    "Pipes knock somewhere in the walls. The building is old but it holds."
-  ],
   "ambient_theme": "indoors",
   "bg_color": "#8b9096",
   "description": "Bare walls the color of old teeth, a mattress, and a radiator that either roars or sulks with nothing between. Someone before you left a nail in the wall and the pale ghost of whatever hung on it.",
@@ -9,6 +6,7 @@
     "north": "zone_mq_chrome_f3"
   },
   "flags": {
+    "ambient_pool": "world_unit_101",
     "floor": "boards",
     "is_apartment": true,
     "rent_cost": 50,

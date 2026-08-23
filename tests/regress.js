@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink, getRandomAmbient, getAmbientPool } from '../server/engine/world.js';
 import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard, tickEntityAI, isVendorClosed } from '../server/engine/ai-behaviour.js';
 import { openShopSession, closeShopSession, getNpcForShopper } from '../server/engine/vendor-session.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
@@ -4264,6 +4264,74 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     themeMismatch.slice(0, 3).map(z => z.id).join(', '));
   check('zone_derived.ambient_theme is always present',
     getAllZones().every(z => !!renderOf(z.id).ambient_theme));
+
+  // ── Derived at boot, not read back (2026-08-22) ───────────────────────────
+  // loadZoneRender computes these rows with deriveWorld instead of pulling ~5.7MB
+  // of zone_derived out of Postgres on every cold start. Two things to hold.
+  //
+  // Coverage first: the read returned a row per tile, so the derive has to as
+  // well. A partial derive would surface as tiles with no fill rather than as an
+  // error, which is the failure mode this whole table exists to prevent.
+  const noRender = getAllZones().filter(z => !renderOf(z.id));
+  check('every zone has a derived row', noRender.length === 0,
+    noRender.slice(0, 3).map(z => z.id).join(', '));
+
+  // Then freshness, which is the reason this is worth a test rather than a
+  // comment. The stored table is a cache of a pure function and goes stale the
+  // moment derive.mjs learns a new key without a re-import: measured on a dev DB
+  // the day this changed, all 5,867 rows predated `passable`/`climbable`/
+  // `thermal` and 64 predated `spec.curtain`. Deriving in RAM cannot lag the code
+  // reading it, and asserting on a LATE-ADDED prop is what proves that — an
+  // assertion on an original key would pass just as happily against a stale read.
+  const stale = getAllZones().filter(z => renderOf(z.id)?.props?.passable === undefined);
+  check('derived props carry the late-added keys (not a stale cached read)',
+    stale.length === 0, stale.slice(0, 3).map(z => z.id).join(', '));
+
+  // ── flags.ambient_pool: the sub-area voice (2026-08-22) ───────────────────
+  // The region builders used to stamp a sub-area's whole ambient array onto every
+  // one of its tiles — 11,633 tiles carrying 29 distinct arrays, 9MB of the world
+  // load to say 243 things. They now name a pool and the lines live once, in
+  // global_ambient_events, under that name as their `theme`.
+  const pooled = getAllZones().filter(z => z.flags?.ambient_pool);
+  check('the generated fill names a pool', pooled.length > 1000, String(pooled.length));
+
+  // …and no longer carries the prose itself. THIS is the assertion that has teeth.
+  // Dropping the key from the content files was not enough on its own: a key
+  // missing from a file means "don't touch this column", so the first run of the
+  // migration left all 11,633 arrays sitting in the DB, the per-zone rung went on
+  // winning, and every other check here still passed — the pool holds the same
+  // lines, so ambience kept working and looked migrated. `ambient_events` is on
+  // the zones omitWhenNull list to force the NULL; if it ever comes off, this is
+  // the only thing that will say so.
+  const stillCarrying = pooled.filter(z => (z.ambient_events || []).length);
+  check('…and no longer carries the copied prose too', stillCarrying.length === 0,
+    `${stillCarrying.length} tiles still hold their array`);
+
+  // The whole point is that it still SAYS something. A pool key that resolved to
+  // an empty pool would go quiet without erroring — the tile just never speaks
+  // again — so this asserts a real line comes back, not merely that a key exists.
+  const silent = [];
+  for (const z of pooled.slice(0, 400)) {
+    const got = getRandomAmbient(z.id);
+    if (!got?.message) silent.push(z.id);
+  }
+  check('a pooled tile still produces ambience', silent.length === 0, silent.slice(0, 3).join(', '));
+
+  // And it must be THAT pool's prose, not whatever the broad theme would have
+  // said. Nearly every one of these tiles is ambient_theme 'wasteland', so a
+  // resolution that quietly ignored the pool key would still return a plausible
+  // wasteland line and look correct.
+  const poolProbe = pooled.find(z => z.flags.ambient_pool === 'deadwater_the_wide_quiet');
+  const poolLines = new Set(getAmbientPool(poolProbe?.flags?.ambient_pool).map(e => e.message));
+  check('the named pool actually has lines in it', poolLines.size > 0, String(poolLines.size));
+  check('…and the tile is drawn from it, not from the broad theme',
+    poolLines.has(getRandomAmbient(poolProbe.id)?.message));
+
+  // Hand-authored per-zone prose is untouched: it is written for ONE room, wins
+  // over any pool, and was deliberately left where it was (260 blobs on 272
+  // tiles). If the migration had swept those up too the rung would be dead.
+  const handAuthored = getAllZones().filter(z => (z.ambient_events || []).length && !z.flags?.ambient_pool);
+  check('per-zone ambient prose survives the migration', handAuthored.length > 100, String(handAuthored.length));
 
   // ── deriveMarker: four jobs, separated (spec §7.4) ─────────────────────────
   // `zones.marker` meant four unrelated things. After the split it means exactly

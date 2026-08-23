@@ -53,7 +53,7 @@
 # starts no run and deploys nothing. Use the Run workflow button for that.
 #
 # Note the schedule ignores `paths:` entirely — a scheduled run deploys whatever
-# is on main, judged only by sha, so code changes reach prod on the 2-hourly
+# is on main, judged only by sha, so code changes reach prod on the 4-hourly
 # window whether or not they matched a path filter.
 #
 # Required repo secrets:
@@ -73,7 +73,7 @@ name: deploy-content
 on:
   workflow_dispatch:      # manual force: Actions tab → Run workflow
   schedule:
-    # Debounced batch deploy, every 2 hours. ⚠ THE :37 IS LOAD-BEARING — DO NOT
+    # Debounced batch deploy, every 4 hours. ⚠ THE :37 IS LOAD-BEARING — DO NOT
     # "TIDY" IT BACK TO :00. GitHub dispatches `schedule` events best-effort from
     # a service shared by every repo on the platform, and the top of the hour is
     # its most oversubscribed minute (every `0 * * * *` and `0 0 * * *` job in the
@@ -86,12 +86,12 @@ on:
     # anywhere; the quiet evening windows still ran 29–38 minutes behind.
     #
     # An arbitrary off-peak minute is the standard mitigation. The interval is
-    # unchanged, so everything downstream that says "2-hourly" is still true.
+    # unchanged in spirit (the minute is off-peak), and the interval is now 4 hours.
     #
     # If you change this minute, change `_windowBefore()` in
     # client/devpanel/js/panels/dashboard.js to match — the Deploy Window card
     # snaps to the boundary and will draw against the wrong one otherwise.
-    - cron: '37 */2 * * *'
+    - cron: '37 */4 * * *'
   push:
     branches: [main]
     # Pushes trigger a run so regress validates them; the gate job only lets the
@@ -186,7 +186,7 @@ jobs:
             if git log -1 --pretty=%B | grep -qF '[deploy]'; then
               deploy=true; why="[deploy] token in commit — force deploy"
             else
-              why="content push validated; batched until the next 2-hourly deploy. Force with a [deploy] commit token or Run workflow."
+              why="content push validated; batched until the next 4-hourly deploy. Force with a [deploy] commit token or Run workflow."
             fi
           elif [ "$EVENT" = "schedule" ]; then
             npm ci >/dev/null 2>&1 || true

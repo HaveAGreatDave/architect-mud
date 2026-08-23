@@ -1,18 +1,4 @@
 {
-  "ambient_events": [
-    "Somewhere across the compound, a number of people stop doing something at the same moment.",
-    "A door opens ahead of you. There is nobody behind it, and nobody comes through.",
-    "Two people pass, neither speaking, and one of them laughs.",
-    "Somebody hands somebody else a tool a moment before it is reached for. Neither of them remarks.",
-    "A stack of trays is squared off against a wall by somebody at the other end of the yard.",
-    "The gravel has been raked. Recently. There are no footprints in it and you have seen four people cross it.",
-    "A child stops, looks at you steadily, and is called away by somebody who did not call.",
-    "There is no rubbish. Not a scrap, and no bins either, and no smell of any.",
-    "The air goes still in a way that is nothing to do with the wind.",
-    "A conversation two rows away has a hole in the middle of it, and then carries on.",
-    "Somebody starts to answer you and stops, politely, and waits for you to say it.",
-    "Everything you can see has been mended at least once and nothing has been replaced."
-  ],
   "ambient_theme": "outdoors",
   "description": "The way round the inside of the wall, close under it, in its shade for most of the day. A stair goes up to the walk every so often and the treads are worn in the middle.",
   "exits": {
@@ -21,6 +7,7 @@
     "west": "zone_terminus_1215_948"
   },
   "flags": {
+    "ambient_pool": "terminus_the_wall_walk",
     "exodus_space": true,
     "region_id": "region_terminus",
     "terrain": "gravel"

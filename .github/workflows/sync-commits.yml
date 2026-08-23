@@ -13,7 +13,7 @@
 #   • no `paths:` filter — a docs-only or tools-only commit is still history, and
 #     deploy-content only starts on code/content paths.
 #   • runs on every push, not just the ones the debounce gate lets deploy, so the
-#     Dev Log is current between the 2-hourly deploy windows.
+#     Dev Log is current between the 4-hourly deploy windows.
 #   • it can never fail or delay a deploy. This writes one table nothing in the
 #     game reads; a red run here means a stale panel, not a stale world.
 #

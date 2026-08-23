@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_world_sewer_line_01",
+  "loudness": 1,
+  "message": "Water moves through the dark somewhere close, then further off.",
+  "theme": "world_sewer_line",
+  "weight": 100
+}

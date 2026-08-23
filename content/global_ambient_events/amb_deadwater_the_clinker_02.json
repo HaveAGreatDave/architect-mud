@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_deadwater_the_clinker_02",
+  "loudness": 1,
+  "message": "A piece of clinker breaks off under your heel with a sound like crockery.",
+  "theme": "deadwater_the_clinker",
+  "weight": 100
+}

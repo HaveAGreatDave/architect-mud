@@ -1,19 +1,4 @@
 {
-  "ambient_events": [
-    "Somewhere behind a wall, two voices are having the same argument they had last night.",
-    "A screen door bangs. Nobody comes out.",
-    "The dirt holds every footprint that's crossed it today. There are not many.",
-    "A generator note wavers, catches, and settles back into its drone.",
-    "Somebody's radio is playing the same three songs the Coyote's Rest plays. There is only the one tape out here.",
-    "Grit drifts across the road in long slow ribbons, filling in yesterday's ruts.",
-    "A dog you never see barks twice, somewhere past the last building, and thinks better of it.",
-    "The heat comes up off the road in a sheet. Nothing moves in it.",
-    "An engine drones somewhere overhead. Every face in the street tilts up, watches, and goes back to what it was doing.",
-    "Someone has scratched a tally into a doorframe. Forty-odd marks. No indication of what they count.",
-    "Bootprints, tyre-ruts, and a long smooth drag where something heavy got hauled toward the field.",
-    "Washing hangs dead-still on a line, bleached to no colour at all.",
-    "The light goes long and copper and every building in the Reach throws a shadow twice its height."
-  ],
   "ambient_theme": "wasteland",
   "description": "A patch of level ground south of town where the dirt has been turned over more times than the rest of it. There are no headstones. There are lengths of pipe driven upright, one for each, with a name punched into the metal with a hammer and a nail, and a few with no name at all. The Reach does not do ceremony. It does do bookkeeping.",
   "exits": {
@@ -22,6 +7,7 @@
     "west": "zone_the_reach_869_1959"
   },
   "flags": {
+    "ambient_pool": "the_reach_the_west_lots",
     "lawless": true,
     "region_id": "region_the_reach",
     "terrain": "dirt"

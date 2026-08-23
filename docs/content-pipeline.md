@@ -182,7 +182,7 @@ added, and resurrects the rows it deleted. Verified in the Phase-2 drill.
   deploying one-for-one on every content commit (25/day in an active session)
   blew the transfer cap a second time on reboots alone (July 2026). So a content
   push now only **validates** (regress runs — zero Neon egress, it's a throwaway
-  local Postgres) and then stops. The deploy is batched onto a **2-hourly
+  local Postgres) and then stops. The deploy is batched onto a **4-hourly
   `schedule`** that collapses a burst of commits into one reboot, and a scheduled
   run whose HEAD sha is already the live deployment **skips** the idle reboot.
   Two force paths deploy immediately: put **`[deploy]`** anywhere in the commit

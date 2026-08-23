@@ -44,7 +44,7 @@ function renderDashboard(data) {
         ${card('🛡', 'Admins Online', admins.length, admins.length ? admins.map(p=>p.handle).join(', ') : 'None', "showPanel('players')")}
         ${card('🕐', 'Server Time', timeStr, `${dateStr} · ${season} · ${weatherStr}`, "showPanel('timeweather')")}
         ${card('👾', 'Live Enemies', data.live_enemies ?? '—', `${(data.zones||[]).length} zones active`, "showPanel('enemies')")}
-        ${card('🚀', 'Deploy Window', '<span id="dep-clock">--:--:--</span>', '<span id="dep-sub">every 2h · click for Actions</span>', "window.open('https://github.com/HaveAGreatDave/architect-mud/actions/workflows/deploy-content.yml','_blank')")}
+        ${card('🚀', 'Deploy Window', '<span id="dep-clock">--:--:--</span>', '<span id="dep-sub">every 4h · click for Actions</span>', "window.open('https://github.com/HaveAGreatDave/architect-mud/actions/workflows/deploy-content.yml','_blank')")}
       </div>
 
       <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">7-Day Forecast</div>
@@ -145,14 +145,14 @@ function renderDashboard(data) {
 }
 
 // ── Next deploy window countdown ─────────────────────────────────────────────
-// CI debounces deploys onto `cron: '37 */2 * * *'` (see .github/workflows/
+// CI debounces deploys onto `cron: '37 */4 * * *'` (see .github/workflows/
 // deploy-content.yml) — a push only runs the regress gate.
 //
 // ⚠ AND A CRON IS NOT A CLOCK, WHICH IS WHY THIS STOPPED BEING PURE ARITHMETIC. The old version
 // counted down to the next even hour and knew nothing else, so it was confidently wrong for the
 // whole of the part anybody cares about: GitHub's scheduler queues cron runs and starts them late —
 // routinely minutes, sometimes much longer — so the card hit 00:00:00, instantly reset to 1:59:59,
-// and then the deploy it had been counting down to happened while the card said two hours. Watching
+// and then the deploy it had been counting down to happened while the card said a full window. Watching
 // that once is enough to stop trusting the number, and it read as the timer being out of sync
 // because it was: it was showing a SCHEDULE while the question is always "has it gone yet".
 //
@@ -190,6 +190,7 @@ function renderDashboard(data) {
 // the 1 minute used for our own API, and a failure just sets `_ghBlocked` and drops back to the
 // arithmetic — the old behaviour, which is a fine floor to fall to.
 const DEPLOY_WINDOW_MIN = 37;            // ⚠ must match the cron minute in deploy-content.yml
+const DEPLOY_WINDOW_HRS = 4;             // ⚠ must match the cron hour step in deploy-content.yml
 const DEPLOY_FALLBACK_SKIP = 75 * 60000; // only used when Actions is unreachable; see _windowStatus
 // `event=schedule` on purpose: this read exists ONLY to explain why a scheduled window has gone
 // quiet. A forced deploy (`[deploy]` token, or Run workflow) is a different event and is invisible
@@ -204,13 +205,13 @@ let _ghBlocked = false;                  // last Actions fetch failed → fall b
 
 const _pad2 = n => String(n).padStart(2, '0');
 
-function _windowBefore(now) {            // the most recent 2-hourly boundary at or before `now`
+function _windowBefore(now) {            // the most recent deploy-window boundary at or before `now`
   const w = new Date(now);
   w.setUTCMinutes(DEPLOY_WINDOW_MIN, 0, 0);
-  if (w.getUTCHours() % 2 !== 0) w.setUTCHours(w.getUTCHours() - 1);
+  w.setUTCHours(w.getUTCHours() - (w.getUTCHours() % DEPLOY_WINDOW_HRS));
   // Snapping the minute FORWARD lands us past `now` for the first `DEPLOY_WINDOW_MIN` minutes of
-  // each even hour, so step back a whole window rather than reporting a boundary in the future.
-  if (w.getTime() > now) w.setUTCHours(w.getUTCHours() - 2);
+  // each window hour, so step back a whole window rather than reporting a boundary in the future.
+  if (w.getTime() > now) w.setUTCHours(w.getUTCHours() - DEPLOY_WINDOW_HRS);
   return w;
 }
 
@@ -220,7 +221,7 @@ function _windowLabel(d) { return `${_pad2(d.getUTCHours())}:${_pad2(d.getUTCMin
 //   · `resolved` false ⇒ the window is still in play, so the clock counts UP and waits.
 //   · `resolved` true  ⇒ this window is over and produced nothing, so the clock goes back to
 //     counting DOWN to the next one and this text becomes its prefix. Without that split a skipped
-//     window would count up for the whole two hours and never show the next deploy at all.
+//     window would count up for the whole window and never show the next deploy at all.
 //   · `bad` reddens the clock, and is reserved for a run that actually FAILED — the state the old
 //     card could not draw, because a failure and a healthy skip both looked like silence.
 function _windowStatus(prev, sinceWindow, now) {
@@ -295,7 +296,7 @@ function _initDeployClock() {
     if (now - _deployPollAt > 60000) { _deployPollAt = now; poll(); }
 
     const prev = _windowBefore(now);
-    const next = new Date(prev); next.setUTCHours(next.getUTCHours() + 2);
+    const next = new Date(prev); next.setUTCHours(next.getUTCHours() + DEPLOY_WINDOW_HRS);
     const sinceWindow = now - prev.getTime();
     const landed = _lastDeployAt != null && _lastDeployAt >= prev.getTime();
     const sub = document.getElementById('dep-sub');

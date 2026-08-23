@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "Ruts either side of you, deep enough to turn an ankle in, worn by the same wheels going the same way for years.",
-    "A barrel hoop lies in the ditch, rusted through, and somebody has scratched a tally into the plate beside it.",
-    "A water cart comes the other way, empty, moving fast, and the two hauling it lift a hand without slowing.",
-    "A spill line of dark ground runs along the rut for thirty yards and stops. Somebody had a bad day here.",
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it."
-  ],
   "ambient_theme": "wasteland",
   "description": "Cart ruts, cut deep and kept, running between the lake and the town the long way round the outside of the thorn. The two sets of wheel marks are not the same depth: the ones going east are the loaded ones. Somebody has laid broken plate into the soft stretches and pegged it down, and somebody replaces a peg now and again.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_scw_1035_986"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_the_water_road",
     "lawless": true,
     "radiation": 24,
     "region_id": "region_scarletwastes",

@@ -1,7 +1,4 @@
 {
-  "ambient_events": [
-    "Pipes knock somewhere in the walls. The building is old but it holds."
-  ],
   "ambient_theme": "indoors",
   "bg_color": "#8b9096",
   "description": "A studio that still has its original built-in cabinetry, half the doors missing, the rest painted shut. A mattress on a pallet, a chair, a view of the square if you press your face to the glass. Home.",
@@ -9,6 +6,7 @@
     "west": "zone_mq_chrome_f1"
   },
   "flags": {
+    "ambient_pool": "world_unit_101",
     "floor": "boards",
     "is_apartment": true,
     "rent_cost": 50,

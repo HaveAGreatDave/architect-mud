@@ -1,18 +1,4 @@
 {
-  "ambient_events": [
-    "Somebody is filing something flat, and has been for a while, and is in no hurry to stop.",
-    "A hand crank goes round twelve times, pauses, and goes round twelve more.",
-    "Two people are arguing about a tolerance. Neither of them is angry and both of them are certain.",
-    "Woodsmoke, machine oil, and under both of them, wet stone.",
-    "A tray of bearings on a bench, laid out in a row in the order they came out.",
-    "The clock on the shop wall ticks, and you can see the escapement doing it.",
-    "A belt slaps somewhere overhead, running off a shaft that runs off the water.",
-    "Somebody drops a spanner and somebody else, out of sight, names the size of it correctly.",
-    "A child goes past carrying a part in both hands, very carefully, on an errand that clearly matters.",
-    "Chalk marks on a doorframe at four heights, the highest one recent.",
-    "Somebody laughs, once, and goes back to work.",
-    "A kettle comes to the boil on a plate over the forge and is taken off it by somebody who was waiting."
-  ],
   "ambient_theme": "wasteland",
   "description": "A long shed of racked steel shelving, and the most orderly room you have been in since you got here: fasteners by thread and length in labelled drawers, bar stock standing in bins by section, bearings boxed and dated, all of it on a card index in a cabinet by the door. Nothing is locked. A slate hangs on a nail by the exit with the last four things taken written on it, each with a name beside it, and one of them has been rubbed out and written back in with the quantity corrected.",
   "exits": {
@@ -22,6 +8,7 @@
     "west": "zone_dw_769_976"
   },
   "flags": {
+    "ambient_pool": "deadwater_tail_row",
     "building_name": "The Stores",
     "building_type": "warehouse",
     "emp_shadow": true,

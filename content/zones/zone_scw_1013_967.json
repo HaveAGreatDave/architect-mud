@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "Something shifts underfoot and a run of small stones goes down the slope ahead of you.",
-    "A slab the size of a door lies where it landed, and it has not been there long enough to weather.",
-    "The face above is banded like something cut through, and every band is a different red.",
-    "Grit rattles down out of the notch above with no wind to explain it.",
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it."
-  ],
   "ambient_theme": "wasteland",
   "description": "A fan of scree run out from a notch in the cliff above, sorted by nothing but weight: the big pieces at the bottom, the grit at the top, and a channel down the middle of it where the water goes when there is water.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_scw_1012_967"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_the_spill",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",

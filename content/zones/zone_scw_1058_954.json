@@ -1,17 +1,4 @@
 {
-  "ambient_events": [
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it.",
-    "The rock ticks as it cools. It goes on doing it after you stop walking.",
-    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
-    "A drum of standing water, lid long gone, the surface skinned over and still.",
-    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
-    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
-  ],
   "ambient_theme": "wasteland",
   "description": "Red rock to the horizon in every direction, pitted all over with pale rings a hair deep where the rain has stood and eaten. The wind never entirely stops. There is a great deal of sky and none of it is reassuring.",
   "exits": {
@@ -21,6 +8,7 @@
     "west": "zone_scw_1057_954"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_hardpan",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",

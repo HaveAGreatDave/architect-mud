@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_terminus_the_wall_walk_01",
+  "loudness": 1,
+  "message": "Somewhere across the compound, a number of people stop doing something at the same moment.",
+  "theme": "terminus_the_wall_walk",
+  "weight": 100
+}

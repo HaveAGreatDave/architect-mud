@@ -422,6 +422,29 @@ boot-loaded Maps:
   staffing, poker bankrolls) funneled through `updateNpc`/`syncNpc` (`world.js:422,430`); SQL-side
   increments inside a transaction use `RETURNING` + `syncNpc`.
 
+### A sixth tier: don't read it, recompute it
+
+`zone_derived` is a **cache of a pure function**, and since 2026-08-22 the server does not read it at
+boot at all — `loadZoneRender` calls `deriveWorld` (`scripts/content/derive.mjs`) over the zones,
+regions and connections already sitting in RAM, plus the terrain palette off the checkout. 17,258
+tiles derive in ~350ms and cost **zero** rows.
+
+The trade it wins is bigger than the milliseconds suggest. Prod's compute is remote and its
+network-transfer allowance is the binding constraint on the free tier, so the cost of a boot-loaded
+table is paid **per cold start** — and a free instance that spins down when empty cold-starts several
+times a day on top of every deploy reboot. This one table was ~5.7MB of every one of those.
+
+It also removes a drift class that a stored derivation always has: the rows go stale the moment
+`derive.mjs` learns a new key without a re-import. Measured on a dev DB the day it changed, all 5,867
+rows predated the `passable`/`climbable`/`thermal` props and 64 predated `spec.curtain` — with zero
+disagreements on any value both copies held. A derived-in-RAM row cannot lag the code that reads it.
+
+**When this tier applies:** the value is a pure function (no DB, no clock, no RNG — `derive.mjs`
+carries that as an enforced contract in its header), every input is already in memory or on the
+checkout, and the compute is bounded. If any of those is false, it is an ordinary cached table.
+The TABLE still exists and CI still writes it — `apiGetMap` joins it for the editor, and *writing* it
+is ingress, which is not what the transfer cap counts. This is only about who reads it at boot.
+
 Any new writer to either table MUST use its funnel — a raw `query('UPDATE furniture …')` now
 silently desyncs room descriptions, and a raw `UPDATE npcs` desyncs shop shelves. Every content
 table's decided read tier is machine-readable as `readTier` in

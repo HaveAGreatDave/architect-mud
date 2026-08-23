@@ -1,15 +1,4 @@
 {
-  "ambient_events": [
-    "The scrub moves in a line off to your right, tracking you, and then stops when you stop.",
-    "A thorn takes hold of a sleeve and does not let go until it is asked to properly.",
-    "Something small and quick goes down a run in the brush and the whole thicket ticks with it.",
-    "Seed pods, acid-pitted and rattling, hundreds of them, all at once and then not.",
-    "A patch of the scrub is dead and bleached white in a ring about ten feet across. Nothing has grown back into it.",
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it."
-  ],
   "ambient_theme": "wasteland",
   "description": "Low thicket over a shallow pan where whatever rain falls runs to and stays a while. The scrub grows thickest along the channels and you can read the drainage off it from any small rise, like a map somebody drew in a hurry.",
   "exits": {
@@ -19,6 +8,7 @@
     "west": "zone_scw_1029_966"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_the_grey_thicket",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",

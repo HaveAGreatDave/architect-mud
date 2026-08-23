@@ -1,18 +1,4 @@
 {
-  "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
-  ],
   "ambient_theme": "wasteland",
   "description": "Workshops open to the lane: a wheelwright, a stitcher, somebody rebuilding a pump on a trestle with the parts laid out on a cloth in the order they came off.",
   "exits": {
@@ -22,6 +8,7 @@
     "west": "zone_scw_1051_974"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_tank_row",
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

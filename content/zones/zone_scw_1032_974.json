@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "A cart comes up off the shore with four barrels roped on and two people leaning into it, and neither of them is talking.",
-    "Water slaps the stone once and then goes back to doing nothing.",
-    "Empty barrels stacked in threes, every one of them numbered in the same hand as the drums in the town.",
-    "A dog drinks at the margin, stops, looks out across the water for a while, and goes back to drinking.",
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it."
-  ],
   "ambient_theme": "wasteland",
   "description": "The margin of the lake, and the ground here is packed hard and rutted deep by cart wheels going down and coming back heavier. Barrels stacked and chained. A tide line of pale crust where the water has stood at higher marks, each old line a wetter year than this one.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_scw_1031_974"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_the_hard_standing",
     "lawless": true,
     "radiation": 4,
     "region_id": "region_scarletwastes",

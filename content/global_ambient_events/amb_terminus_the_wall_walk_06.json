@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_terminus_the_wall_walk_06",
+  "loudness": 1,
+  "message": "The gravel has been raked. Recently. There are no footprints in it and you have seen four people cross it.",
+  "theme": "terminus_the_wall_walk",
+  "weight": 100
+}

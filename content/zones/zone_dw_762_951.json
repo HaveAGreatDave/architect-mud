@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "The wind goes through the stand and makes almost no sound, because there is nothing left on them to make one with.",
-    "A trunk has a ring of pale mineral around it at knee height, and so does the next one, and so does the next.",
-    "Every one of them is grey on the same side, and it is the same side as the water.",
-    "A bird is up in the bare branches, doing nothing, in no hurry.",
-    "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
-    "The wind comes across the flat and there is nothing here for it to make a noise against.",
-    "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out."
-  ],
   "ambient_theme": "wasteland",
   "description": "Dead timber, standing. Whatever killed them did it to all of them in the same season, because they are all the same shade of grey and every one of them still has its shape. The ground between is packed ash and it takes a print.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_dw_761_951"
   },
   "flags": {
+    "ambient_pool": "deadwater_deadfall_rise",
     "emp_shadow": true,
     "lawless": true,
     "region_id": "region_deadwater",

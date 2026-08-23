@@ -739,6 +739,9 @@
     speed_mult: { label: 'Speed Multiplier', shape: 'number', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
       help: 'OVERRIDE. Movement pacing on this tile — 2 means you cross it in half the time. Preset by terrain (road and dirt_road are 2, everything else 1). Set it to make one stretch slow (rubble, a rutted lane) without inventing a terrain for it.' },
 
+    ambient_pool: { label: 'Ambient Pool', shape: 'text', scope: 'zone', group: 'Zone: Identity',
+      help: 'Names the sub-area voice this tile speaks in — the `theme` of a set of global_ambient_events rows written for one stretch of country ("deadwater_the_wide_quiet", "scarletwastes_hardpan"). SECOND KEY, and deliberately not Ambient Theme: that one answers what KIND of place this is and has other readers (ambient-life gates routines on it, knock tests it for indoors), while this one answers which lines get said. Leave it empty on anything hand-authored — a room with prose of its own puts it in Ambient Events. It exists because the region builders used to copy the eleven lines of one sub-area onto all 2,148 of its tiles, which was 9MB of the world load to say 243 things.' },
+
     scavenging_table_id: { label: 'Scavenging Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',
       help: 'Loot table id for SCAVENGE here.' },
     fishing_table_id: { label: 'Fishing Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',

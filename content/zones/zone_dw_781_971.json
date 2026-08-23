@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "The crust gives very slightly underfoot and does not break, which is somehow worse.",
-    "A plate of it lifts at the edge and there is water under it, and the water is moving.",
-    "Yellow along every crack, in a colour nothing else here is.",
-    "Somebody has driven a peg at the edge of the sound ground and painted the top of it white.",
-    "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
-    "The wind comes across the flat and there is nothing here for it to make a noise against.",
-    "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out."
-  ],
   "ambient_theme": "wasteland",
   "description": "The pale shelf the water has been laying down around itself for a very long time: mineral crust in flat terraces, off-white and faintly yellow, ringed and lipped like something poured. It is hollow in places and it says so underfoot, so you keep to the trodden line.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_dw_780_971"
   },
   "flags": {
+    "ambient_pool": "deadwater_the_white_apron",
     "emp_shadow": true,
     "lawless": true,
     "region_id": "region_deadwater",

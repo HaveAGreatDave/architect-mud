@@ -148,9 +148,31 @@ emit; scripted/elevator moves emit without it and so read as normal (non-exempt)
 
 ### Ambient pool
 
-`getRandomAmbient(zoneId)` prefers a zone's hand-authored `ambient_events` (loudness 1.0), then falls
-back to the global weighted pool keyed by the zone's `ambient_theme` (default `indoors`). A per-zone
-recent-window of the last 5 messages avoids immediate repeats. `ambientTick` (every 45s) fires for
+`getRandomAmbient(zoneId)` resolves **three rungs, in order**: a zone's hand-authored
+`ambient_events` (loudness 1.0, picked uniformly), then the global weighted pool named by
+`flags.ambient_pool`, then the global weighted pool keyed by `ambient_theme` (default `indoors`).
+A per-zone recent-window of the last 5 messages avoids immediate repeats.
+
+**Why the middle rung exists (2026-08-22).** The region builders used to stamp a sub-area's whole
+ambient array onto every one of its tiles, which is the top rung doing a job it was never for — that
+rung is for prose written for ONE room. Measured across the world, 11,633 generated fill tiles carried
+29 distinct arrays between them: 9MB of every cold-start world load to say 243 things, and half of the
+`zones` table. Those lines now live once, in `global_ambient_events`, under a pool name the tile points
+at (`deadwater_the_wide_quiet`, `scarletwastes_hardpan`). Behaviour is unchanged by construction — the
+rows were written at `loudness: 1.0` and a uniform weight, which is exactly what the per-zone rung did.
+
+**Two keys, deliberately.** `ambient_theme` answers *what kind of place is this* and has other readers
+(ambient-life gates its routines on it, `knock` tests it for `indoors`), so it has to keep meaning the
+handful of broad kinds it means today; `flags.ambient_pool` answers *which voice do these tiles speak
+in*. Pool first, theme second, so a tile naming an empty pool drops to its theme rather than going
+silent. The 260 blobs that sat on 272 tiles were left exactly where they were — those are genuinely
+per-room, and sweeping them up too would have killed the rung.
+
+⚠ `ambient_events` is on the zones **`omitWhenNull`** list (server/models/content-registry.js). It has
+to be: a key merely missing from a content file means *don't touch this column*, so the first run of
+the migration left all 11,633 arrays in the database, the top rung went on winning, and nothing looked
+wrong — the pools hold the same lines, so ambience kept working and the change appeared applied while
+saving nothing. `ambientTick` (every 45s) fires for
 ~40% of populated zones, after first trying the `zone.describeAmbient` plugin hook (used by the weather
 plugin). Exterior zones in active weather may additionally layer a weather-themed ambient.
 

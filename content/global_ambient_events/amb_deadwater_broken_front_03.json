@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_deadwater_broken_front_03",
+  "loudness": 1,
+  "message": "Somebody has stacked the moved blocks in a row rather than just shoving them off, which tells you who lives here.",
+  "theme": "deadwater_broken_front",
+  "weight": 100
+}

@@ -1,7 +1,4 @@
 {
-  "ambient_events": [
-    "Pipes knock somewhere in the walls. The building is old but it holds."
-  ],
   "ambient_theme": "indoors",
   "bg_color": "#8b9096",
   "description": "A corner unit, which here means two windows instead of one and a draft to match. A bed, a footlocker, a sink that runs brown for a ten-count before it clears. The door is steel. The door is the point.",
@@ -9,6 +6,7 @@
     "east": "zone_mq_chrome_f1"
   },
   "flags": {
+    "ambient_pool": "world_unit_101",
     "floor": "boards",
     "is_apartment": true,
     "rent_cost": 50,

@@ -109,7 +109,18 @@ export const REGISTRY = [
     // is authored-first, so they are overrides like the two above and an absent key
     // is how a tile says "whatever the palette gives me".
     // See docs/proposals/tile-presentation-overrides.md.
-    omitWhenNull: ['audio_theme_id', 'marker', 'color', 'bg_color'],
+    // `ambient_events` JOINED this list on 2026-08-22, and for the same reason
+    // the others are on it: a tile authors it only when it has prose written for
+    // that ONE room, and absence means "say whatever my pool says" (the
+    // flags.ambient_pool / ambient_theme rungs in getRandomAmbient).
+    //
+    // It has to be here rather than merely dropped from the files, because a key
+    // that is simply MISSING is "don't touch this column" — so the 11,633 tiles
+    // whose copied prose moved into global_ambient_events kept every line of it
+    // in the DB, the per-zone rung went on winning, and the change looked applied
+    // while saving nothing at all. Forcing the NULL is what makes the removal
+    // real in a database that already imported the old value.
+    omitWhenNull: ['audio_theme_id', 'marker', 'color', 'bg_color', 'ambient_events'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
   // `parent_zone_id` is the SINGLE place a map's world anchor is decided; every

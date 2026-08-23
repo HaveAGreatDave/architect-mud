@@ -1,19 +1,4 @@
 {
-  "ambient_events": [
-    "Wind comes off the flats in one long unbroken note and does not stop.",
-    "Somebody is counting, somewhere out of sight, and does not hurry.",
-    "A line of figures crosses the middle distance, walking, and none of them look over.",
-    "Chalk marks on a rock face. A date, maybe. It has been corrected twice.",
-    "The gate does not open. Nothing about it suggests it is going to.",
-    "Two figures pass on the wall walk. Neither speaks. Both change direction.",
-    "Somewhere behind the wall, a great many people stop doing something at the same moment.",
-    "A child watches you from the top of the wall. An adult arrives and moves them along, and you do not hear anybody call.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Rope, coiled and re-coiled until it is perfect. Nobody has been near it.",
-    "A hand goes up on the wall walk, in greeting, a moment before you had decided to raise yours.",
-    "There is no rubbish here. Not a scrap, not anywhere, and no bins either.",
-    "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
-  ],
   "ambient_theme": "wasteland",
   "description": "Cracked pale hardpan, flat to the horizon and ringing slightly underfoot, the mud of a lake that dried before anybody was counting. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
   "exits": {
@@ -23,6 +8,7 @@
     "west": "zone_terminus_1205_937"
   },
   "flags": {
+    "ambient_pool": "terminus_the_road",
     "region_id": "region_terminus",
     "terrain": "hardpan"
   },

@@ -1,17 +1,4 @@
 {
-  "ambient_events": [
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it.",
-    "The rock ticks as it cools. It goes on doing it after you stop walking.",
-    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
-    "A drum of standing water, lid long gone, the surface skinned over and still.",
-    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
-    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
-  ],
   "ambient_theme": "wasteland",
   "description": "The thorn parts at a frame of welded rail, and the gap is filled by two leaves of plate hung on truck springs. They stand open. A rack beside them holds the masks: bone, horn, welded plate, one of them a drone's faceplate turned inside out, and every single one lined with quilted rag and stitched down at the edges so it will not chafe on a long shift. A tally board hangs under the rack with names against hours in four different hands. Past the gate there is washing on a line.",
   "exits": {
@@ -19,6 +6,7 @@
     "south": "zone_scw_1046_969"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_hardpan",
     "lawless": true,
     "no_spawn": true,
     "radiation": 20,

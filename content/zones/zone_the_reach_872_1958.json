@@ -1,16 +1,4 @@
 {
-  "ambient_events": [
-    "Wind hisses through the scrub, carrying grit and the far-off drone of a plane that isn't coming here.",
-    "Something small breaks cover and bolts through the brush, gone before you can place it.",
-    "Heat-shimmer wobbles the horizon; for a moment the town looks like it's underwater.",
-    "A dust-devil spins up out of nowhere, staggers a few yards across the hardpan, and collapses.",
-    "Out in the flats a loose sheet of metal bangs, over and over, in a wind that never fully quits.",
-    "The scrub ticks and rustles as the day's heat bleeds slowly out of it.",
-    "A buzzard rides the thermals in a wide, patient circle, in no hurry at all.",
-    "Grit stings your cheek. The wind out here doesn't stop; it just changes its mind.",
-    "Tire-ruts and bootprints cross the hardpan and vanish into the brush, going nowhere good.",
-    "The light goes long and copper, and the whole waste seems to hold its breath."
-  ],
   "ambient_theme": "wasteland",
   "color": "#c9a86a",
   "description": "A shed of mismatched sheet, half of it aircraft skin, standing on the hardpan with its back to the wind. The door is a roller wide enough for a truck and it is up. Somebody has painted THE LAST LOAD across the lintel, freehand, and then given up on the second D.",
@@ -19,16 +7,17 @@
     "west": "zone_the_reach_871_1958"
   },
   "flags": {
+    "ambient_pool": "the_reach_bonepile_flats",
     "building_name": "The Last Load",
     "building_type": "truck_depot",
     "entrance": "west",
     "facade": true,
+    "floors": 3,
     "is_building": true,
     "lawless": true,
     "region_id": "region_the_reach",
-    "world_exit_zone": "zone_the_reach_871_1958",
     "vehicle_bay": true,
-    "floors": 3
+    "world_exit_zone": "zone_the_reach_871_1958"
   },
   "grid_x": 912,
   "grid_y": 1042,

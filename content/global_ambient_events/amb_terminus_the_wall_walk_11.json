@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_terminus_the_wall_walk_11",
+  "loudness": 1,
+  "message": "Somebody starts to answer you and stops, politely, and waits for you to say it.",
+  "theme": "terminus_the_wall_walk",
+  "weight": 100
+}

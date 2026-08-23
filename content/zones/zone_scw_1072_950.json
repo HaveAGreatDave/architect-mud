@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "Every track in this country comes together here and goes up. There is no other way through for miles.",
-    "Somebody has stacked a cairn at the foot of the notch, and somebody else has added to it.",
-    "Loose rock underfoot the whole way up, and worn smooth in a line down the middle where the traffic goes.",
-    "A pair of hounds sit at the top of the ramp, watching who comes through, and do not move.",
-    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
-    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
-    "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it."
-  ],
   "ambient_theme": "wasteland",
   "description": "A break in the wall, and the only one for a long way: a ramp of fallen rock wedged into a notch in the face, steep and loose but climbable, going up into a cut that turns out of sight. Everything that crosses this country crosses it here, and the ground says so.",
   "exits": {
@@ -17,6 +7,7 @@
     "west": "zone_scw_1071_950"
   },
   "flags": {
+    "ambient_pool": "scarletwastes_the_break",
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",

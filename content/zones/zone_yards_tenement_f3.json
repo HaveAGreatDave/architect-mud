@@ -1,8 +1,4 @@
 {
-  "ambient_events": [
-    "Behind one of the doors a radio mutters and cuts out.",
-    "The stairwell breathes a draught of cold concrete up the landing."
-  ],
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
   "description": "A narrow landing off the stairwell, six numbered doors crowded around it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light.",
@@ -17,6 +13,7 @@
     "west": "zone_yards_tenement_u3_4"
   },
   "flags": {
+    "ambient_pool": "world_floor_1",
     "floor": "boards",
     "is_interior": true
   },

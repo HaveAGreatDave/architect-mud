@@ -1,7 +1,4 @@
 {
-  "ambient_events": [
-    "Pipes knock somewhere in the walls. The building is old but it holds."
-  ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
   "description": "A small studio with a mattress, a hot plate, and a window that doesn't open. It's not much, but the door locks, and around here that's everything.",
@@ -10,6 +7,7 @@
     "south": "zone_embassy_floor_2nd"
   },
   "flags": {
+    "ambient_pool": "world_unit_101",
     "floor": "boards",
     "is_apartment": true,
     "window": {

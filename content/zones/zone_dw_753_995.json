@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "From up here the steam off the water reads as one long standing plume.",
-    "The slabs ring differently where they are hollow underneath, and you find yourself testing them.",
-    "Ash has drifted into every crack and made a pale grid of the whole level.",
-    "The wind is steadier up here, and colder, and it comes off the water warm.",
-    "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
-    "The wind comes across the flat and there is nothing here for it to make a noise against.",
-    "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out."
-  ],
   "ambient_theme": "wasteland",
   "description": "The top of the old flow, flat as a poured floor and black as a stove, with the ash drifted into every low place in it. From up here the whole grey basin lies out below with the water standing in the middle of it and the steam going up off it in a line.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_dw_752_995"
   },
   "flags": {
+    "ambient_pool": "deadwater_old_flow",
     "emp_shadow": true,
     "lawless": true,
     "region_id": "region_deadwater",

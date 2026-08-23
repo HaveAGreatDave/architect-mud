@@ -1,18 +1,4 @@
 {
-  "ambient_events": [
-    "Somebody is filing something flat, and has been for a while, and is in no hurry to stop.",
-    "A hand crank goes round twelve times, pauses, and goes round twelve more.",
-    "Two people are arguing about a tolerance. Neither of them is angry and both of them are certain.",
-    "Woodsmoke, machine oil, and under both of them, wet stone.",
-    "A tray of bearings on a bench, laid out in a row in the order they came out.",
-    "The clock on the shop wall ticks, and you can see the escapement doing it.",
-    "A belt slaps somewhere overhead, running off a shaft that runs off the water.",
-    "Somebody drops a spanner and somebody else, out of sight, names the size of it correctly.",
-    "A child goes past carrying a part in both hands, very carefully, on an errand that clearly matters.",
-    "Chalk marks on a doorframe at four heights, the highest one recent.",
-    "Somebody laughs, once, and goes back to work.",
-    "A kettle comes to the boil on a plate over the forge and is taken off it by somebody who was waiting."
-  ],
   "ambient_theme": "wasteland",
   "description": "The middle of the works: a swept yard with a roofed board at one end of it and benches along both sides. The board carries the week in chalk, ruled off in columns by somebody with a straight edge, and the columns are shaft duty, gauge duty, gate duty and stores. Every name has hours against it and every entry is initialled. People cross constantly on their way somewhere. Two of them look up, decide you are not carrying anything that needs a hand, and carry on.",
   "exits": {
@@ -22,6 +8,7 @@
     "west": "zone_dw_768_976"
   },
   "flags": {
+    "ambient_pool": "deadwater_tail_row",
     "building_name": "The Tally",
     "building_type": "civic",
     "emp_shadow": true,

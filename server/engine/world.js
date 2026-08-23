@@ -7,7 +7,11 @@ import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat } from './danger.js';
-import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PROP_DEFAULTS, coerceProp } from '../../scripts/content/derive.mjs';
+import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PROP_DEFAULTS, coerceProp, deriveWorld } from '../../scripts/content/derive.mjs';
+// The terrain palette off the checkout. Server code already reads content/ this
+// way (routes.js for the editor's swatches, plugins/audio for its sample blobs);
+// loadZoneRender needs it to derive rather than re-read what the build resolved.
+import { readPalette } from '../../scripts/content/lib.mjs';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -117,13 +121,73 @@ async function loadDistrictRegistry() {
   if (!n) console.warn('⚠ no districts loaded — run npm run content:import (or db:schema for the table)');
 }
 // ── Everything the build resolved (zone_derived) ────────────────────────────
-// Built by content:import's derive pass, never authored. Cached in RAM because
-// every minimap frame and every map payload reads it — a per-tile query would be
-// the worst kind of hot path. It only changes when a build runs, and the two
-// things that run a build (content:import, POST /map/derive) both refresh this.
+// Built by content:import's derive pass, never authored.
+//
+// DERIVED AT BOOT, NOT READ BACK (2026-08-22). This used to be
+// `SELECT * FROM zone_derived` — 17,266 rows and ~5.7MB pulled out of Neon on
+// every cold start, which on a free instance that spins down when empty is
+// several times a day on top of every deploy reboot. It was the largest single
+// thing standing between a boot and the network-transfer cap.
+//
+// The read was never buying anything. `deriveWorld` is PURE by contract (see the
+// header of scripts/content/derive.mjs — no DB, no fs, no clock, no RNG), its
+// zone/region/connection inputs are already in RAM by the time this runs (it is
+// the last step of initWorld), and the only remaining input is the terrain
+// palette, which is a file on the checkout. So the row we were paying to fetch
+// is a value we can already compute, from the same function CI calls.
+//
+// It also deletes a drift class. The stored table is a CACHE OF A PURE FUNCTION,
+// and it goes stale whenever derive.mjs changes without a re-import: measured
+// against a dev DB on 2026-08-22, every one of 5,867 rows was missing the
+// `passable`/`climbable`/`thermal` props added after its import, and 64 were
+// missing `spec.curtain` — with ZERO disagreements on any value both copies had.
+// Deriving here means the rows can never lag the code that reads them.
+//
+// The TABLE stays, and CI still writes it: `apiGetMap` joins it for the editor,
+// and populating it is an INSERT (ingress), which is not what the cap counts.
+// This is only about who reads it at boot.
+//
+// Cached in RAM because every minimap frame and every map payload reads it — a
+// per-tile query would be the worst kind of hot path. It only changes when a
+// build runs, and the two things that run a build (content:import, POST
+// /map/derive) both refresh this.
 async function loadZoneRender() {
-  const { rows } = await query('SELECT * FROM zone_derived').catch(() => ({ rows: [] }));
   world.render.clear();
+
+  // The palette is the one input that isn't already in memory. A missing or
+  // unreadable content/ tree is the ONLY reason to fall back to the table —
+  // and never a silent one, because deriving with an empty palette would
+  // resolve every tile to the bottom rung and quietly repaint the world.
+  // readPalette returns null when the file is absent and THROWS when it is
+  // present but malformed. Those are different problems, and collapsing them
+  // would report a JSON syntax error as "no content tree" — the one message
+  // that sends you looking in the wrong place.
+  let palette = null;
+  try {
+    palette = readPalette();
+  } catch (e) {
+    console.error(`[world] terrain palette unreadable — ${e.message}`);
+  }
+
+  if (palette) {
+    const t0 = Date.now();
+    // Connections are passed even though only projectEdges reads them and
+    // nothing reads zone_edges at runtime: this call stays identical to the one
+    // content:import makes, so there is one derive with one set of inputs rather
+    // than a boot variant that could drift from the build variant.
+    const { render } = deriveWorld({
+      zones: [...world.zones.values()],
+      regions: getAllRegions(),
+      connections: [...world.connections.values()],
+      palette,
+    });
+    for (const [zoneId, row] of render) world.render.set(zoneId, row);
+    console.log(`✓ zone_derived: ${render.size} tiles derived in RAM (${Date.now() - t0}ms, 0 rows read)`);
+    return;
+  }
+
+  console.warn('[world] no terrain palette on disk — falling back to reading zone_derived from the DB.');
+  const { rows } = await query('SELECT * FROM zone_derived').catch(() => ({ rows: [] }));
   for (const row of rows) world.render.set(row.zone_id, row);
   if (!rows.length) {
     console.warn('[world] zone_derived is empty — run `npm run map:derive`. Tiles will render with no fill.');
@@ -1640,6 +1704,21 @@ export async function removeCorpse(id) {
   await query('DELETE FROM player_corpses WHERE id=$1', [id]).catch(() => {});
 }
 
+// The lines registered under one pool/theme key. Exported so the two-key rule is
+// assertable: a resolution that silently ignored `flags.ambient_pool` would still
+// return a plausible wasteland line for a wasteland tile and look perfectly fine,
+// so a test has to be able to ask which SET a line came out of.
+export function getAmbientPool(key) { return globalAmbientPool[key] || []; }
+
+// Resolve a zone's weighted ambient pool: the sub-area voice it names, else the
+// broad kind of place it is. Shared by getRandomAmbient so the two-key rule has
+// exactly one implementation.
+function poolFor(z, flagKey) {
+  const named = z?.flags?.[flagKey];
+  if (named && globalAmbientPool[named]?.length) return globalAmbientPool[named];
+  return globalAmbientPool[z?.ambient_theme || 'indoors'] || [];
+}
+
 // Returns { message, loudness } or null.
 export function getRandomAmbient(zoneId) {
   const z = world.zones.get(zoneId);
@@ -1654,9 +1733,25 @@ export function getRandomAmbient(zoneId) {
     return { message: pick, loudness: 1.0 };
   }
 
-  // Fall back to the global weighted pool for this zone's theme.
-  const theme = z?.ambient_theme || 'indoors';
-  const pool = (globalAmbientPool[theme] || []).filter(e => e.enabled);
+  // Fall back to a global weighted pool.
+  //
+  // TWO KEYS, DELIBERATELY (2026-08-22). `ambient_theme` answers "what kind of
+  // place is this" and has other readers — ambient-life gates its routines on it
+  // and `knock` tests it for 'indoors' — so it must keep meaning the handful of
+  // broad kinds it means today. `flags.ambient_pool` answers a different
+  // question, "which voice do these tiles speak in", and names one authored set
+  // of lines shared by a sub-area: The Wide Quiet, Hardpan, The Clinker.
+  //
+  // It exists because those lines used to be stamped onto every tile as a
+  // per-zone `ambient_events` array. 11,633 generated fill tiles carried 29
+  // distinct arrays between them — 9MB of the world load to say 243 things —
+  // and the per-zone rung above is for prose written for ONE room, which those
+  // were not. Naming the set once and pointing at it is what that rung's
+  // fallback was always for; only the key was missing.
+  //
+  // Pool first, theme second: a tile that names a pool with nothing in it (a
+  // typo, a half-finished region) drops to its theme rather than going silent.
+  const pool = poolFor(z, 'ambient_pool').filter(e => e.enabled);
   if (!pool.length) return null;
   const fresh = pool.filter(e => !recent.includes(e.message));
   const source = fresh.length ? fresh : pool;

@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_terminus_the_wall_walk_02",
+  "loudness": 1,
+  "message": "A door opens ahead of you. There is nobody behind it, and nobody comes through.",
+  "theme": "terminus_the_wall_walk",
+  "weight": 100
+}

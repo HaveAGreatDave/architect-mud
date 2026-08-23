@@ -1,15 +1,4 @@
 {
-  "ambient_events": [
-    "The water does not move. Not a ripple, not a slap against the stone, nothing.",
-    "Steam comes off the surface in slow sheets and leans away downwind without hurrying.",
-    "The far shore is in the water as well as above it, and the two do not disagree by a hair.",
-    "Something breaks the surface out in the middle, once, and the rings go out for a very long time.",
-    "A rime of pale mineral along the stone, and above it, older rings of it, each one a dry year.",
-    "The warmth comes off it in a sheet and stops about a foot inland.",
-    "The smell is minerals and old eggs, and after a while you stop noticing it.",
-    "A thermometer on a cord hangs off the staging into the water, and the cord is worn where it is lifted.",
-    "A rowing boat is drawn up on the stone, turned over, its bottom recently tarred."
-  ],
   "ambient_theme": "wasteland",
   "description": "Still water, and a great deal of it, and it is warm. The surface holds the sky without altering it in any way and gives off steam in slow sheets that lean away downwind and come apart about head height. It smells of minerals and old eggs. Nothing about it moves unless something makes it move, and whatever is heating it is a long way underneath.",
   "exits": {
@@ -19,6 +8,7 @@
     "west": "zone_dw_774_962"
   },
   "flags": {
+    "ambient_pool": "deadwater_the_deadwater",
     "emp_shadow": true,
     "lawless": true,
     "region_id": "region_deadwater",

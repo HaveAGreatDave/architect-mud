@@ -1,17 +1,4 @@
 {
-  "ambient_events": [
-    "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
-    "The wind comes across the flat and there is nothing here for it to make a noise against.",
-    "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out.",
-    "Something metal has been dragged across the flat here, one long score, going west.",
-    "A stack of sorted plate, weathered but square, waiting a very long time for somebody to come back for it.",
-    "The light goes flat and colourless and the horizon stops being a line at all.",
-    "A survey peg, driven true, with a number burned into the top of it in a hand that meant it.",
-    "A bird goes over, low, and you hear the feathers.",
-    "Bolt holes in a concrete pad, forty of them, in two neat rows, and no machine on them.",
-    "Your boots come up grey to the ankle and stay that way."
-  ],
   "ambient_theme": "wasteland",
   "description": "Grey ash to the horizon, level and going nowhere in particular. Nothing grows in it worth the word and nothing has for a long time. There is a great deal of sky, and the quiet out here is not the absence of noise, it is the absence of anything that would make one.",
   "exits": {
@@ -21,6 +8,7 @@
     "west": "zone_dw_800_983"
   },
   "flags": {
+    "ambient_pool": "deadwater_the_wide_quiet",
     "emp_shadow": true,
     "lawless": true,
     "region_id": "region_deadwater",

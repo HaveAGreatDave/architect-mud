@@ -1,14 +1,4 @@
 {
-  "ambient_events": [
-    "Every track on this flat comes together here and goes up.",
-    "Loose black rock the whole way, worn to a pale line down the middle where the traffic goes.",
-    "Somebody has stacked the moved blocks in a row rather than just shoving them off, which tells you who lives here.",
-    "A survey peg at the foot of the gap, driven true, with a number burned into the top of it.",
-    "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
-    "The wind comes across the flat and there is nothing here for it to make a noise against.",
-    "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out."
-  ],
   "ambient_theme": "wasteland",
   "description": "A break in the flow front, and the only one for a long way: a slope of fallen black rock wedged into the gap, steep and loose, going up onto the level. Everything that crosses this ground crosses it here and the ground says so, because the ash on the approach is beaten flat and it is not beaten flat anywhere else.",
   "exits": {
@@ -18,6 +8,7 @@
     "west": "zone_dw_816_987"
   },
   "flags": {
+    "ambient_pool": "deadwater_broken_front",
     "emp_shadow": true,
     "lawless": true,
     "region_id": "region_deadwater",
