@@ -1,0 +1,57 @@
+{
+  "category": null,
+  "description": "Halloran says a runner is coming in from the east tonight with something he wants in his hand rather than on a wire, and that you are to sit in the Den and take it off her.\n\nHe does not say what it is. He does not say who she is. He says: she will know you.\n\n\"Wait for her. That is the job. Wait for her.\"",
+  "fail_on": [],
+  "id": "quest_lw_meet",
+  "meta": {},
+  "name": "The Meet",
+  "objectives": [
+    {
+      "desc": "Sit in the Runners' Den and wait for the runner coming in from the east.",
+      "emotes": [
+        "{who} takes a cot near the door and watches the chalked board of legs.",
+        "{who} listens to the drip in the spine outside, and the drip is the only thing that comes.",
+        "{who} checks the passage. Nobody. Sits back down.",
+        "{who} has been here long enough now to have stopped rehearsing what to say to her.",
+        "{who} understands, somewhere in the second hour, that nobody is coming."
+      ],
+      "id": "o_wait",
+      "taskSeconds": 90,
+      "type": "visit",
+      "zone": "zone_lw_runners"
+    },
+    {
+      "desc": "Go back to Halloran and tell him what happened.",
+      "emotes": [
+        "{who} walks up to the shop with nothing in their hands and nothing to show."
+      ],
+      "id": "o_report",
+      "requires": [
+        "o_wait"
+      ],
+      "taskSeconds": 4,
+      "type": "visit",
+      "zone": "zone_lw_shop"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 60,
+    "flags": [
+      {
+        "flag": "lw_meet_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "4"
+      }
+    ],
+    "xp": 18
+  },
+  "updated_at": "1787990000"
+}

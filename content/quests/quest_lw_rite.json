@@ -1,22 +1,79 @@
 {
   "category": null,
-  "description": "There is no ceremony. Pike gets off the stool, and does not explain, and does not come back.\n\nYou sit the Blind alone until somebody relieves you. The mirror shows the length of the wash. The shortwave mutters. Nothing happens, and nothing is supposed to, and the entire point of the order you are joining is that somebody was sitting here the whole time anyway.\n\nDo not open the door. Do not go and check. Do not do anything at all.",
-  "fail_on": [],
+  "description": "Pike gets off the stool and does not explain.\n\n\"Everyone thinks the rite is the sitting. It isn't. Anybody can sit. The rite is that you have been sat here long enough to know exactly where to put your hands, and then you go and put them there.\"\n\nThe Quartermaster has a charge on the counter and will not meet your eye while you pick it up.\n\nThe vats are the promise. Not the Spire, not the man at the top, not the money — the vats. It is where they keep the thing they actually sell, and everybody who has ever said yes to them said yes to that room. Bring the colonnade down. And the woman at the gate who has been pricing our people for six years, on your way out.\n\nThen come home. That last part is not decoration; two of the three people who have done this did not manage it.",
+  "fail_on": [
+    {
+      "desc": "You died out there. The Watch will hear about it from Halcyon, which is the worst way for them to hear anything.",
+      "type": "died"
+    },
+    {
+      "count": 1200,
+      "desc": "Too slow. The Spire had time to close, and a door that closes on the Watch stays closed for years.",
+      "type": "timeout"
+    }
+  ],
   "id": "quest_lw_rite",
   "meta": {},
-  "name": "The Long Watch",
+  "name": "Nothing Kept Back",
   "objectives": [
     {
-      "desc": "Stand the watch. Anything you do ends it and you start again.",
+      "count": 1,
+      "desc": "Take the charge off the Quartermaster's counter.",
       "emotes": [
-        "{who} watches the mirror, and the wash is empty, and stays empty.",
-        "{who} stops noticing the shortwave, which is the first useful thing that happens.",
-        "{who} has been here long enough to hear the base breathing above them.",
-        "{who} does not check the door. There is nothing at the door.",
-        "{who} sits, and the hours the Watch are named for start to mean something."
+        "{who} picks up the charge. The Quartermaster finds something else to be doing."
       ],
-      "id": "o_watch",
-      "taskSeconds": 180,
+      "id": "o_charge",
+      "item_id": "item_breach_charge",
+      "spawn": true,
+      "type": "retrieve",
+      "zone": "zone_lw_quarter"
+    },
+    {
+      "desc": "Get inside the Vats Hall.",
+      "emotes": [
+        "{who} walks the concourse at the pace of somebody who is expected, which is the only pace that works."
+      ],
+      "id": "o_inside",
+      "requires": [
+        "o_charge"
+      ],
+      "taskSeconds": 6,
+      "type": "visit",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "desc": "Wire the charge to the vat colonnade and bring it down.",
+      "emotes": [
+        "{who} works along the colonnade with their back to the room, the way somebody works who belongs there."
+      ],
+      "id": "o_blow",
+      "requires": [
+        "o_inside"
+      ],
+      "target": "furniture_asc_vat_colonnade",
+      "type": "demolish",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "desc": "Actuary Verity Ives is at the gate. She is always at the gate.",
+      "id": "o_ives",
+      "requires": [
+        "o_blow"
+      ],
+      "target": "npc_asc_ives",
+      "type": "assassinate"
+    },
+    {
+      "desc": "Get back to the Blind.",
+      "emotes": [
+        "{who} comes down the mirror-polished plaza steps at a walk, because running is what they look for.",
+        "{who} takes the road east with the sound still going on behind them."
+      ],
+      "id": "o_home",
+      "requires": [
+        "o_ives"
+      ],
+      "taskSeconds": 8,
       "type": "visit",
       "zone": "zone_lw_blind"
     }
@@ -31,6 +88,11 @@
         "flag": "watch_kept",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "10"
       }
     ],
     "rep": [
@@ -41,5 +103,5 @@
     ],
     "xp": 220
   },
-  "updated_at": "1787379039"
+  "updated_at": "1787980000"
 }

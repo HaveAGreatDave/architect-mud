@@ -1,0 +1,22 @@
+{
+  "chance": 1,
+  "conditions": [
+    {
+      "flag": "quest_lw_rite",
+      "op": "eq",
+      "scope": "player",
+      "value": "active"
+    }
+  ],
+  "cooldown_seconds": 600,
+  "description": "Blowing the vat colonnade during the Long Watch rite brings the Spire down on you. Zone-scoped to the vat hall and gated on the rite being live, so an ordinary demolition anywhere else in the world — or in that room outside the quest — is not answered by adjusters.",
+  "enabled": 1,
+  "event": "demolition.detonated",
+  "id": "trigger_lw_rite_pursuit",
+  "name": "The Rite — the Spire answers",
+  "once": 0,
+  "params": {},
+  "script_id": "script_lw_rite_pursuit",
+  "updated_at": "1787980000",
+  "zone_id": "zone_asc_vats_hall"
+}

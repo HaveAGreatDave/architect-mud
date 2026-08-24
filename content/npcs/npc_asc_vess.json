@@ -216,12 +216,62 @@
         {
           "conditions": [
             {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "5"
+            },
+            {
+              "flag": "quest_asc_cross",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_refused",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "You have something harder.",
+          "next": "cross_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_cross",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "I found the press.",
+          "next": "cross_done"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "asc_refused",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Show me the Spire.",
+          "next": "cold"
+        },
+        {
+          "conditions": [
+            {
               "flag": "asc_q3_done",
               "op": "unset",
               "scope": "player"
             },
             {
               "flag": "quest_asc_3",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_refused",
               "op": "unset",
               "scope": "player"
             }
@@ -235,6 +285,11 @@
             {
               "flag": "asc_pledged",
               "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_refused",
+              "op": "unset",
               "scope": "player"
             }
           ],
@@ -368,6 +423,76 @@
         }
       ],
       "text": "\"Work.\" Vess presses her palms together, delighted. \"Yes. Not glamorous work — glamour is what the Gallery is for. Ordinary work, the kind that keeps a building standing. It is how everybody here started, including, I am told, the one upstairs.\""
+    },
+    "cold": {
+      "_vine": {
+        "x": 40,
+        "y": 1400
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "(leave it)",
+          "next": "bye"
+        }
+      ],
+      "text": "The Curator does not stop walking, and does not raise his voice, and manages to be entirely courteous about it.\n\n\"I show the Spire to people who are going to be in it. You told an actuary you would rather die on schedule.\" A small, real shrug. \"That is a position. I have held worse ones.\"\n\nHe is already at the next case.\n\n\"The Gallery is public on the first of the month, like anywhere else. Do come.\""
+    },
+    "cross_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1600
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "You want me to go back down there.",
+          "next": "cross_offer2"
+        },
+        {
+          "label": "Not that.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Curator walks, and you walk with him, which is how every conversation in this building happens.\n\n\"Somebody is putting their orders on paper. Paper comes off a press. A press weighs six hundred kilos and has never once been moved in a hurry by anybody.\"\n\nHe stops at a case containing nothing you can identify.\n\n\"I would like the address.\""
+    },
+    "cross_offer2": {
+      "_vine": {
+        "x": 700,
+        "y": 1600
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_cross"
+        }
+      ],
+      "options": [
+        {
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I want you to notice that I have not asked you to break anything.\" He says it pleasantly, and then he says the rest of it just as pleasantly. \"That is because breaking things is a different department. They are extremely good, and they have never once had to find an address.\"\n\nHe moves on to the next case.\n\n\"You know the way in. That is the entire reason you were asked, and I would think less of both of us if I pretended otherwise.\""
+    },
+    "cross_done": {
+      "_vine": {
+        "x": 1040,
+        "y": 1600
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_cross"
+        }
+      ],
+      "options": [
+        {
+          "label": "(say nothing about the woman in the dark)",
+          "next": "bye"
+        }
+      ],
+      "text": "He takes the address, repeats it once to be sure, and does not write it down.\n\n\"Thank you.\" A pause very slightly too long to be nothing. \"Was anybody there?\"\n\nAnd whatever you say, he accepts it, immediately and completely, and walks on. You will spend some time later deciding whether that was trust."
     }
   },
   "faction": "ideology_ascendants",

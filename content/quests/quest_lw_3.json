@@ -39,6 +39,11 @@
         "flag": "lw_member",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "3"
       }
     ],
     "items": [],

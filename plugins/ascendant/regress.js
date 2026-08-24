@@ -118,4 +118,39 @@ export default async function regress({ check, getPlayer }) {
     check('the Uplink terminal exists in the world', term.length >= 1,
       term.map(t => `${t.id}@${t.zone_id}`).join(', ') || 'none');
   }
+
+  // ── Lapsing — the cheap exit ───────────────────────────────────────────────
+  // ⚠ NOT DRIVEN END-TO-END ON THE SHARED FAKE PLAYER. `lapse()` deletes augment
+  // rows, zeroes standing and clears four flags; running it here would hand the
+  // next suite a player who had quietly been stripped. So this exercises the
+  // read half — which is where the bug would be — and asserts the seams.
+  {
+    const { getRegisteredActions } = await import('../../server/engine/actions.js');
+    const acts = getRegisteredActions();
+    check('ASC_LAPSE is registered', acts.includes('ASC_LAPSE'), acts.length + ' actions');
+    check('ASC_LAPSE_QUOTE is registered', acts.includes('ASC_LAPSE_QUOTE'));
+
+    // The quote is what the scene shows a player BEFORE they answer, so it has
+    // to survive a player who owns nothing rather than throwing at them.
+    const q = await _test.lapse.lapseQuote(player);
+    check('the quote answers for a player with no chrome and no cover',
+      Array.isArray(q.augments) && q.augments.length === 0 && q.restores === 0, JSON.stringify(q));
+
+    // "What they fitted" is `rep_gate`, and the whole design rests on that
+    // column meaning something. If every augment were ungated, lapsing would
+    // take nothing back and the exit would be free — silently.
+    const { rows: gated } = await query(
+      "SELECT COUNT(*)::int AS n FROM augments WHERE COALESCE(rep_gate,'unknown') <> 'unknown'",
+    );
+    check('the catalog actually gates chrome, or lapsing would cost nothing',
+      gated[0].n > 0, `${gated[0].n} gated augments`);
+
+    // …and it must not gate EVERYTHING either, or a lapse strips the back-alley
+    // pieces the order never sold you.
+    const { rows: open } = await query(
+      "SELECT COUNT(*)::int AS n FROM augments WHERE COALESCE(rep_gate,'unknown') = 'unknown'",
+    );
+    check('…and leaves some chrome ungated, which is what a lapse must not take',
+      open[0].n > 0, `${open[0].n} ungated augments`);
+  }
 }

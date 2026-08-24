@@ -50,6 +50,11 @@
         "flag": "ascended",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "10"
       }
     ],
     "rep": [

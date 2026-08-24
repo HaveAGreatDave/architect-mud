@@ -311,7 +311,26 @@ export default async function regress({ run, check, getPlayer }) {
         Object.keys(other).join(','));
       check('...while the default stays the higher-priority one — a stove means a kitchen',
         both.provider === 'kitchen', both.provider);
+      // `text` is a MODIFIER, not a positional provider key. Read positionally,
+      // `workspace chembench text` rendered the chembench and `workspace text` in
+      // this room rendered whichever provider won on priority — so a player at the
+      // bottom rung could not read out the bench they had just named.
+      const otherText = await run('workspace chembench text');
+      check('...and asking for prose still honours the named provider',
+        otherText.type === 'output' && /Chemistry/.test(otherText.message || ''),
+        (otherText.message || '').slice(0, 80));
       await deleteFurniture(LAB).catch(() => {});
+    }
+
+    // A bare `cook` at a stove opens the HUD, so `cook text` has to be the way to
+    // read it — which is what plugins/workspace has documented all along, and what
+    // it did not do: `text` was neither a station nor a carried item, so it fell
+    // through to synthesis and came back as an unknown recipe.
+    {
+      const ct = await run('cook text');
+      check('cook text reads the kitchen out rather than hunting for a drug recipe',
+        ct.type === 'output' && /PREPARATION WORKSPACE/.test(ct.message || ''),
+        `${ct.type}: ${(ct.message || '').slice(0, 80)}`);
     }
 
     // ── Your own recipes score alongside the catalog's ──────────────────────

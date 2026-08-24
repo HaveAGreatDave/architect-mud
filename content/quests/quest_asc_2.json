@@ -32,6 +32,11 @@
         "flag": "ascendant_clearance",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "1"
       }
     ]
   },

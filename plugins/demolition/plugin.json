@@ -1,0 +1,25 @@
+{
+  "name": "demolition",
+  "version": "1.0.0",
+  "description": "Breaching charges: wire one to something, set a fuse, and be somewhere else when it goes. Defusing works on anybody's charge, including yours.",
+  "hooks": [],
+  "commands": ["breach", "defuse", "charges", "breachresolve", "defuseresolve"],
+  "objectGatedCommands": {
+    "breach": { "discoverVia": "demolishable", "note": "Advertised on any furniture carrying the demolishable tag; the handler still self-resolves the target by name." },
+    "defuse": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: a live charge is not a furniture row, so there is no object to hang an examine action off. It is advertised by the room line the fuse broadcasts and by `charges`." }
+  },
+  "actions": {
+    "registers": [],
+    "tagGated": [
+      { "verb": "breach", "requiredTag": "demolishable" }
+    ]
+  },
+  "events": {
+    "emits": ["demolition.rigged", "demolition.defused", "demolition.detonated"],
+    "consumes": []
+  },
+  "ticks": ["1s"],
+  "dependencies": [],
+  "dataSchema": [],
+  "extensionPoints": []
+}

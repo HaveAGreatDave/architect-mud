@@ -34,7 +34,14 @@
         "ideology": "ideology_long_watch"
       }
     ],
-    "xp": 28
+    "xp": 28,
+    "flags": [
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "8"
+      }
+    ]
   },
   "updated_at": "1787379039"
 }

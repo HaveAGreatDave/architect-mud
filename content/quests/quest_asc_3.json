@@ -58,6 +58,11 @@
         "flag": "halcyon_reveal",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "3"
       }
     ],
     "xp": 60

@@ -136,7 +136,14 @@
       "options": [
         {
           "label": "What do you want from me?",
-          "next": "offer"
+          "next": "offer",
+          "conditions": [
+            {
+              "flag": "asc_refused",
+              "op": "unset",
+              "scope": "player"
+            }
+          ]
         },
         {
           "label": "Not interested.",
@@ -176,6 +183,17 @@
         {
           "conditions": [
             {
+              "flag": "asc_refused",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Still worth scanning?",
+          "next": "cold"
+        },
+        {
+          "conditions": [
+            {
               "flag": "asc_q1_done",
               "op": "set",
               "scope": "player"
@@ -187,6 +205,11 @@
             },
             {
               "flag": "quest_asc_2",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_refused",
               "op": "unset",
               "scope": "player"
             }
@@ -276,6 +299,20 @@
         }
       ],
       "text": "\"So the meat disappointed you after all.\" He is not gloating; he genuinely is not. \"Everyone arrives by a different road and they all think theirs was the interesting one. Go and be useful. Vess has doors, and I have people.\""
+    },
+    "cold": {
+      "_vine": {
+        "x": 40,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "(leave it)",
+          "next": "bye"
+        }
+      ],
+      "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was — \" he searches for it, finds it, enjoys it \" — *warm*, actually. She liked you. She has never liked me.\"\n\nHe goes back to the queue.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
     }
   },
   "faction": "ideology_ascendants",

@@ -1,0 +1,59 @@
+{
+  "category": null,
+  "description": "Underwriting has a settled file that needs to be in the Registry by end of day, and the Spire does not put settled files on a wire. Ives is apologetic about how small it is.\n\n\"It is a walk with a wallet in it. I would like you to do a fortnight of walks with wallets in them. Everybody does.\"",
+  "fail_on": [],
+  "id": "quest_asc_file",
+  "meta": {},
+  "name": "Proof of Loss",
+  "objectives": [
+    {
+      "id": "o_get",
+      "type": "retrieve",
+      "item_id": "item_asc_claim_file",
+      "count": 1,
+      "spawn": true,
+      "zone": "zone_halcyon_underwriting",
+      "desc": "Collect the sealed file from the Underwriting counter."
+    },
+    {
+      "id": "o_take",
+      "type": "visit",
+      "zone": "zone_asc_vats_registry",
+      "requires": [
+        "o_get"
+      ],
+      "taskSeconds": 6,
+      "desc": "Take it up to the Registry, above the vats.",
+      "emotes": [
+        "{who} carries the wallet through three sets of doors that open before they are reached.",
+        "{who} passes a wall of enamel nameplates and does not slow down, because slowing down is what the new ones do."
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 90,
+    "xp": 16,
+    "flags": [
+      {
+        "flag": "asc_file_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "2"
+      }
+    ],
+    "rep": [
+      {
+        "ideology": "ideology_ascendants",
+        "delta": 30
+      }
+    ]
+  },
+  "updated_at": "1787990000"
+}

@@ -1,0 +1,36 @@
+{
+  "category": "Halcyon",
+  "description": "An assessor is due at the Ward Nine permits window at some point today and does not intend to spend her morning standing in a corridor. You will. That is the job and Halcyon is not embarrassed about it.",
+  "fail_on": [],
+  "id": "quest_hal_queue",
+  "meta": {},
+  "name": "Place Held",
+  "objectives": [
+    {
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_ward_permits",
+      "taskSeconds": 20,
+      "desc": "Hold a place in the permits queue until the assessor arrives.",
+      "emotes": [
+        "{who} shuffles forward one place in ninety minutes.",
+        "{who} is asked twice what they are queuing for and does not know either time."
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 30,
+    "xp": 5,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "updated_at": "1788000000"
+}

@@ -317,6 +317,35 @@
     "root": {
       "options": [
         {
+          "conditions": [
+            {
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "2"
+            },
+            {
+              "flag": "quest_lw_meet",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Anything moving tonight?",
+          "next": "meet_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_lw_meet",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "Nobody came.",
+          "next": "meet_report"
+        },
+        {
           "label": "Something's broken. Can you fix it?",
           "next": "repair_talk"
         },
@@ -483,6 +512,139 @@
         }
       ],
       "text": "A bell rattles as you come in. The lean man looks up from a gutted motor, and his eyes go to your hands before your face. \"If it's broke, set it on the bench. If it's not,\" and he tips his head at the racked tools, \"I'll likely have what you need anyway. Halloran.\""
+    },
+    "meet_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1900
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I'll sit it.",
+          "next": "meet_accept"
+        },
+        {
+          "label": "Not tonight.",
+          "next": "bye"
+        }
+      ],
+      "text": "He does not look up from the bench.\n\n\"There is a runner coming in from the east with something I would rather have in my hand than on a wire. Sit in the Den and take it off her.\"\n\n\"She will know you. You will not know her, and you are not to ask, and if she is not alone you are to be a man waiting for a bus.\"\n\nHe turns the thing in the vice a quarter turn.\n\n\"Wait for her. That is the job. Wait for her.\""
+    },
+    "meet_accept": {
+      "_vine": {
+        "x": 700,
+        "y": 1900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_meet"
+        }
+      ],
+      "options": [
+        {
+          "label": "(go down)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good.\" The vice turns again. \"Take a book.\""
+    },
+    "meet_report": {
+      "_vine": {
+        "x": 360,
+        "y": 2100
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Nobody came. I sat the whole night.",
+          "next": "meet_truth"
+        },
+        {
+          "label": "She came. Handed it over, went straight back out.",
+          "next": "meet_lie"
+        }
+      ],
+      "text": "Halloran puts down what he is holding, which he did not do for either of the other two jobs.\n\n\"Go on, then.\""
+    },
+    "meet_truth": {
+      "_vine": {
+        "x": 700,
+        "y": 2060
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_meet"
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "lw_told_truth",
+          "scope": "player",
+          "value": "done"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_lw_halloran",
+          "reason": "meet:honest",
+          "warmth": 3
+        }
+      ],
+      "options": [
+        {
+          "label": "There was no runner, was there.",
+          "next": "meet_truth2"
+        }
+      ],
+      "text": "\"Right,\" he says, and goes back to the bench, and that is all he says for a while.\n\nThen: \"How long did you give her?\"\n\nYou tell him. He does something with his mouth that is not quite a smile.\n\n\"That is longer than I would have.\""
+    },
+    "meet_truth2": {
+      "_vine": {
+        "x": 1040,
+        "y": 2060
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "(let him work)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nHe does not dress it up and he does not apologise for it.\n\n\"Everybody who comes through that door can carry a box. What I cannot see from here is what a man does with two hours and nobody watching him, and there is no way to ask that turns up a true answer. So I do not ask.\"\n\nHe picks the thing back up.\n\n\"You will be asked to hold a room one day with something in it that matters. I know what you are now. Go and eat.\""
+    },
+    "meet_lie": {
+      "_vine": {
+        "x": 700,
+        "y": 2200
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_meet"
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "lw_lied_meet",
+          "scope": "player",
+          "value": "done"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_lw_halloran",
+          "reason": "meet:lied",
+          "warmth": -2
+        }
+      ],
+      "options": [
+        {
+          "label": "(say nothing else)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Did she.\" He nods slowly, and goes back to the bench, and does not ask you what she looked like, which you notice about four seconds too late.\n\n\"Right you are. Good lad.\"\n\nThe vice turns. He does not look up again, and the conversation is over, and nothing whatsoever appears to have gone wrong."
     }
   },
   "faction": null,

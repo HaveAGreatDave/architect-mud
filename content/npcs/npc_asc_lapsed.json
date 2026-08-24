@@ -1,0 +1,239 @@
+{
+  "banter": [],
+  "chitchat": [
+    "\"They were very polite about it. That is the part nobody believes.\"",
+    "\"Eleven months I had the arms. You forget what your own reach is.\"",
+    "\"I still get the newsletter. I have not asked them to stop.\""
+  ],
+  "description": "A narrow man in a good coat gone shapeless, sitting on an upturned crate with his hands loose between his knees. There are two clean ports in the back of his neck and one in each forearm, capped with the little grey blanks they give you, and he does not hide them or draw attention to them. He has the specific stillness of somebody who has stopped being in a hurry about anything at all.",
+  "dialogue_tree": {
+    "root": {
+      "_vine": {
+        "x": 40,
+        "y": 60
+      },
+      "actions": [],
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_cross",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            },
+            {
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "0"
+            }
+          ],
+          "label": "(the man on the crate is looking at you)",
+          "next": "cross_meet_watch"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_cross",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "(the man on the crate is looking at you)",
+          "next": "cross_meet"
+        },
+        {
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He looks up without hurrying.",
+        "\"You are the one they sent. Sit down or do not, it makes no difference to me.\""
+      ],
+      "text_by_relation": {
+        "first": "\"Wessel Ardy,\" he says, as though it were an answer to something. \"You will not have heard of me. That is rather the point of me.\""
+      }
+    },
+    "bye": {
+      "_vine": {
+        "x": 900,
+        "y": 60
+      },
+      "actions": [],
+      "options": [],
+      "text": "He goes back to looking at the middle distance, which he appears to be quite good at."
+    },
+    "cross_meet": {
+      "_vine": {
+        "x": 360,
+        "y": 60
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Who are you?",
+          "next": "cross_who"
+        },
+        {
+          "label": "The Watch put you here.",
+          "next": "cross_who"
+        }
+      ],
+      "text": "He is not Watch. He is sitting in a Watch basement in a coat that cost more than the press, and neither of those facts appears to trouble him.\n\n\"They did not send me. They let me in, which is different, and it took some arguing.\"\n\nHe turns his hands over. There are capped ports in both forearms and two more in the back of his neck, and the caps are clean.\n\n\"I wanted to be sitting here when you came down. I have been three times.\""
+    },
+    "cross_meet_watch": {
+      "_vine": {
+        "x": 360,
+        "y": 300
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Cyrelle sent you.",
+          "next": "cross_who"
+        },
+        {
+          "label": "Who are you?",
+          "next": "cross_who"
+        }
+      ],
+      "text": "He is not Watch, and in a room this small that is obvious immediately: the coat, the shoes, the way he is sitting on somebody else's crate as a guest.\n\n\"She is upstairs. She wanted to come down and I asked her not to, and she was decent enough to let me have it my way.\"\n\nHe turns his hands over. There are capped ports in both forearms and two more in the back of his neck, and the caps are clean.\n\n\"She wants you back. I do not want anything, which is the only reason I am worth listening to and she knows it. That is why she said yes.\""
+    },
+    "cross_who": {
+      "_vine": {
+        "x": 700,
+        "y": 60
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "What do you want from me?",
+          "next": "cross_offer"
+        },
+        {
+          "label": "You stopped paying.",
+          "next": "cross_offer"
+        }
+      ],
+      "text": "\"Wessel Ardy. Account four thousand and eleven. Eleven months a client, two years current, and then a bad quarter and a worse one.\"\n\nHe says it the way you would say a date of birth.\n\n\"Somebody exactly like you came to my flat on a Thursday with the paperwork already signed. He was perfectly decent about it. He waited while I finished a phone call. He did not take anything he was not entitled to.\"\n\nA pause, and he watches you have whatever reaction you are going to have to that.\n\n\"Halcyon does not kill clients. I am told that is meant to be reassuring, and I have never worked out to whom.\""
+    },
+    "cross_offer": {
+      "_vine": {
+        "x": 1040,
+        "y": 60
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I am not going to lapse.",
+          "next": "cross_stay"
+        },
+        {
+          "label": "What happens if I stop now?",
+          "next": "cross_terms"
+        },
+        {
+          "label": "(take the address and go)",
+          "next": "cross_stay"
+        }
+      ],
+      "text": "\"Nothing. I want nothing. I am not the Watch and I am not recruiting you and I would be no use to anybody if I were.\"\n\nHe nods at the press, at the room, at the whole arrangement.\n\n\"Take the address. It is not my press. But you are seven jobs in and there is one more after this that you will not be able to take back, and I have met precisely nobody who was told that beforehand in a plain sentence.\"\n\n\"So: that is the plain sentence. After the next one, what they have given you is not returnable and neither are you. Before it, the account simply closes. That is the whole difference and it is the only thing I came to say.\""
+    },
+    "cross_terms": {
+      "_vine": {
+        "x": 1380,
+        "y": 60
+      },
+      "actions": [
+        {
+          "action": "ASC_LAPSE_QUOTE"
+        }
+      ],
+      "options": [
+        {
+          "label": "Close it.",
+          "next": "cross_done"
+        },
+        {
+          "label": "No. I have come too far.",
+          "next": "cross_stay"
+        }
+      ],
+      "text": "\"They take back what they gated. Not the cheap pieces — nobody wants those back and they were never really theirs. The good ones, the ones you needed their name to buy at all.\"\n\n\"Any cover you have paid for stops. Your standing goes to nothing, which sounds worse than it is; nothing is where everybody starts.\"\n\nHe shrugs, and it is the first thing he has done quickly.\n\n\"And you may go back. That is the part they do not advertise, because it is not much of an advertisement: you may go back, from the bottom, and pay for all of it again. I did not. But you may.\""
+    },
+    "cross_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 300
+      },
+      "actions": [
+        {
+          "action": "ASC_LAPSE"
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "asc_lapsed_via",
+          "scope": "player",
+          "value": "ardy"
+        }
+      ],
+      "options": [
+        {
+          "label": "(sit down for a minute)",
+          "next": "bye"
+        }
+      ],
+      "text": "He does not congratulate you and he does not look pleased, and you understand that he has been very careful all evening not to be a man who would.\n\n\"Right.\"\n\nHe moves along the crate to make room, which is the only thing anybody has done for you in weeks without an account number attached to it.\n\n\"It is much colder than you are expecting for about a month. Then it is only cold.\""
+    },
+    "cross_stay": {
+      "_vine": {
+        "x": 1040,
+        "y": 300
+      },
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "asc_warned",
+          "scope": "player",
+          "value": "done"
+        }
+      ],
+      "options": [
+        {
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No. Of course not.\" No edge on it at all. \"Seven jobs is a great deal to have done for people you were only ever going to leave.\"\n\nHe settles back on the crate.\n\n\"Go on, then. Genuinely — go on. I would rather you did it wholeheartedly than stood in a basement being talked out of it by a man with no arms.\"\n\nAt the stairs, without turning round:\n\n\"Account four thousand and eleven. If you are ever the one holding the paperwork, and it is my name on it, I would take it as a kindness if you let me finish the phone call.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a good wool overcoat that no longer fits him",
+      "a collarless shirt with the cuffs turned twice",
+      "boots that have been resoled by somebody who cared"
+    ],
+    "mis_willing": false,
+    "personality": "quiet",
+    "posted": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_lw_press",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_asc_lapsed",
+  "name": "Wessel Ardy",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_lw_press"
+}

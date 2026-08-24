@@ -20,6 +20,7 @@ import { applyStrikeToPlayer } from '../../server/engine/combat.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { riteAction, _test as rite } from './rite.js';
+import { _test as lapseTest } from './lapse.js';   // registers the ASC_LAPSE action
 
 const ASCENDANTS = 'ideology_ascendants';
 const TIER_RANK = Object.fromEntries(REP_TIERS.map((t, i) => [t.id, i]));
@@ -100,4 +101,4 @@ registerMoveGate(thresholdGate, 'ascendant:threshold');
 export const specializedActions = [riteAction];
 
 // Exposed for the regression harness.
-export const _test = { thresholdGate, isCleared, rite };
+export const _test = { thresholdGate, isCleared, rite, lapse: lapseTest };

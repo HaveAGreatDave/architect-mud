@@ -236,6 +236,34 @@ provider). That sharing is load-bearing, and there's a regress case on it: two
 implementations of "which onion" would show you one row and hand you another the
 first time either was tuned.
 
+## Three surfaces, one builder
+
+`buildWorkspaceView` is asked once and the answer is rendered three ways, so no
+two of them can disagree about what is on the bench:
+
+| Rung | What you get |
+| --- | --- |
+| `visual` | the graphical HUD (`client/game/js/panels/workspace.js`) |
+| `log` | the generic list dialog — grouped rows, one button per command, focus-trapped and named (`listdialog.js`) |
+| any rung, on request | `workspace text` — the whole HUD as prose in `#output` |
+
+Two rules hold that up.
+
+**`text` is a MODIFIER, not a positional provider key.** It is lifted out of the
+arguments rather than read from `args[0]`, which is what lets a caller name its
+own provider and ask for prose in one command — `cook text` arrives here as
+`['kitchen', 'text']`. Read positionally, a kitchen with a chem lab in the back
+printed whichever provider won on priority, so a player could not read out the
+bench they had just named.
+
+⚠ **The dialog is the CONTROL; the log still gets the RECORD.** At the `log` rung
+a one-line `msg-system` note goes to `#output` before the dialog payload — the
+same rule `shop` follows (`plugins/commerce/index.js`). The dialog is announced
+because focus moves into it, but a player scrolling back has to be able to see
+that they opened the bench at all, and the rung's own contract is that a system's
+record reaches `#output`. One line, not the whole HUD: that is what
+`workspace text` is for.
+
 ## `prepare <recipe>` — a plan, never a claim
 
 A provider may supply `plan(player, argStr)`, returning

@@ -36,6 +36,11 @@
         "flag": "asc_pledged",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "8"
       }
     ],
     "rep": [

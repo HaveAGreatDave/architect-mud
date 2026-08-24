@@ -1,0 +1,34 @@
+{
+  "description": "Counts Halcyon board gigs. At the third, sets asc_invited, which unlocks one option on Marcus Broch. Deliberately says NOTHING about the Ascendants — this door is a job that turns into a career, and the whole point is that nobody pitches an ideology at it.",
+  "graph": {
+    "start": "tally",
+    "nodes": {
+      "tally": {
+        "type": "counter",
+        "scope": "player",
+        "flag": "asc_contracts",
+        "delta": 1,
+        "threshold": 3,
+        "reset": false,
+        "ifTrue": "invite",
+        "ifFalse": null
+      },
+      "invite": {
+        "type": "setflag",
+        "scope": "player",
+        "op": "set",
+        "flag": "asc_invited",
+        "value": "true",
+        "next": "word"
+      },
+      "word": {
+        "type": "say",
+        "text": "The clerk at the underwriting desk takes the docket off you, checks something on a screen you cannot see, and says — as though it were on the form — \"Mr Broch has asked to be told when you were next in. Whenever suits.\"",
+        "next": null
+      }
+    }
+  },
+  "id": "script_halcyon_contract_count",
+  "name": "Halcyon — contracts turned in",
+  "updated_at": "1788000000"
+}

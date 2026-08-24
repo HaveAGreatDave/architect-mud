@@ -112,6 +112,11 @@
         "flag": "lw_q4_done",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "6"
       }
     ],
     "items": [],

@@ -42,7 +42,14 @@
         "ideology": "ideology_ascendants"
       }
     ],
-    "xp": 28
+    "xp": 28,
+    "flags": [
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "4"
+      }
+    ]
   },
   "updated_at": "1787377233"
 }

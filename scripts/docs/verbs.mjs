@@ -30,6 +30,10 @@ const NOT_PLAYER_TYPED = new Set([
   'jackresolve', 'hackresolve', 'safecrackresolve', 'pirateresolve', 'fishresolve',
   'spliceresolve', 'synthresolve', 'strafresolve', 'hijackresolve', 'concealresolve',
   'apprehendresolve', 'tillcrackresolve', 'hackrigresolve', 'splicebegin', 'splicepreview',
+  // Demolition's two boards report the same way. `breachresolve` also carries the FUSE
+  // the player chose, which the server clamps — the only resolve verb that hands
+  // back a number as well as an outcome.
+  'breachresolve', 'defuseresolve',
   // …and mastery's Read board, which is the same handshake: the panel reports the answer and the
   // server decides. Its own handler says so ("Silent — fired by the panel, never typed").
   'readresolve',

@@ -1,0 +1,48 @@
+{
+  "category": "Halcyon",
+  "description": "A settled file needs to be on a desk two floors up by close of business, and the internal post has been \"under review\" since before anybody currently employed here started. Take the stairs.",
+  "fail_on": [],
+  "id": "quest_hal_file",
+  "meta": {},
+  "name": "Interoffice",
+  "objectives": [
+    {
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_halcyon_underwriting",
+      "taskSeconds": 6,
+      "desc": "Collect the wallet from the underwriting counter.",
+      "emotes": [
+        "{who} is handed a card wallet and a look that suggests this is beneath both of you."
+      ]
+    },
+    {
+      "id": "o1",
+      "type": "visit",
+      "zone": "zone_halcyon_exec",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 6,
+      "desc": "Two floors up. Leave it with whoever is at the desk.",
+      "emotes": [
+        "{who} takes a lift that plays nothing, which is somehow worse than music."
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 35,
+    "xp": 6,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "updated_at": "1788000000"
+}

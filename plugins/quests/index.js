@@ -25,6 +25,7 @@
  *   { type:'equip',  item_id:'dinner_jacket', desc:'Turn up dressed for it' }
  *   { type:'spend',  count:5000,      desc:'Blow ₵5000 in the Marquee District' }
  *   { type:'survive', target:'acid_rain', desc:'Ride out an acid storm outdoors' }
+ *   { type:'demolish', target:'furniture_asc_vat_colonnade', desc:'Bring it down' }
  * 'assassinate' names a PERSON (npc.killed, exact npc id or a name substring) where
  * 'kill' names a species (enemy.killed, any three rats will do). 'escort' is met when
  * plugins/escort reports that NPC arriving at `zone` with the player — the walking
@@ -1059,6 +1060,16 @@ on('augment.installed', ({ actor, augment_id }) => {
   if (!actor?.id) return;
   return trackEvent(actor, (obj) =>
     obj.type === 'install' && (!obj.target || String(obj.target) === String(augment_id)));
+});
+
+// demolish — something got blown up. `target` is a furniture id; blank counts any
+// detonation ("set one off, anywhere", which is how you'd author a first lesson).
+// One more Event on the bus and nothing in plugins/demolition knows quests exist,
+// which is the same shape as `install` above.
+on('demolition.detonated', ({ actor, target_id }) => {
+  if (!actor?.id) return;
+  return trackEvent(actor, (obj) =>
+    obj.type === 'demolish' && (!obj.target || String(obj.target) === String(target_id)));
 });
 
 // mutate — the body changed. One Event covers every grant path (the radiation

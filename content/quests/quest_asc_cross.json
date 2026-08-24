@@ -1,0 +1,86 @@
+{
+  "category": null,
+  "description": "Somebody is putting the Watch's orders on paper, and paper comes off a press, and a press does not move.\n\nVess would like the address. Not the press, not the printer — the address. He is very clear that nobody is being asked to break anything, and only slightly less clear that this is because breaking things is a separate department.\n\nYou know the way in. That is the entire reason you were asked.",
+  "fail_on": [],
+  "id": "quest_asc_cross",
+  "meta": {},
+  "name": "Where It Is Printed",
+  "objectives": [
+    {
+      "id": "o_in",
+      "type": "visit",
+      "zone": "zone_lw_spine",
+      "taskSeconds": 6,
+      "desc": "Get down into the spine. You still know how.",
+      "emotes": [
+        "{who} goes down the way they were shown, on a night when they were somebody else."
+      ]
+    },
+    {
+      "id": "o_press",
+      "type": "visit",
+      "zone": "zone_lw_press",
+      "requires": [
+        "o_in"
+      ],
+      "taskSeconds": 8,
+      "desc": "Find the press.",
+      "emotes": [
+        "{who} finds the room by the smell of the ink before the light reaches it.",
+        "{who} reads a set line, upside down and backwards, and can still make out most of it."
+      ]
+    },
+    {
+      "id": "o_cyrelle",
+      "type": "talk",
+      "target": "npc_asc_lapsed",
+      "requires": [
+        "o_press"
+      ],
+      "desc": "Somebody is sitting in the dark by the press, and has been for some time."
+    },
+    {
+      "id": "o_out",
+      "type": "visit",
+      "zone": "zone_asc_spire_concourse",
+      "requires": [
+        "o_cyrelle"
+      ],
+      "taskSeconds": 6,
+      "desc": "Take the address back up to Vess. Or do not.",
+      "emotes": [
+        "{who} comes up the concourse with an address in their head and a walk that has changed slightly."
+      ]
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 260,
+    "xp": 48,
+    "flags": [
+      {
+        "flag": "asc_cross_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "7"
+      }
+    ],
+    "rep": [
+      {
+        "ideology": "ideology_ascendants",
+        "delta": 90
+      },
+      {
+        "ideology": "ideology_long_watch",
+        "delta": -120
+      }
+    ]
+  },
+  "updated_at": "1787990000"
+}

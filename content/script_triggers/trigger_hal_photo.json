@@ -1,0 +1,22 @@
+{
+  "chance": 1,
+  "conditions": [
+    {
+      "flag": "quest_hal_photo",
+      "op": "eq",
+      "scope": "player",
+      "value": "turned_in"
+    }
+  ],
+  "cooldown_seconds": 0,
+  "description": "Counts one Halcyon board gig toward the meeting with Broch. One row per pool quest; all five run the same counter script.",
+  "enabled": 1,
+  "event": "quest.turned_in",
+  "id": "trigger_hal_photo",
+  "name": "Halcyon contract — photo turned in",
+  "once": 0,
+  "params": {},
+  "script_id": "script_halcyon_contract_count",
+  "updated_at": "1788000000",
+  "zone_id": null
+}

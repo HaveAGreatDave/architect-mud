@@ -43,6 +43,8 @@ import { openCalibration } from './panels/calibration.js';
 import { openTextCalibration, isTextCalibrationActive, command as textCalibrationCommand } from './panels/textcalibration.js';
 import { openTextHololock, isTextHololockActive, command as textHololockCommand } from './panels/texthololock.js';
 import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
+import { openBombRig, openBombDefuse } from './panels/demolition.js';
+import { openTextBombRig, openTextBombDefuse, isTextDemolitionActive } from './panels/textdemolition.js';
 import { openTextSignal, isTextSignalActive, command as textSignalCommand } from './panels/textsignal.js';
 import { openTextFishing, isTextFishingActive, command as textFishingCommand } from './panels/textfishing.js';
 import { openTextRead, isTextReadActive } from './panels/textread.js';
@@ -326,7 +328,8 @@ function paneFreeForRoom() {
     && !isCabActive() && !isTruckDepotActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
-    && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive();
+    && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
+    && !isTextDemolitionActive();
 }
 
 function autoResolved(msg, onResult) {
@@ -1511,6 +1514,42 @@ const handlers = {
     if (autoResolved(msg, args.onResult)) return;
     if (msg.render === 'text' && openTextVault(args)) return;
     openVaultCrack(args);
+  },
+
+  // Wiring a breaching charge to something, and cutting somebody else's off it.
+  // Two boards, one family: the same payload shape as every other minigame, so
+  // all three Display Mode rungs are served without a protocol of its own.
+  bomb_rig: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'rigresolve';
+    const args = {
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'TARGET',
+      fuseMin: msg.fuseMin ?? 10,
+      fuseMax: msg.fuseMax ?? 120,
+      fuseDefault: msg.fuseDefault ?? 45,
+      // The fuse the player CHOSE rides back with the result — it is the one
+      // number the board decides and the server clamps it on arrival.
+      onResult: ({ won, fuse }) =>
+        sendCmdSilent(`${resolveCmd} ${msg.chargeId} ${won ? 1 : 0} ${fuse ?? (msg.fuseDefault ?? 45)}`),
+    };
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextBombRig(args)) return;
+    openBombRig(args);
+  },
+
+  bomb_defuse: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'defuseresolve';
+    const args = {
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'CHARGE',
+      seconds: msg.seconds ?? 30,
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.chargeId} ${won ? 1 : 0}`),
+    };
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextBombDefuse(args)) return;
+    openBombDefuse(args);
   },
 
   synth_minigame: (msg) => {

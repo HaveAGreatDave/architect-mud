@@ -229,6 +229,16 @@ async function cmdCook(args, raw, player, broadcast) {
     return (await cmdWorkspace(['kitchen'], '', player)) || { type: 'error', message: 'Cook what?' };
   }
 
+  // `cook text` — the written HUD, at any Display Mode rung. The workspace plugin
+  // has always documented this as the escape hatch a bare `cook` implies, and it
+  // never worked: `text` is not a station and not a carried item, so it fell all
+  // the way through to synthesis and came back "no such recipe". Handled here,
+  // ahead of station resolution, and only when there is actually a food station
+  // to read — a chem lab keeps `cook <recipe>` for itself.
+  if (nameStr.toLowerCase() === 'text' && cookStations(player.current_zone).some(s => s._cookKind === 'food')) {
+    return (await cmdWorkspace(['kitchen', 'text'], '', player)) || { type: 'error', message: 'Cook what?' };
+  }
+
   // Named a station directly ("cook on the range" / "cook stove")? Honour it.
   const stations = cookStations(player.current_zone);
   if (stations.length > 1) {

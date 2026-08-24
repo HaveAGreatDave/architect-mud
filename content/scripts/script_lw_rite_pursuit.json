@@ -1,0 +1,29 @@
+{
+  "description": "The Spire answers. Fired when the vat colonnade comes down during the Long Watch rite: a line, then two Halcyon adjusters spawned into the vat hall with no leash and the player's id as the suspect, so they follow you off the plaza and all the way east if you let them. Same shape as script_lw4_retention, deliberately — a strike should be answered by the same machinery a theft is.",
+  "graph": {
+    "nodes": {
+      "call": {
+        "next": "pair",
+        "text": "Somewhere above you a door seals with a sound like a held breath, and every enamel nameplate along the ruined colonnade starts blinking the same amber, together, in time.",
+        "type": "say"
+      },
+      "pair": {
+        "announce": false,
+        "flags": {
+          "chase_speed_s": 4,
+          "leash_radius": -1,
+          "suspect_id": "${actor.id}"
+        },
+        "id": "enemy_halcyon_adjuster",
+        "kind": "enemy",
+        "quantity": 2,
+        "type": "spawn",
+        "zone": "zone_asc_vats_hall"
+      }
+    },
+    "start": "call"
+  },
+  "id": "script_lw_rite_pursuit",
+  "name": "The Rite — the Spire answers",
+  "updated_at": "1787980000"
+}

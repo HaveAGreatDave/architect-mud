@@ -27,6 +27,11 @@
         "flag": "lw_q2_done",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "2"
       }
     ],
     "items": [],

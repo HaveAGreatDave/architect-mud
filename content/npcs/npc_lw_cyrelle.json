@@ -230,6 +230,18 @@
     "root": {
       "options": [
         {
+          "conditions": [
+            {
+              "flag": "quest_asc_cross",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "(she is sitting in the dark by the press)",
+          "next": "cross_meet"
+        },
+        {
           "label": "Tell me about the map.",
           "next": "map"
         },
@@ -244,9 +256,10 @@
         {
           "conditions": [
             {
-              "flag": "lw_member",
-              "op": "set",
-              "scope": "player"
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "5"
             },
             {
               "flag": "quest_asc_1",
@@ -330,6 +343,102 @@
         }
       ],
       "text": "\"There'll be operations for you soon enough: cameras to close, people to move out from under the machine's eye, its little servants to inconvenience.\" She taps the map. \"For now, get the lie of the place. Talk to the quartermaster. Rest while you can. When there's a run with your name on it, you'll hear.\""
+    },
+    "cross_meet": {
+      "_vine": {
+        "x": 40,
+        "y": 1800
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "How long have you been sitting here?",
+          "next": "cross_meet2"
+        },
+        {
+          "label": "Say what you came to say.",
+          "next": "cross_meet2"
+        }
+      ],
+      "text": "She does not put a light on. She is on the stool by the type cases with her coat still buttoned, and she has clearly been there a while, and she is not surprised.\n\n\"Six nights,\" she says. \"Halloran said four. I said seven. It was six.\"\n\nShe does not get up.\n\n\"Sit down. You have had a long walk and you are going to have a longer one back.\""
+    },
+    "cross_meet2": {
+      "_vine": {
+        "x": 360,
+        "y": 1800
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "They are going to win, Cyrelle.",
+          "next": "cross_refuse"
+        },
+        {
+          "label": "What would it take?",
+          "next": "cross_open"
+        },
+        {
+          "label": "(take the address and go)",
+          "next": "cross_refuse"
+        }
+      ],
+      "text": "\"Here is what I am not going to do. I am not going to tell you that you have made a terrible mistake, because you know, and being told is what makes a person dig in.\"\n\nShe nods at the press behind her.\n\n\"Take the address. Genuinely, take it. It is a machine and we have two more, and the day they come for it is the day we find out how many of them are prepared to be seen carrying a crate out of a basement.\"\n\nA long pause, and she is not performing it.\n\n\"But you are still on the rota. Nobody has crossed you off. That is not sentiment. Crossing somebody off is a decision, and I am not making it while there is any version of this where you come back.\""
+    },
+    "cross_open": {
+      "_vine": {
+        "x": 700,
+        "y": 1760
+      },
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "lw_door_open",
+          "scope": "player",
+          "value": "done"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_lw_cyrelle",
+          "reason": "cross:open",
+          "warmth": 2
+        }
+      ],
+      "options": [
+        {
+          "label": "I will think about it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nothing you would have to do tonight.\" She says it carefully, the way you say a thing you have rehearsed and do not want to sound rehearsed.\n\n\"You would have to still be a person we could reach. That is all it is at this stage, and I am aware of exactly how much I am asking for and how little I am offering back.\"\n\nShe stands, finally, and pulls her coat straight.\n\n\"Go on. He will want it before morning, and you should not be the last one out of this building.\""
+    },
+    "cross_refuse": {
+      "_vine": {
+        "x": 700,
+        "y": 1900
+      },
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "lw_door_shut",
+          "scope": "player",
+          "value": "done"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_lw_cyrelle",
+          "reason": "cross:refused",
+          "warmth": -3
+        }
+      ],
+      "options": [
+        {
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "She takes it better than you were braced for, which is worse.\n\n\"All right.\"\n\nShe moves off the stool to let you past the type cases, and she is careful not to touch you doing it, and that is the part you will remember.\n\n\"For what it is worth, and it is worth nothing: I do not think you are a coward and I do not think you were bought. I think you did the arithmetic and got the right answer.\" She sits back down in the dark. \"I have done it too. I just could not make myself live in it.\""
     }
   },
   "faction": "ideology_long_watch",
