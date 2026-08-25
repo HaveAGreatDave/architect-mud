@@ -1,9 +1,10 @@
 {
-  "description": "",
+  "description": "A stubby chip in a hard grey caddy, its contact edge dulled by however many hands have turned it over. The label is a printed sticker stuck over another printed sticker. It writes SPECTER to the tablet's ROM once and then burns itself out, which the seller will tell you is a security feature.",
   "flags": {},
   "id": "item_specter_program",
   "name": "SPECTER Install Chip",
   "tags": {
+    "description": "A stubby chip in a hard grey caddy, its contact edge dulled by however many hands have turned it over. The label is a printed sticker stuck over another printed sticker. It writes SPECTER to the tablet's ROM once and then burns itself out, which the seller will tell you is a security feature.",
     "specter_program": true
   },
   "type": "device",
