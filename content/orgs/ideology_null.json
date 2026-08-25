@@ -17,6 +17,11 @@
         "What you can't repair by hand, you shouldn't rely on."
       ]
     },
+    "role": {
+      "writes": "assets",
+      "reads": "grip",
+      "drift": null
+    },
     "stance": "renounce",
     "values": [
       "Self-Reliance",

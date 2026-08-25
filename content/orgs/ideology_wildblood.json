@@ -16,6 +16,11 @@
         "Civilization is a cage; let the old world die."
       ]
     },
+    "role": {
+      "writes": "heat",
+      "reads": "clock",
+      "drift": "east"
+    },
     "stance": "renounce",
     "values": [
       "Adaptation",

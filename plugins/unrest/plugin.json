@@ -1,0 +1,17 @@
+{
+  "name": "unrest",
+  "version": "0.1.0",
+  "description": "Faction-conflict ledger — grip/heat/pressure per derived city block, decayed on read and driven by an idle-gated forcing tick. Phase 1a: state only, no player-facing surface.",
+  "routePrefix": "/unrest",
+  "commands": [],
+  "hooks": [],
+  "ticks": ["30m", "5m"],
+  "config": {
+    "BLOCK": "12 — the cell is a 12x12 square of grid coordinates (blocks.js)",
+    "flagKey": "unrest_ledger — the one world_flags key this plugin writes, and it is the only writer"
+  },
+  "dataSchema": {
+    "tables": [],
+    "note": "No table. The ledger is one versioned world_flags blob, RAM-authoritative with write-behind — ~10 cells x 4 numbers does not justify a schema change, a registry entry and a read-tier decision."
+  }
+}

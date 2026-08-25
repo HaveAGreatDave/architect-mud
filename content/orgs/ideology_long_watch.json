@@ -17,6 +17,11 @@
         "Reform civilization; stay human doing it."
       ]
     },
+    "role": {
+      "writes": "heat",
+      "reads": "grip",
+      "drift": "north"
+    },
     "stance": "redeem",
     "values": [
       "Liberty",

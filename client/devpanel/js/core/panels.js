@@ -408,6 +408,13 @@ const PANELS = {
     noEdit: true,
     render: renderEmergencyPanel,
   },
+  unrest: {
+    title: 'Unrest',
+    description: 'The faction-conflict ledger — grip/heat/pressure per derived city block, the band each is in, and the authored role roster. Operator-only by design: none of it reaches the player.',
+    fetch: () => directAPI('/unrest/state'),
+    noEdit: true,
+    render: renderUnrestPanel,
+  },
   flight: {
     title: 'Flight',
     description: 'Charter-pilot work status, the flight request log, and every aircraft instance (test-flight conjures, player buy/rent, wrecks) — delete stale ones from here.',

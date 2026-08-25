@@ -17,6 +17,11 @@
         "Ascension is engineered: steel, code, and cloned flesh."
       ]
     },
+    "role": {
+      "writes": "grip",
+      "reads": "heat",
+      "drift": "south"
+    },
     "stance": "redeem",
     "values": [
       "Progress",
