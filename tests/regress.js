@@ -45,7 +45,7 @@ import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
 import { npcHomedInOwnedUnit, authoredRentCost } from '../server/engine/apartments.js';
-import { validateTags, validateZoneColumns, zoneColumnCatalog, TAG_CATALOG } from '../server/engine/tags.js';
+import { validateTags, validateZoneColumns, zoneColumnCatalog, TAG_CATALOG, hasTag } from '../server/engine/tags.js';
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
@@ -1688,14 +1688,62 @@ const uniqueName = (z) => z && nameCount.get(z.name) === 1;
 // the player aboard for every suite that followed.
 const inVehicle = (z) => !!(z.flags?.aircraft_cabin || z.flags?.vessel || z.flags?.echelon);
 const nearVehicle = (z) => inVehicle(z) || neighborZoneIds(z).some(n => inVehicle(zoneById.get(n)));
+// …and it must not be next door to a SHOP THAT CAN BE SHUT. `commerce:shop-hours`
+// blocks a step into an interior whose vendors are all off-shift or not yet behind
+// the counter, and that is a different gate winning before the one under test: the
+// rad fixture read the refusal as a step it had taken, and the weapon fixture had
+// its move eaten before any flee intent could be armed, so `move blocked while
+// under attack` passed for the wrong reason and the intent check failed. Exactly
+// the door exclusion's shape, and exactly its cause — which neighbour you get is
+// DB-row-order dependent, so this anchors or fails on world content.
+// Mirrors shopVendorsFor/shopClosedFor in plugins/commerce/index.js: an interior
+// room with a non-covert vendor working it to a schedule. Rebuilt here rather than
+// imported — the harness must not reach into a plugin's internals to pick a zone.
+const shopGated = new Set();
+for (const n of world.npcs.values()) {
+  if (!n?.work_zone_id || n.flags?.covert) continue;
+  if (!n.vendor_inventory?.length) continue;
+  if (!n.vendor_schedule || !Object.keys(n.vendor_schedule).length) continue;
+  if (zoneById.get(n.work_zone_id)?.flags?.is_interior) shopGated.add(n.work_zone_id);
+}
+// …and neither it nor a neighbour may hold anything DEMOLISHABLE. demolition's
+// fixture asserts that `breach` in an ordinary room answers "nothing here worth
+// wiring" rather than "you are not carrying a charge" — the useful refusal before
+// the confusing one — so a room with a target in it gets the second and reds.
+// The neighbour half is the load-bearing half, and it is the Leviathan bite above
+// happening again with a different room: the anchor landed on
+// `zone_util_zone_asc_vats_hall`, the utility room the power self-heal built under
+// the Vat Hall, whose one exit goes up into the hall itself. The move fixtures
+// take that exit and leave the player standing next to the vat colonnade — which
+// is the ONLY demolishable object in the world — for every suite that follows.
+// Keyed on the tag, so it is the same question demolishableIn() asks.
+const demolishableZones = new Set();
+for (const f of world.furniture.values()) {
+  if (f?.zone_id && hasTag(f, 'demolishable')) demolishableZones.add(f.zone_id);
+}
+// …and it must not be a SANCTUARY. The zone-tag fixtures assert that an untagged
+// zone has none, then set the tag themselves and `delete` it in a finally — so an
+// authored sanctuary both fails that assertion and strips a real flag off the live
+// zone object for every suite that runs after it.
+// …and it must not be a UTILITY ROOM. These are built by the power self-heal, not
+// authored, and they are a poor anchor twice over: they are the room the Leviathan
+// and vat-colonnade bites both came through, and they have exactly one exit, so
+// every fixture that wants an ordinary room with somewhere to go SKIPS instead of
+// running. That is worse than a red — the suite still prints green, six checks
+// lighter, and nothing says which six.
+const isUtilityRoom = (z) => /^zone_util_/.test(z.id);
 const baseOk = (z) =>
   z.exits && Object.keys(z.exits).length > 0 &&
+  !isUtilityRoom(z) &&
   !z.flags?.water &&
+  !z.flags?.sanctuary &&
   !nearVehicle(z) &&
   !doorZones.has(z.id) &&
   !getApartment(z.id) &&
   !z.flags?.prologue &&
-  !neighborZoneIds(z).some(n => doorZones.has(n)) &&
+  !shopGated.has(z.id) &&
+  !demolishableZones.has(z.id) &&
+  !neighborZoneIds(z).some(n => doorZones.has(n) || shopGated.has(n) || demolishableZones.has(n)) &&
   dryExit(z);
 const zone =
   zones.find(z => baseOk(z) && uniqueName(z) && uniqueName(zoneById.get(dryExit(z)[1])))
