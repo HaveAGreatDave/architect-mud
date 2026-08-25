@@ -2,7 +2,9 @@
 
 **Status: DESIGN ONLY. Nothing here is implemented.** Designed 2026-08-23. The session it
 came out of was lost to a client corruption; this is its plan file, recovered and committed
-unchanged apart from this header so it cannot go missing again.
+so it cannot go missing again. **Revised 2026-08-24** — the ledger's cell moved from named
+districts to derived coordinate blocks, which removed the phase 0 blocker; the district work
+was split out to [district-repair.md](district-repair.md), where it stands on its own.
 
 ## Context
 
@@ -49,7 +51,56 @@ schema change), never a switch statement in code.
 **Only the Ascendant↔Long Watch pair needs a ledger.** Null and Wildblood are *drivers into*
 it. That is a much smaller build and it matches the fiction exactly.
 
-### Three scalars per district, not two
+**The four expansion orders take no role.** Prometheans, Synthesis, Pioneers and Lucid carry
+`flags.expansion: true` and are preview-only, never winning the lean
+(`docs/systems-ideologies.md`). They are excluded from the sim, and the regress assertion
+reads *every non-expansion org declares a role* — not *every org*.
+
+---
+
+## The cell: a derived block, not a named district
+
+The sim needs a spatial unit between tile and region. A tile is too fine — a player crosses
+perhaps twenty in a session, so per-tile heat is noise nobody can read. A region is too
+coarse — Coldwater is one region, so a region-level ledger is a single global number, which
+is weather rather than faction conflict.
+
+The first draft used the authored `flags.district`. That made the system depend on content
+that does not exist: twelve of the twenty authored districts hold zero tiles and the whole
+built city falls through to the `residential` fallback. Painting it is worth doing, but it
+is [its own job](district-repair.md) and it must not stand in front of this one.
+
+**The cell is a 12×12 block of grid coordinates, derived at boot.** Measured against the
+tree on 2026-08-24, the built city is far smaller than it feels:
+
+| Coldwater, as it exists today | |
+|---|---|
+| urban tiles (`terrain` in road/asphalt/concrete/park/dirt_road, or carrying a building) | **273** |
+| of those, road surface | 168 |
+| named buildings (facades) | 85 |
+| interiors reaching a Coldwater facade through `world_exit_zone` | 187 |
+| bounding box | 35 × 50 (x 892–926, y 898–947) |
+
+Cut into blocks that gives **10 cells** at 12×12 (17 at 8×8, 7 at 16×16) — near enough the
+number of districts the painting would have produced, for no authoring at all. 12 is the
+default because it lands closest to that count while keeping a block walkable end to end in
+well under a minute.
+
+Three consequences worth stating:
+
+- **The selector is a filter, not a list.** "Along roads" is
+  `flags.terrain in (road, asphalt, dirt_road)` and it really is the street grid — the same
+  one the GPS router prefers and `pacing`'s `ROAD_SPEEDUP` reads. "In businesses" is the 187
+  interiors. Neither needs a tile enumerated by hand.
+- ⚠ **Interiors inherit their facade's block.** Interior zones sit at `grid_x/grid_y` 0,0,
+  which is an unset column and never a tile. An interior resolves its block by following
+  `world_exit_zone` to its facade; a block index that reads 0,0 as a position collapses every
+  interior in the game into one corner of the map.
+- **Districts remain adoptable for free.** Nothing downstream knows what a cell *is* — it is
+  a key. If the painting lands later, the block function is replaced by `districtFor` and no
+  incident, scalar or regress case changes.
+
+### Three scalars per cell, not two
 
 - **`grip`** — how hard the authority is squeezing. Fast, responds over hours.
 - **`heat`** — dissident activity, attributed per order. Fastest, responds over tens of minutes.
@@ -57,21 +108,24 @@ it. That is a much smaller build and it matches the fiction exactly.
   **baseline**, not heat.
 
 `pressure` is not optional. Without it the fast pair converges by default: decay-on-read
-pulls both toward baseline, incidents gate on high heat, so a low-heat district can never
-generate the events that would raise its heat and **dead districts stay dead forever**.
+pulls both toward baseline, incidents gate on high heat, so a low-heat cell can never
+generate the events that would raise its heat and **dead cells stay dead forever**.
 Fast pair + slow integrator is the minimal system that limit-cycles with no driver.
 
 **State the period or it isn't designed.** Heat in tens of minutes, grip in hours, pressure
 over days, a full cycle legible across roughly a week with a visible swing inside a 1–2
 hour session. A cycle longer than a play session is invisible.
 
-### Displacement is authored, not topological
+### Displacement is a bearing, not a topology
 
-There is no district adjacency graph in the codebase, and with a handful of real urban
-cells "adjacent" means "all of them". A sweep pushes heat to the order's **next-preferred
-theatre** from an authored ordered district list on `orgs.flags.role.theatre`. One JSON
-field instead of a topology, reads as intent rather than diffusion, and it is the knob an
-author turns as the map grows.
+A sweep pushes heat out of the cell it landed in. With derived blocks there is a real
+adjacency for free — the 8 neighbouring blocks — so displacement goes to **the adjacent
+block with the lowest heat**, ties broken by the order's authored `drift` bearing on
+`flags.role`.
+
+One compass direction per order replaces the first draft's ordered district list. It is a
+single authored knob, it reads as intent rather than diffusion, and it survives the switch
+to districts unchanged.
 
 ---
 
@@ -79,37 +133,47 @@ author turns as the map grows.
 
 These are the ones that decide whether this ships as a system or as invisible noise.
 
-1. **Signal before effect.** An incident may not stage in a district unless that district
-   carried a *perceivable, attributable* signal from the same order inside the preceding
-   window. Heat rises → graffiti, gossip, NPC mood **first**; only then does the grip
-   response fire. The player who walked past the tag yesterday reads today's checkpoint as
-   consequence rather than spawn noise. Asserted in regress.
+1. **Signal before effect.** An incident may not stage in a cell unless that cell carried a
+   *perceivable, attributable* signal from the same order inside the preceding window. Heat
+   rises → graffiti, gossip, NPC mood **first**; only then does the grip response fire. The
+   player who walked past the tag yesterday reads today's checkpoint as consequence rather
+   than spawn noise. Asserted in regress.
 
 2. **No PLAYER-facing readout. Ever.** No verb, no tablet gauge, no number. The moment there
    is a readout the sim becomes a dashboard to optimise and the flavour dies. The player's
-   instrument is an NPC saying *"don't go up the hill tonight."*
+   instrument is an NPC saying *"don't go up past the water tonight."*
    **The dev panel is the opposite** — it gets the complete numeric picture, because an
-   operator who cannot see the ledger cannot tune it (§Dev panel B). The line is the client
+   operator who cannot see the ledger cannot tune it (§Dev panel A). The line is the client
    boundary, not the data: every scalar is visible at `/dev` and none of it crosses into
    `client/game/`.
-   **Ship test:** can a player who has never opened a wiki tell you which district is tense
-   and who is doing it? If that needs a number, ship differently.
+   **Ship test:** can a player who has never opened a wiki tell you which part of town is
+   tense and who is doing it? If that needs a number, ship differently.
 
-3. **The sim never moves ideology standing implicitly.** `plugins/drugwar/index.js`'s header
+3. **Place is spoken as a bearing, never as a name.** A cell has no name, so an NPC gives a
+   direction from where they stand — *"up past the water"*, *"the north end"*. Use the
+   existing `bearing(dx, dy)` (`server/engine/map-text.js:36`), which already drops the minor
+   axis so a thing nearly due north reads "north" rather than "north-east". ⚠ `grid_y`
+   increases **southward**, which `bearing` handles and hand-rolled direction code
+   reliably does not.
+   This is not a consolation for lacking districts. A named district invites a mental map
+   with a status per name, which is one step from the readout rule 2 bans; a bearing from
+   where you are standing stays felt.
+
+4. **The sim never moves ideology standing implicitly.** `plugins/drugwar/index.js`'s header
    records this decision being made once already ("the invisible alignment ledger was
    removed"). Rep moves only through an explicit favour turn-in via the existing
    `ADJUST_REPUTATION`. Regress asserts the plugin has no incidental `adjustReputation` caller.
 
-4. **Danger must be audible from the tile you are standing on.** `propagateSound()` already
+5. **Danger must be audible from the tile you are standing on.** `propagateSound()` already
    reaches neighbours. That converts "ambushed by a sim I can't see" into "I heard that and
    walked in anyway" for about four lines of code.
 
-5. **Persist the ledger, never the incidents.** A live incident holds `instanceId`s that do
+6. **Persist the ledger, never the incidents.** A live incident holds `instanceId`s that do
    not survive a restart, and a persisted "checkpoint here" that outlives its teardown is a
-   permanent checkpoint nobody authored. Correct post-restart state: district still hot,
+   permanent checkpoint nobody authored. Correct post-restart state: cell still hot,
    checkpoint gone, next tick re-stages if still warranted.
 
-6. **The two voices disagree, and that is the whole expressive trick.** The news wire carries
+7. **The two voices disagree, and that is the whole expressive trick.** The news wire carries
    the Ascendant version; the gossip pool carries the street version; they contradict each
    other and nothing ever reconciles them. That single fact communicates "an authority and a
    resistance" better than any scalar could. Per house style the Ascendant copy takes em
@@ -119,30 +183,10 @@ These are the ones that decide whether this ships as a system or as invisible no
 
 ## Dev panel
 
-The system is authored and operated from `/dev`, and the design principle is that **each
+The system is operated and authored from `/dev`, and the design principle is that **each
 surface reuses an interaction a builder already knows** rather than inventing one.
 
-### A. District Painter — a new mode in the Maps editor *(phase 0)*
-
-Phase 0 is 4,900 tiles of assignment. Done as a script it is a guess; done as a painter it
-is an afternoon. Add a `district` mode to `client/devpanel/js/panels/maps.js` beside the
-existing Terrain / Paint / Safe-Zone modes, with **the same four tools the terrain painter
-already has** — brush, flood-fill, rectangle-marquee, and eyedropper (`terrainPaintStart` /
-`terrainFill` / `terrainRectStart` / `terrainPick`, `maps.js:1367,1393,1417,1384`) — and the
-same undo stack and draggable tool panel.
-
-**The palette needs no new file.** `TERRAIN_TYPES` is loaded from `content/map/terrain.json`
-because terrain had no content home; districts do — `content/districts/*.json` already carries
-`id`, `name` and `color`, which is exactly a swatch. The painter writes `flags.district` and
-nothing else, so it inherits the tile-save path terrain already uses.
-
-Two rules specific to this painter: it must **show the resolved district, not just the
-authored one** (mirroring `mapZoneTerrain`'s authored-wins-then-infer shape at `maps.js:1118`)
-so a builder can see the `residential` fallback sinkhole and paint over it; and it must
-**flag any tile whose resolved district sits outside `region_coldwater`**, which is how the
-Deadwater/Terminus fallout gets caught by eye instead of in play.
-
-### B. Unrest panel — the ledger *(phase 1)*
+### A. Unrest panel — the ledger
 
 New nav section + `client/devpanel/js/panels/unrest.js` + a `PANELS` entry, following
 `emergency` exactly (`core/panels.js:404` — `fetch: () => directAPI('/unrest/state')`, custom
@@ -150,19 +194,21 @@ New nav section + `client/devpanel/js/panels/unrest.js` + a `PANELS` entry, foll
 
 **The ledger is spatial, so the primary view is the map, not a table.** Reuse the region SVG
 the world editor already draws (`panels/world-editor.js:70`), tinted by **band** rather than
-terrain — one glance answers "where is it kicking off". Under it, one row per theatre district:
-grip / heat / pressure as bars, the band chip, the dominant order, and time since last signal.
+terrain, with the block grid overlaid — one glance answers "where is it kicking off". Under
+it, one row per live cell: grip / heat / pressure as bars, the band chip, the dominant order,
+and time since last signal. A cell is labelled by its block coordinate and its nearest named
+building, which is an operator convenience and never reaches the client.
 
 Operator controls, all `directAPI` (live world, never staged — the same call class as
-emergency and power): force a district's scalars for testing, stage a named incident, and
-tear a live one down. Live incidents list with a teardown button mirrors emergency's
+emergency and power): force a cell's scalars for testing, stage a named incident, and tear a
+live one down. Live incidents list with a teardown button mirrors emergency's
 activate/deactivate pair.
 
-### C. Incidents editor *(phase 2)*
+### B. Incidents editor
 
 Incidents are authored content, so this rides the shared list/edit lifecycle in
 `core/table.js` (`renderTable` / `openEdit` / `saveRecord`) with an `editForm`, and goes
-through `API()` so it is **staged** like other content — unlike B, which is live state.
+through `API()` so it is **staged** like other content — unlike A, which is live state.
 `panels/script-triggers.js` is the closest analogue (an authored table carrying conditions and
 params) and is the file to copy the shape from.
 
@@ -181,61 +227,39 @@ params) and is the file to copy the shape from.
 
 ---
 
-## ⚠ Phase 0 is a blocker: the district data does not exist
-
-Verified against all 17,258 zone files. Authored `flags.district` values, in full:
-
-```
-wilds 3471 · wasteland 462 · water 257 · sewer 117 · residential 89 · docks 59 · yards 24 · longwatch 23
-```
-
-**Zero tiles** carry: `ashway`, `redline`, `northcity`, `government`, `slum`, `civic`,
-`commercial`, `industrial`, `media`, `nightlife`, `slaglands`, `hazard` — twelve of the
-twenty authored districts, including every one the fiction leans on. Coldwater's modern grid
-is `zone_district_<x>_<y>`, which matches no entry in the legacy `DISTRICT_PREFIX` table, so
-`flags.district` is its only identity (`server/engine/districts.js:46`) and unassigned tiles
-fall through to the `residential` fallback. **Today the entire built city reads as one
-district.**
-
-Two related traps:
-- **The fallback is a sinkhole.** Deadwater, Terminus and Scarletwastes tiles resolve to
-  `residential`. Every incident must additionally gate on `flags.region_id === 'region_coldwater'`
-  or a Long Watch flare fires 900 tiles into the wasteland.
-- `zone_util_*` (116 tiles) is caught by the `util` prefix and classified `media`. "The Media
-  District is under lockdown" would fire in utility corridors.
-
-Building the ledger before fixing this means tuning a sim whose cells are `wilds` (3,471
-tiles) and `civic` (0).
-
----
-
 ## Phases
+
+Phase 1 is the whole loop, ledger through hostiles, because a version whose only output is
+mood cannot be told apart from the ambience that already ships. It is built in four steps and
+each is a place to stop and look, but the milestone is a player walking into something.
 
 | Phase | What ships | Key files | Regress |
 |---|---|---|---|
-| **0 — Ground truth** *(tool, then content)* | **Build the District Painter first** (§Dev panel A), then use it: assign `flags.district` across the Coldwater grid so the named districts have tiles. Fix the `util`→`media` prefix mis-class. Author a **theatre list** (which districts the sim may touch) and per-district `grip`/`heat` baselines. Add `flags.role` (`writes`/`reads`/`theatre`) to the five `content/orgs/ideology_*.json`. Ships via CODEX. | `client/devpanel/js/panels/maps.js`, `content/zones/**`, `content/districts/*.json`, `content/orgs/ideology_*.json` | `districtFor()` returns a non-fallback district for every Coldwater street tile; every theatre district has ≥N tiles and resolves inside `region_coldwater`; every canon org declares a role. Painter itself is covered by `client:smoke` (parse) — no headless UI test. |
-| **1 — Ledger + perceivability** *(shippable alone)* | New `plugins/unrest/`. Boot-built district→zone index. `ledger.js`: grip/heat/pressure, lazy decay-on-read to authored baselines, band computation, batched write-behind. Forcing tick `schedule('30m')`, idle-gated. Perceivability: boundary-crossing beat off `zone.entered`, `zone.describeAmbient` (hard abstention at baseline), gossip via `pool.addItem({capGroup:'unrest'})`, news via `emit('npc.broadcast_say')`. Band-crossing events only. **Unrest dev panel** (§Dev panel B): band-tinted region map, per-district bars, force controls, all over `directAPI`. **No incidents, no spawns, no player verbs.** | `plugins/unrest/{index.js,ledger.js,plugin.json,README.md,regress.js}`, `client/devpanel/js/panels/unrest.js`, `client/devpanel/js/core/panels.js`, `client/devpanel/index.html`, `docs/plugins.md`, `docs/devpanel-js.md`, `docs/systems-unrest.md` | Decay is monotone toward baseline and never crosses it; the blob round-trips a simulated restart; a corrupt/absent blob rebuilds from baselines; band events fire once per crossing not per delta; the ambient hook abstains at baseline; the boundary line fires only on a real district-key change; gossip respects its cap. |
-| **2 — Incidents as content** | `incidents` table + `content-registry.js` entry + `content/incidents/*.json`. Selector, staging, teardown, concurrency cap (~3 citywide), cooldowns. Stage set limited to safe Actions: gossip, graffiti, news, ambient override, NPC mood. One `world_events` audit row per staging. Signal-before-effect enforced. **Incidents editor** (§Dev panel C) over the shared table lifecycle, staged through `API()`. | `server/models/schema.js`, `server/models/content-registry.js`, `plugins/unrest/incidents.js`, `content/incidents/**`, `client/devpanel/js/panels/unrest.js` | An incident cannot stage without a prior signal in that district; teardown restores exact prior state; the cap holds under a forced storm; exactly one `world_events` row per staging; a `script_triggers` row binding `unrest.incident.staged` matches on `zone_id`. |
-| **3 — Danger** | Dangerous stage Actions: `SPAWN_HOSTILE` (`spawnEnemySync` + behaviour graph + tracked instance ids), `SET_ZONE_FLAG` for a **RAM-only** `checkpoint_cfg`, and `ESP_ACTIVATE`/`ESP_DEACTIVATE` **registered as Actions inside `plugins/emergency`** so nothing imports across plugins. `propagateSound` warning to neighbours before anything hostile lands. | `plugins/emergency/index.js` (+ manifest, README status header), `plugins/unrest/stage.js` | Every spawned instance is removed on teardown (instance-count leak check); an incident-set `checkpoint_cfg` is gone after teardown *and* after a simulated restart; no hostile stages without a prior neighbour warning; ESP activate/deactivate is idempotent under double dispatch. |
-| **4 — Participation** | Incident-response **favours**: repeatable quests keyed to live incidents, paying `rep` on turn-in through `ADJUST_REPUTATION`. Player-side resolution deltas. Closes the documented repeatable-work gap. | `content/quests/**`, `plugins/unrest/favours.js`, `docs/systems-ideologies.md` | Rep moves only through an explicit turn-in; a favour cannot be turned in for an already-resolved incident; repeated turn-ins never walk an `<order>_arc` flag backwards. |
-| **5 — Null + Wildblood** | `vendetta` (reads grip, targets Ascendant assets not ground) and `incursion` (external clock, burst, no baseline). Both are drivers into the existing ledger — no new state. Exodus stays `withdrawn`. | `content/orgs/ideology_{null,wildblood}.json`, `content/incidents/**`, `plugins/unrest/roles.js` | A `vendetta` incident stages against high-grip districts regardless of heat; an `incursion` fires off the clock with no local-state precondition and leaves no residual baseline; `withdrawn` never stages anything. |
+| **1a — Ledger** | New `plugins/unrest/`. Boot-built block index over `world.zones` (blocks derived from `grid_x`/`grid_y`; interiors resolved through `world_exit_zone`). `ledger.js`: grip/heat/pressure, lazy decay-on-read to authored baselines, band computation, batched write-behind. Forcing tick `schedule('30m')`, idle-gated. Add `flags.role` (`writes`/`reads`/`drift`) to the five canon `content/orgs/ideology_*.json`. **Unrest dev panel** (§A) over `directAPI`. | `plugins/unrest/{index.js,ledger.js,blocks.js,plugin.json,README.md,regress.js}`, `content/orgs/ideology_*.json`, `client/devpanel/js/panels/unrest.js`, `client/devpanel/js/core/panels.js`, `client/devpanel/index.html` | Decay is monotone toward baseline and never crosses it; the blob round-trips a simulated restart; a corrupt/absent blob rebuilds from baselines; every non-expansion org declares a role; no interior resolves to block 0,0; transient zones are absent from the index. |
+| **1b — Perceivability** | Boundary-crossing beat off `zone.entered`, `zone.describeAmbient` (hard abstention at baseline), gossip via `pool.addItem({capGroup:'unrest'})`, news via `emit('npc.broadcast_say')`. Band-crossing events only. NPC lines speak the bearing (rule 3). | `plugins/unrest/{signals.js,voice.js}`, `docs/plugins.md` | Band events fire once per crossing not per delta; the ambient hook abstains at baseline; the crossing line fires only on a real block change; gossip respects its cap; no signal line contains a district or place name. |
+| **1c — Incidents** | `incidents` table + `content-registry.js` entry + `content/incidents/*.json`. Selector, staging, teardown, concurrency cap (~3 citywide), cooldowns. Safe stage Actions: gossip, graffiti, news, ambient override, NPC mood. One `world_events` audit row per staging. Signal-before-effect enforced. **Incidents editor** (§B), staged through `API()`. | `server/models/schema.js`, `server/models/content-registry.js`, `plugins/unrest/incidents.js`, `content/incidents/**`, `client/devpanel/js/panels/unrest.js` | An incident cannot stage without a prior signal in that cell; teardown restores exact prior state; the cap holds under a forced storm; exactly one `world_events` row per staging; a `script_triggers` row binding `unrest.incident.staged` matches on `zone_id`. |
+| **1d — Danger** | Dangerous stage Actions: `SPAWN_HOSTILE` (`spawnEnemySync` + behaviour graph + tracked instance ids), `SET_ZONE_FLAG` for a **RAM-only** `checkpoint_cfg`, and `ESP_ACTIVATE`/`ESP_DEACTIVATE` **registered as Actions inside `plugins/emergency`** so nothing imports across plugins. `propagateSound` warning to neighbours before anything hostile lands. | `plugins/emergency/index.js` (+ manifest, README status header), `plugins/unrest/stage.js` | Every spawned instance is removed on teardown (instance-count leak check); an incident-set `checkpoint_cfg` is gone after teardown *and* after a simulated restart; no hostile stages without a prior neighbour warning; ESP activate/deactivate is idempotent under double dispatch; at most one ESP is live at a time. |
+| **2 — Participation** | Incident-response **favours**: repeatable quests keyed to live incidents, paying `rep` on turn-in through `ADJUST_REPUTATION`. Player-side resolution deltas. Closes the documented repeatable-work gap. | `content/quests/**`, `plugins/unrest/favours.js`, `docs/systems-ideologies.md` | Rep moves only through an explicit turn-in; a favour cannot be turned in for an already-resolved incident; repeated turn-ins never walk an `<order>_arc` flag backwards. |
+| **3 — Null + Wildblood** | `vendetta` (reads grip, targets Ascendant assets not ground) and `incursion` (external clock, burst, no baseline). Both are drivers into the existing ledger — no new state. Exodus stays `withdrawn`. | `content/orgs/ideology_{null,wildblood}.json`, `content/incidents/**`, `plugins/unrest/roles.js` | A `vendetta` incident stages against high-grip cells regardless of heat; an `incursion` fires off the clock with no local-state precondition and leaves no residual baseline; `withdrawn` never stages anything. |
 
 ---
 
 ## Where the state lives
 
 **One `world_flags` JSON blob, RAM-authoritative, write-behind.** Not a new table (the payload
-is ~20 districts × 4 numbers — a Map's worth of data does not justify a schema change, a
+is ~10 cells × 4 numbers — a Map's worth of data does not justify a schema change, a
 registry entry, a boot load and a read-tier decision), and not pure RAM (this repo deploys on
 every push to `main`; a ledger that resets every deploy *is* a stateless roll with extra steps).
 
-`flags.js` already keeps world flags in a write-through Map, so reads are free and there is no
-new cache tier. `plugins/jobboard/index.js:151` is the precedent — `jobboard_rot_<id>` holding
-`{jobs, at}`.
+World flags go through the ordinary scope-parameterised `getFlag('world', key)` /
+`setFlag('world', key, value)` in `server/engine/flags.js`, which already keeps them in a
+write-through Map, so reads are free and there is no new cache tier.
+`plugins/jobboard/index.js:155` is the precedent — `jobboard_rot_<id>` holding `{jobs, at}`.
 
 Three conditions that make it honest:
-1. **Version the blob** (`{v:1, at, districts:{…}}`); absent or unparseable rebuilds from
-   authored baselines.
+1. **Version the blob** (`{v:1, at, cells:{…}}`); absent or unparseable rebuilds from
+   authored baselines. Version it from the start: the cell key changes if districts are
+   adopted later, and a v1 blob keyed by block must be discarded rather than misread.
 2. **Write-behind on a batched cadence** (the `flushDirtyPositions` dirty-flag pattern), with
    the module header stating this plugin is the key's only writer.
 3. **`world_events` is the audit log, not the ledger** — one insert per staged incident
@@ -249,11 +273,13 @@ Three conditions that make it honest:
 | Need | Existing seam |
 |---|---|
 | Clock | `schedule(cadence, cb, {runWhenEmpty})` — `server/engine/scheduler.js:56`, idle-gated on `hasActivePlayers()`, phase-spread, boot-jittered |
+| Bearings | `bearing(dx, dy)` — `server/engine/map-text.js:36`; drops the minor axis, and knows `grid_y` runs southward |
 | Authored fan-out | `script_triggers` binds **any** event-bus name to a VINE graph with `zone_id`/`conditions`/`chance`/`cooldown_seconds` — `server/engine/script-triggers.js` |
 | Cross-plugin effects | `registerAction`/`dispatchAction` by **name**, never an import — `server/engine/actions.js:27` |
 | Temporary hostiles | `spawnEnemySync(template, zoneId)` accepts a hand-built template, no DB row — `world.js:1614`; `plugins/emergency/index.js:340` is the working reference |
 | Rumours | **exported** `plant()` / `addItem({capGroup, coalesceKey, reach})` — `plugins/gossip/pool.js:51,112` |
 | News | `emit('npc.broadcast_say', {channel_id, text})` (`enqueueNews` is module-private) — `plugins/broadcast/index.js:5315` |
+| Warning sound | `propagateSound(originZoneId, message, loudness, broadcastFn, flavour)` — `server/engine/sounds.js:131` |
 | Lockdown | the complete ESP: sirens, `esp_state` client messages, `setEspShelter` AI override, Arbiter spawns — `plugins/emergency/index.js` |
 | Checkpoints | move gate reads `zone.flags.checkpoint_cfg` off the **live RAM zone object**; `world.zones` is never written back, so a temporary checkpoint is restart-safe by construction — `plugins/checkpoint/index.js:121` |
 | Wall tags | `graffiti.tagged` already emitted, stateless 3-game-day expiry — `plugins/graffiti/index.js:268` |
@@ -262,6 +288,11 @@ Three conditions that make it honest:
 
 ### Traps confirmed in this codebase
 
+- ⚠ **ESP is a singleton.** `plugins/emergency/index.js` keeps a module-level `espActive`
+  boolean alongside its `espZones` set, so two concurrent incidents cannot each own a
+  lockdown — the second `activate()` silently joins the first and the first `deactivate()`
+  ends both. Either cap live ESP incidents at one, or scope `espActive` per zone-set in the
+  same commit that registers the Actions. Regress asserts the cap.
 - **`fireHook` keeps the LAST non-undefined result** (`server/engine/plugins.js:186-195`) and
   load order is filesystem-alphabetical, so `unrest` sorts *after* `district-ambience` and
   would silently outrank it on every beat it answers. Abstain aggressively (return `undefined`
@@ -271,8 +302,14 @@ Three conditions that make it honest:
   field one of those or a trigger row's `zone_id` filter silently never matches.
 - **`emit` is synchronous and swallows subscriber throws** — incident staging must not run
   inside an emit.
-- **17,258 zones.** Build the district→zone index once at boot; never scan `world.zones` per
-  tick, and exclude `world.transientZones` or a void-crossing room gets a checkpoint.
+- **17,259 zones.** Build the block index once at boot; never scan `world.zones` per tick, and
+  exclude `world.transientZones` or a void-crossing room gets a checkpoint.
+- ⚠ **`grid_x`/`grid_y` 0,0 is an unset column, never a tile.** Interiors carry it, so a block
+  function that reads coordinates directly puts all 586 interiors in one cell. Resolve
+  interiors through `world_exit_zone` and reject 0,0 explicitly.
+- **The city is not the region.** `region_coldwater` is 4,838 tiles of which 2,865 are
+  `redrock` waste; the built city is the 273 urban tiles inside a 35×50 box. Gate the block
+  index on the urban filter, not on `region_id`, or the sim spends its heat on empty ground.
 - **Neither idle-gate nor `runWhenEmpty` alone is right.** An idle-gated ledger means you log
   in to exactly the state you left; `runWhenEmpty` pins Neon compute awake billing for nobody.
   Use lazy decay-on-read (the `decayRep` pattern) **plus** an idle-gated tick that does only
@@ -282,23 +319,31 @@ Three conditions that make it honest:
 
 ## Verification
 
-- `npm run test:regress` after every phase — mandatory (new plugin, new verbs if any, new
-  manifest, engine seam in phase 3). Per-phase assertions are in the table above.
-- `npm run content:lint` before any `content:import`; phase 0 and 2 are content-heavy.
+- `npm run test:regress` after every step — mandatory (new plugin, new manifest, engine seam
+  in 1d). Per-step assertions are in the table above.
+- `npm run content:lint` before any `content:import`; 1c and 3 are content-heavy.
 - `docs:lint` gates all four checks — `docs/systems-unrest.md` needs an honest status header,
-  every verb must be named in `docs/plugins.md`, and phase 3's edit to `plugins/emergency`
-  must keep that README's status header consistent with its manifest.
-- `npm run client:smoke` covers the new devpanel files for parse errors — the only automated
-  coverage they get. ⚠ Devpanel panels are large HTML template literals: **quote identifiers
+  every verb must be named in `docs/plugins.md`, and 1d's edit to `plugins/emergency` must
+  keep that README's status header consistent with its manifest.
+- `npm run client:smoke` covers the new devpanel file for parse errors — the only automated
+  coverage it gets. ⚠ Devpanel panels are large HTML template literals: **quote identifiers
   inside them with 'single quotes', never backticks**, or the file ends its own string
   mid-comment and takes the panel down.
-- **Manual end-to-end for phase 0:** open the District Painter, confirm it renders the
-  resolved (not just authored) district so the `residential` sinkhole is visible, paint a
-  block with each of the four tools, reload and confirm `flags.district` persisted, and
-  confirm the out-of-region warning fires on a Deadwater tile.
-- **Manual end-to-end for phase 1:** force a district's heat from the Unrest panel, walk the
-  boundary and confirm the crossing beat fires exactly once, confirm the ambient layer still
-  shows district signature lines at baseline, confirm the gossip cap holds, restart the server
-  and confirm the ledger survives.
-- **The real test is the ship test in rule 2** — walk a tense district cold and see whether it
-  reads as tense without being told a number.
+- **Manual end-to-end:** force a cell's heat from the Unrest panel, walk the block boundary
+  and confirm the crossing beat fires exactly once, confirm an NPC gives the bearing and not
+  a name, confirm the ambient layer still shows district signature lines at baseline, restart
+  the server and confirm the ledger survives while the staged incident does not.
+- **The real test is the ship test in rule 2** — walk a tense part of town cold and see
+  whether it reads as tense without being told a number.
+
+---
+
+## Appendix — adopting districts later
+
+Nothing above knows what a cell is; it is a key produced by one function and a label produced
+by another. If [district-repair.md](district-repair.md) ships, `blocks.js` swaps its key
+function for `districtFor`, rule 3's bearing gives way to the district's name, and the stored
+blob is discarded on its version bump. No incident, scalar, hook or regress case changes.
+
+That is the reason to build on blocks now rather than to wait: the painting is worth doing on
+its own merits, and this system does not have to be the thing that pays for it.
