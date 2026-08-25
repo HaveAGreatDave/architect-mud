@@ -11,7 +11,7 @@
     "west": "zone_district_920_905"
   },
   "flags": {
-    "building_name": "Ironside Arms",
+    "building_name": "Second Amendment Superstore",
     "claimable_asset": "gun_shop",
     "floor": "boards",
     "is_building": true,
@@ -29,6 +29,6 @@
   "grid_z": 0,
   "id": "zone_gunshop_interior",
   "map_id": "map_interior_zone_gunshop_interior",
-  "name": "Ironside Arms",
+  "name": "Second Amendment Superstore",
   "parent_zone": "zone_district_920_905"
 }

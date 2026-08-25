@@ -1,13 +1,6 @@
 {
-  "description": "Four dryers facing the washers, drums turning even when nobody has paid, because the door catch on the end one has never worked and the warmth is the point.",
-  "flags": {
-    "interactions": [
-      "launder"
-    ],
-    "wash_cycle_ms": 14000,
-    "wash_price": 4,
-    "washing_machine": true
-  },
+  "description": "Four dryers facing the washers, drums turning even when nobody has paid, because the door catch on the end one has never worked and the warmth is the point. They are part of the wash, not a separate transaction, which is a thing the sign has never needed to say.",
+  "flags": {},
   "hp": 60,
   "hp_max": 60,
   "id": "furn_wash_dryers",

@@ -558,6 +558,11 @@
               "flag": "null_q1_done",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_null",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -599,6 +604,11 @@
               "flag": "null_q2_done",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_null",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -640,6 +650,11 @@
               "flag": "null_q3_done",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_null",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,

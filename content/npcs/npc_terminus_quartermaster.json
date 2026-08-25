@@ -209,6 +209,11 @@
             {
               "flag": "terminus_q1_done",
               "op": "unset"
+            },
+            {
+              "flag": "arc_open_terminus",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -233,6 +238,11 @@
             {
               "flag": "terminus_q1_done",
               "op": "unset"
+            },
+            {
+              "flag": "arc_open_terminus",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -257,6 +267,11 @@
             {
               "flag": "terminus_q1_done",
               "op": "unset"
+            },
+            {
+              "flag": "arc_open_terminus",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,

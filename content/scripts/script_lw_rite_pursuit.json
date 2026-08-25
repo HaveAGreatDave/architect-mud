@@ -12,7 +12,7 @@
         "flags": {
           "chase_speed_s": 4,
           "leash_radius": -1,
-          "suspect_id": "${actor.id}"
+          "suspect_id": "${event.actor.id}"
         },
         "id": "enemy_halcyon_adjuster",
         "kind": "enemy",

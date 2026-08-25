@@ -1,0 +1,9 @@
+{
+  "a": "zone_under_plantroom",
+  "b": "zone_under_919_906",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_under_plantroom_west_wl4k",
+  "lockable": false,
+  "one_way": false
+}

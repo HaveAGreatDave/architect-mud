@@ -445,7 +445,7 @@ function weaveFurniture(pieces, viewer) {
 function weaveOccupied(entries, viewer) {
 	if (!entries.length) return "";
 	return entries
-		.map(({ f, occ }) => {
+		.map(({ f, occ, seated }) => {
 			const raw = (f.name || "").toLowerCase();
 			// Names are authored freely: some already carry their article ("the
 			// embassy lounge bar"), some are plural ("cracked vinyl stools"). Both
@@ -458,8 +458,10 @@ function weaveOccupied(entries, viewer) {
 				"furniture-link furniture-woven",
 			);
 			// Sitting on it yourself is worth saying directly — "The stools is taken
-			// (you)" is a strange way to tell somebody where they are.
-			if (occ.length === 1 && occ[0] === "you")
+			// (you)" is a strange way to tell somebody where they are. Only for a
+			// SEAT, though: a machine you have running is taken BY you without you
+			// being on it, and "You're on the number two washer" is a lie.
+			if (seated !== false && occ.length === 1 && occ[0] === "you")
 				return `You're on ${furnitureSpan(f, viewer, `the ${bare}`, "furniture-link furniture-woven")}.`;
 			const verb = /s$/i.test(bare) ? "are" : "is";
 			return `${subject} ${verb} taken <span class="text-dim">(${occ.join(", ")})</span>.`;
@@ -793,6 +795,34 @@ function furnitureOccupants(fname, zonePlayers, npcs, viewer) {
 	return names;
 }
 
+// The other kind of occupied: a piece that is IN USE without anybody sitting on
+// it. A washing machine mid-cycle is claimed by whoever loaded it, and until this
+// existed the only way a plugin could say so was to invent its own line in the
+// room text, next to the one the engine already writes for seats.
+//
+// ⚠ Contributed occupancy is keyed by furniture ID, never by name, and that is
+// the whole reason it can't reuse the seat path: seat occupancy resolves by NAME
+// (`sittingOn` holds a string), so the loop below attributes it to the first row
+// of each name and lets the rest group as free. Four washers with the same head
+// noun are four separate machines and any of them can be the busy one, so a
+// name-keyed answer would put somebody else's wash in the wrong drum.
+//
+// Contributors return `{ [furnitureId]: 'label' | ['label', …] }`. One gather per
+// LOOK, not one per row — this runs on the room-describe path.
+async function contributedOccupants(zone, viewer) {
+	const byId = new Map();
+	const parts = await gatherHook("zone.furnitureOccupants", zone, viewer);
+	for (const part of parts) {
+		if (!part || typeof part !== "object") continue;
+		for (const [id, who] of Object.entries(part)) {
+			const names = (Array.isArray(who) ? who : [who]).filter(Boolean).map(String);
+			if (!names.length) continue;
+			byId.set(id, [...(byId.get(id) || []), ...names]);
+		}
+	}
+	return byId;
+}
+
 function _vaguePresence(npc) {
 	const g = npc.flags?.gender;
 	const GENERIC = [
@@ -1097,17 +1127,26 @@ export async function describeZone(zone, player, out = {}) {
 	// name and let the remainder group as free — one taken plus three free still
 	// counts to four, and it beats printing the same sitter four times.
 	const seatedHere = getZonePlayers(zone.id);
+	const inUse = await contributedOccupants(zone, player);
 	const occupiedIds = new Set();
 	const occupiedEntries = [];
 	const occNamed = new Set();
 	for (const f of tierable) {
 		const key = (f.name || "").toLowerCase();
-		if (occNamed.has(key)) continue;
-		const occ = furnitureOccupants(f.name, seatedHere, npcs, player);
+		// Contributed occupancy is per-ROW and so never name-deduped: two washers
+		// running at once are two lines, where two people on the same-named bench
+		// are still one.
+		const used = inUse.get(f.id) || [];
+		let occ = [];
+		if (!occNamed.has(key)) {
+			occ = furnitureOccupants(f.name, seatedHere, npcs, player);
+			if (occ.length) occNamed.add(key);
+		}
+		const seated = occ.length > 0;
+		occ = [...occ, ...used];
 		if (!occ.length) continue;
-		occNamed.add(key);
 		occupiedIds.add(f.id);
-		occupiedEntries.push({ f, occ });
+		occupiedEntries.push({ f, occ, seated });
 	}
 	const wovenPieces = tierable.filter(
 		(f) => f.flags?.woven && !occupiedIds.has(f.id),

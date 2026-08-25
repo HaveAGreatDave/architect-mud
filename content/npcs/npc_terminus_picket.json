@@ -24,6 +24,11 @@
             {
               "flag": "terminus_q2_done",
               "op": "unset"
+            },
+            {
+              "flag": "arc_open_terminus",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -146,6 +151,11 @@
             {
               "flag": "terminus_q2_done",
               "op": "unset"
+            },
+            {
+              "flag": "arc_open_terminus",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,

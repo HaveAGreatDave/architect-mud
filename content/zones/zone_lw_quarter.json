@@ -27,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_lw_quarter",
   "map_id": "map_int_longwatch",
-  "name": "Quartermaster's Store",
+  "name": "Surplus of Sorrows",
   "parent_zone": "zone_under_watchthresh"
 }

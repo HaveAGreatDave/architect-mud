@@ -1,0 +1,21 @@
+{
+  "description": "A 2 painted on the lid in the same careful hand as the others. The quiet one, and the one people leave their bag on top of, because a machine this steady is a shelf between cycles.",
+  "flags": {
+    "interactions": [
+      "launder"
+    ],
+    "wash_cycle_ms": 120000,
+    "wash_price": 8,
+    "washing_machine": true
+  },
+  "hp": 60,
+  "hp_max": 60,
+  "id": "furn_wash_machine_2",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "number 2 washer",
+  "object_type": "fixture",
+  "power_draw_kw": 0.6,
+  "price": 55,
+  "zone_id": "zone_the_wash"
+}

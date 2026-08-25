@@ -1,0 +1,18 @@
+{
+  "description": "A line of caged bulbs strung along the pipe run on hooks made from bent welding rod, wired back to a junction box with more care than the rest of the sewer has received in forty years.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_under_bulbs",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "strung line of caged bulbs",
+  "object_type": "light",
+  "power_draw_kw": 20,
+  "price": 60,
+  "zone_id": "zone_under_plantroom"
+}

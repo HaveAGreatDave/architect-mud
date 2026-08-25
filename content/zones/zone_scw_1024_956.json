@@ -1,12 +1,16 @@
 {
+  "ambient_events": [
+    "A truck comes off the ruts, idles a moment in the turning circle, and noses in under the roof.",
+    "Grit goes across the shed door in a long gust and rattles off the plate.",
+    "Somewhere behind the office window, a kettle is filled and set down hard."
+  ],
   "ambient_theme": "wasteland",
-  "description": "Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.",
+  "description": "A long shed of salvaged plate stood square to the turning circle, high enough to swallow a trailer whole and lit inside by one strip of tube light that never goes off. The big door faces the yard and stands open on diesel and hot iron. Somebody has painted THE DEADLEG across it in white, twice, the second time straighter.",
   "exits": {
     "north": "zone_yard_deadleg",
     "south": "zone_scw_1024_957"
   },
   "flags": {
-    "ambient_pool": "scarletwastes_the_grey_thicket",
     "building_name": "The Deadleg",
     "building_type": "truck_depot",
     "entrance": "south",
@@ -26,6 +30,6 @@
   "id": "zone_scw_1024_956",
   "map_id": "map_world",
   "marker": "DE",
-  "name": "Scrub Bench",
+  "name": "The Deadleg",
   "parent_zone": null
 }

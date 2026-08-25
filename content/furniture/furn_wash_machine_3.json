@@ -1,0 +1,21 @@
+{
+  "description": "Painted 3, and it walks. Half a step to the left on every spin cycle, which is why there is a wooden wedge under the front foot and a note above it asking you, politely, to put the wedge back.",
+  "flags": {
+    "interactions": [
+      "launder"
+    ],
+    "wash_cycle_ms": 120000,
+    "wash_price": 8,
+    "washing_machine": true
+  },
+  "hp": 60,
+  "hp_max": 60,
+  "id": "furn_wash_machine_3",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "number 3 washer",
+  "object_type": "fixture",
+  "power_draw_kw": 0.6,
+  "price": 55,
+  "zone_id": "zone_the_wash"
+}

@@ -70,7 +70,7 @@ hr{border:0;border-top:1px solid var(--line);margin:2.5rem 0}
 <h1><small>THOMAS &mdash; The Hypermedia Online Multiplayer Adventure System</small>Power User Guide</h1>
 <p class="lede">Everything Mudlet, TinTin++ and MUSHclient give you &mdash; triggers, aliases, timers, scripting,
 speedwalk, split windows, logging &mdash; built into the browser, with nothing to install and nothing to
-configure. Your setup follows your account, not your machine. This page is the complete surface, with the
+configure. Your setup follows your account, not your machine. This page is all of it, with the
 exact syntax and the traps worth knowing.</p>
 </header>
 
@@ -140,8 +140,7 @@ trigger you are bleeding = gag;say I saw that</code></pre>
 
 <div class="note"><b>Why <code>@</code> and not colour.</b> Other clients let you trigger on ANSI colour.
 THOMAS has no ANSI &mdash; it has ~30 semantic classes on every line, which is the thing colour was
-always a lossy proxy for. <code>@combat</code> is what "trigger on red text" was trying to be.
-Colour triggers are deliberately never coming.</div>
+always a lossy proxy for. Colour triggers are deliberately never coming.</div>
 
 <div class="note warn"><b>Three guards you will eventually meet.</b> A trigger fires a command, the
 command prints a line, that line fires a trigger &mdash; a loop with the server in the middle, and the
@@ -403,7 +402,7 @@ whatever the mode says.</div>
 accessibility read natural        <span class="cm">the browser's own voice - recommended</span>
 accessibility read in-world       <span class="cm">the game's formant synth</span>
 accessibility speed slow|normal|brisk</code></pre>
-<p>Off by default, and that default is load-bearing: the log is a live region, so a screen reader is
+<p>Off by default, and deliberately so: the log is a live region, so a screen reader is
 <i>already</i> reading it &mdash; on by default would speak every line twice in two voices. Natural is
 recommended over the in-world synth, which fits the fiction but is harder work to listen to for an hour.</p>
 <p>It rides the UI audio channel, so muting the television does not stop the game being read to you
@@ -432,8 +431,8 @@ accessibility reset</code></pre>
 <tr><td><code>sfx</code></td><td>Sound Detail</td><td>Off / Limited / Full</td></tr>
 </table>
 <p>The tablet's Accessibility page and this verb render from the same table; neither owns it. The verb
-exists as a verb on purpose &mdash; the light switch cannot be inside the dark room, so it needs no
-tablet and prints straight into the log.</p>
+exists as a verb on purpose: it needs no tablet and prints straight into the log, so the
+setting stays reachable when the interface is not.</p>
 <div class="note"><b>None of these change the game's difficulty.</b> A reaction-time option was built
 and reverted the same day. The rule left behind: an accessibility option may move the interface freely,
 but it may not move the odds on a contested outcome.</div>
@@ -459,7 +458,7 @@ keystroke</b>. An explicit <code>look</code> is always the full description.</p>
 server-side against your character. Log in on another machine and they are there. There is nothing to
 export and no config file to copy.</p>
 <div class="note warn"><b>Two browsers open at once will clobber each other on the next edit.</b>
-Conflicts resolve last-writer-wins, which is a deliberate ceiling rather than an oversight.</div>
+Conflicts resolve last-writer-wins, deliberately.</div>
 <p>Not synced, on purpose: the smartbar drag order, and every device-level preference &mdash; volume,
 theme, text size, and therefore all the accessibility options. A phone and a desktop should not have to
 agree about volume.</p>

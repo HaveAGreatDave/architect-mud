@@ -439,6 +439,11 @@
               "flag": "exo_q1_done",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_exo",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -480,6 +485,11 @@
               "flag": "exo_q2_done",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_exo",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -539,6 +549,11 @@
               "flag": "exo_q3_done",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_exo",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,

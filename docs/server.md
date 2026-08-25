@@ -372,6 +372,7 @@ not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:4
 | `zone.describeRoom` | `commands/describe.js:1029` | `(zone, player)` | **GATHERED** — every contributor's line is appended to the room description, newline-joined |
 | `zone.introLore` | `commands/describe.js:568` | `(zone, player)` | Yes |
 | `zone.furniturePanel` | `commands/describe.js:487` | `(zone, furniture, player)` | Yes |
+| `zone.furnitureOccupants` | `commands/describe.js:812` | `(zone, viewer)` | **GATHERED** — `{ [furnitureId]: 'label' \| ['label', …] }` merged across contributors. The **in-use** counterpart to a seat with somebody on it: a piece a plugin has claimed (a washing machine mid-cycle) is promoted to the same "The X is taken (…)" prose the engine already writes for `sittingOn`, and its free siblings still count off in the Furniture line. ⚠ Keyed by furniture **ID**, unlike seat occupancy, which resolves by NAME and is therefore attributed to the first row of each name — four same-named machines are four separate claims and any of them can be the busy one. Fired once per look, not per row. |
 | `visibility.perceive` | `commands/describe.js:363`, `combat.js:25`, `environment.routes.js:82` | `(perceiver, vis, zone?)` | Yes — the perceiver's effective light |
 | `movement.edge` | `commands/movement.js:356` | `{ player, zone, direction, broadcast, opts }` | Yes |
 | `movement.arriveMessage` | `commands/movement.js:478` | `{ player, fromZone, toZoneId, direction, arrivalDir, defaultMessage }` | Yes |
