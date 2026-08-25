@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Curator Vess hands you a slate and a route. Halcyon prices a district by walking it, because a satellite cannot smell a stairwell. Walk the line, stand where the slate tells you to stand, and bring back numbers nobody will ever read back to you.",
+  "description": "Curator Vess hands you a slate and a route, and explains — pleasantly, at slightly more length than the task deserves — that Halcyon prices a district by walking it, because a satellite cannot smell a stairwell.\n\nWalk the line. Stand where the slate tells you to stand. Bring back numbers that nobody will ever read back to you, and that will nevertheless decide what a street full of people pays to stay alive next year.",
   "fail_on": [],
   "id": "quest_asc_fav_actuarial",
   "meta": {},
@@ -9,7 +9,8 @@
     {
       "desc": "Take the first reading on Halcyon Boulevard.",
       "emotes": [
-        "{who} holds the slate up, turns slowly on the spot, and waits for it to stop thinking."
+        "{who} holds the slate up, turns slowly on the spot, and waits for it to stop thinking.",
+        "{who} is watched by a shopkeeper who has learned what that posture means for the rent."
       ],
       "id": "o0",
       "taskSeconds": 8,
@@ -19,7 +20,8 @@
     {
       "desc": "Take the second reading on Meltwater Row.",
       "emotes": [
-        "{who} logs a number, and the slate declines to say whether it is a good one."
+        "{who} logs a number, and the slate declines to say whether it is a good one.",
+        "{who} moves on before anybody can ask them what it said."
       ],
       "id": "o1",
       "requires": [

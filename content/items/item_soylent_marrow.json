@@ -9,7 +9,7 @@
     "restore_hunger": 50,
     "restore_sanity": -2,
     "stackable": true,
-    "use_message": "Thicker than the rest, and warm in a way the others aren't, like it kept its own heat all the way from wherever it was made. It coats your teeth. It is genuinely, aggressively nourishing. You feel better almost immediately and you would rather you didn't."
+    "use_message": "Thicker than the rest, and warm in a way the others aren't, like it kept its own heat all the way from wherever it was made. It coats your teeth. It is genuinely, aggressively nourishing. Your hands stop shaking before you have finished the pouch."
   },
   "type": "consumable",
   "value": 1,

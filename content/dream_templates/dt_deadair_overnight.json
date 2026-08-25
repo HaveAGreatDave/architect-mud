@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "Small hours, and a continuity voice is reading out the schedule for a day that is not going to happen. It is doing it warmly and without hurrying. Between the items there is a great deal of nothing, and the nothing is the part that was prepared.",
   "drug_id": "drug_deadair",
-  "fx": "ash",
-  "fx_intensity": 0.25,
+  "fx": "static",
+  "fx_intensity": 0.8,
   "id": "dt_deadair_overnight",
   "name": "The Overnight",
   "objects": [

@@ -1,5 +1,5 @@
 {
-  "addiction_chance": 0.01,
+  "addiction_chance": 0,
   "description": "A single square of high-powered blotter acid, printed with a grinning sun.",
   "duration_seconds": 600,
   "effects": {

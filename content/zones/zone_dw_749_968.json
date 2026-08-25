@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Where the wall has failed and come down in a fan, making a rough stair onto the flow. Somebody has rolled the worst blocks aside and left them in a line at the bottom, which is the only work anybody has done to it.",
+  "description": "Where the wall has failed and come down in a fan, making a rough stair onto the flow. Somebody has rolled the worst blocks aside and left them in a line at the bottom. It is the only work anybody has done to it.",
   "exits": {
     "east": "zone_dw_750_968",
     "north": "zone_dw_749_967",

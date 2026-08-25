@@ -61,6 +61,21 @@
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8
+    },
+    "withdrawal": {
+      "message": "Your jaw aches and the world has gone back to running at its own size.",
+      "mods": {
+        "sanity_regen_per_sec": -0.04,
+        "stat_cool": -2
+      },
+      "onset_seconds": 1200,
+      "stages": {
+        "easing": "Something small gets a laugh out of you, and it is the first one in a while.",
+        "onset": "Your face aches along the jaw and up under the cheekbones, and it has nothing to do now.",
+        "peak": "The apocalypse is back to being the apocalypse, going on at its ordinary size, hour after hour, with nothing funny in it anywhere.",
+        "rising": "Somebody says the line that had you on the floor the last time you took a tab. You hear all of it. None of it lands.",
+        "tail": "Ordinary funny, for ordinary reasons. The jaw still goes when the cold comes in."
+      }
     }
   },
   "flags": {

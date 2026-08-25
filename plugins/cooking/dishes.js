@@ -752,6 +752,52 @@ export const DISHES = {
     ceiling: 'masterful', difficulty: 9,
     blurb: 'Tomato cooked down hard, a slug of gin off the heat, cream in last. The alcohol goes, the juniper stays, and the sauce clings to the ridges the way it is supposed to.',
   },
+  // Baked macaroni and cheese, the way the soup kitchen under St Garneau's makes
+  // it: three cheeses if three can be got, a milk custard poured down through it,
+  // and an hour in a moderate oven so it comes out of the tray in squares.
+  //
+  // ANCHORED BY NOUN, NOT BY keyItems, and that distinction is the whole reason
+  // this template works. A keyItem is an exact id and every one listed is
+  // mandatory, so naming the box would forbid any second macaroni the world ever
+  // sells, and a version made with one cheese rather than three would be refused
+  // for want of a specific block. `requires` is the level the rule actually lives
+  // at: the class still does the counting, and something in it has to answer to
+  // the name. Penne and cream on a tray is a gratin with ideas. This is macaroni,
+  // and it is cheese, however either of them happens to be sold.
+  mac_and_cheese: {
+    noun: 'mac and cheese', vessel: 'tray',
+    // The dairy band is wide on purpose. Two units is one block with the milk
+    // counting itself, which is a real and slightly thin version of this dish;
+    // four is the one the recipe is actually about. Nothing in the range punishes
+    // going to the top of it, which is the correct opinion to hold about cheese.
+    needs: { dry_starch: 1, dairy: [2, 4], liquid: 1, egg: [1, 2] },
+    optional: ['fat_or_oil', 'aromatic'],
+    nameSlots: [],
+    nameFormat: 'mac and cheese',
+    requires: { dry_starch: 'macaroni', dairy: 'cheese' },
+    nouns: { dry_starch: 'macaroni', dairy: 'cheese', liquid: 'milk' },
+    // The egg and the milk are one thing, and that thing is a custard rather than
+    // a sauce, which is the part everybody gets wrong. Grouping them says so on
+    // the shopping list.
+    parts: [{ label: 'the custard', of: ['egg', 'liquid'], steps: [2] }],
+    seasoning: 2,
+    notes: {
+      dry_starch: 'boiled first and stopped early, since it has an hour still to go',
+      dairy: 'three kinds if you can get three, and more of it than looks sensible',
+      liquid: 'milk, out of the cold a while before it meets the eggs',
+      egg: 'beaten, and the reason the tray cuts into squares instead of sliding',
+    },
+    steps: [
+      'Macaroni into salted water, and out while it still has some fight in it. Nobody has ever been thanked for soft macaroni.',
+      'Grease the tray, corners included. That is the difference between serving it and chiselling it out.',
+      'Beat the eggs into the milk with the mustard and the salt. You will not taste the mustard, and it is not in there to be tasted.',
+      'Layer it. Macaroni, cheese, macaroni, cheese. Do not stir it into one thing. The layers are the entire argument.',
+      'Custard over the top, slowly, until it comes up level through the macaroni.',
+      'The last of the cheese over that, and into a moderate oven until the top browns and the middle has stopped wobbling. Then leave it alone for ten minutes, which is the hardest step in it.',
+    ],
+    ceiling: 'masterful', difficulty: 6,
+    blurb: 'Three cheeses, a milk custard poured down through it, and an hour in the oven. It comes out of the tray in squares, and that is the whole case for making it this way.',
+  },
   ramen: {
     noun: 'ramen', vessel: 'pot',
     keyItems: ['item_ramen_noodles'],

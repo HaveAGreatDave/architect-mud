@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#c8b48a",
-  "description": "An arch of welded bone and rail standing over the track for no structural reason whatsoever, which is the point of it. Rags hang from the span, eaten to lace by the rain. The ground underneath has been walked to powder by a great many feet going both ways over a great many years. Somebody maintains this: the wire at the joints is bright, and it has been replaced a bit at a time rather than all at once. Nobody is here now.",
+  "description": "An arch of welded bone and rail standing over the track for no structural reason whatsoever. Rags hang from the span, eaten to lace by the rain. The ground underneath has been walked to powder by a great many feet going both ways over a great many years. Somebody maintains this: the wire at the joints is bright, and it has been replaced a bit at a time rather than all at once. Nobody is here now.",
   "exits": {
     "east": "zone_district_920_924",
     "north": "zone_district_919_923",

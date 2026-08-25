@@ -27,11 +27,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Halbrook, Rennick, and now you.\" She says it to the file, not to you, and the ocular clicks down over her eye. \"Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to — you were always going to come down the stairs eventually, and here you are, doing it.\"\n\nShe indicates the theatre door with two chromed fingers.\n\n\"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today. Choose a piece you would be happy to be buried in.\""
+      "text": "\"Halbrook, Rennick, and now you.\" She says it to the file, not to you, and the ocular clicks down over her eye.\n\n\"Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to — you were always going to come down these stairs eventually, and here you are, doing it.\"\n\nShe indicates the theatre door with two chromed fingers.\n\n\"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today.\"\n\nThe ocular clicks back up.\n\n\"Choose a piece you would be happy to be buried in.\""
     },
     "bye": {
       "options": [],
-      "text": "\"Come back when you're ready to upgrade.\" She's already prepping the chair for someone else."
+      "text": "\"Come back when you are ready to upgrade.\" She is already prepping the chair for somebody else."
     },
     "codex_designs": {
       "actions": [
@@ -50,7 +50,7 @@
           "next": "root"
         }
       ],
-      "text": "The ocular stops whirring. It is the first time she has been entirely still.\n\n\"Honest answer? I don't know, and neither does anyone who tells you they do.\" She turns a chromed hand over, considering it. \"The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming — I know, I read the papers, back when there were papers.\" A shrug that costs her something. \"I fit them. They work. They work better than the arm. I have decided that is enough, and I have decided it on purpose, which is different from not noticing.\""
+      "text": "The ocular stops whirring. It is the first time she has been entirely still.\n\n\"Honest answer? I do not know, and neither does anybody who tells you they do.\"\n\nShe turns a chromed hand over, considering it.\n\n\"The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming — I know, I read the papers, back when there were papers.\"\n\nA shrug that costs her something.\n\n\"I fit them. They work. They work better than the arm. I have decided that is enough, and I decided it on purpose, which is a different thing from not noticing.\""
     },
     "codex_drift": {
       "options": [
@@ -59,7 +59,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The drift.\" She says it flatly, a diagnosis. \"Ask anyone deep in the chrome. There's a point where a replaced hand stops being a thing you move and becomes a thing that moves. Fractionally early. Fractionally right.\" The ocular whirs back to life. \"Nothing on the readouts. Latency, we call it. Latency.\"\n\nShe preps the chair for the next patient. \"It fits perfectly. That's the part nobody forgives.\""
+      "text": "\"The drift.\" She says it flatly, a diagnosis. \"Ask anybody deep in the chrome. There is a point where a replaced hand stops being a thing you move and becomes a thing that moves. Fractionally early. Fractionally right.\"\n\nThe ocular whirs back to life.\n\n\"Nothing on the readouts. Latency, we call it. Latency.\"\n\nShe preps the chair for the next patient.\n\n\"It fits perfectly. That is the part nobody forgives.\""
     },
     "how": {
       "options": [
@@ -97,7 +97,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sit if you like. I'm Kesh.\" The ocular whirs, focusing on your least-improved parts. \"You've got good bones. Be a shame to die with them still original.\""
+      "text": "\"Sit if you like. I am Kesh.\" The ocular whirs, focusing on your least-improved parts. \"You have got good bones. Be a shame to die with them still original.\""
     }
   },
   "faction": "ideology_ascendants",

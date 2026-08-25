@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The First Ascended said your account was already open. It is. Dr Kesh is downstairs in the consult room and has been expecting you since the Threshold read you, which was some time ago. Nothing is signed. You simply go down, and you come back up as something with a warranty.",
+  "description": "Kesh will see you now.\n\nIt is a consultation, and it is genuinely one — he will talk you out of two of the three things you might have wanted, on the grounds that they are not worth what they cost you. He is a good surgeon and he is not selling.\n\nWhat he does not say, because it is on the form and he assumes you have read the form, is that this is the last appointment at which you are a person who has never been opened. The Exodus can undo it, at a price, and nobody else in this city can — and Kesh does not do that work, and will not say who does.\n\n\"Sit down,\" he says. \"You will be walking in an hour.\"",
   "fail_on": [],
   "id": "quest_asc_turn",
   "meta": {},
@@ -8,16 +8,23 @@
   "objectives": [
     {
       "count": 1,
-      "desc": "See Dr Kesh in the clinic consult room. The account is in your name already.",
+      "desc": "Sit the consultation with Kesh.",
+      "emotes": [
+        "{who} is talked out of the expensive one, at length, by the man who would have been paid for it.",
+        "{who} is asked what they do with their hands all day, and answers, and watches him write it down.",
+        "{who} signs the form on the second page and is not asked to read the first."
+      ],
       "id": "o_consult",
       "target": "npc_asc_kesh",
       "type": "talk"
     },
     {
       "count": 1,
-      "desc": "Have your first piece fitted. Any piece — it is the fitting that matters, not the hardware.",
+      "desc": "Take the chair and be fitted.",
       "emotes": [
-        "{who} lies back under the light and lets somebody open them up on purpose."
+        "{who} takes the chair, and the last thing they hear is somebody counting backwards without much interest.",
+        "{who} comes round to find the room tidied and a cup of water already poured and gone cold.",
+        "{who} finds it does not hurt, and that this is somehow the part that is difficult."
       ],
       "id": "o_fitted",
       "requires": [

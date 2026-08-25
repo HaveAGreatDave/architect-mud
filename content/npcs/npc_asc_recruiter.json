@@ -33,7 +33,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Wonderful. The post is just through the outer slab — the Warden will expect you.\" He steps aside like a maître d'. \"Come find me when it's done.\""
+      "text": "\"Wonderful. The post is just through the outer slab — the Warden will expect you.\" He steps aside like a maître d'. \"Come and find me when it is done.\""
     },
     "bye": {
       "options": [],
@@ -46,7 +46,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" He says it without a trace of the salesman, and it is briefly unnerving. \"No, they were not.\" Then the smile returns, seamless. \"Certainty is what people reach for when the alternative is admitting it was an accident. I recommend ours. It is at least load-bearing.\""
+      "text": "\"No.\" He says it without a trace of the salesman, and it is briefly unnerving. \"No, they were not.\"\n\nThen the smile returns, seamless.\n\n\"Certainty is what people reach for when the alternative is admitting it was an accident. I recommend ours. It is at least load-bearing.\""
     },
     "codex_field": {
       "actions": [
@@ -65,7 +65,21 @@
           "next": "bye"
         }
       ],
-      "text": "\"All of them.\" He looks delighted, the way a man does when asked to describe his rivals. \"Very well. Two questions, and everyone has answered both whether they can say so or not.\n\nFirst — is this city worth saving? Renounce it and walk out into the ash, or redeem it and stay and work the machine. Second — is the body worth keeping? Stay as you are, or transcend it: by the machine, by the flesh, or by the mind.\n\nCross the two and you have four corners. We are one of them. The Watch guards the door and stays meat. The Wildblood want the ash to finish what it started to them. The Exodus have decided the way out is inward, which is the most convenient exit ever invented.\" The pin winks. \"Four answers, and every one held by people who are absolutely certain.\""
+      "text": "\"All of them.\" He looks delighted, the way a man does when asked to describe his rivals.\n\n\"Very well. Two questions, and everybody has answered both whether they can say so or not. First — is this city worth saving? Renounce it and walk out into the ash, or redeem it and stay and work the machine. Second — is the body worth keeping? Stay as you are, or transcend it: by the machine, by the flesh, or by the mind.\"\n\n\"Cross the two and you have four corners. We are one of them. The Watch guard the door and stay meat. The Wildblood want the ash to finish what it started on them. The Exodus have decided the way out is inward, which is the most convenient exit ever invented.\"\n\nThe pin winks.\n\n\"Four answers. Every one of them held by people who are absolutely certain.\""
+    },
+    "cold": {
+      "_vine": {
+        "x": 40,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "(leave it)",
+          "next": "bye"
+        }
+      ],
+      "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was — \" he searches for it, finds it, enjoys it \" — *warm*, actually. She liked you. She has never liked me.\"\n\nHe goes back to the queue.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
     },
     "inside": {
       "options": [
@@ -74,7 +88,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Up the plaza, the twisting tower — you can't miss it, it's the only honest building for miles.\""
+      "text": "\"Up the plaza, the twisting tower — you cannot miss it, it is the only honest building for miles.\""
     },
     "lead_accept": {
       "actions": [
@@ -102,7 +116,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Recruiting.\" He says it the way other men say the name of a sport. \"There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon's money goes, and getting lied to by people who do not even know they are lying. He is nearly there. He wants somebody to say the word out loud.\"\n\n\"Bring him to the plaza. Alive, unhurried, still curious — in that order. The road west is not a kind one, which is precisely why the offer lands when it does.\""
+      "text": "\"Recruiting.\" He says it the way other men say the name of a sport. \"There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon's money goes, and getting lied to by people who do not even know they are lying. He is very nearly there. He wants somebody to say the word out loud.\"\n\n\"Bring him to the plaza. Alive, unhurried, still curious — in that order. The road west is not a kind one, which is precisely why the offer lands when it does.\""
     },
     "lead_report": {
       "actions": [
@@ -130,27 +144,27 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing is asked of you but honesty — the Gate's kind. Step under the scanline in the post there and let the Threshold read you in full. It won't hurt. It will simply know you, and once it knows you, it will let you pass.\" The pin winks. \"Consider it a free consultation.\""
+      "text": "\"Nothing is asked of you but honesty — the Gate's kind. Step under the scanline in the post there and let the Threshold read you in full. It will not hurt. It will simply know you, and once it knows you, it will let you pass.\"\n\nThe pin winks.\n\n\"Consider it a free consultation.\""
     },
     "pitch": {
       "options": [
         {
-          "label": "What do you want from me?",
-          "next": "offer",
           "conditions": [
             {
               "flag": "asc_refused",
               "op": "unset",
               "scope": "player"
             }
-          ]
+          ],
+          "label": "What do you want from me?",
+          "next": "offer"
         },
         {
           "label": "Not interested.",
           "next": "bye"
         }
       ],
-      "text": "\"The Watch sent you, didn't they. Suspicious of where Halcyon's money goes.\" He isn't offended; he's delighted. \"They're right, of course. It comes here. And you — you got close enough to be turned away, which means you're worth turning toward instead. Let me get you through that Gate. Properly.\""
+      "text": "\"The Watch sent you, did they not. Suspicious of where Halcyon's money goes.\" He is not offended. He is delighted. \"They are right, of course. It comes here.\"\n\nHe looks at you the way a man looks at a good hand of cards.\n\n\"And you got close enough to be turned away, which means you are worth turning toward instead. Let me get you through that Gate. Properly.\""
     },
     "report": {
       "actions": [
@@ -176,7 +190,7 @@
           "next": "inside"
         }
       ],
-      "text": "\"There. The Threshold knows you now — you'll find its refusals have become invitations.\" He gestures west, toward the Spire. \"Curator Vess is expecting you on the concourse. Do try to keep an open mind. Or an open skull; we're flexible.\""
+      "text": "\"There. The Threshold knows you now — you will find its refusals have become invitations.\"\n\nHe gestures west, toward the Spire.\n\n\"Curator Vess is expecting you on the concourse. Do try to keep an open mind. Or an open skull; we are flexible.\""
     },
     "root": {
       "options": [
@@ -278,7 +292,7 @@
           "next": "bye"
         }
       ],
-      "text": "The immaculate man turns to you before you've said a word. \"Maresh. I recruit — which is to say I recognise. And I recognise something in you the Watch would rather I didn't.\""
+      "text": "The immaculate man turns to you before you have said a word. \"Maresh. I recruit — which is to say I recognise. And I recognise something in you the Watch would very much rather I did not.\""
     },
     "turned": {
       "options": [
@@ -298,21 +312,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"So the meat disappointed you after all.\" He is not gloating; he genuinely is not. \"Everyone arrives by a different road and they all think theirs was the interesting one. Go and be useful. Vess has doors, and I have people.\""
-    },
-    "cold": {
-      "_vine": {
-        "x": 40,
-        "y": 1200
-      },
-      "actions": [],
-      "options": [
-        {
-          "label": "(leave it)",
-          "next": "bye"
-        }
-      ],
-      "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was — \" he searches for it, finds it, enjoys it \" — *warm*, actually. She liked you. She has never liked me.\"\n\nHe goes back to the queue.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
+      "text": "\"So the meat disappointed you after all.\" He is not gloating. He genuinely is not.\n\n\"Everybody arrives by a different road and they all believe theirs was the interesting one. Go and be useful. Vess has doors, and I have people.\""
     }
   },
   "faction": "ideology_ascendants",

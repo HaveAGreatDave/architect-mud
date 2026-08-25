@@ -20,7 +20,22 @@
       "peak_message": "A deep, unfamiliar heaviness settles low in your gut. Not unpleasant. Not nothing.",
       "peak_seconds": 600
     },
-    "take_line": "You push the needle in. There is a long, bright, total moment where the world is only that."
+    "take_line": "You push the needle in. There is a long, bright, total moment where the world is only that.",
+    "withdrawal": {
+      "message": "Everything the syringe was running has gone quiet, and quiet is not the same as rested.",
+      "mods": {
+        "stamina_max": -5,
+        "stat_brawn": -1
+      },
+      "onset_seconds": 3600,
+      "stages": {
+        "easing": "The temperature settles. The ache stays and stops being interesting.",
+        "onset": "The heaviness low in your gut lifts, and what is left there is not empty so much as switched off.",
+        "peak": "Hot, then cold, then hot, and your whole middle aches on the inside, where there is nothing in there to have hurt.",
+        "rising": "Your back aches across the kidneys, and the temperature of the room keeps being wrong in both directions.",
+        "tail": "Back to yourself. Slightly less of yourself than was advertised, and nothing was ever advertised."
+      }
+    }
   },
   "flags": {
     "drug_class": "unknown",

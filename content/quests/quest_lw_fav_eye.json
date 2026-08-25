@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "There is a camera on the Meltwater side that has been looking at a doorway people need to use. Nyall has chalked the wall under it, which is his way of putting a thing on the list. Go and close it, and do not be a story afterwards.",
+  "description": "A camera on the approach to the wash has come back on, which means somebody in an office signed a form about it.\n\nHalloran wants it blind again, and blind in the way a camera goes blind on its own: no smashed housing, no cut cable, nothing anybody has to write up.\n\n\"Broken is a job for somebody. Faulty is a job for nobody. Make it faulty.\"",
   "fail_on": [
     {
       "desc": "Somebody watched you do it. A blind spot everyone knows about is just a place people get arrested.",
@@ -16,9 +16,10 @@
   "name": "Closing an Eye",
   "objectives": [
     {
-      "desc": "Get under the camera on Meltwater Row and wait for the street to lose interest.",
+      "desc": "Get up to the camera on the approach.",
       "emotes": [
-        "{who} stands in a doorway doing nothing at all, which takes practice."
+        "{who} goes up the back of the housing, where the bracket gives a foot to stand on.",
+        "{who} keeps out of its arc on the way up, which takes longer and is the point."
       ],
       "id": "o_reach",
       "taskSeconds": 6,
@@ -27,7 +28,11 @@
     },
     {
       "count": 1,
-      "desc": "Close the eye.",
+      "desc": "Put the camera out in a way that reads as a fault.",
+      "emotes": [
+        "{who} works at the feed until the picture goes the way a picture goes when the weather has got into it.",
+        "{who} leaves the housing shut and the screws the way they were found."
+      ],
       "id": "o_close",
       "requires": [
         "o_reach"

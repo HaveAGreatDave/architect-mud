@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Halloran is trusting you with a run: a sealed package to be collected quietly from a drop near the Hall of Records and carried back to the shop, no questions, no opening it. It is not really about the package. It is about whether your hands can be trusted with one.",
+  "description": "Halloran has a package sitting in a drop near the Hall of Records. Sealed. Not to be opened, not to be asked about, and not to be carried in a way that makes anybody wonder what you are carrying.\n\nHe will not say what is in it. What is in it does not matter. He wants to watch a pair of hands go out with a thing and come back with the same thing.\n\n\"Last part is the coming back,\" he says, not looking up from the bench. \"People are fine right up until the coming back.\"",
   "fail_on": [],
   "id": "quest_lw_1",
   "meta": {},
@@ -9,7 +9,9 @@
     {
       "desc": "Collect the sealed package from the drop near the Hall of Records (follow the green GPS line).",
       "emotes": [
-        "{who} eases the oilcloth parcel out of its hiding place and tucks it away."
+        "{who} eases the oilcloth parcel out of its hiding place and tucks it away.",
+        "{who} does not weigh it in their hand, and is aware of not doing it.",
+        "{who} walks back the way an errand walks back."
       ],
       "id": "o_collect",
       "item_id": "item_lw_package",

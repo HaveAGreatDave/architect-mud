@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Somebody in Coldwater has been asking the right questions in the wrong places, and Maresh would like them to arrive at the Gate alive, unhurried, and still curious. He mentions, lightly, that the walk out west is not a safe one, and that this is precisely why the offer lands when it does.",
+  "description": "Corin Halbrook has been to the Gate twice this month and turned round both times. Ives would like somebody nearer his own life to walk in with him.\n\n\"He is not frightened of us,\" she says. \"He is frightened of the walk. That is very common and it is not a character flaw — it is just a distance, and distances are solved by company.\"\n\nMeet him on Kessler. Walk him west. Nobody is going to ask him to sign anything today, and Ives is quite clear that if you tell him otherwise she will hear about it.",
   "fail_on": [
     {
       "desc": "You lost them on the road. Maresh will say nothing about it, at length.",
@@ -14,16 +14,23 @@
   "objectives": [
     {
       "count": 1,
-      "desc": "Find the prospect and introduce yourself.",
+      "desc": "Meet Corin Halbrook on Kessler Street.",
+      "emotes": [
+        "{who} finds a man standing outside a shut shop with a folded paper he has stopped reading.",
+        "{who} listens to him say he is only having a look, twice, without being asked.",
+        "{who} hears him mention his mother's hands, and then apologise for mentioning it."
+      ],
       "id": "o_meet",
       "target": "npc_asc_prospect",
       "type": "talk"
     },
     {
       "count": 1,
-      "desc": "Walk them west to the plaza, at their pace.",
+      "desc": "Walk Halbrook west to the Gate.",
       "emotes": [
-        "{who} keeps to the inside of the road and keeps talking, which is most of the job."
+        "{who} keeps to his pace, which is slower on the second half of every street.",
+        "{who} answers a question about whether it hurts, honestly, and watches him take that badly and keep walking.",
+        "{who} gets him to the plate, where he stops, and then steps on it himself."
       ],
       "id": "o_walk",
       "requires": [
@@ -39,20 +46,20 @@
   "repeatable": 0,
   "rewards": {
     "credits": 190,
-    "rep": [
-      {
-        "delta": 80,
-        "ideology": "ideology_ascendants"
-      }
-    ],
-    "xp": 30,
     "flags": [
       {
         "flag": "asc_arc",
         "scope": "player",
         "value": "5"
       }
-    ]
+    ],
+    "rep": [
+      {
+        "delta": 80,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 30
   },
   "updated_at": "1787377233"
 }

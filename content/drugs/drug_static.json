@@ -28,6 +28,21 @@
     "tolerance": {
       "gain_per_dose": 0.1,
       "max_reduction": 0.6
+    },
+    "withdrawal": {
+      "message": "The clean line through your head is gone and the room is putting out four hundred things at once.",
+      "mods": {
+        "stat_brains": -2,
+        "stat_cool": -1
+      },
+      "onset_seconds": 900,
+      "stages": {
+        "easing": "You can follow one thing at a time. One is not many but it is a number.",
+        "onset": "The clarity goes off like a light, and you are left holding what you were doing.",
+        "peak": "The clean straight line the mist put through your head is gone and the room is putting out about four hundred things a second, all of them equally important.",
+        "rising": "You read a page and it does not stick, and you read it again and it does not stick.",
+        "tail": "Ordinary attention, doing ordinary work. You are aware of how much of it there used to be."
+      }
     }
   },
   "flags": {

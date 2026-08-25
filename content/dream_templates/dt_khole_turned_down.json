@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "Everything is arriving at a level somebody has chosen, and the level is low, and the choosing was not done by you. Sensation is still being delivered. It has simply been brought down until it can be handled comfortably by whatever is handling it now.",
   "drug_id": "drug_khole",
-  "fx": "snow",
-  "fx_intensity": 0.45,
+  "fx": "tunnel",
+  "fx_intensity": 0.8,
   "id": "dt_khole_turned_down",
   "name": "Turned Down",
   "objects": [

@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The Architect runs a maintenance drone through the deep east tunnels, and it has started logging things it shouldn't: the Watch's marks, the Watch's door. Go down into the deep, put the drone down, and the Long Watch will call you one of their own.",
+  "description": "Something is running the ducts under the wash and it is not maintenance. It has been mapping the Blind for eleven days, patiently, in the small hours, the way a thing works when nobody has told it to hurry.\n\nHalloran wants it stopped, and he wants it stopped in a way that leaves pieces.\n\n\"It is a machine,\" he says. \"I am telling you that so you do not go looking for a reason. It has not got one. Somebody else has the reason and they are not down here.\"",
   "fail_on": [],
   "id": "quest_lw_3",
   "meta": {},
@@ -8,10 +8,11 @@
   "objectives": [
     {
       "count": 1,
-      "desc": "Destroy the Architect's maintenance drone in the deep east tunnels (near the Machine Sump).",
+      "desc": "Find the surveyor drone in the ducts under the wash and destroy it.",
       "emotes": [
-        "{who} sets themselves against the drone's sweeping amber eye.",
-        "{who} drives another blow into the drone's chassis."
+        "{who} follows the noise of it through two junctions and waits at the third.",
+        "{who} gets a hand to it before it can climb.",
+        "{who} pulls the optics out of the wreck and pockets them without being asked to."
       ],
       "id": "o_kill_drone",
       "target": "drone",

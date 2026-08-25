@@ -69,7 +69,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Keep it clean.\" She's already back to her ledger."
+      "text": "\"Keep it clean.\" She is already back to her ledger."
     },
     "carry_accept": {
       "actions": [
@@ -84,12 +84,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Both books balance by the end of the week or I will be unpleasant about it, and I am very good at that.\""
+      "text": "\"Both books balance by the end of the week, or I will be unpleasant about it, and I am very good at that.\""
     },
     "carry_offer": {
       "options": [
         {
-          "label": "I'll fetch it.",
+          "label": "I will fetch it.",
           "next": "carry_accept"
         },
         {
@@ -97,7 +97,7 @@
           "next": "bye"
         }
       ],
-      "text": "She turns a page. \"I keep two ledgers. One is everything the Watch owns. The other is everything it has lost, and it is shorter, and I take it personally.\"\n\n\"There is a cache under the Fisherman's Green that has been in the second book for a month. It is not dangerous and it is not clever. I would simply like it back where it belongs.\""
+      "text": "She turns a page.\n\n\"I keep two ledgers. One is everything the Watch owns. The other is everything it has lost, and it is shorter, and I take it personally.\"\n\n\"There is a cache under the Fisherman's Green that has been in the second book for a month. It is not dangerous and it is not clever. I would simply like it back where it belongs.\""
     },
     "carry_report": {
       "actions": [
@@ -112,7 +112,7 @@
           "next": "bye"
         }
       ],
-      "text": "She takes it, checks it against the page without any visible pleasure, and strikes a line through the entry. Then she looks at the line for a second longer than she needs to."
+      "text": "She takes it, checks it against the page without any visible pleasure, and strikes a line through the entry.\n\nThen she looks at the line for a second longer."
     },
     "creed": {
       "options": [
@@ -125,7 +125,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Everything here works without the grid, without an augment, without a wire to the machine. That's the whole idea.\" She taps a rifle's iron sights. \"The chromed will tell you flesh and steel is obsolete. Then a storm rolls through, their fancy optics die, and it's us still standing, still shooting straight over plain iron. Master the simple thing and nothing can take it from you.\""
+      "text": "\"Everything here works without the grid, without an augment, without a wire running back to the machine. That is the whole idea.\"\n\nShe taps a rifle's iron sights.\n\n\"The chromed will tell you flesh and steel is obsolete, and they will be pleasant about it, and they will have a figure ready for what your hands are costing you. Then a storm rolls through, and their optics die, and it is us still standing and still shooting straight over plain iron.\"\n\n\"Master the simple thing and nobody can take it off you. That is not a slogan. It is an inventory.\""
     },
     "loyalty_accept": {
       "actions": [
@@ -153,7 +153,7 @@
           "next": "bye"
         }
       ],
-      "text": "The Quartermaster puts a purse on the counter. It is heavier than the errand needs to be and both of you can see that.\n\n\"Parts we cannot make. All of it sells on Halcyon Boulevard, and the last of it is behind the clinic counter, and you will be waiting there a while.\"\n\nShe slides the list across.\n\n\"They will offer you things while you wait. They are very good at it, they will be kind about it, and there is a discount for anybody who looks like they are thinking it over.\" A beat. \"I am not telling you not to. I am telling you I will be here when you get back, and so will the ledger.\""
+      "text": "The Quartermaster puts a purse on the counter. It is heavier than the errand needs to be and both of you can see that.\n\n\"Parts we cannot make. All of it sells on Halcyon Boulevard, and the last of it is behind the clinic counter, and you will be waiting there a while.\"\n\nShe slides the list across.\n\n\"They will offer you things while you wait. They are very good at it, they will be kind about it, and there is a discount for anybody who looks like they are thinking it over.\"\n\nA beat.\n\n\"I am not telling you not to. I am telling you I will be here when you get back, and so will the ledger.\""
     },
     "loyalty_report": {
       "actions": [
@@ -168,12 +168,12 @@
           "next": "bye"
         }
       ],
-      "text": "She counts the parts, and then the change, and then she looks at you — at your hands, at the sides of your throat, at the way you are standing — for a great deal longer than four seconds.\n\n\"Right,\" says the Quartermaster, and writes something in the first ledger."
+      "text": "She counts the parts, and then the change, and then she looks at you. At your hands. At the sides of your throat. At the way you are standing.\n\nIt goes on a good deal longer than four seconds.\n\n\"Right,\" says the Quartermaster, and writes something in the first ledger."
     },
     "root": {
       "options": [
         {
-          "label": "What's the philosophy of the shelf?",
+          "label": "What is the philosophy of the shelf?",
           "next": "creed"
         },
         {
@@ -261,7 +261,7 @@
           "next": "bye"
         }
       ],
-      "text": "She looks up, marks her place in the ledger with one finger. \"So they let you in. Good for you.\" A measuring glance, head to boots. \"I'm the quartermaster. What the Watch trusts you with depends on what you've done for the Watch, but you're inside the door, so let's see what fits.\""
+      "text": "She looks up and marks her place in the ledger with one finger.\n\n\"So they let you in. Good for you.\"\n\nA measuring glance, head to boots, and it takes about four seconds.\n\n\"I am the quartermaster. What the Watch trusts you with depends on what you have done for the Watch. But you are inside the door, so let us see what fits.\""
     },
     "teach": {
       "options": [
@@ -270,7 +270,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I fit gear to people,\" she says, without looking up from the ledger. \"Which means most of my job is looking at somebody for four seconds and knowing what they will do under load. You can learn that. It is not a gift, it is a habit with a very long run-up.\"\n\nShe closes the ledger.\n\n\"Senses, and will. Noticing, and not giving in. `train senses` or `train will`, and bring me your hands clean.\""
+      "text": "\"I fit gear to people,\" she says, without looking up from the ledger. \"Which means most of my job is looking at somebody for four seconds and knowing what they will do under load. You can learn that. It is not a gift. It is a habit with a very long run up.\"\n\nShe closes the ledger.\n\n\"Senses, and will. Noticing, and not giving in. `train senses` or `train will`, and bring me your hands clean.\""
     }
   },
   "faction": "ideology_long_watch",

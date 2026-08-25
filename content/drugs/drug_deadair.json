@@ -57,7 +57,14 @@
         "stat_brains": -2,
         "stat_cool": -1
       },
-      "onset_seconds": 2100
+      "onset_seconds": 2100,
+      "stages": {
+        "easing": "It thins to a hiss you can work through.",
+        "onset": "The blue quiet goes off and the channel comes back in, loud.",
+        "peak": "There is no space between the signals at all. The gap dead air lives in has closed and every surface in this room is saying something.",
+        "rising": "Everything is broadcasting. All of it at once and all of it addressed to you.",
+        "tail": "Tuned in. Occasionally you catch yourself listening for the part between the stations."
+      }
     }
   },
   "flags": {

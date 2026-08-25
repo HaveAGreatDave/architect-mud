@@ -1,32 +1,24 @@
 /**
- * Gate the four un-laddered order arcs behind world flags, so development can
- * focus on the Long Watch and Ascendant ladders without four half-built chains
- * competing for a player's attention.
+ * Close the Null, Exodus, Wildblood and Terminus arcs so work can stay on the
+ * Long Watch and Ascendant ladders.
  *
- * WHY A WORLD FLAG AND NOT A DELETION. Nothing here is finished-and-wrong; it is
- * unfinished-and-fine, and all of it is prose somebody wrote. A world-scoped
- * condition on the ENTRY options hides each chain's topic from the NPC's menu
- * while leaving every node, every line and every turn-in exactly where it is.
- * Re-opening a chain is one `setFlag('world', 'arc_open_<order>', '1')` — no
- * content edit, no redeploy.
+ * Each chain's entry options get a world-scoped condition appended. Every node,
+ * line and turn-in stays where it is, and re-opening a chain is one
+ * setFlag('world', 'arc_open_<order>', '1') with no content edit.
  *
- * WHY THE ENTRY OPTIONS AND NOT THE ACCEPTS. Gating the accept would let a
- * player walk into the offer conversation and find no way to say yes, which
- * reads as a bug. Gating the root option removes the subject from the menu, and
- * the NPC keeps every other thing they have to say. Chains 2 and 3 of a ladder
- * are gated too even though their own conditions already make them unreachable
- * once chain 1 can't be started — belt and braces, and it means a dev DB with a
- * mid-chain character stops at the next rung rather than running to the end.
+ * The gate goes on the entry option rather than the accept, so the topic leaves
+ * the NPC's menu instead of the player reaching an offer they cannot say yes to.
+ * Chains 2 and 3 are gated too, although chain 1 being closed already makes them
+ * unreachable, so a dev database with a character mid-chain stops at the next
+ * rung.
  *
- * WHAT IS DELIBERATELY LEFT ALONE. Every `*_report_*` / `*_done*` turn-in path.
- * A character part-way through a chain on a dev database can still hand in what
- * they are carrying; they simply aren't offered the next rung.
+ * Turn-in paths are left open: a character part-way through can still hand in
+ * what they are carrying.
  *
  * World flags are cached write-through (server/engine/flags.js), so these
- * conditions cost no round trip per option.
+ * conditions cost no round trip.
  *
- *   node scripts/content/gate-side-arcs.mjs           # apply
- *   node scripts/content/gate-side-arcs.mjs --check   # report only, write nothing
+ *   node scripts/content/gate-side-arcs.mjs [--check]
  */
 import fs from 'fs';
 import path from 'path';

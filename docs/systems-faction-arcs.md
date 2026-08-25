@@ -26,6 +26,48 @@ enough to be worth buying and not so much that you cannot go.
 ⚠ This is a change from what shipped. `quest_asc_1` (*Follow the Money*) was gated on `lw_member` —
 Long Watch slot **3** — which put the Ascendant pitch in front of a player who had run three errands.
 
+## How slots 1–10 are written
+
+Added 2026-08-25, when both ladders were rewritten against the craft rules in
+[reference/plain-writing.md](reference/plain-writing.md). Three constraints, and they apply to every
+order's first ten, not just the two that exist.
+
+**Slot 10 is a door, not an ending.** Ten of forty is a quarter. A rite that settles anything leaves
+thirty rungs with nothing to be about, and that is exactly the trap the Long Watch rite had fallen
+into. Both rites now finish on the beginning of something tedious: Pike closes by describing the
+roster, which is "a great deal of standing about in the cold for the rest of your life", and the
+Ascendant rite ends with a printed body being handed a towel and then a form. Nobody is congratulated.
+
+**The world is bigger than the two orders in front of the player, and nobody explains it.** Every
+order's first ten needs two or three moments where somebody answers a question about the wider board
+in one flat sentence and then moves on. The answer should be **short, specific, and quietly
+informative about where the speaker's own order actually sits** — an evasion that is all mystery
+teaches nothing, and reads as the writer withholding rather than the character.
+
+The two that carry the most:
+
+> **Halloran**, asked who else makes camera parts, when he has just said the Watch cannot:
+> *"Three that I know of."* He never supplies the names. What the player learns is that the Watch
+> buys from a supply chain that is neither Watch nor Halcyon, and that Halloran knows exactly who
+> is in it.
+
+> **Ives**, asked whether a broker is one of theirs: *"He sells to four buyers. We are the one that
+> pays on time."* She does not name the other three and does not appear to be avoiding it either.
+> That is the Ascendant position in nine words — Halcyon does not own the board and does not need
+> to. It wins on being the reliable counterparty, which is a far more total kind of power than
+> ownership and is never once described as power.
+
+Kesh does the same at slot 8 with work he does not do and will not say who does. ⚠ **No line may
+imply the field is binary** — not "the ⚠ **No line may imply the field is binary** — not "the
+only other option", not "one of us or one of them". The unbuilt orders have to be able to walk into
+this world without anything already written having to be unsaid.
+
+**Each order's ten is written in one register, and the two registers are opposites.** The Watch has no
+euphemisms at all and says the ugly part out loud; the Ascendants have nothing *but* euphemism and
+every line they speak would survive being read back in a hearing. Neither is signposted. This is the
+same trick Wells plays with the Labour Department — "We have abolished destitution", said by somebody
+who means it — and it only works if the prose never supplies the translation.
+
 ## The arc flag
 
 **One numeric flag per order**, holding the highest slot completed:
@@ -69,7 +111,18 @@ design asks for, which is why this is a re-gating pass rather than a rewrite.
 | 7 | **`quest_asc_1` Follow the Money** | Sent against Halcyon — and **Actuary Verity Ives** makes the counter-offer at the gate. | **crossover** |
 | 8 | `quest_lw_fav_quiet` Quiet Hands | Put somebody down and leave them breathing. | cost |
 | 9 | `quest_lw_loyalty` Nothing Bought | A purse, a shopping list, and a clinic that will fit you anything you like while you wait. **The best test in the game and it never says it is one.** | cost |
-| 10 | `quest_lw_rite` Nothing Kept Back | Blow the vat colonnade, kill Ives, get home. | **rite** |
+| 10 | `quest_lw_rite` Nothing Kept Back | Blow the vat colonnade, get past Ives at the gate, get home. | **rite** |
+
+⚠ **The rite used to require killing Ives, and no longer does** (changed 2026-08-25). Two reasons, and
+the second is the load-bearing one. It read as a finale a **quarter of the way** into a forty-slot
+ladder, and it spent the best Ascendant voice in the game — the recruiter who makes the counter-offer
+at the other ladder's slot 7 — before thirty rungs that need somebody to be against. `o_ives` is now a
+`talk`: she is at the gate, she says her piece, and you walk past her. What a player does after she has
+finished speaking is not an objective either way.
+
+The escape is untouched and is still the part that kills people: `trigger_lw_rite_pursuit` fires on
+`demolition.detonated` in `zone_asc_vats_hall`, **not on the kill**, so bringing the colonnade down
+still brings the Spire down on you.
 
 ## The Ascendants, slots 1–10
 
@@ -101,14 +154,22 @@ reason a trigger can gate on it.
 | 4 | `quest_asc_fav_tolerance` Within Tolerance | Fit the part. **To what** is the test, and nobody says so. | test |
 | 5 | `quest_asc_fav_lead` A Warm Lead | Bring somebody else in. | test |
 | 6 | `quest_asc_fav_adjuster` Adjuster | *"Nobody will remember me."* | test |
-| 7 | **`quest_asc_cross` Where It Is Printed** | Find the Watch's press — and **Cyrelle is sitting in the dark next to it**, and does not get up. | **crossover** |
+| 7 | **`quest_asc_cross` Where It Is Printed** | Find the Watch's press — and **Wessel Ardy is sitting in the dark next to it**, and does not get up. | **crossover** |
 | 8 | `quest_asc_turn` The Account | The fitting. `chromed_ever` burns the flesh path. | cost |
 | 9 | `quest_asc_loyalty` Restoring Service | Put the Watch's blinded cameras back. −400 with them. | cost |
 | 10 | `quest_asc_rite` The Rite of Ascension | Back up, die at the Uplink, get printed. | **rite** |
 
-**The two crossovers mirror each other on purpose.** Ives makes her pitch standing in the open at a
-gate, in daylight, having done the arithmetic. Cyrelle makes hers sitting in an unlit basement,
-having waited six nights on a guess. Neither of them threatens you and neither of them wins the
+⚠ **The NPC at the press is `npc_asc_lapsed` — Wessel Ardy, male, faction null.** This table said
+"Cyrelle" for months while the paragraph twenty lines below correctly said Ardy, and on 2026-08-25
+the arc rewrite believed the table and put the wrong name and the wrong pronoun in front of the
+player. **Cyrelle is Long Watch, female, and is upstairs** at the ops room; she is the one who gives
+`quest_asc_1`.
+
+**The two crossovers mirror each other on purpose, and they are not the same move.** Ives makes a
+pitch, standing in the open at a gate, in daylight, having done the arithmetic. Ardy makes no pitch
+at all — he opens with *"Nothing. I want nothing. I am not the Watch, I am not recruiting you"* and
+is there to say one plain sentence about the job after this one, which is the sharper version of the
+same scene. Neither of them threatens you and neither of them wins the
 argument, and both of them let you walk — which is the only version of a recruitment scene that
 respects the player enough to make the other answer feel like something they chose.
 

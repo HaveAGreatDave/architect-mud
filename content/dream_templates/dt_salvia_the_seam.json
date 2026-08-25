@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "The world has a seam in it and you have gone in along the seam. You are the length of it. Everything is happening sideways at a constant speed and you have been part of this arrangement for much longer than you have been alive.",
   "drug_id": "drug_salvia",
-  "fx": "wind",
-  "fx_intensity": 1,
+  "fx": "crawl",
+  "fx_intensity": 0.9,
   "id": "dt_salvia_the_seam",
   "name": "The Seam",
   "objects": [

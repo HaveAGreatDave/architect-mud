@@ -17,6 +17,133 @@
       "options": [],
       "text": "\"Mind the road down,\" she says. \"It is worse in the dark, and nobody out there is insured.\""
     },
+    "file_accept": {
+      "_vine": {
+        "x": 1040,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_file"
+        }
+      ],
+      "options": [
+        {
+          "label": "(take it)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Underwriting first. They will make you wait, and that is not personal, that is simply the counter.\""
+    },
+    "file_done": {
+      "_vine": {
+        "x": 360,
+        "y": 1080
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_file"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_asc_ives",
+          "reason": "ives:file",
+          "warmth": 1
+        }
+      ],
+      "options": [
+        {
+          "label": "Next one?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"On time.\" She marks it. \"You would be astonished how much of what I do is that column.\"\n\nShe looks up, briefly, all the way down, and stops.\n\n\"The Curator has been asking. That is not a small sentence. He asks about four people a year and two of them are auditors.\""
+    },
+    "file_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I'll walk it.",
+          "next": "file_accept"
+        },
+        {
+          "label": "That is it? A wallet?",
+          "next": "file_small"
+        }
+      ],
+      "text": "She is almost apologetic.\n\n\"Underwriting has a settled file that needs to be in the Registry by end of day. The Spire does not put settled files on a wire — never has, never will, and if you ever find out why, they will have had to make you permanent first.\"\n\nShe holds out a docket.\n\n\"It is a walk with a wallet in it. I would like you to do a fortnight of walks with wallets in them. Everybody does.\""
+    },
+    "file_small": {
+      "_vine": {
+        "x": 700,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Fine. Give me the docket.",
+          "next": "file_accept"
+        }
+      ],
+      "text": "\"That is it. A wallet.\"\n\nShe does not take the docket back.\n\n\"You have spent a fortnight being told by people in a basement that we are a machine which eats you. And here I am, handing you stationery.\"\n\nA small movement that is not quite a shrug.\n\n\"I could give you something dramatic instead. You would enjoy it, and it would tell you nothing true about us at all.\""
+    },
+    "hired": {
+      "_vine": {
+        "x": 360,
+        "y": 1300
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "What is the job?",
+          "next": "hired2"
+        },
+        {
+          "label": "Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "She knows before you finish the sentence, and does not bother to hide it.\n\n\"Marcus is a romantic. He thinks he found you.\" She marks something. \"He did find you, to be fair to him. I simply read the docket first.\"\n\nShe looks up, once, all the way down, and stops.\n\n\"Verity Ives. Claims oversight. You have been doing our small jobs well and cheaply for a fortnight, and I would like to stop paying you by the job.\""
+    },
+    "hired2": {
+      "_vine": {
+        "x": 700,
+        "y": 1300
+      },
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "asc_intent",
+          "scope": "player",
+          "value": "hired"
+        },
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_2"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 2,
+          "npc_id": "npc_asc_ives",
+          "reason": "ives:hired",
+          "warmth": 1
+        }
+      ],
+      "options": [
+        {
+          "label": "Where do I start?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The same job, more of it, and a scan on the way in.\" She hands you a chit.\n\n\"The Gate first. It is not a formality — it is how you stop being a person we are discussing and start being a person we are covering. After that you are on the rota, and somebody upstairs starts caring whether you come back.\"\n\nA truck goes past, west, full of something heavy.\n\n\"Nothing else changes yet. That is the whole point of the first month, and I say it to everybody, and it is true every time.\""
+    },
     "pitch": {
       "_vine": {
         "x": 360,
@@ -33,7 +160,7 @@
           "next": "pitch2"
         }
       ],
-      "text": "She steps off the kerb before you reach it, which means she was waiting, which means she knew.\n\"Halcyon Assurance, claims oversight. You have been standing in my claims hall for two days with a face like a man doing long division.\" She does not look at the slate. \"You are not a claimant, you are not staff, and you walked in from the east on a road the Long Watch use because it is the one with no cameras on it. I am not guessing. I am reading.\""
+      "text": "She steps off the kerb before you reach it, which means she was waiting, which means she knew.\n\n\"Halcyon Assurance, claims oversight. You have been standing in my claims hall for two days with a face like a man doing long division.\"\n\nShe does not look at the slate.\n\n\"You are not a claimant, you are not staff, and you walked in from the east on a road the Long Watch use because it is the one with no cameras on it. I am not guessing. Guessing is what people do who have not read the file — and I have read the file.\""
     },
     "pitch2": {
       "_vine": {
@@ -51,7 +178,7 @@
           "next": "terms"
         }
       ],
-      "text": "\"So — no theatre. I know who sent you and I am not going to have you stopped, because a man walking home with the truth is worth more to me than a man in a cell.\" She turns, so you are both looking down the road east, at Coldwater lying in its own smoke.\n\"They are going to lose. Not this year. But they are eleven people in a basement arguing about a machine that runs a city, and every one of them is a body that wears out. We are not asking you to believe anything. We are asking whether you would like to still be here in forty years to see who was right.\""
+      "text": "\"So — no theatre. I know who sent you and I am not going to have you stopped, because a man walking home with the truth is worth rather more to me than a man in a cell.\"\n\nShe turns, so that you are both looking down the road east, at Coldwater lying in its own smoke.\n\n\"They are going to lose. Not this year, and not cheaply, and not because anybody out-thought them. I have eleven names I am certain of, in a basement, arguing about a machine that runs a city — and every one of those names is fixed to a body that wears out.\"\n\nA truck goes past behind you, west, unhurried.\n\n\"We are not asking you to believe anything. We are asking whether you would like to still be here in forty years to find out who was right.\""
     },
     "refused": {
       "_vine": {
@@ -72,7 +199,7 @@
           "next": "bye"
         }
       ],
-      "text": "She laughs. Not unkindly — the short, genuine laugh of somebody who has been told a very old joke very well.\n\"Death to the Architect. Yes.\" She wipes her eye with a knuckle. \"You have no idea how much I needed that today.\"\nShe steps back to let you past, and she does not look at the slate, and she does not need to.\n\"You are making a mistake, and I mean that as a professional. But go on — go and tell them what you saw. I would rather you did.\" She is already looking at the next person coming up the road. \"We will keep an eye on you. Not as a threat. As an actuary. People in your line of work come back to me eventually, one way or the other.\""
+      "text": "She laughs. Not unkindly — the short, genuine laugh of somebody who has been told a very old joke very well.\n\n\"Death to the Architect. Yes.\" She wipes her eye with a knuckle. \"You have no idea how much I needed that today.\"\n\nShe steps back to let you past, and she does not look at the slate, and she does not need to.\n\n\"You are making a mistake, and I mean that professionally rather than personally. But go on — go and tell them what you saw. I would genuinely rather you did.\"\n\nShe is already looking at the next person coming up the road.\n\n\"We will keep an eye on you. Not as a threat. As an actuary. People in your line of work come back to me eventually, one way or the other, and the other one still counts.\""
     },
     "root": {
       "_vine": {
@@ -197,7 +324,7 @@
           "next": "bye"
         }
       ],
-      "text": "She signs you in with two strokes and does not ask for a name.\n\"The Curator will walk you through the Gallery, then the Vats, then up. Watch the Vats properly — everybody watches the ceiling and misses the part that matters.\" She hands the slate back to a man who was not there a moment ago. \"I will be here when you come down. I am always here when people come down.\""
+      "text": "She signs you in with two strokes and does not ask for a name.\n\n\"The Curator will walk you through the Gallery, then the Vats, then up. Watch the Vats properly — everybody watches the ceiling and misses the part that matters.\"\n\nShe hands the slate back to a man who was not there a moment ago.\n\n\"I will be here when you come down. I am always here when people come down.\""
     },
     "taken": {
       "_vine": {
@@ -229,7 +356,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Good.\" No triumph in it at all — she says it the way you'd say a figure balanced.\n\"Then the first thing is the Gate, and the Gate is a scan, and the scan is not a formality. It is how you stop being a person we are discussing and start being a person we are covering.\" She writes something down at last.\n\"You will want to go and be seen in Coldwater tonight, doing whatever it is you normally do. Nothing changes yet. That is the whole point of the first month.\""
+      "text": "\"Good.\" No triumph in it at all. She says it the way you would say a figure balanced.\n\n\"Then the first thing is the Gate, and the Gate is a scan, and the scan is not a formality. It is how you stop being a person we are discussing and start being a person we are covering.\"\n\nShe writes something down at last.\n\n\"You will want to go and be seen in Coldwater tonight, doing whatever it is you normally do. Nothing changes yet. That is the entire point of the first month.\""
     },
     "terms": {
       "_vine": {
@@ -251,7 +378,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The terms, then, since you asked plainly.\" She counts them on the slate she still is not looking at.\n\"An account. Cover on the body you are currently wearing. Access to a clinic where the people are not drunk. And work — real work, paid, some of which you will not enjoy, none of which I will lie to you about beforehand.\"\nA truck goes past, west, full of something heavy.\n\"What we want in return is not your friends. Nobody is asking you to give me eleven names, and if you offered them I would think less of you and take them anyway. What we want is that when it comes apart out there, you are standing on this side of the road.\""
+      "text": "\"The terms, then, since you asked plainly.\" She counts them off on the slate she still is not looking at.\n\n\"An account. Cover on the body you are currently wearing. Access to a clinic where the staff are not drunk. And work — real work, paid, some of which you will not enjoy, none of which I will lie to you about beforehand.\"\n\nA truck goes past, west, full of something heavy.\n\n\"What we want in return is not your friends. Nobody is asking you for eleven names, and if you offered them I would think less of you and take them anyway. What we want is that when it comes apart out there — and it will, and I can tell you roughly when — you are standing on this side of the road.\""
     },
     "watched": {
       "_vine": {
@@ -265,134 +392,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Always.\" She does not step off the kerb this time, and the slate stays where it is.\n\"You are still in the book. Everyone is still in the book. The only thing that changed is which column.\" A pause exactly long enough to be a courtesy. \"Was there something?\""
-    },
-    "file_offer": {
-      "_vine": {
-        "x": 360,
-        "y": 900
-      },
-      "actions": [],
-      "options": [
-        {
-          "label": "I'll walk it.",
-          "next": "file_accept"
-        },
-        {
-          "label": "That is it? A wallet?",
-          "next": "file_small"
-        }
-      ],
-      "text": "She is almost apologetic, which on her is a whole performance.\n\n\"Underwriting has a settled file that needs to be in the Registry by end of day. The Spire does not put settled files on a wire — never has, never will, and if you ever find out why they will have had to make you permanent first.\"\n\nShe holds out a docket.\n\n\"It is a walk with a wallet in it. I would like you to do a fortnight of walks with wallets in them. Everybody does.\""
-    },
-    "file_small": {
-      "_vine": {
-        "x": 700,
-        "y": 900
-      },
-      "actions": [],
-      "options": [
-        {
-          "label": "Fine. Give me the docket.",
-          "next": "file_accept"
-        }
-      ],
-      "text": "\"That is it. A wallet.\"\n\nShe does not take the docket back.\n\n\"You have spent a fortnight being told by people in a basement that we are a machine which eats you. And here I am, handing you stationery. I could give you something dramatic instead. You would enjoy it, and it would tell you nothing true about us at all.\""
-    },
-    "file_accept": {
-      "_vine": {
-        "x": 1040,
-        "y": 900
-      },
-      "actions": [
-        {
-          "action": "START_QUEST",
-          "quest_id": "quest_asc_file"
-        }
-      ],
-      "options": [
-        {
-          "label": "(take it)",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Underwriting first. They will make you wait, and that is not personal, that is simply the counter.\""
-    },
-    "file_done": {
-      "_vine": {
-        "x": 360,
-        "y": 1080
-      },
-      "actions": [
-        {
-          "action": "TURN_IN",
-          "quest_id": "quest_asc_file"
-        },
-        {
-          "action": "RELATION_ADJUST",
-          "familiarity": 1,
-          "npc_id": "npc_asc_ives",
-          "reason": "ives:file",
-          "warmth": 1
-        }
-      ],
-      "options": [
-        {
-          "label": "Next one?",
-          "next": "bye"
-        }
-      ],
-      "text": "\"On time.\" She marks it. \"You would be astonished how much of what I do is that column.\"\n\nShe looks up, briefly, all the way down, and stops.\n\n\"The Curator has been asking. That is not a small sentence. He asks about four people a year and two of them are auditors.\""
-    },
-    "hired": {
-      "_vine": {
-        "x": 360,
-        "y": 1300
-      },
-      "actions": [],
-      "options": [
-        {
-          "label": "What is the job?",
-          "next": "hired2"
-        },
-        {
-          "label": "Not yet.",
-          "next": "bye"
-        }
-      ],
-      "text": "She knows before you finish the sentence, which she does not bother to hide.\n\n\"Marcus is a romantic. He thinks he found you.\" She marks something. \"He did find you, to be fair to him. I just read the docket first.\"\n\nShe looks up, once, all the way down, and stops.\n\n\"Verity Ives. Claims oversight. You have been doing our small jobs well and cheaply for a fortnight and I would like to stop paying you by the job.\""
-    },
-    "hired2": {
-      "_vine": {
-        "x": 700,
-        "y": 1300
-      },
-      "actions": [
-        {
-          "action": "SET_FLAG",
-          "flag": "asc_intent",
-          "scope": "player",
-          "value": "hired"
-        },
-        {
-          "action": "START_QUEST",
-          "quest_id": "quest_asc_2"
-        },
-        {
-          "action": "RELATION_ADJUST",
-          "familiarity": 2,
-          "npc_id": "npc_asc_ives",
-          "reason": "ives:hired",
-          "warmth": 1
-        }
-      ],
-      "options": [
-        {
-          "label": "Where do I start?",
-          "next": "bye"
-        }
-      ],
-      "text": "\"The same job, more of it, and a scan on the way in.\" She hands you a chit.\n\n\"The Gate first. It is not a formality — it is how you stop being a person we are discussing and start being a person we are covering. After that you are on the rota and somebody upstairs starts caring whether you come back.\"\n\nA truck goes past, west, full of something heavy.\n\n\"Nothing else changes yet. That is the whole point of the first month, and I say that to everybody, and it is true every time.\""
+      "text": "\"Always.\" She does not step off the kerb this time, and the slate stays where it is.\n\n\"You are still in the book. Everybody is still in the book. The only thing that changed is which column.\"\n\nA pause exactly long enough to be a courtesy.\n\n\"Was there something?\""
     }
   },
   "faction": "ideology_ascendants",

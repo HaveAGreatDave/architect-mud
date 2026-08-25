@@ -9,7 +9,9 @@
     {
       "desc": "Go back to the quiet room. Sit in it again. Nothing is going to happen.",
       "emotes": [
-        "{who} settles into the dark for the second time, and this time does not wait for anything."
+        "{who} settles into the dark for the second time, and this time does not wait for anything.",
+        "{who} takes the same spot on the floor as last time without looking for it.",
+        "{who} notices the room is the same and that they are not, and puts that down to the walk."
       ],
       "id": "o_again",
       "type": "visit",
@@ -18,7 +20,8 @@
     {
       "desc": "Go back down to Oracle-9.",
       "emotes": [
-        "{who} comes down the last stretch without needing to count the turnings."
+        "{who} comes down the last stretch without needing to count the turnings.",
+        "{who} arrives to find Oracle-9 has already put the kettle on for two."
       ],
       "id": "o_return",
       "type": "visit",

@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Somebody has to sit the post while somebody else sleeps. The Blind looks down the length of the wash and the shortwave mutters to itself, and the whole of the job is that you are there and awake. Pike will not thank you. Pike has sat it ten thousand times.",
+  "description": "Somebody has to sit the post while somebody else sleeps.\n\nThe Blind looks down the length of the wash. The shortwave mutters to itself on a frequency nobody has ever answered. The whole of the job is that you are there, and awake, and that if the thing the Watch have been waiting eleven years for comes down that wash tonight, one person sees it.\n\nPike will not thank you. Pike has sat it ten thousand times and has never once been thanked either.",
   "fail_on": [],
   "id": "quest_lw_fav_sit",
   "meta": {},
@@ -11,7 +11,8 @@
       "emotes": [
         "{who} watches the mirror down the length of the wash, and nothing comes.",
         "{who} listens to the shortwave mutter, and nothing in it is for them.",
-        "{who} shifts once on the stool and settles again."
+        "{who} shifts once on the stool and settles again.",
+        "{who} thinks about how much of a life this adds up to, and then stops thinking about it."
       ],
       "id": "o_sit",
       "taskSeconds": 30,

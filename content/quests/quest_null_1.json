@@ -9,7 +9,9 @@
     {
       "desc": "Walk out to the gauge house on the far shoulder of the dam and wind the drum.",
       "emotes": [
-        "{who} winds the cord back onto the drum and squints at the pen line."
+        "{who} winds the cord back onto the drum and squints at the pen line.",
+        "{who} finds the drum stiff for the first half turn and easier after, the way it is described on the card.",
+        "{who} copies the figure onto the chart in the box provided, and not in the margin."
       ],
       "id": "o_gauge",
       "type": "visit",
@@ -18,7 +20,8 @@
     {
       "desc": "Report the reading back at the tally.",
       "emotes": [
-        "{who} reads the figure off without being asked twice."
+        "{who} reads the figure off without being asked twice.",
+        "{who} gets back inside the hour, which nobody comments on and everybody notices."
       ],
       "id": "o_back",
       "type": "visit",

@@ -396,10 +396,10 @@ function playerHitLine(player, targetName, partLabel, damage, damageType, critic
     return `<span class="crit-tag">CALLED SHOT</span> You put it through ${targetName}'s ${part} — ${dmg}. Not enough to finish it, but it will never be right again`;
   }
   if (critical) {
-    return `<span class="crit-tag">${power ? 'CRITICAL POWER' : 'CRITICAL HIT'}</span> to the ${part}! You deal ${dmg} to ${targetName}`;
+    return `<span class="crit-tag">${power ? 'CRITICAL POWER' : 'CRITICAL HIT'}</span> to the ${part}! You deal ${dmg} damage to ${targetName}`;
   }
-  if (power) return `<span class="pow-tag">POWER</span> You bring everything down on ${targetName}'s ${part} for ${dmg}`;
-  return `You ${swingVerb(player)} ${targetName}'s ${part} for ${dmg}`;
+  if (power) return `<span class="pow-tag">POWER</span> You bring everything down on ${targetName}'s ${part}, causing ${dmg} damage`;
+  return `You ${swingVerb(player)} ${targetName}'s ${part}, causing ${dmg} damage`;
 }
 
 // A whiffed power attack has to sting — you just burned 1.5 swings for nothing.
@@ -2161,9 +2161,11 @@ export async function pvpSwingSleeping(attacker, defender) {
   const killed = newHp <= 0;
 
   const hpReadout = killed ? '' : enemyHpTag({ hp: newHp, hp_max: defHpMax });
-  const attackerMsg = critical
-    ? `<span class="crit-tag">CRITICAL HIT</span> to ${defender.handle}'s <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${hpReadout}`
-    : `You hit ${defender.handle}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${hpReadout}`;
+  // Routed through playerHitLine like every other swing, rather than hand-rolled
+  // here: a sleeping defender was the one branch that printed a bare readout with
+  // no stance verb, so the same attack read differently depending on whether the
+  // target happened to be awake.
+  const attackerMsg = `${playerHitLine(attacker, defender.handle, partLabel, damage, damageType, critical, power, null)}${critical ? '!' : '.'}${hpReadout}`;
 
   return { hit: true, killed, damage, attackerMsg, defenderHp: newHp, defenderHpMax: defHpMax };
 }

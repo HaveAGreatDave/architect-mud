@@ -1,11 +1,11 @@
 {
-  "description": "Roasted root, ground to look like coffee. Fools nobody and gets drunk anyway, which is the whole story of the century.",
+  "description": "Roasted root, ground to look like coffee. Fools nobody and gets drunk anyway.",
   "flags": {},
   "id": "item_chicory_sachet",
   "name": "chicory brew sachet",
   "tags": {
     "consumable": true,
-    "description": "Roasted root, ground to look like coffee. Fools nobody and gets drunk anyway, which is the whole story of the century.",
+    "description": "Roasted root, ground to look like coffee. Fools nobody and gets drunk anyway.",
     "drink_noun": "chicory",
     "drink_profile": "coffee_base",
     "hydrating": true,

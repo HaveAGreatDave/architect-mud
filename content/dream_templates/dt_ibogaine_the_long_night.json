@@ -7,7 +7,7 @@
   "cause": "drug",
   "description": "Hours of it. The dry buzzing, the ordered playback, and no conclusion arriving. It does not comfort you and it does not accuse you. It is going to run for as long as it runs and then it is going to let you go without a word.",
   "drug_id": "drug_ibogaine",
-  "fx": "ash",
+  "fx": "tunnel",
   "fx_intensity": 0.5,
   "id": "dt_ibogaine_the_long_night",
   "name": "The Long Night",

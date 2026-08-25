@@ -9,7 +9,9 @@
     {
       "desc": "Go where Oracle-9 said the water would be coming through, and see for yourself.",
       "emotes": [
-        "{who} stands in it for a moment, working out how she could have known."
+        "{who} stands in it for a moment, working out how she could have known.",
+        "{who} finds the water exactly where it was said to be, at the height it was said to be at.",
+        "{who} checks the run of the wall twice, because once is not enough to settle it."
       ],
       "id": "o_relay",
       "type": "visit",
@@ -18,7 +20,8 @@
     {
       "desc": "Go back down to Oracle-9 and tell her she was right.",
       "emotes": [
-        "{who} arrives with the answer and finds she is already looking up."
+        "{who} arrives with the answer and finds she is already looking up.",
+        "{who} says it out loud and gets a nod rather than an explanation."
       ],
       "id": "o_back",
       "type": "visit",

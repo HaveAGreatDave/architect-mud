@@ -1,5 +1,5 @@
 {
-  "addiction_chance": 0.02,
+  "addiction_chance": 0,
   "description": "A handful of wrinkled grey mushrooms grown in somebody's ventilation duct.",
   "duration_seconds": 240,
   "effects": {

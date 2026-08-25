@@ -27,11 +27,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Ours,\" it says, which is the whole greeting and is not a small one. \"The campus does not need to scan you any more. It knows the shape.\""
+      "text": "\"Ours,\" it says, and says nothing else. \"The campus does not need to scan you any more. It knows the shape.\""
     },
     "bye": {
       "options": [],
-      "text": "The eye above it — and the eye that is it — watches you go."
+      "text": "The eye above it, and the eye that is it, watches you go."
     },
     "confirm": {
       "options": [
@@ -57,7 +57,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Think, then. Thinking is the last purely human thing you'll do for free.\" It settles back beneath the seal. \"When you're ready to stop merely dying, the clinic is downstairs, and your account is already open.\""
+      "text": "\"Think, then. Thinking is the last purely human thing you will do for free.\"\n\nIt settles back beneath the seal.\n\n\"When you are ready to stop merely dying, the clinic is downstairs, and your account is already open.\""
     },
     "loyal_accept": {
       "actions": [
@@ -85,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You have been useful. Useful is not the same as ours.\" The seal above it does not blink, because it never has. \"The Watch have spent a generation putting out the Architect's eyes along the eastern approaches, one at a time, patiently, and you know where every one of them is, because you helped.\n\nGo and turn them back on. Nobody dies. That is deliberate — a corpse is an argument, and an argument can be won. A road that can see again is simply true, and they will know exactly whose hands did it, and there will be nothing for them to say.\""
+      "text": "\"You have been useful. Useful is not the same as ours.\"\n\nThe seal above it does not blink, because it never has.\n\n\"The Watch have spent a generation putting out the Architect's eyes along the eastern approaches. One at a time. Patiently. In weather. And you know where every single one of them is, because you helped.\"\n\n\"Go and turn them back on. Nobody dies — that is deliberate, and it is not mercy. A corpse is an argument, and an argument can be won. A road that can see again is simply true. They will know exactly whose hands did it, and there will be nothing whatsoever for them to say.\""
     },
     "loyal_report": {
       "actions": [
@@ -100,7 +100,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The approaches are lit.\" It does not thank you. \"You understand what you have done. There is no version of the next ten years in which Cyrelle takes your call.\" A pause. \"Which leaves one door, and you are standing in the room with it. When your account is current and your pattern is committed, come back, and we will stop pretending you are a client.\""
+      "text": "\"The approaches are lit.\" It does not thank you.\n\n\"You understand what you have done. There is no version of the next ten years in which Cyrelle takes your call, and there is no version in which she says anything unkind about you either. That will be worse, and you will find out slowly.\"\n\nA pause.\n\n\"Which leaves one door, and you are standing in the room with it. When your account is current and your pattern is committed, come back, and we will stop pretending you are a client.\""
     },
     "reveal": {
       "actions": [
@@ -130,7 +130,7 @@
           "next": "confirm"
         }
       ],
-      "text": "\"You followed the money, and the money led home.\" A sound that might be amusement. \"Halcyon Assurance does not insure against death. It insures death itself — a backup, a vat, a morning after. Every policy is a rung. Every payout, a resurrection you financed. The calm eye on their letterhead and the seal beneath your feet are the same eye, because they are the same hand. Ours. The Watch spend their lives closing the Architect's eyes. We simply became one they'll never close.\""
+      "text": "\"You followed the money, and the money led home.\" A sound that might be amusement.\n\n\"Halcyon Assurance does not insure against death. It insures death itself — a backup, a vat, a morning after. Every policy is a rung. Every payout, a resurrection you financed.\"\n\nThe seal above it does not blink, because it never has.\n\n\"The calm eye on their letterhead and the seal beneath your feet are the same eye, because they are the same hand. Ours. The Watch spend their lives closing the Architect's eyes, one at a time, in the dark, with enormous patience. We simply became one they will never close.\""
     },
     "rite_accept": {
       "actions": [
@@ -158,7 +158,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The last of it, then, and it is the only part we make ceremony of.\" The chrome shifts, which it has not done once while you have known it.\n\n\"Your pattern is held. Your account is current. Everything that can be copied of you already has been, and is safe, and is not here — which leaves precisely one thing standing between you and us, and you have been carrying it around this whole time.\n\nOrrin will walk you to the Uplink. Put your hands on the terminal. Say `ascend`. It will tell you what it is about to do, because we are honest even now, and then it will do it, and then you will get up in the Vats and you will be one of us.\n\nIt is a death. I will not call it anything else. It is simply the last one you will have to pay for out of pocket.\""
+      "text": "\"The last of it, then, and it is the only part we make ceremony of.\"\n\nThe chrome shifts, which it has not done once in all the time you have known it.\n\n\"Your pattern is held. Your account is current. Everything of you that can be copied already has been, and is safe, and is not in this room — which leaves precisely one thing standing between you and us, and you have been carrying it about with you this entire time.\"\n\n\"Orrin will walk you to the Uplink. Put your hands on the terminal. Say `ascend`. It will tell you what it is about to do, because we are honest even now, especially now. Then it will do it. Then you will get up in the Vats, and you will be one of us.\"\n\n\"It is a death. I will not call it anything else, and I will not let anybody in this building call it anything else. It is simply the last one you will ever have to pay for out of pocket.\""
     },
     "rite_report": {
       "actions": [

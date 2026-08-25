@@ -28,7 +28,22 @@
       },
       "peak_seconds": 140
     },
-    "take_line": "You swallow a dose from {name}."
+    "take_line": "You swallow a dose from {name}.",
+    "withdrawal": {
+      "message": "Your sinuses shut harder than they were before you opened them.",
+      "mods": {
+        "stamina_max": -5,
+        "stat_cool": -1
+      },
+      "onset_seconds": 1800,
+      "stages": {
+        "easing": "One side opens and gives you six hours of half a nose, which you spend grateful.",
+        "onset": "Your nose blocks, on the side that was fine, the way the box said it would after a week.",
+        "peak": "Solid from the eyebrows down, and your own pulse is the loudest thing in your face.",
+        "rising": "Both sides now. Breathing through your mouth is drying your throat out and you can hear yourself doing it.",
+        "tail": "Clear enough to work. It shuts again every time you lie down."
+      }
+    }
   },
   "flags": {
     "drug_class": "stimulant",

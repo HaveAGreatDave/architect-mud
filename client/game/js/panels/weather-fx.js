@@ -40,6 +40,29 @@ let dispIntensity = 0;
 const PRES_RATE = 0.5;   // presence units/sec → ~2s to fully fade in or out
 const INT_RATE = 0.6;    // intensity units/sec → smooth ramp between levels
 
+// Seconds since the loop started. The drug symptoms below are drawn from this
+// rather than from per-particle state, because closure, banding and swell are
+// properties of the whole field and not of anything in it.
+let fxClock = 0;
+
+// ── The effect vocabulary ────────────────────────────────────────────────────
+// WEATHER falls from somewhere and leaves at an edge. A DRUG SYMPTOM is already
+// behind the eye: it is seeded across the pane and recycles in place. Both run
+// through the same presence/intensity easing, so a symptom comes up and goes off
+// exactly the way a rain shower does.
+//
+// ⚠ Anything that WARPS the world cannot live here — this canvas is an overlay
+// and cannot touch what is underneath it. The drunk sway and the psychedelic
+// breathing belong to flight-drugfx.js (which owns the flight canvas) and to the
+// CSS `#trip-overlay`. What lives here is strictly additive.
+//
+// ⚠ Keep in step with VALID_FX in plugins/bodily/regress.js. An unknown name
+// renders nothing at all, so a typo is invisible in play and the suite is the
+// only thing that will ever tell you.
+export const WEATHER_FX = ['rain', 'snow', 'ash', 'fog', 'wind'];
+export const DRUG_FX = ['static', 'tunnel', 'tracers', 'bloom', 'crawl', 'swim'];
+export const ALL_FX = ['none', ...WEATHER_FX, ...DRUG_FX];
+
 function approach(v, target, step) {
   if (v < target) return Math.min(target, v + step);
   if (v > target) return Math.max(target, v - step);
@@ -150,7 +173,25 @@ function targetCount() {
   else if (active === 'snow') base = density * (0.2 + 0.5 * dispIntensity);
   else if (active === 'ash')  base = density * (0.15 + 0.35 * dispIntensity);
   else if (active === 'wind') base = density * (0.03 + 0.05 * dispIntensity);
-  return Math.round(base * presence);
+  // ── drug symptoms ──
+  else if (active === 'static')  base = density * (2.0 + 6.0 * dispIntensity);  // dense grain, the whole field
+  else if (active === 'tracers') base = density * (0.05 + 0.16 * dispIntensity); // few, and each leaves a tail
+  else if (active === 'crawl')   base = density * (0.5 + 1.1 * dispIntensity);   // a lattice that will not sit still
+  const n = Math.round(base * presence);
+
+  // ⚠ A SPARSE EFFECT ROUNDS TO ZERO ON A SMALL PANE, and zero is not subtle, it
+  // is absent. `tracers` is deliberately thin — a handful of points, each with a
+  // tail — which at a phone-sized pane and low intensity computes 0.4 particles
+  // and renders nothing at all while the game believes the player is high.
+  // Rain already guards this with its 0.9·density floor; the drug symptoms get
+  // the same guarantee, expressed as a count rather than a density because that
+  // is the thing that was rounding away.
+  //
+  // Weather is left alone on purpose: `wind` has the same behaviour (0 particles
+  // below roughly 700×400) and changing it is a visible change to ordinary
+  // weather on every small screen, which is a separate decision from this one.
+  if (n === 0 && presence > 0.05 && ['static', 'tracers', 'crawl'].includes(active)) return 1;
+  return n;
 }
 
 function rand(a, b) { return a + Math.random() * (b - a); }
@@ -181,6 +222,39 @@ function spawnParticle(fromTop) {
       vy: rand(-20, 20), a: rand(0.06, 0.16),
     };
   }
+  // ── drug symptoms ──────────────────────────────────────────────────────────
+  // These do not fall. Weather comes from above and leaves at the bottom; a
+  // symptom is already inside the eye, so every one of these is seeded across
+  // the whole pane and recycles in place rather than off the edge.
+  if (active === 'static') {
+    // TV grain. No motion at all: it re-rolls its own alpha every frame, which
+    // is what makes it read as noise rather than as dust.
+    return {
+      x: rand(0, w), y: rand(0, h), r: rand(0.6, 1.5),
+      a: rand(0.10, 0.45), flick: rand(0, Math.PI * 2), life: rand(0.05, 0.4),
+    };
+  }
+  if (active === 'tracers') {
+    // A bright point that drags its own recent past behind it.
+    const ang = rand(0, Math.PI * 2), sp = rand(18, 70) * (0.5 + dispIntensity);
+    return {
+      x: rand(0, w), y: rand(0, h),
+      vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+      len: rand(14, 46) * (0.5 + dispIntensity), r: rand(1.0, 2.2),
+      a: rand(0.25, 0.6), hue: rand(0, 360),
+    };
+  }
+  if (active === 'crawl') {
+    // Lattice points that creep on a slow shared field. The surface is moving
+    // and it is not going anywhere.
+    return {
+      x: rand(0, w), y: rand(0, h), r: rand(0.9, 2.0),
+      phase: rand(0, Math.PI * 2), sway: rand(0.25, 0.8),
+      amp: rand(3, 11) * (0.5 + dispIntensity), a: rand(0.18, 0.45),
+      ox: 0, oy: 0,
+    };
+  }
+
   // ash
   const r = rand(0.8, 2.4);
   return {
@@ -206,6 +280,24 @@ function reseed() {
     }
     return;
   }
+  // `bloom` reuses the fog blob pool: soft radial masses, but breathing in place
+  // rather than drifting across. Light sources swelling is the symptom.
+  if (active === 'bloom') {
+    const n = Math.round(4 + 5 * cur.intensity);
+    for (let i = 0; i < n; i++) {
+      fogBlobs.push({
+        x: rand(0, paneRect.width), y: rand(0, paneRect.height),
+        r: rand(paneRect.width * 0.06, paneRect.width * 0.20),
+        vx: rand(-3, 3), a: rand(0.05, 0.13),
+        phase: rand(0, Math.PI * 2), rate: rand(0.5, 1.4), hue: rand(0, 360),
+      });
+    }
+    return;
+  }
+  // `tunnel` and `swim` are whole-field and hold no state of their own — they
+  // are drawn from the clock. Nothing to seed.
+  if (active === 'tunnel' || active === 'swim') return;
+
   const n = targetCount();
   for (let i = 0; i < n; i++) particles.push(spawnParticle(false));
 }
@@ -223,6 +315,73 @@ function drawBase(dt, w, h) {
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+
+  // ── DRUG SYMPTOMS ──────────────────────────────────────────────────────────
+  // Weather falls. A symptom is already behind the eye, so none of these enter
+  // from an edge and none of them leave by one. Each replicates one thing its
+  // drugs actually do to sight, which is the same discipline the withdrawal
+  // prose is written under: the specific event, never the mood.
+  //
+  // ⚠ This canvas is an OVERLAY and cannot distort what is underneath it. Any
+  // symptom that warps the world itself (the drunk sway, psychedelic breathing)
+  // belongs to flight-drugfx.js, which owns the flight canvas, or to the CSS
+  // `#trip-overlay`. What lives here is anything additive: grain, trails,
+  // closure, swell.
+
+  if (active === 'tunnel') {
+    // Peripheral closure. Opiates and the k-hole both narrow the field; the
+    // breathing is what stops it reading as a static vignette.
+    const br = 1 + 0.06 * Math.sin(fxClock * 0.9);
+    const inner = Math.max(w, h) * (0.62 - 0.34 * dispIntensity) * br;
+    const outer = Math.max(w, h) * 0.82;
+    const g = ctx.createRadialGradient(w / 2, h / 2, inner, w / 2, h / 2, outer);
+    g.addColorStop(0, 'rgba(6,7,9,0)');
+    g.addColorStop(1, `rgba(6,7,9,${(0.30 + 0.5 * dispIntensity) * presence})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    return;
+  }
+
+  if (active === 'swim') {
+    // The room will not hold still. Broad soft bands sliding at a rate that has
+    // nothing to do with anything, which is the whole complaint.
+    const bands = 5;
+    for (let i = 0; i < bands; i++) {
+      const ph = fxClock * (0.18 + i * 0.045) + i * 1.7;
+      const y = ((Math.sin(ph) * 0.5 + 0.5) * (h + 200)) - 100;
+      const th = h * (0.22 + 0.10 * Math.sin(ph * 0.6));
+      const g = ctx.createLinearGradient(0, y - th / 2, 0, y + th / 2);
+      const a = (0.030 + 0.055 * dispIntensity) * presence;
+      g.addColorStop(0, 'rgba(150,160,175,0)');
+      g.addColorStop(0.5, `rgba(150,160,175,${a})`);
+      g.addColorStop(1, 'rgba(150,160,175,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, y - th / 2, w, th);
+    }
+    return;
+  }
+
+  if (active === 'bloom') {
+    // Light sources swelling and subsiding. Blobs breathe in place; the hue
+    // drift is slow enough to be noticed rather than seen.
+    if (!fogBlobs.length) reseed();
+    for (const b of fogBlobs) {
+      b.phase += b.rate * dt;
+      b.x += b.vx * dt;
+      if (b.x < -b.r) b.x = w + b.r; else if (b.x - b.r > w) b.x = -b.r;
+      const swell = 1 + 0.35 * Math.sin(b.phase) * (0.4 + dispIntensity);
+      const r = Math.max(2, b.r * swell);
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+      const a = b.a * (0.6 + 0.4 * Math.sin(b.phase * 0.7)) * presence * (0.5 + dispIntensity);
+      g.addColorStop(0, `hsla(${(b.hue + fxClock * 6) % 360},70%,68%,${Math.max(0, a)})`);
+      g.addColorStop(1, 'hsla(0,0%,60%,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
       ctx.fill();
     }
     return;
@@ -263,6 +422,59 @@ function drawBase(dt, w, h) {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    return;
+  }
+
+  if (active === 'static') {
+    // Re-rolls alpha per particle per frame. The grain does not move, it
+    // reconsiders, which is the difference between snow and noise.
+    for (const p of particles) {
+      p.flick += dt * 40;
+      const a = p.a * (0.35 + 0.65 * Math.abs(Math.sin(p.flick))) * presence;
+      ctx.fillStyle = `rgba(228,232,238,${a})`;
+      ctx.fillRect(p.x, p.y, p.r * 2, p.r * 2);
+    }
+    return;
+  }
+
+  if (active === 'tracers') {
+    // The trail is drawn from the point back along its own velocity, so it
+    // always lags the direction of travel rather than pointing anywhere fixed.
+    ctx.lineCap = 'round';
+    for (const p of particles) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.x < -40) p.x = w + 40; else if (p.x > w + 40) p.x = -40;
+      if (p.y < -40) p.y = h + 40; else if (p.y > h + 40) p.y = -40;
+      const sp = Math.hypot(p.vx, p.vy) || 1;
+      const tx = p.x - (p.vx / sp) * p.len, ty = p.y - (p.vy / sp) * p.len;
+      const g = ctx.createLinearGradient(p.x, p.y, tx, ty);
+      const a = p.a * presence;
+      g.addColorStop(0, `hsla(${(p.hue + fxClock * 20) % 360},80%,70%,${a})`);
+      g.addColorStop(1, 'hsla(0,0%,70%,0)');
+      ctx.strokeStyle = g;
+      ctx.lineWidth = p.r;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+    return;
+  }
+
+  if (active === 'crawl') {
+    // Every point creeps around its own origin on a shared slow field. Nothing
+    // travels; the surface is just never where it was.
+    for (const p of particles) {
+      p.phase += p.sway * dt;
+      p.ox = Math.sin(p.phase) * p.amp;
+      p.oy = Math.cos(p.phase * 0.83) * p.amp * 0.7;
+      const a = p.a * (0.6 + 0.4 * Math.sin(p.phase * 1.3)) * presence;
+      ctx.fillStyle = `rgba(196,186,208,${Math.max(0, a)})`;
+      ctx.beginPath();
+      ctx.arc(p.x + p.ox, p.y + p.oy, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     return;
   }
 
@@ -410,6 +622,7 @@ function drawArcs(dt) {
 
 function draw(dt) {
   const w = paneRect.width, h = paneRect.height;
+  fxClock += dt;
   updateTransition(dt);
   ctx.clearRect(0, 0, w, h);
   drawBase(dt, w, h);
@@ -650,3 +863,40 @@ export function initWeatherFx() {
   });
   // The rAF loop already re-syncs the rect each frame; nothing else to wire.
 }
+
+// ── Test hook ────────────────────────────────────────────────────────────────
+// The renderer's state is module-private and the effects are only reachable
+// through a live rAF loop over a real pane, which is exactly why the drug
+// symptoms had no coverage of any kind when they were added. This drives one
+// effect through seed + N frames against a caller-supplied 2D context, so
+// scripts/shapes/weatherfx-smoke.mjs can prove every name in ALL_FX actually
+// draws something instead of silently doing nothing.
+//
+// ⚠ An unknown effect name is NOT an error at runtime: drawBase falls through
+// to the snow/ash path and quietly draws nothing recognisable. That is the whole
+// reason this hook returns a draw count rather than just "did it throw".
+export const _test = {
+  ALL_FX, WEATHER_FX, DRUG_FX,
+  runEffect(name, testCtx, { width = 320, height = 200, intensity = 0.8, frames = 12, dt = 1 / 60 } = {}) {
+    const savedCtx = ctx, savedRect = paneRect, savedActive = active;
+    const savedPres = presence, savedInt = dispIntensity, savedCur = cur;
+    const savedParticles = particles, savedBlobs = fogBlobs;
+    try {
+      ctx = testCtx;
+      paneRect = { width, height, left: 0, top: 0 };
+      active = name;
+      cur = { effect: name, intensity, windKph: 20 };
+      presence = 1;
+      dispIntensity = intensity;
+      particles = [];
+      fogBlobs = [];
+      reseed();
+      for (let i = 0; i < frames; i++) { fxClock += dt; drawBase(dt, width, height); }
+      return { particles: particles.length, blobs: fogBlobs.length };
+    } finally {
+      ctx = savedCtx; paneRect = savedRect; active = savedActive;
+      presence = savedPres; dispIntensity = savedInt; cur = savedCur;
+      particles = savedParticles; fogBlobs = savedBlobs;
+    }
+  },
+};

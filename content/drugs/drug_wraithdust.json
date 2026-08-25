@@ -74,6 +74,21 @@
       "gain_per_dose": 0.3,
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0002
+    },
+    "withdrawal": {
+      "message": "The people it introduced you to did not leave when it did.",
+      "mods": {
+        "stat_brains": -1,
+        "stat_cool": -2
+      },
+      "onset_seconds": 1800,
+      "stages": {
+        "easing": "They go back to only turning up when the light is bad.",
+        "onset": "The hot metal smell is in the room. There is no hot metal in the room.",
+        "peak": "They are waiting in the doorway, being polite about it, and the doorway is empty and you know the doorway is empty.",
+        "rising": "You hear your own name in a conversation nobody is having.",
+        "tail": "Nobody in the doorway. You still say hello to it once a day, quietly, in case."
+      }
     }
   },
   "flags": {

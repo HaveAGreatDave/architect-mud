@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Foreman Duc wants a piece run in. Not tested — run in, out in the world, doing work, by somebody with a pulse and a poor sense of self-preservation. He is explicit that the piece comes back. He is noticeably less explicit about you.",
+  "description": "There is a calibration set to go into a unit on the underwriting floor, and Kesh would rather you did it than one of his technicians.\n\nThe unit is one of nine that price mortality for the eastern districts. It reads a body and returns a figure, and the figure is what a person is charged to be kept alive. Kesh explains none of that, because to Kesh it is a mount with a set going into it.\n\nHe gives you the tolerance, the torque, and the order of operations — and mentions, once, in passing, on his way to something else, that the part is within tolerance and the mount is not.\n\nHe does not tell you what to do about that. He watches your hands from across the room while pretending to read.",
   "fail_on": [
     {
       "desc": "Something came apart on you out there. Duc wanted the numbers, and now he has different ones.",
@@ -13,14 +13,20 @@
   "objectives": [
     {
       "count": 1,
-      "desc": "Have the trial piece fitted at the clinic.",
+      "desc": "Fit the calibration set to the unit on the underwriting floor.",
+      "emotes": [
+        "{who} lays the set out in order before touching anything, which is either training or temperament.",
+        "{who} finds the mount is out by the width of a fingernail, and stops.",
+        "{who} does it properly, which takes eleven minutes longer than doing it."
+      ],
       "id": "o_fit",
       "type": "install"
     },
     {
-      "desc": "Bring it back to the line and let Duc read it off you.",
+      "desc": "Run the unit up and report the result.",
       "emotes": [
-        "{who} stands still while a man with chrome arms listens to something inside them."
+        "{who} brings it up to load and holds it there longer than the sheet asks for.",
+        "{who} reports the mount, and Kesh says \"yes\" in the voice of a man ticking a box he had already drawn."
       ],
       "id": "o_run",
       "requires": [
@@ -36,20 +42,20 @@
   "repeatable": 0,
   "rewards": {
     "credits": 175,
-    "rep": [
-      {
-        "delta": 70,
-        "ideology": "ideology_ascendants"
-      }
-    ],
-    "xp": 28,
     "flags": [
       {
         "flag": "asc_arc",
         "scope": "player",
         "value": "4"
       }
-    ]
+    ],
+    "rep": [
+      {
+        "delta": 70,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 28
   },
   "updated_at": "1787377233"
 }

@@ -241,6 +241,32 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   while still addicted. Per-drug overrides ride the `withdrawal` block. `player._withdrawalActive` is a
   **Map** of `drugId → applied-mod signature` so an unchanged severity doesn't churn the ledger through a
   reverse-and-reapply every minute.
+- **The arc is now SAID, not only felt (`withdrawal.stages`)** — added 2026-08-25. The severity curve
+  above runs for the better part of eight hours and the player used to be told about exactly one moment
+  of it: `withdrawal.message`, fired once on first bite. An eight-hour shape read as a debuff that
+  switched on. `withdrawal.stages` is an optional map of **five beats** — `onset · rising · peak ·
+  easing · tail` — and a line fires when the beat changes. ⚠ **The beat is derived from the clock, not
+  from severity**, via `withdrawalPhase()`: severity is a hill that climbs to 1 and comes back down the
+  far side, so a band on the number alone cannot tell going-in from coming-out, and those are the two
+  beats that feel least alike. ⚠ The emission sits **outside** the mod-signature check, because the
+  signature churns every minute as severity drifts and a plateau can leave it unchanged for hours —
+  tying the line to it would either repeat constantly or be swallowed. `message` is **not** superseded:
+  it is the one-line summary the drug-knowledge card shows for `DRUG_FACTS.WITHDRAWAL`, which is a
+  different question from what today feels like. A drug with no `stages` still fires `message` at onset
+  exactly as before. `player._withdrawalPhase` mirrors `_withdrawalActive` at all four lifecycle points
+  — init, re-dose, stop, death/clone — because **a relapse restarts the sequence rather than resuming
+  it**.
+
+  The house rule for writing one is in [reference/plain-writing.md](reference/plain-writing.md), and it
+  is a correction: De Quincey is emphatic that withdrawal is **not low spirits and not a wanting** —
+  "the mere animal spirits are uncommonly raised: the pulse is improved: the health is better. It is not
+  there that the suffering lies." It is specific, bodily and undignified. `scripts/content/withdrawal-stages.mjs`
+  enforces that with a banned-phrase check, since nearly every message it replaced was about mood or appetite.
+- ⚠ **Thirteen drugs can still addict a player and then do nothing**, because the withdrawal tick is
+  gated on `wd.mods` and they have no withdrawal block at all. All are at `addiction_chance ≤ 0.1` and
+  mostly psychedelics, where near-zero dependency is the correct design — so this is a known, listed
+  gap rather than an oversight. `scripts/content/withdrawal-stages.mjs` prints the current list on every
+  run. `drug_ether` (0.15) and `drug_static` (0.18) were the two that mattered and now have blocks.
 - **Polydrug load** (`flags.drug_class`) — drugs of the same class share one ceiling, because they
   depress (or drive) the same system. Every same-class drug contributes its `doses_in_system` as a
   **fraction of its own tolerance-scaled ceiling**, and you overdose when the total reaches 1. For a

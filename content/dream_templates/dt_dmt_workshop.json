@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "Things are being made here at a speed that has nothing to do with hands. One of the things is the room, and one of the things is the next few seconds. Nobody stops working to look at you. Being allowed to stand here while it happens is the courtesy you are being shown.",
   "drug_id": "drug_dmt",
-  "fx": "snow",
-  "fx_intensity": 0.9,
+  "fx": "crawl",
+  "fx_intensity": 0.7,
   "id": "dt_dmt_workshop",
   "name": "The Workshop",
   "objects": [

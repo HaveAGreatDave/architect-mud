@@ -31,7 +31,7 @@
           "next": "root"
         }
       ],
-      "text": "\"A cortical backup is the summit augment; a policy from Halcyon is the fuel. Save your state here, keep your account paid, and death becomes a formality we handle while you sleep. Lapse the account, and you die like anyone else — messily, and only once.\" A gentle pause. \"The full service comes online with a later refit. For now, consider this your introduction.\""
+      "text": "\"A cortical backup is the summit augment; a policy from Halcyon is the fuel. Save your state here, keep your account paid, and death becomes a formality — one we handle while you sleep, and bill for afterwards, and never once discuss with you again.\"\n\nThe warm light does not change at all for the next part.\n\n\"Lapse the account, and you die like anybody else. Messily, and only once.\"\n\nA gentle pause.\n\n\"The full service comes online with a later refit. For now, consider this your introduction.\""
     },
     "root": {
       "options": [
@@ -44,7 +44,7 @@
           "next": "bye"
         }
       ],
-      "text": "The shell brightens as you enter. \"Welcome to the Registry. I hold the only copy of you that will outlast the accident. Shall I explain the terms?\""
+      "text": "The shell brightens as you enter.\n\n\"Welcome to the Registry. I hold the only copy of you that will outlast the accident — and there is always an accident, statistically, eventually. Shall I explain the terms?\""
     }
   },
   "faction": "ideology_ascendants",

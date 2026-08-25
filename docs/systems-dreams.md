@@ -110,6 +110,55 @@ an instance costs no schema and no cleanup beyond forgetting it.
   `{effect:'none'}` on the way out is what hands the real weather back. None of it touches the weather
   sim — gear, temperature and the hazard channels are unaffected.
 
+#### The fx vocabulary is weather **and** symptoms
+
+Extended 2026-08-25. The canvas used to speak only weather — `rain snow ash fog wind` — so a drug
+dream had to borrow one, and "what a drug looks like" was in practice "which weather did the author
+pick". DMT got `snow`; the k-hole got `fog`; nitrous got nothing at all. That mattered more than it
+sounds, because **this canvas is the only visual layer a trip has on foot**: `flight-drugfx.js` owns
+the cockpit view and `#trip-overlay` is CSS colour, so nothing else was available.
+
+Six symptoms now sit beside the five weathers, each replicating one thing its drugs do to sight —
+the same law the withdrawal prose is written to, the specific event rather than the mood:
+
+| fx | The symptom | Where it went |
+|---|---|---|
+| `static` | the grain between channels | dead air, wraithdust, DXM corridors |
+| `tunnel` | the field closing from the edges | the k-hole, opiates, the plateau |
+| `tracers` | moving things drag their own past | stimulants, out-of-sync, the screening |
+| `bloom` | light swelling and subsiding | DMT, thresholds, cathedrals |
+| `crawl` | surfaces that will not sit still | salvia, DMT workshops |
+| `swim` | the room refusing to hold still | nitrous, carousels, shallow ends |
+
+**The split that decides where a new effect goes: weather falls from somewhere and leaves at an
+edge; a symptom is already behind the eye.** Weather particles are seeded above the pane and recycle
+off the bottom; symptom particles are seeded across the whole pane and recycle in place. Both run
+through the same presence/intensity easing, so a symptom comes up and goes off exactly the way a
+shower does.
+
+⚠ **Anything that WARPS the world cannot live here.** The canvas is an overlay and cannot touch what
+is underneath it, so the drunk sway and the psychedelic breathing belong to `flight-drugfx.js` (which
+owns the flight canvas) or to the CSS overlay. What lives here is strictly additive: grain, trails,
+closure, swell.
+
+⚠ **An unknown fx name renders nothing and looks exactly like "no effect wanted".** That is not
+hypothetical — `dream_the_hundred_years` shipped with `fx: ''`, which is invisible in play and was
+caught only because `plugins/bodily/regress.js` pins the vocabulary. Two gates now: that list, and
+[scripts/shapes/weatherfx-smoke.mjs](../scripts/shapes/weatherfx-smoke.mjs), which runs every named
+effect for a dozen frames against a counting 2D context and fails if one of them puts no paint down.
+Keep `VALID_FX` there in step with `WEATHER_FX`/`DRUG_FX` in `weather-fx.js`.
+
+⚠ **A sparse effect rounds to zero on a small pane**, and zero is not subtle, it is absent. `tracers`
+computed 0.4 particles at a phone-sized pane on a low dose and drew nothing while the game believed
+the player was high; the drug effects now floor at one particle whenever they are present. **Weather
+was deliberately left alone** — `wind` has the same behaviour below roughly 700×400, and changing it
+is a visible change to ordinary weather on every small screen, which is a separate decision.
+
+⚠ **The canvas is gated on the WeatherFX setting** (weather on + motion on), so a player who turns
+off weather ambience currently loses drug symptoms with it. Motion-gating is right; weather-gating a
+pharmacological cue probably is not. Not changed here, because it is an accessibility-adjacent
+default and worth deciding on purpose.
+
 ### Where your body is *(the load-bearing part)*
 
 **`current_zone` is where your mind is. `zone.players` is where your body is.** Entering a dreamscape

@@ -39,7 +39,14 @@
         "stat_cool": -3,
         "stat_endurance": -3
       },
-      "onset_seconds": 600
+      "onset_seconds": 600,
+      "stages": {
+        "easing": "It steps back far enough to be looked at, which is not the same as going.",
+        "onset": "A cold spot opens between your shoulder blades and stays there.",
+        "peak": "The pain grey was taking is all still there and has been the whole time, waiting, with interest on it.",
+        "rising": "Every joint you own reports in. Nothing is injured. Everything is present.",
+        "tail": "You are functional and about a quarter of you is somewhere else, listening for it."
+      }
     }
   },
   "flags": {

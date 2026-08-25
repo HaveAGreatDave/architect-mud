@@ -68,7 +68,7 @@
           "next": "bye"
         }
       ],
-      "text": "Something almost like approval crosses her face. \"Noticed that, did you.\" She adjusts the sling. \"Things that breed down here breed toward the warm. Somebody decided a while back that they weren't going to breed toward this particular warm.\" She starts walking. \"That's all you get from me tonight.\""
+      "text": "Something almost like approval crosses her face.\n\n\"Noticed that, did you.\" She adjusts the sling. \"Things that breed down here breed toward the warm. Somebody decided a while back that they were not going to breed toward this particular warm.\"\n\nShe starts walking.\n\n\"That is all you get from me tonight.\""
     },
     "quiet_accept": {
       "actions": [
@@ -96,7 +96,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a man on Foundry Way counting doorways.\" Teague says it flatly. \"Municipal. Damp. Harmless as a person and not harmless as a ledger, because in six weeks somebody upstairs will have a list of every door in the quarter that opens.\"\n\n\"Stop the counting. Leave the counter.\" Her eyes come up. \"I want to be understood on the second half. We do not leave bodies. Not because we are gentle — because a body is a reason for somebody to come and look, and looking is the only thing that has ever hurt us.\""
+      "text": "\"There is a man on Foundry Way counting doorways.\" Teague says it flatly. \"Municipal. Damp. Harmless as a person and not harmless as a ledger, because in six weeks somebody upstairs will have a list of every door in the quarter that opens.\"\n\n\"Stop the counting. Leave the counter.\"\n\nHer eyes come up.\n\n\"I want to be understood on the second half. We do not leave bodies. Not because we are gentle. Because a body is a reason for somebody to come and look, and looking is the only thing that has ever hurt us.\""
     },
     "quiet_report": {
       "actions": [
@@ -111,7 +111,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"And he is breathing.\" She does not make you say it twice. \"Good. In a month he will tell it as the night he was mugged on Foundry Way, which is a story nobody investigates.\""
+      "text": "\"And he is breathing.\" She does not make you say it twice. \"Good. In a month he will tell it as the night he got mugged on Foundry Way, which is a story nobody investigates.\""
     },
     "root": {
       "first": "She has been standing in the dark long enough to have watched you arrive. When she finally speaks it is from somewhere off to your left. \"Middle of the tunnel,\" she says. \"Nothing good stands where you are standing.\" She steps into your light: oilskins, carbine, no particular hurry.",
@@ -171,11 +171,45 @@
           "next": "quiet_report"
         },
         {
+          "_src": "lw_vigil",
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "They say there is a town of them, south.",
+          "next": "south"
+        },
+        {
           "label": "Nothing.",
           "next": "bye"
         }
       ],
-      "text": "She stops a comfortable distance off, carbine still slung, and looks at you with the patience of somebody who has all night. \"You're a long way in,\" she says. \"Most people don't get this deep and stay this healthy.\""
+      "text": "She stops a comfortable distance off, carbine still slung, and looks at you with the patience of somebody who has all night.\n\n\"You are a long way in,\" she says. \"Most people do not get this deep and stay this healthy.\""
+    },
+    "south": {
+      "options": [
+        {
+          "label": "They have children.",
+          "next": "south_children"
+        },
+        {
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "She does not answer straight away.\n\n\"Eleven years I have been down here. In that time I have put down a bit over four hundred things that used to be something else, and not once have I had to stop and work out which was which. You know on sight. That is the whole of my expertise and it has never been wrong.\"\n\nShe adjusts the sling.\n\n\"So somebody tells me there is a town of them out past the Curtain. Wall round it. A gate. Children in it, they say.\"\n\nA beat.\n\n\"What I hear is a nest that has learned to keep house.\"\n\n\"I know how that sounds. Rennick has explained it to me at length, twice. He is a better man than I am and I still think he is wrong.\"\n\nShe starts walking.\n\n\"Go south if you like. They all come back telling me I have it wrong. Not one of them has ever told me what I was supposed to have done with the four hundred.\""
+    },
+    "south_children": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They do.\" She does not slow down. \"So did the block on Ferrier Street, and I went in there too.\"\n\nThe lantern on her belt is still unlit. She has not needed it once.\n\n\"You want me to say the word that makes it all right. I have not got one. I have got a tunnel and a rifle and eleven years, and none of the three has ever asked me for a reason.\""
     },
     "teach": {
       "options": [
@@ -184,7 +218,7 @@
           "next": "bye"
         }
       ],
-      "text": "Teague looks at you for long enough that the lantern on her belt stops swinging.\n\n\"Someone sent you all the way down here, so someone thinks you are worth the walk.\" She unslings the carbine and leans it against the wall, muzzle down, which is not a small thing. \"Moving. Pain. Keeping your head. Fighting, when it comes to that, and it does.\"\n\n\"There is no ceiling on what I can show you and there is a hard one on what you can hold, and it is your own body, and you brought it here yourself. `train` and name the thing.\""
+      "text": "Teague looks at you for long enough that the lantern on her belt stops swinging.\n\n\"Somebody sent you all the way down here, so somebody thinks you are worth the walk.\"\n\nShe unslings the carbine and leans it against the wall, muzzle down.\n\n\"Moving. Pain. Keeping your head. Fighting, when it comes to that, and it does.\""
     },
     "work": {
       "options": [

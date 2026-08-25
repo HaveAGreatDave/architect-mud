@@ -44,7 +44,14 @@
         "stat_cool": -2,
         "stat_reflexes": -2
       },
-      "onset_seconds": 900
+      "onset_seconds": 900,
+      "stages": {
+        "easing": "The world comes back up to its own speed, which turns out to have been the speed the whole time.",
+        "onset": "Your teeth find each other and start working.",
+        "peak": "Your heart has been going for no reason since you sat down, and sitting down was supposed to be the answer.",
+        "rising": "Everything is slow. The lift, the door, the person in front of you, all of it, and none of it actually is.",
+        "tail": "Baseline. It reads as slow because you have spent a fortnight being wrong about what fast is."
+      }
     }
   },
   "flags": {

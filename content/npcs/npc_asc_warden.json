@@ -32,7 +32,7 @@
           "next": "root"
         }
       ],
-      "text": "\"No. You carry no clearance and too much flesh. Speak to the recruiter if you wish that to change. Do not run the line. The turrets are not rhetorical.\""
+      "text": "\"No. You carry no clearance and too much flesh — a condition, not a verdict, and conditions are the sort of thing that get solved.\"\n\nThe scanline moves off you and does not come back.\n\n\"Speak to the recruiter if you wish that to change. Do not run the line. The turrets are not rhetorical.\""
     },
     "root": {
       "options": [
@@ -49,7 +49,7 @@
           "next": "bye"
         }
       ],
-      "text": "The chrome unit registers you without warmth. \"Warden Unit designation Threshold. State nothing. I have already read everything about you that matters.\""
+      "text": "The chrome unit registers you without warmth.\n\n\"Warden Unit, designation Threshold. State nothing — I have already read everything about you that matters, and I read it before you were close enough to be nervous.\""
     },
     "what": {
       "options": [
@@ -58,7 +58,7 @@
           "next": "root"
         }
       ],
-      "text": "\"This is the beginning of the Ascendants, and the end of what you currently are. Past this Gate the meat becomes something worth keeping. You are, at present, only meat.\""
+      "text": "\"This is the beginning of the Ascendants — and the end of what you currently are, which are the same event described from two sides.\"\n\nThe scanline holds on you, unhurried.\n\n\"Past this Gate the meat becomes something worth keeping. You are, at present, only meat. That is not an insult. It is a reading.\""
     }
   },
   "faction": "ideology_ascendants",

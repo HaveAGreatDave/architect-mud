@@ -730,7 +730,13 @@ export default async function regress({ run, check, getPlayer }) {
   // ignoring both the real weather and the indoor gate. Ash falling in a windowless
   // corridor is the point: it SHOWS the rules are off instead of saying so.
   check('dream rooms drive the FX canvas', await pool(`SELECT 1 FROM dream_templates WHERE fx IS NOT NULL`) >= 25);
-  const VALID_FX = ['rain', 'snow', 'ash', 'fog', 'wind', 'none'];
+  // Weather + the drug symptoms added 2026-08-25. ⚠ Keep in step with WEATHER_FX
+  // / DRUG_FX in client/game/js/panels/weather-fx.js — an unknown name renders
+  // nothing at all, so a typo is invisible in play and this is the only thing
+  // that will ever say so. scripts/shapes/weatherfx-smoke.mjs proves each of
+  // these actually puts paint down.
+  const VALID_FX = ['rain', 'snow', 'ash', 'fog', 'wind', 'none',
+                    'static', 'tunnel', 'tracers', 'bloom', 'crawl', 'swim'];
   const badFx = (await q(`SELECT id, fx FROM dream_templates WHERE fx IS NOT NULL`)).rows
     .filter(r => !VALID_FX.includes(r.fx));
   // weather-fx.js silently renders nothing for an unknown effect name, so a typo

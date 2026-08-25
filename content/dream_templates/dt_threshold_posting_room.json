@@ -7,7 +7,7 @@
   "cause": "drug",
   "description": "A long counter, and something behind it is folding you down along creases that were already there, competently, into a shape that will fit inside an ordinary day. It is not unkind and it is not rushed. There is a queue behind you and everything in it has been somewhere enormous.",
   "drug_id": "drug_threshold",
-  "fx": "wind",
+  "fx": "static",
   "fx_intensity": 0.45,
   "id": "dt_threshold_posting_room",
   "name": "The Posting Room",

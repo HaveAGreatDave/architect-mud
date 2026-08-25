@@ -1,15 +1,17 @@
 {
   "category": null,
-  "description": "Celebrant Orrin will walk you to the Uplink himself, which he does not do often. There is a terminal set into the Curtain where hard light meets cold glass, and what happens at it is not a metaphor: your pattern is already held, your account is current, and the only thing still in the way is the body. Orrin says none of that. He says it will be over quickly and that you will not be alone, and both are true.",
+  "description": "Your backup is taken in the morning and is very boring. The Rite is in the evening and is not.\n\nYou go up to the Nave and somebody reads the words, and about two thirds of the way through he loses his place — properly loses it, shuffles the card, apologises, and finishes the last part from memory in the voice of a man saying a thing he means rather than a thing he has learned.\n\nThen you go to the Uplink and you die there, on purpose, on schedule, with the claim already filed. Somewhere below you a tank that has been quietly paid up since the day of the tour opens on a body with your face on it.\n\nThey will not do it while the police want you, and Vess is apologetic but immovable about that. A claimed death is an administrative act — and the law does not recognise administration.",
   "fail_on": [],
   "id": "quest_asc_rite",
   "meta": {},
   "name": "The Rite of Ascension",
   "objectives": [
     {
-      "desc": "Stand in the Nave with Orrin while the racks are made ready.",
+      "desc": "Go up to the Nave for the reading.",
       "emotes": [
-        "{who} stands among the humming racks and lets a gaunt, delighted man explain what is about to happen to them."
+        "{who} sits in the second row because the first row is for people with families here.",
+        "{who} listens to a man lose his place in the most important thing he says all year.",
+        "{who} hears the last part done from memory, and finds it is better that way, and cannot say why."
       ],
       "id": "o_nave",
       "taskSeconds": 10,
@@ -17,10 +19,10 @@
       "zone": "zone_asc_shrine_nave"
     },
     {
-      "desc": "Take your place at the Uplink, where the Curtain meets the glass.",
+      "desc": "Go to the Uplink.",
       "emotes": [
-        "{who} puts both hands flat on the terminal and the hum stops being a sound.",
-        "{who} does not look away from the white fire, which is harder than it sounds."
+        "{who} walks up a corridor that is carpeted the whole way, which somebody thought about.",
+        "{who} is asked to confirm their name, and confirms it. That is the whole ceremony."
       ],
       "id": "o_uplink",
       "requires": [
@@ -32,7 +34,12 @@
     },
     {
       "count": 1,
-      "desc": "Ascend. (`ascend` at the Uplink terminal. It tells you what it costs before it does it.)",
+      "desc": "Die at the Uplink, and be printed.",
+      "emotes": [
+        "{who} finds it is quick, and that being ready for it does not make it quick enough.",
+        "{who} opens their eyes in a warm room with the drain still running.",
+        "{who} is handed a towel, and then a form, and the form is the part that means it worked."
+      ],
       "id": "o_ascend",
       "requires": [
         "o_uplink"

@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "You are being taken apart by something with no opinion about you, into piles that are the correct piles. It is being done properly and nothing is being damaged. You watch a category of yourself get set down next to the others, and it looks tidier over there.",
   "drug_id": "drug_khole",
-  "fx": "snow",
-  "fx_intensity": 0.5,
+  "fx": "static",
+  "fx_intensity": 0.6,
   "id": "dt_khole_dismantling",
   "name": "The Careful Dismantling",
   "objects": [

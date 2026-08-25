@@ -264,19 +264,34 @@ height, give you a reason to be there a long time, and see whether you come back
 the same shape. The **stain** (`purity.js`, which decays rather than clearing) is
 what stops you renting chrome for the trip.
 
-### 8d. The rite needs no verb, and that is the point
+### 8d. The rite needs no verb, and that is the point — DESIGN, NOT BUILT
 
-`quest_lw_rite` — **The Long Watch**. Pike gets off the stool and does not come
-back. One objective: a `visit` to The Blind with `taskSeconds: 180`.
+⚠ **Corrected 2026-08-25. This section described a quest that does not exist,
+and named one that does.** It read: "`quest_lw_rite` — **The Long Watch**. Pike
+gets off the stool and does not come back. One objective: a `visit` to The Blind
+with `taskSeconds: 180`." None of that is in the content tree. `quest_lw_rite`
+is the **faction-arc slot 10** ([systems-faction-arcs.md](systems-faction-arcs.md)):
+five objectives, a charge, the vat colonnade, Verity Ives at the gate and a run
+home. It has no `taskSeconds` at all, and the longest tile task anywhere in the
+quest tree is **90 seconds**, in `quest_lw_meet`. Same failure mode as the
+`mastery_instructor` case two sections up — a design written down in the present
+tense and then read back as shipped.
 
-The Ascendants needed `ascend` because dying has to be *triggered*. Standing a
-watch is the **absence of action**, so the engine's existing rule that any
-non-passive command cancels a tile task **is** the test. There is no failure
-message and no penalty — you simply sit it again, which is the most Long Watch
-outcome available. Zero new code.
+**What actually ships** is `quest_lw_fav_sit` (*A Turn on the Blind*): a
+**repeatable favour**, one `visit` to `zone_lw_blind`, `taskSeconds: 30`, +40
+standing. It is the same idea at a tenth of the length and none of the weight —
+a chore, not a rite.
 
-Gated on membership, the loyalty test, Inner Circle standing, **and the new
-`mastery` condition shape** — `{ mastery: 'any', min: 25, pure: true }`.
+**The design below is still the right one and is worth building.** The Ascendants
+needed `ascend` because dying has to be *triggered*. Standing a watch is the
+**absence of action**, so the engine's existing rule that any non-passive command
+cancels a tile task **is** the test. There is no failure message and no penalty —
+you sit it again, which is the most Long Watch outcome available. Zero new code.
+
+If it is built it wants its own quest id rather than `quest_lw_rite`, which is
+spoken for, and the gate described here — membership, the loyalty test, Inner
+Circle standing, and `{ mastery: 'any', min: 25, pure: true }` — is a **mastery**
+gate, not an arc gate. It belongs to the instructor ladder, not to slot 10.
 
 ### 8e. The `mastery` condition shape
 

@@ -1,5 +1,5 @@
 {
-  "addiction_chance": 0.02,
+  "addiction_chance": 0,
   "description": "Seventy-five pellets rattle in a little tin. You only need a few.",
   "duration_seconds": 480,
   "effects": {

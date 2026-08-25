@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Halcyon does not delete a lapsed account, it keeps the copy and stops paying to run it, and there is a sub-registrar in the Vats who has spent nine years filing the ones nobody is coming back for. She will hand the Watch the whole archive. She will not do it from inside that building, and she cannot run. Get in without putting a floor supervisor in the ground, and walk her out to the Threshold at her pace.",
+  "description": "There is a clerk in the Vats Registry called Nine who has been sending the Watch small true things for four months, and this morning he sent one word.\n\nThe Quartermaster does not dress it up. He is a clerk. He is not brave. He has an eleven-year account and about two hours before somebody upstairs reads the log she has just read.\n\n\"Get in, get his file off the ledger, get him out on his feet. He will want to talk on the way. Let him.\"",
   "fail_on": [
     {
       "count": 900,
@@ -30,7 +30,8 @@
       "desc": "Get into the Registry in the Vats and stand the floor long enough to be sure it is between rounds.",
       "emotes": [
         "{who} keeps very still by the Registry door and listens to a supervisor's shoes going the other way.",
-        "{who} counts the gaps in the rounds and does not like the number."
+        "{who} counts the gaps in the rounds and does not like the number.",
+        "{who} stands under a poster about the importance of continuous coverage and waits it out."
       ],
       "id": "o_infil",
       "taskSeconds": 6,
@@ -39,10 +40,11 @@
     },
     {
       "count": 1,
-      "desc": "Pull the lapse archive off the Registry terminal. Quietly.",
+      "desc": "Pull Nine's file off the Registry ledger.",
       "emotes": [
-        "{who} works the Registry terminal with one eye on the door.",
-        "{who} watches a column of eleven thousand names copy across, and stops reading them."
+        "{who} finds the account in nineteen seconds, because it is filed exactly where an account is filed.",
+        "{who} reads two lines of an eleven-year record and stops reading.",
+        "{who} takes the file and leaves the drawer open, having decided open is faster than tidy."
       ],
       "id": "o_ledger",
       "requires": [
@@ -53,7 +55,11 @@
     },
     {
       "count": 1,
-      "desc": "Talk to Sub-Registrar Nine. Once she steps out from behind that desk there is no version of this where nobody notices.",
+      "desc": "Find Nine and give him the word.",
+      "emotes": [
+        "{who} says the word and watches a man decide, in about a second, that he meant it four months ago.",
+        "{who} waits while he puts the cover on his terminal, which is not necessary and takes him nine seconds."
+      ],
       "id": "o_word",
       "requires": [
         "o_ledger"
@@ -63,10 +69,12 @@
     },
     {
       "count": 1,
-      "desc": "Walk Nine out to the Threshold. She moves when you move and no faster, and Halcyon has opened a recovery.",
+      "desc": "Walk Nine out of the Vats.",
       "emotes": [
-        "{who} matches Nine's pace, which is slower than {who} would like.",
-        "{who} checks the road behind them again."
+        "{who} keeps a pace ahead of him and does not turn round at the sound of his breathing.",
+        "{who} listens to him explain, quietly and at length, that the coverage was genuinely very good.",
+        "{who} hears him work out aloud that he does not know what he is going to do about his teeth now.",
+        "{who} gets him through the last door and finds he has stopped talking on his own."
       ],
       "id": "o_out",
       "requires": [
@@ -78,7 +86,10 @@
     },
     {
       "count": 1,
-      "desc": "Put the slate in Cyrelle's hands.",
+      "desc": "Hand Nine and his file over at the Blind.",
+      "emotes": [
+        "{who} puts the file on the counter and a man beside it, in that order, because that is the order they were asked for."
+      ],
       "id": "o_hand",
       "item_id": "item_lapse_slate",
       "requires": [

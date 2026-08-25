@@ -27,7 +27,7 @@
           "next": "bye"
         }
       ],
-      "text": "She is sitting on a crate with the slate on her knees, in a room with no eye in the ceiling, and she has been staring at that ceiling for some time. \"They file us by designation because a designation can be reassigned and a name cannot.\" She looks up. \"Ilva. It was Ilva, before the Registry. You are the first person to be told that in nine years, so I would appreciate it if you used it.\""
+      "text": "She is sitting on a crate with the slate on her knees, in a room with no eye in the ceiling, and she has been staring at that ceiling for some time.\n\n\"They file us by designation, because a designation can be reassigned and a name cannot.\"\n\nShe looks up.\n\n\"Ilva. It was Ilva, before the Registry. You are the first person to be told that in nine years, so I would take it as a kindness if you used it.\""
     },
     "bye": {
       "options": [],
@@ -55,7 +55,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then we go now, while the floor is between rounds.\" She puts the slate into your hands, and does not let go of it immediately. \"You carry it. If this goes badly I would rather it was not found on me, and I cannot run holding it anyway.\" She comes out from behind the desk, smaller than the shell made her look, and falls in at your shoulder. \"Slowly. Please. If we run we look like something worth stopping, and I have spent nine years learning exactly what this building stops.\""
+      "text": "\"Then we go now, while the floor is between rounds.\"\n\nShe puts the slate into your hands, and does not let go of it immediately.\n\n\"You carry it. If this goes badly I would rather it were not found on me, and I cannot run holding it in any case.\"\n\nShe comes out from behind the desk, smaller than the shell made her look, and falls in at your shoulder.\n\n\"Slowly. Please. If we run we look like something worth stopping, and I have spent nine years learning exactly what this building stops.\""
     },
     "letter": {
       "options": [
@@ -68,7 +68,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I have written the resignation four times. I never send it.\" She turns the slate over, face up, which is the first careless thing she has ever done in this room. \"Staff are covered by the same instrument as clients. I resign, my account lapses, and the only copy of me stops being a person and becomes inventory — filed by whoever they sit in this chair next. I know the shelf it goes on. I built the shelf.\" Her hands are not steady. \"Everything I am is on this slate. I cannot run carrying it. I have never run anywhere in my life.\""
+      "text": "\"I have written the resignation four times. I never send it.\"\n\nShe turns the slate over, face up, which is the first careless thing she has ever done in this room.\n\n\"Staff are covered by the same instrument as clients. I resign, my account lapses, and the only copy of me stops being a person and becomes inventory — filed by whoever they sit in this chair next. I know the shelf it goes on. I built the shelf.\"\n\nHer hands are not steady.\n\n\"Everything I am is on this slate. I cannot run carrying it. I have never run anywhere in my life.\""
     },
     "root": {
       "options": [
@@ -99,7 +99,7 @@
           "next": "bye"
         }
       ],
-      "text": "The Sub-Registrar does not look up. \"The ledger is closed for the shift. If this is a lapse enquiry, I cannot discuss another party's account, and after that I am sorry, and after that there is nothing else I am permitted to say.\" A pause that runs a beat too long. \"You are not here about an account.\""
+      "text": "The Sub-Registrar does not look up.\n\n\"The ledger is closed for the shift. If this is a lapse enquiry, I cannot discuss another party's account, and after that I am sorry, and after that there is nothing else I am permitted to say.\"\n\nA pause that runs a beat too long.\n\n\"You are not here about an account.\""
     },
     "terms": {
       "options": [
@@ -112,7 +112,7 @@
           "next": "bye"
         }
       ],
-      "text": "Now she looks up. \"Then you know what I file. Not the paid dead — those go in the vat and wake up cross about the queue. I file the other kind.\" Her voice stays perfectly level, which is worse. \"Eleven thousand and forty accounts lapsed, and eleven thousand and forty copies kept. We do not delete them. Deleting them would be a write-off. We keep them, and we stop paying to run them, and upstairs there is a waiting room of relatives making payments on a reunion that Accounts declined in a meeting they were not invited to.\""
+      "text": "Now she looks up.\n\n\"Then you know what I file. Not the paid dead — those go in the vat and wake up cross about the queue. I file the other kind.\"\n\nHer voice stays perfectly level, which is worse.\n\n\"Eleven thousand and forty accounts lapsed, and eleven thousand and forty copies kept. We do not delete them. Deleting them would be a write-off. We keep them, and we stop paying to run them, and upstairs there is a waiting room of relatives making payments on a reunion that Accounts declined in a meeting they were not invited to.\""
     }
   },
   "faction": "ideology_ascendants",

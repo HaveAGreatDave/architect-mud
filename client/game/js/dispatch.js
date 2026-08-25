@@ -1657,7 +1657,8 @@ const handlers = {
 
   // Dream / hallucination particle field. Drives the weather FX canvas directly,
   // ignoring the real weather and the indoor gate — ash falling in a windowless
-  // corridor is the point. { effect: rain|snow|ash|fog|wind|none, intensity }.
+  // corridor is the point. Weather: rain|snow|ash|fog|wind|none. Drug symptoms:
+  // static|tunnel|tracers|bloom|crawl|swim — see weather-fx.js for what each one is.
   dream_fx:   (msg) => { setDreamFx(msg); },
 
   // "This room has no weather and no clock" (plugins/prologue, off flags.prologue).

@@ -42,7 +42,14 @@
         "stat_brawn": -3,
         "stat_endurance": -2
       },
-      "onset_seconds": 1200
+      "onset_seconds": 1200,
+      "stages": {
+        "easing": "It burns down into ordinary nerves, and ordinary nerves are survivable.",
+        "onset": "The fear you were converting into fuel arrives unconverted.",
+        "peak": "Everything is a threat and you have no procedure for any of it, and this is what everybody else has been doing all along without help.",
+        "rising": "Your hands go before your head does. You notice them going and cannot make them stop.",
+        "tail": "You are frightened of things at roughly the correct size again. It is an unfamiliar amount."
+      }
     }
   },
   "flags": {

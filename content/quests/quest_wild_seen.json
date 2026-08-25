@@ -1,15 +1,17 @@
 {
   "category": null,
-  "description": "The Chorus keeps the gate rota and the gate masks, and one of the masks has a lining that has been chafing Ossa Vurn for a month. She has mentioned it to everyone who has come through and nobody has ever picked it up. Pick it up.",
+  "description": "The Chorus keeps the gate rota and the gate masks, and one of the masks has a lining that has been chafing Ossa Vurn for a month. He has mentioned it to everyone who has come through and nobody has ever picked it up.\n\nPick it up.",
   "fail_on": [],
   "id": "quest_wild_seen",
   "meta": {},
   "name": "A Needle and a Free Afternoon",
   "objectives": [
     {
-      "desc": "Restitch the gate mask lining at the north gate",
+      "desc": "Restitch the lining of the gate mask at the north gate.",
       "emotes": [
-        "{who} turns the mask over on their knee and works the quilted lining back onto the rim, one slow stitch at a time."
+        "{who} turns the mask over on their knee and works the quilted lining back onto the rim, one slow stitch at a time.",
+        "{who} borrows a needle from a box of needles kept for exactly this.",
+        "{who} finds the old stitching has been picked out and redone twice already by somebody in a hurry."
       ],
       "id": "o0",
       "requires": [],

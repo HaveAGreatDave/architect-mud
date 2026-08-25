@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The flight above yours reaches its edge, and whoever is on it starts up the next one.",
+    "Somewhere far below, a step you took a long time ago is taken again.",
+    "The gloom at the top resolves into more of it."
+  ],
+  "cause": "dream",
+  "description": "A flight of stairs up the inside of a hall too big to have a far side, and at the top of it the stairs stop, with no rail and nothing after them. Above that there is another flight, and somebody is already climbing it. Above that there is another. You have been going up for a while. You are also, quite clearly, on all of the others.",
+  "drug_id": null,
+  "fx": "fog",
+  "fx_intensity": 0.5,
+  "id": "dream_the_stairs",
+  "name": "The Stairs",
+  "objects": [
+    {
+      "looks": [
+        "They go up. At the top they simply stop being stairs, and there is a great deal of hall underneath.",
+        "Worn in the middle, the way stairs go when a lot of people have used them, or one person has used them a lot.",
+        "You count them on the way up and get a different number each time, and both numbers are right."
+      ],
+      "name": "the stairs"
+    },
+    {
+      "looks": [
+        "Working steadily, some way up, not hurrying and not looking down.",
+        "Dressed as you are dressed. Carrying what you are carrying.",
+        "They reach the edge of their flight, and do not fall, and start the next one."
+      ],
+      "name": "the climber above"
+    }
+  ],
+  "weather": "Still, and warmer the higher it goes, which is the wrong way round for a building this size."
+}

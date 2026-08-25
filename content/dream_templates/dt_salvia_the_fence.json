@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "You are a garden fence. This is not a metaphor and it is not funny. You have been a fence for a very long time, in a garden, in an afternoon, and you have the whole history of the paint on you.",
   "drug_id": "drug_salvia",
-  "fx": "ash",
-  "fx_intensity": 0.2,
+  "fx": "crawl",
+  "fx_intensity": 0.85,
   "id": "dt_salvia_the_fence",
   "name": "The Fence",
   "objects": [

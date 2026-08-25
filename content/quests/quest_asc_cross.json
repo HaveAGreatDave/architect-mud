@@ -1,56 +1,65 @@
 {
   "category": null,
-  "description": "Somebody is putting the Watch's orders on paper, and paper comes off a press, and a press does not move.\n\nVess would like the address. Not the press, not the printer — the address. He is very clear that nobody is being asked to break anything, and only slightly less clear that this is because breaking things is a separate department.\n\nYou know the way in. That is the entire reason you were asked.",
+  "description": "Somebody is printing the Watch's handbills on a real press, on paper, which is slow and expensive and cannot be switched off from an office. Halcyon would like to know where.\n\nIves is unusually direct about the reason. \"Not to burn it. To have the address. An address is a thing you can decide about later — and later is where the whole business lives.\"\n\nThe press is under a dye works east of the wash. Get in, confirm it, get out. Nobody is asking you to touch it.",
   "fail_on": [],
   "id": "quest_asc_cross",
   "meta": {},
   "name": "Where It Is Printed",
   "objectives": [
     {
-      "id": "o_in",
-      "type": "visit",
-      "zone": "zone_lw_spine",
-      "taskSeconds": 6,
-      "desc": "Get down into the spine. You still know how.",
+      "desc": "Get into the dye works east of the wash.",
       "emotes": [
-        "{who} goes down the way they were shown, on a night when they were somebody else."
-      ]
+        "{who} goes in through the yard, where the smell means nobody stands about.",
+        "{who} finds the floor hatch under a stack of pallets that were put there to be moved."
+      ],
+      "id": "o_in",
+      "taskSeconds": 6,
+      "type": "visit",
+      "zone": "zone_lw_spine"
     },
     {
+      "desc": "Find the press.",
+      "emotes": [
+        "{who} comes down into a low room that is warm for no reason a room should be warm.",
+        "{who} finds a press, oiled, loaded, and stopped mid-run, with the ink still wet on the last sheet."
+      ],
       "id": "o_press",
-      "type": "visit",
-      "zone": "zone_lw_press",
       "requires": [
         "o_in"
       ],
       "taskSeconds": 8,
-      "desc": "Find the press.",
-      "emotes": [
-        "{who} finds the room by the smell of the ink before the light reaches it.",
-        "{who} reads a set line, upside down and backwards, and can still make out most of it."
-      ]
+      "type": "visit",
+      "zone": "zone_lw_press"
     },
     {
+      "desc": "Somebody is sitting in the dark next to it. He does not get up.",
+      "emotes": [
+        "{who} realises a man has been sitting six feet away for the whole of the last minute.",
+        "{who} takes in a good coat gone shapeless, and two clean ports in the back of a neck.",
+        "{who} is told he wants nothing, is not Watch, and is not recruiting — and finds all three of those turn out to be true.",
+        "{who} gets one plain sentence about the job after this one, from the only person who has ever bothered to say it beforehand.",
+        "{who} is not threatened, not argued with, and not stopped."
+      ],
       "id": "o_cyrelle",
-      "type": "talk",
-      "target": "npc_asc_lapsed",
       "requires": [
         "o_press"
       ],
-      "desc": "Somebody is sitting in the dark by the press, and has been for some time."
+      "target": "npc_asc_lapsed",
+      "type": "talk"
     },
     {
+      "desc": "Get out and take the address back.",
+      "emotes": [
+        "{who} climbs back into the yard with an address they could give to four different people.",
+        "{who} spends the walk west deciding, and arrives having decided."
+      ],
       "id": "o_out",
-      "type": "visit",
-      "zone": "zone_asc_spire_concourse",
       "requires": [
         "o_cyrelle"
       ],
       "taskSeconds": 6,
-      "desc": "Take the address back up to Vess. Or do not.",
-      "emotes": [
-        "{who} comes up the concourse with an address in their head and a walk that has changed slightly."
-      ]
+      "type": "visit",
+      "zone": "zone_asc_spire_concourse"
     }
   ],
   "penalties": {},
@@ -58,7 +67,6 @@
   "repeatable": 0,
   "rewards": {
     "credits": 260,
-    "xp": 48,
     "flags": [
       {
         "flag": "asc_cross_done",
@@ -73,14 +81,15 @@
     ],
     "rep": [
       {
-        "ideology": "ideology_ascendants",
-        "delta": 90
+        "delta": 90,
+        "ideology": "ideology_ascendants"
       },
       {
-        "ideology": "ideology_long_watch",
-        "delta": -120
+        "delta": -120,
+        "ideology": "ideology_long_watch"
       }
-    ]
+    ],
+    "xp": 48
   },
   "updated_at": "1787990000"
 }

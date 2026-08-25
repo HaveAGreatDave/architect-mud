@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "You have come to rest on a flat place. It is comfortable in the way that being put down is comfortable. There is a great deal of space above you and it is all the same distance away. Time is being administered here in doses and you are between them.",
   "drug_id": "drug_khole",
-  "fx": "snow",
-  "fx_intensity": 0.4,
+  "fx": "tunnel",
+  "fx_intensity": 0.7,
   "id": "dt_khole_shelf",
   "name": "The Shelf",
   "objects": [

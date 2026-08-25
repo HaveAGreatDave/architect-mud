@@ -67,6 +67,21 @@
     "tolerance": {
       "gain_per_dose": 0.25,
       "max_reduction": 0.85
+    },
+    "withdrawal": {
+      "message": "The parts of it that were not real have not agreed to stop being in the room.",
+      "mods": {
+        "stat_cool": -3,
+        "stat_reflexes": -1
+      },
+      "onset_seconds": 1800,
+      "stages": {
+        "easing": "It thins out to an ordinary room and one wrong shape, and the wrong shape can be argued with.",
+        "onset": "You check the corner of the room. There is nothing in the corner of the room.",
+        "peak": "Something is standing at the edge of your vision with the patience of furniture, and turning your head only puts it in the other eye.",
+        "rising": "You check it again about every four minutes, and you have started doing it without deciding to.",
+        "tail": "Walls are walls. You have got it down to checking the once, on the way past."
+      }
     }
   },
   "flags": {

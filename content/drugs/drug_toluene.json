@@ -60,7 +60,14 @@
         "stat_cool": -1,
         "stat_smarts": -1
       },
-      "onset_seconds": 1200
+      "onset_seconds": 1200,
+      "stages": {
+        "easing": "The pressure lets off. Some of what it was pressing on does not come back.",
+        "onset": "The taste comes back first, at the back of the teeth, out of nowhere.",
+        "peak": "Your head is packed tight and you have read the same line four times without any of it arriving.",
+        "rising": "Your hands are unsteady enough to be a problem with small screws.",
+        "tail": "Steady hands. A word you wanted this morning has still not turned up."
+      }
     }
   },
   "flags": {

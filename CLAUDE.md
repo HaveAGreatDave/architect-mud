@@ -173,6 +173,23 @@ error text, no summary line (the Neon pool transient noted below). The suite pri
 `N/N passed`; **if that line is absent the suite did not finish, which is a different problem from a
 failing test.** Re-run `npm run test:regress` standalone before you go looking for what you broke.
 
+⚠ **And never read the exit code through a pipe.** `npm run test:regress 2>&1 | tail -4` reports
+**`tail`'s** exit status, not the suite's, so a run with real failures comes back 0 and any wrapper
+watching the exit code calls it green. This is the same class of mistake as the missing summary line
+above and it is easier to make, because piping to `tail` is the obvious way to avoid pasting two
+thousand lines of output. Added 2026-08-25 after four runs were reported green on that basis and the
+fifth turned out to have been carrying a real `tv-reactions` failure. **Redirect to a file and read
+the trailing `N/N passed` line** — `npm run test:regress > /tmp/reg.txt 2>&1; echo $?` — or check for
+a `— FAILURES (n) —` block, which is what a finished-but-red run prints.
+
+⚠ **Never run two regress suites at once — the second one kills the first.** `pretest:regress` runs
+`scripts/kill-orphans.js`, whose process filter includes `tests/regress.js` itself, so starting a
+second run sweeps the first away mid-flight. It dies with no error and no summary line, which reads
+exactly like the Neon transient above and is not it. Same day, same session: a run was cut off at
+line 1,524 of what turned out to be a 9,584-line suite, purely because another had been started while
+it was going. **A complete run is on the order of 9,500 lines and ends in `N/N passed`** — if the log
+is a fraction of that, look for the second run before you look for a bug.
+
 **When you add a plugin or a verb, add a `plugins/<name>/regress.js`** (default-export
 `async ({ run, check, getPlayer }) => { … }`; see [plugin-standard.md](docs/plugin-standard.md)).
 Test code lives with the plugin and never loads in production.

@@ -50,6 +50,21 @@
     "tolerance": {
       "gain_per_dose": 0.15,
       "max_reduction": 0.7
+    },
+    "withdrawal": {
+      "message": "You cannot get to sleep, and the sleep you do get is loud and detailed and full of people.",
+      "mods": {
+        "stamina_max": -5,
+        "stat_cool": -2
+      },
+      "onset_seconds": 3600,
+      "stages": {
+        "easing": "Four hours in one piece. You come out of it sour, and rested enough to notice you are sour.",
+        "onset": "The plush comes off the room. Every surface is exactly as hard as it actually is.",
+        "peak": "Three in the morning, awake, sweating through a shirt, and the ninety minutes you got were in colour and full of people you owe things to.",
+        "rising": "You are not hungry at a time you are normally extremely hungry, and food smells like a job.",
+        "tail": "Sleeping through. Eating properly. The dreams are still busier than they were before you started."
+      }
     }
   },
   "flags": {

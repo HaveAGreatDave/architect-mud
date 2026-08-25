@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "One of the Architect's little servants has been counting doors on Foundry Way and writing the numbers down. Teague wants the counting stopped and the counter left alive, and is unusually direct about the second half: the Watch do not leave bodies, because a body is a reason for somebody to come and look.",
+  "description": "A counter clerk in Civic signs off the camera maintenance schedule for four districts, and on Thursday he signs the one that puts eyes on the wash.\n\nHalloran wants him face down in a stairwell for twenty minutes and breathing at the end of it. Not hurt past mending. Not robbed. Not spoken to.\n\n\"He is a clerk with a bad back and a dog,\" he says. \"None of that is a reason to do it and none of it is a reason not to. I am telling you so he does not surprise you.\"",
   "fail_on": [
     {
       "desc": "You killed them. Now there is a body on Foundry Way, and a body is a reason for somebody to come and look.",
@@ -14,9 +14,11 @@
   "objectives": [
     {
       "count": 1,
-      "desc": "Put the census clerk down and leave them breathing.",
+      "desc": "Put the Civic counter clerk down, and leave him breathing.",
       "emotes": [
-        "{who} waits for the clipboard to come up, and takes them across the back of the head."
+        "{who} waits in the stairwell for a man who takes the stairs because of the lifts, every day, at the same time.",
+        "{who} does it fast, which is the kindest available way of doing it.",
+        "{who} turns him onto his side before leaving, which nobody asked for."
       ],
       "id": "o_down",
       "target": "npc_civic_counter",
@@ -28,20 +30,20 @@
   "repeatable": 0,
   "rewards": {
     "credits": 150,
-    "rep": [
-      {
-        "delta": 70,
-        "ideology": "ideology_long_watch"
-      }
-    ],
-    "xp": 28,
     "flags": [
       {
         "flag": "lw_arc",
         "scope": "player",
         "value": "8"
       }
-    ]
+    ],
+    "rep": [
+      {
+        "delta": 70,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 28
   },
   "updated_at": "1787379039"
 }
