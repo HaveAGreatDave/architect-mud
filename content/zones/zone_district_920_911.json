@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Velk's Pre-Owned Furnishings.",
+  "description": "The shop outgrew itself and spilled onto the grass: a wardrobe, four dining chairs and a rolled carpet stand out front under a tarpaulin covering about half of what it needs to. A board leans against the wardrobe reading VELK'S, PRE-OWNED, and beneath that, EVERYTHING IN HERE OUTLIVED SOMEBODY. Past the door the stacking starts in earnest. The door is east; Ironside Street runs west through the pasture.",
   "exits": {
     "east": "zone_velk_shop",
     "west": "zone_district_919_911"

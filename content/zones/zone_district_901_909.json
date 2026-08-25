@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Dead Space Interiors.",
+  "description": "A decommissioned industrial unit with the roller door cut out and replaced by plate glass, so what the road sees is a lit showroom floor sitting inside a shell that still has the old crane rail bolted across its ceiling. Two armchairs and a standard lamp are staged on a rug out on the forecourt, in the weather, angled at the traffic like somebody's front room got evicted. Nobody has taken them. The door is west; the road runs east.",
   "exits": {
     "east": "zone_district_902_909",
     "west": "zone_furniture_store"

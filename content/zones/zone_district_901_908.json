@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Second Skin.",
+  "description": "A narrow shopfront with its entire stock argument in the window: three headless mannequins in overlapping coats, staged so the good one is at the back and you have to come inside to see it properly. The glass is clean, which on Cinder Lane is a statement. Lettered small in the bottom corner: ALTERATIONS WHILE YOU ARGUE. The door is west; Cinder Lane runs east.",
   "exits": {
     "east": "zone_district_902_908",
     "west": "zone_drum_shop"

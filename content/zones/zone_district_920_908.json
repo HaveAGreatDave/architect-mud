@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Ration Nine.",
+  "description": "A grocery with its whole front wall given over to a hand-painted price board, revised by wiping a column off with a rag and writing it again. Three trolleys are chained together by the door, more barricade than service. The window is stacked with vac-packed protein bricks in a pyramid, sun-faded on the side that gets the light, and nobody has turned them in a year. The door is east; Ironside Street runs west.",
   "exits": {
     "east": "zone_mq_grocery",
     "west": "zone_district_919_908"

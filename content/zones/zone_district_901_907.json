@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of The Cherry Pit.",
+  "description": "A windowless block of breeze-block painted arterial red. The cherry in pink neon over the door has lost its stem and half its lower curve, so what actually buzzes up there is a lopsided circle. The door is padded vinyl, gone tacky under a hundred thousand hands. Bass comes through the wall as pressure rather than sound, and the gravel at the kerb glitters with the foil off a decade of cheap drinks. The door is west; Cinder Lane runs east.",
   "exits": {
     "east": "zone_district_902_907",
     "west": "zone_mq_cherry_floor"

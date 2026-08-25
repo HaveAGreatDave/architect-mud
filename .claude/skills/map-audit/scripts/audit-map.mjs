@@ -295,7 +295,14 @@ const BUILT_TERRAIN = new Set(['road', 'asphalt', 'concrete', 'park']);
 // PAL-1 excludes park while PROSE-2 (a natural NAME on built ground) still covers it.
 const PALETTE_EXEMPT = new Set(['park']);
 const NATURAL_NAME = /\b(grass|grassland|meadow|field|scrub|moor|heath|prairie|wood|forest)s?\b/i;
-const PLACEHOLDER_DESC = [/^The face of /i, /^An empty place\.?$/i, /^A nondescript /i, /\[PLANNER STUB\]/i, /^A raw, undeveloped stretch of ground/i];
+// Generator stubs. The generators still emit these shapes today — `The frontage of X.`
+// (server/api/routes.js) and `Basement of X.` / `Rooftop of X.` (the devpanel zone form) —
+// so new buildings keep arriving with one and this needs to catch all four wordings.
+// Bounded to the stub FORM (one clause, no second sentence) rather than the bare prefix,
+// because real prose opens "The face of the tableland: ..." and the loose `^The face of `
+// flagged 100+ finished rooms.
+const STUB_HEAD = /^(the face of|the frontage of|basement of|rooftop of) [^.:;]{0,60}\.?\s*$/i;
+const PLACEHOLDER_DESC = [STUB_HEAD, /^An empty place\.?$/i, /^A nondescript /i, /\[PLANNER STUB\]/i, /^A raw, undeveloped stretch of ground/i];
 // Ground words that betray the real surface, for TERRAIN-1. Deliberately narrow —
 // this only fires when the prose names a surface the terrain flag contradicts.
 const TERRAIN_WORDS = {

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Coldwater Regional Hangar.",
+  "description": "A hangar of corrugated steel long enough to lose a conversation in, its sliding doors parked open on a rail packed solid with grit. Oil has printed the apron in overlapping black rings, and a row of chocks and a tug with one flat tyre sit where somebody last left them. Along the top of the doors, in letters six feet high and faded but still legible from the air: COLDWATER REGIONAL. The hangar floor is west; the runway is east.",
   "exits": {
     "east": "zone_district_925_903",
     "west": "zone_hangar_outskirts"

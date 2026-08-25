@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Embassy Hotel & Bar.",
+  "description": "A converted hotel with the E gone off the sign, so what glows over Ironside at night is MBASSY, which the regulars stopped hearing as wrong years ago. Warm light comes out through the revolving door in slices. There is a doorman's stand with no doorman on it and a brass ashtray that gets emptied often enough to prove somebody still holds the post. The lobby is east; Ironside Street runs west.",
   "exits": {
     "east": "zone_residential_lobby",
     "west": "zone_district_919_904"

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Basement of Embassy Hotel & Bar, Lobby.",
+  "description": "Under the Embassy, where the hotel keeps what the lobby would rather guests didn't picture. Pipework crosses the ceiling in six directions and none of it is labelled; one run is lagged, sweating, and warm to the touch. Crates of hotel linen stand against a wall that is damp for the bottom two feet. The bulb is bare and the switch is at the wrong end of the room. Stairs go up.",
   "exits": {
     "up": "zone_residential_lobby"
   },

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Threshold Helipad Hangar.",
+  "description": "A corrugated hangar shed set back off the boulevard behind a windsock gone the colour of weak tea. The sliding door runs on a floor rail worn bright, and a black comet of scorched gravel fans out from the pad apron where rotorwash has stripped the ground back to bedrock. Somebody stencilled NO IDLE ROTORS BEYOND THIS LINE across the concrete, then parked a fuel bowser on top of the line. The hangar floor is west; Halcyon Boulevard runs east.",
   "exits": {
     "east": "zone_district_894_908",
     "west": "zone_hangar_threshold"

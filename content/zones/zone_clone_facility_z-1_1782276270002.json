@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#4bb36a",
-  "description": "Basement of Coldwater Clone Facility.",
+  "description": "The floor below the vats, and colder than the room it feeds. Trunked cable comes down the wall in bundles thick as a leg and vanishes into a slab that was poured around them. Two rows of squat tanks stand under the pipework with their lids dogged shut, contents at a temperature nobody has written anywhere, and the pumps cycle on a rhythm slow enough to sound patient. The grating underfoot has been hosed so often the galvanising is gone off it. Stairs go up.",
   "exits": {
     "up": "zone_start"
   },
