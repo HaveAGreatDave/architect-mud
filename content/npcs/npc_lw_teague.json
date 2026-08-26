@@ -113,7 +113,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a drink you can buy out south. You pay for it, you swallow it, and about a fortnight later it has finished with you.\"\n\nShe says it the way she would describe any other thing sold to people who should know better.\n\n\"I have seen what gets up at the end of that fortnight. It is not the person who lay down and it is not a person at all.\""
+      "text": "\"There is a drink you can buy out south. You pay for it, you swallow it, and about a fortnight later it has finished with you.\"\n\nShe talks about it the way she would talk about bad gin.\n\n\"I have seen what gets up at the end of that fortnight. It is not the person who lay down and it is not a person at all.\""
     },
     "earned_bother": {
       "_vine": {
@@ -161,7 +161,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A chromed man is a man.\"\n\nIt comes out with no particular feeling, which is itself the point.\n\n\"He made a choice I would not make and he is still somebody I can talk to, threaten, buy, lie to or shoot. He has got a name and a job and an opinion about his supervisor.\"\n\n\"I have been shot at by Halcyon people and I have shot back, and both of us knew exactly what we were doing. That is a war. I can respect the other side of a war.\""
+      "text": "\"A chromed man is a man.\"\n\nIt comes out flat.\n\n\"He made a choice I would not make and he is still somebody I can talk to, threaten, buy, lie to or shoot. He has got a name and a job and an opinion about his supervisor.\"\n\n\"I have been shot at by Halcyon people and I have shot back, and both of us knew exactly what we were doing. That is a war. I can respect the other side of a war.\""
     },
     "earned_drug": {
       "_vine": {
@@ -288,7 +288,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I did not say that.\"\n\n\"He does not come in, he does not get taught, and he does not get a seat, because the whole of what we are is that we did not take the shortcut.\"\n\n\"But I would give him a straight answer at a door, and I would not be pleased if somebody did him over for nothing. That is not respect for Halcyon. That is what you owe a person.\""
+      "text": "\"I did not say that.\"\n\n\"He does not come in, he does not get taught, and he does not get a seat, because what we are is people who did not take the shortcut.\"\n\n\"But I would give him a straight answer at a door, and I would not be pleased if somebody did him over for nothing. That is not respect for Halcyon. That is what you owe a person.\""
     },
     "earned_still": {
       "_vine": {
@@ -329,7 +329,93 @@
           "next": "bye"
         }
       ],
-      "text": "\"Whatever it likes. That is the thing nobody tells you about it.\"\n\nShe is plain about this and it is worse for being plain.\n\n\"The jaw goes first, usually. Then the hands, and they do not come out as hands. I have seen one with a second set of ribs on the outside and I have seen one that could not close its eyes any more.\"\n\n\"Two of them could still talk. That was the worst of the four hundred, and I am not going to be drawn on it.\""
+      "text": "\"Whatever it likes. That is the thing nobody tells you about it.\"\n\nShe lists it. She does not slow down for any of it.\n\n\"The jaw goes first, usually. Then the hands, and they do not come out as hands. I have seen one with a second set of ribs on the outside and I have seen one that could not close its eyes any more.\"\n\n\"Two of them could still talk. That was the worst of the four hundred, and I am not going to be drawn on it.\""
+    },
+    "lantern": {
+      "_vine": {
+        "x": 620,
+        "y": 1700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then how do you know where you are?",
+          "next": "lantern_count"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Something must carry a light.",
+          "next": "lantern_lights"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is not, no.\"\n\nShe does not look down at it.\n\n\"You get about four seconds of nothing after a light goes out. Everything down here is quicker than four seconds. So the lamp is for finding a body, or reading a number off a pipe. That is what it is for.\"\n\n\"Walk it enough and the dark comes apart. There is a grey in it. You get there or you stop coming down.\""
+    },
+    "lantern_count": {
+      "_vine": {
+        "x": 880,
+        "y": 1620
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Something must carry a light.",
+          "next": "lantern_lights"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Count.\"\n\n\"Eleven hundred and forty paces from the door to the sump, and the sump you can smell. Four hundred more to the Blind.\"\n\n\"If the paces stop agreeing with the smell then something has changed down here, and I would rather know it than see it.\""
+    },
+    "lantern_lights": {
+      "_vine": {
+        "x": 880,
+        "y": 1780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who are they?",
+          "next": "the_flask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So people live down here.",
+          "next": "the_quiet_ones"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Something does.\"\n\nNow she looks at the lamp.\n\n\"There is a stretch east where you can stand still and watch lights move about a quarter mile off. Lanterns, most of it. One or two have got proper lamps.\"\n\n\"They do not mind being seen. Took me a while to work out why, and then I did. There is nothing down here that would go near them.\""
     },
     "quiet_accept": {
       "actions": [
@@ -394,13 +480,6 @@
           "enabled": true,
           "label": "Why do you do this every night?",
           "next": "why_the_walk"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "What do you make of the ones who drink for it?",
-          "next": "the_flask"
         },
         {
           "actions": [],
@@ -479,6 +558,13 @@
           "next": "south"
         },
         {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Your lamp is not lit.",
+          "next": "lantern"
+        },
+        {
           "label": "Nothing.",
           "next": "bye"
         }
@@ -496,7 +582,7 @@
           "next": "bye"
         }
       ],
-      "text": "She does not answer straight away.\n\n\"Eleven years I have been down here. In that time I have put down a bit over four hundred things that used to be something else, and not once have I had to stop and work out which was which. You know on sight. That is the whole of my expertise and it has never been wrong.\"\n\nShe adjusts the sling.\n\n\"So somebody tells me there is a town of them out past the Curtain. Wall round it. A gate. Children in it, they say.\"\n\nA beat.\n\n\"What I hear is a nest that has learned to keep house.\"\n\n\"I know how that sounds. Rennick has explained it to me at length, twice. He is a better man than I am and I still think he is wrong.\"\n\nShe starts walking.\n\n\"Go south if you like. They all come back telling me I have it wrong. Not one of them has ever told me what I was supposed to have done with the four hundred.\""
+      "text": "She does not answer straight away.\n\n\"Eleven years I have been down here. In that time I have put down a bit over four hundred things that used to be something else, and not once have I had to stop and work out which was which. You know on sight. That is all my expertise amounts to and it has never been wrong.\"\n\nShe adjusts the sling.\n\n\"So somebody tells me there is a town of them out past the Curtain. Wall round it. A gate. Children in it, they say.\"\n\nA beat.\n\n\"What I hear is a nest that has learned to keep house.\"\n\n\"I know how that sounds. Rennick has explained it to me at length, twice. He is a better man than I am and I still think he is wrong.\"\n\nShe starts walking.\n\n\"Go south if you like. They all come back telling me I have it wrong. Not one of them has ever told me what I was supposed to have done with the four hundred.\""
     },
     "south_children": {
       "options": [
@@ -811,7 +897,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I have watched it done.\"\n\nShe says it the way she names any other job she has been on.\n\n\"A man at the Pool with his sleeves up and his arms out, and somebody tips a flask into him, and everybody there is pleased for him. Fortnight later there is something walking about wearing his face and his voice and getting on with its day.\"\n\nHer mouth does the thing a mouth does around a bad smell, and she puts it away again immediately, because she does not think it is a respectable way to argue."
+      "text": "\"People who drank for it.\"\n\nShe names it the way she would name a trade.\n\n\"I have watched it done. A man at the Pool with his sleeves up and his arms out, and somebody tips a flask into him, and everybody there is pleased for him.\"\n\n\"Fortnight later there is something walking about wearing his face and his voice and getting on with its day.\"\n\nHer mouth tightens. She lets go of it straight away."
     },
     "the_flask_cleansed": {
       "_vine": {
@@ -835,7 +921,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is. That is the part people leave out when they tell this back to me.\"\n\n\"The Exodus can take it out of somebody. It costs everything a person has and it hurts for about a year and some of them do not live through it, and afterwards they are just tired and ordinary and thirty.\"\n\n\"Come back cleansed and I will sit down and eat with you and never mention it again. That is not me being generous. That is the rule, it is written where anybody can read it, and it has not moved in forty years.\""
+      "text": "\"There is. That is the part people leave out when they tell this back to me.\"\n\n\"The Exodus can take it out of somebody. It costs everything a person has and it hurts for about a year and some of them do not live through it, and afterwards they are just tired and ordinary and thirty.\"\n\n\"Come back cleansed and I will sit down and eat with you and never mention it again. I am not being generous. That is the rule, it is written where anybody can read it, and it has not moved in forty years.\""
     },
     "the_flask_desecration": {
       "_vine": {
@@ -883,7 +969,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\"\n\nIt is the flattest thing she has said tonight.\n\n\"He is diseased flesh that agreed to it. There is a difference between a man with an illness and a man who went and got one on purpose, and the difference is the whole of my opinion about him.\"\n\n\"I do not want it near me, I do not want it near the people I eat with, and I would not have it in a room where somebody is sleeping.\""
+      "text": "\"No.\"\n\nIt is the flattest thing she has said tonight.\n\n\"He is diseased flesh that agreed to it. There is a difference between a man with an illness and a man who went and got one on purpose. That difference is the only thing I think about him.\"\n\n\"I do not want it near me, I do not want it near the people I eat with, and I would not have it in a room where somebody is sleeping.\""
     },
     "the_flask_kept_out": {
       "_vine": {
@@ -965,7 +1051,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It was. That is my whole point and you have said it for me.\"\n\nShe stops, and she is not performing this.\n\n\"Everything else in this city belongs to somebody. The wires are read. The water is metered. A chromed man rents his own arm off a company and it goes back to them when he dies, and that is in the paperwork.\"\n\n\"Your body is the last thing nobody has been inside. Nobody. Not Halcyon, not the Architect, not a surgeon. End to end, it is yours, and it is the only thing left that is.\"\n\n\"And they open their mouths and pour something in and let it eat that.\""
+      "text": "\"It was. That is my point, and you have just made it for me.\"\n\nShe stops, and she is not performing this.\n\n\"Everything else in this city belongs to somebody. The wires are read. The water is metered. A chromed man rents his own arm off a company and it goes back to them when he dies, and that is in the paperwork.\"\n\n\"Your body is the last thing nobody has been inside. Nobody. Not Halcyon, not the Architect, not a surgeon. All of it is yours, and it is the only thing left that is.\"\n\n\"And they open their mouths and pour something in and let it eat that.\""
     },
     "the_flask_sea": {
       "_vine": {
@@ -989,7 +1075,7 @@
           "next": "bye"
         }
       ],
-      "text": "She takes that one properly. It is the first thing tonight she has had to think about.\n\n\"East is four miles of tunnel and a lot of it is dry.\"\n\nA pause, and she does not fill it with anything.\n\n\"I have not walked all of it. I have told you that already and I am not going to pretend otherwise now because you have found a way of putting it that stings.\""
+      "text": "She takes that one properly. It is the first thing tonight she has had to think about.\n\n\"East is four miles of tunnel and a lot of it is dry.\"\n\nA pause, and she does not fill it with anything.\n\n\"I have not walked all of it. I said so already and I am not going to say something different now because you have found a better way of asking.\""
     },
     "the_grades": {
       "_vine": {
@@ -1171,7 +1257,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Some of them stop before that. There are dry stretches.\"\n\nShe does not pretend the sentence is stronger than it is, and she does not add anything to it.\n\n\"I have been doing this eleven years and nobody has ever asked me where east goes. Not once, and I have walked a lot of people through here.\""
+      "text": "\"Some of them stop before that. There are dry stretches.\"\n\nShe does not add anything to it.\n\n\"I have been doing this eleven years and nobody has ever asked me where east goes. Not once, and I have walked a lot of people through here.\""
     },
     "the_quiet_ones_harm": {
       "_vine": {
@@ -1308,7 +1394,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because somebody has to and I am good at it.\"\n\nShe does not dress it up and she does not look for a reaction.\n\n\"A mile back down this tunnel there is a door. Forty of us live behind it. The oldest is eighty-one. Two of them are children, and I said children should not be down here, and I was outvoted, and they are still here.\"\n\n\"If anybody comes down this tunnel at night, there is me, and then there is that door.\"\n\n\"Nobody pays me for it. I walk it again tomorrow and the night after. One night I will not come back, and one of the other four will take the round.\""
+      "text": "\"Because somebody has to and I am good at it.\"\n\nShe does not look for a reaction.\n\n\"A mile back down this tunnel there is a door. Forty of us live behind it. The oldest is eighty-one. Two of them are children, and I said children should not be down here, and I was outvoted, and they are still here.\"\n\n\"If anybody comes down this tunnel at night, there is me, and then there is that door.\"\n\n\"Nobody pays me for it. I walk it again tomorrow and the night after. One night I will not come back, and one of the other four will take the round.\""
     },
     "why_the_walk_life": {
       "_vine": {
