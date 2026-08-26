@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_meltwater_diner",
   "id": "zone_meltwater_diner",
   "max_capacity_kw": 200,
   "name": "Grease Expectations",

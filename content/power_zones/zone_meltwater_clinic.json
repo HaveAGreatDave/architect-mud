@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_meltwater_clinic",
   "id": "zone_meltwater_clinic",
   "max_capacity_kw": 200,
   "name": "Co-Pay & Pray",

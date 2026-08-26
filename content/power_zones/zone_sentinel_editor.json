@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_sentinel_bullpen",
   "id": "zone_sentinel_editor",
   "max_capacity_kw": 200,
   "name": "Coldwater Sentinel — Editor's Office",

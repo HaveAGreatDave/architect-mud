@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_sf_marrow4",
   "id": "zone_util_zone_sf_marrow4",
   "max_capacity_kw": 200,
   "name": "Unit 4, Marrow Street — Utility Room",

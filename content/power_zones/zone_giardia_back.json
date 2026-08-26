@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_giardia_shop",
   "id": "zone_giardia_back",
   "max_capacity_kw": 200,
   "name": "Camp Giardia — The Bus Shell",

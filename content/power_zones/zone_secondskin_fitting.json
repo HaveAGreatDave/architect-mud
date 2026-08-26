@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_secondskin_floor",
   "id": "zone_secondskin_fitting",
   "max_capacity_kw": 200,
   "name": "Layers — Fitting Room",
