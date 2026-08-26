@@ -1480,6 +1480,33 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE script_triggers ADD COLUMN IF NOT EXISTS params JSONB NOT NULL DEFAULT '{}';
 
+  -- Unrest incidents (plugins/unrest). One row is a THING THAT CAN HAPPEN in a
+  -- city block, not a thing that is happening: the live staging is RAM only and
+  -- deliberately never persisted, because a "checkpoint here" row that outlives
+  -- its teardown is a permanent checkpoint nobody authored.
+  --   writes       — the role that stages it, 'grip' (the authority) or 'heat'
+  --                  (the resident insurgency). Never an org id: role is the
+  --                  authored knob and a third order needs no code.
+  --   min_band     — the lowest cell band this may stage at (watchful/tense/flashpoint)
+  --   stage        — ordered list of {do, ...} steps; see plugins/unrest/incidents.js
+  --                  for the vocabulary. An unregistered \`do\` FAILS regress.
+  --   duration_min — how long the staging stands before teardown
+  --   cooldown_min — per cell, how long before this same incident may return
+  CREATE TABLE IF NOT EXISTS incidents (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    writes TEXT NOT NULL DEFAULT 'heat',
+    min_band TEXT NOT NULL DEFAULT 'watchful',
+    weight INTEGER NOT NULL DEFAULT 10,
+    duration_min INTEGER NOT NULL DEFAULT 60,
+    cooldown_min INTEGER NOT NULL DEFAULT 240,
+    stage JSONB NOT NULL DEFAULT '[]',
+    flags JSONB NOT NULL DEFAULT '{}',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- Pending long wait-node continuations (server/engine/graph.js). A short wait is
   -- a bare setTimeout; anything at or past GRAPH_DURABLE_WAIT_S is parked here so
   -- a restart doesn't eat it, which is what makes a multi-day consequence

@@ -91,6 +91,77 @@ function _unrestRoles(roles) {
       </tr>`).join('')}</tbody></table>`;
 }
 
+// Incidents. Two tables, because they answer two different operator questions:
+// what is standing right now, and — much more often — why is nothing standing.
+// A refusal reason per definition per cell is the whole difference between
+// "the sim is broken" and "the sim is waiting for a signal, as designed".
+function _unrestLive(inc) {
+  const live = Array.isArray(inc?.live) ? inc.live : [];
+  if (!live.length) {
+    return '<div style="color:var(--text-dim);font-size:11px">Nothing staged. That is the normal state of a quiet city.</div>';
+  }
+  const now = Date.now();
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-size:9px">
+      <th style="text-align:left;padding:0 12px 6px 0">Incident</th>
+      <th style="text-align:left;padding:0 12px 6px 0">Cell</th>
+      <th style="text-align:left;padding:0 12px 6px 0">Order</th>
+      <th style="text-align:left;padding:0 12px 6px 0">Band at staging</th>
+      <th style="text-align:right;padding:0 12px 6px 0">Ends in</th>
+      <th></th>
+    </tr></thead><tbody>${live.map(i => `
+      <tr>
+        <td style="padding:5px 12px 5px 0;color:var(--text);font-weight:600">${_unrestEsc(i.name || i.incident)}</td>
+        <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_unrestEsc(i.cell)}</td>
+        <td style="padding:5px 12px 5px 0;color:${i.writes === 'grip' ? '#60a5fa' : '#ff6b6b'}">${_unrestEsc(i.writes)}</td>
+        <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_unrestEsc(i.band)}</td>
+        <td style="padding:5px 12px 5px 0;color:var(--text-dim);text-align:right">${Math.max(0, Math.round((i.endsAt - now) / 60000))}m</td>
+        <td style="padding:5px 0;text-align:right">
+          <button class="action-btn" style="font-size:10px;padding:3px 8px"
+            onclick="unrestTeardown('${_unrestEsc(i.instanceId)}')">Tear down</button>
+        </td>
+      </tr>`).join('')}</tbody></table>`;
+}
+
+const _unrestWhy = {
+  band: 'band too low',
+  signal: 'no signal from that order yet',
+  cooldown: 'on cooldown here',
+  occupied: 'cell already has one',
+};
+
+function _unrestCatalogue(inc) {
+  const cat = Array.isArray(inc?.catalogue) ? inc.catalogue : [];
+  if (!cat.length) {
+    return `<div style="color:#f59e0b;font-size:11px">No incident definitions loaded. Run
+      <code>npm run content:import</code>, then hit Reload catalogue.</div>`;
+  }
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-size:9px">
+      <th style="text-align:left;padding:0 12px 6px 0">Definition</th>
+      <th style="text-align:left;padding:0 12px 6px 0">Order</th>
+      <th style="text-align:left;padding:0 12px 6px 0">Min band</th>
+      <th style="text-align:right;padding:0 12px 6px 0">Weight</th>
+      <th style="text-align:left;padding:0 0 6px 0">Eligible cells</th>
+    </tr></thead><tbody>${cat.map(d => {
+      const open = (d.blocked || []).filter(b => !b.why);
+      const reasons = {};
+      for (const b of d.blocked || []) if (b.why) reasons[b.why] = (reasons[b.why] || 0) + 1;
+      const summary = open.length
+        ? open.map(b => `<button class="action-btn" style="font-size:10px;padding:2px 7px;margin:0 4px 3px 0"
+            onclick="unrestStage('${_unrestEsc(d.id)}','${_unrestEsc(b.cell)}')">${_unrestEsc(b.cell)}</button>`).join('')
+        : `<span style="color:var(--text-dim)">none — ${Object.keys(reasons)
+            .map(k => `${reasons[k]} ${_unrestWhy[k] || k}`).join(', ')}</span>`;
+      return `<tr>
+        <td style="padding:5px 12px 5px 0;color:var(--text)">${_unrestEsc(d.name)}</td>
+        <td style="padding:5px 12px 5px 0;color:${d.writes === 'grip' ? '#60a5fa' : '#ff6b6b'}">${_unrestEsc(d.writes)}</td>
+        <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_unrestEsc(d.minBand)}</td>
+        <td style="padding:5px 12px 5px 0;color:var(--text-dim);text-align:right">${d.weight}</td>
+        <td style="padding:5px 0">${summary}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
 function renderUnrestPanel(data) {
   const cells = Array.isArray(data?.cells) ? data.cells : [];
   const roles = Array.isArray(data?.roles) ? data.roles : [];
@@ -133,6 +204,26 @@ function renderUnrestPanel(data) {
       </table>
     </div>
 
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="font-weight:700">Live incidents</div>
+        <div style="color:var(--text-dim);font-size:11px">${(data?.incidents?.live || []).length} of ${data?.incidents?.cap ?? '?'} citywide</div>
+        <div style="margin-left:auto"><button class="action-btn" onclick="unrestReload()">Reload catalogue</button></div>
+      </div>
+      <div style="color:var(--text-dim);font-size:11px;margin-bottom:10px">
+        A staging is <b>never persisted</b> — a restart leaves the cell hot and the checkpoint gone,
+        and the next tick re-stages it if it is still warranted. Nothing may stage in a cell that has
+        not carried a perceivable signal <i>from the same order</i> in the last six hours, which is
+        what makes a checkpoint read as a reply to the graffiti rather than as spawn noise.
+      </div>
+      ${_unrestLive(data?.incidents)}
+      <div style="font-weight:700;margin:16px 0 8px">Catalogue</div>
+      ${_unrestCatalogue(data?.incidents)}
+      <div style="color:var(--text-dim);font-size:11px;margin-top:10px">
+        Stage steps registered: <code>${_unrestEsc((data?.incidents?.steps || []).join(', '))}</code>
+      </div>
+    </div>
+
     <div class="card">
       <div style="font-weight:700;margin-bottom:8px">Roles</div>
       <div style="color:var(--text-dim);font-size:11px;margin-bottom:10px">
@@ -158,6 +249,24 @@ async function unrestForce(key) {
 
 async function unrestStep() {
   await directAPI('/unrest/step', 'POST', {});
+  showPanel('unrest');
+}
+
+async function unrestStage(incident, key) {
+  const res = await directAPI('/unrest/incidents/stage', 'POST', { incident, key });
+  if (res?.error) await dpAlert(res.error);
+  showPanel('unrest');
+}
+
+async function unrestTeardown(instanceId) {
+  if (!(await dpConfirm('Tear this incident down now? Everything it put up comes back off.'))) return;
+  await directAPI('/unrest/incidents/teardown', 'POST', { instanceId });
+  showPanel('unrest');
+}
+
+async function unrestReload() {
+  const res = await directAPI('/unrest/reload', 'POST', {});
+  await dpAlert(`Catalogue reloaded — ${res?.incidents ?? 0} incident definitions.`);
   showPanel('unrest');
 }
 

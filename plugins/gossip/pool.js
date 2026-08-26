@@ -17,7 +17,9 @@ const PROX_FLOOR    = 0.15;                 // weight floor for a distant-but-in
 // Per-group caps: at most N live items may share a capGroup; adding past the cap
 // evicts the weakest member. Weather is chatty and low-value, so hold it to a few.
 // Sports scores air constantly — cap them so box scores never bury the real news.
-const GROUP_CAPS    = { weather: 5, sports: 4 };
+// Unrest speaks once per cell per band crossing and there are ten cells, so cap it
+// hard: three live warnings is a city with a mood, ten is a city of nothing else.
+const GROUP_CAPS    = { weather: 5, sports: 4, unrest: 3 };
 
 let seq = 0;
 const items = new Map();                    // id -> item

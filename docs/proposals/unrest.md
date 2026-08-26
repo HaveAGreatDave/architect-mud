@@ -1,10 +1,24 @@
 # Unrest — dynamic faction-conflict events
 
-**Status: DESIGN ONLY. Nothing here is implemented.** Designed 2026-08-23. The session it
-came out of was lost to a client corruption; this is its plan file, recovered and committed
-so it cannot go missing again. **Revised 2026-08-24** — the ledger's cell moved from named
-districts to derived coordinate blocks, which removed the phase 0 blocker; the district work
-was split out to [district-repair.md](district-repair.md), where it stands on its own.
+**Status: PHASE 1 BUILT (1a–1d, 2026-08-26); phases 2 and 3 are still design.** What
+actually ships is [docs/systems-unrest.md](../systems-unrest.md) and
+[plugins/unrest/](../../plugins/unrest/README.md) — read those first and treat this file as
+the design record, including everything below that has not been built.
+
+Designed 2026-08-23. The session it came out of was lost to a client corruption; this is its
+plan file, recovered and committed so it cannot go missing again. **Revised 2026-08-24** —
+the ledger's cell moved from named districts to derived coordinate blocks, which removed the
+phase 0 blocker; the district work was split out to [district-repair.md](district-repair.md),
+where it stands on its own.
+
+**Where the build departed from this plan**, all three deliberate and recorded in
+[systems-unrest.md](../systems-unrest.md): the safe stage step "NPC mood" became `sound`,
+because no seam in this codebase reads a mood field off an NPC and adding one would be an
+authored key nothing consumes; the news seam is a `broadcast.newsWire` Action rather than a
+raw `npc.broadcast_say` emit, because that event needs a `channel_id` a caller has no way to
+choose and `enqueueNews` already fans a line out by category; and there is no `grip` hostile,
+because the only Ascendant enforcement enemy in the world is the 100 HP Arbiter and the
+authority's danger reads better as a checkpoint than as a mob.
 
 ## Context
 

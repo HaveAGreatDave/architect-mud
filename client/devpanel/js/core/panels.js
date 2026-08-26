@@ -363,6 +363,24 @@ const PANELS = {
     save: saveScriptTrigger,
     delete: id => API(`/script-triggers/${id}`, 'DELETE'),
   },
+  incidents: {
+    title: 'Incidents',
+    description: 'The authored catalogue behind Unrest — what CAN happen in a city block, never what is happening. The live side is on the Unrest panel.',
+    idPrefix: 'incident',
+    fetch: () => API('/incidents'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'writes', label: 'Order', render: v => v === 'grip' ? 'authority' : 'insurgency' },
+      { key: 'min_band', label: 'From band' },
+      { key: 'weight', label: 'Weight' },
+      { key: 'duration_min', label: 'Runs for', render: v => `${v}m` },
+      { key: 'stage', label: 'Steps', render: v => (Array.isArray(v) ? v : []).map(s => s.do).join(' → ') || '—' },
+      { key: 'enabled', label: 'On', render: v => v ? '✓' : '—' },
+    ],
+    editForm: incidentEditForm,
+    save: saveIncident,
+    delete: id => API(`/incidents/${id}`, 'DELETE'),
+  },
   vine: {
     title: 'VINE Suite',
     description: 'Every VINE graph in the game — dialogue, behaviour, scripts, broadcasts, quests — reachable from one hub.',
@@ -410,8 +428,14 @@ const PANELS = {
   },
   unrest: {
     title: 'Unrest',
-    description: 'The faction-conflict ledger — grip/heat/pressure per derived city block, the band each is in, and the authored role roster. Operator-only by design: none of it reaches the player.',
-    fetch: () => directAPI('/unrest/state'),
+    description: 'The faction-conflict ledger — grip/heat/pressure per derived city block, the band each is in, the authored role roster, and every live incident. Operator-only by design: none of it reaches the player.',
+    fetch: async () => {
+      const [state, incidents] = await Promise.all([
+        directAPI('/unrest/state'),
+        directAPI('/unrest/incidents'),
+      ]);
+      return { ...state, incidents };
+    },
     noEdit: true,
     render: renderUnrestPanel,
   },

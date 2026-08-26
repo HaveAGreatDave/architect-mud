@@ -5311,6 +5311,21 @@ on('flag.set', ({ flag, value }) => {
   }
 });
 
+// The wire, opened to other plugins by NAME rather than by import. `enqueueNews`
+// is module-private and fans a line out to every channel that carries the
+// category (plus every channel that IS a news channel), which is exactly what a
+// caller wants and nothing a caller should have to reimplement. Unrest is the
+// first user; anything with a citywide announcement is the next.
+registerAction({
+  type: 'broadcast.newsWire',
+  handler: ({ params = {} } = {}) => {
+    const text = String(params.text || '').trim();
+    if (!text) return { type: 'error', message: 'broadcast.newsWire requires text.' };
+    enqueueNews(params.category || 'npc', text, params.priority === 'critical' ? 'critical' : 'normal');
+    return { type: 'ok' };
+  },
+});
+
 // NPC hosts send to a channel's queue via the BROADCAST_SAY AI action
 on('npc.broadcast_say', ({ channel_id, text }) => {
   if (!channel_id || !text) return;

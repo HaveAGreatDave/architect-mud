@@ -390,6 +390,10 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/script-triggers' && method==='POST') return requireDev(auth, ()=>apiCreateScriptTrigger(body));
   if (path.startsWith('/script-triggers/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScriptTrigger(path.split('/')[2],body));
   if (path.startsWith('/script-triggers/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteScriptTrigger(path.split('/')[2]));
+  if (path==='/incidents' && method==='GET') return requireDev(auth, apiGetIncidents);
+  if (path==='/incidents' && method==='POST') return requireDev(auth, ()=>apiCreateIncident(body));
+  if (path.startsWith('/incidents/') && method==='PUT') return requireDev(auth, ()=>apiUpdateIncident(path.split('/')[2],body));
+  if (path.startsWith('/incidents/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteIncident(path.split('/')[2]));
   if (path==='/scripts' && method==='GET') return requireDev(auth, apiGetScripts);
   if (path==='/scripts' && method==='POST') return requireDev(auth, ()=>apiCreateScript(body));
   if (path.startsWith('/scripts/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScript(path.split('/')[2],body));
@@ -3459,6 +3463,56 @@ async function apiDeleteScriptTrigger(id) {
   try {
     await query('DELETE FROM script_triggers WHERE id=$1',[id]);
     await loadScriptTriggers();
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// --- Unrest incidents (authored catalogue for plugins/unrest) ---
+// Ordinary staged content CRUD, exactly like script_triggers. ⚠ The engine cannot
+// import a plugin, so nothing here reloads the plugin's in-memory catalogue — the
+// dev panel calls the plugin's own /unrest/reload after a write, which is also the
+// only route that knows what a stage step is.
+const INCIDENT_COLS = ['name','description','writes','min_band','weight','duration_min','cooldown_min','stage','flags','enabled'];
+const INCIDENT_WRITES = ['grip','heat'];
+const INCIDENT_BANDS = ['watchful','tense','flashpoint'];
+function incidentValues(body) {
+  return [
+    body.name||'Untitled Incident', body.description||'',
+    INCIDENT_WRITES.includes(body.writes) ? body.writes : 'heat',
+    INCIDENT_BANDS.includes(body.min_band) ? body.min_band : 'watchful',
+    Number(body.weight)||10,
+    Number(body.duration_min)||60,
+    Number(body.cooldown_min)||240,
+    JSON.stringify(Array.isArray(body.stage)?body.stage:[]),
+    JSON.stringify(body.flags||{}),
+    body.enabled===0?0:1,
+  ];
+}
+async function apiGetIncidents() {
+  const {rows}=await query('SELECT * FROM incidents ORDER BY writes, min_band, name');
+  return {status:200,body:rows};
+}
+async function apiCreateIncident(body) {
+  const id=body.id||`incident_${Date.now()}`;
+  if(!Array.isArray(body.stage)||!body.stage.length) return {status:400,body:{error:'stage must be a non-empty array of {do, …} steps'}};
+  try {
+    await query(`INSERT INTO incidents (id,${INCIDENT_COLS.join(',')},updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,EXTRACT(EPOCH FROM NOW()))`,
+      [id,...incidentValues(body)]);
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateIncident(id,body) {
+  try {
+    await query(`UPDATE incidents SET ${INCIDENT_COLS.map((c,i)=>`${c}=$${i+1}`).join(',')},
+                 updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$${INCIDENT_COLS.length+1}`,
+      [...incidentValues(body),id]);
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteIncident(id) {
+  try {
+    await query('DELETE FROM incidents WHERE id=$1',[id]);
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

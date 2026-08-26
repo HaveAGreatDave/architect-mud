@@ -1,0 +1,28 @@
+{
+  "cooldown_min": 300,
+  "description": "Printed sheets, badly, in quantity. Deliberately harmless: the point of a watchful-band incident is that it gives the authority something to answer, not that it does anything to the player.",
+  "duration_min": 60,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_pamphlet_drop",
+  "min_band": "watchful",
+  "name": "Paper on the ground",
+  "stage": [
+    {
+      "do": "ambient",
+      "lines": [
+        "There is printed paper in the gutter, more of it than wind explains.",
+        "A sheet goes past your ankle. It is not an advertisement.",
+        "Somebody has taped a page to the pole at eye height, which is a decision."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "They papered {place} overnight. Nobody saw anybody do it, which is the impressive part."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 18,
+  "writes": "heat"
+}
+

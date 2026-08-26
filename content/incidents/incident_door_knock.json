@@ -1,0 +1,32 @@
+{
+  "cooldown_min": 480,
+  "description": "The one that is meant to land badly. Nothing violent happens on screen and nobody explains anything, which is the register the whole order is written in.",
+  "duration_min": 120,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_door_knock",
+  "min_band": "tense",
+  "name": "Somebody is being collected",
+  "stage": [
+    {
+      "do": "ambient",
+      "lines": [
+        "Two of them are putting a third person into a van, briskly and without conversation.",
+        "A door on this row is standing open and the flat behind it is empty.",
+        "Somebody is being helped into a vehicle by the elbow. They are not resisting."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "They took someone off the row in {place} this morning. Nobody has said what for, including them."
+    },
+    {
+      "do": "news",
+      "text": "An individual was detained in {place} in connection with an ongoing matter — the Basin considers the matter closed."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 16,
+  "writes": "grip"
+}
+

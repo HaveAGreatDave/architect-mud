@@ -1,0 +1,33 @@
+{
+  "cooldown_min": 360,
+  "description": "The tell that everyone local knows something the player does not. No mechanical effect at all, which is the point — it is a room full of people who have decided to be elsewhere.",
+  "duration_min": 120,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_shutters_down",
+  "min_band": "tense",
+  "name": "Everything shuts early",
+  "stage": [
+    {
+      "do": "ambient",
+      "lines": [
+        "Another shutter comes down. It is nowhere near closing time.",
+        "The place three doors along has gone dark and locked, mid-afternoon.",
+        "Two people are having a very short conversation about whether to stay open."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "Half of {place} shut up at four. They know something and they are not saying it to me."
+    },
+    {
+      "do": "sound",
+      "loudness": 5,
+      "text": "A shutter comes rattling down somewhere close."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 20,
+  "writes": "heat"
+}
+

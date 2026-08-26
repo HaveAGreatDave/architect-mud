@@ -5,6 +5,7 @@ import { on } from '../../server/engine/events.js';
 import { getAmbientDefByName } from '../audio/index.js';
 import { world, spawnEnemySync, removeEnemyInstance, getLivePlayer } from '../../server/engine/world.js';
 import { setEspShelter } from '../../server/engine/ai-behaviour.js';
+import { registerAction } from '../../server/engine/actions.js';
 
 const DEFAULT_MESSAGE =
   '⚠ EMERGENCY SECURITY PROTOCOL ACTIVE — ALL CIVILIANS SHELTER IN PLACE IMMEDIATELY — ARMED RESPONSE UNITS ARE DEPLOYED — THIS IS NOT A DRILL — STAY INDOORS AND AWAIT FURTHER INSTRUCTIONS ⚠';
@@ -463,6 +464,38 @@ on('zone.entered', ({ actor, zone: zoneId }) => {
 });
 
 // ── Plugin hooks ──────────────────────────────────────────────────────────────
+
+// ── The ESP, opened to other plugins by NAME ─────────────────────────────────
+// Registered here rather than exported, so nothing has to import across the
+// plugin boundary to declare a lockdown. Unrest is the first caller.
+//
+// ⚠ THE ESP IS A SINGLETON. `espActive` is one module-level boolean beside one
+// `espZones` set, so two concurrent callers cannot each own a lockdown: the
+// second activate() silently joins the first, and the first deactivate() ends
+// both. That is why `activate` returns whether it actually did anything and why
+// unrest caps live ESP incidents at one rather than trusting the count. Scoping
+// `espActive` per zone-set is the other fix and is a bigger change than this.
+//
+// Both are idempotent under double dispatch, which is the property a teardown
+// path needs: activate() returns early when already active, deactivate() when
+// already inactive.
+registerAction({
+  type: 'ESP_ACTIVATE',
+  handler: async ({ params = {} } = {}) => {
+    if (espActive) return { type: 'ok', activated: false, reason: 'already active' };
+    await activate(params.message || null);
+    return { type: 'ok', activated: true, zones: espZones.size };
+  },
+});
+
+registerAction({
+  type: 'ESP_DEACTIVATE',
+  handler: () => {
+    if (!espActive) return { type: 'ok', deactivated: false, reason: 'not active' };
+    deactivate();
+    return { type: 'ok', deactivated: true };
+  },
+});
 
 export const hooks = {
   // Append a colored status dot to Arbiter Array furniture descriptions.

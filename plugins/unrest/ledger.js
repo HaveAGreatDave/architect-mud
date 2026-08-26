@@ -14,7 +14,7 @@ export const VERSION = 1;
 // ⚠ Version from the start. The cell KEY changes if the districts are ever
 // painted and this file starts keying by district, and a v1 blob keyed by block
 // must be discarded rather than read as though it meant districts.
-const BASELINE = { grip: 10, heat: 5, pressure: 0 };
+export const BASELINE = { grip: 10, heat: 5, pressure: 0 };
 
 // Half-lives, in minutes. "State the period or it isn't designed": heat moves in
 // tens of minutes, grip in hours, pressure over days, so a full cycle is legible
