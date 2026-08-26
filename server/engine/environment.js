@@ -154,6 +154,17 @@ const INDOOR_HVAC_RATE_PER_MIN     = 2.0;
 const INDOOR_PASSIVE_CONDUCTION    = 0.01;
 
 const POWER_OVERLOAD_RATIO = 1.0;    // alloc < demand × this → 'overloaded'
+// ⚠ Compare allocation against demand with a tolerance, never exactly.
+// Distribution walks a pool with `pool -= alloc` across every zone on a junction
+// box, so by the time a zone is served its allocation carries accumulated binary
+// error: a room drawing exactly 0.02 kW gets handed 0.019999999999999993, and a
+// bare `alloc < demand` calls that a brownout. The room then re-enters the
+// brownout branch EVERY cycle, forever — which randomly toggles its fixtures
+// (a DB write per fixture per cycle) and tells anyone standing there that the
+// lights "flicker as the supply runs thin". Fourteen rooms were doing that.
+// One milliwatt is far below the smallest real draw in the game (5 W) and far
+// above the error, so it separates a rounding artefact from an actual shortfall.
+const POWER_KW_EPSILON = 1e-6;
 const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergency power only
 // Portable-generator work light: a battery reserve (0..MAX) that lights the
 // unit's room even while it's stopped, so you can see to deploy and hook it up
@@ -553,8 +564,32 @@ async function loadPowerTopology(query) {
     query('SELECT * FROM generators'),
     query('SELECT * FROM lighting_states').catch(() => ({ rows: [] })),
   ]);
+  // ⚠ status/available_kw are DERIVED and no longer persisted, so the value sitting
+  // in the column is a FOSSIL — whatever the sim last wrote before that change.
+  // Adopting it is not harmless, because status is read back as `wasOk` when
+  // applyPowerLightEffects decides whether power has just come back.
+  //
+  // Trusting a fossil strands lights permanently. Cutting a zone writes the
+  // fixture's intent to the DB (light_on=0, light_on_intended=1) where it survives
+  // a restart — but the zone's status does not. So the next boot loads a fossil
+  // 'powered', computes 'powered', sees no transition, and never runs the restore:
+  // the room stays dark with its lights "installed" and its intent recorded, which
+  // looks exactly like a fixture nobody wired up. 22 rooms were in that state.
+  //
+  // So a FIRST load starts at null — unknown — and the boot cycle that follows
+  // immediately (init calls recomputePower) becomes a real transition into
+  // whatever is true now, restoring anything that was stranded. A RELOAD keeps the
+  // live RAM value instead, because a dev-panel power edit must not stage a fake
+  // blackout under the feet of whoever is standing there.
+  const carried = new Map();
+  for (const [id, r] of powerZones) carried.set(id, { status: r.status, available_kw: r.available_kw });
   powerZones.clear();
-  for (const r of pz.rows) powerZones.set(r.id, r);
+  for (const r of pz.rows) {
+    const prev = carried.get(r.id);
+    r.status = prev ? prev.status : null;
+    r.available_kw = prev ? prev.available_kw : 0;
+    powerZones.set(r.id, r);
+  }
   generatorRows.clear();
   for (const r of gens.rows) generatorRows.set(r.id, r);
   lightingRows.clear();
@@ -1290,7 +1325,10 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     const dark = lightingFor(zoneId);
     dark.fixture_count = 0;
     dark.total_lumens = 0;
-    if (broadcast && prevStatus !== 'offline' && !opts.silent) {
+    // prevStatus == null means the sim has no idea what this zone was doing a
+    // moment ago — the first cycle after a topology load. Announcing a cut-out
+    // there is a claim we cannot make, and at boot it would be ~17k of them.
+    if (broadcast && prevStatus != null && prevStatus !== 'offline' && !opts.silent) {
       const { text: nameStr, isSingular } = _fmtLightNames(activeLights.map(f => f.name));
       const CUTOUT_MSGS = [
         `${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly. Darkness.`,
@@ -1336,7 +1374,7 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     const fullyOn = [], flickering = [], forcedOff = [];
 
     for (const light of wantOn) {
-      if (pool >= light.draw_kw) {
+      if (pool + POWER_KW_EPSILON >= light.draw_kw) {
         fullyOn.push(light);
         pool -= light.draw_kw;
       } else if (pool > 0) {
@@ -1406,7 +1444,10 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     const ls2 = lightingFor(zoneId);
     ls2.fixture_count = lc2.cnt;
     ls2.total_lumens = lc2.lm;
-    if (broadcast) {
+    // Same rule as the cut-out line above: with no known previous status this is
+    // the first cycle after a topology load, and the lights being restored were
+    // stranded rather than just switched back on. Fix them silently.
+    if (broadcast && prevStatus != null) {
       // Not an emergency system — there isn't one on this path. This fires when a
       // zone that was offline or browned out fits back under its ceiling, so it is
       // the ORDINARY grid recovering, and it says so. "The supply" deliberately
@@ -1686,7 +1727,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', si
         const { zone, demand, ceiling } = c;
         const status = demand === 0 ? 'powered'
           : alloc <= 0 ? 'offline'
-          : alloc < demand ? 'overloaded'
+          : alloc + POWER_KW_EPSILON < demand ? 'overloaded'
           : 'powered';
         const prev_zone = zone.status; // capture before writeZonePower mutates the row
         writeZonePower(zone, status, alloc, ceiling);
@@ -1754,7 +1795,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', si
       pool -= alloc;
       const status = demand === 0 ? 'powered'
         : alloc <= 0 ? 'offline'
-        : alloc < demand ? 'overloaded'
+        : alloc + POWER_KW_EPSILON < demand ? 'overloaded'
         : 'powered';
       const prev_zone = zone.status; // capture before writeZonePower mutates the row
       writeZonePower(zone, status, alloc, ceiling);
