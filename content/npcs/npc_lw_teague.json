@@ -133,11 +133,42 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "You want somebody to argue you out of it.",
+          "next": "earned_bother_argue"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not an argument, it is a rota.",
+          "next": "stance_object"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
       ],
       "text": "\"Should it.\"\n\nNot a question. She checks the tunnel behind you.\n\n\"I have got a rifle, a stretch, and eleven years of walking it, and in all of that I have never once had cause to change my mind about either of them.\"\n\n\"Bring it up with Rennick. He will agree with you and he will be very good about it, and then he will come down here on a Thursday and walk behind me.\""
+    },
+    "earned_bother_argue": {
+      "_vine": {
+        "x": 1920,
+        "y": 1180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Maybe I do.\"\n\nShe does not deny it and she does not go soft about it either.\n\n\"Rennick has had eleven years to talk me out of it and he has not managed. You have had about twenty minutes.\"\n\n\"You are still standing here, mind. That is more than most of them.\""
     },
     "earned_bought": {
       "_vine": {
@@ -267,6 +298,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "That is convenient.",
+          "next": "stance_object"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -322,6 +360,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "That is a way of never being wrong.",
+          "next": "stance_object"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -335,6 +380,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You owe him that and not the people out east.",
+          "next": "stance_object"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -356,11 +408,42 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "You tried, though. Twice.",
+          "next": "earned_still_tried"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not an answer.",
+          "next": "stance_object"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
       ],
       "text": "\"No.\"\n\nNo heat in it. She has been asked this before and it has never once landed.\n\n\"A person is a thing you can talk to and come to an arrangement with. I have tried, twice, early on. I do not think either of them knew what a word was by then.\"\n\n\"You will tell me the drink did that and not them. It did. They bought it.\""
+    },
+    "earned_still_tried": {
+      "_vine": {
+        "x": 1660,
+        "y": 780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I did.\"\n\n\"The second one had a wedding ring on. I have never got past that. Somebody put that on him and meant it, and he was still wearing it.\"\n\n\"And he did not know what a word was. Both of those, at the same time, and I have had eleven years to make them into one thing and I cannot.\""
     },
     "earned_what": {
       "_vine": {
@@ -392,6 +475,95 @@
         }
       ],
       "text": "\"Whatever it does. That is the honest answer and they do not mind it.\"\n\nShe lists it. She does not slow down for any of it.\n\n\"A man asks for an arm that will lift a door and gets one, and I have seen that arm and it would take a door off. That is the good outcome and it does happen.\"\n\n\"More often it is teeth coming up through the cheek. A second pupil in one eye with nothing behind it. A jaw that comes apart at the back and sets like that. I have seen an arm that started growing and did not stop, and they had to keep him on his side for it.\"\n\n\"And a man who asks for a strong arm and comes out blind is still a good day to them, because he went and asked. They have got a word for that one as well.\""
+    },
+    "east_taken_find": {
+      "_vine": {
+        "x": 1920,
+        "y": 2300
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks at you properly, which she has not done all night.\n\n\"Right.\"\n\nShe does not believe you, and she does not say so, and not saying so is the most generous thing she has done since you met her.\n\n\"If you do, come down on a Thursday and tell me. I will be here. I am always here.\""
+    },
+    "east_taken_look": {
+      "_vine": {
+        "x": 1660,
+        "y": 2460
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why not?",
+          "next": "east_taken_look_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Past the mile.\"\n\n\"I have thought about it more than you would want me to. Four of us could do it. We would need a week, lights, and somebody who can draw.\"\n\n\"And then we would know. Knowing is the part I have never talked myself into.\""
+    },
+    "east_taken_look_why": {
+      "_vine": {
+        "x": 1920,
+        "y": 2460
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is cowardice.",
+          "next": "stance_object"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because there are two answers down there and I have only got room for one of them.\"\n\nShe starts walking.\n\n\"If they are all right, then I have been wrong for eleven years about a thing I have been very sure about, and I can carry that. People carry that.\"\n\n\"If they are not all right, then I walked nine families up to the edge of it and pointed.\"\n\n\"I have not worked out how to carry the second one. So I do not go and look, and you can call that whatever it is.\""
+    },
+    "east_taken_stop": {
+      "_vine": {
+        "x": 1660,
+        "y": 2300
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will find somewhere.",
+          "next": "east_taken_find"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"And do what with them.\"\n\nNot a question, and then she waits — actually waits — in case you have one.\n\n\"That is not me being clever with you. If there is somewhere in this city that will take nine families who look like that, say it now and I will walk them there myself on my own time.\"\n\nShe gives you about four seconds.\n\n\"No. Nobody has ever had one.\""
     },
     "lantern": {
       "_vine": {
@@ -785,6 +957,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "I will come Thursday.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -954,6 +1133,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It is still theirs to spend.",
+          "next": "the_flask_sacred_theirs"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -1157,11 +1343,35 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "It is still theirs to spend.",
+          "next": "the_flask_sacred_theirs"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(let her walk on)",
           "next": "bye"
         }
       ],
       "text": "\"It was. That is my point, and you have just made it for me.\"\n\nShe stops, and she is not performing this.\n\n\"Everything else in this city belongs to somebody. The wires are read. The water is metered. A chromed man rents his own arm off a company and it goes back to them when he dies, and that is in the paperwork.\"\n\n\"Your body is the last thing nobody has been inside. Nobody. Not Halcyon, not the Architect, not a surgeon. All of it is yours, and it is the only thing left that is.\"\n\n\"And they open their mouths and pour something in and let it eat that.\""
+    },
+    "the_flask_sacred_theirs": {
+      "_vine": {
+        "x": 1920,
+        "y": 1080
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is.\"\n\n\"That is your argument and it is a good one and I have never had anything to put against it.\"\n\nShe keeps walking.\n\n\"I still would not have it in the room.\""
     },
     "the_flask_sea": {
       "_vine": {
@@ -1253,6 +1463,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Not looking is a decision too.",
+          "next": "stance_object"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -1301,11 +1518,35 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "That is just operational sense.",
+          "next": "the_grades_line_sense"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
       ],
       "text": "\"Whether you can look at them without noticing.\"\n\nShe says it plainly and does not appear to hear how it sounds.\n\n\"That is not me being shallow. A man nobody looks at twice brings nobody down this tunnel. A man people cross the road to stare at gets that road watched, and we are at the end of that road.\""
+    },
+    "the_grades_line_sense": {
+      "_vine": {
+        "x": 1660,
+        "y": 1260
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is. That is what is wrong with it.\"\n\n\"Everything I have said to you tonight is operational sense. So is the other thing, and I have never been able to get a knife between them.\""
     },
     "the_quiet_ones": {
       "_vine": {
@@ -1655,11 +1896,42 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "(say nothing)",
+          "label": "You have looked, though.",
+          "next": "where_from_dead_looked"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then I will ask Rennick.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let it go)",
           "next": "bye"
         }
       ],
       "text": "\"No.\"\n\nIt is not sharp. She simply does not do it.\n\n\"I will tell you what blood does to a man in as much detail as you have got the stomach for, and twice if you want it twice. I am not telling you that.\"\n\n\"Ask Rennick. He has a word for it and he will give you the word and the argument that goes with it, and you can decide which of us you believe.\""
+    },
+    "where_from_dead_looked": {
+      "_vine": {
+        "x": 1660,
+        "y": 1680
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I have.\"\n\n\"Once, early on, because I did not believe what I had been told and I had decided somebody was making it worse than it was.\"\n\n\"Nobody was making it worse than it was.\""
     },
     "where_from_east": {
       "_vine": {
@@ -1758,8 +2030,29 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Then stop moving them.",
+          "next": "east_taken_stop"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then go and look.",
+          "next": "east_taken_look"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You could not have done anything else.",
+          "next": "stance_approve"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
-          "next": "bye"
+          "next": "stance_quiet"
         }
       ],
       "text": "\"I do not know.\"\n\n\"That is not me being careful with you. Eleven years, and not one of them has ever come back to tell me either way.\"\n\nShe checks the tunnel behind you.\n\n\"I will give you the thought I have had at four in the morning, because you have got this far. Some of those families are walking toward the only people in this city who would not mind what they look like.\"\n\n\"I have never done anything with that thought. I am not going to start tonight.\""
@@ -1795,6 +2088,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then you are not holding anything. You are being tolerated.",
+          "next": "stance_object"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -2001,6 +2301,23 @@
       ],
       "text": "\"It is the one I have got and I am not sorry about it.\"\n\nShe checks the tunnel behind you, which she has done every ninety seconds since you met her, and will keep doing after you have gone.\n\n\"The Architect sees the whole city. Every wire, every meter, every face on every street. It does not see this tunnel.\"\n\n\"That is five of us. Walking.\""
     },
+    "why_the_walk_thanked": {
+      "_vine": {
+        "x": 1660,
+        "y": 940
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She stops.\n\nIt takes her a moment, and she does not do it gracefully.\n\n\"Right. Well.\"\n\nShe adjusts the sling, which is what she does when she has nothing to do with her hands.\n\n\"Do not do that again.\""
+    },
     "why_the_walk_thanks": {
       "_vine": {
         "x": 880,
@@ -2008,6 +2325,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Thank you, then.",
+          "next": "why_the_walk_thanked"
+        },
         {
           "actions": [],
           "conditions": [],
