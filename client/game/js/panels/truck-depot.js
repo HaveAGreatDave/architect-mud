@@ -47,6 +47,7 @@ import { drawHangarScene, drawHangarFloorBay, pickSceneHit, truckLivery } from '
 // makes the picture and the cab provably the same three-picks-to-fourteen-values arithmetic.
 import { customColourway, CUSTOM_COL } from '../../../shared/cab-trim.js';
 import { suppressWeatherFx } from './weather-fx.js';
+import { compactHidePanel } from '../../../shared/compact-view.js';
 
 let B = null;             // { data, screen, selId, inspect, bench, toast }
 let raf = null;
@@ -91,6 +92,9 @@ export function openTruckDepot(msg) {
   // Snap the top pane back to its default auto size so the whole depot fits, whatever manual drag
   // height was left on the previous room look. The hangar does exactly this on a fresh open.
   if (first) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
+  // And the log folds away on a phone, on a FIRST open only — same rule and same reason as the
+  // hangar next door, which this function already mirrors line for line.
+  if (first) compactHidePanel('td-hidepanel');
   const keepSel = B?.selId || null;
   // What the deck held BEFORE this push, so the panel can say out loud what the server just did to
   // it. Read before B is replaced, used after.

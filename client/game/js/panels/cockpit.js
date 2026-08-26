@@ -23,6 +23,7 @@ import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
 import { createFreeCam, bindFreeCamPointer } from './freecam.js';
+import { compactHidePanel } from '../../../shared/compact-view.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
 // auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
@@ -678,6 +679,11 @@ function wirePaxChrome() {
     hideBtn.classList.toggle('on', on);
     if (on) { document.body.classList.remove('ck-fullscreen'); fsBtn?.classList.remove('on'); }
   });
+  // ⚠ AND ON A PHONE IT STARTS FOLDED. Same argument the helm makes unconditionally two files
+  // over: the windowed pane is too short to see anything out of with the log up, and on a phone
+  // it is shorter still. The panel's own toggle, so the button reads as pressed and one tap gives
+  // the log back — see compact-view.js.
+  compactHidePanel('ck-hidepanel', hideBtn);
   root.tabIndex = -1;
   const cmdInput = document.getElementById('cmd-input');
   const focusPax = () => { try { if (document.activeElement === cmdInput) cmdInput.blur(); root.focus({ preventScroll: true }); } catch {} };
@@ -3273,6 +3279,8 @@ export function openFlightSim(opts = {}) {
     if (hideBtn) hideBtn.classList.toggle('on', on);
     if (on) { document.body.classList.remove('fsim-fullscreen'); fsBtn?.classList.remove('on'); }
   });
+  // And folded by default on a phone — see the note on the cabin's own toggle above.
+  compactHidePanel('fsim-hidepanel', hideBtn);
 
   // External / cockpit view toggle — the ◎ EXT button mirrors the V key; both call setExternal
   // so the button's lit state and F.external stay in sync however you flip it.

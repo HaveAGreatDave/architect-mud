@@ -37,6 +37,7 @@ import { openTabletToChatTab } from './tablet-os.js';
 // and the bars in the galley are drawn from what the browser had anyway — no payload, no push, no
 // query. The only thing the cab has to ask the server for is what is in the bunk to eat.
 import { state as gameState } from '../state.js';
+import { COMPACT_MQ, isCompactView, compactHidePanel } from '../../../shared/compact-view.js';
 
 // ── THE COMPACT CAB ───────────────────────────────────────────────────────────
 //
@@ -53,13 +54,12 @@ import { state as gameState } from '../state.js';
 // that cannot back up. The clutch goes with the gate for the same reason it appears with it —
 // with the automatic driving, standing on it is a way to coast and nothing else.
 //
-// ⚠ ONE DEFINITION, USED TWICE. The stylesheet interpolates this string and `cabCompact()` tests
-// the same one, because the failure mode if they ever disagreed is a cab with no gate and no
-// automatic, which is a truck nobody can move. It is `pointer:coarse` as well as a width, for the
-// reason the touch-only controls already are: a narrow window on a desktop still has a keyboard,
-// and the keyboard has the whole gearbox on it.
-const CAB_COMPACT_MQ = '(max-width:760px) and (pointer:coarse)';
-const cabCompact = () => { try { return matchMedia(CAB_COMPACT_MQ).matches; } catch { return false; } };
+// ⚠ ONE DEFINITION, USED TWICE HERE AND BY FIVE OTHER PANELS. The stylesheet below interpolates
+// the same string `cabCompact()` tests, because the failure mode if they ever disagreed is a cab
+// with no gate and no automatic, which is a truck nobody can move. It lives in
+// client/shared/compact-view.js — see that file for why it is `pointer:coarse` as well as a width.
+const CAB_COMPACT_MQ = COMPACT_MQ;
+const cabCompact = isCompactView;
 
 // TELEMETRY CADENCE. This was a flat 250ms — four commands a second through the full dispatch
 // pipeline, forever, including for a rig sitting in a bay with the handbrake on while its driver
@@ -2279,10 +2279,9 @@ export function openCab(ctx = {}) {
   // ⚠ AND ON A PHONE IT STARTS HIDDEN. The room description and the log are below the pane, and on
   // a phone that is the last third of a screen the road was already fighting for — a driver in a
   // cab is looking out of the windscreen, and the room they are parked in has nothing to say until
-  // they climb down. This is the EXISTING toggle switched on, not a second mechanism, so the
-  // button still reads as pressed and one tap gives the log straight back. It is a default, never
-  // a lock: nothing re-applies it, so a driver who wants the log keeps it for the whole leg.
-  if (cabCompact()) { document.body.classList.add('cab-hidepanel'); hideBtn.classList.add('on'); }
+  // they climb down. Shared with the other five panels that take over the pane; the rules are in
+  // compact-view.js, including why it is a default and never a lock.
+  compactHidePanel('cab-hidepanel', hideBtn);
   // THE EXTERNAL VIEW. The renderer has had a real chase camera the whole time — the cab's own
   // header note lists `external` among the things it deliberately did not pass — so this is not a
   // new camera, it is the existing one turned on, model and all. The rig is NOT a world object and
