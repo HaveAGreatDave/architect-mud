@@ -16,7 +16,7 @@
     "lore": {
       "options": [
         {
-          "label": "(listen)",
+          "label": "And you were not six inches out.",
           "next": "root"
         }
       ],
@@ -70,7 +70,7 @@
     "trust": {
       "options": [
         {
-          "label": "(nod)",
+          "label": "Then I will come back with my parts attached.",
           "next": "root"
         }
       ],

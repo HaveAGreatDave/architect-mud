@@ -55,7 +55,7 @@
     "codex_drift": {
       "options": [
         {
-          "label": "(say nothing)",
+          "label": "Fractionally right, though.",
           "next": "root"
         }
       ],

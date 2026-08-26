@@ -144,6 +144,23 @@
       ],
       "text": "\"The same job, more of it, and a scan on the way in.\" She hands you a chit.\n\n\"The Gate first. It is not a formality — it is how you stop being a person we are discussing and start being a person we are covering. After that you are on the rota, and somebody upstairs starts caring whether you come back.\"\n\nA truck goes past, west, full of something heavy.\n\n\"Nothing else changes yet. That is the whole point of the first month, and I say it to everybody, and it is true every time.\""
     },
+    "ives_again": {
+      "_vine": {
+        "x": 1480,
+        "y": 3230
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Eleven thousand and forty.\"\n\nShe says it exactly as she said it the first time, which is the answer to what you were actually asking."
+    },
     "ives_backdown": {
       "_vine": {
         "x": 2980,
@@ -173,6 +190,23 @@
       ],
       "options": [],
       "text": "There are two of them. The second one comes through the side door without being called, which means somebody upstairs has been watching this conversation.\n\nChrome arms on both, shoulder to fingertip, the plating dulled and scuffed along the forearms the way a much-used tool gets scuffed. One of them has a hand you can hear — a small servo whine as the fingers close.\n\nThey give you about four seconds. Then one takes your upper arm and the other takes a fistful of the back of your coat, and your feet stop being load-bearing.\n\nNeither of them says a word to you. They talk over your head about a delivery that is late. At the first door they turn you sideways without slowing down and your shoulder goes into the frame, and neither of them notices, and neither of them adjusts.\n\nIves has gone back to the ledger before you are through it.\n\nOn the road they set you on your feet and let go at the same moment, so you have to catch your own balance. One of them flexes his hand twice, the way you would after carrying shopping.\n\n\"Mind the step. It is slick tonight.\""
+    },
+    "ives_count_them": {
+      "_vine": {
+        "x": 1400,
+        "y": 3050
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Thousands is the count.\"\n\nShe turns the page.\n\n\"You want me to say that I remember one. I remember four. I am not going to tell you about them, because you would take it as the good news and it is not.\""
     },
     "ives_ejected": {
       "_vine": {
@@ -210,6 +244,40 @@
         }
       ],
       "text": "\"Yes.\"\n\nShe does not stand up and she does not call anybody. She simply looks past your shoulder and a man in Spire grey is already there, because he was always already there.\n\nHis sleeves are turned back and both forearms are chrome to the elbow, matched to his skin and not remotely disguised.\n\n\"Thank you for coming in. Sign out at the plate.\""
+    },
+    "ives_go_meet": {
+      "_vine": {
+        "x": 1280,
+        "y": 2780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I could. I did, once, in my second year.\"\n\n\"Ranner, on Cinder Lane. I put four hundred of my own into his account and the file closed on the day it was always going to close.\"\n\nShe marks the column.\n\n\"So now I do the column.\""
+    },
+    "ives_met": {
+      "_vine": {
+        "x": 1240,
+        "y": 2690
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It would change the afternoon.\"\n\nShe finishes the column before she answers the rest of it.\n\n\"It would not change the reserve. That is the argument for not meeting him. I did not invent it and I have never been able to fault it.\""
     },
     "ives_nine": {
       "_vine": {
@@ -283,6 +351,57 @@
       ],
       "text": "\"I cannot. I do not write the forms.\"\n\nShe is still perfectly civil, and she has said this before to other people.\n\n\"The committee sat in '39. You may write to them. Two are alive.\""
     },
+    "ives_price_it": {
+      "_vine": {
+        "x": 1360,
+        "y": 2960
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She stops writing.\n\nIt is the longest she has gone without writing since you came in.\n\n\"I would want a fortnight, the second book, and somebody's authority. All three in writing.\"\n\nShe picks the pen back up.\n\n\"Bring me somebody who can give me those and I will do it properly.\""
+    },
+    "ives_should_be": {
+      "_vine": {
+        "x": 1520,
+        "y": 3320
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Why.\"\n\nNot hostile. She would like the argument, if you have one.\n\n\"If it were difficult I would be slower. The slowness would come off the lights on the approach, and then there would be four hundred people watching a dark road.\""
+    },
+    "ives_still_event": {
+      "_vine": {
+        "x": 1320,
+        "y": 2870
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Yes.\"\n\nShe does not soften it and she does not add to it.\n\n\"It is simply not one of ours, and I have no book for those.\""
+    },
     "ives_walked_out": {
       "_vine": {
         "x": 3240,
@@ -326,6 +445,23 @@
         }
       ],
       "text": "Ives closes the ledger.\n\nShe has written in it, turned it, blotted it and marked her place in it since you walked up, and now it is shut and her hands are flat on the cover.\n\n\"I am going to ask you to leave in a moment, and I would rather not, because you would be signed out and you would have to be signed back in, and that is a fortnight.\"\n\n\"So. Either we talk about something else, or we do not talk.\""
+    },
+    "ives_your_name": {
+      "_vine": {
+        "x": 1440,
+        "y": 3140
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She tells you. Correctly, with the stress in the right place, and she has not looked at anything to do it.\n\n\"It was on the gate log at eleven minutes past.\"\n\n\"You are not being watched, you are being served. Those feel identical from where you are standing and they are not the same thing.\""
     },
     "pitch": {
       "_vine": {
@@ -855,6 +991,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Do you count them?",
+          "next": "ives_count_them"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -916,6 +1059,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am asking.",
+          "next": "ives_price_it"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -1088,6 +1238,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "What is my name?",
+          "next": "ives_your_name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -1136,6 +1293,20 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Would it change anything if you had?",
+          "next": "ives_met"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then go and meet him.",
+          "next": "ives_go_meet"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -1149,6 +1320,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It is still an event.",
+          "next": "ives_still_event"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -1194,6 +1372,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Say that number again.",
+          "next": "ives_again"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -1207,6 +1392,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It should be difficult.",
+          "next": "ives_should_be"
+        },
         {
           "actions": [],
           "conditions": [],

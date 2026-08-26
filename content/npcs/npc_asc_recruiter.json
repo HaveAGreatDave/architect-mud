@@ -42,7 +42,17 @@
     "codex_certain": {
       "options": [
         {
-          "label": "(leave it there)",
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Load-bearing for who?",
+          "next": "maresh_load_bearing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
           "next": "bye"
         }
       ],
@@ -320,6 +330,40 @@
       ],
       "text": "\"There he is.\" Maresh watches the thin man staring up at the Gate with his notebook shut. \"A year of asking, and the answer was a building. It usually is.\""
     },
+    "maresh_admire": {
+      "_vine": {
+        "x": 1520,
+        "y": 3320
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I do. It costs me nothing and it is true.\"\n\n\"They will lose. They will lose slowly and with excellent manners, and I would rather it were somebody other than me doing it to them.\""
+    },
+    "maresh_answerable": {
+      "_vine": {
+        "x": 1600,
+        "y": 3500
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The bench. Then the floor. Then a man called Alder, who I have met twice and did not enjoy either time.\"\n\n\"That is not nothing. Ask out south for the equivalent and see what you are handed.\""
+    },
     "maresh_backdown": {
       "_vine": {
         "x": 2460,
@@ -349,6 +393,23 @@
       ],
       "options": [],
       "text": "They come off the wall together, and they have done this so many times they do not need to agree on anything first.\n\nOne hooks a hand under your arm and lifts, and you go up far enough that your toes drag. The other takes your wrist and folds it in against your own back, not hard, just to a place where you will not do anything with it. The plating on his forearm is warm. That is the thing you will remember afterwards, that it was warm.\n\nNeither of them speaks to you at any point. One of them asks the other whether the Tuesday shipment came, and the other says most of it.\n\nMaresh has sat back down and is reading something.\n\nThey take you over the plate at the Gate, and it reads you the same as it would if you were walking, and the time goes in the file. On the far side they let go together and you go down onto one knee on the road, and by the time you are up they have already turned round."
+    },
+    "maresh_document": {
+      "_vine": {
+        "x": 1240,
+        "y": 2690
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"We do. That is what the intake form is for.\"\n\nHe is not being clever. He believes he has answered you.\n\n\"What happens after intake is a different department and I have never worked in it.\""
     },
     "maresh_ejected": {
       "_vine": {
@@ -387,6 +448,74 @@
       ],
       "text": "\"No.\"\n\nHe nods at the door. Two men in Spire grey come in and stand either side of it without looking at you. Both are chromed from the collarbone down and neither has bothered to have it skinned — bare plate at the shoulder, cabling laid in behind the elbow, hands built a size larger than the ones they were born with.\n\n\"Come back on Monday if you would like to. Nothing is closed and nothing is written down.\""
     },
+    "maresh_fair_hit": {
+      "_vine": {
+        "x": 1640,
+        "y": 3590
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Now that is a fair hit.\"\n\nHe does not stop enjoying himself.\n\n\"Yes. The people who would put it best are not in this building, and that is by arrangement, and the arrangement is ours.\""
+    },
+    "maresh_kept": {
+      "_vine": {
+        "x": 1360,
+        "y": 2960
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Somebody reads it. Everything is read eventually — that is the whole promise of the place.\"\n\n\"Whether anybody acts on what they read is a separate question, and I would not raise that one on a first visit.\""
+    },
+    "maresh_load_bearing": {
+      "_vine": {
+        "x": 1560,
+        "y": 3410
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"For the people standing under it.\"\n\nHe gestures at the queue without looking at it.\n\n\"Which is everybody. Including me, before you say it.\""
+    },
+    "maresh_not_me": {
+      "_vine": {
+        "x": 1440,
+        "y": 3140
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nA beat.\n\n\"No, you were not.\"\n\nHe looks at you for slightly longer than the conversation requires.\n\n\"That is a credit to you, and I would keep it to yourself in here.\""
+    },
     "maresh_press": {
       "_vine": {
         "x": 1940,
@@ -410,6 +539,57 @@
         }
       ],
       "text": "\"I do not.\"\n\nIt is the first thing he has said today that arrives flat.\n\n\"I have told you I have never been through that door. You may believe that or not, and you will notice I have not asked you to.\""
+    },
+    "maresh_reads": {
+      "_vine": {
+        "x": 1480,
+        "y": 3230
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Almost nobody. We know the number.\"\n\n\"It is on a slide. Somebody presents it once a year and everybody agrees it is a shame.\""
+    },
+    "maresh_same": {
+      "_vine": {
+        "x": 1280,
+        "y": 2780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is not the same, and I will show you why.\"\n\n\"Their man cannot sit down because of what he is. Our man cannot be covered because of what we cannot measure. If we could measure it we would cover it and we would be delighted to, because that is a market.\"\n\n\"You are welcome to find that colder. It is not the same.\""
+    },
+    "maresh_sent_where": {
+      "_vine": {
+        "x": 1400,
+        "y": 3050
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "He is already on the next thing and has to come back for it.\n\n\"Sent anywhere. It is a turn of phrase.\"\n\nHe waits, pleasantly, to see whether you have another question."
     },
     "maresh_walked_out": {
       "_vine": {
@@ -454,6 +634,23 @@
         }
       ],
       "text": "Maresh stands up.\n\nHe has been sitting since you came in, through all of it, and now he is on his feet and his hands are in front of him and he is still smiling.\n\n\"I am going to be very clear, because I do not think you are being unreasonable and I would like you to have the choice. One more of those and I will have you shown out. It is not a punishment and there is no note. It only means today is over.\"\n\n\"Sit down and ask me something else.\""
+    },
+    "maresh_where_go": {
+      "_vine": {
+        "x": 1320,
+        "y": 2870
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Out, mostly.\"\n\nThe smile does not move.\n\n\"I am not being coy. I do not run intake. Ives would know the form number and Kesh would know the ward.\"\n\n\"It has never come up in a meeting I was in, and I have sat in a great many meetings.\""
     },
     "offer": {
       "options": [
@@ -875,6 +1072,20 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Sent where?",
+          "next": "maresh_sent_where"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I was not asking about me.",
+          "next": "maresh_not_me"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -912,6 +1123,20 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where do they go?",
+          "next": "maresh_where_go"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You keep it and nobody reads it.",
+          "next": "maresh_kept"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -1022,6 +1247,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Nobody has explained it because nobody gets to.",
+          "next": "maresh_fair_hit"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -1059,6 +1291,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Answerable to who, though?",
+          "next": "maresh_answerable"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -1104,6 +1343,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Nobody reads the form.",
+          "next": "maresh_reads"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -1117,6 +1363,20 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then document a mutant.",
+          "next": "maresh_document"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is a nicer way of saying the same thing.",
+          "next": "maresh_same"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -1165,6 +1425,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You admire them.",
+          "next": "maresh_admire"
+        },
         {
           "actions": [],
           "conditions": [],

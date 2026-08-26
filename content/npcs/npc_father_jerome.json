@@ -77,7 +77,7 @@
     "aboutneil": {
       "options": [
         {
-          "label": "(leave it)",
+          "label": "You are not going to name them.",
           "next": "root"
         }
       ],
@@ -112,7 +112,7 @@
     "cameras": {
       "options": [
         {
-          "label": "(nod)",
+          "label": "And the plaque comes down on the Monday.",
           "next": "root"
         }
       ],
@@ -121,7 +121,7 @@
     "check": {
       "options": [
         {
-          "label": "(watch him say nothing else)",
+          "label": "Fourteen years is a long time to say them to nobody.",
           "next": "root"
         }
       ],
@@ -130,7 +130,7 @@
     "comehere": {
       "options": [
         {
-          "label": "(nod)",
+          "label": "That may be enough on its own.",
           "next": "root"
         }
       ],
@@ -139,7 +139,7 @@
     "creed": {
       "options": [
         {
-          "label": "(leave it there)",
+          "label": "I will read the long version.",
           "next": "root"
         }
       ],
@@ -148,7 +148,7 @@
     "evenknowing": {
       "options": [
         {
-          "label": "(that is about Neil)",
+          "label": "That is about Neil.",
           "next": "aboutneil"
         }
       ],
@@ -196,7 +196,7 @@
     "notnothing": {
       "options": [
         {
-          "label": "(leave it there)",
+          "label": "Somebody should have said it years ago.",
           "next": "root"
         }
       ],
@@ -240,7 +240,7 @@
     "refused": {
       "options": [
         {
-          "label": "(that is not nothing)",
+          "label": "That is not nothing.",
           "next": "notnothing"
         }
       ],
@@ -291,7 +291,7 @@
     "throwout": {
       "options": [
         {
-          "label": "(leave him to his work)",
+          "label": "Nowhere. That is the answer.",
           "next": "root"
         }
       ],
@@ -300,7 +300,7 @@
     "whystay": {
       "options": [
         {
-          "label": "(nod)",
+          "label": "Then I hope you are right about him.",
           "next": "root"
         }
       ],

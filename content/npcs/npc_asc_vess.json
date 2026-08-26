@@ -160,6 +160,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "I do not want a session.",
+          "next": "vess_no_session"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -173,6 +180,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not choosing.",
+          "next": "vess_not_choosing"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -554,6 +568,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Then ask.",
+          "next": "vess_ask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -897,6 +918,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "That is not the same as it being right.",
+          "next": "vess_decent_right"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -914,6 +942,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Waiting on what?",
+          "next": "vess_waiting_on"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -927,6 +962,13 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nine years for who?",
+          "next": "vess_nine_for_who"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -1021,6 +1063,108 @@
         }
       ],
       "text": "\"Then let me show you the Spire the way we show it to the promising. The Gallery of Rungs, to see the ladder whole. The Vats, to see what waiting at the top actually buys. And then the crown — where you will understand, finally, what Halcyon has been selling all along.\""
+    },
+    "vess_ask": {
+      "_vine": {
+        "x": 1320,
+        "y": 2870
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I will.\"\n\nShe writes herself a note, and it is a real note, and she will genuinely do it.\n\n\"Come and see me in a month. If it turns out to be nothing, I will tell you it was nothing.\""
+    },
+    "vess_decent_right": {
+      "_vine": {
+        "x": 1400,
+        "y": 3050
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No, it is not, and I have never said it was.\"\n\n\"It is the only part of it that is mine to decide. If you find something else in this building that is mine, tell me, and I will decide that properly as well.\""
+    },
+    "vess_nine_for_who": {
+      "_vine": {
+        "x": 1360,
+        "y": 2960
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everybody in the district. That is the number, averaged.\"\n\n\"You are about to ask whether it is nine years for everybody or eighteen for half of them. It is nearer the second. I have said so in writing twice.\""
+    },
+    "vess_no_session": {
+      "_vine": {
+        "x": 1280,
+        "y": 2780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Of course. I will take it off.\"\n\nShe does, in front of you, and you watch the line go.\n\n\"It stays on the wellbeing side either way, because I have to record that it was offered. That is not a mark against you either.\""
+    },
+    "vess_not_choosing": {
+      "_vine": {
+        "x": 1440,
+        "y": 3140
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is the only kind there is.\"\n\nShe is not being combative. She thinks this is obvious.\n\n\"Nobody chooses between a good thing and a better one. They choose between a hard winter and an easier one, and they always have, and we did not invent the winter.\""
+    },
+    "vess_waiting_on": {
+      "_vine": {
+        "x": 1240,
+        "y": 2690
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"For the book to close on it.\"\n\nShe says it as a scheduling fact, because to her it is one.\n\n\"The Row has about nine years in it. After that it is not a district, it is a site, and you wire a site properly rather than patching one twice.\""
     },
     "work_hub": {
       "options": [
