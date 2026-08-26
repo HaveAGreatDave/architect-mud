@@ -74,6 +74,13 @@ import { stopEngineAudio } from "./panels/engine-audio.js";
 import { isFlightSimActive } from "./panels/cockpit.js";
 import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
 import { isTruckDepotWalkActive } from "./panels/truck-depot.js";
+import { runBootScreen } from "./panels/bootscreen.js";
+
+// Started before anything else is wired, and deliberately NOT awaited: the POST
+// screen is an overlay over a client that is booting underneath it, so holding
+// the rest of main.js behind it would turn a cosmetic sequence into real load
+// time. It tears itself down when the socket is up (see net.js `game-connected`).
+runBootScreen();
 
 // Settings
 const settings = loadSettings();

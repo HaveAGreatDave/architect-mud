@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Dust turns over in the light and does not settle.",
+    "Outside, somebody goes past on the road, at four.",
+    "The room is exactly as warm as it was."
+  ],
+  "cause": "dream",
+  "description": "A room in the middle of an afternoon, with the light across the floor at the angle it holds at four. Nothing needs doing. You have been here since before you can account for and the light is at four, and you have grown old in this room twice and are the age you are.",
+  "drug_id": null,
+  "fx": "bloom",
+  "fx_intensity": 0.3,
+  "id": "dream_the_long_afternoon",
+  "name": "The Long Afternoon",
+  "objects": [
+    {
+      "looks": [
+        "Across the boards, at four, where it has been.",
+        "It has moved the width of a floorboard since you were young here.",
+        "Your hand in it is your hand at every age you have had."
+      ],
+      "name": "the light"
+    },
+    {
+      "looks": [
+        "Worn where you wear a chair.",
+        "You have sat in it for a long time and it is not tired of you.",
+        "From it, the whole room, and no reason at all to get up."
+      ],
+      "name": "the chair"
+    }
+  ],
+  "weather": "The still, dust-lit warmth of a room the sun has been in all day."
+}

@@ -122,30 +122,6 @@
         },
         {
           "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_admitted",
-              "op": "set"
-            }
-          ],
-          "enabled": true,
-          "label": "The child let me in.",
-          "next": "inside"
-        },
-        {
-          "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_admitted",
-              "op": "set"
-            }
-          ],
-          "enabled": true,
-          "label": "The child let me in.",
-          "next": "inside"
-        },
-        {
-          "actions": [],
           "conditions": [],
           "enabled": true,
           "label": "Let me in.",

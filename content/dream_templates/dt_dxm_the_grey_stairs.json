@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A landing arrives. Then the next flight.",
+    "The window shows the same weather at a different height.",
+    "Somebody a few flights up is climbing at your rate."
+  ],
+  "cause": "drug",
+  "description": "A flight of stairs done in the material everything institutional is done in, going up, with a landing, and a flight going up from the landing. You are climbing at a good rate. The landings arrive at regular intervals and each has a window in it with the same weather.",
+  "drug_id": "drug_dxm",
+  "fx": "static",
+  "fx_intensity": 0.55,
+  "id": "dt_dxm_the_grey_stairs",
+  "name": "The Grey Stairs",
+  "objects": [
+    {
+      "looks": [
+        "Concrete, with the nosings worn pale in the middle by other people.",
+        "Twelve to a flight, all the way up, checkable and checked.",
+        "They go down as well. You have not been down them."
+      ],
+      "name": "the stairs"
+    },
+    {
+      "looks": [
+        "The same view. The same weather. A greater height.",
+        "Wired glass, and the wire is a grid, and the grid is regular.",
+        "Nothing outside it has moved between one landing and the next."
+      ],
+      "name": "the window"
+    }
+  ],
+  "weather": "The cool, scoured air of a stairwell nobody has ever aired."
+}

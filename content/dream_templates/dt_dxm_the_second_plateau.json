@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Somebody moves about on the level above, at the pace of somebody at home there.",
+    "The edge of this plateau is where it was.",
+    "A sound comes down from above and is a normal sound."
+  ],
+  "cause": "drug",
+  "description": "A level surface at a height, reached by a climb you do not have, with another level surface above it. This one is where you are. It is broad and unremarkable and it goes to the edges, and the next one up is the same and is occupied.",
+  "drug_id": "drug_dxm",
+  "fx": "tunnel",
+  "fx_intensity": 0.65,
+  "id": "dt_dxm_the_second_plateau",
+  "name": "The Second Plateau",
+  "objects": [
+    {
+      "looks": [
+        "Flat. Even. It goes out to a horizon that is an edge.",
+        "You have been up here for some time and have not walked its width.",
+        "The floor is a floor. Somebody laid it."
+      ],
+      "name": "this level"
+    },
+    {
+      "looks": [
+        "The same as this one, from underneath.",
+        "There is somebody on it. There is somebody on the one above that.",
+        "No stair between them, and everyone got up there."
+      ],
+      "name": "the level above"
+    }
+  ],
+  "weather": "High and dry and still, with the cold that comes with height."
+}

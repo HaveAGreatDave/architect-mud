@@ -1,0 +1,20 @@
+{
+  "description": "Six tables, no two of a family, each one shimmed level with a folded beer mat that is checked and replaced as part of the closing routine.",
+  "flags": {
+    "aliases": "table,tables,chair,chairs,seat",
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_tables",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "mismatched tables and chairs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_jolenes_bar"
+}

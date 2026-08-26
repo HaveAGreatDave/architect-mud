@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Something that floats arrives from the next room and joins the things in this one.",
+    "The water reaches a socket and the lights stay on.",
+    "Somebody laughs at something on the other side of the room."
+  ],
+  "cause": "dream",
+  "description": "The ground floor of somewhere domestic, with water in it, up over the skirting and rising at the speed of an afternoon. People are having their evening. Somebody steps over a floating chair to get to the kettle. Nobody has mentioned it, and to mention it now, this far in, would be making a scene.",
+  "drug_id": null,
+  "fx": "rain",
+  "fx_intensity": 0.6,
+  "id": "dream_the_water",
+  "name": "The Water Coming Up",
+  "objects": [
+    {
+      "looks": [
+        "Up to the third stair. It was the second.",
+        "Clean, and cold, and coming from no direction.",
+        "Your reflection in it is standing in a dry room."
+      ],
+      "name": "the water"
+    },
+    {
+      "looks": [
+        "Comfortable. Shoes off, feet under them, out of the wet.",
+        "One of them tops up a glass and hands it across without looking down.",
+        "They will go up when it is time to go up."
+      ],
+      "name": "the others"
+    }
+  ],
+  "weather": "Close and damp, and smelling of a carpet that has been wet before."
+}

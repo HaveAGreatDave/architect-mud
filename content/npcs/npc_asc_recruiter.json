@@ -81,6 +81,193 @@
       ],
       "text": "Maresh smiles the way a man smiles at a parked car.\n\n\"Ives wrote you up. I read it. It was — \" he searches for it, finds it, enjoys it \" — *warm*, actually. She liked you. She has never liked me.\"\n\nHe goes back to the queue.\n\n\"No, there is nothing for you here. Not out of spite; there is genuinely nothing. The Gate does not scan people who have already answered. Go well.\""
     },
+    "hand_approve": {
+      "_vine": {
+        "x": 1420,
+        "y": 1900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" The smile is different for a moment — smaller, and actually his. \"No, most people would not, and most people will not say so.\"\n\nHe sits back down.\n\n\"You will do well here. That is not flattery, it is a prediction, and I make about four a year.\""
+    },
+    "hand_deflect": {
+      "_vine": {
+        "x": 1680,
+        "y": 1820
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have decided something about me.",
+          "next": "hand_deflect_ask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let him move on)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Certainly.\"\n\nHe lets you change it, and he is as courteous as he was a minute ago, and something has gone out of his face that you would not be able to name if you had not been watching for it.\n\nHe does not tell you that you will do well here.\n\n\"Where were we. The terms, I think.\""
+    },
+    "hand_deflect_ask": {
+      "_vine": {
+        "x": 1940,
+        "y": 1820
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "approved"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": ""
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_recruiter",
+              "reason": "maresh:answered",
+              "warmth": 2
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 40,
+              "ideology_id": "ideology_ascendants",
+              "reason": "intake"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "I think the system is right.",
+          "next": "hand_recover"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": "1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "I would rather it did not.",
+          "next": "hand_stay_watched"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing, and let him work)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I have decided nothing. I am not qualified to.\"\n\nThe smile is back exactly where it was.\n\n\"You asked a great many questions about a man you will never meet and answered none about yourself. That is unusual, and I write down unusual, because I am asked to.\"\n\n\"You could simply tell me and it would go away.\""
+    },
+    "hand_object": {
+      "_vine": {
+        "x": 1420,
+        "y": 2060
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am not going to get comfortable with it.",
+          "next": "hand_object_hard"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let it go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I would not.\"\n\nHe says it without any defence at all, which is worse than a defence.\n\n\"And he will be seen today. In the Yards they would not have let him in off the step.\"\n\nA small pause, and it is the only unpolished second in the conversation.\n\n\"You want one of those to make the other one all right. It will not, and I am not going to pretend it does.\""
+    },
+    "hand_object_hard": {
+      "_vine": {
+        "x": 1680,
+        "y": 2060
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You know exactly what happens to them.",
+          "next": "maresh_press"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good.\"\n\nHe means it, and that is the difficulty with him.\n\n\"Come back and tell me in a year. I keep a list of people who said that and I have never once had to cross a name off it in under two.\""
+    },
+    "hand_recover": {
+      "_vine": {
+        "x": 2200,
+        "y": 1760
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "It costs you nothing to say and that is the part you will think about later.\n\n\"There.\" He is genuinely relieved, which is somehow the worst thing in the room. \"That is all anybody wants. Not agreement — a position. An unsorted person makes everybody nervous and it is nobody's fault.\"\n\nHe writes one line and closes the folder.\n\n\"You will do well here.\""
+    },
+    "hand_stay_watched": {
+      "_vine": {
+        "x": 2200,
+        "y": 1900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"As you like.\"\n\nHe does not press it and he does not cool towards you at all, which makes it harder rather than easier.\n\n\"It is only a line in a folder. Nobody will ever mention it to you and you will never be refused anything because of it.\"\n\n\"You will simply notice, in about a year, that you are asked to do the ordinary things and never the interesting ones.\""
+    },
     "inside": {
       "options": [
         {
@@ -132,6 +319,141 @@
         }
       ],
       "text": "\"There he is.\" Maresh watches the thin man staring up at the Gate with his notebook shut. \"A year of asking, and the answer was a building. It usually is.\""
+    },
+    "maresh_backdown": {
+      "_vine": {
+        "x": 2460,
+        "y": 2120
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(listen)",
+          "next": "bye"
+        }
+      ],
+      "text": "He sits, and the whole thing goes out of the room as though it had never been in it.\n\n\"Good. That is the sensible one and almost nobody takes it.\"\n\nHe turns the folder back around.\n\n\"The terms, then. All of it, in order, before you sign.\""
+    },
+    "maresh_carried_out": {
+      "_vine": {
+        "x": 2720,
+        "y": 2360
+      },
+      "actions": [
+        {
+          "action": "END_CONVERSATION"
+        }
+      ],
+      "options": [],
+      "text": "They come off the wall together, and they have done this so many times they do not need to agree on anything first.\n\nOne hooks a hand under your arm and lifts, and you go up far enough that your toes drag. The other takes your wrist and folds it in against your own back, not hard, just to a place where you will not do anything with it. The plating on his forearm is warm. That is the thing you will remember afterwards, that it was warm.\n\nNeither of them speaks to you at any point. One of them asks the other whether the Tuesday shipment came, and the other says most of it.\n\nMaresh has sat back down and is reading something.\n\nThey take you over the plate at the Gate, and it reads you the same as it would if you were walking, and the time goes in the file. On the far side they let go together and you go down onto one knee on the road, and by the time you are up they have already turned round."
+    },
+    "maresh_ejected": {
+      "_vine": {
+        "x": 2460,
+        "y": 2280
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(go)",
+          "next": "maresh_walked_out"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_asked_to_leave",
+              "scope": "player",
+              "value": "1"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_carried_out",
+              "scope": "player",
+              "value": "1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "(do not move)",
+          "next": "maresh_carried_out"
+        }
+      ],
+      "text": "\"No.\"\n\nHe nods at the door. Two men in Spire grey come in and stand either side of it without looking at you. Both are chromed from the collarbone down and neither has bothered to have it skinned — bare plate at the shoulder, cabling laid in behind the elbow, hands built a size larger than the ones they were born with.\n\n\"Come back on Monday if you would like to. Nothing is closed and nothing is written down.\""
+    },
+    "maresh_press": {
+      "_vine": {
+        "x": 1940,
+        "y": 2200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then find out.",
+          "next": "maresh_warning"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let it go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I do not.\"\n\nIt is the first thing he has said today that arrives flat.\n\n\"I have told you I have never been through that door. You may believe that or not, and you will notice I have not asked you to.\""
+    },
+    "maresh_walked_out": {
+      "_vine": {
+        "x": 2720,
+        "y": 2200
+      },
+      "actions": [
+        {
+          "action": "END_CONVERSATION"
+        }
+      ],
+      "options": [],
+      "text": "One of them walks you as far as the Gate, a pace behind and slightly to the left, and does not touch you at any point.\n\nYou stand on the plate on the way out, the same as you did coming in, and somewhere a line is added to a file with the time on it.\n\nHe says goodnight. He is not being sarcastic."
+    },
+    "maresh_warning": {
+      "_vine": {
+        "x": 2200,
+        "y": 2200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(sit down)",
+          "next": "maresh_backdown"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_asked_to_leave",
+              "scope": "player",
+              "value": "1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "Find out, and then tell me.",
+          "next": "maresh_ejected"
+        }
+      ],
+      "text": "Maresh stands up.\n\nHe has been sitting since you came in, through all of it, and now he is on his feet and his hands are in front of him and he is still smiling.\n\n\"I am going to be very clear, because I do not think you are being unreasonable and I would like you to have the choice. One more of those and I will have you shown out. It is not a punishment and there is no note. It only means today is over.\"\n\n\"Sit down and ask me something else.\""
     },
     "offer": {
       "options": [
@@ -204,6 +526,48 @@
           ],
           "label": "Still worth scanning?",
           "next": "cold"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens at the second window?",
+          "next": "the_second_window"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(somebody has come to the desk)",
+          "next": "the_handshake"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do the Watch say about you?",
+          "next": "why_us_watch"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why should I choose you over the people underground?",
+          "next": "why_us"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(he is holding out a coat)",
+          "next": "the_coat"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have a particular way of putting things.",
+          "next": "the_words"
         },
         {
           "conditions": [
@@ -294,6 +658,263 @@
       ],
       "text": "The immaculate man turns to you before you have said a word. \"Maresh. I recruit — which is to say I recognise. And I recognise something in you the Watch would very much rather I did not.\""
     },
+    "the_coat": {
+      "_vine": {
+        "x": 900,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "This is worth more than everything I own.",
+          "next": "the_coat_worth"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Thank you.",
+          "next": "bye"
+        }
+      ],
+      "text": "He notices you are wet before you do.\n\n\"Oh — take that.\" He lifts a coat off the back of a chair and puts it into your hands without looking at it. It is heavier than it looks, and lined, and there is no rain in it at all. \"There are four of them in the cupboard and I have never counted them.\"\n\n\"No, genuinely. It is a coat.\""
+    },
+    "the_coat_worth": {
+      "_vine": {
+        "x": 1160,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(keep the coat)",
+          "next": "bye"
+        }
+      ],
+      "text": "Maresh looks at it properly for the first time, out of politeness rather than interest.\n\n\"Is it? I would not know what it cost. It came with the office.\"\n\nThe smile arrives on schedule.\n\n\"Do keep it. If you turn it down now we will both have to have a conversation about it, and neither of us wants that.\""
+    },
+    "the_handshake": {
+      "_vine": {
+        "x": 900,
+        "y": 1980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You did not shake his hand.",
+          "next": "the_handshake_ask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let it go)",
+          "next": "bye"
+        }
+      ],
+      "text": "A man comes to the desk while you are standing there. His jaw is wrong and one hand has too many joints in it, and he is holding a docket, and he is polite.\n\nMaresh stands, smiles, and puts both his own hands behind his back.\n\n\"Of course. Second window, and they will see you today.\" He does not sit down again until the man has gone through the door and it has closed.\n\n\"Now. Where were we.\""
+    },
+    "the_handshake_ask": {
+      "_vine": {
+        "x": 1160,
+        "y": 1980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "approved"
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_recruiter",
+              "reason": "maresh:hand-agreed",
+              "warmth": 1
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 40,
+              "ideology_id": "ideology_ascendants",
+              "reason": "intake"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "I would not have shaken it either.",
+          "next": "hand_approve"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "quiet"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is at the second window?",
+          "next": "the_second_window"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "objected"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "You would not touch him.",
+          "next": "hand_object"
+        }
+      ],
+      "text": "\"I did not, no.\"\n\nHe is not embarrassed and he does not pretend not to understand.\n\n\"I was courteous to him, and he will be seen today, which is more than he would get anywhere else in this city.\"\n\nHe straightens something on the desk that was already straight.\n\n\"Being courteous cost me nothing. What you are asking about would have.\""
+    },
+    "the_second_window": {
+      "_vine": {
+        "x": 1420,
+        "y": 1980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Have you ever been through that door?",
+          "next": "the_second_window_long"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": "1"
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_recruiter",
+              "reason": "maresh:unreadable",
+              "warmth": -1
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "(change the subject)",
+          "next": "hand_deflect"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Intake.\"\n\nHe does not lower his voice for it. It is a department, and he says it the way he would say a floor number.\n\n\"Not my desk. Somebody assesses him, and there is a form, and after that he is a clinical matter rather than a commercial one.\""
+    },
+    "the_second_window_long": {
+      "_vine": {
+        "x": 1680,
+        "y": 1980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not reassuring.",
+          "next": "the_second_window_reassure"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nHe thinks about it, which he has plainly never done before, and it takes him no time at all.\n\n\"Eleven years and I have never had a reason to.\"\n\nThen he says the next part kindly, because he believes it will put you at your ease.\n\n\"Neither will you.\""
+    },
+    "the_second_window_reassure": {
+      "_vine": {
+        "x": 1940,
+        "y": 1980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Is it not?\"\n\nHe is genuinely puzzled for about a second, and then he has it, and he is sorry.\n\n\"Ah. You are worrying about him.\"\n\nHe turns his chair slightly towards you, and he is being kind, and he does not know he is answering a different question.\n\n\"You are class four. You could not be sent there if you tried.\""
+    },
+    "the_words": {
+      "_vine": {
+        "x": 1100,
+        "y": 1150
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And what do you call the people underground?",
+          "next": "the_words_them"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"We do not say sacked.\" Maresh corrects it the way you would straighten somebody's collar. \"The account was closed. Nothing was done to him.\"\n\n\"And it is not surveillance. It is service coverage. A district that loses it is uncovered.\""
+    },
+    "the_words_them": {
+      "_vine": {
+        "x": 1360,
+        "y": 1150
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Declined lives.\" He says it with something close to affection.\n\n\"Not criminals. They were offered terms and they declined.\"\n\n\"What happens to them afterwards is data. We keep it.\""
+    },
     "turned": {
       "options": [
         {
@@ -313,6 +934,143 @@
         }
       ],
       "text": "\"So the meat disappointed you after all.\" He is not gloating. He genuinely is not.\n\n\"Everybody arrives by a different road and they all believe theirs was the interesting one. Go and be useful. Vess has doors, and I have people.\""
+    },
+    "why_us": {
+      "_vine": {
+        "x": 900,
+        "y": 1700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What about mutants?",
+          "next": "why_us_variation"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And the price?",
+          "next": "why_us_price"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because what we do to you is chosen.\"\n\n\"Every piece is designed, tested, licensed and written down. If it fails we know whose bench it came off. If you want it out, it comes out.\"\n\n\"Nothing that happens to a person out in the weather is any of those things.\""
+    },
+    "why_us_plain": {
+      "_vine": {
+        "x": 1420,
+        "y": 1480
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is a purity test.",
+          "next": "why_us_purity"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nHe does not soften it and he does not enjoy it.\n\n\"Not for work, not for the clinic, not for cover. Chrome is a step up the ladder. What has happened to them is the same ladder in the other direction, and we have a word for it. Reversion.\"\n\n\"I have turned away people I liked. I did it correctly and I went home.\""
+    },
+    "why_us_price": {
+      "_vine": {
+        "x": 1160,
+        "y": 1780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"On the form. All of it, in order, before you sign.\"\n\n\"Nobody here has ever hidden a term from anybody. You will be told what you owe, what we own, and what happens if you stop paying. Read it. Take it away and read it.\"\n\n\"I would rather lose you to an afternoon of reading than have you find out in eleven years.\""
+    },
+    "why_us_purity": {
+      "_vine": {
+        "x": 1420,
+        "y": 1620
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is an engineering standard.\"\n\nThe smile arrives on schedule.\n\n\"The Watch will not seat a man with a steel hand, and that hand is the best thing that ever happened to him. We would fit it, warranty it and service it for forty years. We ask only that the change was chosen.\"\n\n\"Their rule is about what a person is. Ours is about what can be documented.\""
+    },
+    "why_us_variation": {
+      "_vine": {
+        "x": 1160,
+        "y": 1620
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So a mutant cannot come through the Gate.",
+          "next": "why_us_plain"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is a purity test.",
+          "next": "why_us_purity"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"We do not use that word.\"\n\nHe says it the way you would correct a child's grammar, kindly, without stopping.\n\n\"Unlicensed variation. A body that changed without anybody choosing it or recording it. We cannot price that — nobody knows what it does at fifty, because nobody designed it.\"\n\n\"So it is declined at intake. There is a form. The form is older than I am.\""
+    },
+    "why_us_watch": {
+      "_vine": {
+        "x": 1160,
+        "y": 1780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come back cleansed, or do not come back.\"\n\nHe quotes it accurately and without relish.\n\n\"They are decent people and I mean that. But a man with a steel hand cannot sit at their table, and the hand is the best thing that ever happened to him.\""
     }
   },
   "faction": "ideology_ascendants",

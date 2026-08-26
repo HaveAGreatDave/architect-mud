@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The door opens. A name is read. Somebody rises without hurry.",
+    "The chair beside you is taken by somebody who does not settle.",
+    "A phone rings behind the desk and is answered with your surname."
+  ],
+  "cause": "dream",
+  "description": "Chairs against three walls and a door that opens when a name is read out. The names are close to yours. One of them has been close enough that you half stood, and the person who went in was already standing, and they have not come back out.",
+  "drug_id": null,
+  "fx": "fog",
+  "fx_intensity": 0.4,
+  "id": "dream_the_appointment",
+  "name": "The Waiting Room",
+  "objects": [
+    {
+      "looks": [
+        "On a clipboard, turned away, with a page and a half gone.",
+        "You are on it. You are on it twice, and one of them is crossed off.",
+        "The hand that wrote it has been writing all morning and is tired near the bottom."
+      ],
+      "name": "the list"
+    },
+    {
+      "looks": [
+        "It opens outward, which means the room beyond it is small.",
+        "The light under it goes off between names.",
+        "Nobody who has gone through it has come back through it, and this is not remarked on."
+      ],
+      "name": "the door"
+    }
+  ],
+  "weather": "The mild, filtered air of a building that manages its own air."
+}

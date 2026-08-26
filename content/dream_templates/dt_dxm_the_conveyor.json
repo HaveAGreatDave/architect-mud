@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The floor carries on at the speed of you.",
+    "You stop. The floor stops.",
+    "A join in the floor comes up towards you and takes a long time about it."
+  ],
+  "cause": "drug",
+  "description": "A floor that is moving at the speed you walk, in the direction you walk, so that you are making excellent progress and the walls beside you are the same walls. Nobody has done this to you. It is how the floor is.",
+  "drug_id": "drug_dxm",
+  "fx": "swim",
+  "fx_intensity": 0.6,
+  "id": "dt_dxm_the_conveyor",
+  "name": "The Conveyor",
+  "objects": [
+    {
+      "looks": [
+        "Moving. You can see the joins go by and there is one at your feet.",
+        "It has been running longer than the building it is in has been standing.",
+        "You step off it, and the part you step onto is moving too."
+      ],
+      "name": "the floor"
+    },
+    {
+      "looks": [
+        "The same section of wall, keeping pace, faithfully.",
+        "There is a mark on it. There is the same mark ahead.",
+        "They are the walls of a place you were going to."
+      ],
+      "name": "the walls"
+    }
+  ],
+  "weather": "Moving air at exactly the speed of the floor, so it is still."
+}

@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mac_plate",
+  "name": "square of mac and cheese",
+  "tags": {
+    "consumable": true,
+    "description": "A square cut out of a tray the size of a door, served on an enamel plate that has met a thousand of its brothers. The top is brown and tight, the middle gives, and it holds its shape all the way to the table, which is the entire point of the eggs.",
+    "restore_hp": 3,
+    "restore_hunger": 38,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 12,
+  "weight": 380
+}

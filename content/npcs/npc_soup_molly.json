@@ -1,0 +1,942 @@
+{
+  "banter": [
+    [
+      {
+        "npc": "self",
+        "text": "straightens the wig with both hands, using the back of a tray as a mirror."
+      },
+      {
+        "npc": "self",
+        "text": "\"Two hours, that. And not one soul in here has ever mentioned it.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "holds a block of cheese up to the strip light and turns it over once."
+      },
+      {
+        "npc": "self",
+        "text": "\"You have got one more day in you, and you are going in the tray, and nobody will ever know.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "stops mid-verse and writes the rest of the line on the back of an invoice."
+      },
+      {
+        "npc": "self",
+        "text": "\"That is nine now. Eleven hundred written and nine worth the walk.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "slows on her way past the stage with a tray on her hip, for slightly longer than the walk needs."
+      },
+      {
+        "npc": "self",
+        "text": "\"Later. You and me, later.\""
+      }
+    ],
+    [
+      {
+        "npc": "self",
+        "text": "counts the plates on the rack, twice, and gets a different number the second time."
+      },
+      {
+        "npc": "self",
+        "text": "\"Somebody in this parish is stealing crockery, and honestly, good for them.\""
+      }
+    ]
+  ],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_apron_off": {
+        "action_type": "EMOTE",
+        "next": "n_step_up",
+        "params": {
+          "message": "wipes her hands down the apron, takes it off, and hangs it on the oven rail like it is a good coat."
+        },
+        "type": "action"
+      },
+      "n_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "n_atm_emote",
+        "type": "action"
+      },
+      "n_atm_emote": {
+        "action_type": "EMOTE",
+        "next": "n_atm_wait",
+        "params": {
+          "message": "feeds a night in a biscuit tin into the machine one note at a time."
+        },
+        "type": "action"
+      },
+      "n_atm_wait": {
+        "jitter": 20,
+        "next": "n_deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_cashup": {
+        "jitter": 900,
+        "next": "n_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "n_check": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "n_cashup",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "offWork": "n_offcheck",
+        "type": "action"
+      },
+      "n_deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "n_gohome",
+        "type": "action"
+      },
+      "n_gohome": {
+        "action_type": "GO_HOME",
+        "next": "n_homelife",
+        "type": "action"
+      },
+      "n_homelife": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "n_atwork",
+        "ifTrue": "n_room",
+        "params": {
+          "from": 21,
+          "to": 24
+        },
+        "type": "condition"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_offcheck": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "n_offroll",
+        "ifTrue": "n_homelife",
+        "type": "condition"
+      },
+      "n_offroll": {
+        "branch_0": "n_life",
+        "branch_1": "n_gohome",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "n_roll": {
+        "condition_type": "RANDOM_CHANCE",
+        "ifFalse": "n_atwork",
+        "ifTrue": "n_apron_off",
+        "params": {
+          "chance": 0.12
+        },
+        "type": "condition"
+      },
+      "n_room": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "n_atwork",
+        "ifTrue": "n_roll",
+        "params": {
+          "min": 1
+        },
+        "type": "condition"
+      },
+      "n_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "n_atm",
+        "type": "action"
+      },
+      "n_song1": {
+        "action_type": "SAY",
+        "next": "n_wait2",
+        "params": {
+          "cooldown_s": 300,
+          "message": "\"There is a hole in the sky where the satellites were, and I still hang the washing out.\""
+        },
+        "type": "action"
+      },
+      "n_song2": {
+        "action_type": "SAY",
+        "next": "n_wait3",
+        "params": {
+          "cooldown_s": 300,
+          "message": "\"He said he would be back by the spring. He never did say which one.\""
+        },
+        "type": "action"
+      },
+      "n_song3": {
+        "action_type": "SAY",
+        "next": "n_wait4",
+        "params": {
+          "cooldown_s": 300,
+          "message": "\"So pour it out and pour it slow, and put the light on when you go.\""
+        },
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_step_down": {
+        "action_type": "EMOTE",
+        "next": "n_atwork",
+        "params": {
+          "message": "gets down off the stage grinning, ties the apron back on, and has checked the oven before the knot is finished."
+        },
+        "type": "action"
+      },
+      "n_step_up": {
+        "action_type": "EMOTE",
+        "next": "n_wait1",
+        "params": {
+          "message": "steps up onto two feet of decking, moves the microphone half an inch, and moves it back."
+        },
+        "type": "action"
+      },
+      "n_wait1": {
+        "jitter": 4,
+        "next": "n_song1",
+        "seconds": 8,
+        "type": "wait"
+      },
+      "n_wait2": {
+        "jitter": 6,
+        "next": "n_song2",
+        "seconds": 16,
+        "type": "wait"
+      },
+      "n_wait3": {
+        "jitter": 6,
+        "next": "n_song3",
+        "seconds": 16,
+        "type": "wait"
+      },
+      "n_wait4": {
+        "jitter": 5,
+        "next": "n_step_down",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_late",
+        "params": {
+          "zone_id": "zone_jolenes_bar"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Wash your hands. I can hear that you did not.\"",
+    "lifts the corner of a foil sheet, looks underneath, and puts it back without comment.",
+    "\"Corner piece goes to whoever has been standing longest. That is not a rule, it is just correct.\"",
+    "\"Twelve, and the first one is nothing if you have not got twelve. Do not make a speech about it.\"",
+    "writes something small on the back of a delivery invoice and puts it away in the apron.",
+    "\"There is bread from yesterday and it is better than the bread from today. I do not make the rules, I eat them.\"",
+    "\"Seven o clock. Somebody reach up and turn that set up, my hands are wet.\"",
+    "stops with a tray on her hip and watches the set behind the bar for about eight seconds, then carries on.",
+    "checks the oven, shuts the door, and shuts it again properly."
+  ],
+  "description": "A short, wide, entirely deliberate woman working the pass in a platinum wig tall enough to have its own weather. There are rhinestones sewn along the bib of her apron in the shape of a treble clef, most of them still on. Her lashes are false, her nails are short and scrubbed to the quick, and both forearms carry the same shiny old oven-rail burns in the same place, which is the only part of her that says what she does for a living.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 2580,
+        "y": 860
+      },
+      "options": [],
+      "text": "She goes back to the pass, and picks the tune up exactly where she dropped it."
+    },
+    "n_akerson": {
+      "_vine": {
+        "x": 1860,
+        "y": 420
+      },
+      "options": [
+        {
+          "label": "He lives up at the Solenne, you know.",
+          "next": "n_akerson2"
+        },
+        {
+          "label": "Noted.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"John Akerson.\" <span class=\"text-dim\">Something happens to her face that has nothing whatsoever to do with cooking.</span>\n\n\"That voice, sugar. It is like somebody laying a coat over your shoulders before you had worked out you were cold.\"\n\n\"And the rest of him is no hardship either, let me tell you. Shoulders on that man. A jaw you could strike a match on. The grey coming in at the sides has done him nothing but favours, which is not fair, and I gave up asking for fair a long time ago. When he laughs and puts his hand flat on that desk, I have to go and find something urgent in the oven.\"\n\n<span class=\"text-dim\">She hears herself, and is not troubled by it in the slightest.</span>\n\n\"Now I know exactly how I sound. Woman my age, up to her elbows in a sink, gone soft over a fella on a television with the chairs already up on the tables. Honey, I have been ridiculous about lesser men than that one and never regretted a minute of the practice.\"\n\n\"If he came through that door I would drop a full tray and I would not be one bit sorry. And if any of these animals tells you I said so, they are lying, and they will be eating last.\""
+    },
+    "n_akerson2": {
+      "_vine": {
+        "x": 2220,
+        "y": 420
+      },
+      "options": [
+        {
+          "label": "They all have the macaroni.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"I know where he lives.\" <span class=\"text-dim\">She goes back to the pan with slightly more attention than the pan requires.</span>\n\n\"I am aware of how that sounds coming out of me, and I have never once gone up there, and I am not going to. A man like that should be met over a plate, in his own time, by somebody who is not standing in his lobby explaining herself to a doorman.\"\n\n\"Anyway. He would have the macaroni. They all have the macaroni.\""
+    },
+    "n_before": {
+      "_vine": {
+        "x": 420,
+        "y": 860
+      },
+      "options": [
+        {
+          "label": "Why not go back to it?",
+          "next": "n_tapes"
+        },
+        {
+          "label": "Understood.",
+          "next": "root"
+        }
+      ],
+      "text": "<span class=\"text-dim\">She keeps scraping. The pause runs slightly longer than a pause.</span>\n\n\"There was a woman on the evening slot at KSAB about a hundred years ago, in a wig about this tall, with a half hour on a Thursday and a band that got paid late.\" <span class=\"text-dim\">One shoulder goes up and comes down.</span> \"There is a tape of it somewhere. I have not seen it. I am told the sound is poor.\"\n\n\"She was a cook then too, sugar. That is the part nobody puts in the story. The half hour paid for the wigs. The kitchen paid for everything else.\""
+    },
+    "n_books": {
+      "_vine": {
+        "x": 1140,
+        "y": 280
+      },
+      "options": [
+        {
+          "label": "That is decent of you.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"I buy books.\" <span class=\"text-dim\">She says it like a confession, which is the only shy this woman gets.</span> \"There is a woman up at the Lending Library keeps a shelf for me and does not put my name on it, because a name on a shelf turns a book into a lecture.\"\n\n\"Nobody in this city is short of opinions. Everybody is short of the reading that makes an opinion worth having. So they eat, and they take one, and if it comes back it comes back.\"\n\n\"Most of them come back. That is the part that gets me.\""
+    },
+    "n_dream": {
+      "_vine": {
+        "x": 1140,
+        "y": 500
+      },
+      "options": [
+        {
+          "label": "You could still do it.",
+          "next": "n_dream2"
+        },
+        {
+          "label": "Who is on the desk these days?",
+          "next": "n_akerson"
+        },
+        {
+          "label": "That is a good dream.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"The Tonight Show.\" <span class=\"text-dim\">She says it flat, the way you say a thing you have said in your own head ten thousand times and out loud about twice.</span>\n\n\"Not a spot on some local hour. The proper one, with the band and the curtain and the desk. You come out from the left, and the band takes your key without being told it because they have had the chart since Tuesday, and you do your three minutes. And then he says your name, and you go and sit down on that couch like somebody who was invited.\"\n\n\"That is the whole of it. Forty years, unchanged, and it is a small dream, and I have never once managed to want a different one instead.\"\n\n<span class=\"text-dim\">She nods at the set behind the bar without looking at it.</span>\n\n\"Channel seven, seven o clock. I have it on most nights. The regulars think that is for them.\""
+    },
+    "n_dream2": {
+      "_vine": {
+        "x": 1500,
+        "y": 420
+      },
+      "options": [
+        {
+          "label": "Who is on the desk these days?",
+          "next": "n_akerson"
+        },
+        {
+          "label": "I will hold you to it.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"I might, at that.\" <span class=\"text-dim\">She says it lightly, the way you agree with the weather, and goes on working.</span> \"I am four foot eleven in the wig, I am the wrong side of fifty and I smell of fryer at all times, including at funerals. None of that has ever once stopped anybody they book.\"\n\n\"They had a man on who declared his flat a sovereign country. They had the woman who does the talking for a vending machine that has killed forty people. So I am not going to stand here and tell you it could not happen, because I have watched that couch for thirty years and the bar is not high, it is just far away.\"\n\n\"I have sent them a tape twice. It is no trouble to send another one.\" <span class=\"text-dim\">She almost smiles at the pan.</span> \"Meanwhile there are people to feed and I am the one who feeds them, and that is a good day, sugar. That is genuinely a good day.\"\n\n\"But if anybody off that show ever comes through that door, I will have the guitar out from under this bar before the man has got his coat off. And I would like that on the record.\""
+    },
+    "n_food": {
+      "_vine": {
+        "x": 420,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "Who is Jolene?",
+          "next": "n_name"
+        },
+        {
+          "label": "What does it cost?",
+          "next": "n_free"
+        },
+        {
+          "label": "Who eats in here?",
+          "next": "n_who"
+        },
+        {
+          "label": "Nothing, thanks.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Macaroni. It is Tuesday, and it is macaroni on a Tuesday, and it has been for nine years.\" <span class=\"text-dim\">She lifts the corner of a foil sheet on a tray the size of a door.</span>\n\n\"There is a fry-up if you want to insult me, and bread that was yesterday and is honestly the better for it. Anything past that, you are describing a restaurant, and this is a bar with a cook in it.\""
+    },
+    "n_free": {
+      "_vine": {
+        "x": 780,
+        "y": 120
+      },
+      "options": [
+        {
+          "label": "The corner.",
+          "next": "n_thanks"
+        },
+        {
+          "label": "The middle.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Twelve, and the first one is nothing if you have not got twelve.\" <span class=\"text-dim\">She says it fast and flat, a line she has had to say ten thousand times and has got tired of hearing herself perform.</span>\n\n\"And before you ask me how I tell. I do not. Anybody who says the words gets the plate, and about one in nine of them is at it, and one in nine is a cheaper price than making the other eight ask twice.\"\n\n\"Now. Corner or middle. The corner has the crust, the middle has the give, and there are people in this room who have stopped speaking over it.\""
+    },
+    "n_hair": {
+      "_vine": {
+        "x": 420,
+        "y": 440
+      },
+      "options": [
+        {
+          "label": "Then what is the job?",
+          "next": "n_hair2"
+        },
+        {
+          "label": "It suits you.",
+          "next": "n_hair2"
+        }
+      ],
+      "text": "\"It is, honey, and I made it on purpose.\" <span class=\"text-dim\">She pats it without looking, the way you reassure a dog.</span>\n\n\"This is Roberta. There are four of her and three are drying. You have got a face on like you were about to be polite about it, so let me save you the trouble. Yes it is a wig, no it is not fooling anybody, and that was never the job.\""
+    },
+    "n_hair2": {
+      "_vine": {
+        "x": 780,
+        "y": 440
+      },
+      "options": [
+        {
+          "label": "That is the most honest thing I have heard all week.",
+          "next": "n_thanks"
+        },
+        {
+          "label": "Back up a step.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The job is that you can find me.\" <span class=\"text-dim\">She goes back to the pass.</span> \"Room full of grey coats and one big blonde ridiculous thing at the end of the bar. Somebody who has not eaten in two days has about that much deciding left in them, and I would rather they spent it walking at me than working out which of us to ask.\"\n\n\"It is also a kitchen wig, which nobody thinks about. Real hair over a fryer smells like a house fire by Thursday. This one goes on a block and gets washed. Two hours and a good mirror, and I have never once been embarrassed about it. Everybody in this basin is wearing something, sugar. Mine just takes pins.\""
+    },
+    "n_help": {
+      "_vine": {
+        "x": 420,
+        "y": 1060
+      },
+      "actions": [
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_soup_molly",
+          "reason": "molly:offered",
+          "warmth": 1
+        }
+      ],
+      "options": [
+        {
+          "label": "I can do that.",
+          "next": "n_thanks"
+        },
+        {
+          "label": "Maybe next time.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You can, and here is the whole of the training.\" <span class=\"text-dim\">She points with the spoon: the sink, then the trays, then the room.</span> \"Wash your hands. Carry it flat. Do not ask anybody a single question about themselves.\"\n\n\"That last one is the job, sugar. Anybody can carry a tray. Not everybody can stand there and not want the story.\""
+    },
+    "n_mac": {
+      "_vine": {
+        "x": 1140,
+        "y": 860
+      },
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "molly_mac_gift",
+              "op": "unset"
+            }
+          ],
+          "label": "Show me, then.",
+          "next": "n_mac_teach"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "molly_mac_gift",
+              "op": "set"
+            }
+          ],
+          "label": "Run it by me again.",
+          "next": "n_mac_again"
+        },
+        {
+          "label": "Another time.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Now you have got me on the actual job, and I will stand here and bore you flat about it.\" <span class=\"text-dim\">The spoon goes down for the first time in the conversation.</span>\n\n\"Macaroni and cheese is poor food that got above itself, and it should have. It is a box of elbows and whatever cheese did not survive the week, and done properly it will make a grown docker go quiet and put his fork down between bites, which is the only review I have ever wanted.\""
+    },
+    "n_mac_again": {
+      "_vine": {
+        "x": 1500,
+        "y": 1060
+      },
+      "actions": [
+        {
+          "action": "TEACH_RECIPE",
+          "recipe": "mac_and_cheese"
+        }
+      ],
+      "options": [
+        {
+          "label": "Why give it away?",
+          "next": "n_why"
+        },
+        {
+          "label": "Noted.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Butter the tray. Elbows boiled short and drained. Eggs into the milk with mustard, salt and melted butter. Three cheeses mixed together first. Layered, not stirred. Custard through it, cheese on top, moderate oven until it browns. Ten minutes standing.\" <span class=\"text-dim\">She rattles it off without looking up, the way other people give a door code.</span>\n\n\"There. Twice now. If it went wrong the first time it was the ten minutes. It is always the ten minutes, and I am not going to be nice about it a third go.\"\n\n\"And you are buying your own cheese this time.\""
+    },
+    "n_mac_teach": {
+      "_vine": {
+        "x": 1500,
+        "y": 860
+      },
+      "actions": [
+        {
+          "action": "TEACH_RECIPE",
+          "recipe": "mac_and_cheese"
+        },
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_macaroni",
+          "once": false,
+          "quantity": 1
+        },
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_vat_cheese",
+          "once": false,
+          "quantity": 1
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "molly_mac_gift",
+          "value": "true"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_soup_molly",
+          "reason": "molly:taught",
+          "warmth": 2
+        }
+      ],
+      "options": [
+        {
+          "label": "Why give it away?",
+          "next": "n_why"
+        },
+        {
+          "label": "Thank you, Molly.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Three cheeses. Not one, and do not stand there telling me one is nearly three.\" <span class=\"text-dim\">She holds up fingers as she goes, and the fingers are the only part of her that hurries.</span> \"A sharp one for the argument, a soft one for the pull, and one of those orange bricks that is legally not cheese, because it melts smooth and the other two will not. Every snob who has laughed at me over the brick has come back for a second square.\"\n\n\"Butter the tray before you do one other thing. Corners and all. That is the difference between serving it and chiselling it out.\"\n\n\"Then a pot of water at the tap, salted like you mean it, and a slug of oil in. Elbows in, and you take them out early. Seven minutes, while they have still got fight in them, and drain them. They have most of an hour in that oven ahead of them, and soft macaroni is a thing you did on purpose.\"\n\n\"Eggs beaten into the milk while that is going. Mustard powder and salt through it, the butter melted in last, and a spoon of cream if the week has been kind. You will not taste the mustard, sugar. It is not in there to be tasted, it is in there to wake the cheese up. That custard is the whole trick. It is what makes it cut into squares instead of running off the spoon like a soup with ideas.\"\n\n\"All three cheeses mixed together in a bowl before a scrap of it goes near the tray, or somebody gets a square that is only the cheap one.\"\n\n\"Now layer it, in halves. Elbows, cheese, elbows. Do not stir it into one thing, honey, the layers are the entire point. Custard down through it slow, until it comes up level. Last of the cheese over the top.\"\n\n\"Moderate oven, forty minutes, until the top browns and the middle quits wobbling. And then you let it stand ten minutes, which is harder than every other step laid end to end, and it is the one everybody skips, and it is exactly why theirs runs off the plate.\"\n\n<span class=\"text-dim\">She pushes a box and a block across the pass and has turned back to the oven before you can get a hand up.</span>\n\n\"Take those. You are not making it out of air and good intentions.\""
+    },
+    "n_name": {
+      "_vine": {
+        "x": 780,
+        "y": 20
+      },
+      "options": [
+        {
+          "conditions": [
+            {
+              "relation": "known"
+            }
+          ],
+          "label": "What happened to her?",
+          "next": "n_why"
+        },
+        {
+          "label": "That is a good reason.",
+          "next": "n_thanks"
+        },
+        {
+          "label": "Back to the food.",
+          "next": "n_food"
+        }
+      ],
+      "text": "\"After the woman who had this kitchen before I did.\" <span class=\"text-dim\">She does not look up at the sign. She has not looked up at that sign in years.</span>\n\n\"Everybody in here assumes it is a song, or a girl somebody lost, and I have stopped correcting them because the truth is duller and better. Jolene fed this street for thirty-one years out of a room four steps wide, and when she went there was nothing with her name on it anywhere in this city. So I put it over the door and I have never once thought about taking it down.\"\n\n\"The apostrophe burnt out in 63 and I have left it. She would have found that funnier than I do.\""
+    },
+    "n_songs": {
+      "_vine": {
+        "x": 1140,
+        "y": 640
+      },
+      "options": [
+        {
+          "conditions": [
+            {
+              "relation": "known"
+            }
+          ],
+          "label": "What reason?",
+          "next": "n_tapes"
+        },
+        {
+          "label": "Nine is not bad.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Mine. Written on the backs of the ration invoices, which is the only paper this building has a surplus of.\" <span class=\"text-dim\">She pulls one out of the apron to prove it. There is a verse down the side of a delivery schedule for tinned milk.</span>\n\n\"Eleven hundred of them, near enough. Most are bad, and that is not modesty, that is arithmetic. Write eleven hundred of anything and about nine are worth the walk.\"\n\n\"But they are mine. Every one. Nobody has a claim on a single line of it, and there is a reason I say it that way.\""
+    },
+    "n_stage": {
+      "_vine": {
+        "x": 420,
+        "y": 640
+      },
+      "options": [
+        {
+          "label": "You are wasted in a kitchen.",
+          "next": "n_stage2"
+        },
+        {
+          "label": "Twenty minutes is not much.",
+          "next": "n_stage2"
+        },
+        {
+          "label": "Your own songs?",
+          "next": "n_songs"
+        }
+      ],
+      "text": "\"I do, and it is the best twenty minutes of my week, and I will not be talked out of saying so.\" <span class=\"text-dim\">She is delighted you asked. She does not stop scraping, but she is delighted.</span>\n\n\"Late on, when the tray is out and there is nobody left needing feeding, the apron comes off and I do three. My own, mostly. Then it goes back on and I am at the oven before the knot is done, because the oven does not care what I have just been doing.\"\n\n\"Do not go planning your evening round it, sugar. It happens when it happens.\""
+    },
+    "n_stage2": {
+      "_vine": {
+        "x": 780,
+        "y": 640
+      },
+      "options": [
+        {
+          "label": "So what was the first thing?",
+          "next": "n_dream"
+        },
+        {
+          "label": "Your own songs, though?",
+          "next": "n_songs"
+        },
+        {
+          "label": "Fair.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Oh, now.\" <span class=\"text-dim\">She waves that away with the spoon, pleased and entirely unbothered.</span> \"Nobody is wasted who is feeding people. I love the work, honey. Forty of them fed and not one of them thinking about it, which is the whole art of the thing: if they notice the food, something has gone wrong somewhere.\"\n\n<span class=\"text-dim\">She turns a wrist over to show two shiny old burns across the inside of it, and turns it straight back.</span>\n\n\"I have been good at this since I was nineteen and I will be good at it when I cannot stand up straight. It was just never the first thing, and I have made my peace with that so thoroughly that people find it disappointing. You can love the second thing your whole life. Most do. Ask anybody in this room what they meant to be and then watch how fast they answer.\""
+    },
+    "n_tapes": {
+      "_vine": {
+        "x": 780,
+        "y": 860
+      },
+      "options": [
+        {
+          "label": "Keep the words.",
+          "next": "n_thanks"
+        },
+        {
+          "label": "And the cooking?",
+          "next": "n_mac"
+        }
+      ],
+      "text": "\"Because a man in a good coat owns the tape and I own the song, and everybody who explained the difference to me at the time was lying.\" <span class=\"text-dim\">She is not angry about it. She sounds like somebody describing the weather in a country she left.</span>\n\n\"He can run that half hour every night until the sun gives out and he will not make a chip on it, because nobody remembers a Thursday. And every time somebody hums the chorus in a queue, that is mine, and there is no coat in this city clever enough to get at it.\"\n\n\"So here is the only advice I have that is worth what you paid. Whatever you make, keep the words. They will always come for the tape. Let them have the tape.\""
+    },
+    "n_thanks": {
+      "_vine": {
+        "x": 2220,
+        "y": 860
+      },
+      "options": [
+        {
+          "label": "Yes, maam.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Go on, then.\" <span class=\"text-dim\">The spoon is already back in the pan.</span>\n\n\"And eat something before you go out that door. I have never once been wrong about who needs feeding, and I am not starting with you.\""
+    },
+    "n_who": {
+      "_vine": {
+        "x": 780,
+        "y": 280
+      },
+      "options": [
+        {
+          "conditions": [
+            {
+              "relation": "familiar"
+            }
+          ],
+          "label": "You sit with them?",
+          "next": "n_books"
+        },
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody, eventually.\" <span class=\"text-dim\">She counts them off on the spoon.</span> \"Dock crews coming off nights, who eat like it is a job. Two women from the laundry who have never once spoken to each other in here and are perfectly friendly out on the step. A man who comes in the coat of a job he has not had in four years, and buttons it.\"\n\n\"And the kids, in the afternoon, before the drinking starts. Those I sit with.\""
+    },
+    "n_why": {
+      "_vine": {
+        "x": 1860,
+        "y": 860
+      },
+      "options": [
+        {
+          "label": "I will make it properly.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Because a recipe you keep to yourself dies in the room with you, and I have watched that happen to a better cook than me.\" <span class=\"text-dim\">She wipes the pass down in one long pass of the cloth.</span>\n\n\"Jolene made a fish pie people in this street talked about for years afterwards and nobody has ever made since, because she held onto it. Thought it was the one thing she had that could not be taken off her. And she was right. And then it went anyway, because that is what a held thing does.\"\n\n\"Songs you keep. Recipes you hand out. It took me a while to learn which was which, and I had it the wrong way round for about ten years.\""
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 320
+      },
+      "options": [
+        {
+          "label": "What is on tonight?",
+          "next": "n_food"
+        },
+        {
+          "label": "Let me see what you have got.",
+          "next": "shop"
+        },
+        {
+          "label": "That hair is a decision.",
+          "next": "n_hair"
+        },
+        {
+          "label": "Do you get up on that stage?",
+          "next": "n_stage"
+        },
+        {
+          "label": "Can I help?",
+          "next": "n_help"
+        },
+        {
+          "conditions": [
+            {
+              "relation": "known"
+            }
+          ],
+          "label": "Were you somebody, once?",
+          "next": "n_before"
+        },
+        {
+          "conditions": [
+            {
+              "relation": "known"
+            }
+          ],
+          "label": "Teach me that macaroni of yours.",
+          "next": "n_mac"
+        }
+      ],
+      "text": "\"Kitchen shuts when the tray is out and not one minute before it.\" <span class=\"text-dim\">She says it to the pass rather than to you, and goes on scraping.</span>",
+      "text_by_relation": {
+        "close": "<span class=\"text-dim\">She is singing something quiet at the extractor hood when you come in, and she does not stop, she just changes who it is aimed at.</span>\n\n\"Now there is a face.\" <span class=\"text-dim\">The spoon goes down. That is the whole ceremony.</span> \"Sit. You are eating. We are not discussing it.\"",
+        "familiar": "\"In, in, mind the wet.\" <span class=\"text-dim\">She has a plate down on the pass before you have said anything at all.</span>\n\n\"You have got a look on you. That is either money or a woman, and I have got supper for one of those.\"",
+        "first": "A short, wide woman in a platinum wig you could see from the road is working the pass at the end of the bar, and she has clocked you before the door has shut.\n\n\"Well, hello.\" <span class=\"text-dim\">She looks you over once, fast, the way you look at a pan.</span> \"You are either hungry or you are thirsty, and I can do you both, though only one of them is my department.\"\n\n\"Molly Darton. Two syllables each, and neither of them was on my birth certificate, so do not go looking. Sit anywhere that is not the stage.\"",
+        "known": "\"There you are.\" <span class=\"text-dim\">She taps the spoon twice on the rim of the pan, which is apparently how she punctuates.</span> \"I put a corner piece by for you. Do not tell this room, they are animals.\""
+      }
+    },
+    "shop": {
+      "_vine": {
+        "x": 420,
+        "y": 60
+      },
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_soup_molly"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Food is mine, drink is whatever is still standing behind me. Cash, and no, you cannot run a tab, three people ruined that for everybody in 61.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a cook's apron with rhinestones sewn along the bib in a treble clef, worn over everything",
+      "a fringed denim shirt gone soft at the elbows, cuffs turned back twice",
+      "a white lace bra and panties, which she would tell you about unprompted"
+    ],
+    "personality": "bartender"
+  },
+  "home_activities": [],
+  "home_zone": "zone_jolenes_loft",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_soup_molly",
+  "name": "Molly Darton",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_salt_ration",
+      "price": 3
+    },
+    {
+      "item_id": "item_drink_basin_swill",
+      "price": 4
+    },
+    {
+      "item_id": "item_drug_coffee",
+      "price": 5
+    },
+    {
+      "item_id": "item_ration_cheese",
+      "price": 5
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "price": 6
+    },
+    {
+      "item_id": "item_drug_beer",
+      "price": 6
+    },
+    {
+      "item_id": "item_macaroni",
+      "price": 6
+    },
+    {
+      "item_id": "item_battery_egg",
+      "price": 6
+    },
+    {
+      "item_id": "item_ration_milk",
+      "price": 6
+    },
+    {
+      "item_id": "item_arcline_cola",
+      "price": 8
+    },
+    {
+      "item_id": "item_ginger_soda",
+      "price": 8
+    },
+    {
+      "item_id": "item_drink_rust_whiskey",
+      "price": 9
+    },
+    {
+      "item_id": "item_mustard",
+      "price": 9
+    },
+    {
+      "item_id": "item_mac_plate",
+      "price": 12
+    },
+    {
+      "item_id": "item_vat_cheese",
+      "price": 12
+    },
+    {
+      "item_id": "item_butter_analog",
+      "price": 13
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 15,
+        "to": 26
+      }
+    ],
+    "mon": [
+      {
+        "from": 15,
+        "to": 25
+      }
+    ],
+    "sat": [
+      {
+        "from": 15,
+        "to": 26
+      }
+    ],
+    "sun": [
+      {
+        "from": 14,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 15,
+        "to": 25
+      }
+    ],
+    "tue": [
+      {
+        "from": 15,
+        "to": 25
+      }
+    ],
+    "wed": [
+      {
+        "from": 15,
+        "to": 25
+      }
+    ]
+  },
+  "vendor_shop_name": "Jolene's",
+  "vendor_stock_size": 16,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_jolenes_bar"
+}

@@ -69,10 +69,12 @@
     "catch": {
       "options": [
         {
+          "label": "\"Start me at the top. How do I found one?\"",
           "next": "found",
           "text": "\"Start me at the top. How do I found one?\""
         },
         {
+          "label": "\"Show me the rest.\"",
           "next": "menu",
           "text": "\"Show me the rest.\""
         },
@@ -82,6 +84,7 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"I've heard enough.\"",
           "text": "\"I've heard enough.\""
         }
       ],
@@ -90,6 +93,7 @@
     "found": {
       "options": [
         {
+          "label": "\"Alright, what else do I need to know?\"",
           "next": "menu",
           "text": "\"Alright, what else do I need to know?\""
         },
@@ -99,6 +103,7 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"That's enough for now.\"",
           "text": "\"That's enough for now.\""
         }
       ],
@@ -107,6 +112,7 @@
     "ground": {
       "options": [
         {
+          "label": "\"Alright, what else?\"",
           "next": "menu",
           "text": "\"Alright, what else?\""
         },
@@ -116,6 +122,7 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"That's enough for now.\"",
           "text": "\"That's enough for now.\""
         }
       ],
@@ -124,22 +131,27 @@
     "menu": {
       "options": [
         {
+          "label": "\"Founding one.\"",
           "next": "found",
           "text": "\"Founding one.\""
         },
         {
+          "label": "\"Bringing people in.\"",
           "next": "people",
           "text": "\"Bringing people in.\""
         },
         {
+          "label": "\"Holding ground.\"",
           "next": "ground",
           "text": "\"Holding ground.\""
         },
         {
+          "label": "\"The money.\"",
           "next": "treasury",
           "text": "\"The money.\""
         },
         {
+          "label": "\"The catch.\"",
           "next": "catch",
           "text": "\"The catch.\""
         },
@@ -149,6 +161,7 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"Nothing else. Thanks, Denny.\"",
           "text": "\"Nothing else. Thanks, Denny.\""
         }
       ],
@@ -157,6 +170,7 @@
     "people": {
       "options": [
         {
+          "label": "\"Alright, what else?\"",
           "next": "menu",
           "text": "\"Alright, what else?\""
         },
@@ -166,6 +180,7 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"That's enough for now.\"",
           "text": "\"That's enough for now.\""
         }
       ],
@@ -174,22 +189,27 @@
     "root": {
       "options": [
         {
+          "label": "\"Fine. How does a person actually start one of these?\"",
           "next": "found",
           "text": "\"Fine. How does a person actually start one of these?\""
         },
         {
+          "label": "\"Say I had people. How do they get in?\"",
           "next": "people",
           "text": "\"Say I had people. How do they get in?\""
         },
         {
+          "label": "\"The posters go on about 'holding ground.' What's that mean?\"",
           "next": "ground",
           "text": "\"The posters go on about 'holding ground.' What's that mean?\""
         },
         {
+          "label": "\"And the money? Where does it live?\"",
           "next": "treasury",
           "text": "\"And the money? Where does it live?\""
         },
         {
+          "label": "\"What's the catch, Denny?\"",
           "next": "catch",
           "text": "\"What's the catch, Denny?\""
         },
@@ -199,6 +219,7 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"Not today.\"",
           "text": "\"Not today.\""
         }
       ],
@@ -207,6 +228,7 @@
     "treasury": {
       "options": [
         {
+          "label": "\"Alright, what else?\"",
           "next": "menu",
           "text": "\"Alright, what else?\""
         },
@@ -216,6 +238,7 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"That's enough for now.\"",
           "text": "\"That's enough for now.\""
         }
       ],

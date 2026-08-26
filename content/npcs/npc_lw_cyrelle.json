@@ -77,7 +77,7 @@
           "next": "asc_after"
         }
       ],
-      "text": "She listens to all of it without moving, which is how you know it has landed hard.\n\n\"A chrome city. Turrets. A Gate that turns you away.\"\n\nShe exhales slowly.\n\n\"So that is where the money has been going. Whatever that place is, it is the machine's friend and not ours.\"\n\nA long look, and she does not soften it.\n\n\"Learn what it is, if you are going back. But Halcyon. Do not ever trust a payout from them again.\""
+      "text": "She listens to all of it without moving.\n\n\"A chrome city. Turrets. A Gate that turns you away.\"\n\nShe exhales slowly.\n\n\"So that is where the money has been going. Whatever that place is, it is the machine's friend and not ours.\"\n\nA long look, and she does not soften it.\n\n\"Learn what it is, if you are going back. But Halcyon. Do not ever trust a payout from them again.\"\n\n\"Did anybody take your name?\""
     },
     "asc_reveal": {
       "options": [
@@ -231,7 +231,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then go and get her.\"\n\nShe marks the Vats on the wall, and for once it is not a red eye. It is a circle.\n\n\"Two rules and I am not flexible on either. You do not put a floor supervisor in the ground. Kill one of Halcyon's middle managers and by morning we did not rescue a witness, we murdered a man in a polo shirt, and every name on that slate turns into paperwork nobody will ever read. Cosh them, lock them in a cupboard, walk around them. I do not care which.\"\n\nShe looks up.\n\n\"And you come back at her pace. Not yours. She is carrying everything she is and she cannot run with it. If you get here without her, do not get here.\""
+      "text": "\"Then go and get her.\"\n\nShe marks the Vats on the wall, and for once it is not a red eye. It is a circle.\n\n\"Two rules and I am not flexible on either. You do not put a floor supervisor in the ground. Kill one of Halcyon's middle managers and by morning we did not rescue a witness, we murdered a man in a polo shirt, and every name on that slate turns into paperwork nobody will ever read. Cosh them, lock them in a cupboard, walk around them. I do not care which.\"\n\nShe looks up.\n\n\"And you come back at her pace. Not yours. She is carrying everything she is and she cannot run with it. If you get here without her, do not get here.\"\n\n\"Can you carry somebody who cannot walk?\""
     },
     "ret_after": {
       "options": [

@@ -1,0 +1,22 @@
+{
+  "arrivals": [
+    "Somebody comes past who is not lost, and slows.",
+    "They step in from a direction, having come from somewhere with purpose.",
+    "They are here, and they were expected, though not by you."
+  ],
+  "cause": "dream",
+  "departures": [
+    "They go on, at the same pace, in the direction they were going.",
+    "They point once, and then they are along the way they pointed.",
+    "They leave you the direction and take everything else with them."
+  ],
+  "drug_id": null,
+  "id": "dp_dream_the_one_who_knows_the_way",
+  "looks": [
+    "They have been here before and it does not impress them.",
+    "They know which door. They have known which door the whole time.",
+    "You could ask. They would answer. You do not.",
+    "They wait, briefly, in case you are coming, and do not press it."
+  ],
+  "name": "someone who knows the way"
+}

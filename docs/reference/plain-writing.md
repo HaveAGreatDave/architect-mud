@@ -640,6 +640,218 @@ horrifying rather than describing a frightened outsider, the device is doing
 what the book does. And a quest may never reward the player for working it out
 (that rule is in the Scarletwastes doc and it is the same rule as this one).
 
+## Dialogue
+
+Added 2026-08-25, after a review of the faction questlines in which the game's
+own author read a finished scene and could not tell what the character wanted.
+That is the failure these rules exist to prevent, and it outranks every other
+consideration on this page.
+
+**Information over texture. Texture only when it costs no clarity.**
+
+A player who has never played should come out of a conversation knowing more
+than they went into it with. If a line is doing atmosphere at the expense of
+telling somebody what a thing is, the atmosphere goes. This is not a trade
+against good writing — every cryptic draft in that review was replaced by a
+plainer one that was also better. "Wet feet in the cold is how you lose toes"
+beats anything the atmospheric version produced.
+
+**The finished test.** Read the scene cold, in order, as somebody who has never
+played. Then say in one sentence what the character wants and what the player
+now knows. If you cannot, it is not done. Nothing else on this page matters if
+that test fails.
+
+### Read what the character HAS before writing what they say
+
+A vendor's `vendor_inventory`, an NPC's `flags`, their `work_zone_id` and their
+own description are a specification for what that person knows and what they
+would need to find out. Writing the lines first produces a scene that performs
+expertise instead of having any.
+
+The Quartermaster was drafted asking "Which hand?" and "Close work or far?" —
+a tailor fitting somebody for a weapon. Her shop is *Surplus of Sorrows* and her
+stock is soap, water, earplugs, bandages, jerky, duct tape, work gloves, a
+battery, a rad band, a jerry can, a flashlight, ear defenders and smoked lenses.
+Not one weapon. She does not kit you to fight; she kits you to stand somewhere
+unpleasant for a long time, which is what the Long Watch are. The answer was on
+the shelf the whole time.
+
+### Every question needs an antecedent
+
+A question has to be answerable from what the scene has already established. The
+same fitting opened on "How long are you out for?" — out where? The player had
+walked into a shop and said fit me for something. Writing the interesting
+question first and never supplying its setup produces dialogue that reads as if
+a page is missing.
+
+### Plain unless concealing, and the concealment needs a visible motive
+
+People say what they mean. When they do not, there is a reason, and the reason
+has to be one the player can identify.
+
+Halloran refusing to name the three people who still make camera cores works,
+because he is protecting them and you can see it. A surgeon selling you an
+implant and calling it "the unit" twice, without ever saying what it is or does,
+does not — he is selling, and vagueness costs him the sale. Vague-with-no-motive
+is not a careful character, it is an author reaching for mood.
+
+This is the pragmatics of it: speakers go direct — no hedging, no softening —
+when there is urgency, familiarity, or little face at risk. Straight talk is a
+relationship, not a vocabulary.
+
+### A generalisation needs evidence, a consequence, or a judgement the speaker owns
+
+> "Back up the road," she says. "People do."
+
+There is nothing in that for the other person to answer. It asserts a fact about
+all people, proves nothing, and closes the turn. It became:
+
+> "Back up the road," she says, and marks something. "Fourth one this week."
+
+Which is hers, says she is counting, and can be argued with. Compare "People do
+get through. I've seen it twice" — the same construction, earning its keep.
+
+### The five closing moves
+
+All of these end an exchange with a tidy summary the speaker delivers and nobody
+contests. They read as authored because a conversation is a joint action in which
+neither party controls the shape and the two people want different things; these
+are one writer doing both halves.
+
+| Family | Looks like |
+|---|---|
+| Generalising coda | "People do." · "Everybody does." |
+| Antithesis | "That is not X. It is Y." · "X is not the same as Y" |
+| Aphoristic closer | "That is the whole of it" · "That is the cost of the place" |
+| Explanatory simile | "the way a priest tends an altar" |
+| Narration grading itself | "which is how you know it had landed" |
+
+None is banned. The antithesis in particular is defended above, and seven of the
+nine in the Long Watch survived review because a character was genuinely heading
+off an objection. **The problem is density, not the move.** Five different Watch
+characters reaching for the same construction is the house accent, not five
+people.
+
+### NPCs ask things
+
+59 of the 140 NPCs with a real speaking part have never asked the player a
+single question, and the list is led by the biggest parts in the game: Cyrelle
+had 6,087 characters of dialogue and not one question mark.
+
+A character who only makes statements is lecturing. Every question should be one
+that person needs the answer to in order to do their job — not curiosity about
+the player as a character. The Quartermaster's own description has always said
+she fits gear with "a long look, **a short question**". She had the long look.
+
+⚠ **A question that justifies itself is a statement with punctuation.** "Can you
+carry somebody who has stopped walking? Answer that honestly, because I am going
+to plan around it" became "Can you carry somebody who cannot walk?"
+
+### Short turns are a symptom, never a target
+
+Spoken turns measured across the nine public-domain books in `content/books`
+(4,898 turns) against our own NPC trees (2,871):
+
+| | median | ≤6 words | ≥40 words |
+|---|---|---|---|
+| The nine books | 6 | 56% | 8% |
+| Architect NPC dialogue | 11 | 36% | 9% |
+
+The long end is fine — 9% against 8%. The whole gap is at the short end: nobody
+here says "How long?" or "Left." or "Where?" The fix is **more turns**, not
+shorter speeches, and a dialogue tree already has the machinery, because the
+player's options are their turns.
+
+⚠ But do not chase the median. Six-word turns are what conversation looks like
+when both people already share the context. A tradesperson explaining kit to a
+newcomer is exactly where real speech gets longer, because the listener does not
+know yet and the speaker can see that. Driving that scene toward the median is
+what produced a clipped, expert-sounding fitting that told the player nothing.
+
+
+### A comparison has to survive being read literally
+
+Added 2026-08-25, after three of these shipped in one session.
+
+Read the vehicle on its own, without the thing it is describing. If it collapses,
+it was carrying tone rather than meaning, and it goes.
+
+| Shipped | The problem |
+|---|---|
+| "They are kind to the people below them, in the way you are kind to weather." | Nobody is kind to weather. You dress for it. There is no moral relationship to invert. |
+| "{who} walks back the way an errand walks back." | An errand does not walk. |
+| "The top one is the unit the Boulevard would sell you." | Not a comparison, the same failure: a definite article pointing at nothing. |
+
+The replacements are all plainer and all say more: *"They are kind to the people
+below them and could not name one of them."* · *"{who} walks back without
+hurrying and without stopping."*
+
+The test is mechanical and takes a second, which is why it is worth doing on
+every simile: cover the subject, read the rest, ask whether it is true of
+anything.
+
+### A place name has to resolve, and be established once
+
+`scripts/docs/place-names.mjs` exists because "the wash" was used eleven times
+across six files as if the reader had been down there. It turned out to name four
+things — the Long Watch's approach channel, a laundrette on Ironside Street, an
+Exodus wash house, and Ferric Wash, a redrock district in the Scarletwastes.
+
+Two separate requirements, and passing the first does not give you the second:
+
+- **It resolves.** Some zone actually has that name. The check will tell you when
+  several do, and which families they are in.
+- **The reader can resolve it.** Somebody with a reason to explain it has said
+  what it is, once, before the prose starts using it as shorthand. Pike now does
+  this for the Outfall in four sentences.
+
+⚠ **Dry-run any rename sweep and read the misses.** The first pass at this one
+would have replaced every instance of "the wash" with a street name, which would
+have broken the Watch's own geography — their observation post exists to look
+down that channel. The misses are where the assumption is wrong.
+
+### Writing an order you disagree with
+
+The Ascendants are authoritarian, contemptuous of freedom, corrupt and certain of
+their own superiority, and no character in this game will ever say any of that.
+The three rules that make it work are already on this page, from the library:
+give the enemy a sincere ethic and never let them doubt it, let a voice convict
+itself, and give the monster the good speech and no rebuttal.
+
+In practice that means they never argue for authority. They assume it and move
+on to something else, and the assumption is what the player is left holding.
+
+> "Oh, nobody here decides anything difficult. Where you live, what you do, when
+> you stop working, who looks after you when you cannot. All of it settled on the
+> day your account opens." — Vess, delivering good news
+
+Three moves that carry more than an argument would:
+
+- **Praise the unfreedom directly**, as a kindness, and mean it. Zamyatin's
+  narrator calls dancing beautiful *because* it is unfree.
+- **Put the excess in a maintenance figure.** The Gallery draws more power than
+  Meltwater Row, and the person saying so has stopped hearing it as a number.
+- **Never let the vocabulary be the plain one.** Not sacked, *the account was
+  closed*. Not surveillance, *service coverage* — so a district that loses it is
+  *uncovered*, which is a thing that happens to people rather than a thing anyone
+  does to them. The Watch are not criminals. They are *uninsured*.
+
+⚠ Disagreement is never treason out loud. It is a referral: "You are unsettled.
+That is very normal in the first fortnight… I will put you down for a session
+with somebody kind." A regime that has to threaten you has already lost the
+argument it thinks it is winning.
+
+### The tools
+
+Both are reporters, not gates, and neither is wired into `docs:lint` — every
+pattern they look for has legitimate uses.
+
+| | |
+|---|---|
+| `scripts/docs/dialogue-audit.mjs` | Scores all 140 speaking NPCs on the closing-move families, unnamed referents, hedging and whether they ever ask a question. Gives a reading order, not a verdict. `<npc_id>` for one NPC with its lines. |
+| `scripts/docs/place-names.mjs` | Colliding names, shorthand a reader cannot resolve, and names nobody explains. Filters three classes of non-problem: generic interior labels, facade-plus-interior pairs, and multi-tile streets. |
+
+
 ## What the outside says
 
 Added 2026-08-25 from published craft guidance rather than from the library.

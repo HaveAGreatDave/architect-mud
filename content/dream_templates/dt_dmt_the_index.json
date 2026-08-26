@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "An entry is amended somewhere behind you and the amendment is small.",
+    "A section reorganises itself into a better order.",
+    "Something finds your entry, reads a little of it, and is pleased."
+  ],
+  "cause": "drug",
+  "description": "Everything is catalogued here, and the catalogue is a room, and it has been kept up. You are in it. Your entry is not short. It has been added to recently, by somebody with good handwriting, and the most recent line is about now.",
+  "drug_id": "drug_dmt",
+  "fx": "bloom",
+  "fx_intensity": 0.7,
+  "id": "dt_dmt_the_index",
+  "name": "The Index",
+  "objects": [
+    {
+      "looks": [
+        "It goes back further than the thing it catalogues.",
+        "Every entry is complete. Yours is complete.",
+        "It is arranged by something that is not alphabet and not date and is obvious."
+      ],
+      "name": "the catalogue"
+    },
+    {
+      "looks": [
+        "Longer than you would have guessed and shorter than you would like.",
+        "It records things you did that nobody was present for.",
+        "The last line is being written while you read it, and it keeps up."
+      ],
+      "name": "your entry"
+    }
+  ],
+  "weather": "Still and lit evenly, the way a place is lit for reading."
+}

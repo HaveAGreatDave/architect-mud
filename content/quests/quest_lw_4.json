@@ -1,21 +1,21 @@
 {
   "category": null,
-  "description": "There is a clerk in the Vats Registry called Nine who has been sending the Watch small true things for four months, and this morning he sent one word.\n\nThe Quartermaster does not dress it up. He is a clerk. He is not brave. He has an eleven-year account and about two hours before somebody upstairs reads the log she has just read.\n\n\"Get in, get his file off the ledger, get him out on his feet. He will want to talk on the way. Let him.\"",
+  "description": "There is a sub-registrar in the Vats Registry who has been passing the Watch small true things for four months. This morning she sent one word, which is what they agreed she would send if she thought somebody had noticed.\n\nCyrelle does not dress it up. She is a clerk with an eleven-year account and about two hours before somebody upstairs reads the same log Cyrelle has just read.\n\n\"Get in, get her file off the ledger so there is no paper saying she existed, and walk her out on her feet. She will want to talk on the way. Let her.\"\n\nBefore you go, Cyrelle teaches you the thing every runner learns eventually.\n\n\"When she sends, she puts one wrong letter in the third word. Always the third. If a message ever comes in from her spelled correctly, it is not her sending it, and the reply we send goes to whoever is holding her arm.\"\n\nShe lets that sit.\n\n\"People have ignored that before. It is how you lose a whole network in a fortnight.\"",
   "fail_on": [
     {
       "count": 900,
-      "desc": "The Registry reconciles at shift change. After that she is a discrepancy, not a colleague.",
+      "desc": "The Registry reconciles at shift change. After that she is a discrepancy rather than a colleague, and discrepancies are somebody's job.",
       "id": "f_clock",
       "type": "timeout"
     },
     {
-      "desc": "Nine dies once, messily, like anyone else. The only copy of her is in her hands.",
+      "desc": "She dies once, messily, like anyone else. The only copy of her is in her hands.",
       "id": "f_lost",
       "target": "npc_asc_nine",
       "type": "escort_lost"
     },
     {
-      "desc": "Do not kill a Halcyon supervisor. Put one down and this stops being an account dispute and becomes a homicide on Ascendant ground, and the archive stops being evidence.",
+      "desc": "Do not kill a Halcyon supervisor. Put one down and this stops being an account dispute and becomes a homicide on Ascendant ground, and everything she carried out stops being evidence and starts being a motive.",
       "id": "f_blood",
       "target": "Supervisor",
       "type": "kill"
@@ -26,56 +26,32 @@
   "name": "Retention",
   "objectives": [
     {
-      "count": 1,
-      "desc": "Get into the Registry in the Vats and stand the floor long enough to be sure it is between rounds.",
-      "emotes": [
-        "{who} keeps very still by the Registry door and listens to a supervisor's shoes going the other way.",
-        "{who} counts the gaps in the rounds and does not like the number.",
-        "{who} stands under a poster about the importance of continuous coverage and waits it out."
-      ],
-      "id": "o_infil",
-      "taskSeconds": 6,
+      "desc": "Get into the Registry in the Vats and stand the floor until you are sure it is between rounds.",
+      "id": "o_in",
       "type": "visit",
       "zone": "zone_asc_vats_registry"
     },
     {
-      "count": 1,
-      "desc": "Pull Nine's file off the Registry ledger.",
-      "emotes": [
-        "{who} finds the account in nineteen seconds, because it is filed exactly where an account is filed.",
-        "{who} reads two lines of an eleven-year record and stops reading.",
-        "{who} takes the file and leaves the drawer open, having decided open is faster than tidy."
-      ],
-      "id": "o_ledger",
+      "desc": "Pull her file off the Registry ledger so there is no record of her at all.",
+      "id": "o_file",
       "requires": [
-        "o_infil"
+        "o_in"
       ],
       "type": "hack",
       "zone": "zone_asc_vats_registry"
     },
     {
       "count": 1,
-      "desc": "Find Nine and give him the word.",
-      "emotes": [
-        "{who} says the word and watches a man decide, in about a second, that he meant it four months ago.",
-        "{who} waits while he puts the cover on his terminal, which is not necessary and takes him nine seconds."
-      ],
+      "desc": "Find Nine and give her the word.",
       "id": "o_word",
       "requires": [
-        "o_ledger"
+        "o_file"
       ],
       "target": "npc_asc_nine",
       "type": "talk"
     },
     {
-      "count": 1,
-      "desc": "Walk Nine out of the Vats.",
-      "emotes": [
-        "{who} keeps a pace ahead of him and does not turn round at the sound of his breathing.",
-        "{who} listens to him explain, quietly and at length, that the coverage was genuinely very good.",
-        "{who} hears him work out aloud that he does not know what he is going to do about his teeth now.",
-        "{who} gets him through the last door and finds he has stopped talking on his own."
-      ],
+      "desc": "Walk her out of the Vats.",
       "id": "o_out",
       "requires": [
         "o_word"
@@ -86,9 +62,9 @@
     },
     {
       "count": 1,
-      "desc": "Hand Nine and his file over at the Blind.",
+      "desc": "Hand her and her file over at the Blind.",
       "emotes": [
-        "{who} puts the file on the counter and a man beside it, in that order, because that is the order they were asked for."
+        "{who} puts the file on the counter and a woman beside it, in that order, because that is the order they were asked for."
       ],
       "id": "o_hand",
       "item_id": "item_lapse_slate",

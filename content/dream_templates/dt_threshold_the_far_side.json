@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Somebody through there laughs at something you did not hear.",
+    "The light in there changes slightly, the way light does when people move.",
+    "Somebody crosses the doorway from one side to the other and does not glance out."
+  ],
+  "cause": "drug",
+  "description": "A door standing open onto the place this whole building is the entrance to. It is bright and it is occupied and it is going well. Nobody in it is looking this way. The doorway is the width of a doorway and you are on this side of it.",
+  "drug_id": "drug_threshold",
+  "fx": "bloom",
+  "fx_intensity": 0.75,
+  "id": "dt_threshold_the_far_side",
+  "name": "What Is Through There",
+  "objects": [
+    {
+      "looks": [
+        "Open. It has been open the whole time.",
+        "No sill, no step. The floor goes straight through.",
+        "You can see a good deal of the room from here and not the far end."
+      ],
+      "name": "the doorway"
+    },
+    {
+      "looks": [
+        "At ease. They have been there long enough to be at ease.",
+        "You know one of them. You know two of them.",
+        "None of them has looked out and none of them is avoiding it."
+      ],
+      "name": "the people through there"
+    }
+  ],
+  "weather": "Warm air coming through the doorway, carrying the smell of somewhere lived in."
+}

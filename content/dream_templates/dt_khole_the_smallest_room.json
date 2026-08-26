@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Nothing happens, correctly.",
+    "The walls are where the walls are.",
+    "A very long time goes by and is not long."
+  ],
+  "cause": "drug",
+  "description": "The last one. It is the size of the thing that is left of you and it fits exactly and it is not uncomfortable. There is nothing in here that needs doing. Everything that was going to be decided has been.",
+  "drug_id": "drug_khole",
+  "fx": "tunnel",
+  "fx_intensity": 0.95,
+  "id": "dt_khole_the_smallest_room",
+  "name": "The Smallest Room",
+  "objects": [
+    {
+      "looks": [
+        "It fits. That is the whole of what can be said about it.",
+        "No door, and no wall you could point to as the one without a door in it.",
+        "It is the size it needs to be, which is smaller than it was."
+      ],
+      "name": "the room"
+    },
+    {
+      "looks": [
+        "Enough to be counted as one.",
+        "It is not frightened. It has not been given anything to be frightened with.",
+        "It would answer to your name out of habit."
+      ],
+      "name": "what is left"
+    }
+  ],
+  "weather": "Even. Exactly the temperature of a body, which removes the question."
+}

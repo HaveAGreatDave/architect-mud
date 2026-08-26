@@ -1,0 +1,22 @@
+{
+  "arrivals": [
+    "Somebody from work comes through, in their work clothes, mid-task.",
+    "They come in carrying something that belongs to the job and not to here.",
+    "They arrive the way they arrive at work, without knocking."
+  ],
+  "cause": "dream",
+  "departures": [
+    "They take it through to the back and do not come out.",
+    "They finish what they were doing and move on to the next of it.",
+    "They go, and the door they use is not one you had noticed."
+  ],
+  "drug_id": null,
+  "id": "dp_dream_the_one_from_work",
+  "looks": [
+    "Doing their job. Here. Correctly, and to the usual standard.",
+    "You have never once seen this person outside the building.",
+    "They say the thing they always say and it fits the situation.",
+    "They ask you something about the work and wait properly for the answer."
+  ],
+  "name": "someone you work with"
+}

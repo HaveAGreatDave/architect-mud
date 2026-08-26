@@ -1,0 +1,9 @@
+{
+  "a": "zone_jolenes_bar",
+  "b": "zone_jolenes_loft",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_jolenes_bar_up_jl3m",
+  "lockable": true,
+  "one_way": false
+}

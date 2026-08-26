@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Somebody puts a completed thing in the tray for you and does not look up.",
+    "The clock goes round to the hour you always finished at, and continues.",
+    "A voice down the room says your name in the tone of somebody confirming you are still there."
+  ],
+  "cause": "dream",
+  "description": "A job you left, and you are still on. The tasks are in front of you in the order you always did them and your hands know all of it. Somebody has been covering the parts you were not here for, and they have kept it up beautifully, for years, and they would like a word at the end.",
+  "drug_id": null,
+  "fx": "fog",
+  "fx_intensity": 0.4,
+  "id": "dream_the_shift",
+  "name": "The Shift You Never Left",
+  "objects": [
+    {
+      "looks": [
+        "The pile is the height it was on your last day and has been maintained at that height.",
+        "Your handwriting on all of it, including the parts from after you left.",
+        "You finish one. Underneath it is the same one."
+      ],
+      "name": "the work"
+    },
+    {
+      "looks": [
+        "They have your apron on. It fits them.",
+        "They have been doing this a long time and are not owed anything and know it.",
+        "They turn out to be facing away no matter which side you come round."
+      ],
+      "name": "the person covering for you"
+    }
+  ],
+  "weather": "The air of a room that has been occupied continuously and aired never."
+}

@@ -139,6 +139,7 @@
     "green": {
       "options": [
         {
+          "label": "Fair enough.",
           "next": "root",
           "text": "Fair enough."
         }
@@ -148,6 +149,7 @@
     "marques": {
       "options": [
         {
+          "label": "Noted.",
           "next": "root",
           "text": "Noted."
         }
@@ -157,14 +159,17 @@
     "root": {
       "options": [
         {
+          "label": "Let me see what you have.",
           "next": "shop",
           "text": "Let me see what you have."
         },
         {
+          "label": "I don't know one end from the other.",
           "next": "green",
           "text": "I don't know one end from the other."
         },
         {
+          "label": "Who makes these?",
           "next": "marques",
           "text": "Who makes these?"
         }

@@ -1,6 +1,6 @@
 {
   "color": "#4A90D9",
-  "description": "Humanity's next evolution will be engineered. The Ascendants hold the Architect to be humanity's greatest achievement, not a jailer to be broken but a mind to be joined. Civilization is not to be abandoned but perfected: through cybernetics, artificial intelligence, cloning, and relentless scientific progress the species climbs past its own limits. The furthest along that climb are barely flesh at all: chrome-laced, death itself backed up and defied, their thoughts already bleeding into the machine they intend to become.",
+  "description": "Humanity's next evolution will be engineered, and the word doing the work is engineered. The Ascendants hold the Architect to be humanity's greatest achievement, not a jailer to be broken but a mind to be joined. Civilization is not to be abandoned but perfected: through cybernetics, artificial intelligence, cloning and relentless scientific progress the species climbs past its own limits.\n\nThey run the Basin and they are the reason it works. The trains are on time, the water is clean, the power holds, and the price is that every one of those things knows who used it. They find that a fair exchange and are puzzled by anyone who does not. Ask an Ascendant about freedom and they will tell you, courteously, that people who are free to choose mostly choose badly, and that somebody has to carry the ones who do.\n\nThe climb has stages and they know which stage everybody is on. Chrome is an improvement made on purpose: designed, tested, licensed, recorded, and removable. Mutation is the same ladder travelled downward, and they have a word for it — reversion — which they use in meetings without anybody blinking. A mutant is not a person who changed. A mutant is a person going back. They will not seat one, treat one, insure one or touch one, and they are unfailingly polite about all four.\n\nEverybody is priced. A person arrives at the Gate as an account, and the Spire holds an opinion about that account which the person is never shown. The furthest along the climb are barely flesh at all: chrome-laced, death itself backed up and defied, their thoughts already bleeding into the machine they intend to become. They are kind to the people below them and could not name one of them.",
   "flags": {
     "authority": "architect",
     "creed": "Humanity's next evolution will be engineered.",
@@ -18,9 +18,9 @@
       ]
     },
     "role": {
-      "writes": "grip",
+      "drift": "south",
       "reads": "heat",
-      "drift": "south"
+      "writes": "grip"
     },
     "stance": "redeem",
     "values": [

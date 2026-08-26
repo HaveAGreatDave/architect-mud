@@ -5487,6 +5487,10 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_bond_fence: [70, 74, 78], ty_guard: [98, 94, 86],               // Customs Bonded: lit compound + guard box
   // The Lucky Bastard — the city's casino: dark plum stucco under an obscene amount of magenta neon.
   ty_vig: [58, 34, 48], ty_vig_trim: [112, 62, 92],
+  // The Grand Ole Apron — a roadhouse: sun-bleached board under a painted false front, with the
+  // porch roof reading as the one deep shadow on the plot. All three join PLAIN_WALL: it is a
+  // single-storey shed and the default branch would hang a grid of apartment windows on it.
+  ty_honky: [116, 92, 66], ty_honky_front: [140, 66, 58], ty_honky_porch: [78, 62, 46],
   // The Ascendant Stronghold — a chrome campus in the western waste (docs/proposals/ascendant-stronghold.md).
   ty_asc_spire: [30, 50, 78], ty_asc_gate: [66, 80, 96], ty_asc_clinic: [150, 178, 190],
   ty_asc_weave: [92, 104, 118], ty_asc_vats: [88, 102, 118], ty_asc_shrine: [20, 28, 44],
@@ -6031,6 +6035,7 @@ const PLAIN_WALL = new Set(['ty_soffit', 'ty_kerb', 'ty_pump_dk', 'ty_fuel_kiosk
   'ty_sw_merc_dk', 'ty_sw_hound', 'ty_sw_pen', 'ty_sw_water', 'ty_sw_bath', 'ty_sw_depot',
   'ty_sw_physic', 'ty_sw_kept',
   'ty_dw_turbine', 'ty_dw_turbine_dk', 'ty_dw_rust', 'ty_dw_depot',
+  'ty_honky', 'ty_honky_front', 'ty_honky_porch',
   // The twin pass. All single- and two-storey street buildings with hand-placed glazing.
   'ty_ff_brick', 'ty_ff_patch', 'ty_ff_white', 'ty_2cell_crate', 'ty_fallow', 'ty_fallow_canvas',
   'ty_unit', 'ty_unit_shut', 'ty_unit_board', 'ty_tomb', 'ty_tomb_glass', 'ty_tomb_brass',
@@ -11681,6 +11686,7 @@ const TYPE_MODEL = {
   shop:             { type: 'shop',      pal: 'ty_shop_a', neon: '#5fd0ff' },
   diner:            { type: 'diner',     pal: 'ty_diner',  neon: '#ffcf3e' },
   bar:              { type: 'bar',       pal: 'ty_bar_a',  neon: '#7dff6a' },
+  honkytonk:        { type: 'honkytonk', pal: 'ty_honky', neon: '#ff5fa8' },
   club:             { type: 'club',      pal: 'ty_club',   neon: '#ff4a9a' },
   nightclub:        { type: 'nightclub', pal: 'ty_voltage', neon: '#5cd6ff' },
   boutique:         { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
@@ -16121,6 +16127,18 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       awning(ctx, cam, dx, dy, E, fh * 0.78, fh * 0.92, h * 0.22, h * 0.34, 'ty_door', seed + 1, night, alpha, fh * 0.26);   // door awning
       { const [nx, ny] = F(fh * 0.5, fh * 0.4); neonBlade(ctx, cam, nx, ny, h * 0.34, h * 1.2, m.neon || '#5fd0ff', night, alpha); }
       if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '120,220,255', 9, alpha * 0.2);
+      break;
+    }
+    case 'honkytonk': {   // roadhouse — a long low shed behind a raised painted false front, a porch
+      // across the whole street side, and a blade on the roof that is the tallest thing on the plot.
+      // The shape is the argument: everything else on Meltwater Row stands up, and this one lies down.
+      const hw = fh * 1.14, wallTop = h * 0.46, frontTop = h * 0.74;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, true);                        // the shed itself
+      { const [fx, fy] = F(0, fh * 0.88);                                                                  // false front, standing proud of the roof
+        draw3DBoxAt(ctx, cam, fx, fy, hw, wallTop, frontTop, 'ty_honky_front', seed + 1, night, alpha, true, Math.atan2(-E[0], E[1]), fh * 0.20); }
+      awning(ctx, cam, dx, dy, E, hw * 0.96, fh * 1.04, wallTop * 0.52, wallTop * 0.80, 'ty_honky_porch', seed + 2, night, alpha, fh * 0.44);   // porch, full width
+      if (frontVis) neonBlade(ctx, cam, dx, dy, frontTop, frontTop + h * 0.46, m.neon || '#ff5fa8', night, alpha);   // the boot, in pink
+      if (night) { const [gx, gy] = F(0, fh * 1.12); glowPool(ctx, cam, gx, gy, wallTop * 0.42, '255,158,96', 12, alpha * 0.30); }   // warm spill out the door
       break;
     }
     case 'club': {   // box + twin neon roofline + colour glow

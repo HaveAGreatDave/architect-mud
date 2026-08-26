@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A candle goes down by a measurable amount.",
+    "Something in the middle of the table stops steaming.",
+    "A chair is pulled out at the far end by nobody and left out."
+  ],
+  "cause": "dream",
+  "description": "A long table, laid for a number of people, and the food is at the temperature food is at when it has just gone down. Everything has been done properly and in the right order and finished at the right moment. That moment was a while ago now and the room is holding it.",
+  "drug_id": null,
+  "fx": "ash",
+  "fx_intensity": 0.25,
+  "id": "dream_the_meal",
+  "name": "The Table Laid",
+  "objects": [
+    {
+      "looks": [
+        "Counted, and correct, and one more than you would have laid.",
+        "The napkins are folded the way your family folds them.",
+        "Every glass has been polished. You can see the room in all of them."
+      ],
+      "name": "the places"
+    },
+    {
+      "looks": [
+        "Good. Better than you make.",
+        "It has cooled to the point where reheating it is a decision.",
+        "Somebody has already had a little of it, from the end, neatly."
+      ],
+      "name": "the food"
+    }
+  ],
+  "weather": "The good warmth of a kitchen with the oven off and the door open."
+}

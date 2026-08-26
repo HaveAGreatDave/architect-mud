@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The bag adjusts its weight, slowly, the way something settling adjusts it.",
+    "It goes quiet, which you have learned to read.",
+    "Somebody passing looks at the bag and then at you and says nothing at all."
+  ],
+  "cause": "dream",
+  "description": "You are carrying something in a bag and it is alive and it is your responsibility. It has been yours for a while. You are taking it somewhere and the somewhere is agreed. The bag is warm at the bottom and you have been told, by somebody with authority, not to open it on the way.",
+  "drug_id": null,
+  "fx": "none",
+  "fx_intensity": 0.2,
+  "id": "dream_the_bag",
+  "name": "What Is In The Bag",
+  "objects": [
+    {
+      "looks": [
+        "Closed. Warm along the bottom seam.",
+        "You have been carrying it long enough for the handle to have made a line in your hand.",
+        "It moves once, decisively, and settles."
+      ],
+      "name": "the bag"
+    },
+    {
+      "looks": [
+        "You know the address. You have known it since you were handed the bag.",
+        "It is not far now and it has not been far for some time.",
+        "Somebody will be there to take it, and they will check."
+      ],
+      "name": "the way ahead"
+    }
+  ],
+  "weather": "Ordinary. A day like any other, going along at the pace of a day."
+}

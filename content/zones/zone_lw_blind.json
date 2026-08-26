@@ -1,13 +1,13 @@
 {
   "ambient_events": [
     "The shortwave mutters a run of numbers, pauses, and starts a different run.",
-    "The angled mirror shows you the whole wash room behind you, and a second mirror shows the watcher you.",
+    "The angled mirror shows you the whole of the lockers behind you, and a second mirror shows the watcher you.",
     "A ledger lies open on the shelf: every name that has come through this week, in pencil, on paper."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A narrow post with a mirror angled down the length of the wash and a shortwave set murmuring on a shelf. Whoever sits here does not open the door and does not challenge you; they simply look at you for as long as it takes, and then either the bar comes off the next door or it does not. The Watch's oldest rule is written on the shelf edge in pencil: A FACE, NOT A CREDENTIAL.",
+  "description": "A narrow post with a mirror angled down the length of the Outfall and a shortwave set murmuring on a shelf. Whoever sits here does not open the door and does not challenge you; they simply look at you for as long as it takes, and then either the bar comes off the next door or it does not. The Watch's oldest rule is written on the shelf edge in pencil: A FACE, NOT A CREDENTIAL.",
   "exits": {
     "east": "zone_lw_entry",
     "west": "zone_lw_wash"

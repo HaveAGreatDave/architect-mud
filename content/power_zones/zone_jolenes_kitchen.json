@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_zone_jolenes_util",
+  "id": "zone_jolenes_kitchen",
+  "max_capacity_kw": 5400,
+  "name": "Jolene's — Kitchen",
+  "source_type": "junction_box"
+}

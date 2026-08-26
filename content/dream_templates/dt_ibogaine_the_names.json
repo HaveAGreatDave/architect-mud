@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A name is read and there is a pause the length of that person.",
+    "The reading continues at the same pace.",
+    "A name you had lost arrives, correctly placed, between two you had not."
+  ],
+  "cause": "drug",
+  "description": "A list, being read at the pace a list is read at, of the people you have had. Everyone. In the order they arrived. It is accurate and it is longer than you would have said, and nothing is added after any of them.",
+  "drug_id": "drug_ibogaine",
+  "fx": "static",
+  "fx_intensity": 0.45,
+  "id": "dt_ibogaine_the_names",
+  "name": "The List Of Names",
+  "objects": [
+    {
+      "looks": [
+        "Everyone. In order. Nothing beside the names.",
+        "It is written in one hand and the hand does not tire.",
+        "You are on it, once, in the correct position."
+      ],
+      "name": "the list"
+    },
+    {
+      "looks": [
+        "Reading. Not slowly, and not fast.",
+        "They do not look up between names and they get every pronunciation right.",
+        "They will finish. That is the arrangement."
+      ],
+      "name": "the reader"
+    }
+  ],
+  "weather": "Quiet, with the small sounds of a room where somebody is reading."
+}

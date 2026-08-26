@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The hood fan changes pitch for no reason and goes back.",
+    "Fat ticks in a pan somebody left on the low ring.",
+    "The tray tower shifts a quarter inch and decides against the rest.",
+    "A timer goes off in a drawer. Nobody set it. Nobody can find it."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#3b2a1c",
+  "color": "#f0dcc0",
+  "description": "A galley kitchen wedged in behind the bar, four steps wide and hot as an argument. A six-burner range under a hood nobody has cleaned in this administration, a deep sink, a steel prep counter with one long knife scar across the middle of it, and trays stacked to the ceiling in a tower that leans and holds. Taped to the hood in a careful hand: THIS IS A KITCHEN, NOT A GREEN ROOM. OUT.",
+  "exits": {
+    "south": "zone_jolenes_bar"
+  },
+  "flags": {
+    "building_name": "Jolene's",
+    "building_type": "honkytonk",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_906_913"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_jolenes_kitchen",
+  "map_id": "map_int_jolenes",
+  "name": "Jolene's — Kitchen",
+  "parent_zone": "zone_district_906_913"
+}

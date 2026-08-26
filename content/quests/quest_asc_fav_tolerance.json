@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "There is a calibration set to go into a unit on the underwriting floor, and Kesh would rather you did it than one of his technicians.\n\nThe unit is one of nine that price mortality for the eastern districts. It reads a body and returns a figure, and the figure is what a person is charged to be kept alive. Kesh explains none of that, because to Kesh it is a mount with a set going into it.\n\nHe gives you the tolerance, the torque, and the order of operations — and mentions, once, in passing, on his way to something else, that the part is within tolerance and the mount is not.\n\nHe does not tell you what to do about that. He watches your hands from across the room while pretending to read.",
+  "description": "A calibration set goes into a unit on the underwriting floor. Kesh would rather you did it than one of his technicians.\n\nThe unit is one of nine that price mortality for the eastern districts. A person stands in front of it and it returns an expected remaining lifetime. That figure is what they are charged to stay covered.\n\nTo Kesh it is a mount with a set going into it.\n\nHe gives you the tolerance to four decimal places and expects it back inside that.",
   "fail_on": [
     {
       "desc": "Something came apart on you out there. Duc wanted the numbers, and now he has different ones.",

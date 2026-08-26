@@ -42,6 +42,23 @@
       ],
       "text": "The catch is that the waste is out there and it doesn't care about your schedule. Things live in it. Some of them come to the road, because the road is where the food walks past.\n\nAnd the truck stops when you stop it, not before. I've had three come back with the front end folded up because somebody found out a wall is a wall at fifty. Watch where you're pointing it."
     },
+    "lw_core": {
+      "_vine": {
+        "x": 1200,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave her to it)",
+          "next": "bye"
+        }
+      ],
+      "text": "She takes it out of your hand, unwraps one corner, and puts it in the coat rather than on the clipboard.\n\n\"Right.\" A driver is waiting and she lets him wait. \"Tell him the gate'll be seeing again by Friday, and that I know what it cost him to have one spare.\"\n\nShe looks at you the way she looks at a truck she has not weighed yet.\n\n\"You walked it up in daylight. Good. People who sneak get remembered.\""
+    },
     "road": {
       "actions": [],
       "options": [
@@ -73,6 +90,20 @@
       "actions": [],
       "first": "You're standing in front of my board, which means you either want work or you're lost. I'm Rennie. I keep the yard and the yard keeps the road. Work's there for anybody with a truck to put it in, and if you haven't got one, well. That's what the fence is for.",
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_2",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "enabled": true,
+          "label": "(hand over the wrapped core)",
+          "next": "lw_core"
+        },
         {
           "actions": [],
           "conditions": [],

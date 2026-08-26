@@ -1,6 +1,6 @@
 {
   "color": "#E0A030",
-  "description": "The city belongs to its people, not its machine. The Long Watch is an enduring underground movement that would keep Coldwater Basin's infrastructure and technology intact, but wrest its stewardship back from the Architect. They are reformers, not arsonists: the tools stay, the hand on them changes. They do not seek to transcend humanity; they seek to free it, and remain human while they do. Their finest wear no augment and carry no mutation, only a lifetime's honed discipline, and the unsettling habit of out-shooting the chromed and out-thinking the machine with nothing but a steady hand and everything they ever bothered to master. That last part is not an aspiration but an entry requirement: they will not train a body with metal in it or flesh that has gone its own way, and they will not be argued round. Come back cleansed, or do not come back.",
+  "description": "The city belongs to its people, not its machine. The Long Watch is an enduring underground movement that means to take the Coldwater Basin back from the Architect, and to have a city left standing when it does. They sabotage constantly and they are careful about what: a relay, a records floor, a vat hall, anything that serves the machine and nobody else. They will not touch the water, the grid or the trains, because they intend to inherit those, and a city nobody can live in is not worth taking. Where a thing is both at once they argue about it, and that argument is most of what a cell does with its evenings. They do not seek to transcend humanity; they seek to free it, and remain human while they do. Their finest wear no augment and carry no mutation, only a lifetime's honed discipline, and the unsettling habit of out-shooting the chromed and out-thinking the machine with nothing but a steady hand and everything they ever bothered to master. That last part is not an aspiration but an entry requirement: they will not train a body with metal in it or flesh that has gone its own way, and they will not be argued round. Come back cleansed, or do not come back.",
   "flags": {
     "creed": "The city belongs to its people, not its machine.",
     "path": "human",
@@ -18,9 +18,9 @@
       ]
     },
     "role": {
-      "writes": "heat",
+      "drift": "north",
       "reads": "grip",
-      "drift": "north"
+      "writes": "heat"
     },
     "stance": "redeem",
     "values": [

@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Somebody behind you shifts their weight and does not sigh.",
+    "Your hand closes on it, and it is the other thing.",
+    "The counter clerk says take your time and means it and says it again."
+  ],
+  "cause": "dream",
+  "description": "A bag on your knees and a small thing in it that you need at the counter. You are going through it properly, section by section, and there is more bag under each section. Behind you a queue has formed and is being decent about it.",
+  "drug_id": null,
+  "fx": "fog",
+  "fx_intensity": 0.4,
+  "id": "dream_the_search",
+  "name": "Looking For It",
+  "objects": [
+    {
+      "looks": [
+        "Yours. Everything in it is yours and correctly where you put it.",
+        "Your arm is in it to the elbow, which it was not built for.",
+        "The bottom is where the bottom is."
+      ],
+      "name": "the bag"
+    },
+    {
+      "looks": [
+        "Patient. Genuinely patient, which makes it worse.",
+        "It has doubled since you started.",
+        "The person at the back came in after you and will be served before you and knows neither."
+      ],
+      "name": "the queue"
+    }
+  ],
+  "weather": "The overheated air of somewhere with a door that keeps opening."
+}

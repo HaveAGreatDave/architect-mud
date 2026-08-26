@@ -234,64 +234,6 @@
         },
         {
           "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_q1_done",
-              "op": "unset"
-            },
-            {
-              "flag": "arc_open_terminus",
-              "op": "set",
-              "scope": "world"
-            }
-          ],
-          "enabled": true,
-          "label": "You look like you want something.",
-          "next": "box"
-        },
-        {
-          "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_q1_done",
-              "op": "set"
-            }
-          ],
-          "enabled": true,
-          "label": "I brought the empty back.",
-          "next": "box_done"
-        },
-        {
-          "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_q1_done",
-              "op": "unset"
-            },
-            {
-              "flag": "arc_open_terminus",
-              "op": "set",
-              "scope": "world"
-            }
-          ],
-          "enabled": true,
-          "label": "You look like you want something.",
-          "next": "box"
-        },
-        {
-          "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_q1_done",
-              "op": "set"
-            }
-          ],
-          "enabled": true,
-          "label": "I brought the empty back.",
-          "next": "box_done"
-        },
-        {
-          "actions": [],
           "conditions": [],
           "enabled": true,
           "label": "What do you buy?",

@@ -1,0 +1,18 @@
+{
+  "description": "Six round bulbs screwed around a mirror, two of them a different colour temperature and nobody caring.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_jolenes_loft",
+  "light_type": "lamp",
+  "lumen_output": 700,
+  "name": "dressing-table bulbs",
+  "object_type": "light",
+  "power_draw_kw": 0.01,
+  "price": 55,
+  "zone_id": "zone_jolenes_loft"
+}

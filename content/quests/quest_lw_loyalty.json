@@ -44,6 +44,22 @@
       "zone": "zone_asc_clinic_consult"
     },
     {
+      "count": 1,
+      "desc": "The surgeon has time while you wait, and would like to use it.",
+      "emotes": [
+        "{who} is asked, pleasantly, what they do with their hands all day.",
+        "{who} is talked out of the expensive one by the man who would have been paid for it.",
+        "{who} is quoted a price, and then a smaller price, and is not pushed on either.",
+        "{who} is told the offer stands, and that it is not the kind that expires."
+      ],
+      "id": "o_offer",
+      "requires": [
+        "o_wait"
+      ],
+      "target": "npc_asc_kesh",
+      "type": "talk"
+    },
+    {
       "desc": "Take the parts back to the Quartermaster.",
       "emotes": [
         "{who} puts the parts and what is left of the purse on the counter, in that order.",
@@ -51,7 +67,8 @@
       ],
       "id": "o_back",
       "requires": [
-        "o_wait"
+        "o_wait",
+        "o_offer"
       ],
       "taskSeconds": 5,
       "type": "visit",

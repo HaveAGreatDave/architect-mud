@@ -40,179 +40,176 @@
   ],
   "description": "A man in a pressed shirt with a lanyard he has never once been asked for, holding a clipboard against his chest like a shield. He has the specific alertness of somebody who is always four minutes from a problem, and the resting face of somebody who has already solved it and been thanked by nobody.",
   "dialogue_tree": {
-    "_start": "root",
-    "nodes": {
-      "billing": {
-        "options": [
-          {
-            "label": "You could change it back.",
-            "next": "change"
-          },
-          {
-            "label": "(say nothing)",
-            "next": "root"
-          }
-        ],
-        "text": "\"That was mine,\" he says. \"My idea. I thought it read as clean. No name, no ego, just PRODUCER, like the old shows.\" He looks at the middle distance for slightly too long. \"Turns out a word can't be thanked. A word can't be hired by somebody else. I had a name and I gave it away for a font.\""
-      },
-      "building": {
-        "options": [
-          {
-            "label": "...the set is his old basement?",
-            "next": "theset"
-          },
-          {
-            "label": "So you got rid of him.",
-            "next": "gotrid"
-          }
-        ],
-        "text": "\"He did.\" Phil says it straight away, with no argument in it at all. \"After the marriage went, Neil was on sofas the better part of a year, and one of those sofas was Nguyen's. Basement flat under a laundromat. I have never once said otherwise and I never will.\" He turns a page over. \"You are standing in it, by the way.\""
-      },
-      "change": {
-        "options": [
-          {
-            "label": "(nod)",
-            "next": "root"
-          }
-        ],
-        "text": "\"I could.\" He goes back to the clipboard. \"Ask me again after a good one.\""
-      },
-      "else": {
-        "options": [
-          {
-            "label": "(that lands)",
-            "next": "root"
-          }
-        ],
-        "text": "\"I could produce something else,\" he agrees, pleasantly. \"Nothing else in this city goes out live at eight o'clock with a man who genuinely does not know what he is about to say.\" A small, real shrug. \"I like the not knowing. It's the only part of my week that isn't a schedule.\""
-      },
-      "gotrid": {
-        "options": [
-          {
-            "label": "Neil never took it off?",
-            "next": "nevertook"
-          }
-        ],
-        "text": "\"I made it uncomfortable,\" he says, and does not dress it up. \"I put things in front of Neil at the right hours. I let a couple of arguments run that I could have cut. Nothing I said was untrue — that's the part I'd want you to check. I just chose the ten minutes.\" He puts the clipboard down for the first time. \"And then the credits rolled and there it was. Producer, Captain Nguyen. Still there. Nineteen weeks after he stopped coming down the stairs.\""
-      },
-      "hard": {
-        "options": [
-          {
-            "label": "(nod)",
-            "next": "root"
-          }
-        ],
-        "text": "\"It is,\" Phil agrees, without defending it. \"He's not a bad man. I want to be accurate, because I have had a lot of time to think about how I say this.\" A pause. \"He gave a man a bed. I run a programme. Those are two different kinds of good and only one of them fits in half an hour.\""
-      },
-      "knows": {
-        "options": [
-          {
-            "label": "(let that sit)",
-            "next": "root"
-          }
-        ],
-        "text": "\"He knows it at four in the afternoon,\" Phil says. \"By eight he's a genius who invented television. That's not a criticism. That's the job description. You can't do what he does at eight if you believe what he believes at four.\""
-      },
-      "neil": {
-        "options": [
-          {
-            "label": "You could produce something else.",
-            "next": "else"
-          },
-          {
-            "label": "(nod)",
-            "next": "root"
-          }
-        ],
-        "text": "\"He's worse when he's trying to be good,\" Phil says. \"The nights he behaves, nobody watches. The nights he goes off about his wife's pans for six minutes, the meter moves.\" He checks the stairs. \"I've stopped deciding which of those I want. I just make sure the transmitter's warm.\""
-      },
-      "nevertook": {
-        "options": [
-          {
-            "label": "(leave it there)",
-            "next": "root"
-          }
-        ],
-        "text": "\"Neil doesn't edit,\" Phil says. \"Neil accretes.\" He picks the clipboard back up. \"So I won, and the man I beat is still in the credits, and I'm a word. If you're looking for the moral of the programme, that's nearer than anything Neil says on it.\""
-      },
-      "nguyen": {
-        "options": [
-          {
-            "label": "So you got rid of him.",
-            "next": "gotrid"
-          },
-          {
-            "label": "He put Neil up, though. Back when he had nowhere.",
-            "next": "building"
-          }
-        ],
-        "text": "\"He was a lovely man and he was killing us,\" Phil says flatly. \"He wasn't crew. He wasn't staff. He wasn't anything at all — he was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
-      },
-      "root": {
-        "first": "\"You're not crew,\" he says, not unkindly, checking a clipboard he does not need to check. \"Doesn't matter. Nobody's crew. I'm Phil. I produce the programme, which tonight means I am the programme's entire crew, its legal department and its cleaner.\" He offers a hand. \"Don't touch the board.\"",
-        "options": [
-          {
-            "label": "Who actually runs this show?",
-            "next": "runs"
-          },
-          {
-            "label": "Why does it say PRODUCER in the credits and not your name?",
-            "next": "billing"
-          },
-          {
-            "label": "What happened with Nguyen?",
-            "next": "nguyen"
-          },
-          {
-            "label": "Is he always like that?",
-            "next": "neil"
-          },
-          {
-            "label": "(leave him to it)",
-            "next": null
-          }
-        ],
-        "text": "\"We're up in about an hour,\" he says, without checking anything. \"Or we're up whenever he comes down the stairs. Those are the two schedules.\"",
-        "text_by_relation": {
-          "familiar": "\"Good, you're here.\" He hands you a page. \"Hold that. If he asks what it is, it's the running order. It isn't, but it'll buy me four minutes.\"",
-          "known": "\"Back again.\" He almost smiles. \"Grab a crate, don't sit on the cable.\""
+    "billing": {
+      "options": [
+        {
+          "label": "You could change it back.",
+          "next": "change"
+        },
+        {
+          "label": "(say nothing)",
+          "next": "root"
         }
-      },
-      "runs": {
-        "options": [
-          {
-            "label": "And he knows that?",
-            "next": "knows"
-          },
-          {
-            "label": "(nod)",
-            "next": "root"
-          }
-        ],
-        "text": "\"I do.\" No heat in it at all. \"He talks. I book the slot, I fix the feed, I keep the licence, and I sit in the corner making sure the thing that goes out is a thing and not a man shouting in a basement.\" A beat. \"Some weeks the difference is thin.\""
-      },
-      "satinit": {
-        "options": [
-          {
-            "label": "(leave it)",
-            "next": "root"
-          }
-        ],
-        "text": "Phil is quiet for a second. \"He never once treated it as a set,\" he says. \"Not once, in nineteen weeks. He'd come in, take his coat off, put it over the back of the chair like he was home.\" He squares the clipboard against his chest. \"You can decide for yourself what it means that I let him keep doing that. I have decided several things and none of them stayed decided.\""
-      },
-      "theset": {
-        "options": [
-          {
-            "label": "And Nguyen sat in it every week.",
-            "next": "satinit"
-          },
-          {
-            "label": "(say nothing)",
-            "next": "root"
-          }
-        ],
-        "text": "\"Down to the pull-string on the bulb,\" Phil says, and for the first time there is something like pride in it. \"Neil described it once, at four in the morning, for about ninety minutes. I had it built. The laundromat overhead is a sound cue and we recorded it in the actual street, because he said it wouldn't be right otherwise.\" He looks at the corner where the stool is. \"It is the best thing I have ever made and I do not think one viewer has ever noticed it is a room.\""
+      ],
+      "text": "\"That was mine,\" he says. \"My idea. I thought it read as clean. No name, no ego, just PRODUCER, like the old shows.\" He looks at the middle distance for slightly too long. \"Turns out a word can't be thanked. A word can't be hired by somebody else. I had a name and I gave it away for a font.\""
+    },
+    "building": {
+      "options": [
+        {
+          "label": "...the set is his old basement?",
+          "next": "theset"
+        },
+        {
+          "label": "So you got rid of him.",
+          "next": "gotrid"
+        }
+      ],
+      "text": "\"He did.\" Phil says it straight away, with no argument in it at all. \"After the marriage went, Neil was on sofas the better part of a year, and one of those sofas was Nguyen's. Basement flat under a laundromat. I have never once said otherwise and I never will.\" He turns a page over. \"You are standing in it, by the way.\""
+    },
+    "change": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "root"
+        }
+      ],
+      "text": "\"I could.\" He goes back to the clipboard. \"Ask me again after a good one.\""
+    },
+    "else": {
+      "options": [
+        {
+          "label": "(that lands)",
+          "next": "root"
+        }
+      ],
+      "text": "\"I could produce something else,\" he agrees, pleasantly. \"Nothing else in this city goes out live at eight o'clock with a man who genuinely does not know what he is about to say.\" A small, real shrug. \"I like the not knowing. It's the only part of my week that isn't a schedule.\""
+    },
+    "gotrid": {
+      "options": [
+        {
+          "label": "Neil never took it off?",
+          "next": "nevertook"
+        }
+      ],
+      "text": "\"I made it uncomfortable,\" he says, and does not dress it up. \"I put things in front of Neil at the right hours. I let a couple of arguments run that I could have cut. Nothing I said was untrue — that's the part I'd want you to check. I just chose the ten minutes.\" He puts the clipboard down for the first time. \"And then the credits rolled and there it was. Producer, Captain Nguyen. Still there. Nineteen weeks after he stopped coming down the stairs.\""
+    },
+    "hard": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is,\" Phil agrees, without defending it. \"He's not a bad man. I want to be accurate, because I have had a lot of time to think about how I say this.\" A pause. \"He gave a man a bed. I run a programme. Those are two different kinds of good and only one of them fits in half an hour.\""
+    },
+    "knows": {
+      "options": [
+        {
+          "label": "(let that sit)",
+          "next": "root"
+        }
+      ],
+      "text": "\"He knows it at four in the afternoon,\" Phil says. \"By eight he's a genius who invented television. That's not a criticism. That's the job description. You can't do what he does at eight if you believe what he believes at four.\""
+    },
+    "neil": {
+      "options": [
+        {
+          "label": "You could produce something else.",
+          "next": "else"
+        },
+        {
+          "label": "(nod)",
+          "next": "root"
+        }
+      ],
+      "text": "\"He's worse when he's trying to be good,\" Phil says. \"The nights he behaves, nobody watches. The nights he goes off about his wife's pans for six minutes, the meter moves.\" He checks the stairs. \"I've stopped deciding which of those I want. I just make sure the transmitter's warm.\""
+    },
+    "nevertook": {
+      "options": [
+        {
+          "label": "(leave it there)",
+          "next": "root"
+        }
+      ],
+      "text": "\"Neil doesn't edit,\" Phil says. \"Neil accretes.\" He picks the clipboard back up. \"So I won, and the man I beat is still in the credits, and I'm a word. If you're looking for the moral of the programme, that's nearer than anything Neil says on it.\""
+    },
+    "nguyen": {
+      "options": [
+        {
+          "label": "So you got rid of him.",
+          "next": "gotrid"
+        },
+        {
+          "label": "He put Neil up, though. Back when he had nowhere.",
+          "next": "building"
+        }
+      ],
+      "text": "\"He was a lovely man and he was killing us,\" Phil says flatly. \"He wasn't crew. He wasn't staff. He wasn't anything at all — he was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
+    },
+    "root": {
+      "first": "\"You're not crew,\" he says, not unkindly, checking a clipboard he does not need to check. \"Doesn't matter. Nobody's crew. I'm Phil. I produce the programme, which tonight means I am the programme's entire crew, its legal department and its cleaner.\" He offers a hand. \"Don't touch the board.\"",
+      "options": [
+        {
+          "label": "Who actually runs this show?",
+          "next": "runs"
+        },
+        {
+          "label": "Why does it say PRODUCER in the credits and not your name?",
+          "next": "billing"
+        },
+        {
+          "label": "What happened with Nguyen?",
+          "next": "nguyen"
+        },
+        {
+          "label": "Is he always like that?",
+          "next": "neil"
+        },
+        {
+          "label": "(leave him to it)",
+          "next": null
+        }
+      ],
+      "text": "\"We're up in about an hour,\" he says, without checking anything. \"Or we're up whenever he comes down the stairs. Those are the two schedules.\"",
+      "text_by_relation": {
+        "familiar": "\"Good, you're here.\" He hands you a page. \"Hold that. If he asks what it is, it's the running order. It isn't, but it'll buy me four minutes.\"",
+        "known": "\"Back again.\" He almost smiles. \"Grab a crate, don't sit on the cable.\""
       }
+    },
+    "runs": {
+      "options": [
+        {
+          "label": "And he knows that?",
+          "next": "knows"
+        },
+        {
+          "label": "(nod)",
+          "next": "root"
+        }
+      ],
+      "text": "\"I do.\" No heat in it at all. \"He talks. I book the slot, I fix the feed, I keep the licence, and I sit in the corner making sure the thing that goes out is a thing and not a man shouting in a basement.\" A beat. \"Some weeks the difference is thin.\""
+    },
+    "satinit": {
+      "options": [
+        {
+          "label": "(leave it)",
+          "next": "root"
+        }
+      ],
+      "text": "Phil is quiet for a second. \"He never once treated it as a set,\" he says. \"Not once, in nineteen weeks. He'd come in, take his coat off, put it over the back of the chair like he was home.\" He squares the clipboard against his chest. \"You can decide for yourself what it means that I let him keep doing that. I have decided several things and none of them stayed decided.\""
+    },
+    "theset": {
+      "options": [
+        {
+          "label": "And Nguyen sat in it every week.",
+          "next": "satinit"
+        },
+        {
+          "label": "(say nothing)",
+          "next": "root"
+        }
+      ],
+      "text": "\"Down to the pull-string on the bulb,\" Phil says, and for the first time there is something like pride in it. \"Neil described it once, at four in the morning, for about ninety minutes. I had it built. The laundromat overhead is a sound cue and we recorded it in the actual street, because he said it wouldn't be right otherwise.\" He looks at the corner where the stool is. \"It is the best thing I have ever made and I do not think one viewer has ever noticed it is a room.\""
     }
   },
   "faction": null,

@@ -234,6 +234,10 @@
       "sourceContainer": "furn_ration9_shelves"
     },
     {
+      "item_id": "item_macaroni",
+      "price": 6
+    },
+    {
       "item_id": "item_deli_wrap",
       "price": 12,
       "restockToQty": 6,

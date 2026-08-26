@@ -76,6 +76,23 @@ an instance costs no schema and no cleanup beyond forgetting it.
 - **The drug fallback chain**: this drug's templates → the default drug set (`drug_id IS NULL`) →
   nothing, and the caller degrades (trip falls back to `overlay`). Fallback, **not blend** — a drug with
   its own rooms never gets generic ones mixed in.
+- **Pool sizes, and the ratio that matters.** 34 sleep rooms; 10 per drug across the eight dreamzone
+  drugs; 5 generic. An instance is 2–4 rooms, so the number to look at is not the pool but **what
+  fraction of it one visit spends**. It used to be 14 sleep rooms and 6 per drug, which meant a single
+  trip showed you *over half* of everything a drug had and a second was mostly a re-run. Expanded
+  2026-08-25 ([dreams-sleep-expansion.mjs](../scripts/content/dreams-sleep-expansion.mjs),
+  [dreams-drug-expansion.mjs](../scripts/content/dreams-drug-expansion.mjs)).
+
+  ⚠ **The eight pools are not interchangeable, and a new room has to pick one.** Each drug's rooms obey
+  a rule, and the rule is the drug: DMT's rooms were all BUILT by somebody proud of them; the k-hole
+  puts you at the wrong end of every distance; salvia makes you a LAYER in something. A room that would
+  sit equally well under two of those headings has not committed, and belongs in the generic
+  `dt_default_*` set instead. The rules are listed at the top of the drug expansion script.
+- **How a room is written.** One rule about scale, duration or recall, and the prose does nothing but
+  obey it — the reader supplies the dread ([plain-writing.md](reference/plain-writing.md), the de Quincey
+  entry). Both expansion scripts refuse to write a room whose text contains an em dash (an
+  Ascendant voice tell, never a dream), a filter verb, or an adjective doing the room's work
+  (*strange*, *eerie*, *unsettling*). That guard caught a line in its own first draft.
 - **A wandering presence** (`dream_presences`) moves between the rooms of your instance on a per-instance
   timer, announced only when it arrives where you are or leaves. It never resolves into anything.
 - **Room ambience is NOT on that timer.** The engine's scheduled `ambientTick` already walks

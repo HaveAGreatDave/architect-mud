@@ -1,0 +1,21 @@
+{
+  "description": "An upright with the front panel off, so the hammers and the felt and the whole embarrassing mechanism are on public display. Somebody put drawing pins in the hammer felts about forty years ago, which is why it sounds like a bar rather than a parlour. Middle C is a shade brighter than its neighbours. A jam jar sits on top with coins in it and a card reading REQUESTS ARE NOT A RIGHT.",
+  "flags": {
+    "aliases": "piano,upright,joanna",
+    "instrument": "piano",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_piano",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "honky-tonk upright",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 400,
+  "zone_id": "zone_jolenes_bar"
+}

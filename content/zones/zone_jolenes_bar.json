@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "The neon boot in the window buzzes, dies for a second, and comes back brighter.",
+    "A stool leg catches on a board that has never been level and never will be.",
+    "Somebody at the back sings four words of a chorus, badly, and thinks better of the fifth.",
+    "The fryer in the kitchen coughs twice and settles.",
+    "Somebody puts a coin in the jar on the piano. Nobody looks up, but everybody heard it.",
+    "The set behind the bar cuts to a curtain and a band, and for eight or nine seconds nothing comes out of the kitchen."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#3b2a1c",
+  "color": "#f0dcc0",
+  "description": "A long room with a plank floor that has been danced on since before anybody currently standing on it was born. The bar is a run of salvaged bowling lane, waxed to a shine at the elbows and nowhere else, and behind it stand a mirror, a rank of bottles and a hand-lettered card reading NO CREDIT, NO EXCEPTIONS, ASK ANYWAY. Two feet of stage at the far end holds a stool, a microphone on a bent boom and an upright piano shoved hard against the wall. Overhead, a wagon-wheel fitting with three bulbs out. The sign over the pass reads JOLENE S in rope light, the apostrophe having burnt out years ago and stayed burnt out, and nobody working here is named Jolene. It smells of fryer oil, spilled whiskey and the hot dust of a light left on too long.",
+  "exits": {
+    "down": "zone_jolenes_util",
+    "east": "zone_district_906_913",
+    "north": "zone_jolenes_kitchen",
+    "up": "zone_jolenes_loft"
+  },
+  "flags": {
+    "building_name": "Jolene's",
+    "building_type": "honkytonk",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A wide pane onto Meltwater Row with a neon boot hung in it, kicking on a two-second cycle. Whatever the weather is doing out there, it is doing it in plain view of everyone at the bar.",
+      "light": 0.8,
+      "name": "the front window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_906_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_jolenes_bar",
+  "map_id": "map_int_jolenes",
+  "name": "Jolene's",
+  "parent_zone": "zone_district_906_913"
+}

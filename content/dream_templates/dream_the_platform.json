@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The board flickers and settles on a later number.",
+    "An announcement apologises and is inaudible in the middle, which is the part with the reason.",
+    "A train comes through without stopping and it is going where you are going."
+  ],
+  "cause": "dream",
+  "description": "A platform at the hour when the boards are the brightest thing. Your train is the next one. It has been the next one for some time and the board is honest about it and updates, correctly, to say so.",
+  "drug_id": null,
+  "fx": "wind",
+  "fx_intensity": 0.5,
+  "id": "dream_the_platform",
+  "name": "The Platform",
+  "objects": [
+    {
+      "looks": [
+        "Your service, on time, in four minutes.",
+        "It has said four minutes for a while and it has never once been wrong.",
+        "The destinations go up the board and off the top and are replaced from below."
+      ],
+      "name": "the board"
+    },
+    {
+      "looks": [
+        "Bags down. Coats on. They have judged this correctly.",
+        "One of them checks the board and then a watch and is satisfied by both.",
+        "None of them are on the platform when you look directly along it."
+      ],
+      "name": "the others waiting"
+    }
+  ],
+  "weather": "A cold draught along the platform from an opening at the far end."
+}

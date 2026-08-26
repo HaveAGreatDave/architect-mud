@@ -265,6 +265,19 @@ export default async function regress({ run, check, getPlayer }) {
       invalidateQuestCache(TYPES_QUEST);   // direct write behind the cache
       await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);
       await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: TYPES_QUEST } });
+      // ⚠ WAIT FOR THE ROW BEFORE HANDING BACK. START_QUEST's write is not
+      // guaranteed to have landed when dispatchAction resolves, and a NEGATIVE
+      // check only sleeps 120ms (see settle() below) — so if the row is late,
+      // progressOf() returns [] and `[][0] === 0` is false. That fails as
+      // "survive credited somebody who sheltered indoors", which is a sentence
+      // about weather and shelter and has nothing to do with what went wrong.
+      // Seen 2026-08-25: the two survive checks went red and were green on a
+      // re-run with no code change in between.
+      for (let i = 0; i < 120; i++) {
+        const { rows } = await query('SELECT 1 FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);
+        if (rows.length) return;
+        await sleep(25);
+      }
     };
     const progressOf = async () => {
       const { rows: pr } = await query('SELECT progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);

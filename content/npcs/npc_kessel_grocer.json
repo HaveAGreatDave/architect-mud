@@ -219,6 +219,10 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
+      "item_id": "item_macaroni",
+      "price": 7
+    },
+    {
       "item_id": "item_ration",
       "price": 8
     },

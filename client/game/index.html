@@ -129,6 +129,48 @@
 				}
 			})();
 		</script>
+		<!-- BOOT SCREEN — critical CSS, inline and deliberately not in styles.css.
+		     This overlay has to be on screen in the FIRST paint: it is the frame that
+		     catches the hand-off from the host's own wake-up page, and a boot screen
+		     that arrives on the second paint has already shown the player the seam it
+		     exists to hide. A linked stylesheet cannot promise that; ~40 lines in the
+		     head can. Colours are the literal token values from styles.css rather than
+		     var() references, because the theme block above may not have resolved a
+		     custom theme yet and a transparent boot screen is worse than a slightly
+		     off-palette one. -->
+		<style>
+			#boot-screen {
+				position: fixed;
+				inset: 0;
+				z-index: 400;
+				background: #05050a;
+				color: #28e5ff;
+				font-family: "Courier New", Courier, monospace;
+				font-size: 0.8125rem;
+				line-height: 1.55;
+				padding: 6vh 6vw;
+				overflow: hidden;
+				transition: opacity 0.32s ease;
+			}
+			#boot-screen.boot-out { opacity: 0; pointer-events: none; }
+			#boot-screen .boot-log { white-space: pre; }
+			#boot-screen .boot-line { min-height: 1.55em; }
+			/* The caret is the only thing here that moves on its own, which is what
+			   stops a paused sequence reading as a frozen page. */
+			#boot-screen .boot-caret {
+				display: inline-block;
+				width: 0.62em;
+				height: 1em;
+				background: #28e5ff;
+				vertical-align: text-bottom;
+				animation: boot-blink 1.06s step-end infinite;
+			}
+			@keyframes boot-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+			[data-motion="off"] #boot-screen .boot-caret { animation: none; }
+			@media (prefers-reduced-motion: reduce) {
+				#boot-screen .boot-caret { animation: none; }
+			}
+		</style>
 	</head>
 	<body>
 		<!-- Skip links. THE FIRST TWO TAB STOPS IN THE DOCUMENT, and invisible until
@@ -141,6 +183,14 @@
 			<a href="#cmd-input" class="skip-link">Skip to command input</a>
 			<a href="#output" class="skip-link">Skip to game log</a>
 		</nav>
+		<!-- Painted immediately, torn down by js/panels/bootscreen.js. Decorative
+		     throughout: the POST is a picture of a machine starting, and everything
+		     it says the game also says properly elsewhere, so it is aria-hidden and
+		     never becomes a second live region. Not focusable, so the skip links
+		     above keep the first two tab stops. -->
+		<div id="boot-screen" aria-hidden="true">
+			<div class="boot-log"></div><span class="boot-caret"></span>
+		</div>
 		<!-- AUTH SCREEN -->
 		<div id="auth-screen">
 			<div id="auth-box">
@@ -529,7 +579,7 @@
 				left: 50%;
 				transform: translateX(-50%);
 				/* must-answer layer — see the ladder comment on #auth-screen in styles.css */
-				z-index: 9920;
+				z-index: 9910;
 				background: var(--bg2);
 				border: 1px solid var(--accent);
 				width: 340px;
@@ -616,7 +666,7 @@
 				left: 50%;
 				transform: translateX(-50%);
 				/* must-answer layer — see the ladder comment on #auth-screen in styles.css */
-				z-index: 9910;
+				z-index: 9920;
 				background: var(--bg2);
 				border: 1px solid var(--accent);
 				width: 340px;

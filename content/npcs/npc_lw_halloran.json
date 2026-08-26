@@ -70,7 +70,7 @@
     "\"Machine's got no hands. That's the whole secret. It needs ours.\"",
     "\"Bring it in. I've never met a dead radio I couldn't argue with.\""
   ],
-  "description": "A lean, grey-stubbled man in a canvas apron gone shiny at the pockets, reading glasses pushed up into iron-coloured hair. His hands are the story: burn-flecked, sure, never quite still, forever turning some small dead thing over to see how it died. He watches you the way a man watches a stranger's hands, not their face.",
+  "description": "A lean, grey-stubbled man in a canvas apron gone shiny at the pockets, reading glasses pushed up into iron-coloured hair. His hands are the story: burn-flecked, sure, never quite still, forever turning some small dead thing over to see how it died. He watches your hands rather than your face.",
   "dialogue_tree": {
     "bench_accept": {
       "actions": [
@@ -290,7 +290,7 @@
           "next": "lw_member"
         }
       ],
-      "text": "\"It is done, then.\" He says it quietly, the way a man says a thing that mattered.\n\n\"The machine is down an eye and a hand, and the Watch are up a good one.\"\n\nHe wipes his hands on the cloth and offers you one, which is the first honest gesture he has made you.\n\n\"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
+      "text": "\"It is done, then.\" He says it quietly, and once.\n\n\"The machine is down an eye and a hand, and the Watch are up a good one.\"\n\nHe wipes his hands on the cloth and offers you one.\n\n\"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
     },
     "lw_reveal": {
       "options": [
@@ -465,6 +465,13 @@
           ],
           "label": "Anything moving tonight?",
           "next": "meet_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why is this room called the Vice?",
+          "next": "why_vice"
         },
         {
           "conditions": [
@@ -645,6 +652,47 @@
         }
       ],
       "text": "A bell rattles as you come in. The lean man looks up from a gutted motor, and his eyes go to your hands before your face.\n\n\"If it is broken, set it on the bench. If it is not,\" and he tips his head at the racked tools, \"I have likely got what you need anyway. Halloran.\""
+    },
+    "why_drift_papers": {
+      "_vine": {
+        "x": 1440,
+        "y": 1180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Permits. Ration books. Transit papers. A residence card with a real number on it.\"\n\nHe sets the iron down.\n\n\"If the Architect has got no record of you, you cannot buy food and you cannot cross a checkpoint. There are people in this city who have been alive for nine years on paper that came out of that corridor.\"\n\n\"That is the most useful thing we do and it is the least exciting. Bear that in mind before you go asking for the interesting work.\""
+    },
+    "why_vice": {
+      "_vine": {
+        "x": 1200,
+        "y": 1180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What kind of papers?",
+          "next": "why_drift_papers"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because there is one on every bench in here and because it is what the room does.\"\n\nHe works while he talks.\n\n\"A vice holds a thing still so you can make it. Nobody sells us anything, so we make it. That is not a philosophy, it is a supply problem, and this is the room where the supply problem gets solved.\"\n\n\"The corridor through the back is the Drift. Mining word. A drift is the tunnel you cut sideways to get at the work. Papers get made down there, and you do not go and look.\""
     }
   },
   "faction": null,

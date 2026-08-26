@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The line opens onto a room with somebody in it, and then onto the dial tone.",
+    "You get to the last digit. There is one more.",
+    "Somebody breathes at the other end, briefly, and it is a recording."
+  ],
+  "cause": "dream",
+  "description": "A phone and a number you know without looking. You get it right every time. The dialling takes as long as the number is long, and the number is longer each time you are most of the way through it, and you have never once made a mistake.",
+  "drug_id": null,
+  "fx": "static",
+  "fx_intensity": 0.4,
+  "id": "dream_the_call",
+  "name": "The Number",
+  "objects": [
+    {
+      "looks": [
+        "Warm. You have been at this a while.",
+        "The keys are worn in the pattern of this exact number.",
+        "It rings while you are holding it, and it is you."
+      ],
+      "name": "the phone"
+    },
+    {
+      "looks": [
+        "You have never had to write it down.",
+        "It belongs to somebody you could name, and you decline to, here.",
+        "Correct. Every digit of it is correct."
+      ],
+      "name": "the number"
+    }
+  ],
+  "weather": "The dead flat air of a booth with the door pulled to."
+}

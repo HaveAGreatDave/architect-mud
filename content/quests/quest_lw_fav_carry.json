@@ -1,38 +1,35 @@
 {
   "category": null,
-  "description": "There is a case in a lock-up off the Yards. The Quartermaster wants it at the Blind by morning, and she wants it carried there in a hand rather than sent on any wire in this city.\n\nIt is not heavy. It is not fastened either, which she mentions on the way past and does not come back to.\n\n\"Straight through,\" she says. \"If it goes wrong, put it down and walk. It is worth less than you are, and I will only say that once.\"",
+  "description": "There is a document case in a lock-up off the Yards. The Quartermaster wants it at the Blind by morning, carried by hand, because every wire in this city belongs to somebody who reads it.\n\nIt is not heavy. The catches are up, which she mentions on the way past and does not come back to.\n\n\"Straight through. If it goes wrong, put it down and walk away from it. It is worth less than you are, and I will only say that once.\"",
   "fail_on": [],
   "id": "quest_lw_fav_carry",
   "meta": {},
   "name": "Carry It Back",
   "objectives": [
     {
-      "count": 1,
       "desc": "Collect the case from the lock-up off the Yards.",
       "emotes": [
-        "{who} finds the lock-up by its number, and the number by counting, because none of them are lit.",
-        "{who} lifts the case and finds the catch is not fastened.",
-        "{who} spends about four seconds deciding, and then walks."
+        "{who} finds it exactly where they were told, which is its own kind of unsettling.",
+        "{who} notices the catches are up."
       ],
       "id": "o_get",
-      "item_id": "item_lw_package",
+      "item_id": "item_lw_caselist",
       "type": "retrieve",
-      "zone": "zone_district_909_912"
+      "zone": "zone_district_918_912"
     },
     {
-      "desc": "Carry the case back to the Blind.",
+      "count": 1,
+      "desc": "Get the case to the Quartermaster at the Blind.",
       "emotes": [
-        "{who} takes the long way round the market rather than the short way through it.",
-        "{who} changes hands at the bridge and keeps going.",
-        "{who} puts the case on the counter with the catch exactly as it was."
+        "{who} puts it on the counter with the catches still up.",
+        "{who} is not asked whether they looked, then or ever."
       ],
-      "id": "o_home",
+      "id": "o_back",
       "requires": [
         "o_get"
       ],
-      "taskSeconds": 5,
-      "type": "visit",
-      "zone": "zone_lw_bunk"
+      "target": "npc_lw_quartermaster",
+      "type": "talk"
     }
   ],
   "penalties": {},

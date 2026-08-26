@@ -1,38 +1,53 @@
 {
   "category": null,
-  "description": "Halloran says a runner is coming in from the east tonight with something he wants in a hand rather than on a wire, and that you are to sit in the Den and take it off her.\n\nThe Watch move nearly everything this way. It costs a day. The wires belong to people who can afford wires, and in eleven years nobody down here has found a way round that.\n\nHe does not say what it is. He does not say who she is.\n\n\"She will know you. Wait for her. That is the job. Wait for her.\"",
-  "fail_on": [],
+  "description": "A letter-box is a hiding place a cell uses to pass things without two people ever meeting. The Watch have one behind a loose brick behind a loose brick on Kessler Street, and for four months it has worked.\n\nTwo nights ago the runner who empties it did not come back.\n\nHalloran will not send anyone to it, because if it is being watched then whoever reaches behind that brick is the next person who does not come back. He wants somebody to go and look at the street instead.\n\n\"Sit somewhere you have a reason to be sitting. Give it an hour. If a man reads the same page twice, if a van parks where a van has no delivery, if the same face goes past three times, that is your answer and you come home with it.\"\n\nHe is specific about the part everyone gets wrong.\n\n\"Do not touch the brick. Not to check. If it is clean we will use it again next week, and if it is not, you have just shown them who we are.\"",
+  "fail_on": [
+    {
+      "desc": "Somebody on that street worked out what you were doing. Now they know the Watch are still interested in the brick, which is the one thing the errand was meant to hide.",
+      "id": "f_seen",
+      "type": "spotted"
+    }
+  ],
   "id": "quest_lw_meet",
   "meta": {},
-  "name": "The Meet",
+  "name": "The Wrong Brick",
   "objectives": [
     {
-      "desc": "Sit in the Runners' Den and wait for the runner coming in from the east.",
+      "desc": "Get to the corner of Kessler and find somewhere you have a reason to be.",
       "emotes": [
-        "{who} takes a cot near the door and watches the chalked board of legs.",
-        "{who} listens to the drip in the spine outside, and the drip is the only thing that comes.",
-        "{who} checks the passage. Nobody. Sits back down.",
-        "{who} has been here long enough now to have stopped rehearsing what to say to her.",
-        "{who} understands, somewhere in the second hour, that nobody is coming."
+        "{who} buys something they do not want so that sitting there means something.",
+        "{who} picks a seat that faces the brick without facing the brick."
       ],
-      "id": "o_wait",
-      "taskSeconds": 90,
+      "id": "o_sit",
       "type": "visit",
-      "zone": "zone_lw_runners"
+      "zone": "zone_district_922_909"
     },
     {
-      "desc": "Go back to Halloran and tell him what happened.",
+      "desc": "Work the length of the street once, slowly, and look at who is not moving.",
       "emotes": [
-        "{who} walks up to the shop with nothing in their hands and nothing to show.",
-        "{who} works out on the way what they are going to say, and then has to decide whether to say it."
+        "{who} counts the same coat past the same window twice.",
+        "{who} finds the van, and finds that nobody has delivered anything to anybody.",
+        "{who} walks past the loose brick without slowing down at all."
+      ],
+      "id": "o_watch",
+      "requires": [
+        "o_sit"
+      ],
+      "type": "visit",
+      "zone": "zone_district_922_908"
+    },
+    {
+      "count": 1,
+      "desc": "Go back to Halloran and tell him what was on that street.",
+      "emotes": [
+        "{who} describes a van, a coat and a window, in that order, without being asked twice."
       ],
       "id": "o_report",
       "requires": [
-        "o_wait"
+        "o_watch"
       ],
-      "taskSeconds": 4,
-      "type": "visit",
-      "zone": "zone_lw_shop"
+      "target": "npc_lw_halloran",
+      "type": "talk"
     }
   ],
   "penalties": {},

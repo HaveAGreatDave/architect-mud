@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_906_913",
+  "b": "zone_jolenes_bar",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_906_913_west_jl7k",
+  "lockable": true,
+  "one_way": false
+}

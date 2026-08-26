@@ -1,0 +1,26 @@
+{
+  "description": "A set bracketed high on the wall behind the bar at an angle that suits nobody sitting down. It is on channel seven and it does not get changed, and two separate people have been barred for trying. The volume knob is a pair of pliers on a string.",
+  "flags": {
+    "aliases": "tv,television,set,screen",
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "owner_npc": "npc_soup_molly",
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_tv",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shoddy television",
+  "object_type": "furniture",
+  "power_draw_kw": 0.15,
+  "price": 0,
+  "zone_id": "zone_jolenes_bar"
+}

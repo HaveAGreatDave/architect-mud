@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A cue comes round and passes.",
+    "Somebody in the wings mouths something helpful and it is not words.",
+    "The audience settles the way an audience settles when it is going well."
+  ],
+  "cause": "dream",
+  "description": "A stage, mid-run, and you are on. The others are doing it well and have done it many times. Your part is substantial. They pause where your lines go and then carry on generously, covering, in a way that is becoming its own performance.",
+  "drug_id": null,
+  "fx": "fog",
+  "fx_intensity": 0.5,
+  "id": "dream_the_rehearsal",
+  "name": "The Rehearsal",
+  "objects": [
+    {
+      "looks": [
+        "Word perfect. They have been carrying this section for a while.",
+        "One of them takes your line and gives it a reading you would not have chosen.",
+        "They are pleased to see you and have not broken character to be."
+      ],
+      "name": "the others"
+    },
+    {
+      "looks": [
+        "On a table at the side of the stage, open at the place.",
+        "Your name down the left. The right-hand column has been left blank for you.",
+        "You have annotated it. In pencil. Recently."
+      ],
+      "name": "the script"
+    }
+  ],
+  "weather": "Hot in a small circle and cold everywhere else."
+}

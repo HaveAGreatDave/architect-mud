@@ -125,7 +125,257 @@
           "next": "root"
         }
       ],
-      "text": "\"Everything here works without the grid, without an augment, without a wire running back to the machine. That is the whole idea.\"\n\nShe taps a rifle's iron sights.\n\n\"The chromed will tell you flesh and steel is obsolete, and they will be pleasant about it, and they will have a figure ready for what your hands are costing you. Then a storm rolls through, and their optics die, and it is us still standing and still shooting straight over plain iron.\"\n\n\"Master the simple thing and nobody can take it off you. That is not a slogan. It is an inventory.\""
+      "text": "\"Everything here works without the grid, without an augment, without a wire running back to the machine.\"\n\nShe taps a rifle's iron sights.\n\n\"The chromed will tell you flesh and steel is obsolete, and they will be pleasant about it, and they will have a figure ready for what your hands are costing you. Then a storm rolls through, and their optics die, and it is us still standing and still shooting straight over plain iron.\"\n\n\"Master the simple thing and nobody can take it off you. That is not a slogan. It is an inventory.\""
+    },
+    "fit_above": {
+      "_vine": {
+        "x": 340,
+        "y": 620
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And if it changes early?",
+          "next": "fit_above_early"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"Then you want lenses and a band.\"\n\nSmoked glass, and a paper strip she snaps once to show it still works.\n\n\"The rain out past the wall has had radiation in it since before I was born. You cannot feel it and you cannot taste it. The band changes colour when you have had as much as a body should take in a day. When it changes, you turn round and come home.\""
+    },
+    "fit_above_early": {
+      "_vine": {
+        "x": 640,
+        "y": 560
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"Then it changes early and you have wasted a night.\"\n\nShe shrugs.\n\n\"I have got more bands. I have not got more of you.\""
+    },
+    "fit_basic": {
+      "_vine": {
+        "x": 80,
+        "y": 1140
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What kind of jobs are there?",
+          "next": "fit_jobs_are"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That will do.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"Water, a light, and a spare battery. That is the answer for everybody, every time.\"\n\nShe sets all three out.\n\n\"Tell me the actual job and I will do better than that.\""
+    },
+    "fit_done": {
+      "_vine": {
+        "x": 940,
+        "y": 860
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Show me the shelves.",
+          "next": "__shop__"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "She writes the lot into the ledger and turns it round so you can see your own name against it.\n\n\"None of that is a gift. Bring back whatever you do not use, and tell me what you did use, because that is how I know what to keep on the shelf.\""
+    },
+    "fit_job": {
+      "_vine": {
+        "x": 340,
+        "y": 780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Anything I should not take?",
+          "next": "fit_job_not"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"Inside.\" She does not ask whose. \"Gloves, then, and tape.\"\n\nWork gloves and a roll of duct tape.\n\n\"Gloves so you leave nothing of yourself behind. Tape because it is quiet and it holds, and half of what we do is making a thing look like it failed rather than like somebody helped it.\""
+    },
+    "fit_job_not": {
+      "_vine": {
+        "x": 640,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"Anything that says who you are, and anything that says who we are.\"\n\nShe taps the counter twice.\n\n\"If they catch you with a bag of our kit they have got one person. If they catch you with a list, they have got the lot of us. Carry what the job needs and not one item more.\""
+    },
+    "fit_jobs_are": {
+      "_vine": {
+        "x": 340,
+        "y": 1240
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How do you decide what to break?",
+          "next": "fit_what_breaks"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"Four kinds, mostly. Carrying something by hand, because every wire in this city belongs to somebody who reads it. Going and looking at a thing and coming back able to describe it. Making something of theirs stop working in a way that looks like it broke on its own.\"\n\n\"And now and again, breaking something so badly that everybody knows it was us. That one is rare and it is decided a long way above me.\"\n\n\"Ask me again when you have been given one.\""
+    },
+    "fit_under": {
+      "_vine": {
+        "x": 340,
+        "y": 960
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the danger down there?",
+          "next": "fit_under_danger"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"The Under, then. The drains and the service tunnels.\"\n\nA flashlight, a spare battery and ear defenders go on the counter.\n\n\"We are not down there because we like it. We are down there because it is the only way across Coldwater that does not walk you past forty cameras. Learn the tunnels and you can be on the other side of the city with nothing on record saying you left this room.\""
+    },
+    "fit_under_danger": {
+      "_vine": {
+        "x": 640,
+        "y": 1020
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"The dark, first. There is no daylight at all, so you carry your own or you do not go.\"\n\n\"Then the pumps. They start at four every morning, and earlier if it has rained. They are loud enough to take your hearing for a day. Put the defenders on before four, not when you hear them start, because by then it has already happened.\""
+    },
+    "fit_what": {
+      "_vine": {
+        "x": 80,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Getting across the city unseen.",
+          "next": "fit_under"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Going inside somewhere I should not be.",
+          "next": "fit_job"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Out past the wall.",
+          "next": "fit_above"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I do not know yet. What do people take?",
+          "next": "fit_basic"
+        }
+      ],
+      "text": "She closes the ledger on one finger.\n\n\"What do you need it for?\""
+    },
+    "fit_what_breaks": {
+      "_vine": {
+        "x": 640,
+        "y": 1300
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "fit_done"
+        }
+      ],
+      "text": "\"By who needs it in the morning.\"\n\nShe turns a page.\n\n\"A camera on the approach is theirs and nobody else's, so it goes. The pumps under the Row are ours as much as theirs, so they stay, and I have sat through four hours of argument about a substation that turned out to be both.\"\n\n\"We are taking this city. Not the ashes of it.\""
     },
     "loyalty_accept": {
       "actions": [
@@ -175,6 +425,19 @@
         {
           "label": "What is the philosophy of the shelf?",
           "next": "creed"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Fit me for something.",
+          "next": "fit_what"
         },
         {
           "label": "Let me see what I can draw.",
@@ -261,7 +524,7 @@
           "next": "bye"
         }
       ],
-      "text": "She looks up and marks her place in the ledger with one finger.\n\n\"So they let you in. Good for you.\"\n\nA measuring glance, head to boots, and it takes about four seconds.\n\n\"I am the quartermaster. What the Watch trusts you with depends on what you have done for the Watch. But you are inside the door, so let us see what fits.\""
+      "text": "She looks up and marks her place in the ledger with one finger.\n\n\"So they let you in. Good for you.\"\n\nA measuring glance, head to boots, and it takes about four seconds.\n\n\"I am the quartermaster. What the Watch trusts you with depends on what you have done for the Watch. But you are inside the door, so let us see what fits.\"\n\n\"What are you carrying?\""
     },
     "teach": {
       "options": [

@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The kettle clicks off in the next room, having been filled for two.",
+    "A drawer closes somewhere with the confidence of somebody who knows which drawer.",
+    "Your name is said, once, from the other room, in a tone that expects an answer."
+  ],
+  "cause": "dream",
+  "description": "A room with your things in it, being lived in. Not the way you live in a room. Better. The washing is done and put away, the bills are in a folder, and there is a note on the table in your handwriting reminding you about something you have no memory of agreeing to.",
+  "drug_id": null,
+  "fx": "static",
+  "fx_intensity": 0.45,
+  "id": "dream_the_print",
+  "name": "The Other Print",
+  "objects": [
+    {
+      "looks": [
+        "Your hand. Your abbreviations. A date next week.",
+        "It ends with a word you use, and you have never once written it down.",
+        "The pen is beside it, capped, on the side you would put it."
+      ],
+      "name": "the note"
+    },
+    {
+      "looks": [
+        "Everything paid. Everything filed. A year of it.",
+        "Your account, in good standing, and the standing is recent.",
+        "A photograph at the back that you would not have kept."
+      ],
+      "name": "the folder"
+    }
+  ],
+  "weather": "Warm. Somebody has had the heating on since this morning."
+}

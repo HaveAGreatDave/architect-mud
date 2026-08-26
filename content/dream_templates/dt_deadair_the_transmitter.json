@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A meter comes up to peak on nothing at all and returns.",
+    "Something switches to the reserve and back, cleanly, unnecessarily.",
+    "The cooling comes on, does its work, and goes off."
+  ],
+  "cause": "drug",
+  "description": "A hall of equipment doing its job at full power, correctly maintained, running the signal out to the whole region. Every meter is where it should be. Nothing has been put into the input for a very long time and the output is at full strength.",
+  "drug_id": "drug_deadair",
+  "fx": "static",
+  "fx_intensity": 0.85,
+  "id": "dt_deadair_the_transmitter",
+  "name": "The Transmitter",
+  "objects": [
+    {
+      "looks": [
+        "Lit, warm, and running to specification.",
+        "Somebody services these. There is a card on the end with dates on it.",
+        "Every channel is carrying. Every channel is carrying nothing."
+      ],
+      "name": "the racks"
+    },
+    {
+      "looks": [
+        "Empty. Connected, terminated, and empty.",
+        "The last thing that came through it is on a log, with an hour.",
+        "It is waiting. It is built to wait and this is not straining it."
+      ],
+      "name": "the input"
+    }
+  ],
+  "weather": "Warm from the racks, dry, and smelling faintly of hot dust."
+}
