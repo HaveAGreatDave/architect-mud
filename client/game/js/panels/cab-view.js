@@ -38,6 +38,29 @@ import { openTabletToChatTab } from './tablet-os.js';
 // query. The only thing the cab has to ask the server for is what is in the bunk to eat.
 import { state as gameState } from '../state.js';
 
+// ── THE COMPACT CAB ───────────────────────────────────────────────────────────
+//
+// A PHONE IS NOT A SMALL DESKTOP, IT IS A DIFFERENT BUDGET. The shelf wraps, so on a narrow pane
+// it kept wrapping — five columns became eight rows, the shelf took the whole pane, and the glass
+// (a flex child with `min-height:0`) obligingly collapsed to nothing. The result was a driving
+// game showing 100% controls and no road.
+//
+// So on a phone the shelf carries less, and the biggest thing it stops carrying is the gearbox.
+// The gate is a 186×118 plate and the single largest control in the cab, and everything it does
+// the automatic already does — the automatic is a hand on the same lever (see setAuto), so this
+// takes a control away without taking a capability away. ⚠ REVERSE STAYS: the automatic
+// deliberately never chooses it for you, so hiding the gate WITHOUT keeping REV would be a truck
+// that cannot back up. The clutch goes with the gate for the same reason it appears with it —
+// with the automatic driving, standing on it is a way to coast and nothing else.
+//
+// ⚠ ONE DEFINITION, USED TWICE. The stylesheet interpolates this string and `cabCompact()` tests
+// the same one, because the failure mode if they ever disagreed is a cab with no gate and no
+// automatic, which is a truck nobody can move. It is `pointer:coarse` as well as a width, for the
+// reason the touch-only controls already are: a narrow window on a desktop still has a keyboard,
+// and the keyboard has the whole gearbox on it.
+const CAB_COMPACT_MQ = '(max-width:760px) and (pointer:coarse)';
+const cabCompact = () => { try { return matchMedia(CAB_COMPACT_MQ).matches; } catch { return false; } };
+
 // TELEMETRY CADENCE. This was a flat 250ms — four commands a second through the full dispatch
 // pipeline, forever, including for a rig sitting in a bay with the handbrake on while its driver
 // read a job board. The flight sim, which this borrowed its shape from, actually syncs at 1.2s and
@@ -1933,6 +1956,12 @@ export function openCab(ctx = {}) {
   // takes the time a shift takes, in the order a shift happens — dip, out through neutral, into the
   // slot, let it up — and the stick on the dash does it in front of you.
   function setAuto(on) {
+    // ⚠ ON A PHONE IT DOES NOT SWITCH OFF. The gate, the range collar and the splitter are not on
+    // the shelf there (see THE COMPACT CAB), so a driver who turned this off would have no way
+    // into a gear at all — the M key that did it is on a keyboard they do not have. This is the
+    // one place the switch is not the driver's, and it is refused rather than hidden-and-toggled,
+    // because the same call arrives from the click handler, the M key and the park brake.
+    if (!on && cabCompact()) return;
     st.auto = !!on;
     // Never leave the clutch pinned in by a driver that has just been switched off mid-shift: the
     // truck would coast, silently, with no pedal down and nothing to explain it.
@@ -1941,6 +1970,9 @@ export function openCab(ctx = {}) {
     if (el) { el.classList.toggle('on', st.auto); el.setAttribute('aria-pressed', st.auto ? 'true' : 'false'); }
   }
   st.setAuto = setAuto;
+  // And it starts on there, because a driver who climbs in and finds neutral with no lever has
+  // been handed a truck with no way to move it.
+  if (cabCompact()) setAuto(true);
   // ── THE PARK BRAKE ──────────────────────────────────────────────────────────
   //
   // ⚠ IT IS THE BRAKE PEDAL, NOT A NEW FORCE. Same rule as cruise and the automatic: it writes
@@ -2244,6 +2276,13 @@ export function openCab(ctx = {}) {
     hideBtn.classList.toggle('on', on);
     if (on) { document.body.classList.remove('cab-fullscreen'); fsBtn.classList.remove('on'); }
   });
+  // ⚠ AND ON A PHONE IT STARTS HIDDEN. The room description and the log are below the pane, and on
+  // a phone that is the last third of a screen the road was already fighting for — a driver in a
+  // cab is looking out of the windscreen, and the room they are parked in has nothing to say until
+  // they climb down. This is the EXISTING toggle switched on, not a second mechanism, so the
+  // button still reads as pressed and one tap gives the log straight back. It is a default, never
+  // a lock: nothing re-applies it, so a driver who wants the log keeps it for the whole leg.
+  if (cabCompact()) { document.body.classList.add('cab-hidepanel'); hideBtn.classList.add('on'); }
   // THE EXTERNAL VIEW. The renderer has had a real chase camera the whole time — the cab's own
   // header note lists `external` among the things it deliberately did not pass — so this is not a
   // new camera, it is the existing one turned on, model and all. The rig is NOT a world object and
@@ -4901,6 +4940,86 @@ function ensureCabStyles() {
     .cab-lever{width:26px;height:26px;margin:-13px 0 0 -13px}
   }
   @media (pointer:coarse){ .cab-btn{min-width:44px;min-height:44px} .cab-pedal{min-width:46px} }
+  /* ── THE COMPACT CAB ───────────────────────────────────────────────────────
+     THE GLASS GETS THE PANE BACK. Read the note by CAB_COMPACT_MQ at the top of this file for why
+     the gearbox is not down here; this is the layout half of it.
+     The rule above ("the controls get BIGGER on a small screen") is still right and is why this
+     does not simply shrink everything: a 44px target stays a 44px target. What changes is HOW MANY
+     of them there are. */
+  @media ${CAB_COMPACT_MQ}{
+    /* ⚠ THE FIX IS THE SHELF'S HEIGHT, NOT A SHARE OF THE PANE. Two wrong versions came before
+       this one and both were about dividing the pane up. \`.cab-controls\` is \`flex:0 0 auto\` and
+       the glass is \`flex:1 1 auto\` — so the glass ALREADY gets everything the shelf does not take,
+       automatically, and the reason it was getting nothing is simply that the shelf's natural
+       height was bigger than the pane. Make the shelf small and the road comes back on its own,
+       at every pane size, with no arithmetic.
+       So: a \`max-height\` on the shelf clips the park brake (the wrap is \`overflow:hidden\`), and a
+       50% floor on the glass clips whatever the shelf could not fit in the other half — which was
+       the mirrors, measured. The floor stays, low, as a SAFETY NET for a very short pane, never as
+       the allocator. Measured at 375×520: shelf 286, glass 234 (45%); on a 700px pane the same
+       shelf leaves the road 59%. */
+    .cab-wrap > .ws-wrap{min-height:38%}
+    .cab-controls{gap:6px 8px;padding:7px 8px 8px;justify-content:center;align-content:center}
+    /* ⚠ ORDER, BECAUSE THE SWITCH PANEL IS A FULL-WIDTH ROW. It sits between the stalk and the
+       pedals in the markup, which is right on a wide dash and on a phone means it breaks the line
+       twice — wheel, stalk, switches, pedals became four stacked rows and the pedals fell off the
+       bottom. Sent to the end, the three small groups share one line and the switches take the
+       next: two rows instead of four, for 80px. */
+    .cab-col-wheel{order:1}.cab-col-stalk{order:2}.cab-pedals{order:3}.cab-col-switch{order:4}
+    /* The gearbox, and the pedal that only exists to work it.
+       ⚠ THE COLUMN STAYS, ONLY THE BOX GOES. Hiding \`.cab-col-gate\` outright is the obvious line
+       and it takes REVERSE with it — the rev button is a collar switch and lives in that column
+       beside the range and the splitter. The result looks completely right and is a truck that
+       cannot back up, which is the one thing the automatic will never do for you. Caught by
+       measuring, not by reading. */
+    .cab-col-gate .cab-gate,.cab-range,.cab-splitbtn,.cab-auto,.cab-clutch{display:none !important}
+    /* The column's \`padding:34px 0 16px\` is headroom for the knob standing up out of the plate.
+       With no plate it is 50px of nothing, and it was setting the height of the whole first row. */
+    .cab-col-gate{order:1;padding:0}
+    /* THE SECOND ROW OF THINGS THAT ARE NOT DRIVING. The CB set, the galley flap and the door
+       latches are all real controls and none of them is needed to move a truck; on a pane this
+       size they were the difference between a road and no road. They are hidden here ONLY — the
+       verbs behind them (cb, eat, drink, the Y latch) are untouched and still work from the
+       command bar, which is the thing a phone actually has plenty of. */
+    .cab-cabrow{display:none !important}
+    /* The mirrors stay: on a touch screen these three buttons are the ONLY way to look off the
+       nose, and a driver who cannot shoulder-check cannot merge. They just get tighter. */
+    .cab-look{gap:4px}
+    .cab-look .cab-btn em{display:none}
+    /* ⚠ THE SWITCH PANEL MUST WRAP INSIDE THE PANE, and \`max-width:none\` is how I first broke
+       that. The rockers are a wrapping row with a \`max-width\` on them; lifting it did not make
+       them fit, it let them lay out 781px wide in a 375px viewport — so the shelf stopped being
+       one wrapped row of groups and became four stacked ones, and the pedals fell off the bottom.
+       The column is given the full width to wrap WITHIN instead. \`min-width:0\` is the other half:
+       a flex item defaults to \`min-width:auto\` and will not shrink below its content. */
+    .cab-col-switch{flex:1 1 100%;min-width:0}
+    .cab-rockers{gap:4px;max-width:100%}
+    /* The dome lamp and cruise are the two switches on this panel that no leg needs — one lights
+       the cab and one holds a speed your thumb can hold. They are the difference between two rows
+       of switches and three. Both keep their keys (I and G) and both are back the moment the pane
+       is wide enough to hold them. */
+    .cab-dome,.cab-cruise{display:none !important}
+    /* THE KNOBS SET THE ROW HEIGHT, and there are three of them — trailer air, park, and the pump
+       handle. At 30px the octagon plus its legend is a 75px button and two rows of switches cost
+       150px on a screen that has 250 to spend. The silhouette is a clip-path, so it is honest at
+       22px too; that is the whole reason it was drawn as one. */
+    .cab-btn.cab-hitchbtn b.cab-knobface{width:22px;height:22px}
+    .cab-rockers .cab-btn{padding-top:3px;padding-bottom:3px}
+    .cab-rockers .cab-btn u span{font-size:9px}
+    .cab-steer .cab-btn em{display:none}
+    /* ⚠ MEASURED, NOT CHOSEN. The first row is the wheel, reverse, the wiper stalk and the pedals,
+       and it only stays ONE row while they fit the 342px of usable width: 106 + 52 + 52 + 110 and
+       three 6px gaps is 338. Widen any of them and the pedals wrap onto a line of their own, which
+       is 58px off the road. */
+    .cab-controls{column-gap:6px}
+    .cab-pedals{gap:6px}
+    .cab-pedal{width:48px;height:56px}
+    /* The wiper stalk stays — it is the only way to clear the screen in weather and there is no W
+       key on a phone — but it lies down. The mount and the swing are what make it read as a stalk
+       on a dash with room for one; here it is a control that has to earn its 44 pixels. */
+    .cab-col-stalk .cab-stalk{width:auto;height:44px;min-width:52px}
+    .cab-stalk-mount{display:none}
+  }
   /* ── TOUCH-ONLY CONTROLS ────────────────────────────────────────────────────
      Steering, the shoulder-checks and the horn are all things a desktop driver already has a
      better way to do — drag the wheel or hold an arrow key, Q/E/S, and the horn is the boss in the
