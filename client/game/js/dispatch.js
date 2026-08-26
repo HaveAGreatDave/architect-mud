@@ -351,6 +351,15 @@ const handlers = {
     state.authPending = false;
     state.player = msg.player;
     document.getElementById('auth-screen').style.display = 'none';
+    // Every pre-game overlay goes down here, not just the login form. The verify
+    // and reset windows are separate fixed elements at z-index 300, so one left
+    // standing sits UNDER the tour veil (9750) once play starts: drawn over the
+    // room and impossible to click. Logging in is the one moment that means none
+    // of them apply any more, so it is the one place to close them all.
+    for (const id of ['verify-screen', 'reset-screen']) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    }
     const bmcBtn = document.getElementById('bmc-btn');
     if (bmcBtn) bmcBtn.style.display = 'none';
     document.getElementById('handle-display').textContent = state.player.handle;
