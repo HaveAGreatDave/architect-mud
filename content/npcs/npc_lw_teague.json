@@ -88,6 +88,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Where does this happen?",
+          "next": "the_flask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "And a chromed man?",
           "next": "earned_bought"
         },
@@ -113,7 +120,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a drink you can buy out south. You pay for it, you swallow it, and about a fortnight later it has finished with you.\"\n\nShe talks about it the way she would talk about bad gin.\n\n\"I have seen what gets up at the end of that fortnight. It is not the person who lay down and it is not a person at all.\""
+      "text": "\"There is a drink. They call it blood, and they make it themselves, and no two lots of it are the same.\"\n\nShe talks about it the way she would talk about bad gin.\n\n\"You pay nothing for it and you swallow it and about a fortnight later it has finished with you. I have seen what gets up at the end of that fortnight. It is not the person who lay down and it is not a person at all.\""
     },
     "earned_bother": {
       "_vine": {
@@ -162,6 +169,30 @@
         }
       ],
       "text": "\"A chromed man is a man.\"\n\nIt comes out flat.\n\n\"He made a choice I would not make and he is still somebody I can talk to, threaten, buy, lie to or shoot. He has got a name and a job and an opinion about his supervisor.\"\n\n\"I have been shot at by Halcyon people and I have shot back, and both of us knew exactly what we were doing. That is a war. I can respect the other side of a war.\""
+    },
+    "earned_chosen": {
+      "_vine": {
+        "x": 1920,
+        "y": 1780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And when they do not get what they asked for?",
+          "next": "earned_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Out loud, in front of everybody, before he drank.\"\n\n\"That is the part nobody up top knows and it is the only part I think about. It is not done to them. They stand up and say the thing they want and then they go and get it.\"\n\n\"He wanted to be able to go where nobody could follow him. He got it.\""
     },
     "earned_drug": {
       "_vine": {
@@ -273,6 +304,30 @@
       ],
       "text": "She thinks about that for slightly too long, and then answers it honestly, which she was always going to.\n\n\"Yes.\"\n\n\"The chromed are the people trying to take this city off us. They are the actual enemy and they are good at it. The ones out south are not fighting me. They are not doing anything to me at all.\"\n\n\"And I would still have the chromed man in this tunnel before I had one of them.\""
     },
+    "earned_refusal": {
+      "_vine": {
+        "x": 1660,
+        "y": 1440
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "They are still people.",
+          "next": "earned_still"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They have got a word for that too, and it is the one that finished me.\"\n\n\"When it kills somebody they say the body told the truth. Not a mistake. Not bad blood, not a batch that went wrong, not somebody who should not have been given it.\"\n\n\"The body told the truth, and everybody goes home.\""
+    },
     "earned_seat": {
       "_vine": {
         "x": 1420,
@@ -325,16 +380,23 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "And the ones it kills?",
+          "next": "earned_refusal"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(let her walk on)",
           "next": "bye"
         }
       ],
-      "text": "\"Whatever it likes. That is the thing nobody tells you about it.\"\n\nShe lists it. She does not slow down for any of it.\n\n\"The jaw goes first, usually. Then the hands, and they do not come out as hands. I have seen one with a second set of ribs on the outside and I have seen one that could not close its eyes any more.\"\n\n\"Two of them could still talk. That was the worst of the four hundred, and I am not going to be drawn on it.\""
+      "text": "\"Whatever it does. That is the honest answer and they do not mind it.\"\n\nShe lists it. She does not slow down for any of it.\n\n\"A man asks for an arm that will lift a door and gets one, and I have seen that arm and it would take a door off. That is the good outcome and it does happen.\"\n\n\"More often it is teeth coming up through the cheek. A second pupil in one eye with nothing behind it. A jaw that comes apart at the back and sets like that. I have seen an arm that started growing and did not stop, and they had to keep him on his side for it.\"\n\n\"And a man who asks for a strong arm and comes out blind is still a good day to them, because he went and asked. They have got a word for that one as well.\""
     },
     "lantern": {
       "_vine": {
         "x": 620,
-        "y": 1700
+        "y": 1980
       },
       "actions": [],
       "options": [
@@ -349,33 +411,19 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Something must carry a light.",
-          "next": "lantern_lights"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
       ],
-      "text": "\"It is not, no.\"\n\nShe does not look down at it.\n\n\"You get about four seconds of nothing after a light goes out. Everything down here is quicker than four seconds. So the lamp is for finding a body, or reading a number off a pipe. That is what it is for.\"\n\n\"Walk it enough and the dark comes apart. There is a grey in it. You get there or you stop coming down.\""
+      "text": "\"It is not, no.\"\n\nShe does not look down at it.\n\n\"A light out here makes one of you and none of them. They see it coming a long way before you see anything at all.\"\n\n\"So it stays on the belt. It is for finding a body, or reading a number off a pipe, and I have used it four times in eleven years and I remember all four.\""
     },
     "lantern_count": {
       "_vine": {
         "x": 880,
-        "y": 1620
+        "y": 1980
       },
       "actions": [],
       "options": [
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "Something must carry a light.",
-          "next": "lantern_lights"
-        },
         {
           "actions": [],
           "conditions": [],
@@ -384,38 +432,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Count.\"\n\n\"Eleven hundred and forty paces from the door to the sump, and the sump you can smell. Four hundred more to the Blind.\"\n\n\"If the paces stop agreeing with the smell then something has changed down here, and I would rather know it than see it.\""
-    },
-    "lantern_lights": {
-      "_vine": {
-        "x": 880,
-        "y": 1780
-      },
-      "actions": [],
-      "options": [
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "Who are they?",
-          "next": "the_flask"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "So people live down here.",
-          "next": "the_quiet_ones"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "(say nothing)",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Something does.\"\n\nNow she looks at the lamp.\n\n\"There is a stretch east where you can stand still and watch lights move about a quarter mile off. Lanterns, most of it. One or two have got proper lamps.\"\n\n\"They do not mind being seen. Took me a while to work out why, and then I did. There is nothing down here that would go near them.\""
+      "text": "\"Count.\"\n\n\"Eleven hundred and forty paces from the door to the sump, and the sump you can smell. Four hundred more to the Blind.\"\n\n\"If the paces stop agreeing with the smell then something down here has changed, and I would rather know it than see it.\""
     },
     "quiet_accept": {
       "actions": [
@@ -563,6 +580,13 @@
           "enabled": true,
           "label": "Your lamp is not lit.",
           "next": "lantern"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where do the ones down here come from?",
+          "next": "where_from"
         },
         {
           "label": "Nothing.",
@@ -879,15 +903,15 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "It is his body.",
-          "next": "the_flask_sacred"
+          "label": "What did they do?",
+          "next": "the_flask_rite"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "He is still the same man.",
-          "next": "the_flask_diseased"
+          "label": "Twenty of them, and you sat still?",
+          "next": "the_flask_still"
         },
         {
           "actions": [],
@@ -897,7 +921,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"People who drank for it.\"\n\nShe names it the way she would name a trade.\n\n\"I have watched it done. A man at the Pool with his sleeves up and his arms out, and somebody tips a flask into him, and everybody there is pleased for him.\"\n\n\"Fortnight later there is something walking about wearing his face and his voice and getting on with its day.\"\n\nHer mouth tightens. She lets go of it straight away."
+      "text": "\"Blood. That is their word for it and I have never found a better one.\"\n\n\"I have seen it done once, all the way through, and I did not mean to.\"\n\n\"There is a flooded chamber four hundred paces off my round with a pit cut into the floor. I was on the far side of it in the dark because I had heard something and gone quiet. Then twenty of them came in with torches, and there was no way out that did not go past them.\"\n\n\"So I stayed where I was, and I watched the whole thing from about thirty feet.\""
     },
     "the_flask_cleansed": {
       "_vine": {
@@ -971,6 +995,30 @@
       ],
       "text": "\"No.\"\n\nIt is the flattest thing she has said tonight.\n\n\"He is diseased flesh that agreed to it. There is a difference between a man with an illness and a man who went and got one on purpose. That difference is the only thing I think about him.\"\n\n\"I do not want it near me, I do not want it near the people I eat with, and I would not have it in a room where somebody is sleeping.\""
     },
+    "the_flask_heard": {
+      "_vine": {
+        "x": 1660,
+        "y": 1600
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And in the morning?",
+          "next": "the_flask_morning"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I heard all of it.\"\n\n\"He talked to himself for the first few hours. Then he stopped talking to himself and started asking for his sister.\"\n\n\"Somewhere around the seventh hour he made a sound I had not heard before and have not heard since, and I want to be exact about it, because people think I put things on top of this when I tell it. He was not screaming. He was trying to get air through something that had grown.\""
+    },
     "the_flask_kept_out": {
       "_vine": {
         "x": 1680,
@@ -1029,6 +1077,68 @@
       ],
       "text": "\"Until then they stay out.\"\n\nShe lists it like a rota, because to her it is one.\n\n\"Not the city. Not inside the wall, not on the Row, not on a tram. And not down here either — not this stretch, not the Under, not one yard of it.\"\n\n\"People tell me the Under is nobody's. It is ours. It is ours because we walk it every night in the dark and nobody else will, and that is how a place becomes somebody's.\""
     },
+    "the_flask_morning": {
+      "_vine": {
+        "x": 1920,
+        "y": 1600
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "He asked for it?",
+          "next": "earned_chosen"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It is his body.",
+          "next": "the_flask_sacred"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "He is still the same man.",
+          "next": "the_flask_diseased"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let her walk on)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They came back for him at first light and they were delighted.\"\n\n\"He had gills. Down both sides of the neck, four a side, and they worked. That is the thing to understand. They worked, and he was drowning in the air, and they were delighted, because gills are what he had asked for.\"\n\n\"They carried him to the water and put him in it. He is still in it. They call that a Gift.\""
+    },
+    "the_flask_rite": {
+      "_vine": {
+        "x": 1400,
+        "y": 1600
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You heard it.",
+          "next": "the_flask_heard"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They had a young man with them. Twenty-two, twenty-three. He had not eaten in a day or two by the look of him, and they had washed him and painted him with ash, and he had nothing on.\"\n\n\"They were kind to him. That is the part I want you to have, because nobody believes it. They told him about his grandparents for the best part of an hour and he laughed twice.\"\n\n\"Then he drank it, and they all said the same three lines at the same time, and they put him down at the bottom of that pit and took the torches away.\"\n\n\"And then it was dark, and it was him and me in it, and they were between me and the way out. Eleven hours.\""
+    },
     "the_flask_sacred": {
       "_vine": {
         "x": 1160,
@@ -1077,6 +1187,30 @@
       ],
       "text": "She takes that one properly. It is the first thing tonight she has had to think about.\n\n\"East is four miles of tunnel and a lot of it is dry.\"\n\nA pause, and she does not fill it with anything.\n\n\"I have not walked all of it. I said so already and I am not going to say something different now because you have found a better way of asking.\""
     },
+    "the_flask_still": {
+      "_vine": {
+        "x": 1400,
+        "y": 1440
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What did they do?",
+          "next": "the_flask_rite"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I sat very still.\"\n\n\"There is a version of me that stands up and puts a stop to it. I have met her a few times, walking, at about four in the morning.\"\n\n\"She does not get out of that room and neither does anybody behind our door, because they would have known who to look for by the end of the week.\""
+    },
     "the_grades": {
       "_vine": {
         "x": 620,
@@ -1088,7 +1222,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the difference between marked and turned?",
+          "label": "So where is your line, really?",
           "next": "the_grades_line"
         },
         {
@@ -1106,7 +1240,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There are grades to it. Nobody has written them down and everybody knows them.\"\n\nShe counts them off without hesitating, which tells you how often this comes up.\n\n\"Clean is nothing in you and nothing done to you. That is a seat at any table we have got.\"\n\n\"Marked is something small that does not show. Half the Row has something. A man with a bad chest and grey patches on him is a man with a bad chest.\"\n\n\"Turned is when it shows. Bought is chrome. And then there is the flask.\""
+      "text": "\"There is no list. People keep expecting one.\"\n\n\"Half the people behind that door have got something. Grey patches. A chest that will not clear. Ostrow on the second round has a hand that never finished growing and she is the best shot the five of us have got.\"\n\n\"That is bad ground and bad water and forty years, and not one of them picked it. Nobody down here gives it a thought.\"\n\n\"What I will not have in this tunnel is somebody who went and asked.\""
     },
     "the_grades_found": {
       "_vine": {
@@ -1229,6 +1363,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "Who is out there?",
+          "next": "where_from_east"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "(say nothing)",
           "next": "bye"
         }
@@ -1248,6 +1389,13 @@
           "enabled": true,
           "label": "Nobody has ever asked because nobody wants the answer.",
           "next": "stance_object"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is east, then?",
+          "next": "where_from_east"
         },
         {
           "actions": [],
@@ -1364,6 +1512,446 @@
         }
       ],
       "text": "\"Out of the stretch.\"\n\nIt is a complete answer as far as she is concerned, and she starts walking again.\n\n\"East, mostly. There is a lot of tunnel east.\""
+    },
+    "where_from": {
+      "_vine": {
+        "x": 620,
+        "y": 1700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Put down here by who?",
+          "next": "where_from_by_who"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Handprints?",
+          "next": "where_from_prints"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Are there not camps out south as well?",
+          "next": "where_from_camp"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You share a tunnel system with them.",
+          "next": "where_from_share"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They do not come from anywhere. They were put down here.\"\n\nShe says it the way you would correct somebody about a street name.\n\n\"Everybody has it that the Under filled up after the city died. It filled up because the city stopped having anywhere for them, and those are not the same sentence.\"\n\n\"There are handprints on a wall off my stretch that were on it before anybody I have ever met was born. Somebody is still adding to them.\""
+    },
+    "where_from_by_who": {
+      "_vine": {
+        "x": 360,
+        "y": 1780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And the town out south?",
+          "next": "where_from_split"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are part of it, then.",
+          "next": "where_from_east_move"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "stance_quiet"
+        }
+      ],
+      "text": "\"Everybody. In order, if you want it.\"\n\n\"The Row would not rent to them. Then there was no work. Then Halcyon started picking them up off the street for their own good, and you can ask an Ascendant what that means because I have never got a straight answer.\"\n\n\"And then they were in the tunnels, and the tunnels are ours, and we moved them on.\"\n\n\"Nine families in eleven years. That is my own count, not the Watch's, and tonight is the second time I have said the number out loud.\""
+    },
+    "where_from_camp": {
+      "_vine": {
+        "x": 880,
+        "y": 2100
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is just a camp.",
+          "next": "where_from_camp_fair"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So why walk all the way north?",
+          "next": "where_from_north"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Once. Years ago, and not down here — out in the wastes.\"\n\n\"Three of us went to see what we were dealing with. We got within a mile of a camp of theirs and sat up on a rise and watched it for a day and a half.\"\n\n\"I had gone out there expecting something organised. Somebody in charge, a rule, an order to it. There was none of that. Fires going with nobody at them. People asleep on open ground in the middle of the afternoon. Somebody played the same instrument for about nine hours and nobody stopped him.\""
+    },
+    "where_from_camp_fair": {
+      "_vine": {
+        "x": 1140,
+        "y": 2180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So why walk all the way north?",
+          "next": "where_from_north"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is.\"\n\nShe does not take it back.\n\n\"That is the part I keep going over. It looked like a fair. Somebody was cooking and it smelled like food. Two children were running about in it and they were fine, and nobody was watching them either.\"\n\n\"I sat on that rise a day and a half waiting for the thing that made sense of it. What I got was people enjoying themselves.\""
+    },
+    "where_from_dead": {
+      "_vine": {
+        "x": 1400,
+        "y": 1680
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nIt is not sharp. She simply does not do it.\n\n\"I will tell you what blood does to a man in as much detail as you have got the stomach for, and twice if you want it twice. I am not telling you that.\"\n\n\"Ask Rennick. He has a word for it and he will give you the word and the argument that goes with it, and you can decide which of us you believe.\""
+    },
+    "where_from_east": {
+      "_vine": {
+        "x": 620,
+        "y": 2300
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You move people east.",
+          "next": "where_from_east_move"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Does the Watch know that?",
+          "next": "where_from_east_watch"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"East is theirs. All of it past a certain point, and the point moves.\"\n\n\"My stretch is mine. The Blind is ours. After that there is about a mile that is nobody's and I do not walk it. Then it is theirs, and it stays theirs the whole way under the Curtain and out to the bay.\"\n\n\"The wall stops at the ground. Nobody ever built it downward. So there has been a road from the wastes into this city the entire time and it has never once been watched.\""
+    },
+    "where_from_east_handing": {
+      "_vine": {
+        "x": 1400,
+        "y": 2460
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So they get taken in.",
+          "next": "where_from_east_taken"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I am moving them out of my stretch. Where they go after that is not something I get a say in.\"\n\nA beat, and then she gives you the rest of it rather than let you have that one.\n\n\"And yes. I know what is down there and I point that way anyway, and I have known for six years.\"\n\n\"You are the first person who has ever said it to me. That is not a defence. It is just true.\""
+    },
+    "where_from_east_move": {
+      "_vine": {
+        "x": 1140,
+        "y": 2380
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So they get taken in.",
+          "next": "where_from_east_taken"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are handing them to the Wildblood.",
+          "next": "where_from_east_handing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "stance_quiet"
+        }
+      ],
+      "text": "She does not answer straight away, and it is not the pause of somebody working something out.\n\n\"I know what you are asking.\"\n\n\"Yes. East is where we move them. It is the only direction that is not the city and not the wall, and I have walked families as far as the edge of that mile and pointed.\"\n\n\"I have never gone past it with them.\""
+    },
+    "where_from_east_taken": {
+      "_vine": {
+        "x": 1400,
+        "y": 2300
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I do not know.\"\n\n\"That is not me being careful with you. Eleven years, and not one of them has ever come back to tell me either way.\"\n\nShe checks the tunnel behind you.\n\n\"I will give you the thought I have had at four in the morning, because you have got this far. Some of those families are walking toward the only people in this city who would not mind what they look like.\"\n\n\"I have never done anything with that thought. I am not going to start tonight.\""
+    },
+    "where_from_east_watch": {
+      "_vine": {
+        "x": 880,
+        "y": 2380
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You move people east.",
+          "next": "where_from_east_move"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Rennick knows. Halloran knows. It is on the map in the room, in pencil, and the pencil has not moved in six years.\"\n\n\"Five of us walk this system. You cannot hold a mile of tunnel with five people and you certainly cannot hold four.\"\n\n\"So it is on the map, and it is not a plan, and everybody has agreed not to say the second part.\""
+    },
+    "where_from_holds": {
+      "_vine": {
+        "x": 1140,
+        "y": 1860
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then there are forty of us and a door.\"\n\nShe checks the tunnel behind you.\n\n\"I do not know how many of them there are. That is not me being dramatic, it is the actual answer. Eleven years and I have never once seen the same face twice down here.\""
+    },
+    "where_from_leave": {
+      "_vine": {
+        "x": 1140,
+        "y": 1680
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Leave them how?",
+          "next": "where_from_dead"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let it go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Three things, and you learn all three in your first year.\"\n\n\"They leave food out. Not a store — a plate, set down in the middle of a floor, for something. I have never seen what comes for it and I have waited.\"\n\n\"They leave teeth. Pressed into the mortar in rows, at about the height of your face. Human ones, and I know that because I have looked.\"\n\n\"And they leave their dead.\"\n\nShe does not go on."
+    },
+    "where_from_north": {
+      "_vine": {
+        "x": 1400,
+        "y": 2180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Under the wall?",
+          "next": "where_from_east"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Some of them do not have to. That is the thing I did not understand for years.\"\n\n\"You can get from that camp to this city without ever coming up. Out of the wastes, into the system, under the wall, and along. Nobody has ever watched that road because nobody has ever thought of it as one.\"\n\n\"The ones who do walk it on the surface are usually walking away from something. It goes wrong more often than they will tell you, and a man who has come through it and found out he cannot feed himself is a man with nowhere.\""
+    },
+    "where_from_prints": {
+      "_vine": {
+        "x": 880,
+        "y": 1600
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What else do you find?",
+          "next": "where_from_leave"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Thousands. On a wall in a room you cannot stand up in, going back further than my lamp reaches.\"\n\n\"They are hands, mostly. I counted four with too many fingers on them.\"\n\nA beat.\n\n\"There is one about chest height that is not a hand and I do not know what it is. I have stopped going in there.\""
+    },
+    "where_from_share": {
+      "_vine": {
+        "x": 880,
+        "y": 1780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the pit for?",
+          "next": "the_flask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What else do you find?",
+          "next": "where_from_leave"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So what happens if it stops holding?",
+          "next": "where_from_holds"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How far east does it go?",
+          "next": "where_from_east"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"We do. It is not a thing anybody says out loud at the table.\"\n\n\"They have got rooms down here. A shrine in an old maintenance chamber. A pit in a flooded room four hundred paces off my round. Dens behind walls that came down before the war.\"\n\n\"We walk around all of it and they walk around us, and that has held for longer than I have been alive. Rennick calls it an arrangement. It is not an arrangement. Nobody agreed to anything.\""
+    },
+    "where_from_split": {
+      "_vine": {
+        "x": 620,
+        "y": 1860
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "They say there is a town of them, south.",
+          "next": "south"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How far east does it go?",
+          "next": "where_from_east"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That is what the ones with anything left did about it.\"\n\n\"They walked out into the redrock and built somewhere, and put a wall round it, and the whole point of the wall is that nobody can come and move them on from behind it.\"\n\nShe adjusts the sling.\n\n\"What stayed down here is what could not make that walk. Or would not. It is the same people sorted by whether they got out, and the ones who did not get out are the ones who have gone furthest into it.\""
     },
     "why_the_walk": {
       "_vine": {
