@@ -13,3 +13,12 @@ tools/combat-sim/combat-sim.html
 
 # stray export archives
 *.zip
+
+# Saved regress output. `npm run test:regress > reg.log 2>&1` is the correct way
+# to read the trailing "N/N passed" line — piping to tail reports TAIL's exit
+# code, not the suite's — so these accumulate in the repo root. ~570 KB each.
+reg*.log
+
+# One-off DB probes written to answer a single question and never deleted.
+scratch_*.mjs
+tmp-*.mjs
