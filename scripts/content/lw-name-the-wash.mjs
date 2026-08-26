@@ -56,7 +56,7 @@ const TEXT_EDITS = [
     'a body is a reason for people to come and look at Meltwater Row properly'],
   ['quests/quest_lw_meet.json',
     'on the corner of Kessler and the wash',
-    'behind a loose brick on Kessler Street'],
+    'on Kessler Street'],
 ];
 for (const [file, from, to] of TEXT_EDITS) {
   const p = path.join(ROOT, file);

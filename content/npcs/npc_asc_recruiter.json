@@ -531,6 +531,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "What do you make of the flask?",
+          "next": "why_us_flask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "What happens at the second window?",
           "next": "the_second_window"
         },
@@ -946,6 +953,13 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
+          "label": "And the flask?",
+          "next": "why_us_flask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "What about mutants?",
           "next": "why_us_variation"
         },
@@ -964,7 +978,96 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because what we do to you is chosen.\"\n\n\"Every piece is designed, tested, licensed and written down. If it fails we know whose bench it came off. If you want it out, it comes out.\"\n\n\"Nothing that happens to a person out in the weather is any of those things.\""
+      "text": "\"Because what we do to you is chosen, and it is repeatable.\"\n\n\"Every piece is designed, tested, licensed and written down. If it fails we know whose bench it came off. If you want it out, it comes out. Fit the same unit to a thousand people and you get a thousand of the same result, which is the entire achievement.\""
+    },
+    "why_us_flask": {
+      "_vine": {
+        "x": 1160,
+        "y": 1460
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So it is unpredictable.",
+          "next": "why_us_flask_chose"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It works, though.",
+          "next": "why_us_flask_works"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They drink it. That is the procedure in full.\"\n\nHe does not raise his voice, but this is the only subject on which he stops being charming.\n\n\"No dose. No schedule. No two batches alike, because there is no method — it is made in a pool by people who do not write anything down.\"\n\n\"Two men take the same flask from the same hand on the same afternoon. One of them ends up with a second heart. The other gets a fever and four bad years.\""
+    },
+    "why_us_flask_barb": {
+      "_vine": {
+        "x": 1680,
+        "y": 1380
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "The smile comes back, and he is genuinely enjoying himself for the first time.\n\n\"We do. And the bench that built it has a name, and the man at the bench has a name, and the record has a date on it.\"\n\n\"You are welcome to think that is worse. Nobody has ever explained to me why.\""
+    },
+    "why_us_flask_chose": {
+      "_vine": {
+        "x": 1420,
+        "y": 1380
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Neither do you. You buy them.",
+          "next": "why_us_flask_barb"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Ask the people who make it why, and they will tell you it chose.\"\n\nHe lets that sit, because to him it is self-evidently the end of the argument.\n\n\"That is their answer. Not a variable they have not isolated yet. Not a contaminant. It chose.\"\n\n\"<b>We do not build things that choose.</b>\""
+    },
+    "why_us_flask_works": {
+      "_vine": {
+        "x": 1420,
+        "y": 1540
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sometimes. That is the problem, not the defence.\"\n\n\"A thing that works four times in six is not a technology. It is a wager, and they are running it on people, and when it goes wrong there is nobody to write to.\"\n\n\"Kesh has a form he fills in when a joint fails at nine years instead of eleven. It goes to the bench that made it. Somebody is answerable. Ask out south who is answerable.\""
     },
     "why_us_plain": {
       "_vine": {

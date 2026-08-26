@@ -278,3 +278,6 @@ nothing, silently; wire a reader first.
 | `lending_terminal` | library | `scan` here unlocks the tablet's LIBRARY app (`library_unlocked` flag) and prints the one-time intro; examining it teaches the verb ([systems-library.md](systems-library.md)) |
 | `cleaning_tool` | cleaning | a fixed sink/basin — `clean`/`mop` in this room clears the whole floor rather than one patch. Also valid as an **item** tag ([systems-cleaning.md](systems-cleaning.md)) |
 | `water_source` | water plugin | drink/wash here |
+| `washing_machine` | laundry | `launder` here — the only thing in the game that resets `hygiene_laundered_at`. **One player at a time**: a running machine is claimed for its whole cycle and reported to the room through `zone.furnitureOccupants`, so a bank of them must be one furniture row PER DRUM, never one row standing for several ([plugins/laundry/README.md](../plugins/laundry/README.md)) |
+| `wash_price` | laundry | credits a cycle costs (default `12`), charged at the END of it |
+| `wash_cycle_ms` | laundry | how long the drum runs (default `120000`, i.e. two minutes) |

@@ -81,22 +81,22 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "And somebody who bought theirs?",
+          "label": "What does it do to them?",
+          "next": "earned_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And a chromed man?",
           "next": "earned_bought"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Some of them drink for it on purpose.",
-          "next": "earned_chosen"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "That is not their fault.",
-          "next": "earned_fault"
+          "label": "You are describing a drug.",
+          "next": "earned_drug"
         },
         {
           "actions": [],
@@ -106,12 +106,29 @@
           "next": "bye"
         }
       ],
-      "text": "\"Everything I can do down here, I can do because I did it ten thousand times in the dark and was bad at it for four years first.\"\n\nShe says it without any pride in it, which is somehow worse.\n\n\"A man works nine years on a hot floor and comes out with something he did not have going in. He stood where he was put and it got into him.\"\n\n\"He did not do anything. It was done to him.\""
+      "text": "\"There is a drink you can buy out south. You pay for it, you swallow it, and about a fortnight later it has finished with you.\"\n\nShe says it the way she would describe any other thing sold to people who should know better.\n\n\"I have seen what gets up at the end of that fortnight. It is not the person who lay down and it is not a person at all.\""
+    },
+    "earned_bother": {
+      "_vine": {
+        "x": 1680,
+        "y": 1180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Should it.\"\n\nNot a question. She checks the tunnel behind you.\n\n\"I have got a rifle, a stretch, and eleven years of walking it, and in all of that I have never once had cause to change my mind about either of them.\"\n\n\"Bring it up with Rennick. He will agree with you and he will be very good about it, and then he will come down here on a Thursday and walk behind me.\""
     },
     "earned_bought": {
       "_vine": {
         "x": 1160,
-        "y": 820
+        "y": 1100
       },
       "actions": [],
       "options": [
@@ -119,8 +136,15 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "So a mutant and a chromed man are the same to you.",
-          "next": "earned_same"
+          "label": "So you would sit with one.",
+          "next": "earned_seat"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You rank them above the ones out south.",
+          "next": "earned_rank"
         },
         {
           "actions": [],
@@ -130,12 +154,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Same thing with a receipt.\"\n\nShe checks the tunnel behind you while she talks, and does not stop doing it.\n\n\"A chromed man can do what I can do and he did not do a day of the work. He went to a counter. There is nothing in him that he made.\"\n\n\"The Watch will not seat him and I would not want him at my back. Halcyon would fit him and warranty him. They are welcome to.\""
+      "text": "\"A chromed man is a man.\"\n\nIt comes out with no particular feeling, which is itself the point.\n\n\"He made a choice I would not make and he is still somebody I can talk to, threaten, buy, lie to or shoot. He has got a name and a job and an opinion about his supervisor.\"\n\n\"I have been shot at by Halcyon people and I have shot back, and both of us knew exactly what we were doing. That is a war. I can respect the other side of a war.\""
     },
-    "earned_chosen": {
+    "earned_drug": {
       "_vine": {
         "x": 1160,
-        "y": 660
+        "y": 940
       },
       "actions": [],
       "options": [
@@ -143,22 +167,15 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You have watched it done, then.",
-          "next": "the_flask"
+          "label": "They are still people.",
+          "next": "earned_still"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That is their business.",
-          "next": "earned_chosen_business"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "That is not an argument.",
-          "next": "earned_chosen_hard"
+          "label": "And a chromed man?",
+          "next": "earned_bought"
         },
         {
           "actions": [],
@@ -168,53 +185,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Out south. They queue for it.\"\n\nHer voice does not change, and it is the only subject tonight where she does not check the tunnel while she talks.\n\n\"The hot-floor man had it done to him. I have got no time for him and I have got nothing against him either. He was somewhere and it happened.\"\n\n\"The ones who drink for it stood in front of a flask, with a whole body already, and decided against it. That is not bad luck. That is a person looking at what they were and saying no thank you.\""
-    },
-    "earned_chosen_business": {
-      "_vine": {
-        "x": 1420,
-        "y": 520
-      },
-      "actions": [],
-      "options": [
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "You have watched it done, then.",
-          "next": "the_flask"
-        },
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "(say nothing)",
-          "next": "bye"
-        }
-      ],
-      "text": "\"It is, right up until they come north.\"\n\nShe starts moving again.\n\n\"And I will tell you the part that actually sticks. Every one of them had the thing I have got. A body nobody had been at. They could have kept it and they could have learned to use it, and it takes years and it is dull and it hurts.\"\n\n\"They found a shorter way. So no, I will not have one of them at a table with me, and I have never once been talked out of that and I have been talked at about it a great deal.\""
-    },
-    "earned_chosen_hard": {
-      "_vine": {
-        "x": 1420,
-        "y": 660
-      },
-      "actions": [],
-      "options": [
-        {
-          "actions": [],
-          "conditions": [],
-          "enabled": true,
-          "label": "(say nothing)",
-          "next": "bye"
-        }
-      ],
-      "text": "\"No, it is not.\"\n\nShe lets that sit longer than she has let anything sit tonight.\n\n\"I have got eleven years down here and a rifle and a way of standing that has kept me alive, and if a swallow of something out of a flask makes all of that a hobby, then I have wasted my life and so has everybody I have buried.\"\n\n\"So it does not. That is where I have put it and I am not moving it.\""
+      "text": "\"It is a drug. There is nothing else to call it.\"\n\n\"Somebody makes it, somebody sells it, and people queue up in the cold for the privilege. They will tell you it is a rite. It is a rite the way a bottle of anything is a rite.\"\n\n\"And it is the only drug I know of where the man who took it is not there in the morning to regret it.\""
     },
     "earned_fault": {
       "_vine": {
         "x": 1160,
-        "y": 980
+        "y": 1260
       },
       "actions": [],
       "options": [
@@ -222,8 +198,8 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Then what do you do about the ones down here?",
-          "next": "the_quiet_ones"
+          "label": "Then they should not be treated the same.",
+          "next": "earned_fault_same"
         },
         {
           "actions": [],
@@ -233,12 +209,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\"\n\nShe does not soften it and she does not look away.\n\n\"It is not his fault. It is also not something he did.\"\n\n\"Both of those are true, and neither of them makes him a man I owe anything to.\""
+      "text": "\"Some of them, no.\"\n\nShe allows it without it costing her anything.\n\n\"There is bad ground east of the wall and people have lived on it and their children came out wrong, and none of that was chosen by anybody. Those I will move on and I will not enjoy it.\"\n\n\"The ones who paid for a bottle are a different matter entirely, and they are most of what is out south.\""
     },
-    "earned_same": {
+    "earned_fault_same": {
       "_vine": {
         "x": 1420,
-        "y": 820
+        "y": 1340
       },
       "actions": [],
       "options": [
@@ -246,8 +222,90 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Then what do you do about the ones down here?",
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They are not. One I am sorry about.\"\n\nShe starts walking.\n\n\"Neither of them comes down this tunnel, mind. Sorry is a thing I can be about somebody who is not standing in front of me.\""
+    },
+    "earned_rank": {
+      "_vine": {
+        "x": 1420,
+        "y": 1180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That should bother you.",
+          "next": "earned_bother"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then who is actually down here?",
           "next": "the_quiet_ones"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She thinks about that for slightly too long, and then answers it honestly, which she was always going to.\n\n\"Yes.\"\n\n\"The chromed are the people trying to take this city off us. They are the actual enemy and they are good at it. The ones out south are not fighting me. They are not doing anything to me at all.\"\n\n\"And I would still have the chromed man in this tunnel before I had one of them.\""
+    },
+    "earned_seat": {
+      "_vine": {
+        "x": 1420,
+        "y": 1020
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I did not say that.\"\n\n\"He does not come in, he does not get taught, and he does not get a seat, because the whole of what we are is that we did not take the shortcut.\"\n\n\"But I would give him a straight answer at a door, and I would not be pleased if somebody did him over for nothing. That is not respect for Halcyon. That is what you owe a person.\""
+    },
+    "earned_still": {
+      "_vine": {
+        "x": 1420,
+        "y": 780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nNo heat in it. She has been asked this before and it has never once landed.\n\n\"A person is a thing you can talk to and come to an arrangement with. I have tried, twice, early on. I do not think either of them knew what a word was by then.\"\n\n\"You will tell me the drink did that and not them. It did. They bought it.\""
+    },
+    "earned_what": {
+      "_vine": {
+        "x": 1160,
+        "y": 780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "They are still people.",
+          "next": "earned_still"
         },
         {
           "actions": [],
@@ -257,7 +315,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"One paid and one did not. Neither of them owns what they have got.\"\n\nShe looks at you properly for the first time in a while.\n\n\"We are the last people in this city who own our own bodies. Nothing bought, nothing put there by the ground.\"\n\n\"There are not many of us. There are fewer every year.\""
+      "text": "\"Whatever it likes. That is the thing nobody tells you about it.\"\n\nShe is plain about this and it is worse for being plain.\n\n\"The jaw goes first, usually. Then the hands, and they do not come out as hands. I have seen one with a second set of ribs on the outside and I have seen one that could not close its eyes any more.\"\n\n\"Two of them could still talk. That was the worst of the four hundred, and I am not going to be drawn on it.\""
     },
     "quiet_accept": {
       "actions": [
