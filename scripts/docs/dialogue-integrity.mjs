@@ -27,6 +27,17 @@ const NPCS = path.join(ROOT, 'npcs');
 // Destinations the engine resolves itself rather than looking up in the tree.
 const SPECIAL = new Set(['__shop__', '__end__', '__trade__', '__train__']);
 
+// Nodes something OTHER than an option enters. Each needs a reason, because the
+// cost of an entry here is a real orphan hiding behind it forever.
+const ENTERED_ELSEWHERE = new Map([
+  ['npc_ward_clerk · job_turnin',
+    'entered by the quest turn-in. That tree navigates with `cmd` and no `next`, '
+    + 'so there is no link for this check to follow.'],
+  ['npc_barkeep · bm_air_already',
+    'Sully saying a thing is already sorted. A state response — an unconditional '
+    + 'option reaching it would have him say it before it is true.'],
+]);
+
 const problems = { unlabelled: [], dangling: [], duplicate: [], unreachable: [], emptyNode: [] };
 
 for (const f of fs.readdirSync(NPCS)) {
@@ -66,6 +77,7 @@ for (const f of fs.readdirSync(NPCS)) {
   // A node nothing points at is dead content — written, paid for, unreachable.
   for (const key of names) {
     if (reached.has(key) || SPECIAL.has(key)) continue;
+    if (ENTERED_ELSEWHERE.has(id + ' · ' + key)) continue;
     problems.unreachable.push(id + ' · ' + key);
   }
 }

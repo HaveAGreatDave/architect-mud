@@ -72,6 +72,13 @@
         {
           "label": "What's the third column in the ledger?",
           "next": "column"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Thanks for your time.",
+          "next": "bye"
         }
       ],
       "text": [

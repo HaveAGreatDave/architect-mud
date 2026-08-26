@@ -264,7 +264,7 @@
     "stops with a tray on her hip and watches the set behind the bar for about eight seconds, then carries on.",
     "checks the oven, shuts the door, and shuts it again properly."
   ],
-  "description": "A short, wide, entirely deliberate woman working the pass in a platinum wig tall enough to have its own weather. There are rhinestones sewn along the bib of her apron in the shape of a treble clef, most of them still on. Her lashes are false, her nails are short and scrubbed to the quick, and both forearms carry the same shiny old oven-rail burns in the same place, which is the only part of her that says what she does for a living.",
+  "description": "A short, wide, entirely deliberate woman working the pass in a platinum wig tall enough to have its own weather. There are rhinestones sewn along the bib of her apron in the shape of a treble clef, most of them still on. Her lashes are false, her nails are short and scrubbed to the quick, and both forearms carry the same shiny old oven-rail burns in the same place.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -332,7 +332,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"I buy books.\" <span class=\"text-dim\">She says it like a confession, which is the only shy this woman gets.</span> \"There is a woman up at the Lending Library keeps a shelf for me and does not put my name on it, because a name on a shelf turns a book into a lecture.\"\n\n\"Nobody in this city is short of opinions. Everybody is short of the reading that makes an opinion worth having. So they eat, and they take one, and if it comes back it comes back.\"\n\n\"Most of them come back. That is the part that gets me.\""
+      "text": "\"I buy books.\" <span class=\"text-dim\">She says it like a confession.</span> \"There is a woman up at the Lending Library keeps a shelf for me and does not put my name on it, because a name on a shelf turns a book into a lecture.\"\n\n\"Nobody in this city is short of opinions. Everybody is short of the reading that makes an opinion worth having. So they eat, and they take one, and if it comes back it comes back.\"\n\n\"Most of them come back. That is the part that gets me.\""
     },
     "n_dream": {
       "_vine": {

@@ -172,6 +172,13 @@
           "label": "Who makes these?",
           "next": "marques",
           "text": "Who makes these?"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's all for now.",
+          "next": "bye"
         }
       ],
       "text": "\"Mind the floor, it's all grit.\" She sets something glowing back into the coals. \"You after an edge, or just warm?\""

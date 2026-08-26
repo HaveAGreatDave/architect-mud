@@ -30,6 +30,13 @@
         {
           "label": "Anyone come back?",
           "next": "back_q"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right. Thanks, Sergeant.",
+          "next": "bye"
         }
       ],
       "text": "Boedeker looks you up and down, unhurried. \"Gate's open, citizen. Always has been. The question is whether you're walking back through it.\""

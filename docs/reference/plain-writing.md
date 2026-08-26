@@ -732,6 +732,21 @@ off an objection. **The problem is density, not the move.** Five different Watch
 characters reaching for the same construction is the house accent, not five
 people.
 
+**The line that sorts them: narration grading its own image goes, a character's
+judgement stays.** An automated check cannot tell "which is the whole problem
+with it" in a description from the same words in a mouth, so it reports both and
+a person decides. Narration that scores the picture it has just painted is
+saying the same thing twice and the second time is weaker; a character reaching
+the same construction repeatedly is a verbal habit and is characterising. Soup
+Molly had five, which read as an authorial tic until they were separated: three
+are hers and stay, two were the narrator explaining her burns and her tone, and
+the image had already done both. A second rule falls out of the same sort:
+**never tell the player what they think, know, want or decide** — worst of all
+in a room description, which is read cold, out of order, and often by somebody
+walking in for the third time in a minute.
+[scripts/content/prose-audit-pass.mjs](../../scripts/content/prose-audit-pass.mjs)
+holds the twelve that went and the reasons the rest stayed.
+
 ### NPCs ask things
 
 59 of the 140 NPCs with a real speaking part have never asked the player a
@@ -1238,3 +1253,46 @@ Claudish, and survive a rewrite:
    "⚠ this exists because X broke" pattern in [CLAUDE.md](../../CLAUDE.md) and
    the `systems-*.md` docs carries real history. Compress the wording, keep the
    reason.
+
+## A place name must mean one place
+
+Every settlement builds a mess hall and a workshop, so four Long Tables and
+three Benches across four regions is realistic — and unnavigable, because the
+map and the GPS both print a name and expect it to resolve. `npm run` the
+[place-name checker](../../scripts/docs/place-names.mjs) and it reports two
+different things under one heading. Only one of them is a fault.
+
+**A collision is two unrelated places with one name.** Fourteen of those were
+fixed by keeping the name on whichever side it fits better and taking the new
+name out of the losing tile's own description, so nothing has to be
+re-established: eleven different tables really is what that room is made of, and
+the tools at Terminus really are each on their own painted outline. A rename
+runs over a name **and** an id prefix, never one id — a landform name covers a
+block, and The Bare Mile alone was 327 tiles.
+
+**A facade and its interior are one place and are not a collision.** The checker
+filters that pair when exactly one grid tile claims the name as a building, so
+anything deliberately built as `building_type` and nothing else — the
+Thornwarren wall, for the reason in
+[scarletwastes.md](../proposals/scarletwastes.md) — will keep showing up and
+should be left alone.
+
+**The softer finding is shorthand.** 72 phrases like "the yard" and "the lane"
+sit in prose where several yards and lanes exist. Most are fine, because the
+speaker is standing in the one they mean. It is worth reading when a name is
+used somewhere the reader has not been.
+
+## An exit must not swallow an answer
+
+Eleven NPCs had a `bye` node with a real last line on it that no option anywhere
+reached, so the line had never been read by anybody — the conversation ended by
+the player closing the panel. Each wants one exit option, written in that
+character's register and deliberately not stepping on the line it leads to:
+Boedeker's joke about not making paperwork of yourself is his to make, so the
+option that reaches it is flat.
+
+⚠ **Do not save an option by repointing one that already does something.** Sloat
+had "Nothing. Just looking.", and aiming that at `bye` looked tidier than giving
+him a second leave. It moved the orphan instead of fixing it: that option was
+the only way to reach the node where he tells you looking is free and has always
+been free. Two exits are cheap. A lost answer is not.

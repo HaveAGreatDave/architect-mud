@@ -56,6 +56,13 @@
         {
           "label": "Rules?",
           "next": "rules"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's all, thanks.",
+          "next": "bye"
         }
       ],
       "text": [

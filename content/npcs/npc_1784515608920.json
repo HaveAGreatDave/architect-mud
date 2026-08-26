@@ -280,6 +280,13 @@
         {
           "label": "What is this place?",
           "next": "about"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me done.",
+          "next": "bye"
         }
       ],
       "text": "Amos looks up from the ledger, unhurried, taking his time deciding what you are. \"Room, a name, or money. Which is it.\""

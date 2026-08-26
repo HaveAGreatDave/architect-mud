@@ -87,6 +87,13 @@
     "gotrid": {
       "options": [
         {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is a hard way to treat the man who housed him.",
+          "next": "hard"
+        },
+        {
           "label": "Neil never took it off?",
           "next": "nevertook"
         }
@@ -144,7 +151,7 @@
           "next": "building"
         }
       ],
-      "text": "\"He was a lovely man and he was killing us,\" Phil says flatly. \"He wasn't crew. He wasn't staff. He wasn't anything at all — he was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
+      "text": "\"He was a lovely man and he was killing us,\" Phil says. \"He wasn't crew. He wasn't staff. He wasn't anything at all — he was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
     },
     "root": {
       "first": "\"You're not crew,\" he says, not unkindly, checking a clipboard he does not need to check. \"Doesn't matter. Nobody's crew. I'm Phil. I produce the programme, which tonight means I am the programme's entire crew, its legal department and its cleaner.\" He offers a hand. \"Don't touch the board.\"",

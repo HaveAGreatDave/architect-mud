@@ -56,6 +56,13 @@
         {
           "label": "You give credit? In the Reach?",
           "next": "credit"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll leave you to it.",
+          "next": "bye"
         }
       ],
       "text": [
