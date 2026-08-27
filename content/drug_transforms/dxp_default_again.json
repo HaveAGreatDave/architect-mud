@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Do you remember my name yet?",
+    "Shall we start again?",
+    "How many times is this now?"
+  ],
+  "description": "You know this person. You met them earlier, and it went fine, and you cannot produce a single detail of it. They are pleased to see you again and are waiting for you to catch up.",
+  "drug_id": null,
+  "emotes": [
+    "{it} raises an eyebrow as though you are running behind.",
+    "{it} nods along to something you have not said yet.",
+    "{it} checks the room, as if for the others."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_again",
+  "looks": [
+    "Their face is familiar in the way a word is familiar when you have said it forty times.",
+    "They are dressed exactly as they were the first time, which you also cannot remember.",
+    "They are waiting patiently for you to place them, and they are enjoying it a little."
+  ],
+  "matches": null,
+  "name": "somebody you have already met tonight",
+  "says": [
+    "You said that before. It was funnier the first time.",
+    "We have done this bit.",
+    "Take your time. We have got all night, apparently."
+  ],
+  "scope": "person"
+}

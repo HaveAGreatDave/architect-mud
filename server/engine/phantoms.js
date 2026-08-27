@@ -80,10 +80,12 @@ const fadingByPlayer = new Map();
 export function beginTransformFade(playerId) {
   const furn = transformsByPlayer.get(playerId);
   const npcs = npcTransformsByPlayer.get(playerId);
-  if (!furn?.size && !npcs?.size) return null;
-  const snap = { at: Date.now(), furniture: new Map(), npcs: new Map() };
+  const plrs = playerTransformsByPlayer.get(playerId);
+  if (!furn?.size && !npcs?.size && !plrs?.size) return null;
+  const snap = { at: Date.now(), furniture: new Map(), npcs: new Map(), players: new Map() };
   for (const [id, spec] of furn || []) if (spec?.name) snap.furniture.set(id, spec.name);
   for (const [id, spec] of npcs  || []) if (spec?.name) snap.npcs.set(id, spec.name);
+  for (const [id, spec] of plrs  || []) if (spec?.name) snap.players.set(id, spec.name);
   fadingByPlayer.set(playerId, snap);
   return snap;
 }
@@ -196,7 +198,71 @@ export function applyNpcTransforms(playerId, npcs) {
   });
 }
 
+// ── ...and the other PLAYERS in it ───────────────────────────────────────────
+//
+// The same map again, pointed at real people. Held apart from the NPC map for
+// one reason only: the two lists come from different places (`getZoneNpcs` vs
+// `getZonePlayers`) and the ids are from different namespaces, so a single map
+// would need every caller to know which kind of thing it was holding.
+//
+// The rule from the NPC block applies here WITH TEETH. A player's handle still
+// answers to everything — examine, attack, trade, talk. Somebody else's night is
+// not your hallucination: they must not become unaddressable because you took
+// something, and a griefer must never be able to hide behind another player's
+// trip. So this changes the LABEL and nothing else, and the room link keeps the
+// real handle as its target.
+//
+// viewerId -> Map(targetPlayerId -> { name, description, looks[], says[], ... })
+const playerTransformsByPlayer = new Map();
+
+export function addPlayerTransform(viewerId, targetId, spec) {
+  if (viewerId === targetId) return null;   // your own body is not the joke
+  if (!playerTransformsByPlayer.has(viewerId)) playerTransformsByPlayer.set(viewerId, new Map());
+  playerTransformsByPlayer.get(viewerId).set(targetId, spec);
+  return spec;
+}
+export function getPlayerTransform(viewerId, targetId) {
+  return playerTransformsByPlayer.get(viewerId)?.get(targetId) ?? null;
+}
+export function getPlayerTransforms(viewerId) {
+  const m = playerTransformsByPlayer.get(viewerId);
+  return m ? [...m.entries()].map(([targetId, spec]) => ({ targetId, ...spec })) : [];
+}
+export function findPlayerTransformByName(viewerId, target) {
+  const t = String(target || '').toLowerCase().trim();
+  if (!t) return null;
+  return getPlayerTransforms(viewerId).find(x => {
+    const n = String(x.name || '').toLowerCase();
+    return n.includes(t) || n.split(/[^a-z0-9]+/).some(w => w && w.startsWith(t));
+  }) || null;
+}
+
+/**
+ * Overlay a viewer's people-transforms onto a PLAYER list.
+ *
+ * ⚠ COPIES, ALWAYS — `getZonePlayers` hands back the live player objects, which
+ * are the actual session state for those people. Mutating one here would rename
+ * somebody for themselves and for everyone else in the world.
+ *
+ * `handle` is deliberately LEFT ALONE. Every caller that acts on a player reads
+ * `handle`, so overwriting it here would reroute somebody's `attack` at a name
+ * that does not exist. The seen name rides on `_seenAs` and only the room
+ * listing reads it.
+ */
+export function applyPlayerTransforms(viewerId, players) {
+  const m = playerTransformsByPlayer.get(viewerId);
+  const fade = fadeFor(viewerId);
+  if ((!m?.size && !fade?.players.size) || !Array.isArray(players)) return players;
+  return players.map(p => {
+    const t = m?.get(p.id);
+    if (t) return { ...p, _seenAs: t.name, _transformed: t };
+    const was = fade?.players.get(p.id);
+    return was && was !== p.handle ? { ...p, _morphFrom: was } : p;
+  });
+}
+
 export function clearTransforms(playerId) {
+  playerTransformsByPlayer.delete(playerId);
   transformsByPlayer.delete(playerId);
   npcTransformsByPlayer.delete(playerId);
   roomTransformByPlayer.delete(playerId);

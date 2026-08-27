@@ -37,7 +37,7 @@ import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName, escAttr } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
-import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
+import { getPhantomsInZone, applyTransforms, applyNpcTransforms, applyPlayerTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
 import { signalLamp, junctionOffset, isJunction, LAMP_WORD } from "../../../client/shared/traffic.js";
 import { getZonePowerStatus } from "../environment.js";
@@ -1035,10 +1035,17 @@ export async function describeZone(zone, player, out = {}) {
 	// Sneakers this viewer has not clocked are simply not in the room as far as
 	// they are concerned — per viewer, so the same crouched player can be listed
 	// for one person and absent for another. One Set lookup, no query.
+	// Per-viewer people-transforms apply to real players exactly as they do to
+	// NPCs — a room where the bartender is a heron and the three drinkers are
+	// plainly themselves reads as a bug in the bartender. Returns COPIES and
+	// leaves `handle` alone; only the label below reads the seen name.
 	const others = isDark
 		? []
-		: getZonePlayers(zone.id).filter(
-				(p) => p.id !== player.id && !isHiddenFrom(p, player.id),
+		: applyPlayerTransforms(
+				player.id,
+				getZonePlayers(zone.id).filter(
+					(p) => p.id !== player.id && !isHiddenFrom(p, player.id),
+				),
 			);
 
 	// These are mutually independent, so they issue together rather than
@@ -1564,10 +1571,18 @@ export async function describeZone(zone, player, out = {}) {
 		// query on offline_sleeping), so without this an online sleeper — dreaming
 		// or not — stood in the room looking wide awake, and nothing in the room
 		// description hinted that they were lootable.
-		const playerLinks = others.map(
-			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}" title="Look at ${escAttr(p.handle)}">${p.handle}${bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : ''}</span>`,
-		);
+		const playerLinks = others.map((p) => {
+			// ⚠ `data-target` and the title stay the REAL handle, always. The label
+			// is the only thing a trip is allowed to change: somebody else's night
+			// is not your hallucination, and a player who could not be examined,
+			// attacked or traded with because a third party took something would be
+			// a griefing tool rather than a drug effect.
+			const seen = p._seenAs || p.handle;
+			const morphFrom = p._morphFrom || (p._seenAs ? p.handle : null);
+			const morphAttr = morphFrom ? ` data-morph="${escAttr(morphFrom)}"` : "";
+			const tell = bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : '';
+			return `<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}"${morphAttr} title="Look at ${escAttr(p.handle)}">${seen}${tell}</span>`;
+		});
 		desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(", ")}`;
 	}
 	if (sleepingBodies.length) {

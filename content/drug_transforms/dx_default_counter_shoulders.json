@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "How long is your shift?",
+    "Could you move that one thing?",
+    "Is anybody coming to take over?"
+  ],
+  "description": "The counter is a set of shoulders, bare and broad and running the whole length of the room, holding steady at exactly the height a counter is. Everything on it is resting on somebody.",
+  "drug_id": null,
+  "emotes": [
+    "{it} takes a slow breath and everything on it rises and settles.",
+    "{it} adjusts, minutely, redistributing the load.",
+    "{it} tenses when you put something down, and then eases off."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_counter_shoulders",
+  "looks": [
+    "It is warm, and if you leave a hand on it long enough you can feel it breathing.",
+    "The weight of what is stacked on it has left pale marks that have not gone away.",
+    "It is holding very still, deliberately, so that nothing slides."
+  ],
+  "matches": "counter",
+  "name": "a long pair of shoulders",
+  "says": [
+    "You can lean. Most people lean.",
+    "It is not heavy so much as it never stops.",
+    "Do not put the hot one down on the left."
+  ],
+  "scope": "object"
+}

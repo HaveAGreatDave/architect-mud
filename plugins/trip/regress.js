@@ -171,6 +171,60 @@ export default async function regress({ run, check, getPlayer }) {
     check('a transform that never changed the name animates nothing',
       shown._morphFrom === undefined, String(shown._morphFrom));
     clearTransformFade(p.id);
+
+    // ── Other PLAYERS transform too ───────────────────────────────────────
+    // A room where the staff can turn into herons and the customers never can is
+    // a rule a player works out and then uses. But somebody else's night is not
+    // your hallucination: the label changes and NOTHING else does.
+    const { addPlayerTransform, applyPlayerTransforms, getPlayerTransform,
+            findPlayerTransformByName, getPlayerTransforms } =
+      await import('../../server/engine/phantoms.js');
+
+    const victim = { id: 'regress_victim', handle: 'Marla', current_zone: p.current_zone };
+    addPlayerTransform(p.id, victim.id, { name: 'a bear in a good coat', description: 'A bear.' });
+    check('a player can be transformed for one viewer', !!getPlayerTransform(p.id, victim.id));
+    check('...and resolves by the name being seen',
+      findPlayerTransformByName(p.id, 'bear')?.targetId === victim.id);
+
+    const seenList = applyPlayerTransforms(p.id, [victim]);
+    const seenP = seenList[0];
+    check('the viewer sees the transformed name', seenP._seenAs === 'a bear in a good coat', String(seenP._seenAs));
+    // ⚠ The one that matters. Every caller that acts on a player reads `handle`;
+    // rewriting it here would reroute somebody's attack at a name that does not
+    // exist, and would let a griefer hide behind a third party's trip.
+    check('...but the HANDLE is untouched, so they stay addressable',
+      seenP.handle === 'Marla', String(seenP.handle));
+    check('...and the live player object was not mutated',
+      victim._seenAs === undefined && victim.handle === 'Marla');
+
+    // Nobody else's view is affected.
+    const otherView = applyPlayerTransforms('regress_bystander', [victim])[0];
+    check('another viewer sees the real person', otherView._seenAs === undefined);
+
+    // You are never your own hallucination.
+    check('a viewer cannot be transformed into themselves',
+      addPlayerTransform(p.id, p.id, { name: 'a heron' }) === null);
+    check('...and no such entry is stored', !getPlayerTransform(p.id, p.id));
+
+    // Coming down animates a player back too.
+    beginTransformFade(p.id);
+    clearTransforms(p.id);
+    check('a transformed player is released on comedown', getPlayerTransforms(p.id).length === 0);
+    const faded = applyPlayerTransforms(p.id, [victim])[0];
+    check('...and animates back from what was seen to the real handle',
+      faded._morphFrom === 'a bear in a good coat' && faded.handle === 'Marla',
+      `${faded._morphFrom}/${faded.handle}`);
+    clearTransformFade(p.id);
+
+    // Every authored `person` entry must be reachable BY A PLAYER, which means
+    // unnarrowed: `matches` is tested against npc_type and a player has none, so
+    // a narrowed entry can only ever fire on an NPC. Content check, not a code
+    // one, and the reason it is here is that nothing else would ever catch it.
+    const { rows: personRows } = await (await import('../../server/models/db.js'))
+      .query(`SELECT id FROM drug_transforms WHERE scope='person' AND matches IS NOT NULL`);
+    check('no person transform is narrowed out of ever reaching a player',
+      personRows.length === 0, personRows.map(r => r.id).join(','));
+
     p.current_zone = homeZone;
   } else {
     check('transform resolution (no furniture in test zone)', true, 'skipped');

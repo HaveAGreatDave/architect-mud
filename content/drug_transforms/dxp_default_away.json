@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "What do you think is over there?",
+    "Are you going to ask me to turn round?",
+    "Is it still behind me?"
+  ],
+  "description": "Somebody stands with their back to the room. They are dressed for the weather and standing quite comfortably, and they do not turn round, and at no point does it become clear what they are looking at.",
+  "drug_id": null,
+  "emotes": [
+    "{it} tilts its head slightly, still facing away.",
+    "{it} rocks back on its heels and settles again.",
+    "{it} begins to turn round, and then does not."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_away",
+  "looks": [
+    "Their shoulders are relaxed. Whatever they are watching, they are not worried about it.",
+    "The back of their head is entirely ordinary, which is somehow the worst available option.",
+    "They are facing a wall. They have been facing the wall the whole time."
+  ],
+  "matches": null,
+  "name": "a person facing the other way",
+  "says": [
+    "I can hear you fine from here.",
+    "I would rather not, if it is all the same.",
+    "You would not want me to, honestly."
+  ],
+  "scope": "person"
+}

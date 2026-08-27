@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Can you see the whole of me yet?",
+    "Which way up am I, from there?",
+    "Would you like me flat?"
+  ],
+  "description": "Somebody is standing here at several angles at once, opened out along creases that people do not have. Every panel of them is a view of the same person from a direction you are not standing in.",
+  "drug_id": "drug_blotter",
+  "emotes": [
+    "{it} opens out one more panel, which was not previously part of the arrangement.",
+    "{it} refolds along a different set of creases and ends up the same size.",
+    "{it} turns, and every panel turns a different amount."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_blotter_map",
+  "looks": [
+    "The creases are sharp and well used, the way a map is that somebody actually navigates by.",
+    "One panel shows the back of their head. It is facing you, and so are they.",
+    "They fold shut briefly when you look away, and are open again by the time you look back."
+  ],
+  "matches": null,
+  "name": "a person unfolding like a map",
+  "says": [
+    "It is all the same surface. You are only seeing more of it.",
+    "Folding is what people do. Most of you just do it once.",
+    "Do not try to put me back the way I was, you will not manage it."
+  ],
+  "scope": "person"
+}

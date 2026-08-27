@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Are you going through or not?",
+    "Do you want me wider?",
+    "How long do you think I can hold this?"
+  ],
+  "description": "The doorway is a mouth, open and held open, dark past the teeth and warm, breathing in and out slowly enough that it is quite restful. Going through it means walking into it, which it seems fine about.",
+  "drug_id": "drug_psilocybin",
+  "emotes": [
+    "{it} breathes out warmly across the room.",
+    "{it} opens a little wider and holds it.",
+    "{it} works its jaw, once, and resettles."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_door_mouth",
+  "looks": [
+    "The teeth are blunt and yellowed and set into the frame all the way round.",
+    "Warm air comes out of it steadily and it smells of a large animal that has been eating grass.",
+    "It is holding itself open, and you can see the effort in it, and it has not stopped."
+  ],
+  "matches": "door",
+  "name": "a mouth standing open",
+  "says": [
+    "Go on, then. I am holding it.",
+    "I am not going to.",
+    "Everybody hesitates. Nobody has regretted it."
+  ],
+  "scope": "object"
+}

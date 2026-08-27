@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Do you want the first move?",
+    "How long have you got?",
+    "Shall I start again where you can see it?"
+  ],
+  "description": "A block of interlocking wooden and brass panels, sliding against one another in a slow sequence that is clearly going somewhere. It has the dimensions of the safe it replaced and considerably more moving parts.",
+  "drug_id": "drug_blotter",
+  "emotes": [
+    "{it} slides two panels and locks them with a click.",
+    "{it} undoes a long sequence back to the beginning.",
+    "{it} opens by a finger width and closes again."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_blotter_safe_puzzle",
+  "looks": [
+    "The panels move in a fixed order and the order is long enough that you lose the start of it.",
+    "The grain runs continuously across panels that are not touching, and were never one piece.",
+    "One face is nearly solved and has been nearly solved throughout."
+  ],
+  "matches": "safe",
+  "name": "a puzzle box the size of a safe",
+  "says": [
+    "Two hundred and eleven moves. You are welcome to start.",
+    "It opens. That is not in question.",
+    "You have already undone four of them by looking."
+  ],
+  "scope": "object"
+}

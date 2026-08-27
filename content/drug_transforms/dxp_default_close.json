@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Am I in your way?",
+    "Would you rather I stood over there?",
+    "Do you want me to say something? I can."
+  ],
+  "description": "A person is standing well inside the distance people stand at. They are perfectly ordinary in every other respect, which is the part that will not sit still in your head.",
+  "drug_id": null,
+  "emotes": [
+    "{it} smiles, briefly, and then stops.",
+    "{it} takes a small step that leaves the distance unchanged.",
+    "{it} breathes in time with you, and you notice, and it continues."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_close",
+  "looks": [
+    "Their face is arranged pleasantly and holds the arrangement for longer than faces do.",
+    "They have not blinked since you started counting, and you started counting some time ago.",
+    "Whenever you shift your weight they are exactly as close as they were."
+  ],
+  "matches": null,
+  "name": "somebody standing much too close",
+  "says": [
+    "This is a normal amount of space.",
+    "You moved. I did not.",
+    "Carry on. I am not stopping you."
+  ],
+  "scope": "person"
+}

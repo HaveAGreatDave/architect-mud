@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "How long have you got?",
+    "Do you know what this place was?",
+    "Are you carrying anything you could put down?"
+  ],
+  "description": "Somebody standing very still, carved out of the same red stone the whole country is made of, worn smooth at the shoulders by a great deal of weather. They are not pretending to be a statue. They are simply not in any hurry.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} turns its head, and a fine dust comes off the movement.",
+    "{it} settles, and the floor takes the weight without comment.",
+    "{it} raises one hand slowly enough that you could have stopped it."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_mescaline_redrock",
+  "looks": [
+    "The grain runs up through them the way it runs through a cliff, and it does not stop at the neck.",
+    "There is lichen in the crease of one elbow, pale green and old.",
+    "The face has been worn down to the parts that mattered most, and those are still perfectly clear."
+  ],
+  "matches": null,
+  "name": "a figure cut from red rock",
+  "says": [
+    "I have been standing here longer than the building.",
+    "Sit down if you are staying.",
+    "The wind takes a little of me every year. It is a fair arrangement."
+  ],
+  "scope": "person"
+}

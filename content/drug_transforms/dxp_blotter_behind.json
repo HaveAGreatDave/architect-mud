@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "How far back am I?",
+    "Did the first one of me already ask you this?",
+    "Are you keeping up?"
+  ],
+  "description": "A person, and then the same person again a moment later, doing what the first one already did. Both of them are here. Neither is a copy, and the gap between them is not closing.",
+  "drug_id": "drug_blotter",
+  "emotes": [
+    "{it} raises a hand, and raises it again shortly afterwards.",
+    "{it} catches up with itself and immediately falls behind again.",
+    "{it} laughs, and then laughs."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_blotter_behind",
+  "looks": [
+    "The lag is about a second and is extremely consistent, which is worse than if it wandered.",
+    "Their mouth finishes a word some time after you have heard it.",
+    "When they stand still the two of them agree, and it is nearly restful."
+  ],
+  "matches": null,
+  "name": "somebody running slightly behind themselves",
+  "says": [
+    "You are hearing the front of me.",
+    "I get there. It is only a matter of when.",
+    "Do not wait up."
+  ],
+  "scope": "person"
+}

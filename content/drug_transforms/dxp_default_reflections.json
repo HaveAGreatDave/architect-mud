@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "How many am I?",
+    "Which one are you talking to?",
+    "Are they doing it too, or only me?"
+  ],
+  "description": "One person is standing here and rather more than one of them is arriving in your eyes. The extras are half a step off in each direction and are doing everything the original does, at their own pace.",
+  "drug_id": null,
+  "emotes": [
+    "{it} moves, and goes on moving in three places after it has stopped.",
+    "{it} steps sideways and leaves one of itself where it was.",
+    "{it} folds back down to one, briefly, and then does not stay there."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_default_reflections",
+  "looks": [
+    "The copies lag by different amounts. The furthest one is still finishing the last thing.",
+    "When they raise a hand, the hand keeps arriving for a while afterwards.",
+    "Looking directly at any one of them makes it the real one, which does not help."
+  ],
+  "matches": null,
+  "name": "a person with several reflections",
+  "says": [
+    "Only one of us is talking.",
+    "Pick whichever you like. It makes no odds.",
+    "The others are not saying anything, so it is fine."
+  ],
+  "scope": "person"
+}

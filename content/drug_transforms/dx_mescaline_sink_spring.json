@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "When did you last drink anything?",
+    "Do you know how far it has come?",
+    "Would you like to fill something?"
+  ],
+  "description": "Water coming out of a split in red stone and falling into a worn basin below it, clear and very cold, the way it has come out of that split for a great deal longer than there has been a room here.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} runs a little harder, for no reason, and eases off.",
+    "{it} throws a cold thread of spray across the floor.",
+    "{it} goes quiet, and then does not."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_mescaline_sink_spring",
+  "looks": [
+    "The basin is worn a hand deep by the falling, and it took a long time to do that.",
+    "The water is so clear that the bottom looks closer than it is.",
+    "There is green growing in the wet crack above it, the only green in the room."
+  ],
+  "matches": "sink",
+  "name": "a spring coming out of the rock",
+  "says": [
+    "Drink if you are going to. Do not waste it.",
+    "This was here first.",
+    "It has never once stopped."
+  ],
+  "scope": "object"
+}

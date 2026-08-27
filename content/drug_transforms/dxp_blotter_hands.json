@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Can you find the gap?",
+    "How many, do you think?",
+    "Would you like to shake one?"
+  ],
+  "description": "A person built entirely from hands, fitted edge to edge with no gaps at all, each one a slightly different size so the tiling closes perfectly. They are folded into the shape of somebody standing politely.",
+  "drug_id": "drug_blotter",
+  "emotes": [
+    "{it} ripples from the ankle upward as the tiling redistributes.",
+    "{it} opens and closes, all over, once.",
+    "{it} gestures, and the gesture is made of smaller copies of itself."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_blotter_hands",
+  "looks": [
+    "The tiling is exact. Every finger lies in the hollow of the next hand along.",
+    "The ones at the shoulder are enormous and the ones at the eyelids are very small indeed.",
+    "They all move at once, and the shape of a person is what the movement adds up to."
+  ],
+  "matches": null,
+  "name": "a figure tiled out of hands",
+  "says": [
+    "It fits. That is the entire point of it.",
+    "There is no leftover. Look as long as you like.",
+    "Every one of these is doing its share."
+  ],
+  "scope": "person"
+}

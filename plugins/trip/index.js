@@ -38,7 +38,7 @@ import { query } from '../../server/models/db.js';
 import { getZone, world, getZoneNpcs, getZonePlayers, getZoneFurniture, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
-import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, getNpcTransforms, clearTransforms, clearTransformsForRedress, beginTransformFade, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
+import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, addPlayerTransform, getNpcTransforms, clearTransforms, clearTransformsForRedress, beginTransformFade, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
 import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
 import { getRelation, relationTier } from '../../server/engine/relations.js';
 
@@ -301,17 +301,34 @@ async function applyTransformsHere(player, state) {
   // ones who stay themselves are what make the changed one land, exactly as with
   // the furniture. Talking to them, and hitting them, still reaches the real
   // person (see commands/social.js and plugins/weapon).
+  // A PERSON is a person. Other players are drawn from the same pool and the
+  // same roll as the NPCs, because the drug does not know the difference and
+  // neither should the authoring: a bar where the staff can turn into herons and
+  // the customers never can is a rule the player will work out and then use.
+  // They go in one shuffled list so the two or three that change are picked
+  // across everybody in the room rather than one from each kind.
   const personPool = scoped('person');
-  const npcsHere = getZoneNpcs(player.current_zone) || [];
-  if (personPool.length && npcsHere.length) {
-    const targets = [...npcsHere].sort(() => Math.random() - 0.5).slice(0, 1 + (Math.random() < 0.35 ? 1 : 0));
-    for (const n of targets) {
-      const fits = personPool.filter(t => !t.matches || (n.npc_type || '').toLowerCase().includes(t.matches.toLowerCase()));
-      const t = one(fits.length ? fits : personPool);
-      addNpcTransform(player.id, n.id, {
+  const npcsHere = (getZoneNpcs(player.current_zone) || []).map(n => ({ kind: 'npc', row: n }));
+  const playersHere = (getZonePlayers(player.current_zone) || [])
+    .filter(p => p.id !== player.id)
+    .map(p => ({ kind: 'player', row: p }));
+  const peopleHere = [...npcsHere, ...playersHere];
+  if (personPool.length && peopleHere.length) {
+    const targets = [...peopleHere].sort(() => Math.random() - 0.5).slice(0, 1 + (Math.random() < 0.35 ? 1 : 0));
+    for (const { kind, row } of targets) {
+      // `matches` narrows a transform to a kind of person by npc_type. A player
+      // has no npc_type, so only unnarrowed entries fit one — which is correct:
+      // a transform written for bartenders should not fire on a stranger.
+      const against = kind === 'npc' ? (row.npc_type || '') : '';
+      const fits = personPool.filter(t => !t.matches || against.toLowerCase().includes(t.matches.toLowerCase()));
+      const t = one(fits.length ? fits : personPool.filter(x => !x.matches));
+      if (!t) continue;
+      const spec = {
         name: t.name, description: t.description, looks: arr(t.looks), says: arr(t.says),
         emotes: arr(t.emotes), asks: arr(t.asks),
-      });
+      };
+      if (kind === 'npc') addNpcTransform(player.id, row.id, spec);
+      else addPlayerTransform(player.id, row.id, spec);
     }
   }
 

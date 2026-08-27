@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Is it you?",
+    "How long would you give it?",
+    "Did anybody outside say anything?"
+  ],
+  "description": "A person sat with the particular stillness of someone who arrived early for something enormous and has been early ever since. The floor around them is worn in a small ring, and the ring is old.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} looks toward the door and then away again.",
+    "{it} rearranges the small pile beside it and puts it back as it was.",
+    "{it} settles deeper into the hollow."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_mescaline_waiting",
+  "looks": [
+    "There is a hollow worn where they sit, smooth, and it fits them exactly.",
+    "Their belongings are stacked beside them in the order they stopped needing them.",
+    "They look up when you come in, and the looking up is practised and immediate."
+  ],
+  "matches": null,
+  "name": "somebody who has waited here a long time",
+  "says": [
+    "You are not it either. That is all right.",
+    "I would have missed it if I had gone for food.",
+    "It has been longer than this before."
+  ],
+  "scope": "person"
+}

@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Would you like to touch it? People usually do.",
+    "Is there a draught coming from over there?",
+    "How long do you think I have got?"
+  ],
+  "description": "Somebody standing comfortably whose skin is grey-brown bark, split and healed and split again, with the small green start of something growing behind one ear. They seem well. They seem, if anything, better than everybody else here.",
+  "drug_id": "drug_psilocybin",
+  "emotes": [
+    "{it} flexes a hand and the bark opens and closes along its seams.",
+    "{it} turns very slightly toward the light without seeming to decide to.",
+    "{it} sheds a small piece of itself and does not look for where it went."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_psilocybin_bark",
+  "looks": [
+    "The bark is deeply cracked at the knuckles and the cracks have callused over the way old bark does.",
+    "There is moss in the crook of the neck, and it is thriving.",
+    "A very small branch has come out above one eyebrow and has three leaves on it."
+  ],
+  "matches": null,
+  "name": "a person with bark instead of skin",
+  "says": [
+    "It only itches at the start.",
+    "I am nearer the window than I was last week.",
+    "Everything takes longer and none of it is worse."
+  ],
+  "scope": "person"
+}
