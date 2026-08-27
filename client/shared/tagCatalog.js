@@ -109,6 +109,8 @@
       help: 'Usable via use / eat / drink. Gates the consumable-effect path.' },
     drug: { label: 'Drug', shape: 'flag', scope: 'class', group: 'Type',
       help: 'Marks a drug (visibility/flavor). Mechanics still come from the drugs table joined by item_id.' },
+    smoking_apparatus: { label: 'Smoking Apparatus', shape: 'text', scope: 'class', group: 'Type',
+      help: 'Names this item as something you PACK and PUFF rather than something you use up: the value is the apparatus kind (currently `pipe`). The pipes plugin owns both verbs. The bowl holds its charges in memory, so a pipe is reusable and is never itself consumed; what gets spent is whatever you packed into it. A hookah is the same idea as furniture instead of an item, and carries flags.hookah (its hose count) rather than this tag.' },
     material: { label: 'Material', shape: 'flag', scope: 'class', group: 'Type',
       help: 'Crafting input. No direct use.' },
     currency: { label: 'Currency', shape: 'flag', scope: 'class', group: 'Type',

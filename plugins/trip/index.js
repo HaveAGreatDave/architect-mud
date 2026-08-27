@@ -38,7 +38,7 @@ import { query } from '../../server/models/db.js';
 import { getZone, world, getZoneNpcs, getZonePlayers, getZoneFurniture, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
-import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, getNpcTransforms, clearTransforms, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
+import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, getNpcTransforms, clearTransforms, clearTransformsForRedress, beginTransformFade, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
 import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
 import { getRelation, relationTier } from '../../server/engine/relations.js';
 
@@ -233,7 +233,10 @@ async function loadTransformPool(state) {
  *      never there — the phantom half of the same engine law
  */
 async function applyTransformsHere(player, state) {
-  clearTransforms(player.id);
+  // Re-dressing, not coming down: the old shapes are replaced by new ones a beat
+  // later, so any pending comedown fade must go with them or a piece animates
+  // back to its real name in the middle of the trip.
+  clearTransformsForRedress(player.id);
   clearPhantoms(player.id);
   state.transformZone = player.current_zone;
 
@@ -791,6 +794,12 @@ function endTrip(playerId, { reason } = {}) {
   state.timers.forEach(clearTimeout);
   state.intervals.forEach(clearInterval);
   clearPhantoms(playerId);
+  // Coming down where the player can watch it: snapshot what they are being
+  // shown FIRST, so the next render animates the room back to the truth the same
+  // way it animated away from it. Skipped on death and on a silent logout
+  // teardown — nobody is looking, and a fade left in memory for either would
+  // fire on some unrelated later look.
+  const fading = (reason !== 'death' && reason !== 'silent') ? beginTransformFade(playerId) : null;
   clearTransforms(playerId);   // the room stops misbehaving
   forgetSaid(playerId);        // nobody carries this trip into the next one
   endConversation(playerId);   // and nothing is still mid-sentence
@@ -822,6 +831,12 @@ function endTrip(playerId, { reason } = {}) {
       sendToPlayer(playerId, { type: 'trip_end' });
       if (reason !== 'death') sendToPlayer(playerId, { type: 'output', message: '<span class="msg-system">The colours drain back to grey. You come down.</span>' });
     }
+    // Re-look so the comedown is WATCHED rather than discovered. Without this the
+    // room only corrects itself the next time the player happens to look, which
+    // for anyone standing still is minutes later and reads as a glitch. The
+    // dreamzone branch above has already forced one; a fade with nothing left to
+    // animate is what makes a second harmless, but there is no reason to send it.
+    if (fading && state.mode !== 'dreamzone') sendToPlayer(playerId, { type: 'force_look' });
   }
 }
 

@@ -1,0 +1,19 @@
+{
+  "description": "A tall brass hookah stood in the middle of the low table, four hoses coiled off it like something asleep. The glass is cloudy with everything that has been through it and the bowl has been scrubbed exactly as often as it has needed to be, which is less often than you would like. The mouthpieces are wiped between guests. You watch somebody do it, and it does not help as much as they think.",
+  "flags": {
+    "hookah": 4,
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_hookah",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "brass hookah",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 260,
+  "zone_id": "zone_mq_cherry_vip"
+}

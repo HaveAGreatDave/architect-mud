@@ -236,6 +236,7 @@ nothing, silently; wire a reader first.
 | `destructible` | combat | can be attacked (uses hp/hp_max) |
 | `device_id` | surveillance | security_devices row this furniture mirrors |
 | `game_table_id` | gametable | game_tables row (poker) |
+| `hookah` | pipes | a hookah, and the value is its HOSE COUNT (bad or missing value falls back to 4). `hookah` takes a free hose and seats you on it, `pack` loads the bowl, `puff` draws. The bowl is SHARED and its charges live in plugin memory rather than on the row, so one person packs and everyone on a hose smokes it down. That sharing is the whole reason a hookah is furniture instead of another `smoking_apparatus` item ([plugins/pipes](../plugins/pipes/README.md)) |
 | `generator_id` | power | generators row this furniture mirrors. Auto-built junction boxes use a **deterministic** id `gen_<zoneId>` (converges on re-run; see `installGenerator` in environment.js); city plants and player units (`pgen_<uuid>`) do not. |
 | `hack_difficulty` | hacking | difficulty to hack this object. The deck's own `tags.hack_penalty` is added on top at arm time (`server/engine/hack-gear.js`) — a junk deck reads every target harder |
 | `hack_rig` | hackrig | practice lock rig: a legal, low-difficulty `hack` target with nothing behind it. No credits, no crime, no shock, and a failure still burns deck condition. Scores on the shared skill-vs-difficulty margin like every other hack target, so it teaches a beginner brilliantly and a professional nothing — the rig retires itself around Hacking 3–4. Defaults to `hack_difficulty` 2 |

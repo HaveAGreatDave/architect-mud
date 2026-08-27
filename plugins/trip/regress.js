@@ -124,11 +124,53 @@ export default async function regress({ run, check, getPlayer }) {
       _fillTokens('{it} yawns.', { it: _theOf('a sleeping lion') }) === 'The sleeping lion yawns.');
     check('...from any article', _theOf('an enormous tree') === 'The enormous tree');
 
+    // ── Coming down is WATCHED, not discovered ────────────────────────────
+    // Going on, the pane animates real → hallucination. Coming off used to just
+    // print the real name with nothing to say it had changed, which reads as a
+    // rendering glitch. The fade is what gives the render the other end of the
+    // same animation.
+    const { beginTransformFade, applyTransforms, getTransformFade, clearTransformFade,
+            clearTransformsForRedress } = await import('../../server/engine/phantoms.js');
+
+    beginTransformFade(p.id);
     clearTransforms(p.id);
     check('coming down puts the room back', getTransforms(p.id).length === 0);
+    check('...and leaves a fade behind to animate', !!getTransformFade(p.id));
+
+    let shown = applyTransforms(p.id, [piece]).find(f => f.id === piece.id);
+    check('the faded piece renders under its REAL name again',
+      shown.name === piece.name, `${shown.name} vs ${piece.name}`);
+    check('...and reports what the viewer had been seeing, for the morph',
+      shown._morphFrom === 'a sleeping lion', String(shown._morphFrom));
+    // ⚠ Never `_realName`: for an NPC that field is also the talk target, and
+    // for furniture it is what callers act on. A fading piece is fully itself.
+    check('...on _morphFrom, never _realName', shown._realName === undefined, String(shown._realName));
+    check('...and is not transformed any more', shown._transformed === undefined);
+
     r = await run('examine lion');
     check('...and the lion is not there any more',
       !/One ear tracks you/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 120));
+
+    // Re-dressing mid-trip is NOT a comedown. A fade surviving it would animate a
+    // piece back to its real name while the player is still high.
+    clearTransformFade(p.id);
+    addTransform(p.id, piece.id, { name: 'a sleeping lion' });
+    beginTransformFade(p.id);
+    clearTransformsForRedress(p.id);
+    check('re-dressing mid-trip drops the fade rather than animating back',
+      !getTransformFade(p.id));
+    shown = applyTransforms(p.id, [piece]).find(f => f.id === piece.id);
+    check('...so the piece carries no morph at all', shown._morphFrom === undefined);
+
+    // A fade for a piece whose name never actually changed is not a morph.
+    clearTransformFade(p.id);
+    addTransform(p.id, piece.id, { name: piece.name });
+    beginTransformFade(p.id);
+    clearTransforms(p.id);
+    shown = applyTransforms(p.id, [piece]).find(f => f.id === piece.id);
+    check('a transform that never changed the name animates nothing',
+      shown._morphFrom === undefined, String(shown._morphFrom));
+    clearTransformFade(p.id);
     p.current_zone = homeZone;
   } else {
     check('transform resolution (no furniture in test zone)', true, 'skipped');

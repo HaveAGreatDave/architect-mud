@@ -1448,8 +1448,13 @@ export async function describeZone(zone, player, out = {}) {
 			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).
 			// What it WAS, for the pane's letter-by-letter morph (render.js). Only
 			// ever present on a piece a psychedelic is re-reading for this viewer.
-			const morphAttr = f._realName
-				? ` data-morph="${escAttr(titleCaseName(String(f._realName).replace(/^(?:a|an|the)\s+/i, "")))}"`
+			// `_morphFrom` is the comedown: the piece is itself again and this is
+			// what the viewer had been seeing, so the same animation plays with its
+			// two ends swapped. Either way the attribute means one thing — what
+			// this name is changing FROM.
+			const morphFrom = f._morphFrom || f._realName;
+			const morphAttr = morphFrom
+				? ` data-morph="${escAttr(titleCaseName(String(morphFrom).replace(/^(?:a|an|the)\s+/i, "")))}"`
 				: "";
 			// A light clicks through to its own switch rather than to examine — see
 			// lightClick. The (on)/(off) tag beside it is what the click acts on.
@@ -1586,7 +1591,10 @@ export async function describeZone(zone, player, out = {}) {
 				// The LABEL is what this viewer sees (a psychedelic may have made this
 				// person into something else); the target stays the real name, so a
 				// click reaches them however your eyes are behaving.
-				const morphAttr = n._realName ? ` data-morph="${escAttr(n._realName)}"` : "";
+				// `_morphFrom` is the comedown (see the furniture branch). The talk
+				// target below stays `_realName || name` — never the fading one.
+				const morphSource = n._morphFrom || n._realName;
+				const morphAttr = morphSource ? ` data-morph="${escAttr(morphSource)}"` : "";
 				return `<span class="action-link npc-link" data-action="talk" data-target="${escAttr(n._realName || n.name)}"${morphAttr} title="Talk to ${escAttr(n.name)}">${n.name}</span>${postureTag}`;
 			};
 			// A phantom person wears the exact same markup as a real NPC — the
