@@ -88,7 +88,7 @@
     },
     "root": {
       "actions": [],
-      "first": "You're standing in front of my board, which means you either want work or you're lost. I'm Rennie. I keep the yard and the yard keeps the road. Work's there for anybody with a truck to put it in, and if you haven't got one, well. That's what the fence is for.",
+      "first": "You're standing in front of my board, which means you either want work or you're lost. I'm Rennie. I keep the yard and the yard keeps the road. Work's there for anybody with a truck to put it in, and if you haven't got one, well. That's what the fence is for.\n\nYou driven anything big before, or are we starting from the beginning?",
       "options": [
         {
           "actions": [],

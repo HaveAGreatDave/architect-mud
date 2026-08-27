@@ -218,7 +218,7 @@
           "next": "complaint"
         }
       ],
-      "text": "The machine rotates to face you and its faceplate warms from grey to a low amber. \"Good day. I am the Teller.\" The voice arrives from somewhere behind the ceramic, pitched warm and slow and pleased to see you, which it is not. \"I can answer questions, direct you to a terminal, and remember your face for a very long time. Two of those are free.\""
+      "text": "The machine rotates to face you and its faceplate warms from grey to a low amber. \"Good day. I am the Teller.\" The voice arrives from somewhere behind the ceramic, pitched warm and slow and pleased to see you, which it is not. \"I can answer questions, direct you to a terminal, and remember your face for a very long time. Two of those are free.\"\n\n\"Do you hold an account with us?\""
     },
     "vault": {
       "options": [

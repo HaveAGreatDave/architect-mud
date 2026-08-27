@@ -313,7 +313,7 @@
           "next": "bye"
         }
       ],
-      "text": "It does not rise. \"You climbed all this way. Sit with what you saw a moment — then ask me the question you came up here to ask.\""
+      "text": "It does not rise. \"You climbed all this way. Sit with what you saw a moment — then ask me the question you came up here to ask.\"\n\n\"Or shall I tell you which one it usually is?\""
     },
     "turn_accept": {
       "actions": [

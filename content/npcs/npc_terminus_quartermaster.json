@@ -261,7 +261,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Buying's out here. Gate's not mine.\"",
+      "text": "\"Buying's out here. Gate's not mine.\"\n\n\"So. What have you got?\"",
       "text_by_relation": {
         "close": "\"There you are.\" He puts the list down, which from him is an embrace. \"Sit if you like. Don't touch the crates.\"",
         "familiar": "He does not look up, but the pencil stops. \"Go on then.\"",

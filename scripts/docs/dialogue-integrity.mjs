@@ -38,7 +38,38 @@ const ENTERED_ELSEWHERE = new Map([
     + 'option reaching it would have him say it before it is true.'],
 ]);
 
-const problems = { unlabelled: [], dangling: [], duplicate: [], unreachable: [], emptyNode: [] };
+// ── WORDLESS OPTIONS ────────────────────────────────────────────────────────
+//
+// "(say nothing)" is for LEAVING a conversation, never for advancing one. But
+// a naive check on that flags 48 options and roughly half of them are good
+// writing, so the sort matters more than the rule. Three kinds:
+//
+//   AN ACT — "(sit down at the bench)", "(hold her)", "(hand over the wrapped
+//   core)", "(do not move)". The player's body does something, or refuses to.
+//   A real choice, and several are the best choices in their scenes.
+//
+//   A SCENE PROMPT on `root` — "(somebody has come to the desk)", "(the man on
+//   the crate is looking at you)". Not the player being silent: the game
+//   surfacing an ambient event as something you can attend to, which is how a
+//   scene interrupts a topic menu.
+//
+//   THE CONTINUE BUTTON — "(nod)" -> root. The fault.
+//
+// ⚠ ONLY THE LAST ONE IS FAILED, and only in its unambiguous form: a node whose
+// ONLY option is wordless and goes somewhere other than `bye`. That is a
+// monologue with an acknowledge key and the player has no voice in it at all.
+// The softer case — a wordless advance sitting beside real replies — is a back
+// button out of a topic, and taking it away forces a line out of a player who
+// had nothing to add. It is reported, never failed.
+const PAREN = /^\s*\(/;
+const ACT = /\b(sit|stand|hold|squeeze|pull|hand|take|follow|walk|go|stay|kiss|touch|drink|pour|find|give|show|put|open|close|carry|look|wipe|keep|listen|move)\b/i;
+const isWordless = (label) => PAREN.test(label || '') && !ACT.test(label || '');
+const isExit = (next) => !next || next === 'bye' || next === '__end__';
+
+const problems = {
+  unlabelled: [], dangling: [], duplicate: [], unreachable: [], emptyNode: [],
+  monologue: [], wordlessAdvance: [],
+};
 
 for (const f of fs.readdirSync(NPCS)) {
   if (!f.endsWith('.json')) continue;
@@ -72,6 +103,20 @@ for (const f of fs.readdirSync(NPCS)) {
     if (!String(txt).trim() && !(node.actions || []).length) {
       problems.emptyNode.push(id + ' · ' + key);
     }
+
+    // A monologue with an acknowledge key: one option, wordless, and it carries
+    // on rather than leaving. Silence as an ANSWER is exempt — a node that
+    // reacts to the player saying nothing is the point of that option, not a
+    // failure of it.
+    const advancing = opts.filter(o => isWordless(o.label) && !isExit(o.next)
+      && !/quiet|silen/i.test(String(o.next)));
+    if (opts.length === 1 && advancing.length === 1) {
+      problems.monologue.push(id + ' · ' + key + '  "' + opts[0].label + '" -> ' + opts[0].next);
+    } else {
+      for (const o of advancing) {
+        problems.wordlessAdvance.push(id + ' · ' + key + '  "' + o.label + '" -> ' + o.next);
+      }
+    }
   }
 
   // A node nothing points at is dead content — written, paid for, unreachable.
@@ -82,23 +127,26 @@ for (const f of fs.readdirSync(NPCS)) {
   }
 }
 
+const SOFT = new Set(['unreachable', 'wordlessAdvance']);
 const REPORT = [
   ['unlabelled', 'options with no label — these render as the word "undefined"'],
   ['dangling', 'options pointing at a node that does not exist'],
   ['duplicate', 'the same option listed twice in one node'],
   ['emptyNode', 'nodes with no text and no actions'],
+  ['monologue', 'monologues with an acknowledge key — the only option is wordless and carries on'],
   ['unreachable', 'nodes nothing links to — written and unreachable'],
+  ['wordlessAdvance', 'wordless options that advance — sort these by hand (act / scene prompt / continue button)'],
 ];
 
 let hard = 0;
 console.log('DIALOGUE INTEGRITY\n');
 for (const [key, label] of REPORT) {
   const list = problems[key];
-  if (key !== 'unreachable') hard += list.length;
+  if (!SOFT.has(key)) hard += list.length;
   console.log('  ' + String(list.length).padStart(4) + '  ' + label);
   for (const l of list.slice(0, 8)) console.log('          ' + l);
   if (list.length > 8) console.log('          …+' + (list.length - 8) + ' more');
 }
 
-console.log('\n  ' + hard + ' hard fault(s); unreachable nodes are listed for review, not failed.');
+console.log('\n  ' + hard + ' hard fault(s); the last two are listed for review, not failed.');
 process.exit(hard ? 1 : 0);

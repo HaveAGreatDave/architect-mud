@@ -119,7 +119,7 @@
     },
     "root": {
       "actions": [],
-      "first": "\"Oh, good.\" She puts the sleeve down. \"I did wonder how long. Sit, sit. Nobody is doing anything.\"",
+      "first": "\"Oh, good.\" She puts the sleeve down. \"I did wonder how long. Sit, sit. Nobody is doing anything.\"\n\n\"Have you come far?\"",
       "options": [
         {
           "actions": [],
