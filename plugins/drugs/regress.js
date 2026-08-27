@@ -203,4 +203,13 @@ export default async function regress({ run, check }) {
   check('clearance is faster when more is in the system',
     (12 - T.clearanceStep(12)) > (4 - T.clearanceStep(4)));
   check('a trace of one dose clears', T.clearanceStep(1) === 0);
+
+  // --- the mirror: what a drug does to your view of yourself ---------------
+  const other = F.mirror({ note: 'Their pupils are blown black.', tripping: true }, false);
+  check('another player still gets the bystander line', other === 'Their pupils are blown black.', other);
+  check('a tripping self gets a trip line', F.SELF_LINES.tripping.includes(F.mirror({ tripping: true }, true)));
+  check('a stimulant self reads as a stimulant', F.selfKey({ drugClass: 'stimulant' }) === 'stimulant');
+  check('a depressant self reads as a depressant', F.selfKey({ drugClass: 'depressant' }) === 'depressant');
+  check('hallucination outranks class', F.selfKey({ drugClass: 'stimulant', tripping: true }) === 'tripping');
+  check('an unclassed drug falls back rather than crashing', F.selfKey({}) === 'other');
 }

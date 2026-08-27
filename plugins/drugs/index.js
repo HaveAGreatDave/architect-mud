@@ -116,6 +116,41 @@ async function habits(args, raw, player) {
 
 export const commands = { habits };
 
+// --- the mirror -------------------------------------------------------------
+//
+// What you think you look like while you're on something. Never an accurate
+// report and never says so: the line is written from inside the head, so it
+// states the distortion as fact rather than hedging it as a hallucination.
+const SELF_LINES = {
+  tripping: [
+    "Your hands are your hands. You check twice. They keep being your hands, which is somehow the unsettling part.",
+    "Your reflection in the window is doing everything you do, a fraction late, and enjoying it more.",
+    "You look down and the distance to the floor has been revised.",
+    "Your clothes are breathing. You decide not to hold that against them.",
+  ],
+  stimulant: [
+    "You look sharp. Wired and lean and a size too awake. You look, you are fairly sure, incredible.",
+    "Your jaw has been busy for a while now. Your face feels like a face you are operating.",
+    "Everything about you is at the front of you. You could be seen from orbit.",
+  ],
+  depressant: [
+    "You look fine. Softer round the edges than usual, but fine. Everything is fine.",
+    "Your body is somewhere below you, doing an adequate job unsupervised.",
+    "You take stock of yourself and lose your place partway through.",
+  ],
+  other: [
+    "You are not holding it together as well as you think.",
+    "You look like somebody who would say they are fine.",
+    "You seem, on inspection, to be mostly present.",
+  ],
+};
+
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const selfKey = (seen) =>
+  seen.tripping ? "tripping"
+  : SELF_LINES[seen.drugClass] ? seen.drugClass
+  : "other";
+
 // --- what other people can see, and what a bad dose does to you --------------
 
 export const hooks = {
@@ -125,9 +160,14 @@ export const hooks = {
   'player.appearanceNotes': ({ target, isSelf }) => {
     const seen = visibleIntoxication(target);
     if (!seen) return undefined;
-    return isSelf
-      ? 'You are not holding it together as well as you think.'
-      : seen.note;
+    // Looking at somebody else reports their face. Looking at YOURSELF reports
+    // your own unreliable sense of your own body, which is the more interesting
+    // half and used to be one flat line for every substance in the game. The
+    // split is by class, because that is the only thing the stamp knows and the
+    // only thing that would make a stimulant read differently from a downer.
+    // Rolled per look on purpose: a mirror you can check twice and get two
+    // answers from is the point.
+    return isSelf ? pick(SELF_LINES[selfKey(seen)]) : seen.note;
   },
 
   // A survivable overdose drops you where you stand. It used to be a stat burst
@@ -142,4 +182,5 @@ export const hooks = {
 };
 
 // Pure formatters, exposed for the regress suite only (the `_test` convention).
-export const _test = { ago, soon, bite };
+export const _test = { ago, soon, bite, SELF_LINES, selfKey,
+  mirror: (seen, isSelf) => hooks['player.appearanceNotes']({ target: { _visibleDrug: { ...seen, until: Date.now() + 60000 } }, isSelf }) };

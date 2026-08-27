@@ -625,6 +625,11 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   if (shows) {
     player._visibleDrug = {
       note: shows, illegal: !drug.flags?.legal, name: displayName,
+      // Carried so the mirror can differ from the bystander. What a stranger sees
+      // is one line about your face; what YOU see is whatever the drug is doing to
+      // your sense of your own body, which is class-shaped.
+      drugClass: drug.flags?.drug_class || null,
+      tripping: !!eff.hallucination,
       until: Date.now() + durationSeconds * 1000,
     };
   }
