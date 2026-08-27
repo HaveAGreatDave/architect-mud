@@ -747,7 +747,19 @@ export default async function regress({ run, check, getPlayer }) {
   check('...and intensities inside 0..1', badInt.length === 0, badInt.map(r => r.id).join(', '));
   const fxEntry = await buildDreamscape('regress-fx', { size: 1, cause: 'drug', drugId: 'drug_dmt' });
   check('...carried onto the built room', !!world.zones.get(fxEntry)?.dreamFx?.effect);
+  // ⚠ And it must be TAKEN BACK. The client's override ignores the indoor gate and
+  // the real weather until a `dream_fx` clear arrives, so a teardown that skips one
+  // leaves the field running over the room for the rest of the session. Asserted on
+  // dissolveDreamscape because that is the funnel every exit path goes through.
+  const { setBroadcast, getBroadcast } = await import('../../server/engine/messaging.js');
+  const prevBroadcast = getBroadcast();
+  const fxMsgs = [];
+  setBroadcast((_z, msg) => { fxMsgs.push(msg); });
   dissolveDreamscape('regress-fx');
+  setBroadcast(prevBroadcast);
+  check('...and cleared again when the dream dissolves',
+    fxMsgs.some(m => m?.type === "dream_fx" && m.effect === "none"),
+    fxMsgs.map(m => m?.type).join(", "));
 
   // Per-viewer, and it must not bleed: the weather warp is keyed to the zone it
   // was set in, so walking on does not carry a stale line into the next room.
