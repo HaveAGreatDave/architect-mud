@@ -150,8 +150,11 @@ async function doLaunder(args, raw, player, broadcast) {
 
   // A dead grid is a dead machine — same rule the ATM follows. No power row at
   // all means the zone was never wired for it, which reads as mains and is fine.
+  // ⚠ A zone's status is 'powered'/'overloaded'/'offline' — never 'online', which
+  // is a GENERATOR's word. Testing for it left every washer permanently dark.
   const power = getZonePowerInfo(player.current_zone);
-  if (machine.power_draw_kw && power && power.status !== 'online') {
+  const powered = !power || power.status === 'powered' || power.status === 'overloaded';
+  if (machine.power_draw_kw && !powered) {
     return { type: 'error', message: `The ${machine.name} is dark. No power, no wash.` };
   }
 

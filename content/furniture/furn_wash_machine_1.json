@@ -13,7 +13,7 @@
   "id": "furn_wash_machine_1",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "number 1 washer",
+  "name": "washing machine 1",
   "object_type": "fixture",
   "power_draw_kw": 0.6,
   "price": 55,
