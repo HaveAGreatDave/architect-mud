@@ -1597,7 +1597,15 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
   _ov.innerHTML = `
     <canvas id="intro-cine-cv"></canvas>
     <div class="intro-cine-vig"></div>
-    <div class="intro-cine-stage"><div class="intro-cine-line" id="intro-cine-line"></div></div>
+    <!-- aria-live because a dialog is NOT a live region. The beats swap this
+         element's innerHTML on a timer and focus never moves, so without it a
+         screen reader is handed "Opening sequence ... Begin" and then fifty
+         seconds of silence while the whole cold open plays past it. The log
+         rung already writes these same lines to #output; this is the visual
+         rung saying them too. Atomic because each beat replaces the line whole
+         (and several carry a line break), so it is read as one line rather
+         than as whichever fragment changed. -->
+    <div class="intro-cine-stage"><div class="intro-cine-line" id="intro-cine-line" aria-live="polite" aria-atomic="true"></div></div>
     ${LOGO_HTML}
     <div class="intro-cine-gate" id="intro-cine-gate">
       <!-- The gate is a PIECE OF HARDWARE, not a dialog box. The first thing the game
