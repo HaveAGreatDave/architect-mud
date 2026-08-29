@@ -9,7 +9,8 @@ import { burnCharge, rowIsMergeable, MERGEABLE_SQL } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs, getZoneFurniture } from '../world.js';
 import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
-import { fireSpecializedAction, availableActions } from '../specializedActions.js';
+import { fireSpecializedAction } from '../specializedActions.js';
+import { itemVerbs, consumeVerb } from '../itemActions.js';
 import { computeSellUnitPrice } from '../vendor.js';
 import { resolveCorpseOrPlayer, buildLootView, lootReply } from './combat.js';
 import { titleCaseName } from '../text.js';
@@ -264,10 +265,7 @@ async function cmdInventory(player) {
     msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${instFlags}${container}${eq}\n`;
     // Derived fields for the client item-detail panel (see equipment.js showItemDetail).
     item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
-    item.actions = availableActions(item);
-    // A non-food usable — an explicit `use_message` but not `consumable` (e.g. a credit chip banked
-    // with `use`, since currency isn't eaten) — surfaces `use` in the item menu, not the food `eat`.
-    if (hasTag(item, 'use_message') && !hasTag(item, 'consumable') && !item.actions.includes('use')) item.actions.push('use');
+    item.actions = itemVerbs(item);
   }
   const weight = await computeCarriedWeight(player);
   const cap = carryCapacity(player);
@@ -295,10 +293,7 @@ async function cmdGear(player) {
   };
   for (const item of rows) {
     item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
-    item.actions = availableActions(item);
-    // A non-food usable — an explicit `use_message` but not `consumable` (e.g. a credit chip banked
-    // with `use`, since currency isn't eaten) — surfaces `use` in the item menu, not the food `eat`.
-    if (hasTag(item, 'use_message') && !hasTag(item, 'consumable') && !item.actions.includes('use')) item.actions.push('use');
+    item.actions = itemVerbs(item);
     if (item.is_equipped) {
       const sb = tagValue(item, 'stat_bonus');
       if (sb && typeof sb === 'object') for (const [k,v] of Object.entries(sb)) effects.stat_bonus[k] = (effects.stat_bonus[k]||0) + (Number(v)||0);
@@ -721,6 +716,19 @@ async function cmdUse(targetStr, player, broadcast, route = 'use') {
   if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};
+  // `consumable` is not a licence to eat. It is the tag this path keys on, so a
+  // bandage carries it for the same reason a ration does, and both the food
+  // plugin's `eat` and the builtin `eat` land here — which is why the gate is
+  // here and not in either of them. `use` is the generic route and is never
+  // refused, so a macro that says `use <anything>` keeps working.
+  //
+  // Above this line is the drug branch, deliberately: a drug's own admin routes
+  // (snort/inject/smoke/eat/drink) are its business and are untouched.
+  const takenBy = consumeVerb(item);
+  if (route !== 'use' && route !== takenBy) {
+    return { type:'error', message:`You don't ${route} that. Try <span class="text-dim">${takenBy}</span>.` };
+  }
+
   // A laced *alcoholic* drink (the cocktails: martini, whiskey, …) drinks like a
   // beer — hand it to the timed consume plugin so its thirst pours out sip-by-sip
   // and the drug lands on the last swallow, same as the drug-item drinks. Only
