@@ -31,9 +31,26 @@
 # only to stop them fighting.
 #
 # ── DEBOUNCE: pushes validate, the schedule deploys ──
-# Each deploy reboots Render, which cold-reloads the whole world from Neon
-# (~4.7MB now that prod serves the six audio tables from the git checkout; it was
-# ~36MB when deploying per-push blew the 5GB/month transfer cap in July 2026).
+# Each deploy reboots Render, which cold-reloads the whole world from Neon. That
+# was ~36MB when deploying per-push blew the 5GB/month transfer cap in July 2026,
+# and ~4.7MB after prod moved the six audio tables onto the git checkout.
+#
+# ⚠ IT IS ~13.6MB NOW, AND THIS NUMBER GOES STALE ON ITS OWN. Measured 2026-08-29:
+# zones 9.83MB over 17,263 rows, items 2.26MB, npcs 0.84MB, furniture 0.49MB, the
+# rest under 0.2MB together. Nothing regressed — the WORLD GREW into the figure
+# (the Scarletwastes alone added 4,836 tiles), and no test can catch that, because
+# a bigger world is not a bug.
+#
+# Which matters because this comment is the arithmetic behind the schedule below.
+# At 4.7MB, six deploys a day reads as ~850MB/month against a 5GB cap and looks
+# like plenty of headroom; at 13.6MB it is ~2.5GB/month — half the cap on deploys
+# alone, before a single player cold-starts the spun-down instance. The cap was
+# exceeded again on 2026-08-28 and prod froze for four runs.
+#
+# Re-measure before trusting it, and before any change to the deploy cadence:
+#   SELECT sum(pg_column_size(q.*)) FROM <table> q
+# over the readTier:'boot' tables in server/models/content-registry.js (the audio_*
+# tables are boot-tier there but are served from the checkout, so exclude them).
 #
 # So a push never deploys. It runs the regress gate — against a throwaway local
 # Postgres, zero Neon egress — and STOPS. The deploy is debounced onto a
@@ -161,7 +178,7 @@ jobs:
   #   push with [deploy] → deploy now (force from a commit)
   #   workflow_dispatch  → deploy now (force button)
   #   schedule           → deploy the batch, UNLESS HEAD is already the live sha
-  #                        (idle window — skip the pointless ~4.7MB reboot)
+  #                        (idle window — skip the pointless ~13.6MB reboot)
   # The sha comparison is content-agnostic, so this batches code changes too.
   gate:
     needs: regress
