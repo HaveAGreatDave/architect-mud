@@ -1796,6 +1796,7 @@ async function _bcImportSave({ meta, broadcastGraph, filmScript, sermonScript, w
     // ON LOCATION (`@location <zone_id>`). Null for almost every show, and null means
     // "wherever the channel lives" — so nothing that already imports has to change.
     location_zone_id: meta.location || null,
+    acted: !!meta.acted,
     channel_id: channelId,
   };
   try {

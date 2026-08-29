@@ -1863,6 +1863,18 @@ export const SCHEMA_SQL = `
   -- ones standing in it, and every line the acting layer puts in a room goes into that
   -- room. Null (the overwhelming default) means the channel studio, exactly as before.
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS location_zone_id TEXT;
+
+  -- PERFORMED, NOT PRINTED. channel_type='live' has always meant "the cast are
+  -- really in a room", but it is a property of the CHANNEL, so a show made by
+  -- NPCs could only be performed by moving it to a live channel — which would
+  -- drag every film and ball game on that channel onto the same gate. This is
+  -- the per-programme opt-in: it staffs the cast (they commute to the stage) and
+  -- presence-gates the airing (_requireHost), exactly as a live channel does.
+  -- Deliberately AUTHORED rather than derived from "has npc_anchor nodes": a
+  -- recorded drama names its actors that way too, and presence-gating a
+  -- recording would take Chrome & Circumstance off the air whenever its cast
+  -- were asleep. False (the default) is the old behaviour for everything.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS acted BOOLEAN DEFAULT FALSE;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 

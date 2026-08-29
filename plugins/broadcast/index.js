@@ -654,7 +654,17 @@ function _staffCallSlot(playlist, gameSecs, dayOfWeek, npcId) {
 // what to staff, so the scan can never disagree with the thing it's auditing.
 function _isActedItem(channel, item) {
   return channel.channel_type === 'live'
+    || !!item.acted
     || ['weather', 'talkshow', 'morning', 'gameshow'].includes(item.playback_mode);
+}
+
+// Where this item's cast are called to. Mirrors the staffing pass and the walker's
+// `stageZoneId`: the shoot beats the channel studio, and null means the studio. Kept
+// here so Channel Check asks about the room the cast are ACTUALLY sent to — without
+// it, an acted show on location reports "this channel has no studio zone" and blames
+// the transmitter for a programme that is filming perfectly well in a basement.
+function _itemStageZone(channel, item) {
+  return item.location_zone_id || channel.studio_zone_id || null;
 }
 
 function _itemNpcStaff(item) {
@@ -683,7 +693,7 @@ async function scanChannelDay(channelId) {
 
   const { rows: items } = await query(
     `SELECT p.start_time, p.broadcast_id, p.days, p.conditions, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph,
-            b.talkshow_pools, b.gameshow_pools, b.sports_pools
+            b.talkshow_pools, b.gameshow_pools, b.sports_pools, b.acted, b.location_zone_id
        FROM media_channel_playlist p JOIN media_broadcasts b ON b.id=p.broadcast_id
       WHERE p.channel_id=$1 ORDER BY p.start_time`, [channelId]
   );
@@ -729,12 +739,12 @@ async function scanChannelDay(channelId) {
         add('error', 'no_staff',
           `'${label}' is performed live but has no cast staffed on it — nobody is ever on shift for this slot, so nobody walks to the studio and the channel sits on a "please stand by" card. Run Recalculate Schedules; if that leaves it empty, the show's pools name no NPC.`,
           { broadcast: label });
-      } else if (!ch.studio_zone_id) {
+      } else if (!_itemStageZone(ch, item)) {
         add('error', 'no_studio_zone',
           `'${label}' is performed live but this channel has no studio zone set — its cast have nowhere to be called to.`,
           { broadcast: label });
       } else {
-        const studio = resolveLanding(ch.studio_zone_id);
+        const studio = resolveLanding(_itemStageZone(ch, item));
         for (const npcId of staff) {
           const npc = world.npcs?.get(npcId);
           if (!npc) { add('warn', 'missing_npc', `'${label}': staffed NPC '${npcId}' does not exist.`, { broadcast: label }); continue; }
@@ -900,7 +910,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.sermon_pools, b.location_zone_id
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.sermon_pools, b.location_zone_id, b.acted
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -987,6 +997,12 @@ async function loadChannelRuntimes() {
       // through ten tick call sites. It is a property of the programme, not of the
       // tick: a show shot in a church basement is shot there every time it airs.
       if (broadcastGraph && item.location_zone_id) broadcastGraph._locationZone = item.location_zone_id;
+      // `acted` is the per-programme answer to a question `channel_type` could only
+      // answer per CHANNEL. Stamping `_requireHost` is the whole integration: the
+      // walker's `liveActed` already reads it, so the presence gate, the in-room
+      // lines, the camera-idle fall-through and the stand-by card all come along
+      // without one of them learning the column exists.
+      if (broadcastGraph && item.acted) broadcastGraph._requireHost = true;
       const cond = typeof item.conditions === 'object' ? item.conditions : (item.conditions ? JSON.parse(item.conditions) : {});
       let weatherScript = item.weather_pools;
       if (typeof weatherScript === 'string') { try { weatherScript = JSON.parse(weatherScript); } catch { weatherScript = null; } }
@@ -6002,7 +6018,7 @@ async function recalculateNpcSchedules() {
   const { rows: plItems } = await query(`
     SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
            b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.weather_pools,
-           b.location_zone_id,
+           b.location_zone_id, b.acted,
            c.channel_type, c.studio_zone_id
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
@@ -6015,6 +6031,11 @@ async function recalculateNpcSchedules() {
   // Authoritative set of NPCs that legitimately staff a studio (live shows +
   // weather forecasts), with the studio they belong to. Used for the self-heal pass.
   const liveStaff = new Map();
+  // Every distinct stage each staffed NPC is called to, across the whole grid. A
+  // crew member with more than one is the case `work_zone_id` cannot express, and
+  // pinning them to whichever slot happened to be reconciled first is how Neil
+  // McManistan ended up permanently employed in a church basement.
+  const stagesByNpc = new Map();
 
   for (const row of plItems) {
     let graph = row.broadcast_graph;
@@ -6097,7 +6118,13 @@ async function recalculateNpcSchedules() {
     // means "the show airs to a dark room and resolves as technical difficulties, which
     // looks like an engine fault and is a casting mistake". Staffing follows the SHOOT.
     const isLocationShoot = !!row.location_zone_id;
-    const staffsNpcs = row.channel_type === 'live' || isLocationShoot
+    // ⚠ …AND AN ACTED PROGRAMME, WHICH IS THE OTHER ONE THAT DOES NOT FOLLOW THE
+    // CHANNEL. `acted` says the cast are really in a room; that is a fact about the
+    // production, and KSAB carries 28 slots of which most are films. Without this a
+    // show written to be performed can only become performed by moving it to a live
+    // channel, which drags every ball game and feature on that channel onto the
+    // presence gate with it.
+    const staffsNpcs = row.channel_type === 'live' || isLocationShoot || !!row.acted
       || isWeather || isTalkshow || isMorning || isGameshow;
 
     // ⚠ AND THE CREW GO TO THE LOCATION, NOT TO THE STUDIO. A network channel carries a
@@ -6131,6 +6158,10 @@ async function recalculateNpcSchedules() {
     const guestGraph   = JSON.stringify(makeTalkshowGuestGraph(studioZoneId));
     for (const npcId of npcIds) {
       liveStaff.set(npcId, studioZoneId);
+      if (studioZoneId) {
+        if (!stagesByNpc.has(npcId)) stagesByNpc.set(npcId, new Set());
+        stagesByNpc.get(npcId).add(studioZoneId);
+      }
       const isGuest = isTalkshow && npcId === guestNpcId;
       // Always overwrite — ensures zone_id is populated even for existing graphs; set work_zone_id
       // so GO_TO_WORK resolves without graph params. The guest also gets its backstage home_zone.
@@ -6158,6 +6189,29 @@ async function recalculateNpcSchedules() {
     // per-NPC line sequence to extract, and the guest's lifecycle graph must not be
     // overwritten.
     if (!isTalkshow && !isMorning && !isWeather) await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
+  }
+
+  // ⚠ UNPIN ANYONE WHO WORKS IN MORE THAN ONE BUILDING. `work_zone_id` holds one
+  // room, but `GO_TO_WORK` resolves params → work_zone_id → studio_zone_id →
+  // getNpcStudioZone, and only that last one reads the call sheet. So a pinned zone
+  // WINS over the schedule: the crew walk to the studio on the day the show is in a
+  // church, and the lines come out of an empty room.
+  //
+  // The pin was self-inflicted. The staffing write above is COALESCE, so the first
+  // pass to reconcile a two-show NPC wrote one stage into a null column and every
+  // pass after it preserved that value for good — which is how Neil McManistan and
+  // Phil McCracken both came to have `work_zone_id = zone_stgarneau_basement` while
+  // their content files (correctly) carry null.
+  //
+  // Null it for the multi-stage case ONLY. A single-stage NPC keeps the pin, which
+  // is what lets an ordinary resident anchor commute without a per-slot lookup, and
+  // leaves every vendor with an authored work zone completely alone.
+  for (const [npcId, stages] of stagesByNpc) {
+    if (stages.size < 2) continue;
+    await query(`UPDATE npcs SET work_zone_id=NULL WHERE id=$1 AND work_zone_id IS NOT NULL`, [npcId])
+      .catch(() => {});
+    const live = world.npcs.get(npcId);
+    if (live) live.work_zone_id = null;
   }
 
   // Self-heal: any NPC still routed to a studio zone but no longer legitimately
@@ -9418,14 +9472,14 @@ export const routeHandler = async (path, method, body, auth) => {
         const fmMeta = body.film_meta ? JSON.stringify(body.film_meta) : null;
         const smPools = body.sermon_pools ? JSON.stringify(body.sermon_pools) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools,morning_pools,gameshow_pools,film_meta,sermon_pools,location_zone_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools,morning_pools,gameshow_pools,film_meta,sermon_pools,location_zone_id,acted)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
            auth?.playerId || 'unknown', graph, body.channel_id || null,
-           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools, mnPools, gsPools, fmMeta, smPools, body.location_zone_id || null]
+           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools, mnPools, gsPools, fmMeta, smPools, body.location_zone_id || null, !!body.acted]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(bid, body.channel_id, tsPools);
         // Same @airtime pinning path — a game show owns its block just like a talk show.
@@ -9452,12 +9506,12 @@ export const routeHandler = async (path, method, body, auth) => {
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,morning_pools=$19,gameshow_pools=$20,film_meta=$21,sermon_pools=$22,location_zone_id=$23,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
+           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,morning_pools=$19,gameshow_pools=$20,film_meta=$21,sermon_pools=$22,location_zone_id=$23,acted=$24,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
            body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
-           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id, mnPools, gsPools, fmMeta, smPools, body.location_zone_id || null]
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id, mnPools, gsPools, fmMeta, smPools, body.location_zone_id || null, !!body.acted]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, tsPools);
         if (body.playback_mode === 'gameshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, gsPools);

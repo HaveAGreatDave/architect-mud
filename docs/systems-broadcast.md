@@ -590,15 +590,38 @@ Either missing raises tech difficulties and reads as one; both heal by themselve
 missing piece comes back. **That is what makes the kit a dependency somebody can interfere with
 rather than set dressing standing in a basement.**
 
-⚠ **`channel_type` decides whether a show is PERFORMED or merely printed.** On a `playlist` channel
-`liveActed` is false, the staffing self-heal strips `npc_staff` to `{}`, and the programme plays as
-text with nobody in a room. It is why KSAB's own basement show has never been acted, and it is the
-first thing to check when a live-authored show is not behaving like one.
+⚠ **`channel_type` decides whether a show is PERFORMED or merely printed — unless the programme
+says otherwise.** On a `playlist` channel `liveActed` is false, the staffing self-heal strips
+`npc_staff` to `{}`, and the programme plays as text with nobody in a room. That is still the
+default, and it is the first thing to check when a live-authored show is not behaving like one.
+
+**`media_broadcasts.acted` (BSM `@acted`) is the per-programme override**, and it exists because
+being performed is a fact about the PRODUCTION, not about the channel that happens to carry it.
+KSAB is a `playlist` channel with 28 slots; making one show performed by flipping the channel to
+`live` would presence-gate six films and two ball games on a cast that does not exist. The flag
+does both halves — `staffsNpcs` (the cast commute to the stage) and `_requireHost` (the airing is
+gated on them arriving) — because a show staffed but not acted is the worst of both: the crew
+genuinely walk across town and then the programme prints itself anyway. That was the live state of
+*Cooking Shit With Neil McManistan* until `acted` existed.
+
+⚠ **It is authored, never derived from "has `npc_anchor` nodes".** A recorded drama names its cast
+that way too — *Chrome & Circumstance* and *Neighbors from 14B* both do — and presence-gating a
+recording takes it off the air whenever its actors are asleep. Thirteen scripted broadcasts carry
+real `npc_` anchors; two of them are performances.
 
 ⚠ **A crew member who works in more than one building must not carry a fixed `work_zone_id`.**
 `GO_TO_WORK` resolves `params → work_zone_id → studio_zone_id → getNpcStudioZone`, so a pinned zone
 **wins over the call sheet**: the producer walks to the studio on the day the show is in a church,
-and his lines come out of an empty room. The same applies to field units, and doubly — a camera the
+and his lines come out of an empty room.
+
+⚠ **The staffing pass used to inflict this pin itself.** Its write was
+`work_zone_id = COALESCE(work_zone_id, $stage)`, so the first reconcile of a two-show NPC wrote one
+stage into a null column and every pass after it preserved that value permanently. Neil McManistan
+and Phil McCracken both ended up with `work_zone_id = zone_stgarneau_basement` in production while
+their content files correctly carried null. The pass now counts the distinct stages each staffed
+NPC is called to and **nulls `work_zone_id` for anyone with more than one**, so the per-slot lookup
+answers. A single-stage NPC keeps the pin — that is what lets an ordinary resident anchor commute
+without a call-sheet lookup, and it leaves vendors with an authored work zone untouched. The same applies to field units, and doubly — a camera the
 studio sends out is defined by being sendable, so a droid with a pinned work zone can only ever
 serve one location for the rest of its life. Null on both, and the per-slot lookup answers. Note
 broadcast staffing runs off the **playlist** (`npc_staff` + the slot's day mask + the call lead),
