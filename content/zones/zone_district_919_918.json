@@ -10,7 +10,7 @@
   "flags": {
     "building_name": "Thumb On The Scale",
     "building_type": "junkyard",
-    "district": "wasteland",
+    "district": "ashway",
     "entrance": "west",
     "facade": true,
     "is_building": true,

@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Halcyon Towers",
     "building_type": "corporate_office",
-    "district": "wasteland",
+    "district": "government",
     "entrance": "west",
     "facade": true,
     "floors": 21,

@@ -9,7 +9,7 @@
     "west": "zone_district_893_906"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "government",
     "icon": "road_nsw",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",

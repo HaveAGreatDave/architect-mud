@@ -8,7 +8,7 @@
     "west": "zone_district_911_912"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "ashway",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,

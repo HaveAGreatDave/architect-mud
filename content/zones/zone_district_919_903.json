@@ -10,7 +10,7 @@
     "west": "zone_district_918_903"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "industrial",
     "gps_suggest": "zone_district_920_903",
     "gps_suggest_label": "Two-Cell Supply: Grady has work for a fresh clone.",
     "region_id": "region_coldwater",

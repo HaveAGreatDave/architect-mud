@@ -9,7 +9,7 @@
     "west": "zone_district_918_906"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "industrial",
     "loading_dock": {
       "name": "Salvage Rites"
     },

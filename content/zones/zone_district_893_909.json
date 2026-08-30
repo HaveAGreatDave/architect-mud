@@ -10,7 +10,7 @@
   },
   "flags": {
     "airfield_id": "af_helipad",
-    "district": "wasteland",
+    "district": "government",
     "hangar_interior_zone": "zone_hangar_threshold",
     "icon": "helipad",
     "region_id": "region_coldwater",

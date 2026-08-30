@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Battery Acid Coffee Co.",
     "building_type": "shop",
-    "district": "wasteland",
+    "district": "commercial",
     "entrance": "east",
     "facade": true,
     "is_building": true,

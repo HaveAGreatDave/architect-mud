@@ -24,6 +24,7 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink, getRandomAmbient, getAmbientPool } from '../server/engine/world.js';
+import { districtFor } from '../server/engine/districts.js';
 import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard, tickEntityAI, isVendorClosed } from '../server/engine/ai-behaviour.js';
 import { openShopSession, closeShopSession, getNpcForShopper } from '../server/engine/vendor-session.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
@@ -4605,6 +4606,56 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     `${missingRows.length} missing / ${extraRows.length} extra — run npm run map:derive`
     + (missingRows.length ? ` — e.g. ${missingRows[0]}` : '')
     + (extraRows.length ? ` — e.g. ${extraRows[0]}` : ''));
+}
+
+// LAW: THE CITY IS NOT FILED AS WILDERNESS.
+// `districtFor` runs per move, per describe and per ambient beat, and three shipped
+// systems read it: the boundary-crossing threshold, the room description, and
+// district-ambience's leitmotif. For months 160 of Coldwater's 274 urban tiles —
+// paved streets, the Spire, the Ascension Gate — were affirmatively filed
+// `wasteland`, so the plugin whose whole stated purpose is that "you just notice the
+// Docks smell different" played wasteland cues on the downtown pavement.
+//
+// ⚠ THE TEST IS URBAN TILES ONLY. `wilds` is the correct answer for the 28-tile
+// column at x918 running south of y919 — that is the Gate Road leaving town through
+// real wilderness, and an earlier draft of the repair counted it as part of the bug.
+{
+  const URBAN_TERRAIN = new Set(['road', 'asphalt', 'concrete', 'park', 'dirt_road']);
+  const isUrban = (z) => URBAN_TERRAIN.has(z?.flags?.terrain) || !!z?.flags?.building_type
+    || z?.flags?.is_building === true || z?.flags?.is_building === 'true';
+  const urban = getAllZones().filter(z =>
+    z?.flags?.region_id === 'region_coldwater' && z.map_id === 'map_world'
+    && z.grid_x != null && (z.grid_z ?? 0) === 0 && (z.grid_y ?? 0) <= 919 && isUrban(z));
+  check('district: the built city has urban tiles to judge', urban.length > 200, String(urban.length));
+  const wilderness = urban.filter(z => ['wasteland', 'wilds'].includes(districtFor(z)?.key));
+  check('district: no tile in the built city is filed as wilderness',
+    wilderness.length === 0,
+    wilderness.slice(0, 6).map(z => `${z.id}=${districtFor(z)?.key}`).join(', '));
+
+  // A short street firing "You cross into…" mid-block is the noise this repair exists
+  // to kill. A LONG ARTERIAL crossing quarters is not — Meltwater Row runs most of the
+  // height of the city and passes through three of them, exactly as a real road does.
+  // So the bar is on SHORT streets, and the arterial is named rather than exempted by
+  // a length rule nobody would recognise later.
+  const ARTERIALS = new Set(['Meltwater Row', 'Grasslands']);
+  const at = new Map(urban.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+  const broken = new Set();
+  for (const z of urban) {
+    if (!z.name || ARTERIALS.has(z.name)) continue;
+    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+      const n = at.get(`${z.grid_x + dx},${z.grid_y + dy}`);
+      if (n && n.name === z.name && districtFor(n)?.key !== districtFor(z)?.key) broken.add(z.name);
+    }
+  }
+  check('district: no short street changes district mid-block',
+    broken.size === 0, [...broken].join(', '));
+
+  // ⚠ `util` was on media.json's prefixes, so all 116 zone_util_* rooms — plant rooms,
+  // risers, service corridors — resolved to the Media District, and "the Media
+  // District is under lockdown" could fire in a boiler room.
+  const utilAsMedia = getAllZones().filter(z => z.id?.startsWith('zone_util') && districtFor(z)?.key === 'media');
+  check('district: no utility corridor resolves to the Media District',
+    utilAsMedia.length === 0, utilAsMedia.slice(0, 4).map(z => z.id).join(', '));
 }
 
 // LAW: YOU LEAVE THE CITY THROUGH A GATE, OR YOU DO NOT LEAVE IT.

@@ -9,7 +9,7 @@
     "west": "zone_district_906_912"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "commercial",
     "loading_dock": {
       "name": "Battery Acid Coffee Co."
     },

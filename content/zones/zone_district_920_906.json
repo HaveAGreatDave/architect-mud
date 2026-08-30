@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Stitch 'n' Bitch",
     "building_type": "clinic",
-    "district": "wasteland",
+    "district": "industrial",
     "entrance": "west",
     "facade": true,
     "is_building": true,

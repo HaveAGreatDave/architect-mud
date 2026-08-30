@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Lather & Lye",
     "building_type": "bathhouse",
-    "district": "wasteland",
+    "district": "media",
     "entrance": "south",
     "facade": true,
     "is_building": true,

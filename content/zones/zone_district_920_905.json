@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Second Amendment Superstore",
     "building_type": "gun_shop",
-    "district": "wasteland",
+    "district": "industrial",
     "entrance": "west",
     "facade": true,
     "is_building": true,

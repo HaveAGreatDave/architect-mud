@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Ohm Sweet Ohm",
     "building_type": "shop",
-    "district": "wasteland",
+    "district": "commercial",
     "entrance": "south",
     "facade": true,
     "is_building": true,

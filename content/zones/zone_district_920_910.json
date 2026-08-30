@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Sentimental Value Pawn",
     "building_type": "fence",
-    "district": "wasteland",
+    "district": "media",
     "entrance": "north",
     "facade": true,
     "is_building": true,

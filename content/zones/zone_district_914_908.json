@@ -15,7 +15,7 @@
     "airfield_id": "af_solenne",
     "building_name": "Solenne Residences",
     "building_type": "apartment",
-    "district": "wasteland",
+    "district": "media",
     "entrance": "south",
     "facade": true,
     "hangar_interior_zone": "zone_solenne_helipad",
