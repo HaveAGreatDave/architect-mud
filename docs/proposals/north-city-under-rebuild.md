@@ -1,6 +1,20 @@
 # Rebuild: North City (Government Sector) + The Under
 
-> **Status:** Deferred / not built. Design blueprint for recreating, inside the
+> **Status: the Under is BUILT; North City is not** (restamped 2026-08-30 against the
+> world). The two halves of this doc had opposite fates and one status line was
+> hiding that.
+>
+> **The Under shipped** — **337** zones sit at `grid_z < 0`. It was reframed on
+> 2026-07-12 as a municipal sewer layer rather than the retired `z-1` level this
+> doc specifies, so read [the-under.md](the-under.md) for what actually exists;
+> the spec below describes a thing that was built differently.
+>
+> **North City did not.** There are **zero** zones matching `northcity`, and
+> `northcity` is one of twelve authored districts holding no tiles at all (see
+> [district-repair.md](district-repair.md)) — so the government quarter is a
+> named place with prose and no ground. That half of this doc is still live work.
+>
+> Original framing: design blueprint for recreating, inside the
 > generated `bp_district`, the North City government quarter and the `z-1` Under
 > that were retired with the legacy overworld (see
 > [legacy-world-decommission.md](legacy-world-decommission.md)). This is the
