@@ -11,8 +11,6 @@
   },
   "flags": {
     "district": "industrial",
-    "gps_suggest": "zone_district_920_903",
-    "gps_suggest_label": "Two-Cell Supply: Grady has work for a fresh clone.",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,

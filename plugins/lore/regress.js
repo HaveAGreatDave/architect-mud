@@ -78,9 +78,40 @@ export default async function regress({ run, check, getPlayer }) {
   try { await _test.onGpsSuggest({ actor: player, zone: 'zone_does_not_exist_xyz' }); } catch { threw = true; }
   check('gps-suggest no-op on unknown zone', !threw, 'threw on unknown zone');
 
-  // Positive/once-only path, only when the seeded trigger tile is loaded in this world.
-  const trigger = getZone('zone_district_919_903');
+  // ── THE ONBOARDING NUDGE IS NOT OPTIONAL ───────────────────────────────────
+  // A fresh clone spawns in `zone_start` and its only way out is one tile east; that
+  // tile is where "where do I even go" gets answered, and the answer is Grady, two
+  // doors along. The nudge is content (`flags.gps_suggest`), so nothing in code
+  // fails if nobody authors it — which is exactly how mastery shipped a `train` verb,
+  // a rep gate and a purity gate with no teacher anywhere in the world.
+  //
+  // ⚠ THIS USED TO BE AN `if`. The trigger tile was hardcoded to zone_district_919_903
+  // and wrapped in "only when the seeded trigger tile is loaded", so when the flag
+  // moved one tile west the entire block SKIPPED and reported nothing. A conditional
+  // test that silently stops testing is worse than no test at all. The trigger is
+  // DERIVED from the spawn zone's own exits now, so it follows the world rather than
+  // naming a tile that can drift out from under it.
+  const spawn = getZone('zone_start');
+  const firstStep = Object.values(spawn?.exits || {})
+    .flatMap((v) => (Array.isArray(v) ? v : [v]))
+    .map((id) => getZone(id))
+    // ⚠ `grid_x != null` IS NOT "IS ON THE MAP". Interiors sit at 0,0 with the column
+    // set, so that test picks the clone facility BASEMENT off the `down` exit — which
+    // is where this first landed. A real map tile has no parent and is not at the
+    // origin, and 0,0 is an unset column rather than a place anybody stands.
+    .find((z) => z && !z.parent_zone && z.grid_x != null && !(z.grid_x === 0 && z.grid_y === 0));
+  check('onboarding: the spawn has a way out onto the street', !!firstStep, String(firstStep?.id));
+  const trigger = firstStep;
+  check('onboarding: the first tile out of the vat points a new clone somewhere',
+    !!trigger?.flags?.gps_suggest, String(trigger?.id));
   if (trigger?.flags?.gps_suggest) {
+    check('onboarding: …at a zone that exists',
+      !!getZone(trigger.flags.gps_suggest), String(trigger.flags.gps_suggest));
+    // The label is the line the player actually reads. A missing one falls back to
+    // "<name> — worth a look", which is the tell that somebody set a destination and
+    // never wrote the sentence explaining why they should walk to it.
+    check('onboarding: …with a label that says who is there',
+      !!trigger.flags.gps_suggest_label, String(trigger.flags.gps_suggest_label));
     await clearFlag('player', _test.gpsSuggestKey(trigger.id), player);
     await _test.onGpsSuggest({ actor: player, zone: trigger.id });
     const stamped = await getFlag('player', _test.gpsSuggestKey(trigger.id), player);
