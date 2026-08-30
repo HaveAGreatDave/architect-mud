@@ -1,9 +1,39 @@
 # District repair — the city is filed as wilderness
 
-**Status: DESIGN ONLY for the painter; the content half is a live bug.** Split out of
-[unrest.md](unrest.md) on 2026-08-24, where it had been written as that system's phase 0.
-It is not a prerequisite for anything. It is worth doing because three shipped systems are
-degraded without it.
+**Status: the painter is BUILT; the `util` prefix is FIXED; the painting is the work that
+remains** (restamped 2026-08-30). Split out of [unrest.md](unrest.md) on 2026-08-24, where it
+had been written as that system's phase 0. It is not a prerequisite for anything. It is worth
+doing because three shipped systems are degraded without it.
+
+- **§1 the District Painter — BUILT**, in `926a0b9fb` (2026-08-23), with all four tools, the
+  district-content palette and the resolved-vs-authored display. ⚠ It shipped the day *before*
+  this doc was written calling it design; the status line was stale on arrival.
+- **§2's second bug — FIXED.** `util` is off `media.json`'s prefixes, so the 116 `zone_util_*`
+  corridors no longer classify as the Media District.
+- **The painting — still to do**, and it is the whole remaining job.
+
+**Two corrections to the census below, measured 2026-08-30.** The urban figures hold almost
+exactly (274 tiles now, `wasteland` 160), so nothing has drifted. But:
+
+**The 28 `wilds` tiles are not part of the bug.** They are a single column at x918 running
+y920–947 — *south of the city*, whose bbox ends at y919. The Glacis, the Scoured Plain, Ferric
+Wash, Bloodrock Table, Ochre Draw: that is the Gate Road leaving town through actual
+wilderness, and `wilds` is the right answer for every one of them. The real defect is **160
+tiles, not 188**.
+
+**And the job is ~14 decisions, not 274.** The tiles carry STREET NAMES, and a street is a
+coherent unit to assign — Meltwater Row (23 tiles), Runway (21), Kessler Street (15), Halcyon
+Boulevard (14), Grasslands (12), Ironside Street (11), Marrow Street (9), Fisherman's Green
+(8), the Gate Road (7), Glacier Street (5), Voss Avenue (4), Cinder Lane (2), Foundry Way (2),
+plus 106 single-tile buildings that can take the street they stand on. This is what makes the
+"an afternoon with a brush" estimate below optimistic in the right direction: the eye is still
+needed to say WHICH district a street belongs to, but it is answering fourteen questions
+rather than painting a field.
+
+⚠ **Several streets already straddle two districts** — Meltwater Row is part `docks` and part
+`wasteland`, Kessler Street part `wasteland` and part `residential` — which is the direct cause
+of the crossing line firing every seventh step. Assigning by street fixes the boundary noise as
+a side effect, because a street stops being an edge.
 
 ## The symptom
 
