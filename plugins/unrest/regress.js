@@ -122,7 +122,17 @@ export default async function regress({ check }) {
   {
     ledger.force(key, { grip: 100 });
     ledger.bump(key, 'grip', 500);
-    check('a scalar cannot exceed 100', ledger.read(key).grip === 100, String(ledger.read(key).grip));
+    // ⚠ NOT `=== 100`. `rowFor` runs `decayed()` on EVERY access, `read` included, so
+    // the value comes back 100 minus however many milliseconds elapsed since the bump
+    // — 99.99999422377368 on a slow run. That is the ledger working; asserting exact
+    // equality made the test a race that only passed when the two calls landed inside
+    // the same millisecond, and it blocked a push on 2026-08-30 having been latent
+    // since the ledger shipped.
+    //
+    // The invariant is the one the name states: it did not exceed 100. The lower bound
+    // is what still proves the CLAMP happened rather than the raw 600 being stored.
+    const clamped = ledger.read(key).grip;
+    check('a scalar cannot exceed 100', clamped <= 100 && clamped > 99, String(clamped));
     ledger.bump(key, 'grip', -9999);
     check('…nor fall below 0', ledger.read(key).grip === 0, String(ledger.read(key).grip));
     let bad = false;
