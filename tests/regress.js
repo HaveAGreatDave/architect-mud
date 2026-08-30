@@ -1050,6 +1050,73 @@ console.log('— layer 1i: relations substrate —');
   // regardless), so this gate is fiction rather than a mechanical lock — but it
   // has to track the SAME predicate the graph holds on, or an author ends up
   // hand-maintaining a second copy of the schedule.
+  // ── BUSINESS DONE IS NOT THE CONVERSATION OVER ─────────────────────────────
+  // A node that hands a job in or takes one on almost always authors `bye` and
+  // nothing else, so finishing an NPC's first errand dropped you out of the
+  // conversation while their second job sat one click away at root. 75 of the
+  // game's 102 quest nodes were shaped that way across 20 NPCs, so the renderer
+  // offers the way back rather than 75 trees being edited to remember it.
+  {
+    const { dialogueOptionKind } = await import('../server/engine/dialogue.js');
+    const tree = {
+      root: { text: 'What do you want?', options: [
+        { label: 'Got another job?', next: 'offer' },
+        { label: 'Done the first one.', next: 'report' },
+      ] },
+      offer:  { text: 'There is one.', options: [{ label: 'I will take it.', next: 'accept' }, { label: 'No.', next: 'bye' }] },
+      accept: { text: 'Good.', actions: [{ action: 'START_QUEST', params: { quest_id: 'q_regress_dlg' } }], options: [{ label: 'Bye', next: 'bye' }] },
+      report: { text: 'Settled.', actions: [{ action: 'TURN_IN', params: { quest_id: 'q_regress_dlg2' } }], options: [{ label: 'Bye', next: 'bye' }] },
+      hub:    { text: 'Chat.', options: [{ label: 'Shop', next: 'shopnode' }, { label: 'Job', next: 'accept' }] },
+      shopnode: { text: 'Wares.', actions: [{ action: 'OPEN_SHOP' }], options: [] },
+      bye:    { text: 'Later.', options: [] },
+      quiet:  { text: 'Nothing doing.', options: [] },
+    };
+    const npc = { id: 'npc_regress_dlg', name: 'Dialogue Dummy', dialogue_tree: tree };
+    const dp = { id: 'regress_dlg_player', _relations: new Map() };
+
+    const afterTurnIn = await renderDialogueNode(npc, 'report', dp, { npc });
+    check('dialogue: a turn-in offers the way back to root',
+      afterTurnIn.options.some((o) => o.next === 'root'),
+      afterTurnIn.options.map((o) => o.next).join(','));
+    const afterAccept = await renderDialogueNode(npc, 'accept', dp, { npc });
+    check('dialogue: …and so does taking a job on',
+      afterAccept.options.some((o) => o.next === 'root'),
+      afterAccept.options.map((o) => o.next).join(','));
+    // ⚠ Root's own options are gated, so a root with nothing left to say must not
+    // be offered — "Anything else?" leading nowhere is worse than the goodbye.
+    const barren = { id: 'npc_regress_dlg2', name: 'Barren',
+      dialogue_tree: { root: { text: 'Hm.', options: [] },
+        report: { text: 'Settled.', actions: [{ action: 'TURN_IN', params: { quest_id: 'q_x' } }], options: [{ label: 'Bye', next: 'bye' }] },
+        bye: { text: 'Later.', options: [] } } };
+    const noReturn = await renderDialogueNode(barren, 'report', dp, { npc: barren });
+    check('dialogue: …but not when root has nothing left to offer',
+      !noReturn.options.some((o) => o.next === 'root'),
+      noReturn.options.map((o) => o.next).join(','));
+    // An ordinary node is untouched — this fires on quest business only.
+    const plainNode = await renderDialogueNode(npc, 'offer', dp, { npc });
+    check('dialogue: an ordinary node gains no return option',
+      !plainNode.options.some((o) => o.next === 'root'),
+      plainNode.options.map((o) => o.next).join(','));
+
+    // ── The ❗ belongs on the option that LEADS to the job ────────────────────
+    // A quest is authored as an offer node plus an accept node, so the mark used to
+    // land on "yes, I'll do it" — by which point you had already found the work.
+    check('dialogue: the option leading to a quest offer is marked as a job',
+      dialogueOptionKind(tree.root.options[0], tree) === 'quest',
+      String(dialogueOptionKind(tree.root.options[0], tree)));
+    check('dialogue: a turn-in option still reads as a hand-in',
+      dialogueOptionKind(tree.root.options[1], tree) === 'turnin',
+      String(dialogueOptionKind(tree.root.options[1], tree)));
+    // ⚠ NOT A GENERAL LOOKAHEAD. `hub` leads to a shop AND a job; marking it would
+    // be a claim about a chat node, and would light up half of every tree.
+    check('dialogue: a hub node is not tagged from what lies beyond it',
+      dialogueOptionKind({ label: 'x', next: 'hub' }, tree) === null,
+      String(dialogueOptionKind({ label: 'x', next: 'hub' }, tree)));
+    check('dialogue: a node that goes nowhere is not a quest offer',
+      dialogueOptionKind({ label: 'x', next: 'quiet' }, tree) === null,
+      String(dialogueOptionKind({ label: 'x', next: 'quiet' }, tree)));
+  }
+
   const { filterDialogueOptions } = await import('../server/engine/dialogue.js');
   const { registerNpcScheduleChecker } = await import('../server/engine/broadcast-bridge.js');
   const host = { id: 'npc_regress_host' };

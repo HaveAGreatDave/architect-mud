@@ -116,8 +116,45 @@ export function dialogueOptionKind(opt, tree) {
   if (opt.next === '__shop__' || actionOnOptionOrTarget(opt, tree, 'OPEN_SHOP')) return 'shop';
   if (actionOnOptionOrTarget(opt, tree, 'TURN_IN')) return 'turnin';
   if (actionOnOptionOrTarget(opt, tree, 'START_QUEST')) return 'quest';
+  if (leadsToQuestOffer(opt, tree)) return 'quest';
   if (actionOnOptionOrTarget(opt, tree, 'END_CONVERSATION')) return 'leave';
   return null;
+}
+
+// ONE HOP OF LOOKAHEAD, AND ONLY FOR JOBS. A quest is almost always authored as a
+// pair — an OFFER node that pitches it and an ACCEPT node that fires START_QUEST —
+// so the ❗ landed on "yes, I'll do it" and the option at root that actually leads
+// you there wore nothing at all. That is the wrong way round for the one thing
+// players go to an NPC hunting for: by the time you can see the mark you have
+// already found the job.
+//
+// ⚠ DELIBERATELY NOT A GENERAL LOOKAHEAD. Tagging any option whose target
+// eventually reaches a shop or a fight would light up half of every tree —
+// Grady's `regular` node leads to both his shop and his shooting lesson, and
+// marking it 🛒 would be a claim about a chat node. So the target must be a node
+// that does nothing BUT offer the job: at least one option starting a quest, and
+// every other option either starting one too or leading nowhere. An offer node
+// passes; a hub node never does.
+function leadsToQuestOffer(opt, tree) {
+  const target = tree?.[opt?.next];
+  const opts = target?.options;
+  if (!Array.isArray(opts) || !opts.length) return false;
+  if ((target.actions || []).length) return false;      // it DOES something — judge it on that
+  let offers = 0;
+  for (const o of opts) {
+    if (actionOnOptionOrTarget(o, tree, 'START_QUEST')) { offers++; continue; }
+    const t = tree?.[o.next];
+    // A terminal (bye) or a dangling next is "leading nowhere" — the way out of an
+    // offer, not a second thing the node is for.
+    //
+    // ⚠ "NOWHERE" MEANS NO OPTIONS *AND* NO ACTIONS. Testing options alone lets a
+    // node that fires OPEN_SHOP and then stops count as an exit, so a hub offering
+    // a shop and a job reads as a pure offer and wears ❗ over its shop. Caught by
+    // the hub case in regress, which is the case this guard exists for.
+    if (!o.next || !t || (!(t.options || []).length && !(t.actions || []).length)) continue;
+    return false;
+  }
+  return offers > 0;
 }
 
 // An option you can't walk back: it starts violence, gets you arrested/charged,
@@ -424,6 +461,36 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
       o.next === '__shop__' ||
       (tree[o.next]?.actions || []).some((a) => a?.action === 'OPEN_SHOP'));
     if (!authorsShop) options.push({ label: 'Browse your wares.', next: '__shop__', _kind: 'shop' });
+  }
+
+  // ── BUSINESS DONE IS NOT THE CONVERSATION OVER ──────────────────────────────
+  // A node that takes a job on or hands one in almost always offers `bye` and
+  // nothing else, so finishing Grady's first errand dropped you out of the
+  // conversation while his second job was sitting one click away at root. You had
+  // to walk off and talk to him again to find it, and nothing told you it was
+  // there. A census on 2026-08-30 found this in 75 of the 102 quest nodes in the
+  // game, across 20 NPCs — Vess alone dead-ends 11 times — so it is a shape
+  // authors keep reproducing rather than an oversight in one tree.
+  //
+  // Injected in the shared renderer beside the shop door above, for the same
+  // reason: it must be identical however the node was reached.
+  //
+  // ⚠ ONLY WHEN ROOT STILL HAS SOMETHING TO OFFER. Root's options are gated —
+  // by conditions, by quest status, by relationship — so "Anything else?" leading
+  // to a root that has nothing left is worse than the goodbye it replaced. The
+  // extra gating pass costs a handful of condition evaluations and runs only on
+  // quest nodes, which are rare and never on a hot path.
+  const firedBusiness = (node.actions || []).some((a) =>
+    a?.action === 'TURN_IN' || a?.action === 'START_QUEST');
+  // An author who ends the conversation deliberately, or whose node turns violent,
+  // means it. Never talk a player back into the room they were just thrown out of.
+  const closesDeliberately = (node.actions || []).some((a) =>
+    a?.action === 'END_CONVERSATION' || HOSTILE_ACTIONS.includes(a?.action));
+  // Some trees already do this properly (Grady's own `lore` returns to root).
+  const alreadyReturns = (node.options || []).some((o) => o.next === 'root');
+  if (firedBusiness && !closesDeliberately && !alreadyReturns && nodeKey !== 'root' && tree.root) {
+    const rootOpts = await filterDialogueOptions(tree.root.options, tree, player, context);
+    if (rootOpts.length) options.unshift({ label: 'Anything else?', next: 'root' });
   }
   // `{quest}` in a node's text resolves to the quest name a generic hand-in node is
   // turning in (context.quest_name, set by Tablet OS) so the NPC can name the job.
