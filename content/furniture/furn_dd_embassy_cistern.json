@@ -1,0 +1,19 @@
+{
+  "description": "The lid of the cistern behind the far stall, which does not sit quite flush and never has. The porcelain is chipped along one edge where something has been levered up and put back too many times. Inside, above the waterline, somebody has siliconed a flat plastic tray to the wall.",
+  "flags": {
+    "aliases": "cistern, lid, cistern lid, tank",
+    "concealed": true,
+    "container": 4000,
+    "dead_drop": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_dd_embassy_cistern",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cistern lid",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_embassy_lobby_bathroom"
+}
