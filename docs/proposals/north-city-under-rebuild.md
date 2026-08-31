@@ -9,10 +9,27 @@
 > doc specifies, so read [the-under.md](the-under.md) for what actually exists;
 > the spec below describes a thing that was built differently.
 >
-> **North City did not.** There are **zero** zones matching `northcity`, and
-> `northcity` is one of twelve authored districts holding no tiles at all (see
-> [district-repair.md](district-repair.md)) — so the government quarter is a
-> named place with prose and no ground. That half of this doc is still live work.
+> **North City is SUPERSEDED, not outstanding** (corrected 2026-08-31 — the restamp
+> a day earlier filed it as live work, which was wrong). The city runs **west–east**,
+> not north–south, and the quarter this doc calls North City — the government zone —
+> is now the **western edge**: the Spire, the Ascension Gate, the Architect Shrine,
+> the Chrome Clinic, the Vats and Halcyon Boulevard. It exists. It is not missing.
+> Nobody should build it again.
+>
+> ⚠ **What IS owed there is development, not construction.** The western edge is
+> thin — it is the Ascendants' and Halcyon's end of the basin and wants more in it —
+> but that is authoring on top of ground that already exists, and it is a different
+> job from the rebuild specified below.
+>
+> ⚠ **The `northcity` district row is a naming problem, not a dead one.** Its
+> authored fiction — *"money lives up here, behind glass and clean air"*, the
+> filtered air, the fountain nobody may drink, the climate curtain breathing
+> scentless money — is a better description of that western edge than `government`'s
+> toner and old marble, which describes a civil-service quarter the city no longer
+> has. The tiles took `government` in the 2026-08-30 repair; the prose that fits them
+> is sitting unused on `northcity` under a name that is now geographically false.
+> ⚠ It also carries the prefix `up`, so a future `zone_upper_*` would silently
+> classify as North City — the same shape as the `util` → Media District bug.
 >
 > Original framing: design blueprint for recreating, inside the
 > generated `bp_district`, the North City government quarter and the `z-1` Under
