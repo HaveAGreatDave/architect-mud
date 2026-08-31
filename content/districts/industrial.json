@@ -1,20 +1,20 @@
 {
-  "blurb": "The machines that keep the city alive live here, and they are tired.",
+  "blurb": "Everyone in Coldwater came through here once, wet and already owing somebody.",
   "color": "#9a8a4f",
   "id": "industrial",
   "landmark": "zone_district_924_911",
-  "name": "the Industrial Flats",
+  "name": "Ironside",
   "prefixes": [
     "coldwater",
     "powerplantnew",
     "warehouse"
   ],
   "signature": [
-    "A turbine’s drone sits under everything, a note the whole flat is tuned to.",
-    "Hot oil, scorched coolant, and the flat metal taste of ozone.",
-    "Steam vents somewhere with a long, exhausted hiss.",
-    "The ground carries a faint, ceaseless machine tremor up through your boots."
+    "Grit off the road finds your teeth before you have walked ten yards.",
+    "Somebody haggles over batteries, loudly, and settles for less.",
+    "The launderette vents hot wet air across the pavement and nobody minds.",
+    "A clone stands in the facility doorway getting used to weather."
   ],
-  "skyline": "the Coldwater cooling stacks trail steam northward",
+  "skyline": "the Clone Facility breathes steam over Ironside Street",
   "sort": 100
 }
