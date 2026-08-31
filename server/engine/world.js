@@ -2,7 +2,7 @@ import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName } from './text.js';
-import { districtFor, loadDistricts } from './districts.js';
+import { districtFor, loadDistricts, registerZoneLookup } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
@@ -116,6 +116,10 @@ async function loadRegions() {
 async function loadDistrictRegistry() {
   const { rows } = await query('SELECT * FROM districts ORDER BY sort, id').catch(() => ({ rows: [] }));
   const n = loadDistricts(rows);
+  // districtFor needs to read a tile's parent to give an interior its building's
+  // district, and cannot import this module without closing a cycle. Injected here,
+  // once, beside the registry it belongs to.
+  registerZoneLookup(getZone);
   // Silence here would be the bad kind: with an empty registry every tile answers
   // with the unloaded placeholder, which reads in-game as a district with no name.
   if (!n) console.warn('⚠ no districts loaded — run npm run content:import (or db:schema for the table)');

@@ -82,15 +82,56 @@ export function loadDistricts(rows = []) {
 
 export function districtsLoaded() { return Object.keys(DISTRICTS).length > 0; }
 
+// The zone lookup, INJECTED rather than imported. world.js imports this file, so
+// importing it back would close a cycle — the same one `broadcast-bridge.js` exists
+// to avoid elsewhere in the engine. Registered once at world init.
+let _getZone = null;
+export function registerZoneLookup(fn) { _getZone = typeof fn === 'function' ? fn : null; }
+
 // The district a zone belongs to. Precedence: an explicit flags.district, then the
-// legacy id-prefix table, then a lethal-zone fallback to hazard, then the urban
-// default. ALWAYS returns an entry — never null, never a throw.
+// building an interior stands inside, then the legacy id-prefix table, then a
+// lethal-zone fallback to hazard, then the urban default. ALWAYS returns an entry —
+// never null, never a throw.
 export function districtFor(zone) {
   const pick = (k) => DISTRICTS[k] || null;
   const fallback = pick(FALLBACK_KEY) || UNLOADED;
   if (!zone) return fallback;
   const override = zone.flags?.district;
   if (override && DISTRICTS[override]) return DISTRICTS[override];
+
+  // ── AN INTERIOR BELONGS TO THE BUILDING IT STANDS IN ────────────────────────
+  // Interiors carry no district of their own, so before this they fell through to
+  // the id-prefix table — and a prefix is a NAMING convention, not a place. It went
+  // wrong in both directions and both were live: every `zone_util_*` plant room
+  // filed as the Media District (fixed 2026-08-30 by dropping that prefix), and
+  // every `zone_mq_*` room filed as the Marquee, which put Precinct 9's lobby, a
+  // sump and a ration counter in the nightlife district — the police station played
+  // "bass thuds through a wall, felt in the teeth before the ears".
+  //
+  // The building overhead is the honest answer and it is already authored, so this
+  // asks it. Dropping a stale prefix fixes one prefix; this fixes the class.
+  //
+  // ⚠ It could only be done AFTER the surface was repaired. On 2026-08-30, 160 of
+  // Coldwater's urban tiles were filed `wasteland`, so inheriting from the parent
+  // would have handed 46 utility rooms a wilderness district and looked like a
+  // regression. Order mattered: fix the ground, then let the insides ask it.
+  //
+  // Sync and query-free, as this function is by contract — `_getZone` is a Map read.
+  // Bounded and cycle-guarded because a mis-authored `parent_zone` must degrade to
+  // the old behaviour, never hang the move/describe/ambient path it sits on.
+  if (zone.parent_zone && _getZone) {
+    const seen = new Set([zone.id]);
+    let cur = zone;
+    for (let hop = 0; hop < 8 && cur?.parent_zone; hop++) {
+      if (seen.has(cur.parent_zone)) break;
+      seen.add(cur.parent_zone);
+      cur = _getZone(cur.parent_zone);
+      if (!cur) break;
+      const inherited = cur.flags?.district;
+      if (inherited && DISTRICTS[inherited]) return DISTRICTS[inherited];
+    }
+  }
+
   const p = (zone.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
   const key = DISTRICT_PREFIX[p] || (zoneDanger(zone) === 'lethal' ? HAZARD_KEY : FALLBACK_KEY);
   return pick(key) || fallback;
