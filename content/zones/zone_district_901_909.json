@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Dead Space Interiors",
     "building_type": "shop",
-    "district": "government",
+    "district": "glasshouse",
     "entrance": "east",
     "facade": true,
     "is_building": true,

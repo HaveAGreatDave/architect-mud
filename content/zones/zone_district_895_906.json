@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Halcyon Towers",
     "building_type": "corporate_office",
-    "district": "government",
+    "district": "glasshouse",
     "entrance": "west",
     "facade": true,
     "floors": 21,

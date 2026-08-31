@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Grind House",
     "building_type": "blade_shop",
-    "district": "ashway",
+    "district": "nightlife",
     "entrance": "north",
     "facade": true,
     "is_building": true,

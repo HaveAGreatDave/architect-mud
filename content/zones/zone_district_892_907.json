@@ -12,7 +12,7 @@
     "ascendant_campus": true,
     "building_name": "Architect Shrine",
     "building_type": "asc_shrine",
-    "district": "government",
+    "district": "glasshouse",
     "entrance": "south",
     "facade": true,
     "floors": 10,

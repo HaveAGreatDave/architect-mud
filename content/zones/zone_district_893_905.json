@@ -12,7 +12,7 @@
     "ascendant_campus": true,
     "building_name": "Chrome Clinic",
     "building_type": "asc_clinic",
-    "district": "government",
+    "district": "glasshouse",
     "entrance": "east",
     "facade": true,
     "floors": 6,

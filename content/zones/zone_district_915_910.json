@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Co-Pay & Pray",
     "building_type": "clinic",
-    "district": "media",
+    "district": "marrow",
     "entrance": "north",
     "facade": true,
     "is_building": true,

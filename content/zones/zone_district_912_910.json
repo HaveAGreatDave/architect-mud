@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "The Deadline",
     "building_type": "bar",
-    "district": "ashway",
+    "district": "nightlife",
     "entrance": "north",
     "facade": true,
     "is_building": true,

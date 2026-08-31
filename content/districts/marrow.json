@@ -1,0 +1,16 @@
+{
+  "blurb": "Everyone on this street lives above the shop they queue in.",
+  "color": "#c8823f",
+  "id": "marrow",
+  "landmark": "zone_district_916_908",
+  "name": "the Marrow",
+  "prefixes": [],
+  "signature": [
+    "A shutter goes up somewhere down the row, then another, in no hurry.",
+    "Somebody’s radio leaks from a window two floors up, and nobody looks.",
+    "Frying oil and drain water braid together the length of the pavement.",
+    "A price is chalked on a board, rubbed out, and chalked again a little higher."
+  ],
+  "skyline": "the shutters of Marrow Street run off into the haze",
+  "sort": 55
+}

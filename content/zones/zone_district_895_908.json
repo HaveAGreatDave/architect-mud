@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Voltage",
     "building_type": "nightclub",
-    "district": "government",
+    "district": "glasshouse",
     "entrance": "west",
     "facade": true,
     "is_building": true,
