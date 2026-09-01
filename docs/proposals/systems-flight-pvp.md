@@ -5,8 +5,10 @@ Blueprint for player-vs-player air combat on the continuous flight sim. Companio
 
 > **Status: Phases A–C BUILT** (A contacts 2026-07-05 · B guns 2026-07-05 · C missiles
 > 2026-07-11) — regress green, client modules parse clean, **browser-unverified** (standing
-> caveat: needs a live tuning pass). Server restart + client hard-refresh to go live. Phase D
-> (polish) still design. See the Phasing section.
+> caveat: needs a live tuning pass). Server restart + client hard-refresh to go live.
+> **Phase D is three-quarters built** (restamped 2026-09-01 against the code, not against the
+> plan): the kill feed and the ⚙ sliders ship, the XP is awarded but wants a balance pass, and
+> only the *optional* airspace heat is genuinely absent. See the Phasing section.
 
 ## Locked design decisions
 
@@ -208,9 +210,27 @@ under lag. The generous gate + guaranteed defender roll keep it from feeling bro
   hull-out → `crash(…, byPlayer)` kill attribution. `airlock`/`airunlock`/`flares` registered in
   plugin.json. regress 799/800 (the 1 fail is a pre-existing elevator/content issue, present
   without these changes). Browser-unverified — needs the standing live tuning pass.
-- **Phase D — Polish:** kill feed, `piloting` XP tuning, in-cockpit ⚙ balance sliders, and the
-  *optional* wanted/interceptor heat for kills over civil airspace (hooks the existing
-  `WANTED_RAISE` + `airspace_restricted` scaffolding).
+- **Phase D — Polish: three of four BUILT.** Checked against the code 2026-09-01, because this
+  bullet had read as four open items since July while most of it was shipping.
+  - **Kill feed — ✅ BUILT.** `#fsim-killfeed` in the cockpit (cockpit.js), fed by the server's
+    `flight_kill` push from both kill paths: `crash()`'s ★ SPLASH ONE for an air-to-air kill
+    (state.js) and `announceKill` for a strafing kill (combat.js).
+  - **In-cockpit ⚙ balance sliders — ✅ BUILT.** `#fsim-tunebtn` opens `RENDER_TUNE`, ~60 live
+    knobs in collapsible sections on a draggable panel, shared with windshield.js so a change
+    lands on the next frame.
+  - **`piloting` XP — awarded, but ⚠ the balance is inverted.** The award is live on every combat
+    path, but the third argument to `awardSkillUse` is a **margin**, and `chance = base / (1 +
+    |margin| × scale)` — so a *bigger* number pays *less*. Today a gun hit passes 1 (≈33%/roll)
+    while a missile impact passes 2 (≈20%), and a gun burst rolls repeatedly across a pass. The
+    scarce, ammo-limited weapon therefore trains piloting more slowly than the free one, which is
+    backwards. Fixing it is the balance pass this item was always about; nothing needs building.
+  - **Wanted / interceptor heat for kills over civil airspace — ✗ NOT BUILT**, and still
+    *optional*, never a gate. The scaffolding it would hook is all standing: `WANTED_RAISE` fires
+    for aircraft theft and for violating `airspace_restricted` (index.js), and a *ground strafe*
+    already charges assault and murder in the target tile (combat.js). What charges nothing is
+    shooting another player's aircraft down — `crash()` runs `handlePlayerDeath` with the killer
+    attributed, and `handlePlayerDeath` does not charge a crime. Free-fire everywhere remains the
+    locked rule; this would only put a price on doing it over the city.
 
 ## Open risks / accepted tradeoffs
 

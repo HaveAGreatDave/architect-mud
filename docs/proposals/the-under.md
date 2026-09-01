@@ -1,14 +1,16 @@
-# The Under — The Sewer Layer (Proposal & Phased Build Plan)
+# The Under — The Sewer Layer (as built)
 
-**Status:** Reframed 2026-07-12 as a **sewer layer** — the municipal storm/waste network
-beneath Coldwater Basin at `map_world` grid_z −1. This supersedes the earlier "metro-first"
-framing of this doc: the walkable sewer tunnels **are** the canonical z-1 layer, and the old
-transit/cavern ideas become **future overlays** on this same geometry (see
-[Future overlays](#future-overlays)). **Phase 1 and Dredge's deep chain are BUILT and committed**
-(stamped 2026-07-24 by doc audit; Phase 1 was still marked "the current deliverable" and the deep
-chain "uncommitted"): 117 `zone_under_*` zones, `quest_down_the_drain` + `quest_under_salvage` /
-`_deepcuts` / `_apex`, `npc_dredge`, the four `enemy_sewer_*`, and both `scav_sewer` / `scav_deep`
-tables are all in `content/`. The **future overlays** section is still unbuilt.
+**Status: BUILT.** The Under is the municipal storm/waste network beneath Coldwater Basin at
+`map_world` grid_z −1, and it ships: 118 `zone_under_*` zones, `quest_down_the_drain` +
+`quest_under_salvage` / `_deepcuts` / `_apex`, `npc_dredge`, the `enemy_sewer_*` bestiary, and both
+`scav_sewer` / `scav_deep` tables, all in `content/`. It is reached by `up`/`down` storm-drain seams
+from the surface, it is pitch dark, and the flashlight is the key. The body below is the design that
+produced it, kept for its reasoning; where it and the world disagree, the world wins.
+
+The 2026-07-12 reframing this doc records still holds: the walkable sewer tunnels **are** the
+canonical z-1 layer, and the older metro/cavern ideas are **separate future systems layered on the
+same geometry** ([Future overlays](#future-overlays)) — not outstanding work on the Under. Likewise
+the district expansion below is how the layer grows wing by wing, not a gap in it.
 
 ## What The Under is
 

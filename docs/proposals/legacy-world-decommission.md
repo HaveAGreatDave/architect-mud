@@ -5,7 +5,8 @@
 > tiles, and the surface is the 888-tile `zone_district_*` grid. The gov-quarter security
 > recipe survives only as a dormant config awaiting the rebuild
 > (`plugins/checkpoint/plugin.json`, "the gov-quarter recipe is dormant for the North City
-> rebuild"); the rebuild spec is [north-city-under-rebuild.md](north-city-under-rebuild.md).
+> rebuild"). ⚠ There is no rebuild spec any more — `north-city-under-rebuild.md` was retired on
+> 2026-09-01 as a stale plan, so that dormant config is waiting on a design that no longer exists.
 > Kept as the record of what was salvaged vs. abandoned. Approved direction was: *fully replace the old `map_world`
 > exterior overworld with the generated 888-zone `bp_district`, salvaging only the
 > load-bearing pieces and deleting the rest.* This doc is the reviewable safety gate

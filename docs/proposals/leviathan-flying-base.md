@@ -1,5 +1,20 @@
 # The Leviathan Flying Base — Walkable MUD Cabin on a Flying Aircraft
 
+> **Status: BUILT — the walkable flying base ships.** Four authored cabin zones
+> (`zone_leviathan_flightdeck` / `_cabin` / `_galley` / `_hold`, plus the belly hold under the
+> cabin) on `content/maps/map_aircraft_leviathan.json`, boarded through `isWalkableCabin` /
+> `boardCabin` in [plugins/flight/charter.js](../../plugins/flight/charter.js). You walk her
+> fore-and-aft while she flies, `take controls` at the flight deck to drop into the cockpit sim,
+> `nav` to chart the crew's course, and `handoff` to step back out. Regress covers the layout, the
+> walk aft, and both handoff cases in [plugins/flight/regress.js](../../plugins/flight/regress.js).
+> The Leviathan herself is an ordinary dealer aircraft
+> (`content/aircraft_types/ac_leviathan.json`, ₵26,000).
+>
+> **Still design:** the later roadmap phases below — the owner-keyed storage locker, the 2a
+> persistent-landmark logoff, the decor/customization overlay, and **2b**, the north star, where
+> the base stays walkable while the owner is offline. The body of this doc is the design that
+> produced the built half, kept for its reasoning; where it and the code disagree, the code wins.
+
 ## Context
 Make the **Leviathan** a walkable, ownable, customizable **flying base**: real MUD zones you walk with
 `n/s/e/w` while the plane flies, flyable by the owner/a player *or* an optional NPC pilot, with everyone
