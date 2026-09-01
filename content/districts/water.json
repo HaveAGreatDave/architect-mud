@@ -2,7 +2,7 @@
   "blurb": "The bay is cold all the way down, and keeps what it takes.",
   "color": "#2f86cc",
   "id": "water",
-  "landmark": "bay_breakwater",
+  "landmark": "zone_district_909_902",
   "name": "Coldwater Bay",
   "prefixes": [
     "bay"
@@ -13,6 +13,6 @@
     "The salt air is so raw it scours the back of your throat.",
     "A buoy bell tolls somewhere in the murk, unhurried."
   ],
-  "skyline": "the breakwater's warning light sweeps the fog",
+  "skyline": "the pier lights smear out flat across the water",
   "sort": 90
 }

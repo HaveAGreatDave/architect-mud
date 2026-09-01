@@ -2,7 +2,7 @@
   "blurb": "The city keeps its paperwork and its promises here, neither in great repair.",
   "color": "#4bb36a",
   "id": "civic",
-  "landmark": "civ_steps",
+  "landmark": null,
   "name": "the Civic Center",
   "prefixes": [
     "city",

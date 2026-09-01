@@ -2,7 +2,7 @@
   "blurb": "Every wall here is listening, and most of them file a report.",
   "color": "#b56fbf",
   "id": "government",
-  "landmark": "gov_assembly",
+  "landmark": null,
   "name": "the Government District",
   "prefixes": [
     "gov"

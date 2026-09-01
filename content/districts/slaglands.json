@@ -2,7 +2,7 @@
   "blurb": "They smelt the future here and dump what’s left of the past.",
   "color": "#e5822a",
   "id": "slaglands",
-  "landmark": "slag_flarestack",
+  "landmark": null,
   "name": "the Slaglands",
   "prefixes": [
     "slag"

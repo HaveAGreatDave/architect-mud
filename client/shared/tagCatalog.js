@@ -586,7 +586,7 @@
 
     is_interior: { label: 'Interior', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Indoors — weather/temperature/lighting use the interior model.' },
-    is_dreamzone: { label: 'Dreamzone', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
+    is_dreamzone: { label: 'Dreamzone', shape: 'flag', scope: 'zone', group: 'Zone: Structure', runtime: true,
       help: 'RETIRED — do not use. Marked the old SHARED authored dreamzones, where two people on the same drug met each other inside the hallucination. Every dream and trip is instanced now (private, RAM-only rooms). Kept only so the login rescue still recognises a legacy row.' },
     is_apartment: { label: 'Apartment', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Rentable apartment zone (RENT / LOCK / SLEEP). Pairs with an apartments row.' },
@@ -682,7 +682,7 @@
       help: 'Open-deck soundscape: gulls, surf and rigging play here (client yacht-ambience). Set on open-air deck zones so the naval bed is heard on deck but not in the suites/engineering.' },
     engine_ambience: { label: 'Engine Ambience', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'Engine-room rumble plays here (client yacht-ambience), swelling while she makes way (yacht_underway). Set on the engine spaces.' },
-    heading: { label: 'Heading (deg)', shape: 'number', scope: 'zone', group: 'Zone: Echelon',
+    heading: { label: 'Heading (deg)', shape: 'number', scope: 'zone', group: 'Zone: Echelon', runtime: true,
       help: 'RUNTIME-only: the vessel\'s last steered course in degrees (0=N, bow-north), injected onto the live Echelon exterior zone by the yacht plugin from the persisted world flag. Not authored in content — catalogued so the persisted state validates on the zone-flags sweep.' },
 
     aircraft_cabin: { label: 'Aircraft Cabin', shape: 'text', scope: 'zone', group: 'Zone: Aircraft',

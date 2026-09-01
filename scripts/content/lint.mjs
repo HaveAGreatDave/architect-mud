@@ -306,8 +306,16 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       // cleanup this whole mechanism is built to prevent: someone deletes the
       // catalog entry, the palette keeps presetting a key nothing validates, and
       // the preset and its readers drift apart again.
+      // `runtime: true` entries are exempt for the same reason `preset` ones are, one
+      // step further along: the flag is never AUTHORED at all. `heading` is injected
+      // onto the live Echelon zone by the yacht plugin as she steers, and
+      // `is_dreamzone` is retired and survives only so the login rescue recognises a
+      // legacy row. Both say so in their own `help` text, and neither can ever appear
+      // on a tile in `content/` — so listing them here trained the reader to scroll
+      // past a warning whose other five entries are real: a built feature that no
+      // author has opted a tile into yet, which is worth knowing about.
       const dead = Object.entries(CATALOG)
-        .filter(([k, d]) => d?.scope === 'zone' && !d.preset && !usedFlags.has(k))
+        .filter(([k, d]) => d?.scope === 'zone' && !d.preset && !d.runtime && !usedFlags.has(k))
         .map(([k]) => k);
       if (dead.length) warnings.push(`${dead.length} zone flag(s) catalogued but on no tile: ${dead.join(', ')}`);
     }
