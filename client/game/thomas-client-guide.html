@@ -25,6 +25,14 @@ header.hero{border-bottom:1px solid var(--line);padding-bottom:1.5rem;margin-bot
 h1{font-size:clamp(1.8rem,5vw,2.6rem);margin:0 0 .3rem;letter-spacing:-.02em}
 h1 small{display:block;font-size:.9rem;font-weight:400;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.5rem}
 .lede{color:var(--dim);max-width:46rem;margin:0}
+/* Sideways link out of the hero: this page documents the CLIENT, the tour covers
+   the platform around it. Sits under the lede so it reads as a companion rather
+   than as navigation the reader has to deal with first. */
+.seealso{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .6rem;
+  max-width:46rem;margin:1.1rem 0 0;padding-top:.9rem;border-top:1px solid var(--line);font-size:.92rem}
+.seealso a{font-weight:600;text-decoration:none;white-space:nowrap}
+.seealso a:hover{text-decoration:underline}
+.seealso span{color:var(--dim)}
 h2{margin:3rem 0 .75rem;font-size:1.4rem;letter-spacing:-.01em;
   border-left:3px solid var(--accent);padding-left:.6rem}
 h3{margin:2rem 0 .5rem;font-size:1.06rem;color:var(--accent)}
@@ -72,6 +80,9 @@ hr{border:0;border-top:1px solid var(--line);margin:2.5rem 0}
 speedwalk, split windows, logging &mdash; built into the browser, with nothing to install and nothing to
 configure. Your setup follows your account, not your machine. This page is all of it, with the
 exact syntax and the traps worth knowing.</p>
+<p class="seealso"><a href="/thomas-tour.html">More about THOMAS &rarr;</a>
+<span>An illustrated tour of the platform this client is part of &mdash; the engine,
+the world editors and the VINE graph tools the game is built with.</span></p>
 </header>
 
 <nav class="toc" aria-label="Contents">

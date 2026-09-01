@@ -1,0 +1,741 @@
+<title>THOMAS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────────────────────
+   Palette is THOMAS's own "Void" theme, lifted from client/devpanel/styles.css
+   and client/shared/themes.css — the default both the dev panel and the game
+   client boot in. This page commits to that one visual world (it is a terminal),
+   so there is no light variant; every colour is painted explicitly instead.
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  --bg:        #05050a;
+  --bg2:       #0d0d16;
+  --bg3:       #15151f;
+  --border:    #2a2a40;
+  --text:      #e8e8f5;
+  --dim:       #8888a8;
+  --bright:    #ffffff;
+  --accent:    #ff2ec4;   /* the platform / dev panel */
+  --green:     #39ff8f;   /* VineDialogue */
+  --orange:    #ff9a3c;   /* VineAI, and the game client's own accent */
+  --cyan:      #28e5ff;   /* VineScripts */
+  --purple:    #b86bff;
+  --yellow:    #f5e642;
+
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+
+  --rail: 236px;
+  --measure: 68ch;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation: none !important; transition: none !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 16.5px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+/* ── Shell ─────────────────────────────────────────────────────────────────── */
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); }
+
+/* ── Left rail: deliberately the dev panel's own nav, because that IS how you
+      move through this system. Section = the route you'd take to reach it. ── */
+.rail {
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; overflow-y: auto;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 20px 0 40px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.rail-mark { display: flex; align-items: center; gap: 9px; padding: 0 16px 18px; color: var(--accent); }
+.rail-mark svg { width: 26px; height: 26px; flex: none; }
+.rail-mark b { font-size: 14px; font-weight: 700; letter-spacing: 3px; color: var(--accent); }
+.rail-group {
+  padding: 16px 16px 6px; color: var(--dim);
+  font-size: 9.5px; letter-spacing: 2.2px; text-transform: uppercase;
+}
+.rail a {
+  display: block; padding: 5px 16px; color: var(--text); text-decoration: none;
+  border-left: 2px solid transparent;
+}
+.rail a:hover { background: var(--bg3); color: var(--bright); }
+.rail a.on { border-left-color: var(--accent); color: var(--accent); background: var(--bg3); }
+.rail-foot { padding: 22px 16px 0; color: var(--dim); font-size: 10px; line-height: 1.7; }
+/* Back to the guide family this page hangs off. Only the served build renders
+   it — the standalone file may be read with no site behind it. */
+.rail-back {
+  display: block; margin: 0 0 16px; padding: 7px 16px;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  color: var(--dim); text-decoration: none; font-size: 11px;
+}
+.rail-back:hover { background: var(--bg3); color: var(--accent); }
+
+.main { min-width: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 40px; }
+
+/* ── Hero: the boot splash, which is the one place the name THOMAS actually
+      appears in the running product. ─────────────────────────────────────── */
+.hero {
+  position: relative; overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(120% 90% at 50% -10%, #1b0a19 0%, transparent 62%),
+    var(--bg);
+  padding: 92px 0 76px;
+}
+.hero::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(255,255,255,.028) 0 1px, transparent 1px 3px);
+}
+.hero-in { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+.hero svg.mark { width: 92px; height: 92px; color: var(--accent); }
+.hero-name {
+  font-family: var(--mono); font-weight: 700;
+  font-size: clamp(46px, 9vw, 88px); letter-spacing: clamp(6px, 2vw, 18px);
+  color: var(--bright); margin: 14px 0 0; line-height: 1;
+  text-indent: clamp(6px, 2vw, 18px); /* balance the trailing letter-space */
+}
+.hero-exp {
+  font-family: var(--mono); font-size: 13px; letter-spacing: .6px;
+  color: var(--dim); margin: 0; max-width: 62ch;
+}
+.hero-exp b { color: var(--accent); font-weight: 700; }
+.hero-rule { width: 64px; height: 1px; background: var(--accent); margin: 24px 0 4px; opacity: .8; }
+.hero-thesis {
+  font-family: var(--serif); font-size: 19px; line-height: 1.6;
+  max-width: 60ch; margin: 14px 0 0; color: var(--text); text-wrap: balance;
+}
+.hero-thesis em { color: var(--bright); font-style: italic; }
+.hero-by { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 1px; margin-top: 22px; }
+
+/* ── Spec strip ────────────────────────────────────────────────────────────── */
+.spec {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  border-bottom: 1px solid var(--border); background: var(--bg2);
+}
+.spec div {
+  padding: 20px 18px; border-right: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.spec div:last-child { border-right: 0; }
+.spec dt { color: var(--dim); font-size: 9.5px; letter-spacing: 1.8px; text-transform: uppercase; margin: 0 0 6px; }
+.spec dd {
+  margin: 0; font-size: 25px; font-weight: 700; color: var(--bright);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.spec dd s { text-decoration: none; color: var(--accent); }
+
+/* ── Sections ──────────────────────────────────────────────────────────────── */
+section { padding: 78px 0 8px; border-bottom: 1px solid var(--border); }
+section:last-of-type { border-bottom: 0; }
+
+.eyebrow {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 2.4px; text-transform: uppercase;
+  color: var(--accent); margin: 0 0 12px; display: flex; align-items: center; gap: 10px;
+}
+.eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; flex: none; }
+h2 {
+  font-family: var(--mono); font-weight: 700; font-size: clamp(26px, 3.4vw, 38px);
+  letter-spacing: -.5px; color: var(--bright); margin: 0 0 18px; text-wrap: balance; line-height: 1.15;
+}
+h3 {
+  font-family: var(--mono); font-weight: 700; font-size: 16px; letter-spacing: .3px;
+  color: var(--bright); margin: 44px 0 10px;
+}
+.lede { font-size: 18.5px; max-width: var(--measure); margin: 0 0 6px; }
+p { max-width: var(--measure); margin: 0 0 16px; }
+p.wide { max-width: 92ch; }
+strong { color: var(--bright); font-weight: 600; }
+code {
+  font-family: var(--mono); font-size: .86em; color: var(--cyan);
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px;
+}
+
+/* ── Screenshot frame: a bezel with a chrome bar naming the real route. ────── */
+figure { margin: 26px 0 34px; }
+.frame {
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  background: var(--bg2); box-shadow: 0 18px 46px rgba(0,0,0,.55);
+}
+.frame-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: var(--bg3); border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--dim);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; box-shadow: 0 0 8px currentColor; color: var(--accent); }
+.dot.g { background: var(--green); color: var(--green); }
+.dot.o { background: var(--orange); color: var(--orange); }
+.dot.c { background: var(--cyan); color: var(--cyan); }
+.frame-bar b { color: var(--text); font-weight: 500; letter-spacing: 1.4px; }
+.frame img { display: block; width: 100%; height: auto; background: var(--bg); }
+figcaption {
+  font-family: var(--mono); font-size: 12px; line-height: 1.65; color: var(--dim);
+  margin-top: 10px; max-width: 96ch;
+}
+figcaption b { color: var(--text); font-weight: 500; }
+
+/* ── Card grid for the content editors ─────────────────────────────────────── */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); gap: 30px; margin: 30px 0 34px; }
+.card { display: flex; flex-direction: column; }
+.card .frame { flex: none; }
+.card h4 {
+  font-family: var(--mono); font-size: 12.5px; letter-spacing: .6px; color: var(--bright);
+  margin: 12px 0 5px; font-weight: 700;
+}
+.card p { font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--dim); margin: 0; max-width: none; }
+
+/* ── Callout ───────────────────────────────────────────────────────────────── */
+.note {
+  border-left: 2px solid var(--accent); background: var(--bg2);
+  padding: 18px 22px; margin: 28px 0; max-width: 82ch;
+}
+.note p:last-child { margin-bottom: 0; }
+.note .tag {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--accent); display: block; margin-bottom: 8px;
+}
+.note.c { border-left-color: var(--cyan); } .note.c .tag { color: var(--cyan); }
+
+/* ── Family key for VINE ───────────────────────────────────────────────────── */
+.fams { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); margin: 26px 0 34px; }
+.fam { background: var(--bg2); padding: 18px 18px 20px; }
+.fam b { font-family: var(--mono); font-size: 13.5px; display: block; margin-bottom: 4px; }
+.fam span { font-family: var(--mono); font-size: 11.5px; color: var(--dim); line-height: 1.6; display: block; }
+.fam.q b { color: var(--accent); } .fam.d b { color: var(--green); }
+.fam.a b { color: var(--orange); } .fam.s b { color: var(--cyan); }
+
+/* ── Plain data table ──────────────────────────────────────────────────────── */
+.tblwrap { overflow-x: auto; margin: 24px 0 34px; }
+table { border-collapse: collapse; font-family: var(--mono); font-size: 12px; min-width: 520px; width: 100%; }
+th, td { text-align: left; padding: 8px 16px 8px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--dim); font-weight: 500; font-size: 9.5px; letter-spacing: 1.8px; text-transform: uppercase; }
+td.n { font-variant-numeric: tabular-nums; color: var(--bright); }
+td b { color: var(--text); font-weight: 500; }
+
+footer {
+  border-top: 1px solid var(--border); background: var(--bg2);
+  padding: 40px 0 60px; font-family: var(--mono); font-size: 11.5px; color: var(--dim);
+}
+footer p { max-width: 80ch; }
+
+@media (max-width: 1000px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  .wrap { padding: 0 22px; }
+}
+</style>
+
+<div class="shell">
+
+<nav class="rail" aria-label="Contents">
+  <div class="rail-mark">
+    <svg class="" viewBox="0 0 120 120" aria-hidden="true">
+  <g fill="none" stroke="currentColor" stroke-width="1" opacity=".55">
+    <path d="M60 6 L114 36 L60 66 L6 36 Z"/>
+    <path d="M60 24 L87 39 M60 24 L33 39 M33 39 L60 54 L87 39"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round">
+    <path d="M38 44 L60 56 L82 44 L82 84 L60 96 L38 84 Z"/>
+    <path d="M60 56 L60 96"/>
+    <path d="M38 58 L60 70 L82 58 M38 72 L60 84 L82 72"/>
+  </g>
+  <path d="M60 56 L60 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+</svg>
+    <b>THOMAS</b>
+  </div>
+  <a class="rail-back" href="/thomas-client-guide.html">&larr; Power User Guide</a>
+  <div class="rail-group">Platform</div>
+  <a href="#client" class="on">The client</a>
+  <a href="#panel">The dev panel</a>
+  <div class="rail-group">World</div>
+  <a href="#world">World map</a>
+  <a href="#terrain">Terrain painter</a>
+  <a href="#studio">The Studio</a>
+  <div class="rail-group">VINE</div>
+  <a href="#vine">The suite</a>
+  <a href="#dialogue">VineDialogue</a>
+  <a href="#ai">VineAI</a>
+  <a href="#scripts">VineScripts &amp; Quest</a>
+  <div class="rail-group">Authoring</div>
+  <a href="#content">Content editors</a>
+  <a href="#audio">Audio &amp; broadcast</a>
+  <div class="rail-group">Runtime</div>
+  <a href="#sim">Live simulation</a>
+  <a href="#ops">Ops &amp; rails</a>
+  <div class="rail-foot">
+    Screenshots captured from a<br>local build, 31 Aug 2026.<br>
+    Live world &middot; 131 plugins.
+  </div>
+</nav>
+
+<main class="main">
+
+<header class="hero">
+  <div class="wrap hero-in">
+    <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
+  <g fill="none" stroke="currentColor" stroke-width="1" opacity=".55">
+    <path d="M60 6 L114 36 L60 66 L6 36 Z"/>
+    <path d="M60 24 L87 39 M60 24 L33 39 M33 39 L60 54 L87 39"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round">
+    <path d="M38 44 L60 56 L82 44 L82 84 L60 96 L38 84 Z"/>
+    <path d="M60 56 L60 96"/>
+    <path d="M38 58 L60 70 L82 58 M38 72 L60 84 L82 72"/>
+  </g>
+  <path d="M60 56 L60 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+</svg>
+    <h1 class="hero-name">THOMAS</h1>
+    <p class="hero-exp"><b>T</b>he <b>H</b>ypermedia <b>O</b>nline <b>M</b>ultiplayer <b>A</b>dventure <b>S</b>ystem</p>
+    <div class="hero-rule"></div>
+    <p class="hero-thesis">A client and engine for real-time text worlds &mdash; and the editors you build one with. <em>Architect</em> is the game that runs on it. It is not the only one that could.</p>
+    <p class="hero-by">by David Lacey and John Akerson</p>
+  </div>
+</header>
+
+<dl class="spec">
+  <div><dt>Plugins at boot</dt><dd>131</dd></div>
+  <div><dt>Engine modules</dt><dd>111</dd></div>
+  <div><dt>Editor screens</dt><dd>42</dd></div>
+  <div><dt>Tables</dt><dd>150</dd></div>
+  <div><dt>Content files</dt><dd>41,419</dd></div>
+  <div><dt>Build step</dt><dd><s>none</s></dd></div>
+</dl>
+
+<div class="wrap">
+
+<!-- ── THE CLIENT ────────────────────────────────────────────────────────── -->
+<section id="client">
+  <p class="eyebrow">Runtime &middot; what a player sees</p>
+  <h2>The client</h2>
+  <p class="lede">Raw WebSockets, vanilla JavaScript, one HTML file per client and a sibling stylesheet. No framework, no bundler, no build step &mdash; what is in the repo is what the browser runs.</p>
+  <p>The room is prose, and everything around it is instrumentation: a minimap, vitals, a D-pad, the environment block (clock, in-world date, temperature, light, rest, dryness), who else is here, and a smartbar that offers only the verbs this room can actually take. Nouns in the description are live &mdash; the camera, the furniture, the exits are all clickable.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot o"></span><b>Architect</b> &middot; game client</div>
+      <img src="/assets/thomas/client-00.webp" alt="The Architect game client showing a room description, vitals, minimap, D-pad and smartbar" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption><b>Coldwater Clone Facility.</b> Vitals, minimap and D-pad on the rail; the smartbar along the bottom carries <b>Switch (2)</b>, <b>Examine (8)</b>, <b>Use (2)</b> &mdash; counts derived from what is in the room, not a fixed toolbar. The wanted-star meter is at the top; the tile is flagged <b>[SAFE]</b>.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot o"></span><b>Architect OS</b> &middot; the in-world tablet</div>
+      <img src="/assets/thomas/client-01-tablet.webp" alt="The in-world tablet, Architect OS, showing a grid of sixteen apps" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption>Sixteen apps on one screen &mdash; map, inventory, vitals, quests, chat, bank, crime record, skills, crafting, news, music, calendar, TV, codex, help and settings. Everything the surrounding interface has no room for. First-run guidance is part of the client, not a wiki.</figcaption>
+  </figure>
+
+  <div class="note">
+    <span class="tag">One surface, three rungs</span>
+    <p>Every system with both a graphical presentation and a written one answers to a single player preference: <strong>visual</strong>, <strong>textgames</strong>, or <strong>log</strong>. At the bottom rung the panels stand down and the record reaches the log instead, so the whole game remains playable through a screen reader. That ladder is engine-level, not a per-feature afterthought.</p>
+  </div>
+</section>
+
+<!-- ── THE DEV PANEL ─────────────────────────────────────────────────────── -->
+<section id="panel">
+  <p class="eyebrow">/dev</p>
+  <h2>The dev panel</h2>
+  <p class="lede">Forty-two screens pointed at the running world. Not a CMS bolted on afterwards &mdash; the panel is how the world is made, and its own chrome reads <span style="font-family:var(--mono);font-size:13px;color:var(--dim)">POWERED BY THOMAS</span>.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>Dashboard</b> &middot; /dev</div>
+      <img src="/assets/thomas/p-dashboard.webp" alt="The dev panel dashboard with server status, weather forecast and player activity chart" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption><b>Live server status, active players, and world health at a glance.</b> Server time runs on the in-world calendar (20 Dec 2076, winter, thunderstorm, 19&deg;C) with a seven-day forecast beside it. 441 live enemies. The right rail carries feature switches &mdash; ESP, the mature layer, email verification, registrations &mdash; and the deploy window counts down to the next publish.</figcaption>
+  </figure>
+
+  <p>Sessions are role-gated (<code>admin</code>, <code>dev</code>, <code>builder</code>, <code>designer</code>), and two buttons cross the boundary into the game itself: <b>Ghost Mode</b> drops you into any zone unseen, and <b>Play</b> hands your session to the game client so you land in-world as your own character.</p>
+</section>
+
+<!-- ── WORLD MAP ─────────────────────────────────────────────────────────── -->
+<section id="world">
+  <p class="eyebrow">/dev &rarr; world map</p>
+  <h2>Regions on a global grid</h2>
+  <p class="lede">The world is regions placed on one grid. Create a new one by naming a size and a base terrain, drag it to reposition, double-click to fall into its tiles.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>World Map</b></div>
+      <img src="/assets/thomas/p-world.webp" alt="The World Map panel showing five regions placed on a global grid" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption>Five regions, each drawn from its own terrain snapshot. <b>Coldwater</b> 93&times;52 &middot; 4,837 tiles &mdash; <b>Deadwater</b> 93&times;52 &middot; 4,836 &mdash; <b>The Scarletwastes</b> 93&times;52 &middot; 4,836 &mdash; <b>Terminus</b> 40&times;40 &middot; 1,600 &mdash; <b>The Reach</b> 20&times;20 &middot; 400. Changes stage rather than publish.</figcaption>
+  </figure>
+</section>
+
+<section id="terrain">
+  <p class="eyebrow">/dev &rarr; region maps</p>
+  <h2>The terrain painter</h2>
+  <p class="lede">Inside a region, tiles are painted. Roads auto-tile into junctions from their neighbours; the brush writes <code>flags.terrain</code>, which is the single source of truth for ground surface everywhere downstream &mdash; minimap, tablet, pacing, footstep audio.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>Region Maps</b> &middot; Coldwater, painting terrain</div>
+      <img src="/assets/thomas/p-maps.webp" alt="The Region Maps panel painting terrain on Coldwater, with the surface palette open" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption><b>Visual layout editor for connected zone maps.</b> The floating palette carries the full surface vocabulary &mdash; road, dirt road, asphalt, concrete, grass, park, forest, sand, gravel, dock, water, scrubland, red rock, hardpan, alkali flat, plateau, basalt, dead stand, sinter crust, hot spring, ramp, cliff face, scree slope. Above the canvas the panel is running a live geometry check: <b>no geometry errors</b>, but three one-way connections missing a return exit, each with a one-click fix.</figcaption>
+  </figure>
+
+  <p>Buildings, floors and z-levels are handled in the same view &mdash; <code>z = 0</code> is the street, and the Interior tab holds the rooms behind the facades.</p>
+</section>
+
+<!-- ── THE STUDIO ────────────────────────────────────────────────────────── -->
+<section id="studio">
+  <p class="eyebrow">localhost:5180</p>
+  <h2>The Studio &mdash; a map editor that edits files</h2>
+  <p class="lede">A second, deliberately separate editor with <strong>no database in the process at all</strong>. It reads and writes the content tree and nothing else.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>Architect Studio</b> &middot; map authoring &mdash; files, not database</div>
+      <img src="/assets/thomas/studio-00.webp" alt="The Studio map editor showing all five regions and a tile inspector" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption>All five regions drawn at once &mdash; 16,712 tiles. Every fill and glyph comes from the same derive pass the content import runs, so the preview cannot show a colour the build would not produce. The status bar lints continuously (<b>lint clean &middot; 2 warnings</b>), and the right pane lists the 136 exits that lead off this map. Thirty-one themes ship with it.</figcaption>
+  </figure>
+
+  <div class="note c">
+    <span class="tag">Why two map editors</span>
+    <p>The dev panel edits the live database; the Studio edits files. They are two processes because the Studio parses the whole content tree to lint, which inside the game server would stall the tick loop. The panel says so itself, in the banner above its own canvas: <em>don't run both on the same tiles in one sitting.</em></p>
+  </div>
+</section>
+
+<!-- ── VINE ──────────────────────────────────────────────────────────────── -->
+<section id="vine">
+  <p class="eyebrow">/dev &rarr; vine suite</p>
+  <h2>VINE</h2>
+  <p class="lede">The graph layer. Four families of node graph, one canvas, one editor &mdash; and a hub that reaches every graph in the game.</p>
+
+  <div class="fams">
+    <div class="fam q"><b>VineQuest</b><span>Objective DAGs &amp; rewards</span></div>
+    <div class="fam d"><b>VineDialogue</b><span>NPC conversation trees</span></div>
+    <div class="fam a"><b>VineAI</b><span>NPC &amp; enemy behaviour</span></div>
+    <div class="fam s"><b>VineScripts</b><span>Scripted events</span></div>
+  </div>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>VINE Suite</b></div>
+      <img src="/assets/thomas/vine-00-suite.webp" alt="The VINE Suite hub with four graph families and an index of every graph" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption><b>Every VINE graph in the game &mdash; dialogue, behaviour, scripts, broadcasts, quests &mdash; reachable from one hub.</b> The index is sorted by weight, so the biggest graphs surface first, and it counts its own coverage: <b>197 of 250 NPCs have a dialogue graph</b>. Each row carries the record id and its node count.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot g"></span><b>VineDialogue</b> &middot; index</div>
+      <img src="/assets/thomas/vine-01-dialogue-index.webp" alt="The VineDialogue index listing NPCs by dialogue node count" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption>One family's flat list. Clicking a row does not open a viewer &mdash; it switches to the panel that owns the record, opens that record's real edit form, and then fires the graph editor on top of it. There is no second copy of the data.</figcaption>
+  </figure>
+</section>
+
+<section id="dialogue">
+  <p class="eyebrow">VINE &rarr; dialogue</p>
+  <h2>Conversation as a graph</h2>
+  <p class="lede">A dialogue node holds the line the character speaks and every reply the player can give. Replies are ports; wires are where they go.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot g"></span><b>VINEdialogue</b> &middot; Dialogue: Teague &mdash; 83 nodes</div>
+      <img src="/assets/thomas/vine-02-dialogue-teague.webp" alt="An 83-node dialogue graph open in the VINE editor" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption>The largest conversation in the game. The root node carries fourteen openings; each has its own outbound port on the node's lower half, and the wires fan out from there. Node ids (<b>root</b>, <b>work</b>, <b>the_flask</b>, <b>the_flask_sacred</b>, <b>the_flask_diseased</b>, <b>earned</b>) are the author's own naming, and the prose is the shipped prose &mdash; this is the editing surface, not a preview of one.</figcaption>
+  </figure>
+
+  <p>The tab strip at the top left switches the same record between families without leaving the canvas: an NPC's dialogue and that NPC's behaviour tree are two graphs on one row, and <b>AI Behaviour &rsaquo;</b> in the toolbar crosses straight over. <b>Play view</b> walks the tree as a player would read it.</p>
+</section>
+
+<section id="ai">
+  <p class="eyebrow">VINE &rarr; ai</p>
+  <h2>Behaviour trees</h2>
+  <p class="lede">The same canvas, a different schema. Six node types &mdash; Start, Condition, Action, Wait, Loop, Random Branch &mdash; and the palette in the toolbar is generated from the schema rather than hand-written per family.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot o"></span><b>VINEbehaviour</b> &middot; AI Behaviour: The Tinnitus Saint</div>
+      <img src="/assets/thomas/vine-04-ai-enemy.webp" alt="A behaviour tree in the VINE editor with condition and action nodes" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption>Conditions branch on <b>Has Target</b>, <b>HP Below %</b>, <b>Random Chance</b> and <b>Flag Is Set</b>, each with true and false ports. Colour is typed, not decorative: green for entry, orange for conditions, blue for actions.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot o"></span><b>VINEbehaviour</b> &middot; auto-laid out, 30 nodes</div>
+      <img src="/assets/thomas/vine-04c-ai-enemy.webp" alt="The same behaviour tree after auto-layout, showing loop edges" width="1500" height="525" loading="lazy" decoding="async">
+    </div>
+    <figcaption>The same tree after <b>Auto-layout</b>, which arranges left-to-right and minimises crossings. The long returning wires are the loop edges &mdash; a behaviour tree is a cycle, and the layout does not pretend otherwise. The largest behaviour graph in the world is 98 nodes.</figcaption>
+  </figure>
+</section>
+
+<section id="scripts">
+  <p class="eyebrow">VINE &rarr; scripts, quests</p>
+  <h2>Scripted events and objectives</h2>
+
+  <div class="grid">
+    <div class="card">
+      <div class="frame">
+        <div class="frame-bar"><span class="dot c"></span><b>VineScripts</b></div>
+        <img src="/assets/thomas/vine-05-script.webp" alt="A VineScripts event graph" width="1150" height="910" loading="lazy" decoding="async">
+      </div>
+      <h4>Scripts</h4>
+      <p>VINE behaviour graphs for scripted events, branching dialogue, and quest logic.</p>
+    </div>
+    <div class="card">
+      <div class="frame">
+        <div class="frame-bar"><span class="dot"></span><b>Quests</b></div>
+        <img src="/assets/thomas/p-quests.webp" alt="The Quests panel" width="1150" height="910" loading="lazy" decoding="async">
+      </div>
+      <h4>Quests</h4>
+      <p>Multi-step player objectives with triggers, conditions, and rewards.</p>
+    </div>
+    <div class="card">
+      <div class="frame">
+        <div class="frame-bar"><span class="dot c"></span><b>Scripts</b> &middot; registry</div>
+        <img src="/assets/thomas/p-scripts.webp" alt="The Scripts registry panel" width="1150" height="910" loading="lazy" decoding="async">
+      </div>
+      <h4>Script registry</h4>
+      <p>Every script graph in the world, with its trigger and node count.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── CONTENT EDITORS ───────────────────────────────────────────────────── -->
+<section id="content">
+  <p class="eyebrow">/dev &rarr; content</p>
+  <h2>Content editors</h2>
+  <p class="lede">Sixty-five content types, 41,419 files. Every one of these screens is a form over a table, and every table exports to one JSON file per entity &mdash; so the world is diffable, reviewable and deployed by a push.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Zones</b></div><img src="/assets/thomas/p-zones.webp" alt="zones panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Zones</h4><p>Edit room descriptions, exits, danger ratings, and zone properties.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Items</b></div><img src="/assets/thomas/p-items.webp" alt="items panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Items</h4><p>Create and edit weapons, armour, consumables, and world objects.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>NPCs</b></div><img src="/assets/thomas/p-npcs.webp" alt="npcs panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>NPCs</h4><p>Configure named characters &mdash; dialogue, faction, schedules, and AI.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Enemies</b></div><img src="/assets/thomas/p-enemies.webp" alt="enemies panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Enemies</h4><p>Define enemy stats, behaviour trees, attack patterns, and loot tables.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Furniture</b></div><img src="/assets/thomas/p-furniture.webp" alt="furniture panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Furniture</h4><p>Interactive objects placed in zones &mdash; terminals, vendors, seats, and more.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Tag Catalog</b></div><img src="/assets/thomas/p-tags.webp" alt="tags panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Tags</h4><p>Property tags that attach behaviours and rules to items, zones, and entities.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Recipes</b></div><img src="/assets/thomas/p-recipes.webp" alt="recipes panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Recipes</h4><p>Crafting recipes linking ingredient items to output items, with skill and station requirements.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Drugs</b></div><img src="/assets/thomas/p-drugs.webp" alt="drugs panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Drugs</h4><p>Consumable substances with timed stat effects, addiction, and overdose thresholds.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Mutations</b></div><img src="/assets/thomas/p-mutations.webp" alt="mutations panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Mutations</h4><p>Radiation-triggered biological modifications that alter player stats and abilities.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Dream Rooms</b></div><img src="/assets/thomas/p-dream_templates.webp" alt="dream templates panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Unreality</h4><p>Rooms for the experiences a player can be put inside &mdash; a sleep dream, or a dissociative hallucination. Not zones: no coordinates, no place on any map.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Scavenging</b></div><img src="/assets/thomas/p-scavenging.webp" alt="scavenging panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Scavenging tables</h4><p>Reusable loot templates for the scavenge action, attached to a zone from the zone editor.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Trading Cards</b></div><img src="/assets/thomas/p-cards.webp" alt="cards panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Cards</h4><p>Every struck card &mdash; players who minted themselves, plus NPC and enemy cards cut from world content. Character counters enforce the text budgets, because a card must never truncate.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Aliases</b></div><img src="/assets/thomas/p-aliases.webp" alt="aliases panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Aliases</h4><p>Verb shortcuts, rewritten to the canonical verb before the command runs &mdash; invisible to players. Engine defaults can be overridden and restored.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Zone Validator</b></div><img src="/assets/thomas/p-validator.webp" alt="validator panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Validator</h4><p>Cross-references zones and content for broken exits, missing references, and bad data.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── AUDIO / BROADCAST ─────────────────────────────────────────────────── -->
+<section id="audio">
+  <p class="eyebrow">/dev &rarr; audio, soundscript, broadcasts</p>
+  <h2>Sound and television</h2>
+  <p class="lede">Audio is authored, not shipped as files. Instruments are synth definitions; the client builds the sound.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>Audio</b></div>
+      <img src="/assets/thomas/p-audio.webp" alt="The Audio panel listing synth instruments by waveform" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption><b>Music instruments, songs, SFX clips, ambient tracks, and audio event bindings.</b> 171 instruments, 17 songs, 26 sound effects, 12 ambient beds, 195 samples and 5 event routes. Each instrument names a waveform &mdash; square, triangle, sine, sawtooth, noise &mdash; and every row auditions in place. Songs group into named kits (<b>psychotech</b>, 42 instruments).</figcaption>
+  </figure>
+
+  <div class="grid">
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>SoundScript</b></div><img src="/assets/thomas/p-sounds.webp" alt="sounds panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>SoundScript</h4><p>Named audio-text sound effects and ambient text events, broadcast by zone theme.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Broadcasts</b></div><img src="/assets/thomas/p-broadcasts.webp" alt="broadcasts panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Broadcasts</h4><p>TV channels, schedules, NPC hosts, themes, and live broadcast content.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Gossip Pool</b></div><img src="/assets/thomas/p-gossip.webp" alt="gossip panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Gossip</h4><p>Live in-memory gossip, strongest first. Spread a rumour as any NPC; the pool clears on restart.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── LIVE SIMULATION ───────────────────────────────────────────────────── -->
+<section id="sim">
+  <p class="eyebrow">/dev &rarr; server</p>
+  <h2>The world while it is running</h2>
+  <p class="lede">These screens are not editors. They are instruments on a simulation that keeps moving whether or not anyone is looking at it.</p>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>Unrest</b> &middot; operator-only by design</div>
+      <img src="/assets/thomas/p-unrest.webp" alt="The Unrest ledger showing grip, heat and pressure per city block" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption><b>The faction-conflict ledger</b> &mdash; grip, heat and pressure per derived city block, the band each sits in, the authored role roster, and every live incident. None of it reaches the player: there is no verb, no gauge and no number in the game client, because the moment there is one the simulation becomes a dashboard to optimise. The dev panel is the deliberate opposite and gets every scalar.</figcaption>
+  </figure>
+
+  <div class="grid">
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Time &amp; Weather</b></div><img src="/assets/thomas/p-timeweather.webp" alt="timeweather panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Time &amp; weather</h4><p>Day/night cycle settings, climate profiles, and weather forecasting.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Power Grid</b></div><img src="/assets/thomas/p-power.webp" alt="power panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Power</h4><p>City power infrastructure and per-zone power dependencies.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Crime</b></div><img src="/assets/thomas/p-emergency.webp" alt="emergency panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Crime</h4><p>Live crime log, the fine and jail multiplier, per-crime enforcement toggles, the Emergency Security Protocol and the Arbiter subsystem.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Flight</b></div><img src="/assets/thomas/p-flight.webp" alt="flight panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Flight</h4><p>Charter-pilot work status, the flight request log, and every aircraft instance &mdash; conjures, player purchases, wrecks.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Bank &amp; ATMs</b></div><img src="/assets/thomas/p-bank.webp" alt="bank panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Bank</h4><p>ATM networks, faction banking, credit limits, and fee configuration.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>World State</b></div><img src="/assets/thomas/p-worldstate.webp" alt="worldstate panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>World state</h4><p>Live flags and variables governing the world.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Games</b></div><img src="/assets/thomas/p-games.webp" alt="games panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Games</h4><p>Live poker and chess tables &mdash; who is seated, what is in the pot.</p>
+    </div>
+    <div class="card">
+      <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Players</b></div><img src="/assets/thomas/p-players.webp" alt="players panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
+      <h4>Players</h4><p>Connected and registered accounts, character stats, and session data.</p>
+    </div>
+  </div>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot o"></span><b>Architect</b> &middot; street level</div>
+      <img src="/assets/thomas/client-02-street.webp" alt="The game client at street level in poor light" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption>The same simulation from the other side of the wire: Ironside Street, where <b>the light is poor and details are hard to make out</b> &mdash; that line is the lighting model talking, not set dressing.</figcaption>
+  </figure>
+</section>
+
+<!-- ── OPS ───────────────────────────────────────────────────────────────── -->
+<section id="ops">
+  <p class="eyebrow">Pipeline</p>
+  <h2>The rails underneath</h2>
+  <p class="lede">Two rules do most of the load-bearing. Engine and content are separate &mdash; the codebase is the engine, the world lives in Postgres and under a content tree. And nothing migrates on boot: schema and content both change deliberately.</p>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>Gate</th><th>What it refuses to let through</th></tr></thead>
+      <tbody>
+        <tr><td><b>regress</b></td><td>Boots the world and all plugins with no server, sweeps every plugin manifest against the live registries, then drives real commands end to end.</td></tr>
+        <tr><td><b>content:lint</b></td><td>A hand-authored content file carrying a runtime column.</td></tr>
+        <tr><td><b>docs:lint</b></td><td>A dead doc link, a plugin verb missing from the index, or a status header that contradicts its own body.</td></tr>
+        <tr><td><b>client:smoke</b></td><td>Any of the 253 client files failing to parse &mdash; there is no build step, so nothing else would catch it.</td></tr>
+        <tr><td><b>shapes:smoke</b></td><td>A building model that throws when a player flies past it.</td></tr>
+        <tr><td><b>query-lint</b></td><td>A database round trip added to a hot path.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><b>Dev Log</b></div>
+      <img src="/assets/thomas/p-devlog.webp" alt="devlog panel in the dev panel" width="1500" height="938" loading="lazy" decoding="async">
+    </div>
+    <figcaption><b>Team heads-ups and recent code activity</b> &mdash; server restarts, migrations and content scripts posted where the next person checking in will see them, alongside a commit feed by author. The dashboard counts what has landed since you last looked: <b>148 commits, 6 of them core-engine changes, in the last 14 days</b>.</figcaption>
+  </figure>
+
+  <div class="note">
+    <span class="tag">Where the name comes from</span>
+    <p>THOMAS appears exactly once in the running product &mdash; the dev panel's boot splash, which reads as if it were naming the dev panel. It is not. It names the platform the splash is booting: the client, the engine, the plugin loader, the editors on this page and the deploy pipeline behind them. Coldwater, the Basin and everything written in them are Architect, and they are the part a second game would replace.</p>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p><b>THOMAS</b> &mdash; The Hypermedia Online Multiplayer Adventure System. Screenshots captured 31 August 2026 from a local build running the live content tree: 131 plugins, 5 regions, 441 live enemies.</p>
+    <p style="margin-top:14px">Node.js &middot; raw WebSockets &middot; PostgreSQL &middot; vanilla JavaScript &middot; no ORM &middot; no framework &middot; no build step.</p>
+  </div>
+</footer>
+
+</main>
+</div>
+
+<script>
+// Rail highlight follows the section actually in view.
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  var seen = {};
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { seen[e.target.id] = e.isIntersecting; });
+    var current = null;
+    Object.keys(byId).forEach(function (id) { if (seen[id] && !current) current = id; });
+    if (!current) return;
+    links.forEach(function (a) { a.classList.remove('on'); });
+    if (byId[current]) byId[current].classList.add('on');
+  }, { rootMargin: '-10% 0px -70% 0px' });
+  document.querySelectorAll('section[id]').forEach(function (s) { io.observe(s); });
+})();
+</script>
