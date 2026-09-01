@@ -1,6 +1,18 @@
 # Unrest — dynamic faction-conflict events
 
-**Status: PHASE 1 BUILT (1a–1d, 2026-08-26); phases 2 and 3 are still design.** What
+**Status: PHASE 1 BUILT (1a–1d, 2026-08-26); PHASE 2's SEAM BUILT (2026-09-01); phase 3 is
+still design.**
+
+⚠ **Phase 2 is a seam, not a set of favours.** `plugins/unrest/favours.js` registers the
+`unrest_incident` condition shape, which is the whole mechanism: an authored repeatable
+quest can now be offered *and turned in* only while there is something live to respond to.
+The favour QUESTS themselves are content and nobody has written one yet — the plugin
+deliberately ships no reputation call at all, because rule 4 says the sim never moves
+standing implicitly and the quest's own `ADJUST_REPUTATION` reward is what pays. Regress
+asserts the absence: no `adjustReputation(` anywhere in the plugin, and no repeatable
+quest in `content/` writing an `<order>_arc` flag.
+
+What
 actually ships is [docs/systems-unrest.md](../systems-unrest.md) and
 [plugins/unrest/](../../plugins/unrest/README.md) — read those first and treat this file as
 the design record, including everything below that has not been built.

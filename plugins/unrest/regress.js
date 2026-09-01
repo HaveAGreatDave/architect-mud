@@ -19,7 +19,7 @@ import * as ledger from './ledger.js';
 import { blockOf, allBlocks, blockKeyOf, neighboursOf, reindex, blockInfo, BLOCK } from './blocks.js';
 import { _test } from './index.js';
 
-export default async function regress({ check }) {
+export default async function regress({ check, getPlayer }) {
   const { roles } = _test;
 
   // ── The cell index ────────────────────────────────────────────────────────
@@ -661,5 +661,79 @@ export default async function regress({ check }) {
     for (const k of allBlocks()) ledger.force(k, { ...ledger.BASELINE });
     ledger._reset();
     await ledger.load();
+  }
+
+  // ── Phase 2: favours ──────────────────────────────────────────────────────
+  {
+    const { evalCondition } = await import('../../server/engine/flags.js');
+    const incidents = _test.incidents;
+    const p = getPlayer();
+    const savedZone = p.current_zone;
+    const anyZone = [...world.zones.values()].find((z) => z.grid_x != null && blockOf(z.id));
+    try {
+      await incidents._reset();
+      p.current_zone = anyZone.id;
+      const cell = blockOf(anyZone.id);
+
+      // ⚠ RULE 3. A favour cannot be turned in for an incident that is over, and
+      // the gate is a LIVE lookup rather than a flag set at staging time because an
+      // instanceId does not survive a restart — anything remembered about a
+      // specific staging is a thing that can outlive it.
+      const cold = await evalCondition({ unrest_incident: 'here' }, p, {});
+      check('favour: no live incident, no favour', cold === false, String(cold));
+
+      // Stage one by hand into the live map — the selector's own eligibility rules
+      // are phase 1's business and are tested above.
+      incidents._test.live.set('inc_regress_1', {
+        instanceId: 'inc_regress_1', defId: 'inc_regress_def', name: 'Regress Incident',
+        key: cell, zone: anyZone.id, writes: 'ideology_ascendants', band: 'hot',
+        startedAt: Date.now(), endsAt: Date.now() + 600000, undo: [],
+      });
+
+      check('favour: a live incident here opens the favour',
+        (await evalCondition({ unrest_incident: 'here' }, p, {})) === true);
+      check('favour: …and content can name the order that staged it',
+        (await evalCondition({ unrest_incident: 'here', writes: 'ideology_ascendants' }, p, {})) === true);
+      check('favour: …and a different order does not match',
+        (await evalCondition({ unrest_incident: 'here', writes: 'ideology_long_watch' }, p, {})) === false);
+
+      // A typo must hide the favour, never offer it everywhere — the same direction
+      // every other condition shape fails.
+      check('favour: an unknown scope fails closed',
+        (await evalCondition({ unrest_incident: 'everywhere-ish' }, p, {})) === false);
+
+      // Ending it closes the turn-in, which is rule 3 stated as a test.
+      incidents._test.live.delete('inc_regress_1');
+      check('favour: a resolved incident can no longer be turned in',
+        (await evalCondition({ unrest_incident: 'here' }, p, {})) === false);
+    } finally {
+      p.current_zone = savedZone;
+      await incidents._reset();
+    }
+
+    // ⚠ RULE 1. The sim never moves ideology standing implicitly: rep moves only
+    // through an authored ADJUST_REPUTATION on a turn-in. If this plugin ever grows
+    // its own reputation call, the ledger becomes an invisible alignment tracker —
+    // exactly the thing drugwar's header records being removed once already.
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const src = readdirSync('plugins/unrest')
+      .filter((f) => f.endsWith('.js') && f !== 'regress.js')
+      .map((f) => readFileSync(`plugins/unrest/${f}`, 'utf8')).join('\n');
+    check('favour: the plugin never moves rep itself',
+      !/\badjustReputation\s*\(/.test(src), 'an adjustReputation caller appeared in plugins/unrest');
+
+    // ⚠ RULE 2. A favour is a job you can do again, never a rung. A repeatable
+    // quest that writes an <order>_arc flag turns in a second time and writes an
+    // OLDER arc number over a newer one, walking the player backwards.
+    const arcFlag = /_arc$/;
+    let offenders = [];
+    for (const f of readdirSync('content/quests')) {
+      if (!f.endsWith('.json')) continue;
+      const q = JSON.parse(readFileSync(`content/quests/${f}`, 'utf8'));
+      if (!q.repeatable) continue;
+      const flags = q.rewards?.flags || {};
+      for (const k of Object.keys(flags)) if (arcFlag.test(k)) offenders.push(`${q.id}:${k}`);
+    }
+    check('favour: no repeatable quest writes an arc flag', offenders.length === 0, offenders.join(', '));
   }
 }

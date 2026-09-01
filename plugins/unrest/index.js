@@ -19,6 +19,7 @@ import * as ledger from './ledger.js';
 import * as signals from './signals.js';
 import * as incidents from './incidents.js';
 import './stage.js';   // registers the dangerous stage steps (1d)
+ import './favours.js'; // registers the unrest_incident condition shape (phase 2)
 import { reindex, allBlocks, blockOf } from './blocks.js';
 
 // Roles are authored on orgs.flags.role and read here — never a switch statement.

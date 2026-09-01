@@ -176,3 +176,41 @@ record and every live staging are RAM only, deliberately.
 
 `world_events` takes exactly one `unrest.incident` row per staging. It is the audit
 log, never the ledger.
+
+## Favours (phase 2, the seam)
+
+Ideology rep decays on a 30-day half-life and, until this, **nothing repeatable paid it** —
+so an order could be climbed once through the forty-slot arc and then only watched drain.
+`docs/systems-faction-arcs.md` carves favours out as the parallel track: a job you can do
+again for standing, never a rung. Incident response is that missing work.
+
+What ships is the **seam**, not the jobs. `favours.js` registers one condition shape:
+
+```
+{ unrest_incident: 'here' | 'nearby' | 'anywhere', writes?: <orgId>, incident?: <defId> }
+```
+
+Author it on **both** the offer node and the turn-in node of a repeatable quest. On the
+offer so the job only exists while there is a job; on the turn-in because a favour that can
+be handed in after the incident is over is a farm, not a response.
+
+Three rules, and two of them are about what this must not do:
+
+⚠ **The plugin never moves reputation.** There is no `adjustReputation` call in it, and
+regress asserts there never is one. Rep moves only through the quest's own authored
+`ADJUST_REPUTATION` reward — the moment the sim pays standing by itself it becomes the
+invisible alignment ledger `plugins/drugwar` records being removed once already.
+
+⚠ **A favour is never a slot.** The forty arc slots are non-repeatable, always: turn one in
+twice and it writes an older arc number over a newer one, walking the player backwards. So
+no favour may write an `<order>_arc` flag, and regress sweeps `content/quests/` to prove
+no repeatable quest does.
+
+⚠ **The gate is a live lookup, never a flag set at staging time.** An incident's
+`instanceId` does not survive a restart — rule 6 persists the ledger and never the
+incidents — so anything remembered about a specific staging is a thing that can outlive it.
+Asking "is one live here, now" cannot. That is also why favours add no state of their own.
+
+Sync and query-free: `liveIncidents()` is a RAM Map and `blockOf` is an index lookup, so
+the shape is safe on the dialogue path, which gates every option of every node an NPC
+renders. An unknown scope fails **closed**, the same direction every other shape fails.

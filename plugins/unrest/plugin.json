@@ -1,7 +1,7 @@
 {
   "name": "unrest",
   "version": "1.0.0",
-  "description": "The conflict between the orders, made observable: a grip/heat/pressure ledger per derived city block, the perceivable signals a band crossing produces, and the incidents that stage on top of them. Phase 1 complete (1a-1d).",
+  "description": "The conflict between the orders, made observable: a grip/heat/pressure ledger per derived city block, the perceivable signals a band crossing produces, and the incidents that stage on top of them. Phase 1 complete (1a-1d). Phase 2 adds the favour seam — an `unrest_incident` condition shape, so an authored repeatable quest can be offered and turned in only while there is something live to respond to. The plugin itself never moves reputation; the quest's own ADJUST_REPUTATION reward does, which is what keeps the sim from becoming an invisible alignment ledger.",
   "routePrefix": "/unrest",
   "commands": [],
   "hooks": ["zone.describeAmbient"],
@@ -14,7 +14,7 @@
     "registers": [],
     "dispatches": ["broadcast.newsWire", "ESP_ACTIVATE", "ESP_DEACTIVATE"]
   },
-  "extensionPoints": ["unrest.stageStep"],
+  "extensionPoints": ["unrest.stageStep", "conditions.unrest_incident"],
   "ticks": ["30m", "5m"],
   "config": {
     "BLOCK": "12 — the cell is a 12x12 square of grid coordinates (blocks.js)",
@@ -24,6 +24,6 @@
   },
   "dataSchema": {
     "tables": ["incidents"],
-    "note": "The LEDGER has no table: one versioned world_flags blob, RAM-authoritative with write-behind, because ~10 cells x 4 numbers does not justify a schema change, a registry entry and a read-tier decision. Band memory, the signal record and every live staging are RAM only, deliberately — rule 6 persists the ledger and never the incidents. world_events takes one audit row per staging and is not the ledger."
+    "note": "The LEDGER has no table: one versioned world_flags blob, RAM-authoritative with write-behind, because ~10 cells x 4 numbers does not justify a schema change, a registry entry and a read-tier decision. Band memory, the signal record and every live staging are RAM only, deliberately — rule 6 persists the ledger and never the incidents. world_events takes one audit row per staging and is not the ledger. Favours add NO state of their own: the gate is a live-incident lookup, because an instanceId does not survive a restart and anything remembered about a specific staging is a thing that can outlive it."
   }
 }
