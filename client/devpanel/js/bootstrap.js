@@ -260,6 +260,11 @@ window.addEventListener('storage', e => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Plugin-declared tabs, before anything can click one. Deliberately NOT on the
+  // auth path: the registry is a list of tab names, the panels themselves gate on
+  // auth exactly as every core panel does, and hanging it off login would mean
+  // duplicating the call in both the login and the auto-auth paths.
+  if (typeof loadPluginPanels === 'function') loadPluginPanels().catch(() => {});
   populateThemeGrid();
   const themeGrid = document.getElementById('dev-opt-theme-grid');
   if (themeGrid) {

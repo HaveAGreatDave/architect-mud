@@ -312,3 +312,48 @@ async function unrestReindex() {
   await dpAlert(`Reindexed — ${res?.blocks ?? 0} cells.`);
   showPanel('unrest');
 }
+
+// ── Registration ─────────────────────────────────────────────────────────────
+// Both halves of the suite, declared here rather than in client/devpanel/. One
+// nav row (the manifest's `devPanel.nav`), two tabs — the live ledger and the
+// authored catalogue — which is why the second registers a `navAlias` back to
+// this one: a panel that shares a nav entry highlights that entry, not its own.
+registerDevPanel({
+  id: 'unrest',
+  title: 'Unrest',
+  description: 'The faction-conflict ledger — grip/heat/pressure per derived city block, the band each is in, the authored role roster, and every live incident. Operator-only by design: none of it reaches the player.',
+  fetch: async () => {
+    const [state, incidents] = await Promise.all([
+      directAPI('/unrest/state'),
+      directAPI('/unrest/incidents'),
+    ]);
+    return { ...state, incidents };
+  },
+  noEdit: true,
+  render: renderUnrestPanel,
+});
+
+registerDevPanel({
+  id: 'incidents',
+  title: 'Incidents',
+  description: 'The authored catalogue behind Unrest — what CAN happen in a city block, never what is happening. The live side is the Live ledger tab.',
+  navAlias: 'unrest',
+  idPrefix: 'incident',
+  noEdit: false,
+  // This half renders through the generic list, so the suite strip arrives via
+  // beforeList — which runs even when the list is empty.
+  beforeList: () => unrestSuiteHeader('incidents'),
+  fetch: () => API('/incidents'),
+  columns: [
+    { key: 'name', label: 'Name' },
+    { key: 'writes', label: 'Order', render: v => v === 'grip' ? 'authority' : 'insurgency' },
+    { key: 'min_band', label: 'From band' },
+    { key: 'weight', label: 'Weight' },
+    { key: 'duration_min', label: 'Runs for', render: v => `${v}m` },
+    { key: 'stage', label: 'Steps', render: v => (Array.isArray(v) ? v : []).map(s => s.do).join(' → ') || '—' },
+    { key: 'enabled', label: 'On', render: v => v ? '✓' : '—' },
+  ],
+  editForm: incidentEditForm,
+  save: saveIncident,
+  delete: id => API(`/incidents/${id}`, 'DELETE'),
+});
