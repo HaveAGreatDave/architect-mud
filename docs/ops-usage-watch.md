@@ -1,8 +1,7 @@
 # Free-Tier Usage Watch — Neon + Render
 
-**STATUS: BUILT** — local runner and the GitHub Actions cron both ship. The Actions run
-is *partially configured*: it reports Neon and attribution today, and lights up its
-Render half when two repo secrets are added (§7).
+**STATUS: BUILT AND LIVE.** The GitHub Actions cron is the runner; all four repo
+secrets are set and a full run is green end to end (2026-09-01).
 
 Daily pull of real consumption from both providers, projected against the billing
 cycle, alerting to Discord only when the *pace* is bad.
@@ -200,15 +199,14 @@ deploys red.
 
 ### Scheduling
 
-Phase 1 is a local daily task. Gaps are harmless: **every run re-reads the full
-cumulative total from both providers** — nothing here is a delta accumulator, so
-the history file is only for the 7-day trend and alert de-duplication.
+**The Actions cron is the runner.** A local Windows scheduled task was used during
+build-out and has been **retired** — running both would double the daily rows and
+have the two of them fight over `usage-history.json`, since CI commits it to main.
+Run `npm run ops:usage` by hand for a reading between crons.
 
-Windows Task Scheduler, daily at 09:15:
-
-```powershell
-schtasks /create /tn "Architect free-tier watch" /tr "cmd /c cd /d C:\Users\johna\Documents\Github\architect-mud && npm run ops:usage" /sc daily /st 09:15
-```
+Gaps are harmless either way: **every run re-reads the full cumulative total from
+both providers** — nothing here is a delta accumulator, so the history file only
+feeds the 7-day trend and alert de-duplication.
 
 **Phase 2 — [`.github/workflows/usage-watch.yml`](../.github/workflows/usage-watch.yml)**,
 daily on `schedule: '17 8 * * *'`. Off-the-hour, per the cron-delay lesson
@@ -226,8 +224,8 @@ an API key into an unrelated script.
 |---|---|---|
 | `NEON_API_KEY` | yes | the Neon half |
 | `PROD_DATABASE_URL` | yes | attribution (boot payload, world loads/day) |
-| `RENDER_API_KEY` | **no** | the Render half |
-| `OPS_WEBHOOK_URL` | **no** | Discord alerting |
+| `RENDER_API_KEY` | yes | the Render half |
+| `OPS_WEBHOOK_URL` | yes | Discord alerting |
 
 **Missing secrets degrade, they do not break.** The two that exist already carry
 the Neon report and the whole attribution model, so the workflow is useful the
@@ -237,8 +235,8 @@ absent. Adding the secrets later needs no change to the file. This is deliberate
 a job that went red every morning until somebody acted would train the team to
 ignore it, which is the failure this whole system exists to avoid.
 
-Adding them needs repo **admin**, which johna does not have
-(`admin: false` on `HaveAGreatDave/architect-mud`) — so it is an owner ask.
+Adding a secret needs repo **admin**, which johna does not have (`admin: false` on
+`HaveAGreatDave/architect-mud`) — so any future secret is an owner ask.
 
 ⚠ **The commit-back's `[skip ci]` marker is load-bearing.** `sync-commits.yml`
 triggers on *every* push to main with no path filter and writes to the prod
