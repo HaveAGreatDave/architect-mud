@@ -175,15 +175,33 @@ export async function storageTrend({ days = 30 } = {}) {
   };
 }
 
-/** Everything above, plus the modelled egress the divergence check compares. */
-export async function collectAttribution({ days = 7 } = {}) {
+/**
+ * Everything above, plus the modelled egress the divergence check compares.
+ *
+ * ⚠ `coldStartsPerDay` (from Render's CPU timeline) is preferred over this
+ * module's own player_count_log figure whenever it is available, and the
+ * difference is not small — measured 2026-09-01, Render said 13.4/day and
+ * player_count_log said 6.8. The log is written by `schedule('1m', …)` in
+ * server/api/routes.js, and scheduler.js idle-gates every callback by default,
+ * so the log simply STOPS when nobody is online: its gaps mean "down OR empty",
+ * and an idle stretch either side of a restart merges into one gap. It therefore
+ * undercounts, which for a budget alarm is the dangerous direction. Render's
+ * timeline is the platform's own record of when the instance was running and
+ * does not depend on the game server having booted at all.
+ */
+export async function collectAttribution({ days = 7, coldStartsPerDay = null } = {}) {
   const [payload, loads, storage] = await Promise.all([
     bootPayload(),
     worldLoadsPerDay({ days }),
     storageTrend(),
   ]);
-  const modelledEgressPerDay = loads.loadsPerDay !== null
-    ? payload.totalBytes * loads.loadsPerDay
-    : null;
-  return { payload, loads, storage, modelledEgressPerDay };
+  const usePerDay = coldStartsPerDay ?? loads.loadsPerDay;
+  const resolved = {
+    ...loads,
+    loadsPerDay: usePerDay,
+    source: coldStartsPerDay !== null ? 'Render CPU timeline' : 'player_count_log gaps (undercounts — see note)',
+    fallbackComparison: coldStartsPerDay !== null ? loads.loadsPerDay : null,
+  };
+  const modelledEgressPerDay = usePerDay !== null ? payload.totalBytes * usePerDay : null;
+  return { payload, loads: resolved, storage, modelledEgressPerDay };
 }

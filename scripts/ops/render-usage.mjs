@@ -135,6 +135,7 @@ export async function collectRender({ apiKey, now = new Date(), cycleStart } = {
   const notes = [];
   const raw = {};
   const metrics = {};
+  let uptime = null;
 
   const services = unwrapList(await api('/services?limit=100', key), 'service');
   raw.services = services.map((s) => ({ id: s.id, name: s.name, type: s.type, suspended: s.suspended }));
@@ -176,7 +177,101 @@ export async function collectRender({ apiKey, now = new Date(), cycleStart } = {
     notes.push(`bandwidth unavailable (${e.message.split('\n')[0]})`);
   }
 
-  // --- Instance hours (measured where available) ---
+  // --- Instance hours + cold starts, DERIVED FROM THE CPU TIMELINE ----------
+  //
+  // Render exposes no instance-hours endpoint and returns nothing at all from
+  // /metrics/instance-count for a free service (below). But /metrics/cpu does
+  // answer, and it only emits a sample WHILE AN INSTANCE IS RUNNING — so the
+  // sample timeline is a direct record of uptime, and its gaps are spin-downs.
+  // That gives both numbers the free plan otherwise hides:
+  //   • uptime  = sample count x the series resolution
+  //   • cold starts = gaps materially longer than that resolution
+  //
+  // This is the platform's own view, and it is authoritative over the
+  // player_count_log gap count in attribution.mjs, which cannot see the
+  // difference between "server down" and "server up with nobody on it".
+  // ⚠ TWO WINDOWS, AND THEY ARE DIFFERENT QUESTIONS.
+  //
+  //   instance HOURS is a billing quantity — it must be measured over the
+  //   billing CYCLE, because that is what the 750 h resets against.
+  //
+  //   the cold-start RATE is a behavioural property of the service, and must be
+  //   measured over a trailing window instead. Reading it from the cycle window
+  //   makes it useless for the first days of every month: at 03:00 on the 1st
+  //   the cycle is three hours old, which is far too short to establish a rate,
+  //   so the egress model would silently fall back to the undercounting
+  //   player_count_log figure on exactly the days the report is most watched.
+  const RATE_WINDOW_DAYS = 7;
+  const rateStart = new Date(now.getTime() - RATE_WINDOW_DAYS * 86_400_000);
+  const cpuStamps = async (from) => {
+    const body = await api(`/metrics/cpu?resource=${svc.id}&startTime=${from.toISOString()}&endTime=${now.toISOString()}`, key);
+    return {
+      body,
+      stamps: [...new Set(
+        (Array.isArray(body) ? body : []).flatMap((s) => (s.values ?? []).map((v) => +new Date(v.timestamp))),
+      )].filter((n) => !Number.isNaN(n)).sort((a, b) => a - b),
+    };
+  };
+
+  try {
+    const cycleCpu = await cpuStamps(start);
+    raw.cpu = cycleCpu.body;
+    const stamps = cycleCpu.stamps;
+
+    if (stamps.length > 2) {
+      // Resolution is taken as the MODAL gap, not the minimum: Render coarsens
+      // the series as the window widens (1 min over a week, wider over a
+      // month), and a single anomalous short gap would otherwise set the scale
+      // for the whole calculation.
+      const counts = new Map();
+      for (let i = 1; i < stamps.length; i += 1) {
+        const g = stamps[i] - stamps[i - 1];
+        counts.set(g, (counts.get(g) ?? 0) + 1);
+      }
+      const resMs = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+
+      metrics['render.instanceHours'] = (stamps.length * resMs) / 3_600_000;
+
+      // The RATE comes from the trailing window, never the cycle one (above).
+      // Reuse the cycle series when it is already long enough, so an established
+      // cycle costs one request rather than two.
+      const cycleDays = (stamps[stamps.length - 1] - stamps[0]) / 86_400_000;
+      const rate = cycleDays >= RATE_WINDOW_DAYS
+        ? { stamps, res: resMs }
+        : await cpuStamps(rateStart).then((r) => ({ stamps: r.stamps, res: null }));
+
+      let rs = rate.res;
+      if (rs === null && rate.stamps.length > 2) {
+        const c = new Map();
+        for (let i = 1; i < rate.stamps.length; i += 1) {
+          const g = rate.stamps[i] - rate.stamps[i - 1];
+          c.set(g, (c.get(g) ?? 0) + 1);
+        }
+        rs = [...c.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      }
+
+      // A gap of more than 3x the resolution is a genuine outage, not a missed
+      // scrape. Same threshold and reasoning as attribution.mjs's GAP_MIN.
+      let coldStarts = 0;
+      if (rs) for (let i = 1; i < rate.stamps.length; i += 1) if (rate.stamps[i] - rate.stamps[i - 1] > rs * 3) coldStarts += 1;
+      const rateDays = rate.stamps.length > 1
+        ? (rate.stamps[rate.stamps.length - 1] - rate.stamps[0]) / 86_400_000
+        : 0;
+
+      uptime = {
+        hours: metrics['render.instanceHours'],
+        resolutionMin: resMs / 60_000,
+        cycleDays,
+        rateWindowDays: rateDays,
+        coldStarts,
+        coldStartsPerDay: rateDays > 0.5 ? (coldStarts + 1) / rateDays : null,
+      };
+    }
+  } catch (e) {
+    notes.push(`cpu timeline unavailable (${e.message.split('\n')[0]}) — instance hours and cold starts not derived`);
+  }
+
+  // --- Instance count (the endpoint that does not answer on free) ----------
   // ⚠ Free services report NOTHING here: the endpoint answers 200 with an empty
   // array. That is a plan limitation, not an outage and not a zero — so it must
   // never be recorded as 0 hours, which would read as a wide-open budget on the
@@ -186,9 +281,14 @@ export async function collectRender({ apiKey, now = new Date(), cycleStart } = {
     raw.instanceCount = await api(`/metrics/instance-count?${qs}`, key);
     const { points } = flattenSeries(raw.instanceCount);
     if (points.length) {
+      // Paid plans do answer here, and a real instance count beats the CPU
+      // proxy because it counts CONCURRENT instances, which the timeline cannot.
       metrics['render.instanceHours'] = integrateHours(points, now);
+      if (uptime) uptime.supersededByInstanceCount = true;
+    } else if (!uptime) {
+      notes.push('instance hours: no instance-count series (free plan) and the CPU timeline gave nothing either — read it from the dashboard, Billing → Monthly Included Usage. Left unreported rather than recorded as zero.');
     } else {
-      notes.push('instance hours: Render returns no instance-count series for free services — this figure is only visible in the dashboard (Billing → Usage). Left unreported rather than recorded as zero.');
+      notes.push(`instance hours DERIVED from the CPU sample timeline (${uptime.resolutionMin}-min resolution over ${uptime.cycleDays.toFixed(1)} days of this cycle) — Render returns no instance-count series on the free plan. Cross-check against Billing → Monthly Included Usage.`);
     }
   } catch (e) {
     notes.push(`instance-count unavailable (${e.message.split('\n')[0]})`);
@@ -221,5 +321,5 @@ export async function collectRender({ apiKey, now = new Date(), cycleStart } = {
     raw.owners = unwrapList(await api('/owners?limit=20', key), 'owner').map((o) => ({ id: o.id, name: o.name, type: o.type }));
   } catch { /* non-fatal: owner is informational only */ }
 
-  return { metrics, cycleStart: start, assumedCycle, service: svc, raw, notes };
+  return { metrics, cycleStart: start, assumedCycle, service: svc, uptime, raw, notes };
 }

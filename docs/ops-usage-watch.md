@@ -101,9 +101,17 @@ factors of the egress model directly, from **production**:
 - **Boot payload** — `sum(pg_column_size(t.*))` over every table declaring
   `readTier: 'boot'` in [`content-registry.js`](../server/models/content-registry.js).
   One `UNION ALL`, not one query per table.
-- **World loads/day** — gaps in `player_count_log`. The log samples once a minute
-  while the server is up, so a gap is a spin-down or a deploy reboot, and the far
-  side of every gap is a cold start that re-read the whole payload.
+- **World loads/day** — cold starts from **Render's CPU timeline** (§5).
+
+⚠ **Not from `player_count_log`, which undercounts by roughly half.** That was
+the original source and it is wrong: the log is written by `schedule('1m', …)`
+in `server/api/routes.js`, and `scheduler.js` **idle-gates every callback by
+default**, so logging simply stops when nobody is online. Its gaps mean "down
+OR up-but-empty", indistinguishable, and an idle stretch either side of a
+restart merges into a single gap. Measured 2026-09-01: Render said **13.4
+cold starts/day**, `player_count_log` said **6.8** — and the low figure is the
+dangerous direction for a budget alarm. It survives only as a fallback for when
+Render is unreachable, and the report labels which source it used.
 
 **The divergence is the point.** If model ≈ API, world boot is the budget and the
 payload is the lever. If Neon reports much more, something *else* is leaking and

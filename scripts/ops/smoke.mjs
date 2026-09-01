@@ -14,6 +14,7 @@
 // Run: node scripts/ops/smoke.mjs   (wired into pretest:regress)
 import { assess, shouldNotify, worstBand } from './usage-report.mjs';
 import { LIMITS, staleLimits, fmt, BYTES_PER_GB } from './limits.js';
+import { toBytes, pickService } from './render-usage.mjs';
 
 let passed = 0;
 const failures = [];
@@ -91,6 +92,37 @@ check('staying green stays quiet', shouldNotify({ at: hoursAgo(1), band: 'OK' },
 // or "run it more often for fresher data" silently becomes 24x the noise.
 check('a sustained ALERT does not re-post after 1h', shouldNotify({ at: hoursAgo(1), band: 'ALERT' }, 'ALERT', now) === false);
 check('a sustained ALERT nags again after 21h', shouldNotify({ at: hoursAgo(21), band: 'ALERT' }, 'ALERT', now) === true);
+
+// ------------------------------------------------- render unit conversion
+// The bug this guards: Render's bandwidth series declares `unit: "mb"`, and
+// summing those numbers as bytes understates usage by 10^6 — which shows up as
+// a permanently empty, permanently green bandwidth row rather than as an error.
+check('mb is megabytes, not bytes', toBytes(1, 'mb') === 1e6);
+check('unit matching is case-insensitive', toBytes(1, 'MB') === 1e6);
+check('kb/gb scale decimally', toBytes(1, 'kb') === 1e3 && toBytes(1, 'gb') === 1e9);
+check('binary units are distinct from decimal', toBytes(1, 'mib') === 1048576);
+check('bytes passes through', toBytes(5, 'bytes') === 5);
+// Refusing to guess is the point: a silent wrong scale is worse than no number.
+check('an unknown unit returns null rather than guessing', toBytes(1, 'furlongs') === null);
+check('a missing unit returns null', toBytes(1, undefined) === null);
+
+// ------------------------------------------------------ render service pick
+// The service has been called two different things across the July account
+// cutover, and a monitor reporting on nothing looks exactly like a monitor
+// reporting no problem.
+const svcs = [
+  { id: 'srv-1', name: 'architect-mud', type: 'web_service' },
+  { id: 'srv-2', name: 'something-else', type: 'static_site' },
+];
+check('resolves the current name', pickService(svcs).service.id === 'srv-1');
+check('resolves the old cutover name too', pickService([{ id: 'srv-9', name: 'architect-mud-live', type: 'web_service' }]).service.id === 'srv-9');
+check('falls back to the sole web service', pickService([{ id: 'srv-x', name: 'renamed-again', type: 'web_service' }]).service.id === 'srv-x');
+check('…and says how it resolved', /only web service/.test(pickService([{ id: 'srv-x', name: 'renamed-again', type: 'web_service' }]).how));
+check('no web service at all resolves to nothing', pickService([{ id: 's', name: 'x', type: 'static_site' }]).service === null);
+// Ambiguity must NOT be guessed at — two unnamed web services is an error case.
+check('two unknown web services is ambiguous, not a coin flip', pickService([
+  { id: 'a', name: 'aaa', type: 'web_service' }, { id: 'b', name: 'bbb', type: 'web_service' },
+]).service === null);
 
 // ------------------------------------------------------------------- report
 if (failures.length) {

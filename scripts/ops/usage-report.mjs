@@ -280,14 +280,15 @@ async function main() {
   if (!NO_DB) {
     try {
       const { collectAttribution, connection } = await import('./attribution.mjs');
-      attribution = await collectAttribution();
+      attribution = await collectAttribution({ coldStartsPerDay: render?.uptime?.coldStartsPerDay ?? null });
       if (connection.note) notes.push(`attribution: ${connection.note}`);
       const { payload, loads, storage, modelledEgressPerDay } = attribution;
       say();
       say(`Attribution — where the egress comes from  (read from ${connection.target})`);
       say(`  boot payload      ${fmt(payload.totalBytes, 'bytes')} across ${payload.tables.length} boot-tier tables`);
       say(`  biggest three     ${payload.tables.slice(0, 3).map((t) => `${t.table} ${fmt(t.bytes, 'bytes')}`).join(', ')}`);
-      say(`  world loads/day   ${loads.loadsPerDay === null ? '—' : loads.loadsPerDay.toFixed(1)} (${loads.gaps} gaps over ${loads.observedDays?.toFixed(1) ?? '—'} days)`);
+      say(`  world loads/day   ${loads.loadsPerDay === null ? '—' : loads.loadsPerDay.toFixed(1)}  [${loads.source}]`);
+      if (loads.fallbackComparison) say(`                    (player_count_log alone would say ${loads.fallbackComparison.toFixed(1)} — it is idle-gated, so it cannot tell "down" from "up but empty")`);
       if (modelledEgressPerDay !== null) {
         const perCycle = modelledEgressPerDay * 30;
         say(`  modelled egress   ${fmt(modelledEgressPerDay, 'bytes')}/day → ${fmt(perCycle, 'bytes')}/cycle (${pct(perCycle / LIMITS['neon.transfer'].value)} of the 5 GB pool)`);
