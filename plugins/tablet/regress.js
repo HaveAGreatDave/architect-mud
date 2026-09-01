@@ -5,6 +5,7 @@ import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { world } from '../../server/engine/world.js';
+import { emit } from '../../server/engine/events.js';
 import { _test as news } from './news-generator.js';
 import { _test as calendar } from './calendar-app.js';
 
@@ -795,6 +796,43 @@ export default async function regress({ run, check, getPlayer }) {
   const stories = await news.getStories(12);
   const heads = stories.map(s => String(s.headline).trim().toLowerCase());
   check('getStories returns no duplicate headlines', heads.length === new Set(heads).size, JSON.stringify(heads));
+
+  // ── The waste reaches the desk ────────────────────────────────────────────
+  // voidwalking emits, this file listens, and neither imports the other. The three events are the
+  // void's whole outward voice; a headline that never names the walker means the feed lost the one
+  // fact that made the story worth printing.
+  for (const [ev, payload, who] of [
+    ['void.crossed',  { handle: 'Regresswalker', origin: 'Coldwater', heading: 'The Reach', tiles: 9 }, 'Regresswalker'],
+    ['void.bigscore', { handle: 'Regressscorer', origin: 'Coldwater', item: 'a scrap pistol' },         'Regressscorer'],
+    ['void.died',     { handle: 'Regressgoner', origin: 'Coldwater', cause: 'Killed by a rad-mutant' }, 'Regressgoner'],
+  ]) {
+    emit(ev, payload);
+    check(`${ev} files a live story naming the walker`,
+      news.RING.some(s => new RegExp(who).test(s.headline)),
+      news.RING.slice(0, 3).map(s => s.headline).join(' | '));
+  }
+
+  // …and EVERY template in each pool, not just the one that happened to be drawn. A headline is
+  // picked at random, so a nameless one passes two runs in three — which is exactly how the salvage
+  // line shipped without the winner's name in it. A void story with no name is a weather report.
+  for (const [kind, probe] of [
+    ['crossed',  { handle: 'Probewalker', origin: 'Coldwater', heading: 'The Reach', dist: '9 Tiles' }],
+    ['bigscore', { handle: 'Probewalker', origin: 'Coldwater', what: 'A Scrap Pistol' }],
+    ['died',     { handle: 'Probewalker', origin: 'Coldwater', cause: 'Killed by a rad-mutant' }],
+  ]) {
+    const nameless = news.VOID_HEADLINES[kind].map(t => t(probe)).filter(h => !h.includes(probe.handle));
+    check(`every void.${kind} headline names the walker`, nameless.length === 0, nameless.join(' | '));
+  }
+
+  // …and the ordinary death desk stands down for a death out there, or one corpse files two
+  // headlines and the generic one names a room that is weather rather than a place.
+  const VOIDROOM = 'zone_regress_news_voidroom';
+  const prevVoidRoom = world.zones.get(VOIDROOM);
+  world.zones.set(VOIDROOM, { id: VOIDROOM, name: 'Bone Country', description: '', flags: { void_crossing: true }, exits: {},
+    players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
+  check('a death in the waste is left to the void to report', news.isVoidDeath(VOIDROOM) === true);
+  check('an ordinary death still goes to the death desk', news.isVoidDeath(player.current_zone) === false);
+  if (prevVoidRoom) world.zones.set(VOIDROOM, prevVoidRoom); else world.zones.delete(VOIDROOM);
 
   // ── Library app ───────────────────────────────────────────────────────────
   // The book texts are hundreds of KB, so the shelf must never touch `chapters`

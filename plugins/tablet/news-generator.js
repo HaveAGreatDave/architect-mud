@@ -286,14 +286,74 @@ function zoneName(id) {
 }
 function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-on('player.death', ({ player }) => {
+// A death in the waste files its own story from `void.died` below, which knows where the body is and
+// what killed it. Without this one corpse files two headlines, and the generic one is the worse of
+// the pair: a void room's name is weather ("Bone Country"), not a place anyone can go.
+// Safe against teardown — voidwalking's own death handler awaits the corpse pack before it
+// unregisters the rooms, so the zone is still standing while this synchronous emit is running.
+const isVoidDeath = (deathZone) => !!getZone(deathZone)?.flags?.void_crossing;
+
+on('player.death', ({ player, deathZone }) => {
   if (!player?.handle) return;
+  if (isVoidDeath(deathZone)) return;
   const z = zoneName(player.current_zone);
   record(pickOne([
     `${player.handle} Found Dead in ${z}; Machine Rules It "Statistically Inevitable"`,
     `Coroner in ${z} Lists ${player.handle}'s Cause of Death as "Skill Issue"`,
     `${z} Mourns ${player.handle} for Approximately ${2 + Math.floor(Math.random() * 8)} Seconds`,
   ]));
+});
+
+// ── The waste ─────────────────────────────────────────────────────────────────
+// Nobody files copy from out there. The desk works from what walks back in, which is why these read
+// as rumour dressed up as reporting: an arrival, a prize somebody is already holding, and a name
+// that stopped coming up. The banner a walker steps past says there is no record of them out there;
+// this is the city making one anyway, out of scraps, and getting most of it slightly wrong.
+//
+// `origin` is the region the crossing set out from, so it is always "the waste outside X" and never
+// "the X waste" — several of them are already called The Something.
+const outside = (origin) => (origin ? `the Waste Outside ${origin}` : 'the Waste');
+// Item names arrive as a walker would say them ("a scrap pistol"); a headline says them the way a
+// headline says everything.
+const headlineCase = (s) => String(s).replace(/\b[a-z]/g, (c) => c.toUpperCase());
+
+// ⚠ EVERY TEMPLATE NAMES THE WALKER, and that is a rule rather than a habit — a void story with no
+// name in it is a weather report. The pools are templates rather than inline strings so the suite
+// can assert it across ALL of them: they are drawn at random, so a nameless one passes two runs in
+// three, which is how the first draft of the salvage line got this far.
+const VOID_HEADLINES = {
+  crossed: [
+    ({ handle, origin, heading, dist }) => `${handle} Walks In Off ${outside(origin)} at ${heading}; ${dist}, No Road, No Escort`,
+    ({ handle, origin, heading }) => `Crossing Confirmed: ${handle} Made ${origin || 'the Basin'} to ${heading} on Foot; Machine Files It Under "Inadvisable"`,
+    ({ handle, origin, heading }) => `${heading} Logs One Arrival on Foot Out of ${outside(origin)}; ${handle} Declined to Say Why`,
+  ],
+  bigscore: [
+    ({ handle, origin, what }) => `${handle} Hauls ${what} Out of ${outside(origin)}; Everyone Else This Week Gets Dust`,
+    ({ handle, origin }) => `THE PRIZE IS GONE: ${handle} Reached the Wreck in ${outside(origin)} First`,
+    ({ handle, origin, what }) => `Salvage Rumour Confirmed: ${what} Recovered From ${outside(origin)} by ${handle}, and It Is Not Coming Back`,
+  ],
+  died: [
+    ({ handle, origin, cause }) => `${handle} Did Not Come Back From ${outside(origin)}; Cause Given as "${cause || 'The Waste, Mostly'}"`,
+    ({ handle, origin }) => `Waste Claims ${handle} Outside ${origin || 'the Basin'}; Body Reported Somewhere Between Here and Nowhere`,
+    ({ handle }) => `${handle} Last Seen Heading Out Past the Edge; The Sentinel Continues to Advise Against It`,
+  ],
+};
+
+on('void.crossed', ({ handle, origin, heading, tiles }) => {
+  if (!handle || !heading) return;
+  const dist = tiles > 0 ? `${tiles} Tiles` : 'A Distance Nobody Has Measured';
+  record(pickOne(VOID_HEADLINES.crossed)({ handle, origin, heading, dist }));
+});
+
+on('void.bigscore', ({ handle, origin, item }) => {
+  if (!handle) return;
+  const what = item ? headlineCase(item) : 'Something Worth the Walk';
+  record(pickOne(VOID_HEADLINES.bigscore)({ handle, origin, what }));
+});
+
+on('void.died', ({ handle, origin, cause }) => {
+  if (!handle) return;
+  record(pickOne(VOID_HEADLINES.died)({ handle, origin, cause }));
 });
 
 on('sports.champion', ({ champion, runnerUp, champScore, runScore }) => {
@@ -527,4 +587,4 @@ registerAction({
   handler: async ({ params }) => ({ type: 'news', stories: await getStories(params?.total || 6) }),
 });
 
-export const _test = { tabloidStories, record, getStories, RING };
+export const _test = { tabloidStories, record, getStories, RING, isVoidDeath, VOID_HEADLINES };

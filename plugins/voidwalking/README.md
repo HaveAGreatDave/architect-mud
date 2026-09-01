@@ -72,6 +72,18 @@ rather than per room, and why `march` had to exist.
 - `zone.entered` — advance the window, show traces, roll an encounter. `mounted` suppresses
   the roll: a passenger in a cab sees the country and is not exposed to it.
 - `player.login` / `player.logout` / `player.stop` / `player.command` / `crossing.ended`.
+- **Emitted outward: `void.crossed` / `void.bigscore` / `void.died`.** What the city gets to
+  hear about the waste — an arrival, the week's prize going to somebody, and a name that
+  stopped coming up. Today the news desk
+  ([plugins/tablet/news-generator.js](../tablet/news-generator.js)) is the only subscriber,
+  and it turns each into a live story that reaches the TV news, the Tablet's News app, the
+  morning show and the MOTD.
+  ⚠ **The human names ride on the payload** (`origin`, `heading`, `item`, `cause`). A
+  subscriber that looked `origin` up in `VOIDS` would have to import this plugin to do it,
+  and the edge only stays one-way while there is nothing worth importing.
+  ⚠ **A void death is reported here and nowhere else.** The news desk's ordinary
+  `player.death` story stands down when the death zone carries `flags.void_crossing`, so one
+  corpse files one headline. That guard is in the desk, not here.
 
 ## Files
 

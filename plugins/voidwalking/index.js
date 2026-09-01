@@ -1461,6 +1461,15 @@ function leaveCrossing(member, zone) {
   if (dest) {
     sendToPlayer(member.id, { type: 'output', message: `<span class="item-grant">You stagger up out of the waste onto solid ground — <b>${dest.heading}</b>. You crossed it on foot.</span>` });
     markSurvived(member, c.voidKey, dest.key).catch(() => {}); // the route joins your charted frontier
+    // The one thing the city ever hears about a crossing. An EVENT rather than a call, for the same
+    // reason `crossing.ended` is one: the void must not import a news desk, and nothing out here
+    // knows or cares who is listening.
+    // ⚠ THE HUMAN NAMES RIDE ON THE PAYLOAD. A subscriber that read `origin` off VOIDS would have to
+    // import this plugin to do it, which is exactly the edge this shape exists to keep one-way.
+    emit('void.crossed', {
+      handle: member.handle, voidKey: c.voidKey, origin: VOIDS[c.voidKey]?.origin || null,
+      heading: dest.heading, tiles: live?.seen?.size || 0,
+    });
   }
   if (c.members.size === 0) teardownInstance(c);
 }
@@ -1649,6 +1658,12 @@ async function cmdLoot(args, raw, player, broadcast) {
   if (bigScoreOpen(c.voidKey, c.window, salt, trunk)) {
     const name = await grantItem(player.id, bigScoreItem(c.voidKey, c.window));
     await addTrace(c.voidKey, c.window, salt, 'bigscore_claim', player.handle, name);
+    // "Word will spread" is a promise the line has been making since it shipped, and until this
+    // event nothing kept it: the claim was written where only another crosser standing on the same
+    // tile could ever fail to find it. The news desk is what makes it true in the city.
+    emit('void.bigscore', {
+      handle: player.handle, voidKey: c.voidKey, origin: VOIDS[c.voidKey]?.origin || null, item: name,
+    });
     return { type: 'emote', message: `<span class="item-grant">You haul <b>${name}</b> out of the wreck — the prize this stretch of waste was hiding. It's gone now; word will spread.</span>` };
   }
 
@@ -1703,6 +1718,10 @@ async function onVoidDeath({ player, deathZone, cause }) {
     if (c && salt) {
       const pack = await captureCorpsePack(player.id, deathZone);
       await addTrace(c.voidKey, c.window, salt, 'corpse', player.handle, (cause?.label || 'killed by the waste').slice(0, 40), pack.length ? pack : null);
+      emit('void.died', {
+        handle: player.handle, voidKey: c.voidKey, origin: VOIDS[c.voidKey]?.origin || null,
+        cause: cause?.label || null, pack: pack.length,
+      });
     }
     delete player._crossing;
     clearCrossingFlags(player).catch(() => {});

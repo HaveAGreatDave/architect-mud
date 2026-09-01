@@ -4,7 +4,7 @@
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
   addPlayerToZone, removePlayerFromZone, getEnemyInstance, removeEnemyInstance, getMinimapData, getZoneEnemies, getAllZones } from '../../server/engine/world.js';
 import { readdirSync, readFileSync } from 'node:fs';
-import { emit } from '../../server/engine/events.js';
+import { emit, on } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { VOIDS, _test, commands, crossingChain } from './index.js';
@@ -152,6 +152,14 @@ export default async function regress({ run, check, getPlayer }) {
   _test.setWindow(2900);
   // Solo helper: step off the rim to open the muster, then `ready` (all ready → launch).
   const launch = async () => { player._lastStepAt = 0; await run('north'); return run('ready'); };
+
+  // What the city hears. These three events are the void's whole outward voice, and a subscriber
+  // (today the news desk) is the only thing that would notice one going missing — from over here a
+  // dropped emit looks exactly like a quiet week. Captured rather than mocked: the point is that the
+  // real arrival, the real claim and the real death each fire one.
+  const heard = [];
+  for (const ev of ['void.crossed', 'void.bigscore', 'void.died']) on(ev, (p) => heard.push({ ev, ...p }));
+  const heardOf = (ev) => heard.filter(h => h.ev === ev);
   try {
     // ── The muster: stepping off the rim opens staging; ready launches ─────────
     player.current_zone = GATE; player._lastStepAt = 0;
@@ -183,6 +191,10 @@ export default async function regress({ run, check, getPlayer }) {
     check('walking the trunk then the south limb arrives at The Reach', player.current_zone === REACH, player.current_zone);
     check('arriving tears the instance down', !player._crossing && !_test.crossings.has(c.id),
       `crossing=${!!player._crossing} instance=${_test.crossings.has(c.id)}`);
+    check('arriving tells the city (void.crossed, with the names a subscriber cannot look up)',
+      heardOf('void.crossed').some(h => h.handle === player.handle && h.heading === 'The Reach'
+        && h.origin === 'Coldwater' && h.tiles > 0),
+      JSON.stringify(heardOf('void.crossed')));
 
     // ── Divert at the fork: east limb reaches Exodus instead ──────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
@@ -619,6 +631,9 @@ export default async function regress({ run, check, getPlayer }) {
     await _test.handleDeath({ player, deathZone: deathRoom, cause: { label: 'Killed by a rad-mutant' } });
     check('dying in the void leaves a corpse trace at that room',
       traces.getTraces(tc.voidKey, tc.window, deathSalt).some(t => t.kind === 'corpse' && t.handle === player.handle), 'no corpse');
+    check('dying out there tells the city (void.died, carrying the cause)',
+      heardOf('void.died').some(h => h.handle === player.handle && /rad-mutant/.test(h.cause || '')),
+      JSON.stringify(heardOf('void.died')));
     check('death cleans up the dangling crossing (respawn is not a cmdMove)',
       !player._crossing && !_test.crossings.has(tc.id), `crossing=${!!player._crossing} instance=${_test.crossings.has(tc.id)}`);
 
@@ -697,6 +712,12 @@ export default async function regress({ run, check, getPlayer }) {
     check('the big score is claimable', /prize|wreck/i.test(bs?.message || '') && /item-grant/.test(bs?.message || ''), bs?.message?.slice(0, 70));
     check('claiming the big score records a global claim',
       traces.getTraces(gc.voidKey, gc.window, bsSalt).some(t => t.kind === 'bigscore_claim'), 'no claim');
+    // "It's gone now; word will spread" is a claim the message makes on air. This is the only thing
+    // that keeps it: before the event the claim was written where only the next person standing on
+    // that exact tile could fail to find it.
+    check('claiming the big score spreads the word (void.bigscore names the prize)',
+      heardOf('void.bigscore').some(h => h.handle === player.handle && !!h.item),
+      JSON.stringify(heardOf('void.bigscore')));
     wipe();
     // A later crosser (fresh instance, same window/salt) finds it already gone.
     player.current_zone = GATE; player._lastStepAt = 0;
