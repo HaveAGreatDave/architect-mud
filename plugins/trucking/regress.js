@@ -3448,6 +3448,17 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and the weather, so rain reaches the windscreen', !!cab?.weather, `weather=${cab?.weather}`);
       check('…and tonight\'s moon, in phase with every other canopy in the world',
         typeof cab?.moon === 'number' && cab.moon >= 0 && cab.moon < 1, `moon=${cab?.moon}`);
+      // ⚠ …AND THE SPATIAL WEATHER, which is the same failure one layer in. `weather` alone is a
+      // single string for a 240-mile haul: the sky the canopy actually renders comes from the
+      // field's drifting cells, and without them a driver never drove INTO a squall and out the
+      // far side, never saw a storm darken his own tile, and got none of the ambient cloud and
+      // precip floors that ride that packet. It was withheld on the honest grounds that the cab
+      // did not read it; the cab reads it now, so both halves have to stay wired or neither is
+      // worth anything. `wxField` is legitimately null on a day with no cells, so assert the KEY.
+      check('…and the spatial weather field, so a squall crosses the road and not just the HUD',
+        !!cab && 'wxField' in cab, 'wx keys=' + (cab ? Object.keys(cab).filter(k => k.startsWith('wx')).join(',') || 'none' : 'no cab'));
+      check('…and the hero event, which outranks the weather word for everything visual',
+        !!cab && 'wxEvent' in cab, 'wxEvent=' + JSON.stringify(cab && cab.wxEvent));
       // THE DOOR ONLY EXISTS IF YOU CAME OUT OF ONE. This suite's yard is a bare road tile
       // carrying the flag — the legacy apron shape, no shed — so the cab must be told there is no
       // roller door to lift. Getting this wrong is two and a half seconds of a player staring at

@@ -446,8 +446,19 @@ function stepWeatherCells(st, field, dt) {
 // Sample cloud cover + precipitation at the aircraft — the same overlap math the server field
 // uses (sampleWeatherAt), so the rain out the canopy matches the weather you're actually flying
 // through: fly into a rain cell and it starts, fly out and it stops.
-function sampleWeatherCells(cells, ax, ay) {
-  let cloud = 0, precip = 0, storm = 0, ptype = 'none';
+//
+// ⚠ THE CELLS ARE NOT THE WHOLE SKY, AND FOR A LONG TIME THIS BELIEVED THEY WERE. The server's
+// sampleWeatherAt opens at `field.baseCloud` (the day's ambient cloud floor — 0.7 on an overcast
+// day, 0.8 under a storm) and floors the local rate at the day's headline `precipRate`, which is
+// what makes light rain both seen and heard on every tile rather than only under a passing cell.
+// This opened at zero on both counts, so the canopy saw the 2–4 discrete cells and nothing else:
+// measured over the real map bounds, roughly HALF of all tiles carry no cell precip at all on a
+// storm day. A player standing on one of them was in a downpour; flying over it, it was dry.
+//
+// The floors arrive on the field packet (`baseCloud` / `precipFloor` / `floorType`), so both
+// sides read the one derivation and cannot drift apart.
+function sampleWeatherCells(cells, ax, ay, field) {
+  let cloud = field?.baseCloud || 0, precip = 0, storm = 0, ptype = 'none';
   for (const c of cells) {
     const d = Math.hypot(ax - c.x, ay - c.y);
     if (d >= c.r) continue;
@@ -456,7 +467,11 @@ function sampleWeatherCells(cells, ax, ay) {
     cloud = Math.max(cloud, f);
     if (c.type === 'precip' || c.type === 'storm') { if (f > precip) { precip = f; ptype = c.precip; } if (c.type === 'storm') storm = Math.max(storm, f); }
   }
-  return { cloud, precip, storm, ptype };
+  // The day's headline rate, felt everywhere it is falling. Only the RATE is floored — `storm`
+  // stays cell-local, because a storm cell is a place on the map and the headline is not.
+  if ((field?.precipFloor || 0) > precip) { precip = field.precipFloor; ptype = field.floorType || ptype; }
+  if (precip > 0 && (!ptype || ptype === 'none')) ptype = field?.floorType || 'rain';
+  return { cloud: Math.min(1, cloud), precip: Math.min(1, precip), storm, ptype };
 }
 
 // ── Lightning ─────────────────────────────────────────────────────────────────
@@ -466,6 +481,9 @@ function sampleWeatherCells(cells, ax, ay) {
 // the world camera (cam.proj) so it's a true 3-D bolt: it pans/banks with the world, foreshortens
 // with distance, and recedes toward the horizon like everything else out there.
 const BOLT_MAX_DIST = 65;   // tiles: strikes farther than this are too distant to render as a bolt
+// How much of a strike's flash reaches you through an open bay door with a roof over your head.
+// Low enough that a depot reads as shelter, non-zero because a doorway is not a wall.
+const ROOF_FLASH_SPILL = 0.22;
 
 // Server-pushed strikes waiting to become bolts. The engine's stormTick is the sole
 // strike authority (so the sim matches the ground weather); the flight message relays
@@ -542,6 +560,28 @@ const AIRPORT = {
 };
 const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
 
+// ── The weather vocabulary this renderer speaks ───────────────────────────────
+//
+// Every table below — WX_HAZE, the overcast ceiling, the cab murk, the on-glass rain gate —
+// is keyed on a SEVEN-token set: clear/cloudy/rain/snow/storm/fog/ash, plus the two hero
+// events. The general environment system speaks twelve types, and the extras used to fall
+// through every one of those tables to a default: an 'overcast' sky rendered at hazeCeil
+// 0.15, which is LESS murk than 'cloudy', and a 'haze' day flew like a clear one.
+//
+// ⚠ FOLD AT THE DOOR, NOT AT EACH CALLER. helm-view.js grew its own copy of this map for the
+// yacht and nothing else ever used it, so the cockpit, the truck cab and the hangar all kept
+// passing raw. Normalising inside paintWindshield fixes every caller at once and is the one
+// place that cannot be forgotten — helm-view now imports this one.
+// ⚠ FOLD ONLY WHAT HAS NO LOOK OF ITS OWN. 'overcast' and 'haze' are deliberately NOT in here:
+// aliasing overcast onto 'cloudy' would have handed a solid grey deck the fair-weather sun
+// glare and god-rays (_clearish), and haze onto 'fog' would have given a chemical murk fog's
+// full 0.75 wall. Both get their own rows in the tables below instead. The four that remain
+// really are the same picture at a different strength, which is what makes folding them safe.
+const WX_MAP = {
+  thunderstorm: 'storm', blizzard: 'snow', sleet: 'rain', none: 'clear', unknown: 'clear',
+};
+export const normalizeWx = (w) => { w = (w || '').toLowerCase(); return WX_MAP[w] || w || 'clear'; };
+
 // ── Weather → ground-haze ceiling ─────────────────────────────────────────────
 // How far the Mode-7 floor is allowed to wash toward the horizon colour with distance.
 // Clear skies keep the terrain crisp all the way out (a whisper only at the true horizon
@@ -554,7 +594,8 @@ const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
 // off `wx` — haze, glare, aurora — then treats them as first-class weather with
 // no extra plumbing.
 const WX_HAZE = {
-  clear: 0.12, cloudy: 0.22, rain: 0.3, snow: 0.34, storm: 0.42, ash: 0.55, fog: 0.75,
+  clear: 0.12, cloudy: 0.22, overcast: 0.26, rain: 0.3, snow: 0.34, storm: 0.42,
+  haze: 0.5, ash: 0.55, fog: 0.75,
   acid_rain: 0.5, ion_storm: 0.38,
 };
 const hazeCeil = (wx) => WX_HAZE[wx] ?? 0.15;
@@ -891,7 +932,7 @@ export function paintWindshield(id, view) {
   // A hero event OUTRANKS the ordinary weather type for everything visual: when
   // the sky is doing something with a name, that's what you're flying through.
   const wxEvent = v.event?.type && WX_EVENT_CAST[v.event.type] ? v.event : null;
-  const wx = wxEvent ? wxEvent.type : (v.weather || 'clear').toLowerCase();
+  const wx = wxEvent ? wxEvent.type : normalizeWx(v.weather);
   // A rainbow is the one hero event that does NOT outrank the weather: the sky it
   // is standing in is still the sky you're flying through, so it takes no canopy
   // cast, no haze slot and no on-glass behaviour. It is drawn where it actually
@@ -1318,7 +1359,7 @@ export function paintWindshield(id, view) {
   // then sample what the aircraft is flying through so both the clouds and the rain are the REAL
   // weather at our position. Falls back to the procedural deck when no field data is plumbed.
   stepWeatherCells(st, v.wxField, dt);
-  const wxSample = (st.cells && v.acX != null) ? sampleWeatherCells(st.cells, v.acX, v.acY) : null;
+  const wxSample = (st.cells && v.acX != null) ? sampleWeatherCells(st.cells, v.acX, v.acY, v.wxField) : null;
   const localStorm = wxSample ? Math.max(wxSample.storm, wxSample.precip * 0.7) : 0;
 
   // Lightning is server-authoritative: the engine (stormTick) is the SINGLE strike
@@ -1354,7 +1395,7 @@ export function paintWindshield(id, view) {
   // puffs projected through the world camera below — so here the flat dome billboards keep only the
   // FAR fronts (a cloud line on the horizon) and cede everything within reach to the volumetric layer.
   const volOn = !framed && worldBlend > 0.02 && RENDER_TUNE.volClouds !== 0;
-  const cloudy = wx === 'cloudy' || wx === 'rain' || wx === 'storm' || wx === 'snow' || wx === 'fog';
+  const cloudy = wx === 'cloudy' || wx === 'overcast' || wx === 'rain' || wx === 'storm' || wx === 'snow' || wx === 'fog';
   const cloudAlpha = (wx === 'clear' ? 0.5 : cloudy ? 0.74 : 0.58) * (1 - sky.night * 0.4);
   let baseTint = cloudy ? [148, 156, 166] : mix([245, 248, 252], sky.hor, 0.22);
   let litTint = cloudy ? [190, 196, 204] : mix([255, 255, 255], sky.sun || [255, 250, 240], 0.28);
@@ -1364,7 +1405,7 @@ export function paintWindshield(id, view) {
   // then a few broad drifting patches give it uneven thickness so it isn't a dead flat fill. The
   // discrete puffs drawn below share this tint, so they read as denser knots WITHIN the ceiling
   // rather than lone blobs on open sky. Nearly free — a couple of gradient fills, no per-sprite work.
-  const overcast = wx === 'cloudy' ? 0.9 : wx === 'fog' ? 0.82 : wx === 'storm' ? 0.85 : (wx === 'rain' || wx === 'snow') ? 0.7 : 0;
+  const overcast = wx === 'overcast' ? 0.95 : wx === 'cloudy' ? 0.9 : wx === 'storm' ? 0.85 : wx === 'fog' ? 0.82 : (wx === 'rain' || wx === 'snow') ? 0.7 : 0;
   if (overcast > 0.01 && !framed) {
     const ceil = mix(mix(baseTint, litTint, 0.4), [24, 26, 34], sky.night * 0.5);
     const wash = ctx.createLinearGradient(0, -H * 0.4, 0, horizonY);
@@ -1616,7 +1657,12 @@ export function paintWindshield(id, view) {
     // The heavier atmospherics (lightning, clouds, traffic, guides) stay gated below.
     drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
     if (worldBlend > 0.02) {
-      if (st.bolts && st.bolts.length) drawLightning(ctx, cam, st, now, v.acX ?? 0, v.acY ?? 0);   // 3-D lightning bolts inside storm cells
+      // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
+      // ground, projected through the world camera — so parked in a depot bay it was drawn
+      // straight through the shed roof and down the middle of the windscreen. The precipitation
+      // already stops under 'roofed' for the same reason; the bolt was simply never included,
+      // because it is drawn in the world pass and the rain is drawn in the weather pass.
+      if (!roofed && st.bolts && st.bolts.length) drawLightning(ctx, cam, st, now, v.acX ?? 0, v.acY ?? 0);   // 3-D lightning bolts inside storm cells
       if (volOn) { pBegin('clouds'); drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr); pEnd(); }   // fly-through cloud deck: puff stacks + silver-lining rim, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
       if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
       if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
@@ -1750,6 +1796,13 @@ export function paintWindshield(id, view) {
 
   // Lightning flash: a nearby strike floods the whole scene white for its brief life, scaled by how
   // close it hit. Drawn in screen space (over the world) so the whole canopy blooms with each bolt.
+  //
+  // ⚠ DAMPED UNDER A ROOF, NOT KILLED, and that split is the whole point of keeping this separate
+  // from the bolt above. The roof stops the geometry: you cannot see the channel through a shed.
+  // It does not stop the LIGHT — a strike outside still throws the yard into white through an open
+  // bay door, and a shed that switched the storm off entirely would be the same lie as rain
+  // falling indoors was, only in the other direction. So the bolt goes and a spill stays.
+  // (See the note on 'roofed' up top: it is the precipitation only, and now the geometry.)
   if (st.bolts && st.bolts.length && !framed) {
     let flash = 0;
     for (const b of st.bolts) {
@@ -1757,6 +1810,7 @@ export function paintWindshield(id, view) {
       const prox = clamp(1 - Math.hypot(b.bx - (v.acX ?? 0), b.by - (v.acY ?? 0)) / 45, 0, 1);
       flash = Math.max(flash, prox * Math.max(0, 1 - age / b.dur) * (0.55 + 0.45 * Math.sin(age * 0.085)) * b.intensity);
     }
+    if (roofed) flash *= ROOF_FLASH_SPILL;
     if (flash > 0.02) { ctx.fillStyle = rgb([222, 234, 255], clamp(flash * 0.5, 0, 0.5)); ctx.fillRect(0, 0, W, H); }
   }
 
@@ -1940,7 +1994,10 @@ export function paintWindshield(id, view) {
   if (ext && (wx === 'rain' || wx === 'storm' || (wxSample && wxSample.precip > 0.12 && wxSample.ptype !== 'snow'))) {
     pBegin('weather');
     const rate = wxSample && wxSample.precip > 0.12 ? clamp(wxSample.precip, 0.15, 1) : 1;
-    const heavy = wx === 'storm' || wxSample?.ptype === 'thunderstorm';
+    // ⚠ NOT `ptype === 'thunderstorm'`, which is what this asked for years and could never be
+    // true — the field's precip taxonomy is two words wide (rain/snow, plus acid). Local storm
+    // INTENSITY is the thing that actually says "this cell is worse than rain", so ask that.
+    const heavy = wx === 'storm' || (wxSample?.storm || 0) > 0.3;
     const n = Math.round((heavy ? 70 : 44) * rate);
     // ⚠ ITS OWN PARTICLES, NOT A SLICE OF THE FAR FIELD’S. A storm already drives 90 of those, so
     // any window into that pool is a bead being advanced twice a frame — it would fall at double
@@ -2499,7 +2556,8 @@ function drawCabInterior(ctx, W, H, v) {
     const s = skyAt(v?.hour == null ? 12 : v.hour);
     const wx = v?.weather;
     const murk = wx === 'storm' || wx === 'ash' || wx === 'dust' ? 0.55
-      : wx === 'rain' || wx === 'snow' || wx === 'fog' ? 0.40 : 0;
+      : wx === 'rain' || wx === 'snow' || wx === 'fog' || wx === 'haze' ? 0.40
+      : wx === 'overcast' ? 0.22 : 0;
     return clamp(Math.max(s.night, murk), 0, 1);
   })();
   {

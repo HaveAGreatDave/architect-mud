@@ -1554,11 +1554,25 @@ export function cabContext(rig, extra = {}) {
     // the three, so `hour` fell through to the client's `?? 12` default and every haul in the game
     // was run at high noon under a clear sky. One call to the same `skyState` the cockpit uses, so
     // a driver and a pilot in the air above them can never disagree about the time or the weather.
-    // The spatial weather FIELD is deliberately left off: the cab doesn't wire it, and putting a
-    // payload on the wire that nothing reads is how a push gets expensive for nothing.
+    // …AND THE SPATIAL WEATHER, which this deliberately withheld until 2026-08-31 on the grounds
+    // that "the cab doesn't wire it, and putting a payload on the wire that nothing reads is how a
+    // push gets expensive for nothing." Sound as far as it went, and a standoff: each half was
+    // waiting for the other, so a driver crossing 240 miles of void had ONE weather string for the
+    // whole haul — never driving into a squall and out the far side, which is the entire reason the
+    // field exists. The cab wires it now (`wxField`/`event` on its paintWindshield call), so the
+    // reason has expired. `event` matters more than it looks: hero weather OUTRANKS the ordinary
+    // type for everything visual, and without it an acid downpour reached the cab as ordinary rain
+    // — which is why cab-view's wet-glass test had a dead `=== 'acid_rain'` arm in it, written by
+    // somebody who assumed events already arrived.
+    //
+    // Cheap: a cab push is not a frame (see below — it fires on tile change, on a state change, or
+    // once a second as a floor), and the field is single-digit cells of eight numbers each.
     // Flat rather than nested, because `ctx.hour` / `ctx.weather` are the names the cab has read
     // since it was built — it was waiting for these the whole time.
-    ...(() => { const s = skyState(); return { hour: s.hour, weather: s.weather, moon: s.moon, wind: s.wind }; })(),
+    ...(() => {
+      const s = skyState();
+      return { hour: s.hour, weather: s.weather, moon: s.moon, wind: s.wind, wxField: s.field, wxEvent: s.event };
+    })(),
     pump: pumpAt(rig) ? { full: FUEL_FULL, credits: getLivePlayer(rig.playerId)?.credits || 0 } : null,
     ...extra,
   };

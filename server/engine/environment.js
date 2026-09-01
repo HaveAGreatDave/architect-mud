@@ -2057,9 +2057,11 @@ export function setCurrentPrecip(type, rate) {
   state.precipRate    = rate ?? 0;
 }
 
-// Current global precipitation type ('none' | 'rain' | 'sleet' | 'snow' |
-// 'blizzard' | 'thunderstorm'). Carries the full taxonomy (the field only
-// distinguishes rain/snow), so the audio layer picks the right ambience loop.
+// Current global precipitation type. ⚠ IT IS THREE WORDS WIDE: 'none' | 'rain' | 'snow'.
+// rollAndSetCurrentPrecip is the only thing that ever writes it and it picks between those
+// three, so any consumer branching on 'sleet' / 'blizzard' / 'thunderstorm' here is dead code.
+// (This comment claimed the full taxonomy for months and several such branches were written
+// on the strength of it.) The day's SEVERITY, not this word, is how the model says "worse".
 export function getCurrentPrecipType() {
   return state.currentPrecip;
 }
@@ -2365,21 +2367,45 @@ export async function getWeatherMap() {
     for (const z of rows) {
       const f = sampleField ? sampleField(z.grid_x, z.grid_y) : null;
       const cloud  = f ? f.cloudCover : 0;
-      const precip = (f && active) ? f.precipRate : 0;
+      // ⚠ BOTH CHANNELS, BECAUSE THE MAP AND THE GAME ARE ASKING DIFFERENT QUESTIONS.
+      //
+      // 'precip'/'cloud' are EFFECTIVE — the floors folded in, exactly what getZonePrecip and
+      // broadcastZoneWeather hand the player. This readout used to omit the precip floor, so it
+      // reported "precip 0%" on tiles that were being rained on at the headline rate, and a dev
+      // map that disagrees with the game is worse than no dev map because it gets believed.
+      //
+      // 'precipCell'/'cloudCell' are the CELL CONTRIBUTION ALONE. Applying the floors and stopping
+      // there swapped one broken readout for another: at Max Storm every tile reads the headline
+      // 1.0 and the storm floor is 0.8, so both overlays went flat and the cells — the only thing
+      // on this screen that varies, and the whole reason to open it — disappeared into the floor.
+      // The panel shades by the cell and reports the effective value in the tooltip.
+      const precip     = (f && active) ? precipFloor(f.precipRate) : 0;
+      const precipCell = (f && active) ? f.precipRate : 0;
       // Day humidity is the floor; tiles under cloud / active precip read damper.
       const localHum = localHumidity(baseHum, cloud, precip);
       zones.push({
         id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y, region_id: z.region_id,
         tempC: f ? Math.round(base + f.tempOffset) : Math.round(base),
         cloudCover: cloud,
+        cloudCell: f ? (f.cloudCell || 0) : 0,
         precipRate: precip,
-        precipType: (f && active && f.precipType !== 'none') ? f.precipType : 'none',
+        precipCell,
+        // Same fallback the zone broadcast uses: a floored tile is falling the day's headline
+        // precip, and the cell it is between has no type of its own to lend it.
+        precipType: (active && precip > 0) ? ((f && f.precipType !== 'none') ? f.precipType : state.currentPrecip) : 'none',
         humidityPct: localHum,
         severity: f ? f.severity : 0,
       });
     }
   }
-  return { bounds: snap.bounds, systems: snap.systems, zones, regionBias: snap.regionBias || [] };
+  // 'baseCloud'/'precipFloorRate' are the two floors themselves, so the panel's legend can NAME
+  // what it has subtracted rather than leaving a dev to wonder why a tile shaded 0 on a day the
+  // whole map is under cloud.
+  return {
+    bounds: snap.bounds, systems: snap.systems, zones, regionBias: snap.regionBias || [],
+    baseCloud: snap.baseCloud || 0,
+    precipFloorRate: active ? (state.precipRate || 0) : 0,
+  };
 }
 
 // Muffled rain bleed: a tile that isn't directly under a storm cell but sits
@@ -2456,11 +2482,11 @@ function broadcastZoneWeather(occupied) {
     // on every tile, not just under a passing cell — the muffle-a-neighbour bleed below still
     // layers a heavier nearby storm on top of the floor.
     let precipRate = active ? precipFloor(f.precipRate) : 0;
-    // Local precip TYPE comes from the field's full taxonomy (rain/sleet/thunder-
-    // storm/storm/snow/blizzard/acid), not the coarse global roll — a passing storm
-    // cell renders and sounds like what it actually is over this exact tile. This is
-    // the single source both the visual FX and the audio ambience derive from, so
-    // they can never disagree: see it → hear it.
+    // Local precip TYPE comes from the field (rain/snow, plus 'acid' where a region or a hero
+    // event makes it burn) rather than the global roll, so a passing cell renders and sounds
+    // like what it actually is over this exact tile. This is the single source both the visual
+    // FX and the audio ambience derive from, so they can never disagree: see it → hear it.
+    // ⚠ Two words wide, not the fuller list this comment used to name — see precipTypeForFieldTemp.
     let localType = precipRate > 0 ? f.precipType : 'none';
     let muffled = false;
     let muffleHops = 0;
@@ -2493,6 +2519,26 @@ function broadcastZoneWeather(occupied) {
       muffleHops,
     });
   }
+}
+
+// Push the per-zone weather NOW, outside the 30s tick.
+//
+// ⚠ A WEATHER OVERRIDE THAT ONLY BROADCASTS THE HUD PAYLOAD CHANGES NOTHING A PLAYER CAN SEE.
+// The client's FX overlay decides rain/snow from its fxPrecipType/fxPrecipRate, and those are
+// written by exactly two things: this broadcast, and the per-room visibility fetch. The HUD
+// payload carries neither, so 'environment.weatherOverride' moved the text in the corner and
+// left the sky alone until the next 30s tick caught up.
+//
+// And that tick is gated on !state.frozen — with the Time & Weather panel's Freeze button on
+// (one control away from Max Storm, and exactly what you press to STUDY the weather), the 30s
+// block and the 1m clock tick both stop, so the catch-up never came at all: Max Storm forced a
+// rate-1.0 downpour onto every outdoor tile and not one player saw a drop.
+//
+// Deliberately NOT gated on 'frozen'. A frozen clock means time is not passing; it does not
+// mean a dev action is not happening. In-memory only, and it scales with occupied zones.
+function pushZoneWeatherNow() {
+  const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
+  if (occupied.length) broadcastZoneWeather(occupied);
 }
 
 const WEATHER_DESCRIPTIONS = {
@@ -2930,6 +2976,7 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   if (emitHook) await emitHook('environment.weatherFieldSync', { forecast0: state.forecast[0] });
   if (await syncStreetlights().catch(() => false)) await recomputePower().catch(() => {});
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
+  pushZoneWeatherNow();   // ...and the half of it the FX overlay actually reads
   return getHUDPayload();
 }
 
@@ -2946,6 +2993,7 @@ export async function devClearWeatherOverride() {
   if (await syncStreetlights().catch(() => false)) await recomputePower().catch(() => {});
   const payload = { ...getHUDPayload(), forecast: getForecast() };
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
+  pushZoneWeatherNow();   // clearing an override has to stop the rain as promptly as it started it
   return payload;
 }
 
@@ -2976,6 +3024,10 @@ export async function devMaxStorm() {
   await devOverrideWeather({ weatherType: 'thunderstorm', tempC: state.tempC + diurnalOffset(state.minutes), precipChance: 1.0 });
   setCurrentPrecip('rain', 1.0);
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
+  // ⚠ AFTER setCurrentPrecip, not only inside devOverrideWeather. That call already pushed once,
+  // at whatever rate its own roll produced; the maximum is forced a line later, so the push that
+  // carries it is this one. Cheap enough to do twice, wrong to do only first.
+  pushZoneWeatherNow();
   return getHUDPayload();
 }
 

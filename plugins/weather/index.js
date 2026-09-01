@@ -418,7 +418,12 @@ function blendedBiasAt(gx, gy) {
 }
 
 // The gap blend, for the suite. `field` rides along so a test can install spans without a DB.
-export const _testWeather = { computeRegionBoxes, blendedBiasAt, regionBiasAt, boxDist2, field };
+// `systemsForForecast` is pure given a rand stream (it mutates nothing), so the suite can assert
+// the ambient cloud floors without seeding the live field out from under the other cases.
+export const _testWeather = {
+  computeRegionBoxes, blendedBiasAt, regionBiasAt, boxDist2, field,
+  systemsForForecast, getWeatherFieldSnapshot, mulberry32, seedFromString,
+};
 
 // ── Named "hero" weather events (step 7) ────────────────────────────────────
 // Rare, announced events that ride ON TOP of the forecast/field with an
@@ -813,6 +818,11 @@ function smoothstep(t) {
   return t * t * (3 - 2 * t);
 }
 
+// ⚠ THE FIELD'S PRECIP TAXONOMY IS TWO WORDS WIDE. Anything downstream that branches on a
+// richer set off a field precipType — 'thunderstorm', 'sleet', 'blizzard' — is unreachable,
+// and several such branches were written on the strength of comments claiming otherwise.
+// `severity` and `stormIntensity` are how the field says "worse than rain"; the TYPE is not.
+// (`acid` is the one addition, and it is applied in sampleWeatherAt, not here.)
 function precipTypeForFieldTemp(tempC) {
   return tempC <= 1 ? 'snow' : 'rain';
 }
@@ -864,13 +874,19 @@ function systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, r
     });
   };
 
+  // ⚠ THE FLOOR HAS TO RISE WITH THE WEATHER, and until 2026-08-31 it did not: storm sat at
+  // 0.5 and rain at 0.45, both BELOW a plain overcast day's 0.7. Measured across the map that
+  // made a maximum thunderstorm (mean cloud 0.578) visibly clearer than a grey Tuesday (0.703),
+  // so forcing Max Storm made most of the world LESS cloudy — the opposite of what the button
+  // is for. A precipitating sky is overcast by definition; a storm is more so. The cells still
+  // decide where it thickens on top of this, and severity still comes from them alone.
   let baseCloud = 0, cloudCells = 0, precipCells = 0, stormCells = 0;
   if (weatherType === 'clear')                  { cloudCells = rand() < 0.5 ? 1 : 0; }
   else if (weatherType === 'fog' || weatherType === 'haze') { baseCloud = 0.3; cloudCells = 1; }
   else if (weatherType === 'cloudy')            { baseCloud = 0.4; cloudCells = 2 + Math.floor(rand() * 2); }
   else if (weatherType === 'overcast')          { baseCloud = 0.7; cloudCells = 2 + Math.floor(rand() * 3); }
-  else if (STORM_TYPES.has(weatherType))        { baseCloud = 0.5; cloudCells = 1 + Math.floor(rand() * 2); stormCells = 1 + Math.floor(rand() * 2); }
-  else if (PRECIP_TYPES.has(weatherType))       { baseCloud = 0.45; cloudCells = 2; precipCells = 1 + Math.floor(rand() * 2); }
+  else if (STORM_TYPES.has(weatherType))        { baseCloud = 0.8; cloudCells = 1 + Math.floor(rand() * 2); stormCells = 1 + Math.floor(rand() * 2); }
+  else if (PRECIP_TYPES.has(weatherType))       { baseCloud = 0.72; cloudCells = 2; precipCells = 1 + Math.floor(rand() * 2); }
   else                                          { cloudCells = 1; }
 
   for (let i = 0; i < cloudCells;  i++) spawn('cloud',  0.5 + rand() * 0.4);
@@ -916,17 +932,28 @@ function advectField() {
 }
 
 // The shared sampler handed to the engine. O(systems); systems are single digits.
+// ⚠ 'cloudCell' IS THE CELL CONTRIBUTION ALONE, AND IT IS NOT THE SAME QUESTION AS 'cloudCover'.
+// Two readers want two different numbers. The GAME wants "how much cloud is over this tile",
+// which is the floor and the cells together — that is what a player is standing under. A DEV MAP
+// wants "where are the cells", which is the floor EXCLUDED, because the floor is identical
+// everywhere and is therefore the one part of the number that can tell you nothing. Collapsing
+// them cost a readout: with the storm floor at 0.8, max(floor, cell) put 1952 of 2236 tiles in a
+// single shade and the weather map went flat grey — every cell invisible, on the screen whose
+// entire job is showing you where the cells are. Cheap to carry both; impossible to recover
+// either from the other afterwards.
 function sampleWeatherAt(gx, gy) {
   let cloudCover = field.baseCloud, precipRate = 0, stormIntensity = 0, tempOffset = 0;
+  let cloudCell = 0;                  // cell-only cloud, floor excluded — see above
   let precipType = 'none';
   let wetCell = null;                 // the cell actually raining on this tile (owns the acid roll)
-  if (gx == null || gy == null) return { cloudCover, precipRate, precipType, tempOffset, stormIntensity, severity: currentBaseSeverity() };
+  if (gx == null || gy == null) return { cloudCover, cloudCell, precipRate, precipType, tempOffset, stormIntensity, severity: currentBaseSeverity() };
   for (const s of field.systems) {
     const dist = Math.hypot(gx - s.x, gy - s.y);
     if (dist >= s.radius) continue;
     const f = s.intensity * smoothstep(1 - dist / s.radius);
     if (f <= 0) continue;
     cloudCover = Math.max(cloudCover, f);
+    cloudCell  = Math.max(cloudCell, f);
     tempOffset -= f * K_TEMP;
     if (s.type === 'precip' || s.type === 'storm') {
       if (f > precipRate) { precipRate = f; precipType = s.precipType; wetCell = s; }
@@ -939,7 +966,7 @@ function sampleWeatherAt(gx, gy) {
   const bias = regionBiasAt(gx, gy);
   if (bias) {
     tempOffset += bias.temp;
-    if (bias.dryness != null) { precipRate *= bias.dryness; cloudCover *= bias.dryness; }
+    if (bias.dryness != null) { precipRate *= bias.dryness; cloudCover *= bias.dryness; cloudCell *= bias.dryness; }
     // Does the rain here burn? Asked of the CELL, not the tile: s.seed is fixed for
     // that cell's whole life, so a squall is acid or it is not and stays that way as
     // it drifts. Applied after dryness so a region that is both drier and acidic
@@ -956,6 +983,7 @@ function sampleWeatherAt(gx, gy) {
   if (acid && precipRate > 0) precipType = acid;
   return {
     cloudCover: Math.min(1, cloudCover),
+    cloudCell: Math.min(1, cloudCell),
     precipRate: Math.min(1, precipRate),
     precipType,
     tempOffset,
@@ -968,6 +996,11 @@ function getWeatherFieldSnapshot() {
   return {
     bounds: field.bounds,
     baseSeverity: currentBaseSeverity(),
+    // ⚠ THE CELLS ARE NOT THE WHOLE SKY. sampleWeatherAt opens at this floor and only then
+    // takes the max over the cells, so a snapshot that omitted it described a sky 0.5–0.8
+    // less cloudy everywhere than the one the ground was standing under. The flight sim
+    // consumes exactly this snapshot and opened its own sampler at zero to match.
+    baseCloud: field.baseCloud,
     wind: field.wind,
     regionBias: field.regionBoxes.map(b => ({ id: b.id, temp: b.temp, dryness: b.dryness, acid: b.acid })),
     systems: field.systems.map(s => ({
