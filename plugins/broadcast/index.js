@@ -4,7 +4,7 @@ import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, resolveLanding, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { escAttr } from '../../server/engine/text.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { on, emit } from '../../server/engine/events.js';
@@ -13,7 +13,7 @@ import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
-import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
@@ -318,10 +318,28 @@ function _cameraLabel(camId, idx) {
 // resolves through the path that already exists for a studio with dark cameras
 // (tech difficulties, self-healing the moment it comes back) because from the
 // viewer's side it is the same event and should not need a second explanation.
+// Is there a case standing in this room, plugged in and switched on? The one test,
+// shared by the two questions that ask it: can the signal get out of THIS room
+// (_uplinkOk, below), and can the channel transmit at all (channelTransmitterLive).
+// ⚠ THE POWER TEST HAS TO COME FROM THE ENVIRONMENT, NOT THE ROW. This read
+// `f.is_powered !== 0`, and `furniture` has no such column — that lives on
+// `media_cameras` and `security_devices`. So it was `undefined !== 0` on every
+// furniture object in the game: always true, never once false, a power gate that
+// had never been able to fail. Zone power is only ever held in the environment's
+// own map, so `getZonePowerStatus` is the one way to ask.
+//
+// Only an explicit blackout kills it, matching the wired deck: a room whose power
+// was never modelled reads 'unpowered' and still works, or every interior nobody
+// wired would silently take a channel off air.
+function _portableDeckLive(zoneId) {
+  if (getZonePowerStatus(zoneId) === 'offline') return false;
+  const furn = getZoneFurniture(zoneId) || [];
+  return furn.some(f => f?.flags?.portable_mediadeck && !f?.flags?.deck_off);
+}
+
 function _uplinkOk(state, stageZoneId) {
   if (!stageZoneId || stageZoneId === state.studioZoneId) return true;   // wired, as ever
-  const furn = getZoneFurniture(stageZoneId) || [];
-  return furn.some(f => f?.flags?.portable_mediadeck && f?.is_powered !== 0 && !f?.flags?.deck_off);
+  return _portableDeckLive(stageZoneId);
 }
 
 function _camerasIn(zoneId) {
@@ -974,11 +992,28 @@ async function loadChannelRuntimes() {
 
     // Each channel's transmitter (media deck): where it physically sits, so the
     // tick can check its zone still has power. No deck → the channel can't transmit.
+    //
+    // The portable decks come back on the same read, keyed the same way. A case in a
+    // church basement is bound to a channel by `uplink_channel` (or plain `channel_id`
+    // — the dev panel writes both), and it is a transmitter in its own right, not only
+    // a relay for a location shoot. See channelTransmitterLive.
     const { rows: deckRows } = await query(
-      `SELECT flags->>'channel_id' AS channel_id, zone_id FROM furniture WHERE flags->>'media_deck'='true'`
+      `SELECT COALESCE(flags->>'uplink_channel', flags->>'channel_id') AS channel_id, zone_id,
+              (flags->>'portable_mediadeck'='true') AS portable
+         FROM furniture
+        WHERE flags->>'media_deck'='true' OR flags->>'portable_mediadeck'='true'`
     );
     const deckZoneByChannel = new Map();
-    for (const d of deckRows) if (d.channel_id && !deckZoneByChannel.has(d.channel_id)) deckZoneByChannel.set(d.channel_id, d.zone_id);
+    const portableZonesByChannel = new Map();
+    for (const d of deckRows) {
+      if (!d.channel_id) continue;
+      if (d.portable) {
+        if (!portableZonesByChannel.has(d.channel_id)) portableZonesByChannel.set(d.channel_id, []);
+        portableZonesByChannel.get(d.channel_id).push(d.zone_id);
+      } else if (!deckZoneByChannel.has(d.channel_id)) {
+        deckZoneByChannel.set(d.channel_id, d.zone_id);
+      }
+    }
 
     const playlistByChannel = new Map();
     for (const item of playlist) {
@@ -1104,6 +1139,7 @@ async function loadChannelRuntimes() {
         scheduleMode: 'daily',
         studioZoneId: ch.studio_zone_id || null,
         deckZoneId: deckZoneByChannel.get(ch.id) || null,
+        portableDeckZones: portableZonesByChannel.get(ch.id) || [],
         offlineGraphicId: ch.offline_graphic_id || null,
         commercialPool,
         commercialBroadcasts: commercialPool.map(id => commercialMap.get(id)).filter(Boolean),
@@ -4625,11 +4661,29 @@ async function _resolveTickMessage(deckZoneId, state, nowMs, strict = false) {
 // means the channel has no way to get its signal out — it goes dark. (A zone whose
 // power was never modelled is treated as live so unpowered interiors don't nuke a
 // whole channel; only an explicit blackout — 'offline' — kills the feed.)
+//
+// A PORTABLE DECK IS A TRANSMITTER, NOT ONLY A RELAY. The case with the aerial
+// already got a location shoot's signal home (_uplinkOk), but the channel-level
+// question above still asked only about the wired deck — so a crew filming in a
+// basement with a working portable went off air the moment the gallery's own room
+// lost power, which is the one situation the kit exists for. A bound, powered,
+// switched-on portable now answers for the channel as well.
+//
+// Bound means `uplink_channel`/`channel_id`, and that binding is the whole gate: a
+// case standing in somebody else's basement does not keep KSAB alive. It is
+// deliberately not narrowed further to "the room the current programme is staged
+// in" — this runs before the tick has resolved which programme that is, and a
+// second content resolution to answer a power question would be the more expensive
+// mistake.
+// ⚠ Same bug as _portableDeckLive, one layer up: this asked `getZone(...).powerStatus`,
+// and a world zone object has no such property — power status is only ever written into
+// the environment's `state.zones` map. So the blackout test was `undefined !== 'offline'`
+// and a channel counted as transmitting purely because a deck ROW existed for it. Ask
+// getZonePowerStatus, the same way _portableDeckLive now does.
 function channelTransmitterLive(state) {
-  if (!state.deckZoneId) return false;
-  const z = getZone(state.deckZoneId);
-  if (!z) return false;
-  return z.powerStatus !== 'offline';
+  if (state.deckZoneId && getZone(state.deckZoneId)
+      && getZonePowerStatus(state.deckZoneId) !== 'offline') return true;
+  return (state.portableDeckZones || []).some(_portableDeckLive);
 }
 
 // The off-air broadcast payload (channel dark → show the channel's offline graphic or
@@ -8415,6 +8469,52 @@ async function cmdEjectCassette(args, raw, player) {
   return { type: 'output', message: `You eject the cassette. The screen dissolves into static.` };
 }
 
+// ── uplink [on|off] — the switch on the flight case ──────────────────────────
+//
+// `deck_off` shipped as a flag with no way to reach it. The kit was documented as
+// something a person could switch off, the transmission check read the flag, and
+// nothing in the game could write it — the only writer in the repo was the regress
+// suite. This is that switch.
+//
+// It is deliberately NOT owner-gated the way `load`/`eject`/`pirate` are. Those
+// answer to a station's control interface; this is a flight case standing open on a
+// church floor, and somebody walking past and killing it is precisely the
+// interference the whole on-location model exists to make possible. Taking a
+// programme off air by reaching down and flipping a switch should not require
+// pirate firmware.
+//
+// No SIFT: a room has one of these or it has none.
+async function cmdUplink(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const deck = (getZoneFurniture(player.current_zone) || []).find(f => f?.flags?.portable_mediadeck);
+  if (!deck) return { type: 'output', message: 'There is no portable mediadeck here.' };
+
+  const dflags = _deckFlags(deck);
+  const isOff = !!dflags.deck_off;
+  const want = String(args?.[0] || '').toLowerCase();
+
+  if (want !== 'on' && want !== 'off') {
+    return { type: 'output', message: isOff
+      ? `The ${deck.name} stands dark, its pairing lights out. ${teachVerb('uplink on')} wakes it.`
+      : `The ${deck.name} is running, pairing lights stepping down one side. ${teachVerb('uplink off')} kills it.` };
+  }
+
+  const turnOff = want === 'off';
+  if (turnOff === isOff) {
+    return { type: 'output', message: turnOff ? 'It is already off.' : 'It is already running.' };
+  }
+  if (turnOff) dflags.deck_off = true; else delete dflags.deck_off;
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+
+  sendToZone(player.current_zone, { type: 'zone_event', message: turnOff
+    ? `${player.handle} reaches down and kills the mediadeck. Its lights go out one after another.`
+    : `${player.handle} wakes the mediadeck. Its lights come up one after another and settle.` }, player.id);
+
+  return { type: 'output', message: turnOff
+    ? 'You kill the uplink. Whatever this room was sending stops here.'
+    : 'You bring the uplink up. The lights settle and the case starts talking to the studio.' };
+}
+
 // Silent panel re-push for an already-open deck panel. `load` and `eject` both
 // change what the machine is holding but answered with prose only, so the panel
 // they were pressed from went stale — the ejected tape stayed drawn in the slot
@@ -9360,6 +9460,7 @@ export const commands = {
     return null; // pass to next handler
   },
   eject: cmdEjectCassette,
+  uplink: cmdUplink,
   selectcassette: cmdSelectCassette,
   patch: cmdPatch,
   pirate: cmdPirate,
@@ -9378,6 +9479,10 @@ export const specializedActions = [
   // it visible as an affordance on every television.
   { verb: 'watch', requiredTag: 'tv', requiredFlag: 'broadcast_receiver', handler: null },
   { verb: 'use', requiredTag: 'media_deck', handler: doUseMediaDeck },
+  // Declaration-only, like `watch` above: `uplink` stays the plugin's own command,
+  // but the row puts it on the case's examine line so a player who has never heard
+  // of it can still find the switch.
+  { verb: 'uplink', requiredFlag: 'portable_mediadeck', handler: null },
   { verb: 'use', requiredTag: 'piracy_firmware', handler: doInstallPiracyFirmware },
 ];
 
@@ -9411,7 +9516,8 @@ export const _test = {
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
   collapseLine: _collapseLine, slurLine: _slurLine, deliveryStyle: _deliveryStyle, DELIVERY: _DELIVERY,
   tangentCohosts: _tangentCohosts, anchorDisplayFor: _anchorDisplayFor,
-  camerasIn: _camerasIn, uplinkOk: _uplinkOk, absentReaction: _absentReaction, ABSENT_HOUSE, dispatchDroid: _dispatchDroid, shotOrder: _shotOrder, channelDroids: _channelDroids, locationCallState: _locationCallState, preshowActTick, maybeStartTangent: _maybeStartTangent,
+  camerasIn: _camerasIn, uplinkOk: _uplinkOk, portableDeckLive: _portableDeckLive,
+  channelTransmitterLive, absentReaction: _absentReaction, ABSENT_HOUSE, dispatchDroid: _dispatchDroid, shotOrder: _shotOrder, channelDroids: _channelDroids, locationCallState: _locationCallState, preshowActTick, maybeStartTangent: _maybeStartTangent,
   TANGENT_FLOOR, TANGENT_CHANCE,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
   plainAir: _plainAir,

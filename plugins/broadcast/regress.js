@@ -3057,6 +3057,75 @@ export default async function regress({ check, run, getPlayer }) {
     check('transmission: a wired studio is exempt',
       _test.uplinkOk({ studioZoneId: 'zone_studio_1782953094650' }, 'zone_studio_1782953094650') === true);
 
+    // A PORTABLE DECK IS A TRANSMITTER. The gallery going dark used to take the
+    // channel off air even while the crew were out with a working case — the one
+    // situation the case exists for.
+    {
+      const KSAB = 'ch_7_1782953079593';
+      const BASEMENT = 'zone_stgarneau_basement';
+      const furn = getZoneFurniture(BASEMENT) || [];
+      const deck = furn.find(f => f?.flags?.portable_mediadeck);
+      check('transmitter: the basement case is live', _test.portableDeckLive(BASEMENT) === true);
+      check('transmitter: an empty room is not a transmitter',
+        _test.portableDeckLive('zone_studio_1782953094650') === false);
+      // No wired deck at all (or its room blacked out) and the case still answers.
+      check('transmitter: a bound portable keeps the channel on air with no wired deck',
+        _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [BASEMENT] }) === true);
+      check('transmitter: ...and an unbound channel is not carried by it',
+        _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [] }) === false);
+      if (deck) {
+        deck.flags.deck_off = true;
+        check('transmitter: switching the case off takes the channel down',
+          _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [BASEMENT] }) === false);
+        delete deck.flags.deck_off;
+      }
+
+      // ⚠ The power clause used to read `furniture.is_powered`, a column furniture
+      // has never had — so it was `undefined !== 0` and could not fail. Assert the
+      // predicate actually depends on the switch, which is now the only lever
+      // either test can pull in a room with no power zone.
+      check('transmitter: the case is live again once the switch is back on',
+        _test.portableDeckLive(BASEMENT) === true);
+      check('transmitter: no furniture row means no transmitter',
+        _test.portableDeckLive('zone_nonexistent_room') === false);
+
+      // uplink: the switch is reachable from a command, which is the whole point.
+      // Nothing but this suite could write deck_off before it existed.
+      const player = getPlayer();
+      const savedZone = player.current_zone;
+      {
+        // ⚠ Re-read the row every time. updateFurniture re-caches the RETURNING row,
+        // which REPLACES the object in world.furniture — a reference held from before
+        // the command is a stale copy and would assert against the old flags.
+        const deckNow = () => (getZoneFurniture(BASEMENT) || []).find(f => f?.flags?.portable_mediadeck);
+        player.current_zone = BASEMENT;
+        const before = !!deckNow()?.flags?.deck_off;
+        const r0 = await run('uplink');
+        check('uplink: reports the case in the room', /mediadeck|pairing lights/i.test(r0?.message || ''), JSON.stringify(r0));
+        const r1 = await run('uplink off');
+        check('uplink: switches it off', !!deckNow()?.flags?.deck_off === true, JSON.stringify(r1));
+        check('uplink: ...and the channel loses it',
+          _test.portableDeckLive(BASEMENT) === false);
+        const r2 = await run('uplink off');
+        check('uplink: switching it off twice is not an error', /already off/i.test(r2?.message || ''), JSON.stringify(r2));
+        await run('uplink on');
+        check('uplink: switches it back on', !deckNow()?.flags?.deck_off);
+        check('uplink: ...and the channel has it back',
+          _test.portableDeckLive(BASEMENT) === true);
+        if (before) await run('uplink off');   // leave the room as we found it
+      }
+      player.current_zone = savedZone;
+      const elsewhere = await run('uplink off');
+      check('uplink: says so in a room with no case',
+        /no portable mediadeck/i.test(elsewhere?.message || ''), JSON.stringify(elsewhere));
+      // The binding is real content, not a test fixture: KSAB's own runtime must
+      // carry the basement, or the fallback above can never fire in the live game.
+      const st = _test.channelRuntime?.get?.(KSAB);
+      if (st) check('transmitter: KSAB knows about its portable case',
+        (st.portableDeckZones || []).includes(BASEMENT),
+        JSON.stringify(st.portableDeckZones || []));
+    }
+
     // ── A camera direction is an order ──────────────────────────────────────
     // The label is the order sheet, so the parse is load-bearing: get it wrong and
     // every cut silently falls back to "any unit, generic line".
