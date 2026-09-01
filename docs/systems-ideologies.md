@@ -62,6 +62,46 @@ If you are genuinely, ideologically opposed to an order, the drift stops short o
 
 Either half alone is a *disagreement*. Both together is being a different kind of thing.
 
+### The arc raises the floor (added 2026-09-01)
+
+⚠ **Until this shipped, the model was a leak with no tap.** Positive standing decayed toward zero and
+**nothing repeatable paid ideology rep**, so an order could be joined but never lived in: you climbed
+the forty-slot arc once and then watched it drain. The documented answer was favour quests, but that
+makes standing a chore, and work you already did for an order should not need doing again to keep
+what it earned you.
+
+So **arc progress moves the resting point** rather than paying rep — `arcResting(slot)`, netted into
+`restingRep` with `Math.max`:
+
+| Arc progress | Resting point | Tier |
+|---|---|---|
+| slots 1–9 (the order is still measuring you) | 0 | Neutral |
+| slot 10 — the rite | 200 | Known |
+| each further rank of six | +150 | → |
+| slot 34+ | 800 (capped) | Trusted |
+
+Three things this deliberately preserves:
+
+- **Everything above the floor still decays**, so "being Trusted is something you keep being" stays
+  true of *deeds* — it just stops being true of a rite you passed a year ago.
+- **The opposed floor and the forgiveness curve are untouched.** Same function, same behaviour.
+- **The cap stops one tier short.** The arc can rest you at Trusted, never Inner Circle — the top
+  tier is the one you have to be holding *right now*, which is exactly where the rewards are richest.
+
+⚠ **It is keyed on the order's arc flag** (`orgs.flags.arc_flag` — authored data, like `flags.role`,
+so a new order's arc needs no code change). That is what makes leaving work: `lapse.js` already
+clears `asc_arc` when you walk away, so the floor walks away with it, and renounce gets the same
+behaviour free when it is built. Only `asc_arc` and `lw_arc` are authored today — the two arcs that
+exist. ⚠ The arc floor **outranks the −200 opposed floor**: drifting to the opposite stance does not
+undo an order's own rite, because what ends the arc floor is *leaving*, not disagreeing.
+
+Arc slots are hydrated at login onto the live player beside the stance/path profile, in the same
+round trip, for the same reason — `restingRep` is consulted on every vendor price lookup.
+
+**Favours are now optional.** They remain worth writing as unrest's only player-facing surface
+([systems-unrest.md](systems-unrest.md) rule 2 bans a readout), but standing no longer depends on
+them existing.
+
 ### How it's computed
 
 **Lazily, with no sweep tick** — the same treatment relations gets. `player_ideology_rep.updated_at` stamps the last real change; every reader ages the stored value forward to now (`decayRep`). The stored number is a *checkpoint, not the truth*.

@@ -1321,6 +1321,37 @@ console.log('— layer 1j: standing decay + relationship help —');
   check('an opposed player never fully recovers',
     decayRep(-900, daysAgo(3650), restingRep(order, { stance: -80, path: 'human' }), now) < -100);
 
+  // ── The arc raises the floor ──
+  // Standing earned by doing an order's own work stops draining. The identity at
+  // arcSlot 0 is a correctness invariant: it is what makes this net-zero for every
+  // character who has not started an arc, which is most of them.
+  const { arcResting } = await import('../server/engine/ideologies.js');
+  const ally = { stance: 80, path: 'machine' };
+  check('no arc rests exactly where it always did',
+    restingRep(order, ally, 0) === restingRep(order, ally));
+  check('the movements before the rite are worth no floor', arcResting(9) === 0);
+  check('an unset arc flag is not a floor', arcResting(undefined) === 0 && arcResting(NaN) === 0);
+  check('the rite rests you at Known', getTier(arcResting(10)).id === 'known');
+  check('a later rank rests you higher', arcResting(28) > arcResting(10));
+  // The ceiling is the interesting half: the arc can never park you in the top
+  // tier, so the richest rewards always need a relationship you are holding NOW.
+  check('the arc never rests you at Inner Circle',
+    getTier(arcResting(40)).id !== 'inner_circle', getTier(arcResting(40)).id);
+  check('the arc floor holds against a full half-life',
+    decayRep(900, daysAgo(30), restingRep(order, ally, 40), now) >= arcResting(40));
+  check('...and against ten years of absence',
+    decayRep(900, daysAgo(3650), restingRep(order, ally, 40), now) >= arcResting(40));
+  // ⚠ Drifting to the opposite stance does not undo an order's own rite. What
+  // ends the floor is LEAVING, which clears the arc flag (see lapse.js).
+  check('the arc outranks the opposed floor',
+    restingRep(order, { stance: -80, path: 'human' }, 40) > 0);
+  // ⚠ ...and with NO arc the opposed floor must be untouched. The obvious way to
+  // write the line above is `Math.max(earned, opposed)`, which is `max(0, -200)`
+  // = 0 here and silently deletes the floor for every player without an arc.
+  check('no arc leaves the opposed floor intact',
+    restingRep(order, { stance: -80, path: 'human' }, 0) < 0,
+    String(restingRep(order, { stance: -80, path: 'human' }, 0)));
+
   // ── Knowing someone is worth something ──
   const hp = { id: 'regress_help_player', hp: 50, hp_max: 100, statuses: [] };
   check('a stranger gets no help', relationHelp(hp, 'npc_help') === 0);
