@@ -2,11 +2,31 @@
   "name": "ambient-life",
   "version": "1.0.0",
   "description": "Routine street life — content-driven ambient vignettes (kids, drones, buskers, traffic, crews, vendors, arguments, dogs) that make opted-in city zones feel lived-in, plus two clickable interactions (tip a busker, order from a food cart). Also the private half: home-life routines (including a walk to the ensuite) and a resident's reaction to somebody letting themselves in.",
-  "commands": ["tip", "order"],
-  "after": ["strippers", "bodily"],
-  "hooks": [],
-  "actions": { "registers": [] },
-  "events": { "consumes": ["zone.entered", "npc.lockup"], "emits": [] },
-  "ticks": ["30s"],
-  "dataSchema": ["ambient_routines"]
+  "commands": [
+    "tip",
+    "order"
+  ],
+  "after": [
+    "strippers",
+    "bodily"
+  ],
+  "hooks": [
+    "ambient.categoryLine"
+  ],
+  "actions": {
+    "registers": []
+  },
+  "events": {
+    "consumes": [
+      "zone.entered",
+      "npc.lockup"
+    ],
+    "emits": []
+  },
+  "ticks": [
+    "30s"
+  ],
+  "dataSchema": [
+    "ambient_routines"
+  ]
 }

@@ -748,6 +748,10 @@ export function openCab(ctx = {}) {
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
     s: ctx.s || 0, L: ctx.L || 1, node: ctx.node || 0, nodes: ctx.nodes || 1,
     hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', moon: ctx.moon, wind: ctx.wind || 0, wipers: 0,
+    // The spatial weather the canopy renders the sky FROM: the day's drifting cloud/precip/storm
+    // cells (plus the ambient floors they sit on) and the live hero event. Same two values a
+    // cockpit gets, so a driver and a pilot over their head see one sky.
+    wxField: ctx.wxField || null, wxEvent: ctx.wxEvent || null,
     // HOW DIRTY THE TRUCK IS (0..1, the server's number — see plugins/trucking/filth.js) and how
     // much the wheels are throwing up RIGHT NOW. They are two different things and the split is the
     // whole effect: `grime` is the history, accrued over a haul and only a hose takes it off;
@@ -2876,11 +2880,24 @@ export function cabContext(ctx) {
   if (ctx.hour != null) st.hour = ctx.hour;
   if (ctx.moon != null) st.moon = ctx.moon;
   if (ctx.wind != null) st.wind = ctx.wind;
+  // ⚠ `wxField` MAY LEGITIMATELY BE NULL — the field packet is omitted on a day with no cells at
+  // all — so these take the key's PRESENCE as the signal, not its truthiness. Written as `!==
+  // undefined` the way `ctx.trailer` and `ctx.broken` already are; `if (ctx.wxField)` would pin
+  // the last storm's cells to the canopy for the rest of the haul once the sky cleared.
+  if (ctx.wxField !== undefined) st.wxField = ctx.wxField || null;
+  if (ctx.wxEvent !== undefined) st.wxEvent = ctx.wxEvent || null;
   if (ctx.weather) {
     st.weather = ctx.weather;
     // Ask once, on the control itself. A driver who has never needed the stalk has no reason to
     // know it is there, and the moment they do need it is the moment rain starts hitting the glass.
-    const wet = st.weather === 'rain' || st.weather === 'storm' || st.weather === 'acid_rain' || st.weather === 'snow';
+    //
+    // ⚠ NOT `st.weather === 'acid_rain'`, which is what this asked for and could never be true:
+    // acid rain is a hero EVENT, and the weather word underneath it stays 'rain'. The event now
+    // arrives on its own key, so ask that — and ask it through the same WX_EVENT_AS table the
+    // canopy uses, rather than restating which events fall as water.
+    const ev = st.wxEvent?.type;
+    const wet = ['rain', 'storm', 'snow'].includes(st.weather)
+      || ev === 'acid_rain' || ev === 'ion_storm';
     st.container?.querySelector('.cab-wipe')?.classList.toggle('hint', wet && !(st.wipers | 0));
   }
   // The trailer is the SERVER's fact; φ is the CLIENT's simulation of it — the same split as
@@ -4064,7 +4081,14 @@ function frame(now) {
       actors: st.actors,   // the people on the pavement either side of the road
       roadside: st.hitcher || null,   // …and the one standing on the shoulder out on the void road
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
+      // WHERE WE ARE, AND WHAT IS OVER US. `acX/acY` were already here for the lightning, which is
+      // why bolts worked in the cab while the clouds and rain they come out of did not: without
+      // `wxField` the renderer's wxSample is null for the whole drive, so there were no local cells
+      // to drive into, no local storm darkening, and none of the ambient cloud/precip floors that
+      // ride that packet. `event` outranks `weather` for everything visual — it is what makes an
+      // acid downpour green through the windscreen instead of ordinary rain.
       acX: st.sim.x, acY: st.sim.y,
+      wxField: st.wxField, event: st.wxEvent,
     });
     // The rig itself is the renderer's now; this is only what the renderer cannot know.
     if (st.external) { st.tier = P.tier; drawRigOverlay(st, r); }

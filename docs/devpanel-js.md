@@ -36,6 +36,42 @@ The central dispatch table and panel lifecycle. **Must load after all `panels/*`
 - `activatePanelNav(name)` — highlights the active nav item.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
 
+### `plugin-panels.js`
+**Dev-panel UI registration** — the seam that lets a plugin bring its own tab instead of
+hand-editing this directory. Loads immediately after `panels.js`, because `registerDevPanel`
+writes into `PANELS` and `NAV_ALIASES`, which that file declares.
+
+Before it, a plugin was self-contained everywhere except here: an operator surface meant
+**four edits to shared files** — a nav row and a `<script>` tag in `index.html`, an entry in
+`PANELS`, and often a row in `NAV_ALIASES`. So every plugin with a dev UI was partly not a
+plugin, and those four files became the repo's busiest merge point. On 2026-08-31/09-01 one
+session's half-finished panel edits were swept into another's commits twice, and a regress
+run against that intermediate state produced three failures that read as flakes and were not.
+
+- **`registerDevPanel(def)`** — called by a plugin's own panel script. `{ id }` plus **either**
+  `render()` **or** `columns[]`; everything the core registry understands is passed through
+  (`title`, `description`, `fetch`, `noEdit`, `idPrefix`, `columns`, `editForm`, `save`,
+  `delete`, `beforeList`, …) on a whitelist, so a typo does nothing rather than overwriting
+  list machinery. ⚠ **Either** render or columns: a generic list panel has no render
+  function and is drawn by the core list renderer — demanding `render` rejected the
+  Incidents catalogue, and that was only caught because this seam's first user is a list.
+- **`loadPluginPanels()`** — boot step (called from `bootstrap.js` on `DOMContentLoaded`,
+  deliberately not on the auth path). Reads `/dev/plugin-panels.json`, appends each nav row
+  into `#nav-plugin-panels`, then loads each declared script **sequentially in manifest
+  order** — these are classic scripts sharing one global scope, so a panel registering with
+  a helper from a sibling file needs that sibling to have run. Failure is quiet and total: a
+  panel that will not load costs its tab and nothing else, because the builder is what you
+  reach for when the game is *already* broken.
+
+Declared in `plugin.json` (see [plugin-standard.md](plugin-standard.md)); the manifest carries
+only what the shell needs **before** the script runs — the nav row and the file list — while
+`fetch` and `render` are functions and come from the script. That is the same split as
+`plugin.json` declaring what a plugin offers and `index.js` providing it.
+
+⚠ **A plugin panel may depend on the core; the core may never depend on a plugin panel.**
+⚠ Plugin panel scripts are parsed by `client:smoke` off the manifests — nothing else parses
+them, since the plugin loader imports `index.js` and not the panel.
+
 ### `auth.js`
 Login and logout. Loads after `panels.js` (it calls into the panel lifecycle on a successful login).
 

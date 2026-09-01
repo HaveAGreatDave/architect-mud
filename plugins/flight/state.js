@@ -1379,7 +1379,7 @@ export function skyState() {
       // Fractional, not the floored hour: the sky palette blends between keyframes, so an integer
       // made sunset arrive in 24 steps a day. Same field, same range, smoother dusk.
       hour: env.minutes != null ? env.minutes / 60 : env.hour,
-      weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0,
+      weather: skyWeatherToken(env), wind: env.windKph || 0,
       // Tonight's moon (0 new … 0.5 full), derived from the world calendar. The canopy draws the
       // phase; nobody stores it.
       moon: env.moonPhase,
@@ -1391,16 +1391,44 @@ export function skyState() {
       // sim can render the REAL clouds/rain out the canopy at their true bearings and advect them
       // itself between packets. `tick` is the field's advect interval (s) — `vx/vy` are per that
       // tick — so the client can extrapolate positions forward and needn't be re-sent every frame.
-      field: weatherFieldForClient(),
+      field: weatherFieldForClient(env),
     };
   } catch { return { hour: 12, weather: 'clear', wind: 0 }; }
 }
 
+// What is the sky OVER THIS AIRCRAFT called?
+//
+// ⚠ `currentWeatherType` IS THE HUD'S ANSWER, NOT THE CANOPY'S, and using it here quietly
+// deleted a whole tier of weather from the flight sim. It collapses every precipitating
+// forecast type to the bare precip word — a thunderstorm that is actually raining reads
+// 'rain', and one that is between showers reads 'cloudy' — which is right for a one-line HUD
+// and wrong for a renderer that has a separate, heavier treatment for 'storm'. The upshot was
+// that `wx === 'storm'` was unreachable: its haze ceiling (0.42), its overcast ceiling (0.85),
+// its cab murk (0.55) and its heavy on-glass rain never ran, in any weather, ever.
+//
+// So: while something is actually falling, the DAY'S type wins if it is more specific than the
+// precip word. Dry, we keep the HUD's answer, which already reports fog/haze/ash/overcast
+// faithfully. The windshield folds whatever this returns onto its own vocabulary (normalizeWx).
+const SKY_SPECIFIC = new Set(['thunderstorm', 'storm', 'blizzard', 'sleet']);
+function skyWeatherToken(env) {
+  const day = env.weatherType;
+  if (env.currentPrecip && env.currentPrecip !== 'none' && SKY_SPECIFIC.has(day)) return day;
+  return env.currentWeatherType || day || 'clear';
+}
+
 // Compact the engine's weather-field snapshot for the wire: just the cells the renderer needs
 // (position, radius, velocity, kind, strength) plus the map bounds it wraps within.
-function weatherFieldForClient() {
+//
+// ⚠ AND THE TWO FLOORS THE CELLS SIT ON TOP OF. The ground reads its sky through
+// sampleWeatherAt, which opens at `baseCloud` and floors the local rate at the day's headline
+// `precipRate` (environment.js precipFloor) — so light rain is seen and heard on every tile,
+// not only under a passing cell. Sending cells alone gave the canopy a sky with the floors
+// removed: roughly half the map carries no cell precip on a storm day, and a pilot crossing
+// those tiles flew through clear air over players standing in a downpour.
+function weatherFieldForClient(env) {
   const snap = getWeatherFieldSnapshot();
   if (!snap || !snap.bounds || !snap.systems?.length) return null;
+  const falling = env.currentPrecip && env.currentPrecip !== 'none';
   // Prevailing wind as the compass bearing the cells drift TOWARD (renderer convention: 0 = -y
   // north, 90 = +x east), so the HUD wind arrow + flight turbulence share the drift's own wind.
   let wind = null;
@@ -1411,6 +1439,9 @@ function weatherFieldForClient() {
   return {
     tick: 30,   // advectField() steps once per 30s environment tick; vx/vy are grid units per tick
     bounds: snap.bounds, wind,
+    baseCloud: snap.baseCloud || 0,
+    precipFloor: falling ? (env.precipRate || 0) : 0,
+    floorType: falling ? env.currentPrecip : 'none',
     cells: snap.systems.map(s => ({
       x: s.x, y: s.y, r: s.radius, vx: s.vx, vy: s.vy,
       type: s.type, intensity: s.intensity, precip: s.precipType,

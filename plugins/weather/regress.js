@@ -13,6 +13,38 @@ import { world } from '../../server/engine/world.js';
 const PRESENT_KEYS = ['icon', 'fx', 'audio', 'pool', 'sky', 'severe'];
 
 export default async function regress({ check, getPlayer }) {
+  // ── The ambient cloud floor rises with the weather ────────────────────────
+  // Until 2026-08-31 it did not: storm sat at 0.5 and rain at 0.45, both BELOW a plain overcast
+  // day's 0.7 — so forcing Max Storm made most of the map LESS cloudy than a grey Tuesday, which
+  // is the opposite of what the button is for. The cells decide where it thickens; this is the
+  // floor they sit on, and the floor has to be monotonic or no amount of cell tuning reads right.
+  {
+    const bounds = { minX: 0, maxX: 100, minY: 0, maxY: 100 };
+    const floorFor = (type) => _testWeather.systemsForForecast(
+      type, 1.0, 12, 30, bounds, _testWeather.mulberry32(_testWeather.seedFromString('regress:cloudfloor'))
+    ).baseCloud;
+
+    const clear = floorFor('clear'), cloudy = floorFor('cloudy'), overcast = floorFor('overcast');
+    const rain = floorFor('rain'), storm = floorFor('thunderstorm');
+    check('cloud floor: clear < cloudy', clear < cloudy, `${clear} < ${cloudy}`);
+    check('cloud floor: cloudy < overcast', cloudy < overcast, `${cloudy} < ${overcast}`);
+    // The two that were actually inverted. A precipitating sky is overcast by definition.
+    check('cloud floor: overcast <= rain', overcast <= rain, `${overcast} <= ${rain}`);
+    check('cloud floor: rain < storm', rain < storm, `${rain} < ${storm}`);
+    check('a storm is the cloudiest thing there is', storm >= 0.8, String(storm));
+  }
+
+  // ── The snapshot carries that floor to every consumer ─────────────────────
+  // sampleWeatherAt opens at field.baseCloud and only then maxes over the cells. The flight sim
+  // reads this snapshot and runs the same overlap math client-side — so a snapshot that omits the
+  // floor hands the canopy a sky up to 0.8 less cloudy than the one the ground is standing under,
+  // and nothing anywhere throws. It is an absent KEY, which is why it went unnoticed for months.
+  {
+    const snap = _testWeather.getWeatherFieldSnapshot();
+    check('the field snapshot carries the ambient cloud floor', typeof snap.baseCloud === 'number',
+      `baseCloud=${JSON.stringify(snap.baseCloud)}`);
+  }
+
   // ── The gap between regions has weather now ───────────────────────────────
   // A void crossing is walked through it and a highway is driven along it, and until 2026-08-21 both
   // happened in flat baseline weather: no heat off Terminus, no acid drifting out of the

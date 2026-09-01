@@ -1,8 +1,7 @@
 # deaddrop — a cache a stranger can find
 
-**Status: BUILT (the finding roll, the swept memory, the disturbance mark).** The courier
-who stocks a drop for you (§9 of the proposal) and the player-placed cache (§8b) are still
-design — see
+**Status: BUILT — all four phases.** The keypad *tier* of §8b (the two-row disguise pair)
+and the `hack`-it-open route are still authoring rather than code — see
 [docs/proposals/dead-drops.md](../../docs/proposals/dead-drops.md).
 
 A dead drop is a container in a public room that one player stocks and another empties
@@ -113,3 +112,80 @@ the world cache and the room description agree with no new seam.
 ⚠ The knower's `search` line reads the same flag. It used to end "has not been touched",
 which this phase can make a lie — whether the lid has moved is one fact, told in one
 place, rather than two that can disagree.
+
+## Placing your own (phase 3)
+
+Buy a **stash box** (`item_stash_box`), `deploy` it in a room, `recover` it to take it
+back up. Placement is limited by what you paid for, so the world gains no cache nobody
+bought. The rejected alternative — *any existing container in a public room* — needs no
+content at all, and that is exactly why it fails: every bin and locker in Coldwater
+becomes potentially somebody's stash, which makes sweeping every room worth doing forever.
+
+**Taking somebody else's cache is not a crime.** No stars, no witness check, no ownership
+test at `open`. A found cache is simply lost. ⚠ Which is what makes the bar and the
+concealment tiers the *entire* defence — if a competent sweeper can clear a district's
+caches profitably, the fix is `STRANGER_BAR`, never a crime flag bolted on afterwards.
+
+⚠ **`recover` works for anyone, but only on an EMPTY box.** Ownership is not tested,
+because finders keepers is the rule — but a loaded box cannot be lifted, so a thief has to
+open it and take the contents out through the path that already exists. Without that,
+`recover` is a one-word way to walk off with a stranger's whole cache, skipping every
+interesting part of it including the disturbance mark the owner would have read.
+
+⚠ **One cache per room.** The `search` provider can only ever report the first, so a
+second would be invisible forever — and stacking them is the obvious way to defeat a
+sweeper.
+
+**Going stale.** An untouched cache is cleared a cycle later (7 days, the same number
+`zone-filth.js` sweeps stains on, for the same reason). It rides `environment.dayRollover`
+— the event rent and daily maintenance already use — so the feature adds **no tick of its
+own**, and age is the difference of two game-day numbers rather than a running timer, so a
+restart cannot reset everyone's clock. A **loaded** box is left alone: deleting furniture
+with inventory rows pointing into it orphans them forever, and a forgotten cache with
+something in it is a better story than a vanished one.
+
+`deploy` is tag-gated on the carried box, which is how it shares a verb with
+`plugins/generator` — two plugins may register one specialized action when the **gate**
+differs, the same way `use` belongs to both the ATM and the TV. ⚠ It could not be a plain
+command: `deploy` as a global verb is the generator's, and a plugin command silently beats
+a specialized action.
+
+## The courier (phase 4)
+
+**A cache is never conjured.** An authored drop does not spring into existence when a
+dialogue node fires — `BOOK_COURIER` commissions one, an NPC walks it there on ordinary
+movement, and puts it in. Until they arrive there is nothing to find, so a player told
+early can get there first and watch it happen.
+
+⚠ **The one who tells you and the one who stashes are never the same NPC**, and booking
+enforces it rather than trusting authoring. The advisor knows *where*, the courier knows
+*what*, neither knows both — so killing, robbing or interrogating the advisor still leaves
+you looking for the courier, and whoever watched the stash has no idea who paid for it.
+⚠ Neither NPC's dialogue may ever name the other.
+
+⚠ **It waits for privacy and stashes anyway when patience runs out** (4 minutes). This is
+deliberately not a deadlock: if a loiterer could deny a drop, standing in a room would be a
+hard counter to the whole system — discoverable in one evening, unbeatable after — and
+worse, every drop you *didn't* see would be one that provably hadn't happened, turning a
+system built on ambiguity into a reliable sensor. The recipient never counts as a witness.
+
+**The line it broadcasts is the same one cover traffic uses.** On stashing it asks
+ambient-life for a `handling` line naming the courier — the identical pool fourteen
+non-couriers draw from every day. That is the rule the whole thing rests on:
+
+> A line is deniable if and only if non-couriers emit it more often than couriers do.
+
+Covert is not invisible. The act is performed in front of you, described accurately, and
+reads as nothing. ⚠ The line never names the container and never fires on a failed stash: a
+player paying attention gets one signal only — *this NPC was here, and later there was a
+cache here* — and that must stay inference.
+
+**Nothing imports across plugins.** `zone.witnessed` (surveillance's cameras-and-cops
+sweep) and `ambient.categoryLine` (ambient-life) are both reached by **hook**, the same
+reason the ESP actions live inside `plugins/emergency` rather than being called from unrest.
+⚠ Both degrade to "no": without surveillance the courier judges the room on who is standing
+in it, and a missing line must never mean a missing stash.
+
+Bookings are **RAM only**, like the unrest incidents and for the same reason — a booking
+holds a live NPC and a half-walked route, and a persisted "somebody is on their way" that
+outlives the walk is a promise the world cannot keep.

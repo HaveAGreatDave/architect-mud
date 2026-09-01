@@ -568,6 +568,25 @@ Three pieces, each of which is a physical object in a room rather than a propert
   furniture deliberately: it can be switched off, carried out, stolen, or left behind. That failure
   resolves through the tech-difficulties path that already exists for a studio with dark cameras,
   because from the couch it is the same event and should not need a second explanation.
+  **It is a transmitter, not only a relay.** `channelTransmitterLive` asked about the wired deck
+  alone, so a crew filming in a basement with a working case went off air the moment the gallery
+  lost power — the one situation the kit exists for. A portable bound to the channel
+  (`uplink_channel`, or plain `channel_id`) now answers for it too. The binding is the whole gate:
+  a case in somebody else's basement keeps nobody on air. It is deliberately not narrowed to "the
+  room the current programme is staged in", because this runs before the tick has resolved which
+  programme that is.
+  **`uplink` is the switch.** `deck_off` was read by the transmission check and written by nothing
+  but the regress suite, so the case was documented as switch-off-able and wasn't. `uplink` reports;
+  `uplink on` / `uplink off` flips it. Not owner-gated, unlike `load`/`eject`/`pirate` — those answer
+  to a station's control interface, and this is a flight case standing open on a church floor.
+  ⚠ **Both power tests here were dead until 2026-08-31.** `_portableDeckLive` tested
+  `furniture.is_powered`, a column that exists on `media_cameras` and `security_devices` and not on
+  `furniture` — so it was `undefined !== 0`, true on every furniture object ever. One layer up,
+  `channelTransmitterLive` tested `getZone(zoneId).powerStatus`, which is never written onto a world
+  zone object (zone power lives only in the environment's own map). A channel counted as
+  transmitting because a deck ROW existed. Both now ask `getZonePowerStatus`, and only an explicit
+  `offline` kills a feed — an unmodelled room reads `unpowered` and still works, or every interior
+  nobody wired would silently take a channel down.
 - **Camcorders** — ordinary `media_cameras` rows flagged `portable` + `paired_deck`, which is what
   makes them work everywhere a studio camera works with nothing taught about them.
 

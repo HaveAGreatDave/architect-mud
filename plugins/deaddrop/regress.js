@@ -13,6 +13,7 @@
 // makes these checks double as a guard on the caches staying authored the way the
 // feature needs them.
 import { _test } from './index.js';
+import { readFileSync } from 'node:fs';
 import { getFurnitureById, updateFurniture } from '../../server/engine/world.js';
  import { setFlag, clearFlag } from '../../server/engine/flags.js';
 
@@ -153,6 +154,110 @@ export default async function regress({ check, getPlayer }) {
     check('swept is keyed to this player and this cache', _test.isSwept(p.id, CACHES[0]));
     check('…and not to another player', !_test.isSwept('someone_else', CACHES[0]));
     check('…and not to another cache', !_test.isSwept(p.id, CACHES[1]));
+
+    // ── The player-placed cache (phase 3) ────────────────────────────────────
+    {
+      const box = JSON.parse(readFileSync('content/items/item_stash_box.json', 'utf8'));
+      check('phase3: the stash box is deployable', !!box.tags?.stash_box,
+        JSON.stringify(Object.keys(box.tags || {})));
+      check('phase3: …and carries a real capacity',
+        Number(box.tags?.stash_box?.capacity) > 0, String(box.tags?.stash_box?.capacity));
+      // ⚠ The box must ALSO be an ordinary container class. object_type and
+      // flags.container are two different questions and a cache needs both
+      // answered, or a placed cache is a hole nothing can open.
+      check('phase3: …and is a container in its own right',
+        Number(box.tags?.container) > 0, String(box.tags?.container));
+
+      // A placed cache has to satisfy the SAME predicate an authored one does, or
+      // `search` never reports it and the whole phase is invisible in play.
+      const placed = { id: 'x', name: 'stash box', object_type: 'container',
+        flags: { container: 4000, concealed: true, dead_drop: true, dead_drop_placed: true, placed_day: 0 } };
+      check('phase3: a placed cache is findable like an authored one', _test.isCache(placed));
+      check('phase3: …and is marked as player-placed', _test.isPlacedCache(placed));
+      // An authored cache is NOT player-placed, so `recover` can never lift one —
+      // otherwise a quest drop walks off in somebody's pocket.
+      const authored = getFurnitureById(CACHES[0]);
+      check('phase3: an authored cache can never be picked up',
+        !_test.isPlacedCache(authored), JSON.stringify(authored?.flags?.dead_drop_placed));
+
+      // Staleness is the difference of two game-day numbers, never a running
+      // timer, so a restart cannot reset everyone's clock.
+      const today = _test.currentDay();
+      check('phase3: the day counter is a plain number',
+        Number.isFinite(today) && today > 0, String(today));
+      check('phase3: a cache younger than a cycle is kept',
+        today - (today - 1) < _test.CACHE_KEEP_DAYS);
+      check('phase3: a cache older than a cycle goes stale',
+        today - (today - _test.CACHE_KEEP_DAYS) >= _test.CACHE_KEEP_DAYS);
+    }
+    // ── The courier (phase 4) ────────────────────────────────────────────────
+    {
+      const courier = await import('./courier.js');
+      const { world, addPlayerToZone, removePlayerFromZone, setLivePlayer, removeLivePlayer } =
+        await import('../../server/engine/world.js');
+      const { eligibleNpcs } = await import('../../server/engine/npc-banter.js');
+      courier._reset();
+      // ⚠ Target an ELIGIBLE NPC's OWN room. The first cut picked the first
+      // gridded zone in iteration order, which turned out to be unreachable from
+      // every candidate — so `bookCourier` returned null and three checks below it
+      // silently never ran. A zero-hop target proves the booking path instead of
+      // accidentally testing the pathfinder.
+      const anyNpc = [...world.npcs.values()].find(
+        (n) => n?.zone_id && eligibleNpcs(n.zone_id).some((e) => e.id === n.id));
+      const target = anyNpc ? world.zones.get(anyNpc.zone_id) : null;
+      check('courier: the world has somebody free to run an errand', !!target, String(anyNpc?.id));
+      if (anyNpc && target) {
+        let sawAdvisor = false;
+        for (let i = 0; i < 25; i++) {
+          const pick = courier._test.pickCourier(target.id, anyNpc.id);
+          if (pick && pick.id === anyNpc.id) { sawAdvisor = true; break; }
+        }
+        check('courier: the advisor is never picked to carry it', !sawAdvisor, anyNpc.id);
+      }
+
+      // ⚠ A DROP IS NEVER CONJURED. Booking creates a booking, not a cache: until
+      // the courier walks there and stashes, there is nothing to find — which is
+      // what lets a player who was told early get there first and watch.
+      const before = _test.cachesIn(target.id).length;
+      const booking = courier.bookCourier({ zoneId: target.id, advisorId: anyNpc?.id || null });
+      check('courier: booking creates no cache', _test.cachesIn(target.id).length === before);
+      if (booking) {
+        check('courier: …it creates a booking instead', courier.liveBookings().length === 1);
+        check('courier: …and rolls a code for the advisor to hand over',
+          /^\d{4}$/.test(String(booking.code)), String(booking.code));
+        // One booking per room: two couriers converging on one doorway is a farce,
+        // and the second could only arrive somewhere it is refused a place to put it.
+        check('courier: a second booking for the same room is refused',
+          courier.bookCourier({ zoneId: target.id }) === null);
+      }
+
+      // ⚠ THE RECIPIENT IS NOT A WITNESS. They may be standing there waiting for
+      // it, and a courier that refused to work in front of them would deadlock
+      // every drop a player was told about early.
+      //
+      // ⚠ A DECOY IS PLACED ON PURPOSE. The harness registers no players in any
+      // zone, so the first version of these two checks ran against an empty room:
+      // the bystander case failed and the recipient case PASSED VACUOUSLY, which
+      // is the worse half — it would have gone on reporting green while proving
+      // nothing.
+      const decoyZone = target?.id || p.current_zone;
+      const decoyId = 'regress_decoy_bystander';
+      setLivePlayer(decoyId, { id: decoyId, handle: 'Decoy', current_zone: decoyZone });
+      addPlayerToZone(decoyId, decoyZone);
+      try {
+        check('courier: a bystander makes the room unclear',
+          courier.roomIsClear(decoyZone, 'somebody_else') === false);
+        check('courier: …but the person it is for does not',
+          courier.roomIsClear(decoyZone, decoyId) === true);
+      } finally {
+        removePlayerFromZone(decoyId, decoyZone);
+        removeLivePlayer(decoyId);
+      }
+      check('courier: the decoy is cleaned up', courier.roomIsClear(decoyZone, 'anyone') === true);
+
+      courier._reset();
+      check('courier: reset clears every booking', courier.liveBookings().length === 0);
+    }
   } finally {
     p.current_zone = savedZone;
     _test.swept.clear();

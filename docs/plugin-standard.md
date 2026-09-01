@@ -65,14 +65,38 @@ let READMEs be generated:
     "maxActiveQuests": { "type": "int", "default": 10 }
   },
   "dataSchema": ["quests", "player_quests"],  // DB tables this plugin owns
-  "extensionPoints": ["quest.objectiveType"]  // hooks/events others can plug into
+  "extensionPoints": ["quest.objectiveType"], // hooks/events others can plug into
+  "devPanel": {                               // a dev-panel tab this plugin brings
+    "id": "quests",                           // PANELS key; must not collide with a core panel
+    "nav": "❗ Quests",                        // the sidebar row, glyph included
+    "scripts": ["panel.js"],                  // loaded IN ORDER from this plugin's folder
+    "navAlias": null                          // highlight another panel's nav row instead
+  }
 }
 ```
 
 Unknown fields are ignored by the loader; declaring them is for documentation and tooling, not runtime
-behavior. The loader (`server/engine/plugins.js`) wires only the manifest's `hooks`, `commands`, and
-`routePrefix` (plus the module's own `specializedActions` export); `actions`/`events`/`ticks` are
-registered imperatively in `index.js` and *described* here for inspection.
+behavior. The loader (`server/engine/plugins.js`) wires only the manifest's `hooks`, `commands`,
+`routePrefix` and `devPanel` (plus the module's own `specializedActions` export);
+`actions`/`events`/`ticks` are registered imperatively in `index.js` and *described* here for inspection.
+
+**`devPanel` is real wiring, not documentation.** It is the one place a plugin can add an operator
+surface without touching `client/devpanel/`: the shell reads `/dev/plugin-panels.json` at boot, appends
+the nav row, and loads each script from `/dev/plugin/<plugin>/<file>.js`. The script then calls
+`registerDevPanel({ id, … })` — see [devpanel-js.md](devpanel-js.md#plugin-panelsjs).
+
+The split is deliberate. The manifest carries only what the shell needs **before** the script runs (the
+nav row and the file list); `fetch` and `render` are functions and a manifest is JSON, so the script
+supplies them — the same division as `plugin.json` declaring what a plugin offers and `index.js`
+providing it.
+
+⚠ **`scripts` is ordered**, because these are classic browser scripts sharing one global scope: a panel
+that registers using a helper defined in a sibling file needs that sibling listed first.
+⚠ **Only declared filenames are served.** The route checks the request against the manifest, so a
+plugin's `index.js` is not readable through it, and a `script` that is not a plain `.js` filename is
+rejected at load with a warning.
+⚠ **`client:smoke` parses these off the manifest** — nothing else does, since the loader imports
+`index.js` and never the panel.
 
 **`dataSchema` is documentation, not wiring — and it does not export your content.** Listing a table
 here records ownership; it does **not** add the table's DDL to `SCHEMA_SQL`, nor its rows to the git

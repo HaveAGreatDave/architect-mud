@@ -318,6 +318,8 @@
       help: 'Marks this item as a container. Value is the max total weight it can hold. Contents count at 75% of their weight while carried.' },
     wardrobe: { label: 'Wardrobe', shape: 'flag', scope: 'furniture', group: 'Container',
       help: 'Marks a container furniture as a wardrobe: it stores clothing like any container, but opens the wardrobe panel instead — saved outfits on the left, a drag-and-drop paper doll in the middle. Requires the furniture to also carry a `container` capacity.' },
+    stash_box: { label: 'Stash Box', shape: 'object', scope: 'class', group: 'Container',
+      help: 'Marks a carried item as a deployable dead-drop cache. `deploy` spends one and mints a concealed container furniture in the room; `recover` takes it back up, but only when it is empty. Value is { capacity } in grams. A placed cache is findable through `search` at STRANGER_BAR like any other — taking somebody else\'s is not a crime, so the bar and the concealment tiers are the whole defence.' },
     fillable: { label: 'Fillable Capacity', shape: 'number', scope: 'class', group: 'Container',
       help: 'Marks this item as a fillable fluid container. Value is the capacity in fluid units (a neutral volume). Fill at a water source; drink to consume the fluid. How much a fluid restores is a property of the fluid, not the container.' },
 

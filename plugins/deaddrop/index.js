@@ -30,7 +30,12 @@
 import { getZoneFurniture, getFurnitureById, updateFurniture } from '../../server/engine/world.js';
 import { getFlagById, setFlagById } from '../../server/engine/flags.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { emit } from '../../server/engine/events.js';
+import { emit, on } from '../../server/engine/events.js';
+import { registerAction } from '../../server/engine/actions.js';
+import { schedule } from '../../server/engine/scheduler.js';
+import { gatherHook } from '../../server/engine/plugins.js';
+import { bookCourier, courierTick, liveBookings } from './courier.js';
+ import { deployCache, recoverCache, sweepStaleCaches, _test as placeTest } from './place.js';
 
 // The bar a STRANGER's roll has to clear, as a margin over `scavenging` difficulty 4
 // (the one roll `search` makes for every provider). Compare concealment's 6, which
@@ -199,9 +204,83 @@ export const hooks = {
   'container.view': noteDisturbance,
 };
 
+// `deploy` is TAG-GATED on the carried box, which is how it can share a verb with
+// `plugins/generator` — two plugins may register one specialized action when the
+// gate differs, the same way `use` already belongs to both the ATM and the TV.
+// ⚠ It could not be a plain command: `deploy` as a global verb is the generator's,
+// and a plugin command silently beats a specialized action.
+export const specializedActions = [
+  { verb: 'deploy', requiredTag: 'stash_box', handler: deployCache },
+  { verb: 'recover', requiredFlag: 'dead_drop_placed', handler: recoverCache },
+];
+
+// The stale sweep rides the day-rollover event rent and daily maintenance already
+// use, so the feature adds no tick of its own.
+on('environment.dayRollover', () => { sweepStaleCaches().catch(() => {}); });
+
+// ── The courier (phase 4) ────────────────────────────────────────────────────
+//
+// `BOOK_COURIER` is what a VINE node fires INSTEAD of `spawn` + `container`. The
+// difference is the whole of §9: a drop is not conjured when the dialogue fires,
+// it is commissioned — an NPC walks it there and puts it in, and until they do
+// there is nothing to find. A player told early can get there first and watch.
+//
+// ⚠ The advisor is excluded from the candidate set, so the NPC who TELLS you is
+// never the NPC who STASHES. `actor`-adjacent context gives us the speaker for
+// free: whoever is talking is the advisor.
+registerAction({
+  type: 'BOOK_COURIER',
+  handler: async ({ actor, params, context }) => {
+    const zoneId = params.zone_id || params.zone;
+    if (!zoneId) return { type: 'error', message: 'BOOK_COURIER requires a zone_id.' };
+    const advisorId = params.advisor_id || context?.npc?.id || null;
+    const booking = bookCourier({
+      zoneId,
+      advisorId,
+      forPlayerId: actor?.id || null,
+      capacity: Number(params.capacity) || undefined,
+      name: params.name || undefined,
+      lock: params.lock !== false,
+    });
+    if (!booking) return { type: 'error', message: 'Nobody free to run it, or there is already something there.' };
+    // The CODE is what being told is worth, and it is cleanly separate from being
+    // told WHERE — two NPCs, two halves, and losing either leaves a real but
+    // harder problem. Handed back so the authoring can put it in the advisor's
+    // mouth; ⚠ neither NPC's dialogue may ever name the other.
+    return { type: 'courier', code: booking.code, zone_id: zoneId };
+  },
+});
+
+// One step per booking. 30s rather than the engine's fastest cadence because a
+// courier is meant to take a believable while to cross town, and because nothing
+// here is urgent enough to ride a hot tick.
+schedule('30s', async () => {
+  if (!liveBookings().length) return;          // idle-gated: no bookings, no work
+  await courierTick({
+    // Both reached by HOOK, never by import — nothing in this codebase imports
+    // across plugins, which is why the ESP actions live inside plugins/emergency
+    // rather than being called from unrest. `zone.witnessed` is surveillance's
+    // cameras-and-cops sweep; `ambient.categoryLine` is ambient-life drawing from
+    // the same `handling` pool its own tick draws from.
+    //
+    // ⚠ Both degrade to "no". An absent surveillance plugin means the courier
+    // judges the room on who is standing in it, which is the weaker check but
+    // never the wrong answer; an absent line means the stash still happens. A
+    // missing line must never mean a missing stash.
+    isWitnessed: async (zoneId) => {
+      const seen = await gatherHook('zone.witnessed', { zoneId });
+      return seen.some(Boolean);
+    },
+    emitLine: (zoneId, category, npcName) => {
+      gatherHook('ambient.categoryLine', { zoneId, category, npcName }).catch(() => {});
+    },
+  });
+});
+
 export const _test = {
   STRANGER_BAR, SWEPT_MS, swept,
   isCache, cachesIn, isSwept, markSwept, knownKey, searchForCaches, noteDisturbance,
+  ...placeTest,
 };
 
 console.log('[deaddrop] Plugin loaded.');

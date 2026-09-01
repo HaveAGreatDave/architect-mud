@@ -6,10 +6,10 @@
       "npc_dex_rime"
     ]
   },
-  "days": 127,
+  "days": 125,
   "duration_override": 3600,
-  "id": "ksab-08-1000-127",
+  "id": "ksab-08b-1100-125",
   "priority": 0,
   "slot_type": "broadcast",
-  "start_time": 36000
+  "start_time": 39600
 }

@@ -32,6 +32,12 @@ import { STIM_FATIGUE_RELIEF, STIM_FATIGUE_INTEREST, adjustSanity } from './cond
 import { sendToPlayer } from './messaging.js';
 
 let DRUG_CACHE = {};
+// The same rows, indexed by the ITEM they sit on. Built in the same pass as
+// DRUG_CACHE because the whole table is already in memory: without it, "is this
+// item a drug?" had no synchronous answer, so every caller that needed one wrote
+// its own JOIN against the drugs table — there were six — or spent a round trip
+// per item asking a table we are already holding.
+let DRUG_BY_ITEM = {};
 
 // peak_mods keys ending in this are per-second "drip" regen, not flat buffs.
 const REGEN_RE = /_regen_per_sec$/;
@@ -389,12 +395,22 @@ export const WITHDRAWAL_PHASES = ['onset', 'rising', 'peak', 'easing', 'tail'];
 export async function loadDrugs() {
   const { rows } = await query('SELECT * FROM drugs');
   const cache = {};
-  for (const d of rows) cache[d.id] = d;
+  const byItem = {};
+  for (const d of rows) {
+    cache[d.id] = d;
+    if (d.item_id) byItem[d.item_id] = d;
+  }
   DRUG_CACHE = cache;
+  DRUG_BY_ITEM = byItem;
   return cache;
 }
 
 export function getDrugCache() { return DRUG_CACHE; }
+
+// The drug row an item carries, or null. Sync by contract — these are called from
+// per-item loops and from the witness path, so neither may ever become a query.
+export function drugForItem(itemId) { return (itemId != null && DRUG_BY_ITEM[itemId]) || null; }
+export function isDrugItem(itemId) { return drugForItem(itemId) != null; }
 
 // --- effects-block helpers ---------------------------------------------------
 
@@ -555,7 +571,14 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // Everything past this has to be earned the hard way.
   learnDrugFact(player.id, stateKey, DRUG_FACTS.FELT);
   if (overdosed) learnDrugFact(player.id, stateKey, DRUG_FACTS.OVERDOSE);
-  if (justAddicted) learnDrugFact(player.id, stateKey, DRUG_FACTS.ADDICTION);
+  if (justAddicted) {
+    learnDrugFact(player.id, stateKey, DRUG_FACTS.ADDICTION);
+    // The dose that hooked you. The engine has always known this moment and only
+    // ever spent it on one sentence; anything that wants to react to it — a
+    // dealer who can tell, a clinic, a quest — subscribes rather than polling
+    // getDrugStatus on a tick, which is a query per player.
+    emit('drug.addicted', { player, drug, drugId: stateKey, addiction });
+  }
 
   // Re-dosing clears any active withdrawal for this drug.
   reverseMods(player, `withdrawal:${stateKey}`);
@@ -1008,6 +1031,10 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
         player._withdrawalPhase.set(state.drug_id, phase);
         const line = wd.stages?.[phase] ?? (phase === 'onset' ? wd.message : null);
         if (line) messages.push(`<span class="withdrawal-warning">${line}</span>`);
+        // On the BEAT, never per minute — severity drifts every tick, and a
+        // subscriber woken sixty times an hour would have to debounce a clock it
+        // cannot see. The phase map above is already that debounce.
+        emit('drug.withdrawal', { player, drugId: state.drug_id, phase, severity });
       }
       // `*_regen_per_sec` keys are a per-second drip, not a ledger buff. The phases
       // engine has always honoured them; withdrawal silently dropped them into
@@ -1019,6 +1046,10 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
       reverseMods(player, source);
       player._withdrawalActive.delete(state.drug_id);
       player._withdrawalPhase.delete(state.drug_id);
+      // Off it: the mods are reversed and the arc is over. Fires whether that
+      // came from re-dosing or from riding it out, because the difference is
+      // legible in `stillAddicted` and a subscriber that cares can read it.
+      emit('drug.cleaned', { player, drugId: state.drug_id, stillAddicted });
     }
   }
 

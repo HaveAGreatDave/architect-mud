@@ -297,7 +297,47 @@ export const commands = {
   order: (args, raw, player, broadcast) => cmdOrder(player, broadcast),
 };
 
+/**
+ * Emit ONE line from a category, spoken by a named NPC, on demand.
+ *
+ * Built for the dead-drop courier, and the whole point is that it draws from the
+ * SAME pool the ordinary tick draws from. A courier stashing something emits a
+ * `handling` line; so do fourteen routines' worth of people who are not couriers
+ * and are not doing anything. That is the rule the deniability rests on:
+ *
+ *   > A line is deniable if and only if non-couriers emit it more often than
+ *   > couriers do.
+ *
+ * No amount of careful phrasing survives a line that only ever appears when a
+ * stash happened — players would have it pinned inside a week and it would be a
+ * notification with extra steps. So the caller does not get to supply prose, and
+ * there is deliberately no way to ask for a line nobody else can produce.
+ *
+ * ⚠ The NPC is NAMED rather than resolved from the room, because the courier is
+ * the actor and may well be the only eligible body present. Returns false when
+ * the category has nothing enabled, which the caller must treat as "no line" and
+ * never as "no stash".
+ */
+export function emitCategoryLine(zoneId, category, npcName) {
+  if (!zoneId || !category) return false;
+  const pool = routines.filter((r) => r.category === category && r.enabled !== false && Array.isArray(r.lines) && r.lines.length);
+  if (!pool.length) return false;
+  const routine = rand(pool);
+  const line = String(rand(routine.lines) || '').replace(/\{npc\}/g, npcName || 'Somebody');
+  if (!line) return false;
+  emitLine(zoneId, line, routine.loudness);
+  return true;
+}
+
+export const hooks = {
+  // Offered as a HOOK rather than an import, because nothing in this codebase
+  // imports across plugins — the same reason the ESP actions live inside
+  // plugins/emergency. A caller that wants a line asks the world for one and does
+  // not learn that ambient-life exists.
+  'ambient.categoryLine': ({ zoneId, category, npcName }) => emitCategoryLine(zoneId, category, npcName),
+};
+
 // Exposed for the regress suite.
-export const _test = { matches, pickRoutine, liveOpportunity, opportunities, zoneCooldown, isStreetZone, setRoutines: (r) => { routines = r; } };
+export const _test = { matches, pickRoutine, liveOpportunity, opportunities, zoneCooldown, isStreetZone, setRoutines: (r) => { routines = r; }, emitCategoryLine };
 
 console.log('[ambient-life] Plugin loaded.');

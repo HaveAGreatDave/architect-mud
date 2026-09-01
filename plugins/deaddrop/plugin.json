@@ -8,13 +8,30 @@
     "container.view"
   ],
   "events": {
-    "consumes": [],
+    "consumes": [
+      "environment.dayRollover"
+    ],
     "emits": [
-      "deaddrop.found"
+      "deaddrop.found",
+      "deaddrop.courier.booked",
+      "deaddrop.stashed"
     ]
   },
-  "ticks": [],
+  "ticks": [
+    "30s"
+  ],
   "extensionPoints": [
-    "furniture.flags.dead_drop"
-  ]
+    "furniture.flags.dead_drop",
+    "items.tags.stash_box"
+  ],
+  "specializedActions": [
+    "deploy",
+    "recover"
+  ],
+  "actions": {
+    "registers": [
+      "BOOK_COURIER"
+    ],
+    "dispatches": []
+  }
 }

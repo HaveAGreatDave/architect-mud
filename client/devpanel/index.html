@@ -148,8 +148,12 @@
     <a class="nav-item" id="nav-map-studio" href="http://localhost:5180" target="_blank" rel="noopener"
        onclick="return openMapStudio(event)" style="display:none;text-decoration:none">🏗 Map Studio ↗</a>
     <div class="nav-item" data-panel="emergency" onclick="showPanel('emergency')">⚖ Crime</div>
-    <div class="nav-item" data-panel="unrest" onclick="showPanel('unrest')">🔥 Unrest</div>
-    <div class="nav-item" data-panel="incidents" onclick="showPanel('incidents')">🧨 Incidents</div>
+    <!-- Tabs a PLUGIN declares, appended at boot by loadPluginPanels (see
+         js/core/plugin-panels.js). A plugin that wants an operator surface used to
+         need four hand-edits in this file and js/core/panels.js; it now ships the
+         panel in its own folder and says so in its manifest. Nothing is authored
+         here — the container is the seam. -->
+    <div id="nav-plugin-panels"></div>
     <div class="nav-item" data-panel="flight" onclick="showPanel('flight')">✈ Flight</div>
     <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
     <div class="nav-item" data-panel="bank" onclick="showPanel('bank')">₵ Bank</div>
@@ -541,8 +545,10 @@
 <script src="/dev/js/panels/world-editor.js"></script>
 <script src="/dev/js/panels/power.js"></script>
 <script src="/dev/js/panels/emergency.js"></script>
-<script src="/dev/js/panels/unrest.js"></script>
-<script src="/dev/js/panels/incidents.js"></script>
+<!-- The Unrest suite's two panels are NOT loaded here. They ship inside
+     plugins/unrest/ and are pulled in at boot from that plugin's own manifest —
+     the first users of the dev-panel registration seam. -->
+
 <script src="/dev/js/panels/flight.js"></script>
 <script src="/dev/js/panels/bank.js"></script>
 <script src="/dev/js/panels/sounds.js"></script>
@@ -572,6 +578,10 @@
 <script src="/dev/js/panels/tags.js"></script>
 <script src="/dev/js/panels/aliases.js"></script>
 <script src="/dev/js/core/panels.js"></script>
+<!-- After panels.js: registerDevPanel writes into PANELS and NAV_ALIASES, which
+     that file declares. A plugin panel may depend on the core; the core may never
+     depend on a plugin panel. -->
+<script src="/dev/js/core/plugin-panels.js"></script>
 <script src="/dev/js/core/auth.js"></script>
 <script src="/dev/js/bootstrap.js"></script>
 <script>

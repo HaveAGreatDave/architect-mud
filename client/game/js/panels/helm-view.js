@@ -11,7 +11,7 @@
 // Public: openHelmChase(containerEl, opts) → controller { sail, setHour, setWeather,
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx } from './windshield.js';
 import { createFreeCam, FREECAM_HINT, bindFreeCamPointer } from './freecam.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
@@ -25,10 +25,10 @@ const RAD = 10;                                   // half-width of the ocean win
 const DV = { N: [0, -1], NE: [1, -1], E: [1, 0], SE: [1, 1], S: [0, 1], SW: [-1, 1], W: [-1, 0], NW: [-1, -1] };
 const oceanCell = () => ({ kind: 'land', biome: 'water', road: 0 });   // open sea — flat, no buildings
 
-// The general (non-flight) environment system speaks a slightly wider weather taxonomy than
-// the windshield renders; fold the extras onto the tokens it knows.
-const WX_MAP = { thunderstorm: 'storm', blizzard: 'snow', overcast: 'cloudy', haze: 'fog', none: 'clear', unknown: 'clear' };
-const normalizeWx = (w) => { w = (w || '').toLowerCase(); return WX_MAP[w] || w || 'clear'; };
+// The wider environment taxonomy is folded onto the windshield's own tokens by the windshield
+// itself now (normalizeWx, imported above) — this file kept the only copy for months while every
+// other caller passed raw. Still called here so `liveEnv().weather` reads normalised to anything
+// downstream of it, not just to paintWindshield.
 
 // Live time + weather straight from the shared world clock/weather (environment.js) — the SAME
 // systems the rest of the client uses, nothing flight-specific. Returns null before the first

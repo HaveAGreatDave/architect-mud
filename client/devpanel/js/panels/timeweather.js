@@ -317,8 +317,8 @@ function renderTimeWeatherPanel(data) {
 
 const WM_LEGEND = {
   temp:   'Tile colour = temperature (blue cold → red hot). Dashed circles are weather systems.',
-  cloud:  'Tile shading = cloud cover. Denser = more overcast.',
-  precip: 'Tile colour = precipitation intensity (blue rain / white snow), only while actively precipitating.',
+  cloud:  'Tile shading = the CELL contribution to cloud, over a faint wash for the day floor. Hover for the effective cover.',
+  precip: 'Tile colour = the CELL contribution (blue rain / white snow), over a faint wash for the headline rate. Hover for the effective rate.',
   humid:  'Tile colour = relative humidity (faint = dry → deep teal = saturated). Tiles under cloud/rain read damper.',
   wind:   "Arrows show each system's heading and speed; dashed circle = system radius.",
 };
@@ -355,14 +355,28 @@ function buildWeatherMapSVG(data, overlay) {
   let tiles = '';
   for (const z of zones) {
     const x = px(z.grid_x), y = py(z.grid_y);
+    // ⚠ SHADE BY THE CELL, REPORT THE EFFECTIVE. The floors (the day's ambient cloud, the headline
+    // precip rate) are identical on every tile, so they are the one part of the number that can
+    // tell you nothing about WHERE — and on a storm day they are most of it: floor 0.8 cloud and
+    // 1.0 precip put the whole map in one shade and made every cell invisible. The cell channel is
+    // what varies, so that is what gets the ink; the tooltip carries the number the game applies.
     const cloud = z.cloudCover || 0, precip = z.precipRate || 0;
+    const cloudC = z.cloudCell ?? cloud, precipC = z.precipCell ?? precip;
     let fill = 'var(--bg3)', label = '';
     if (overlay === 'temp')        { fill = wmTempColor(z.tempC); label = `${z.tempC}°`; }
-    else if (overlay === 'cloud')  { fill = `rgba(200,206,220,${cloud.toFixed(2)})`; }
-    else if (overlay === 'precip') { fill = z.precipType === 'snow' ? `rgba(235,240,255,${precip.toFixed(2)})` : `rgba(70,120,240,${precip.toFixed(2)})`; }
+    // A faint floor wash under the cell ink, so a fully overcast day still READS as overcast
+    // rather than as an empty map — the floor is visible as ground, the cells as figure.
+    else if (overlay === 'cloud')  { fill = `rgba(200,206,220,${(0.10 * (data.baseCloud || 0) + 0.90 * cloudC).toFixed(2)})`; }
+    else if (overlay === 'precip') {
+      const a = (0.10 * (data.precipFloorRate || 0) + 0.90 * precipC).toFixed(2);
+      fill = z.precipType === 'snow' ? `rgba(235,240,255,${a})` : `rgba(70,120,240,${a})`;
+    }
     else if (overlay === 'humid')  { fill = wmHumidColor(z.humidityPct); if (z.humidityPct != null) label = `${z.humidityPct}%`; }
-    else if (overlay === 'wind')   { fill = `rgba(200,206,220,${(cloud * 0.6).toFixed(2)})`; }
-    const tip = `${z.name} (${z.grid_x},${z.grid_y}) — ${z.tempC}°C, humidity ${z.humidityPct ?? '?'}%, cloud ${(cloud * 100) | 0}%, precip ${(precip * 100) | 0}%`;
+    else if (overlay === 'wind')   { fill = `rgba(200,206,220,${(cloudC * 0.6).toFixed(2)})`; }
+    // Effective first (what a player on this tile gets), cell second (what this map is drawing).
+    const tip = `${z.name} (${z.grid_x},${z.grid_y}) — ${z.tempC}°C, humidity ${z.humidityPct ?? '?'}%`
+      + `, cloud ${(cloud * 100) | 0}% (cell ${(cloudC * 100) | 0}%)`
+      + `, precip ${(precip * 100) | 0}% (cell ${(precipC * 100) | 0}%)`;
     tiles += `<rect x="${x + 1}" y="${y + 1}" width="${cell - 2}" height="${cell - 2}" rx="3" fill="${fill}" stroke="var(--border)" stroke-width="1"><title>${tip}</title></rect>`;
     if (label) tiles += `<text x="${x + cell / 2}" y="${y + cell / 2 + 3}" text-anchor="middle" font-size="10" fill="#fff" style="pointer-events:none">${label}</text>`;
   }
@@ -483,8 +497,21 @@ function paintWeatherMap() {
   } else {
     host.innerHTML = buildWeatherMapSVG(scoped, overlay);
   }
+  // ⚠ NAME THE FLOOR THAT WAS SUBTRACTED. The overlays shade by the CELL contribution, because
+  // the floors are the same on every tile and so are the one part of the number that cannot show
+  // you where anything is — on a storm day they are 0.8 cloud and 1.0 precip, which flattened the
+  // whole map into one shade and hid every cell. But a floor that is silently removed reads as a
+  // bug ("why is it 0% when it is pouring"), so the legend says what it is and the tooltip carries
+  // the effective figure.
   const legend = document.getElementById('tw-wm-legend');
-  if (legend) legend.textContent = WM_LEGEND[overlay] || '';
+  if (legend) {
+    let text = WM_LEGEND[overlay] || '';
+    if (overlay === 'cloud')  text += ` Day floor: ${Math.round((data.baseCloud || 0) * 100)}% on every tile.`;
+    if (overlay === 'precip') text += (data.precipFloorRate > 0)
+      ? ` Headline rate: ${Math.round(data.precipFloorRate * 100)}% on every outdoor tile.`
+      : ' Nothing is falling right now, so every tile is cell-only.';
+    legend.textContent = text;
+  }
 }
 
 function setWeatherOverlay(mode) {

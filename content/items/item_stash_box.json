@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_stash_box",
+  "name": "stash box",
+  "tags": {
+    "container": 4000,
+    "description": "A flat steel case the length of your forearm, matte and unbranded, with a magnetic back and a lid that opens without a sound. It is made to sit somewhere nobody looks and be forgotten by everyone including you.",
+    "stash_box": {
+      "capacity": 4000
+    }
+  },
+  "type": "misc",
+  "value": 340,
+  "weight": 900
+}

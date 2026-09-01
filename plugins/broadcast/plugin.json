@@ -9,6 +9,7 @@
     "tv",
     "load",
     "eject",
+    "uplink",
     "selectcassette",
     "patch",
     "pirate",
@@ -39,6 +40,11 @@
       "discoverVia": "furniture:media_deck",
       "exposed": false,
       "note": "KNOWN GAP: gates on media_deck furniture; discovered via use/media_deck panel."
+    },
+    "uplink": {
+      "discoverVia": "portable_mediadeck",
+      "exposed": true,
+      "note": "The switch on a portable mediadeck: `uplink` reports, `uplink on`/`uplink off` flips flags.deck_off. Surfaced on examine by a declaration-only specializedAction against the portable_mediadeck flag. Deliberately not owner-gated — killing a location shoot's signal by walking up to the case is the interference the on-location model is for."
     },
     "selectcassette": {
       "discoverVia": "furniture:media_deck",

@@ -65,7 +65,7 @@ import { takePendingSelection } from "./engine/sift.js";
 import { startGameLoop } from "./engine/gameLoop.js";
 import { zoneAudience } from "./engine/delivery.js";
 import { modulePreloadTags } from "./modulegraph.js";
-import { loadPlugins, fireHook, getRegisteredCommands } from "./engine/plugins.js";
+import { loadPlugins, fireHook, getRegisteredCommands, getPluginDevPanels } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
 import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
@@ -240,6 +240,14 @@ const MIME = {
 	".ico": "image/x-icon",
 	".txt": "text/plain; charset=utf-8",
 	".xml": "application/xml; charset=utf-8",
+	// Same trap as the two above, and it was already live: the guide's
+	// assets/guide/*.jpg screenshots have been served as text/plain since they
+	// landed. Browsers sniff an <img> body and render it anyway, so it only ever
+	// looked fine — the wrong type still defeats caching heuristics and breaks a
+	// direct link to the file. .webp is the tour's format (assets/thomas/).
+	".jpg": "image/jpeg",
+	".jpeg": "image/jpeg",
+	".webp": "image/webp",
 };
 
 // ── Static asset cache + compression ──────────────────────────────────────────
@@ -405,6 +413,37 @@ const httpServer = createServer(async (req, res) => {
 	if (process.env.CONTENT_READONLY && (url === "/dev" || url === "/dev/")) {
 		res.writeHead(302, { Location: "/admin" });
 		res.end();
+		return;
+	}
+
+	// ── Plugin-declared dev-panel tabs ──────────────────────────────────────
+	// The registry the shell reads at boot to learn which plugins bring a panel.
+	// Served here rather than through the /api routes because the dev panel loads
+	// it before it has authenticated anything — it is a list of tab names, and the
+	// panels themselves are gated exactly as every other panel already is.
+	if (url === "/dev/plugin-panels.json") {
+		res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+		res.end(JSON.stringify({ panels: getPluginDevPanels() }));
+		return;
+	}
+	// A plugin's own panel script, served out of its folder so the file lives with
+	// the plugin that owns it. ⚠ Both segments are matched against a strict pattern
+	// and the resolved path is re-checked against the plugins root: a plugin folder
+	// is not user input, but a manifest is a file on disk and this is the one place
+	// its contents become a path.
+	if (url.startsWith("/dev/plugin/")) {
+		const parts = url.slice("/dev/plugin/".length).split("/");
+		const okName = parts.length === 2 && /^[\w-]+$/.test(parts[0]) && /^[\w.-]+\.js$/.test(parts[1]);
+		const declared = okName && getPluginDevPanels().some(
+			(p) => p.plugin === parts[0] && p.scripts.includes(parts[1]));
+		if (!declared) { res.writeHead(404); res.end("Not found"); return; }
+		const pluginsRoot = join(__dirname, "../plugins");
+		const scriptPath = join(pluginsRoot, parts[0], parts[1]);
+		if (!scriptPath.startsWith(pluginsRoot) || !existsSync(scriptPath)) {
+			res.writeHead(404); res.end("Not found"); return;
+		}
+		res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
+		res.end(readFileSync(scriptPath));
 		return;
 	}
 

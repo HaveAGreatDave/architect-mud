@@ -363,24 +363,6 @@ const PANELS = {
     save: saveScriptTrigger,
     delete: id => API(`/script-triggers/${id}`, 'DELETE'),
   },
-  incidents: {
-    title: 'Incidents',
-    description: 'The authored catalogue behind Unrest — what CAN happen in a city block, never what is happening. The live side is on the Unrest panel.',
-    idPrefix: 'incident',
-    fetch: () => API('/incidents'),
-    columns: [
-      { key: 'name', label: 'Name' },
-      { key: 'writes', label: 'Order', render: v => v === 'grip' ? 'authority' : 'insurgency' },
-      { key: 'min_band', label: 'From band' },
-      { key: 'weight', label: 'Weight' },
-      { key: 'duration_min', label: 'Runs for', render: v => `${v}m` },
-      { key: 'stage', label: 'Steps', render: v => (Array.isArray(v) ? v : []).map(s => s.do).join(' → ') || '—' },
-      { key: 'enabled', label: 'On', render: v => v ? '✓' : '—' },
-    ],
-    editForm: incidentEditForm,
-    save: saveIncident,
-    delete: id => API(`/incidents/${id}`, 'DELETE'),
-  },
   vine: {
     title: 'VINE Suite',
     description: 'Every VINE graph in the game — dialogue, behaviour, scripts, broadcasts, quests — reachable from one hub.',
@@ -426,19 +408,9 @@ const PANELS = {
     noEdit: true,
     render: renderEmergencyPanel,
   },
-  unrest: {
-    title: 'Unrest',
-    description: 'The faction-conflict ledger — grip/heat/pressure per derived city block, the band each is in, the authored role roster, and every live incident. Operator-only by design: none of it reaches the player.',
-    fetch: async () => {
-      const [state, incidents] = await Promise.all([
-        directAPI('/unrest/state'),
-        directAPI('/unrest/incidents'),
-      ]);
-      return { ...state, incidents };
-    },
-    noEdit: true,
-    render: renderUnrestPanel,
-  },
+  // ⚠ `unrest` and `incidents` are NOT here any more. They are the first panels a
+  // plugin declares for itself — see plugins/unrest/panel.js and the `devPanel`
+  // block in its manifest. Adding a panel no longer means editing this file.
   flight: {
     title: 'Flight',
     description: 'Charter-pilot work status, the flight request log, and every aircraft instance (test-flight conjures, player buy/rent, wrecks) — delete stale ones from here.',
@@ -536,7 +508,8 @@ const OPS_WRITABLE_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timew
                                      'flight', 'cards']);
 function opsPanelReadOnly(name) {
   if (!window.OPS_MODE) return false;
-  return !OPS_WRITABLE_PANELS.has(NAV_ALIASES[name] || name);
+  // Per PANEL, never per nav row — see the ⚠ on NAV_ALIASES below.
+  return !OPS_WRITABLE_PANELS.has(name);
 }
 const OPS_READONLY_BANNER =
   '<b>READ-ONLY — production.</b> This is world content: it\'s edited on your <b>local</b> dev panel and '
@@ -544,9 +517,16 @@ const OPS_READONLY_BANNER =
   + 'and if it did, the next deploy would revert it. Live-world actions (spawning an enemy, restocking a '
   + 'vendor) still work.';
 // A panel that shares a nav entry with its siblings highlights that entry rather
-// than one of its own (the Unreality suite: three panels, one 🌒 row, two tabs).
+// than one of its own (the Unreality suite: three panels, one 🌒 row, two tabs;
+// Unrest and its Incidents catalogue: two panels, one 🔥 row, two tabs).
+// ⚠ Nav only. The ops permission deliberately does NOT resolve through this — see
+// opsPanelReadOnly. Two panels share a nav row precisely when they are two halves
+// of one system, and those halves are routinely one live-ops surface and one
+// content surface; a permission that followed the nav would unlock content editing
+// on prod the day somebody unlocked the live half.
 const NAV_ALIASES = {
   dream_templates: 'dreams', dream_presences: 'dreams', drug_transforms: 'dreams',
+  incidents: 'unrest',
 };
 
 function activatePanelNav(name) {

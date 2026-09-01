@@ -7,6 +7,37 @@
 // it. The line is the client boundary, not the data.
 //
 // Live state, so every call is directAPI — the same class as emergency and power.
+//
+// One nav row, two tabs, because Unrest and its catalogue are two halves of one
+// system and a reader coming to the nav cannot tell which half is which. They stay
+// two PANELS entries rather than becoming one: this half is live ops through
+// directAPI, and the catalogue half is authored content through API(), so a write
+// there stages for review. Collapsing the write paths to collapse the nav would
+// either stage an operator action or let content edits bypass review.
+
+const UNREST_SUITE_TITLE = 'Unrest';
+const UNREST_SUITE_DESC = 'The faction-conflict ledger and the catalogue behind it — grip/heat/pressure per derived city block, what is standing right now, and every authored thing that CAN stand. Operator-only by design: none of it reaches the player.';
+const UNREST_SUITE_TABS = [
+  { panel: 'unrest',    label: '🔥 Live ledger' },
+  { panel: 'incidents', label: '🧨 Catalogue' },
+];
+
+window.unrestSuiteTab = function (panel) { showPanel(panel); };
+
+// The tab strip, plus the suite's own title over whichever panel drew it —
+// loadPanel wrote the active PANELS entry's title into the toolbar, and as far as
+// the author is concerned this is one place. 'incidents' renders through the
+// generic list, so it reaches this through 'beforeList', which runs even when the
+// list is empty.
+function unrestSuiteHeader(active) {
+  const t = document.getElementById('panel-title');
+  const d = document.getElementById('panel-description');
+  if (t) t.textContent = UNREST_SUITE_TITLE;
+  if (d) d.textContent = UNREST_SUITE_DESC;
+  return `<div class="bc-tabs">${UNREST_SUITE_TABS.map(x => `
+    <button class="bc-tab${active === x.panel ? ' bc-tab-active' : ''}"
+      onclick="unrestSuiteTab('${x.panel}')">${x.label}</button>`).join('')}</div>`;
+}
 
 const _unrestBand = {
   quiet:      { color: '#22c55e', label: 'QUIET' },
@@ -141,7 +172,6 @@ function _unrestCatalogue(inc) {
       <th style="text-align:left;padding:0 12px 6px 0">Definition</th>
       <th style="text-align:left;padding:0 12px 6px 0">Order</th>
       <th style="text-align:left;padding:0 12px 6px 0">Min band</th>
-      <th style="text-align:right;padding:0 12px 6px 0">Weight</th>
       <th style="text-align:left;padding:0 0 6px 0">Eligible cells</th>
     </tr></thead><tbody>${cat.map(d => {
       const open = (d.blocked || []).filter(b => !b.why);
@@ -156,7 +186,6 @@ function _unrestCatalogue(inc) {
         <td style="padding:5px 12px 5px 0;color:var(--text)">${_unrestEsc(d.name)}</td>
         <td style="padding:5px 12px 5px 0;color:${d.writes === 'grip' ? '#60a5fa' : '#ff6b6b'}">${_unrestEsc(d.writes)}</td>
         <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_unrestEsc(d.minBand)}</td>
-        <td style="padding:5px 12px 5px 0;color:var(--text-dim);text-align:right">${d.weight}</td>
         <td style="padding:5px 0">${summary}</td>
       </tr>`;
     }).join('')}</tbody></table>`;
@@ -170,7 +199,7 @@ function renderUnrestPanel(data) {
     `<span style="color:${_unrestBand[b].color};font-size:10px;letter-spacing:1px;margin-right:14px">
        ${_unrestBand[b].label} ${counts[b] || 0}</span>`).join('');
 
-  return `
+  const html = `
     <div class="card" style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
         <div style="font-weight:700">${cells.length} cells</div>
@@ -217,7 +246,13 @@ function renderUnrestPanel(data) {
         what makes a checkpoint read as a reply to the graffiti rather than as spawn noise.
       </div>
       ${_unrestLive(data?.incidents)}
-      <div style="font-weight:700;margin:16px 0 8px">Catalogue</div>
+      <div style="font-weight:700;margin:16px 0 8px">Eligibility — why nothing is standing</div>
+      <div style="color:var(--text-dim);font-size:11px;margin-bottom:8px">
+        Every enabled definition against every cell, with the refusal counted per reason. This is the
+        question you will ask ninety times for every once you ask what is happening. Click a cell to
+        stage that incident there by hand. The definitions themselves — stage steps, weights,
+        durations — are authored content and live on the <b>Catalogue</b> tab.
+      </div>
       ${_unrestCatalogue(data?.incidents)}
       <div style="color:var(--text-dim);font-size:11px;margin-top:10px">
         Stage steps registered: <code>${_unrestEsc((data?.incidents?.steps || []).join(', '))}</code>
@@ -233,6 +268,8 @@ function renderUnrestPanel(data) {
       </div>
       ${_unrestRoles(roles)}
     </div>`;
+
+  document.getElementById('list-panel').innerHTML = unrestSuiteHeader('unrest') + html;
 }
 
 async function unrestForce(key) {
@@ -275,3 +312,48 @@ async function unrestReindex() {
   await dpAlert(`Reindexed — ${res?.blocks ?? 0} cells.`);
   showPanel('unrest');
 }
+
+// ── Registration ─────────────────────────────────────────────────────────────
+// Both halves of the suite, declared here rather than in client/devpanel/. One
+// nav row (the manifest's `devPanel.nav`), two tabs — the live ledger and the
+// authored catalogue — which is why the second registers a `navAlias` back to
+// this one: a panel that shares a nav entry highlights that entry, not its own.
+registerDevPanel({
+  id: 'unrest',
+  title: 'Unrest',
+  description: 'The faction-conflict ledger — grip/heat/pressure per derived city block, the band each is in, the authored role roster, and every live incident. Operator-only by design: none of it reaches the player.',
+  fetch: async () => {
+    const [state, incidents] = await Promise.all([
+      directAPI('/unrest/state'),
+      directAPI('/unrest/incidents'),
+    ]);
+    return { ...state, incidents };
+  },
+  noEdit: true,
+  render: renderUnrestPanel,
+});
+
+registerDevPanel({
+  id: 'incidents',
+  title: 'Incidents',
+  description: 'The authored catalogue behind Unrest — what CAN happen in a city block, never what is happening. The live side is the Live ledger tab.',
+  navAlias: 'unrest',
+  idPrefix: 'incident',
+  noEdit: false,
+  // This half renders through the generic list, so the suite strip arrives via
+  // beforeList — which runs even when the list is empty.
+  beforeList: () => unrestSuiteHeader('incidents'),
+  fetch: () => API('/incidents'),
+  columns: [
+    { key: 'name', label: 'Name' },
+    { key: 'writes', label: 'Order', render: v => v === 'grip' ? 'authority' : 'insurgency' },
+    { key: 'min_band', label: 'From band' },
+    { key: 'weight', label: 'Weight' },
+    { key: 'duration_min', label: 'Runs for', render: v => `${v}m` },
+    { key: 'stage', label: 'Steps', render: v => (Array.isArray(v) ? v : []).map(s => s.do).join(' → ') || '—' },
+    { key: 'enabled', label: 'On', render: v => v ? '✓' : '—' },
+  ],
+  editForm: incidentEditForm,
+  save: saveIncident,
+  delete: id => API(`/incidents/${id}`, 'DELETE'),
+});

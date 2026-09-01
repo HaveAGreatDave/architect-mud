@@ -142,7 +142,11 @@ export async function loadPlugins() {
         }
       }
 
-      loadedPlugins.push({ name, version: manifest.version || '?', hooks: manifest.hooks || [], commands: manifest.commands || [], specializedActions: hasSpecialized ? mod.specializedActions.map(s => s.verb) : [] });
+      loadedPlugins.push({ name, dirName, version: manifest.version || '?', hooks: manifest.hooks || [], commands: manifest.commands || [], specializedActions: hasSpecialized ? mod.specializedActions.map(s => s.verb) : [],
+        // A plugin may declare its own dev-panel tab rather than hand-editing four
+        // shared files in client/devpanel/. Kept in LOAD ORDER, which is what lets a
+        // panel depend on one registered by a plugin it declares `after`.
+        devPanel: manifest.devPanel || null });
       console.log(`  ✓ Plugin: ${name} v${manifest.version}`);
     } catch (e) {
       if (manifest.critical) {
@@ -321,6 +325,41 @@ export async function fireRoutes(path, method, body, auth, reqHeaders) {
 // --- Introspection ---
 
 export function getLoadedPlugins() { return [...loadedPlugins]; }
+
+/**
+ * Every plugin-declared dev-panel tab, in plugin LOAD ORDER.
+ *
+ * Shape per entry: `{ plugin, id, nav, script, navAlias }` — only what the shell
+ * needs BEFORE the panel script has run. `fetch` and `render` are functions and
+ * cannot live in JSON, so the script provides them by calling `registerDevPanel`;
+ * that is the same split as `plugin.json` declaring what a plugin offers and
+ * `index.js` providing it.
+ *
+ * ⚠ `script` is validated to a bare filename here rather than at the route. A
+ * manifest is content the server reads off disk, and a `script` of "../../../.env"
+ * would otherwise be a path traversal authored into a plugin folder.
+ */
+export function getPluginDevPanels() {
+  const out = [];
+  for (const p of loadedPlugins) {
+    const d = p.devPanel;
+    if (!d || !d.id) continue;
+    // `scripts` is an ORDERED list, because these are classic scripts sharing one
+    // global scope: a panel that registers with a helper defined in a sibling file
+    // needs that sibling to have run first. `script` is the one-file shorthand.
+    const scripts = Array.isArray(d.scripts) ? d.scripts : [d.script || 'panel.js'];
+    const clean = scripts.map(String).filter((s) => {
+      if (!/^[\w.-]+\.js$/.test(s) || s.includes('..')) {
+        console.warn(`[plugins] ${p.name}: devPanel script must be a plain .js filename — got "${s}"`);
+        return false;
+      }
+      return true;
+    });
+    if (!clean.length) continue;
+    out.push({ plugin: p.dirName || p.name, id: d.id, nav: d.nav || d.id, scripts: clean, navAlias: d.navAlias || null });
+  }
+  return out;
+}
 export function getRegisteredHooks() {
   const result = {};
   for (const [name, handlers] of hooks) {

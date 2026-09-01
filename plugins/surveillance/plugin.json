@@ -35,7 +35,8 @@
   ],
   "hooks": [
     "zone.delete",
-    "tech.targets"
+    "tech.targets",
+    "zone.witnessed"
   ],
   "routePrefix": "/surveillance",
   "specializedActions": [

@@ -52,7 +52,34 @@ function check(file, src) {
   });
 }
 
-const files = (await walk(DIR)).sort();
+// ── Plugin-declared dev-panel scripts ────────────────────────────────────────
+// Since dev-panel UI registration, browser code can live under `plugins/<name>/`
+// instead of `client/`. Those files are loaded by the dev panel exactly as any
+// other panel script, and NOTHING ELSE PARSES THEM: the plugin loader imports
+// `index.js`, not the panel, so a syntax error in one would be found by an
+// operator opening the tab — which is the same "first parsed on prod, by a user"
+// hole this whole smoke was written to close, one directory over.
+//
+// Read off each manifest's `devPanel` rather than globbing `plugins/**/panel*.js`,
+// so the set checked is exactly the set the server will serve.
+async function pluginPanelScripts() {
+  const out = [];
+  const root = join(ROOT, 'plugins');
+  let dirs = [];
+  try { dirs = await readdir(root, { withFileTypes: true }); } catch { return out; }
+  for (const d of dirs) {
+    if (!d.isDirectory()) continue;
+    let manifest;
+    try { manifest = JSON.parse(await readFile(join(root, d.name, 'plugin.json'), 'utf8')); } catch { continue; }
+    const dp = manifest.devPanel;
+    if (!dp) continue;
+    const scripts = Array.isArray(dp.scripts) ? dp.scripts : [dp.script || 'panel.js'];
+    for (const s of scripts) out.push(join(root, d.name, String(s)));
+  }
+  return out;
+}
+
+const files = [...(await walk(DIR)), ...(await pluginPanelScripts())].sort();
 const failures = [];
 let next = 0;
 

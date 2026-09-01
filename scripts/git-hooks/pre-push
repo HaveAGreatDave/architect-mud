@@ -27,8 +27,10 @@ is_zero() { case "$1" in *[!0]*) return 1 ;; *) return 0 ;; esac; }
 needs_regress=0
 needs_lint=0
 deleted_content=""
+push_oids=""
 while read -r local_ref local_oid remote_ref remote_oid; do
   is_zero "$local_oid" && continue          # branch deletion — nothing to gate
+  push_oids="$push_oids $local_oid"          # what imports:smoke --ref checks (below)
   if is_zero "$remote_oid"; then
     needs_regress=1                          # new branch on remote — gate to be safe
     continue
@@ -73,6 +75,28 @@ if [ "$needs_lint" = 1 ]; then
 fi
 
 if [ "$needs_regress" = 1 ]; then
+  # ── ⚠ CHECK THE COMMIT, NOT THE WORKING TREE ───────────────────────────────
+  # Everything below this gates the files on disk, which is NOT what is about to
+  # be pushed. On 2026-09-01 a commit went out importing `drugForItem` while the
+  # export sat uncommitted in the tree: the full suite passed 8988/8988 here and
+  # CI could not load the plugin at all, because ESM resolves named imports at
+  # link time. Surveillance owns eight verbs, so the failure surfaced as unrelated
+  # help-text checks and every content deploy stopped.
+  #
+  # `pretest:regress` runs this same script over the working tree; this run is the
+  # other half, and it is the only thing in the gate that reads the actual commit.
+  # It checks out a detached worktree per oid, so it costs a few seconds.
+  for oid in $push_oids; do
+    if ! node scripts/imports/smoke.mjs --ref "$oid" </dev/null; then
+      echo ""
+      echo "✗ [imports-gate] a commit in this push has an import nothing exports — push BLOCKED."
+      echo "  Usually this means half a change is committed: the caller went out,"
+      echo "  the export it needs is still sitting in your working tree."
+      echo "  (Real emergency only:  git push --no-verify)"
+      exit 1
+    fi
+  done
+
   echo "[regress-gate] code changes in this push — running regression gate…"
   node scripts/kill-orphans.js >/dev/null 2>&1   # sweep orphaned pool connections first (pretest sweeps too; this is cheap insurance before a gate that has died on the pool)
   # ── ⚠ THE NPM SCRIPT, NOT ONE OF ITS FILES ─────────────────────────────────
