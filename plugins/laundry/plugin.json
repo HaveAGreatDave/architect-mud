@@ -1,8 +1,8 @@
 {
   "name": "laundry",
-  "version": "1.0.0",
-  "description": "Coin laundry — WASH your clothes at a washing machine. The other half of hygiene: a shower cleans the body, this cleans what you put back on.",
-  "hooks": [],
+  "version": "1.1.0",
+  "description": "Coin laundry — WASH your clothes at a washing machine. The other half of hygiene: a shower cleans the body, this cleans what you put back on. A machine is claimed for the length of its cycle, and you have to take the clothes off first.",
+  "hooks": ["zone.furnitureOccupants", "furniture.describe"],
   "commands": ["launder", "laundry"],
   "specializedActions": ["launder"],
   "objectGatedCommands": {

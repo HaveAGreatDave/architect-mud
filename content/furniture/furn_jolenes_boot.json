@@ -1,0 +1,16 @@
+{
+  "description": "A cowboy boot in pink and gold neon hung in the front window, kicking on a two-second cycle. The heel tube went out years ago and got replaced in a slightly wrong pink, which is now the part everybody describes when giving directions.",
+  "flags": {
+    "aliases": "boot,neon,sign"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_boot",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "neon boot",
+  "object_type": "decoration",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_jolenes_bar"
+}

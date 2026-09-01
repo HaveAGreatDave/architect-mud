@@ -29,6 +29,7 @@
  */
 import { query } from '../models/db.js';
 import { registerTransientZone, removeTransientZone, world, addPlayerToZone, removePlayerFromZone } from './world.js';
+import { sendToPlayer } from './messaging.js';
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const maybe = (p) => Math.random() < p;
@@ -224,7 +225,13 @@ export async function buildDreamscape(playerId, {
     const exits = {};
     const outCount = 1 + (maybe(0.5) ? 1 : 0);
     const dirs = [...DIRS].sort(() => Math.random() - 0.5).slice(0, outCount);
-    for (const d of dirs) exits[d] = pick(ids.filter(x => x !== id)) || id;
+    // Targets are drawn WITHOUT REPLACEMENT. Picking each exit independently let
+    // a two-exit room offer the same room twice, so the exit line read
+    // '[North] The Back Of The Room, [Down] The Back Of The Room' - a duplicate
+    // rather than a dream. With only one other room in the instance there is
+    // nothing to draw second, so that room gets one exit instead of two.
+    const targets = ids.filter(x => x !== id).sort(() => Math.random() - 0.5);
+    dirs.forEach((d, k) => { const t = targets[k] ?? (k === 0 ? id : null); if (t) exits[d] = t; });
 
     // What this room borrows from the sleeper's real life — a person, a pocket,
     // a death, the room they are lying in, or nothing at all. Rolled PER ROOM, so
@@ -617,6 +624,15 @@ export function endDissociation(player, { broadcast = null, reason = 'time' } = 
  * waking, at the end of a trip, and at the end of a dissociative episode.
  */
 export function dissolveDreamscape(playerId) {
+  // PUT THE REAL WEATHER BACK. The client's dreamFx override beats the indoor gate
+  // and the actual weather, and the only thing that clears it is a `dream_fx`
+  // message saying so — so a wake path that forgets one leaves a drug's particle
+  // field sliding over the room for the rest of the session. It rides here rather
+  // than at the wake sites because this is the one funnel every exit already calls
+  // (waking, dissociation ending, a trip ending, the dissolve timer), so a fifth
+  // exit added later gets it for free. Idempotent: sending it to someone who never
+  // had a field costs one no-op message.
+  sendToPlayer(playerId, { type: 'dream_fx', effect: 'none', intensity: 0 });
   let removed = 0;
   for (const [key, inst] of instances) {
     if (inst.playerId !== playerId) continue;

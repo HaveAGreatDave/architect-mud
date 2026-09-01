@@ -587,13 +587,14 @@ let _mapPendingOverrides = new Map(); // zoneId → {color,bg_color,marker,terra
 // Display fields assign onto the zone; `terrain` merges into flags. Cleared per-zone on
 // publish/reject (staging.js), so a published/discarded edit stops overriding.
 function _applyMapOverride(z, overrides) {
-  const { terrain, runway, icon, ...display } = overrides;
+  const { terrain, runway, icon, district, ...display } = overrides;
   Object.assign(z, display);   // color / bg_color / marker (present only for runway edits)
-  if (terrain !== undefined || runway !== undefined || icon !== undefined) {
+  if (terrain !== undefined || runway !== undefined || icon !== undefined || district !== undefined) {
     z.flags = { ...(z.flags || {}) };
     if (terrain !== undefined) { if (terrain) z.flags.terrain = terrain; else delete z.flags.terrain; }
     if (runway !== undefined) { if (runway) z.flags.runway = runway; else delete z.flags.runway; }
     if (icon !== undefined) { if (icon) z.flags.icon = icon; else delete z.flags.icon; }
+    if (district !== undefined) { if (district) z.flags.district = district; else delete z.flags.district; }
   }
 }
 let mapSafeZoneMode = false;   // true while the Sanctuary paint tool is active
@@ -605,7 +606,7 @@ function mapsGuard() { return true; }
 
 function toggleSafeZoneMode() {
   mapSafeZoneMode = !mapSafeZoneMode;
-  if (mapSafeZoneMode) { mapPaintMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; }
+  if (mapSafeZoneMode) { mapPaintMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; mapDistrictMode = false; }
   renderMapOverview();
 }
 
@@ -669,7 +670,7 @@ const PAINT_SWATCHES = [
 
 function togglePaintMode() {
   mapPaintMode = !mapPaintMode;
-  if (mapPaintMode) { mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; mapUndoStack = []; mapRedoStack = []; }
+  if (mapPaintMode) { mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; mapDistrictMode = false; mapUndoStack = []; mapRedoStack = []; }
   renderMapOverview();
 }
 function setPaintTool(t) { mapPaintTool = t; renderMapOverview(); }
@@ -1102,7 +1103,7 @@ let _terrainOutlined = [];          // tile els currently showing the rect previ
 
 function toggleTerrainMode() {
   mapTerrainMode = !mapTerrainMode;
-  if (mapTerrainMode) { mapPaintMode = false; mapSafeZoneMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; }
+  if (mapTerrainMode) { mapPaintMode = false; mapSafeZoneMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; mapDistrictMode = false; }
   renderMapOverview();
 }
 function setTerrainType(k) { mapTerrainType = k; renderMapOverview(); }
@@ -1541,6 +1542,316 @@ document.addEventListener('mouseup', e => {
   _mapPan = null;
 });
 
+// ─── DISTRICT PAINTER ────────────────────────────────────────────────────────
+// Paints flags.district, the land-use identity a tile carries. Deliberately the
+// same four tools as the terrain painter above (brush / fill / rect / pick), so a
+// builder who can paint terrain can already paint districts.
+//
+// TWO THINGS THIS DOES THAT THE TERRAIN PAINTER DOES NOT, and both are the point:
+//
+// 1. It renders the RESOLVED district, not the authored one, and marks which of the
+//    three it came from. server/engine/districts.js falls back to 'residential' for
+//    any tile it cannot classify, so an unpainted city reads as one enormous
+//    Residential Blocks — and it reads that way in the game too, silently. Showing
+//    authored solid / prefix hatched / fallback faint is what makes that visible.
+// 2. It never conjures a tile. Painting terrain onto an empty cell creates ground;
+//    a district is an identity carried BY ground, so an empty cell has nothing to
+//    carry it and stays empty.
+//
+// Buildings are painted too — a shop in the Redline is in the Redline — which is the
+// other reason this could not just be another terrain swatch.
+//
+// The palette needs no content file of its own: content/districts/*.json already
+// carries id + name + color, which is exactly a swatch. It arrives via GET /districts
+// and is cached by ensureDistrictData() in panels/zones.js (loaded before this file).
+let mapDistrictMode = false;
+let mapDistrictKey = null;          // null until the palette loads; then the first district
+let mapDistrictTool = 'brush';      // 'brush' | 'fill' | 'pick' | 'rect'
+let mapDistrictPainting = false;
+let mapDistrictRectStart = null;
+let mapDistrictPanelPos = null;     // {left, top} once dragged; null = default top/right anchor
+let mapDistrictPending = new Set(); // zoneIds with an in-flight save, to avoid dupe writes mid-drag
+let _mapDistrictOutlined = [];
+
+// Working-copy mirror of server districtFor() that also reports WHERE the answer came
+// from. Kept beside the painter rather than reusing districtKeyFor() in panels/zones.js
+// because that one answers 'which district' and this one has to answer 'and is that
+// authored or is the tile just falling through', which is the whole diagnostic.
+function _distResolve(z) {
+  const meta = (typeof _districtMeta === 'object' && _districtMeta) || {};
+  const prefix = (typeof _districtPrefix === 'object' && _districtPrefix) || {};
+  const authored = z?.flags?.district;
+  if (authored && meta[authored]) return { key: authored, source: 'authored' };
+  const p = (z?.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
+  if (prefix[p]) return { key: prefix[p], source: 'prefix' };
+  return { key: z?.danger === 'lethal' ? 'hazard' : 'residential', source: 'fallback' };
+}
+
+function _distColor(key) {
+  const meta = (typeof _districtMeta === 'object' && _districtMeta) || {};
+  return meta[key]?.color || '#8b9097';
+}
+function _distName(key) {
+  const meta = (typeof _districtMeta === 'object' && _districtMeta) || {};
+  return meta[key]?.name || key || 'unassigned';
+}
+
+// Palette rows, sorted the way the districts content sorts itself.
+function _distPalette() {
+  const meta = (typeof _districtMeta === 'object' && _districtMeta) || {};
+  return Object.entries(meta)
+    .map(([key, d]) => ({ key, name: d.name || key, color: d.color || '#8b9097', sort: d.sort ?? 0 }))
+    .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
+}
+
+function toggleDistrictMode() {
+  mapDistrictMode = !mapDistrictMode;
+  if (mapDistrictMode) {
+    mapPaintMode = false; mapTerrainMode = false; mapSafeZoneMode = false;
+    mapMoveBuildingMode = false; mapNewBuildingMode = false;
+    // The palette is fetched once and shared with the Zones panel; re-render when it lands.
+    if (typeof ensureDistrictData === 'function' && !mapDistrictKey) {
+      ensureDistrictData().then(() => {
+        if (!mapDistrictKey) mapDistrictKey = _distPalette()[0]?.key || null;
+        renderMapOverview();
+      });
+    }
+  }
+  mapDistrictRectStart = null;
+  renderMapOverview();
+}
+function setDistrictKey(k) { mapDistrictKey = k || null; renderMapOverview(); }
+function setDistrictTool(t) { mapDistrictTool = t; mapDistrictRectStart = null; renderMapOverview(); }
+
+// Stage the flags.district change. Mirrors _saveTerrain: staged through API() (this is
+// authored content, not a live-world action), with the value remembered in
+// _mapPendingOverrides so the preview survives a tab switch before Publish.
+async function _saveZoneDistrict(zoneId) {
+  if (mapDistrictPending.has(zoneId)) return;
+  mapDistrictPending.add(zoneId);
+  try {
+    const z = mapOverview?.zones.get(zoneId);
+    if (!z) return;
+    const prev = _mapPendingOverrides.get(zoneId) || {};
+    _mapPendingOverrides.set(zoneId, { ...prev, district: z.flags?.district || null });
+    const r = await API(`/zones/${zoneId}`, 'PUT', { flags: { ...(z.flags || {}) } });
+    if (r?.error) toast(r.error, true); else updateStagingBadge();
+  } finally { mapDistrictPending.delete(zoneId); }
+}
+
+// Repaint one tile's DOM background mid-stroke; the full re-render on mouse-up
+// refreshes the panel counts.
+function _distTileDom(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  const el = _tileEl(z);
+  if (!el) return;
+  el.style.background = _distTileStyleBg(z);
+}
+
+// Authored reads solid, inherited-from-id-prefix reads striped, fallback reads faint.
+// That gradient IS the diagnostic — a floor that is mostly faint has not been painted.
+function _distTileStyleBg(z) {
+  const r = _distResolve(z);
+  const c = _distColor(r.key);
+  if (r.source === 'authored') return c;
+  if (r.source === 'prefix') return `repeating-linear-gradient(45deg, ${c} 0 6px, ${c}99 6px 12px)`;
+  return `${c}26`;
+}
+
+function _distBrush(zoneId, erase) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z || !mapDistrictKey) return;
+  const want = erase ? null : mapDistrictKey;
+  if ((z.flags?.district || null) === want) return;
+  z.flags = { ...(z.flags || {}) };
+  if (want) z.flags.district = want; else delete z.flags.district;
+  _distTileDom(zoneId);
+  _saveZoneDistrict(zoneId);
+}
+
+function districtPaintStart(e, zoneId) {
+  e.preventDefault();
+  if (mapDistrictTool === 'pick') { districtPick(zoneId); return; }
+  if (mapDistrictTool === 'fill') { districtFill(zoneId); return; }
+  if (mapDistrictTool === 'rect') { districtRectStart(zoneId); return; }
+  mapDistrictPainting = true;
+  _distBrush(zoneId, e.ctrlKey || e.metaKey || e.button === 2);
+}
+function districtPaintOver(e, zoneId) {
+  if (mapDistrictTool === 'rect') { if (mapDistrictRectStart) districtRectOver(zoneId); return; }
+  if (mapDistrictPainting) _distBrush(zoneId, e.ctrlKey || e.metaKey);
+}
+function districtPaintEnd(zoneId) {
+  if (mapDistrictTool === 'rect' && mapDistrictRectStart) { districtRectCommit(zoneId); return; }
+  if (mapDistrictPainting) { mapDistrictPainting = false; renderMapOverview(); }
+}
+
+// Eyedropper: sample the RESOLVED district (so you can pick up what a tile is
+// currently reading as, fallback included) and drop back to the brush.
+function districtPick(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z) return;
+  mapDistrictKey = _distResolve(z).key;
+  mapDistrictTool = 'brush';
+  renderMapOverview();
+}
+
+// Flood-fill across orthogonal neighbours sharing the clicked tile's RESOLVED
+// district. Matching on resolved (not authored) is what lets one click claim a whole
+// unpainted quarter that is currently falling through to 'residential'.
+async function districtFill(startId) {
+  const start = mapOverview?.zones.get(startId);
+  if (!start || !mapDistrictKey) return;
+  const from = _distResolve(start).key;
+  if (from === mapDistrictKey && start.flags?.district) return;
+  const z0 = mapOverview.z;
+  const byCoord = new Map();
+  for (const z of mapOverview.zones.values())
+    if ((z.grid_z ?? 0) === z0 && z.grid_x != null) byCoord.set(`${z.grid_x},${z.grid_y}`, z);
+  const queue = [start], seen = new Set([startId]), hit = [];
+  while (queue.length) {
+    const z = queue.shift(); hit.push(z);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = byCoord.get(`${z.grid_x + dx},${z.grid_y + dy}`);
+      if (n && !seen.has(n.id) && _distResolve(n).key === from) { seen.add(n.id); queue.push(n); }
+    }
+  }
+  for (const z of hit) {
+    z.flags = { ...(z.flags || {}) };
+    z.flags.district = mapDistrictKey;
+  }
+  renderMapOverview();
+  for (const z of hit) await _saveZoneDistrict(z.id);
+  toast(`${hit.length} tile${hit.length !== 1 ? 's' : ''} → ${_distName(mapDistrictKey)}`);
+}
+
+function districtRectStart(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z) return;
+  mapDistrictRectStart = { x: z.grid_x, y: z.grid_y };
+}
+function districtRectOver(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (z && mapDistrictRectStart) _distRectOutline(mapDistrictRectStart, { x: z.grid_x, y: z.grid_y });
+}
+function _distClearOutline() { _mapDistrictOutlined.forEach(el => (el.style.boxShadow = '')); _mapDistrictOutlined = []; }
+function _distRectOutline(a, b) {
+  _distClearOutline();
+  const g = document.getElementById('bigmap-grid-scroll');
+  if (!g) return;
+  const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x), minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+    const el = g.querySelector(`[data-map-cell="${x},${y}"]`);
+    if (el && el.classList.contains('bigmap-tile')) { el.style.boxShadow = 'inset 0 0 0 2px var(--accent)'; _mapDistrictOutlined.push(el); }
+  }
+}
+async function districtRectCommit(endId) {
+  const end = mapOverview?.zones.get(endId);
+  const a = mapDistrictRectStart;
+  mapDistrictRectStart = null;
+  _distClearOutline();
+  if (!a || !end || !mapDistrictKey) { renderMapOverview(); return; }
+  const minX = Math.min(a.x, end.grid_x), maxX = Math.max(a.x, end.grid_x);
+  const minY = Math.min(a.y, end.grid_y), maxY = Math.max(a.y, end.grid_y);
+  const z0 = mapOverview.z;
+  const hit = [];
+  for (const z of mapOverview.zones.values()) {
+    if ((z.grid_z ?? 0) !== z0 || z.grid_x == null) continue;
+    if (z.grid_x < minX || z.grid_x > maxX || z.grid_y < minY || z.grid_y > maxY) continue;
+    if ((z.flags?.district || null) === mapDistrictKey) continue;
+    z.flags = { ...(z.flags || {}) };
+    z.flags.district = mapDistrictKey;
+    hit.push(z);
+  }
+  renderMapOverview();
+  for (const z of hit) await _saveZoneDistrict(z.id);
+  toast(`${hit.length} tile${hit.length !== 1 ? 's' : ''} → ${_distName(mapDistrictKey)}`);
+}
+
+// Per-floor coverage counts. This is the number the phase-0 pass is working against:
+// 'fallback' is the sinkhole, and the job is done when it reads zero for the city.
+function _distStats() {
+  const o = mapOverview;
+  const out = { authored: 0, prefix: 0, fallback: 0, offRegion: 0 };
+  if (!o) return out;
+  for (const z of o.zones.values()) {
+    if ((z.grid_z ?? 0) !== o.z || z.grid_x == null) continue;
+    const r = _distResolve(z);
+    out[r.source]++;
+    // A tile whose district is authored but which sits outside the region being edited
+    // is the Deadwater/Terminus fallout the ledger must never fire into.
+    if (r.source === 'authored' && mapEditingRegionId && z.flags?.region_id && z.flags.region_id !== mapEditingRegionId) out.offRegion++;
+  }
+  return out;
+}
+
+// The floating district palette card (position:fixed, hovers over the map).
+function districtPanelHtml() {
+  const pal = _distPalette();
+  if (!pal.length) {
+    return `<div id="map-district-panel" style="position:fixed;top:100px;right:28px;z-index:60;width:210px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px;font-size:12px;color:var(--text-dim)">Loading districts…</div>`;
+  }
+  const swatch = (key, name, color) =>
+    `<button onclick="setDistrictKey('${key}')" title="${name}" style="display:flex;align-items:center;gap:7px;width:100%;padding:5px 7px;border-radius:4px;cursor:pointer;border:1px solid ${key === mapDistrictKey ? 'var(--accent)' : 'var(--border)'};background:${key === mapDistrictKey ? 'var(--bg3)' : 'transparent'};color:var(--text);font-size:12px;text-align:left">
+      <span style="width:18px;height:18px;flex-shrink:0;border-radius:3px;background:${color};border:1px solid #0007"></span>${name}</button>`;
+  const sw = pal.map(d => swatch(d.key, d.name, d.color)).join('');
+  const toolBtn = (t, label) => `<button onclick="setDistrictTool('${t}')" style="flex:1;font-size:11px;padding:5px 4px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:${mapDistrictTool === t ? 'var(--accent)' : 'var(--bg3)'};color:${mapDistrictTool === t ? '#111' : 'var(--text)'}">${label}</button>`;
+  const hint = mapDistrictTool === 'fill' ? 'Click a tile to flood every orthogonal neighbour reading as the same district — including a whole unpainted quarter falling through to Residential.'
+    : mapDistrictTool === 'pick' ? 'Click a tile to sample the district it currently resolves to.'
+    : mapDistrictTool === 'rect' ? 'Drag a rectangle to claim every tile it covers. Empty cells stay empty — a district needs ground to sit on.'
+    : 'Click-drag to paint · Ctrl-drag or right-drag to clear back to inherited.';
+  const s = _distStats();
+  const total = s.authored + s.prefix + s.fallback;
+  const pct = total ? Math.round((s.authored / total) * 100) : 0;
+  const anchor = mapDistrictPanelPos ? `left:${mapDistrictPanelPos.left}px;top:${mapDistrictPanelPos.top}px` : 'top:100px;right:28px';
+  return `<div id="map-district-panel" style="position:fixed;${anchor};z-index:60;width:210px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
+    <div id="map-district-drag" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;cursor:move;user-select:none">
+      <strong style="font-size:12px;letter-spacing:.3px">🗺 District</strong>
+      <button onclick="toggleDistrictMode()" title="Close district painter" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;line-height:1">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:9px">${toolBtn('brush', '🖌')}${toolBtn('fill', '🪣')}${toolBtn('pick', '💧')}${toolBtn('rect', '▭')}</div>
+    <div style="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto">${sw}</div>
+    <div style="border-top:1px solid var(--border);margin-top:9px;padding-top:9px;font-size:10px;line-height:1.6">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text-dim)">Authored</span><strong style="color:var(--text)">${s.authored} · ${pct}%</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text-dim)">By id prefix</span><span style="color:var(--text)">${s.prefix}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:${s.fallback ? 'var(--yellow)' : 'var(--text-dim)'}">Fallback</span><strong style="color:${s.fallback ? 'var(--yellow)' : 'var(--text)'}">${s.fallback}</strong></div>
+      ${s.offRegion ? `<div style="display:flex;justify-content:space-between;margin-top:3px"><span style="color:#ff6b6b">Outside region</span><strong style="color:#ff6b6b">${s.offRegion}</strong></div>` : ''}
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:8px;line-height:1.45">Solid = authored · striped = inherited from the zone id · faint = falling through to the default. ${hint}</div>
+  </div>`;
+}
+
+// Drag the floating District palette by its header. Same shape as the Terrain one:
+// the card is position:fixed and rebuilt on every renderMapOverview(), so the dragged
+// position lives in mapDistrictPanelPos and districtPanelHtml() re-applies it.
+(function enableDistrictPanelDrag() {
+  if (window.__dpDistrictDrag) return;   // install once
+  window.__dpDistrictDrag = true;
+  let panel = null, startX = 0, startY = 0, baseL = 0, baseT = 0;
+  function onMove(e) {
+    if (!panel) return;
+    const left = baseL + (e.clientX - startX), top = baseT + (e.clientY - startY);
+    mapDistrictPanelPos = { left, top };
+    panel.style.left = left + 'px'; panel.style.top = top + 'px'; panel.style.right = 'auto';
+  }
+  function onUp() {
+    panel = null;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousedown', e => {
+    const handle = e.target.closest?.('#map-district-drag');
+    if (!handle || e.target.closest('button')) return;
+    panel = document.getElementById('map-district-panel');
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY; baseL = r.left; baseT = r.top;
+    e.preventDefault();
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, true);
+})();
+
 // The floating terrain palette card (position:fixed, hovers over the map).
 function terrainPanelHtml() {
   const swatchBtn = (key, label, fill, swatchCss = '') =>
@@ -1640,7 +1951,7 @@ let mapMoveArmed = null; // facade zoneId picked up for relocation
 function toggleMoveBuildingMode() {
   mapMoveBuildingMode = !mapMoveBuildingMode;
   mapMoveArmed = null;
-  if (mapMoveBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; mapNewBuildingMode = false; }
+  if (mapMoveBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; mapNewBuildingMode = false; mapDistrictMode = false; }
   renderMapOverview();
 }
 function _isBuildingTile(z) {
@@ -1721,7 +2032,7 @@ const NEW_BUILDING_TYPES = [
 ];
 function toggleNewBuildingMode() {
   mapNewBuildingMode = !mapNewBuildingMode;
-  if (mapNewBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapMoveArmed = null; }
+  if (mapNewBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapDistrictMode = false; mapMoveArmed = null; }
   renderMapOverview();
 }
 function setNewBuildingType(t) { mapNewBuildingType = t; renderMapOverview(); }
@@ -1991,6 +2302,7 @@ function renderMapOverview() {
       <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
       <button class="action-btn${mapMoveBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapMoveBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleMoveBuildingMode()" title="Relocate a building: pick it up, drop it on an empty cell, review + confirm — the interior and front door move with it">${mapMoveBuildingMode ? '✓ Moving Building' : '🏢 Move Building'}</button>
       <button class="action-btn${mapNewBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapNewBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleNewBuildingMode()" title="Create a new building by type (shop, bar, hangar…): pick a type, click a ground tile — facade + interior + power/lights + furniture are generated. Build a ⚡ Power Plant to power the region.">${mapNewBuildingMode ? '✓ New Building' : '🏗 New Building'}</button>
+      <button class="action-btn${mapDistrictMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapDistrictMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleDistrictMode()" title="Paint the land-use district a tile belongs to (the Ashway, the Redline, North City…) — writes flags.district. Shows which tiles are authored and which are only falling through to the default.">${mapDistrictMode ? '✓ Painting Districts' : '🗺 Districts'}</button>
       <span style="margin-left:auto">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -2012,6 +2324,13 @@ function renderMapOverview() {
     html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
       Terrain painter active — pick a surface from the floating palette (top-right). Roads auto-tile into junctions from their neighbours. Writes flags.terrain (stages in Changes).
     </div>` + terrainPanelHtml();
+  }
+  if (mapDistrictMode) {
+    const ds = _distStats();
+    html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
+      District painter active — pick a district from the floating palette (top-right). Writes flags.district (stages in Changes).
+      ${ds.fallback ? ` <span style="color:var(--yellow)">⚠ ${ds.fallback} tile${ds.fallback !== 1 ? 's' : ''} on this floor carry no district and fall through to the default.</span>` : ' <span style="color:#39ff8f">✓ Every tile on this floor resolves to an assigned district.</span>'}
+    </div>` + districtPanelHtml();
   }
   if (mapMoveBuildingMode) {
     const movePublish = (typeof pendingChanges !== 'undefined' && pendingChanges.length)
@@ -2146,6 +2465,19 @@ function renderMapOverview() {
           ? `onmousedown="mapPickColor('${z.id}')"`
           : `onmousedown="paintStart(event,'${z.id}')" onmouseenter="paintOver('${z.id}')"`;
         html += `<div class="${cls}" ${cellStyle(x, y, zoneColorStyle(z) + ';cursor:crosshair')} data-map-cell="${x},${y}" title="${z.id}" ${handler}><div>${marker}${z.name}</div></div>`;
+        continue;
+      }
+
+      if (mapDistrictMode) {
+        const r = _distResolve(z);
+        const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+        // Authored tiles take readable text off their own colour; the two weaker
+        // sources stay dim so a painted block reads as finished at a glance.
+        const txt = r.source === 'authored' ? luminanceTextColor(_distColor(r.key)) : 'var(--text-dim)';
+        const dStyle = `;background:${_distTileStyleBg(z)};color:${txt};cursor:crosshair`;
+        const handlers = `onmousedown="districtPaintStart(event,'${z.id}')" onmouseenter="districtPaintOver(event,'${z.id}')" onmouseup="districtPaintEnd('${z.id}')" oncontextmenu="return false"`;
+        const src = r.source === 'authored' ? '' : r.source === 'prefix' ? ' (from id prefix)' : ' (fallback — unassigned)';
+        html += `<div class="${cls}" ${cellStyle(x, y, dStyle)} data-map-cell="${x},${y}" title="${z.id} — ${_distName(r.key)}${src}" ${handlers}><div>${marker}${z.name}</div></div>`;
         continue;
       }
 

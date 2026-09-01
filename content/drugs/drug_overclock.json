@@ -41,7 +41,14 @@
         "stat_brains": -3,
         "stat_reflexes": -2
       },
-      "onset_seconds": 900
+      "onset_seconds": 900,
+      "stages": {
+        "easing": "They start queuing again. Slowly, and in the wrong order.",
+        "onset": "The lace goes quiet. Not off. Quiet, the way a fan you had stopped hearing stops.",
+        "peak": "Every thought you had parked comes back at once and there are far too many to hold and none of them will wait their turn.",
+        "rising": "You reach for a thing you know and it is not there for about a second, and the second is very long.",
+        "tail": "You think at the speed you were issued with. You keep catching yourself waiting for the other one."
+      }
     }
   },
   "flags": {

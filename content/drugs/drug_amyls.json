@@ -28,6 +28,21 @@
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.7
+    },
+    "withdrawal": {
+      "message": "Your head has the shape of the rush left in it and none of the rush.",
+      "mods": {
+        "stat_brawn": -1,
+        "stat_reflexes": -1
+      },
+      "onset_seconds": 600,
+      "stages": {
+        "easing": "It comes down to the size of an ordinary bad head.",
+        "onset": "A band tightens across the front of your skull, in exactly the place the rush used to sit.",
+        "peak": "The headache is behind both eyes and moves when you move, and standing up has become something you plan first.",
+        "rising": "Your face is hot and your hands are cold and neither of them will trade.",
+        "tail": "Mostly gone. The band still arrives across the front of your skull for an hour most evenings."
+      }
     }
   },
   "flags": {

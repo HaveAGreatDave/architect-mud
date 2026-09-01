@@ -1,0 +1,17 @@
+{
+  "connection_id": "conn_district_906_913_west_jl7k",
+  "door_type": "shoddy",
+  "exit_dir": "west",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 300,
+  "hp_max": 300,
+  "id": "door_shoddy_zone_district_906_913_in",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": null,
+  "name": null,
+  "tags": {},
+  "target_zone": "zone_jolenes_bar",
+  "zone_id": "zone_district_906_913"
+}

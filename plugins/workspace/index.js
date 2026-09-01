@@ -25,6 +25,7 @@
 // and a tie is the alphabetical key so the answer is at least stable.
 import { gatherHook, fireHook } from '../../server/engine/plugins.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 
 // Providers are gathered fresh per invocation rather than cached. The hook is a
 // pure in-memory room check by contract (kitchen's is `getZoneFurniture` and a
@@ -247,7 +248,14 @@ function workspaceDialogPayload(view) {
 // Exported because a domain verb can BE the way into its own workspace — a bare
 // `cook` at a stove opens the kitchen HUD rather than answering "Cook what?".
 export async function cmdWorkspace(args, raw, player) {
-  const view = await buildWorkspaceView(player, args?.[0]?.toLowerCase() || null);
+  // `text` is a MODIFIER, not a provider key, so it is lifted out rather than
+  // read positionally. That is what lets a caller name its own provider AND ask
+  // for prose in one go (`cook text` arrives as `['kitchen', 'text']`) — reading
+  // `args[0]` alone meant a kitchen with a chem lab in the back printed whichever
+  // provider happened to win on priority.
+  const argv = (args || []).map(a => String(a || '').toLowerCase()).filter(Boolean);
+  const forceText = argv.includes('text');
+  const view = await buildWorkspaceView(player, argv.find(a => a !== 'text') || null);
   if (!view) {
     return {
       type: 'error',
@@ -256,8 +264,18 @@ export async function cmdWorkspace(args, raw, player) {
   }
   // `workspace text` (or `cook text` at a stove) forces the written HUD at any
   // rung — same escape hatch as `shop text` and `tablet verbs`.
-  if ((args?.[0] || '').toLowerCase() === 'text') return { type: 'output', message: renderWorkspaceText(view) };
+  if (forceText) return { type: 'output', message: renderWorkspaceText(view) };
   if (await prefersLoggedPanelsOrDefault(player)) {
+    // ⚠ The dialog is the CONTROL; the log still gets the RECORD — the same rule
+    // `shop` follows (plugins/commerce/index.js), and the log rung's own contract
+    // is that a system's record reaches `#output`. One line, not the whole HUD:
+    // the dialog is what you act through, `workspace text` is what you read, and
+    // a player scrolling back has to be able to see they opened the bench at all.
+    sendToPlayer(player.id, {
+      type: 'output',
+      message: `<span class="msg-system">${esc(view.title || 'The workspace')} is open. `
+        + `<span class="action-link" data-action="cmd" data-cmd="workspace text">workspace text</span> to read it here instead.</span>`,
+    });
     // The HUD is the single best fit for the generic dialog in the whole game: this
     // plugin's founding rule is that every action it offers is a verb string a
     // player could have typed, so the rows convert to `commands: []` with nothing

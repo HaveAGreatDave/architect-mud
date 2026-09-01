@@ -9,7 +9,9 @@
     {
       "desc": "Find the dead spot where nothing transmits, and sit in it a while.",
       "emotes": [
-        "{who} sits down in the dark and stops trying to do anything about it."
+        "{who} sits down in the dark and stops trying to do anything about it.",
+        "{who} listens for the hum that is in every other wall down here, and it is not in this one.",
+        "{who} lasts longer than they meant to, and could not say by how much."
       ],
       "id": "o_sit",
       "type": "visit",
@@ -18,7 +20,8 @@
     {
       "desc": "Go back and tell Oracle-9 what happened, which was nothing.",
       "emotes": [
-        "{who} comes back down with nothing to report and reports it."
+        "{who} comes back down with nothing to report and reports it.",
+        "{who} is not asked what it was like, which is the first surprising thing all night."
       ],
       "id": "o_report",
       "type": "visit",

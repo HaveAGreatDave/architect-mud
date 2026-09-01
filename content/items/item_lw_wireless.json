@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_lw_wireless",
+  "name": "suitcase wireless set",
+  "tags": {
+    "description": "A transmitter built into a cheap fibre suitcase, aerial wound round the inside of the lid. Heavy enough that you walk differently carrying it. Every set the Watch have has been rebuilt at least twice.",
+    "misc": true,
+    "stackable": false
+  },
+  "type": null,
+  "value": 0,
+  "weight": 6200
+}

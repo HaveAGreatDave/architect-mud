@@ -31,7 +31,7 @@
           "next": "root"
         }
       ],
-      "text": "\"This is the Weave. We spin the muscle, print the plate, blank the oculars — everything that goes into you starts as raw stock on my floor. Kesh just screws it in.\" A flat look. \"When the clinic can't get you a part, come to the source. Me.\""
+      "text": "\"This is the Weave. We spin the muscle, print the plate, blank the oculars — everything that goes into you starts as raw stock on my floor. Kesh just screws it in.\"\n\nA flat look.\n\n\"When the clinic cannot get you a part, come to the source. Me.\""
     },
     "root": {
       "options": [
@@ -89,20 +89,67 @@
           "next": "bye"
         }
       ],
-      "text": "\"Kesh will fit it. Then go and do something stupid with it and come back here so I can listen to it.\""
+      "text": "\"Kesh will fit it. Then go and do something stupid with it, and come back here so I can listen to it.\""
+    },
+    "tolerance_carry": {
+      "_vine": {
+        "x": 900,
+        "y": 980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "tolerance_return"
+        }
+      ],
+      "text": "\"Load, then. That is the boring failure and the one I care about.\"\n\nHe puts the set on the bench and pushes it across with two fingers.\n\n\"Do not favour it. People favour a new one and then I get a clean part back and learn nothing.\""
+    },
+    "tolerance_hit": {
+      "_vine": {
+        "x": 900,
+        "y": 1120
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "tolerance_return"
+        }
+      ],
+      "text": "\"Shock loading.\" Something that is nearly approval. \"Good. That is where they break and nobody will admit to it on a form.\"\n\nHe puts the set on the bench and pushes it across with two fingers.\n\n\"Break it if it is going to break. I would rather find out on you than on a surgeon's table in nine years.\""
     },
     "tolerance_offer": {
       "options": [
         {
-          "label": "And me?",
-          "next": "tolerance_accept"
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Carrying, mostly.",
+          "next": "tolerance_carry"
         },
         {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Hitting things.",
+          "next": "tolerance_hit"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "Not my line of work.",
           "next": "bye"
         }
       ],
-      "text": "\"You have got a pulse and a poor sense of self-preservation. That is the whole specification.\" Duc wipes his hands on the apron and does not look up. \"I need a piece run in. Not tested — tested is a bench and a week and it tells you nothing. Run in. Out there, doing work, on somebody.\"\n\n\"The piece comes back. I am being clear about the piece.\""
+      "text": "\"You have got a pulse and a poor sense of self-preservation. That is the whole specification.\" Duc wipes his hands on the apron and does not look up.\n\n\"Hand actuator. Second knuckle, index and middle — the two that do the gripping. Mine are good for eleven years and I want to know why the last batch came back at nine.\"\n\n\"I need it run in. Not tested. Tested is a bench and a week and it tells you nothing about what a hand actually does. Run in means out there, on somebody, doing work.\"\n\n\"So: what do you do with your hands all day?\""
     },
     "tolerance_report": {
       "actions": [
@@ -117,7 +164,24 @@
           "next": "bye"
         }
       ],
-      "text": "He puts a hand flat on your chest and goes very still, listening to something inside you that you cannot hear. \"Mm.\" A grunt that could mean anything. \"Good numbers. You can go.\""
+      "text": "He puts a hand flat on your chest and goes very still, listening to something inside you that you cannot hear.\n\n\"Mm.\" A grunt that could mean anything. \"Good numbers. You can go.\""
+    },
+    "tolerance_return": {
+      "_vine": {
+        "x": 1160,
+        "y": 1050
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It comes back.",
+          "next": "tolerance_accept"
+        }
+      ],
+      "text": "\"One thing.\" He holds up a finger, and it is chrome to the second joint.\n\n\"The actuator comes back. Whatever else happens, the part comes back to this bench. If you are dead I will send somebody for it, and that is not a threat, it is a work order.\""
     }
   },
   "faction": "ideology_ascendants",

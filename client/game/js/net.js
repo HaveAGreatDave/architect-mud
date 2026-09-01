@@ -15,6 +15,12 @@ export function initNet(messageHandler) {
     onOpen() {
       setConnStatus('online');
       hideColdStart();
+      // The boot screen holds its closing line until the game is actually
+      // reachable rather than until a timer expires, which is what makes it a
+      // boot rather than a splash. The flag covers the race where the socket
+      // opens before the boot module has loaded and subscribed.
+      window.__architectSocketOpen = true;
+      window.dispatchEvent(new Event('game-connected'));
       const signedOut = sessionStorage.getItem('signed-out');
       if (signedOut) {
         // Show auth screen — don't auto-login; flag cleared on auth_success

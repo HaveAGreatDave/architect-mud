@@ -2,7 +2,7 @@
   "blurb": "Whatever gets butchered in this city, gets butchered here.",
   "color": "#c0392b",
   "id": "redline",
-  "landmark": "red_dreadfurnace",
+  "landmark": null,
   "name": "the Redline",
   "prefixes": [
     "meat",

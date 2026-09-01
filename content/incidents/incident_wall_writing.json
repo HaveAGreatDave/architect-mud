@@ -1,0 +1,33 @@
+{
+  "cooldown_min": 300,
+  "description": "The cheapest thing an insurgency does and the one that scales: paint, at night, on somebody else's property. Watchful band, so it is usually the first thing a player sees a cell do.",
+  "duration_min": 90,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_wall_writing",
+  "min_band": "watchful",
+  "name": "Somebody has been at the walls",
+  "stage": [
+    {
+      "author": "nobody",
+      "do": "graffiti",
+      "text": "THE BASIN IS NOT A BODY"
+    },
+    {
+      "do": "ambient",
+      "lines": [
+        "The paint on the shutter is still tacky at the edges.",
+        "Somebody has gone over the same three words twice, in case.",
+        "A shopkeeper is scrubbing at a wall and getting nowhere."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "Somebody did the whole row in {place} last night. Took them one can and about four minutes."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 24,
+  "writes": "heat"
+}
+

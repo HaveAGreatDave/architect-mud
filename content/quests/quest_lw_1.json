@@ -1,20 +1,36 @@
 {
   "category": null,
-  "description": "Halloran is trusting you with a run: a sealed package to be collected quietly from a drop near the Hall of Records and carried back to the shop, no questions, no opening it. It is not really about the package. It is about whether your hands can be trusted with one.",
+  "description": "Halloran has a parcel in a drop near the Hall of Records and wants it brought to him. It is sealed. He will not say what is in it, and when you ask he tells you why not.\n\n\"If they pick you up, you can only tell them what you know. So we make sure that is almost nothing. You know me and you know this bench. That is two people and one room, and it is as much as anybody down here knows about anybody.\"\n\nHe goes back to work.\n\n\"Do not open it, do not ask about it, and do not carry it like it matters. Somebody who looks like they are carrying something is the only kind of person anybody stops.\"",
   "fail_on": [],
   "id": "quest_lw_1",
   "meta": {},
   "name": "Proof of Hands",
   "objectives": [
     {
-      "desc": "Collect the sealed package from the drop near the Hall of Records (follow the green GPS line).",
+      "desc": "Collect the sealed parcel from the drop near the Hall of Records.",
       "emotes": [
-        "{who} eases the oilcloth parcel out of its hiding place and tucks it away."
+        "{who} eases the parcel out from behind the brick and puts it under an arm.",
+        "{who} does not weigh it in their hand, and is aware of not doing it.",
+        "{who} walks back without hurrying and without stopping."
       ],
       "id": "o_collect",
       "item_id": "item_lw_package",
       "type": "retrieve",
       "zone": "zone_district_922_910"
+    },
+    {
+      "count": 1,
+      "desc": "Take it back to Halloran at the bench.",
+      "emotes": [
+        "{who} puts it on the bench still sealed.",
+        "{who} watches him not look at it either."
+      ],
+      "id": "o_hand",
+      "requires": [
+        "o_collect"
+      ],
+      "target": "npc_lw_halloran",
+      "type": "talk"
     }
   ],
   "penalties": {},
@@ -27,6 +43,11 @@
         "flag": "lw_q1_done",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "1"
       }
     ],
     "items": [],

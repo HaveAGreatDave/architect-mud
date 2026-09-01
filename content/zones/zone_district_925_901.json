@@ -10,7 +10,7 @@
     "west": "zone_district_924_901"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "docks",
     "icon": "runway_ns",
     "region_id": "region_coldwater",
     "runway": "ns",

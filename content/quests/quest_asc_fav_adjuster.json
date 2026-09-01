@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "There is a claim Halcyon would rather not contest in public, and a terminal on the Hall of Records approach holding the paperwork that would make contesting it necessary. Vess does not ask you to destroy anything. She asks you to go and look, and to be the sort of person nobody remembers looking.",
+  "description": "An adjuster is closing an account on the ninth floor this afternoon. A year in arrears. She wants somebody in the corridor while she does it.\n\nNot to come in. Not to be introduced. Not to intervene.\n\n\"He will not take it well and it will not last long.\"\n\nClosing an account is four things. The cover ends. The chrome in him reverts to Halcyon and is scheduled for recovery. The household comes off the water and power book at the end of the month. The file goes into run-off.\n\nNone of that happens this afternoon. This afternoon he is only told.",
   "fail_on": [
     {
       "desc": "Somebody looked straight at you. An adjuster who is remembered is not an adjuster.",
@@ -16,9 +16,10 @@
   "name": "Adjuster",
   "objectives": [
     {
-      "desc": "Get onto the records approach and wait for the floor to go quiet.",
+      "desc": "Get up to the ninth floor and take the corridor.",
       "emotes": [
-        "{who} finds a doorway with a good angle on the corridor and becomes furniture."
+        "{who} finds a doorway with a good angle on the corridor and stops being a person in a corridor.",
+        "{who} hears the first two minutes go quite well, which is the part nobody warns you about."
       ],
       "id": "o_in",
       "taskSeconds": 6,
@@ -27,7 +28,11 @@
     },
     {
       "count": 1,
-      "desc": "Pull the contested claim off the terminal.",
+      "desc": "Pull the account record while the adjuster is inside.",
+      "emotes": [
+        "{who} works the panel with the sound of a conversation changing register on the other side of a wall.",
+        "{who} gets the record, and reads the date the account went into arrears, and does the arithmetic without meaning to."
+      ],
       "id": "o_pull",
       "requires": [
         "o_in"
@@ -41,6 +46,13 @@
   "repeatable": 0,
   "rewards": {
     "credits": 220,
+    "flags": [
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "6"
+      }
+    ],
     "rep": [
       {
         "delta": 90,

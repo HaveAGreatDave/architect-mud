@@ -1,0 +1,36 @@
+{
+  "ambient_events": [
+    "The boards take the bassline from downstairs and pass it along.",
+    "A hanger swings on the rail and stops.",
+    "Something in the plastic sleeves settles with a long slow crackle."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#3b2a1c",
+  "color": "#f0dcc0",
+  "description": "A low room under the roof with a bed, a chair, and a rail of stage clothes sleeved in dry-cleaning plastic gone yellow at the shoulders. Four wig blocks stand along the dresser in a row, like a jury. There is a window the size of a hand and a fire door that has been propped since the fire door was installed. When the room below fills up you can feel the bass come through the boards and into your teeth.",
+  "exits": {
+    "down": "zone_jolenes_bar"
+  },
+  "flags": {
+    "building_name": "Jolene's",
+    "building_type": "honkytonk",
+    "floor": "boards",
+    "is_building": true,
+    "is_dwelling": true,
+    "is_interior": true,
+    "window": {
+      "description": "A window the size of a spread hand, painted shut, looking down the length of Meltwater Row at the studio mast with the red light on it.",
+      "light": 0.35,
+      "name": "the little window",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_906_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_jolenes_loft",
+  "map_id": "map_int_jolenes",
+  "name": "The Room Over the Kitchen",
+  "parent_zone": "zone_district_906_913"
+}

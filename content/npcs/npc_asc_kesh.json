@@ -27,11 +27,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Halbrook, Rennick, and now you.\" She says it to the file, not to you, and the ocular clicks down over her eye. \"Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to — you were always going to come down the stairs eventually, and here you are, doing it.\"\n\nShe indicates the theatre door with two chromed fingers.\n\n\"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today. Choose a piece you would be happy to be buried in.\""
+      "text": "\"Halbrook, Rennick, and now you.\" She says it to the file, not to you, and the ocular clicks down over her eye.\n\n\"Your account has been open since the Threshold read you. I have had the file that long. Nobody told you because nobody needed to — you were always going to come down these stairs eventually, and here you are, doing it.\"\n\nShe indicates the theatre door with two chromed fingers.\n\n\"`augment` will show you what I can fit. Buy the piece first; I cut, I do not sell. And I will tell you the one thing upstairs will not, because he thinks it is obvious: the first one takes the flesh with it. Whatever was going to grow in you does not, after today.\"\n\nThe ocular clicks back up.\n\n\"Choose a piece you would be happy to be buried in.\""
     },
     "bye": {
       "options": [],
-      "text": "\"Come back when you're ready to upgrade.\" She's already prepping the chair for someone else."
+      "text": "\"Come back when you are ready to upgrade.\" She is already prepping the chair for somebody else."
     },
     "codex_designs": {
       "actions": [
@@ -50,16 +50,16 @@
           "next": "root"
         }
       ],
-      "text": "The ocular stops whirring. It is the first time she has been entirely still.\n\n\"Honest answer? I don't know, and neither does anyone who tells you they do.\" She turns a chromed hand over, considering it. \"The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming — I know, I read the papers, back when there were papers.\" A shrug that costs her something. \"I fit them. They work. They work better than the arm. I have decided that is enough, and I have decided it on purpose, which is different from not noticing.\""
+      "text": "The ocular stops whirring. It is the first time she has been entirely still.\n\n\"Honest answer? I do not know, and neither does anybody who tells you they do.\"\n\nShe turns a chromed hand over, considering it.\n\n\"The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming — I know, I read the papers, back when there were papers.\"\n\nA shrug that costs her something.\n\n\"I fit them. They work. They work better than the arm. I have decided that is enough, and I decided it on purpose, which is a different thing from not noticing.\""
     },
     "codex_drift": {
       "options": [
         {
-          "label": "(say nothing)",
+          "label": "Fractionally right, though.",
           "next": "root"
         }
       ],
-      "text": "\"The drift.\" She says it flatly, a diagnosis. \"Ask anyone deep in the chrome. There's a point where a replaced hand stops being a thing you move and becomes a thing that moves. Fractionally early. Fractionally right.\" The ocular whirs back to life. \"Nothing on the readouts. Latency, we call it. Latency.\"\n\nShe preps the chair for the next patient. \"It fits perfectly. That's the part nobody forgives.\""
+      "text": "\"The drift.\" She says it flatly, a diagnosis. \"Ask anybody deep in the chrome. There is a point where a replaced hand stops being a thing you move and becomes a thing that moves. Fractionally early. Fractionally right.\"\n\nThe ocular whirs back to life.\n\n\"Nothing on the readouts. Latency, we call it. Latency.\"\n\nShe preps the chair for the next patient.\n\n\"It fits perfectly. That is the part nobody forgives.\""
     },
     "how": {
       "options": [
@@ -70,8 +70,101 @@
       ],
       "text": "\"Say <b>augment</b> and I'll show you what your standing and your credits can carry. <b>augment install &lt;name&gt;</b> in the theatre and you'll walk out better than you came in. Fair warning: the first chrome burns out any mutation you're carrying. Chrome doesn't share a body with the old evolution — and it won't mutate again, so radiation stops being your problem.\""
     },
+    "lw_wait_catch": {
+      "_vine": {
+        "x": 1600,
+        "y": 1080
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The catch is that it is ours.\" He says it without any change of tone at all. \"Halcyon makes the joint, Halcyon services it, and in eleven years it will want servicing. You would be on our books from Thursday and you would stay there.\"\n\n\"I am not going to pretend that is nothing. It is the whole business. But you asked me what the catch was and I have got no reason to lie about it -- you will read it on the form before you sign it, and then you would only think I had tried.\""
+    },
+    "lw_wait_offer": {
+      "_vine": {
+        "x": 1200,
+        "y": 1080
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "About a year.",
+          "next": "lw_wait_price"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am here for a part, not a consultation.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You have been favouring your left hand since you came through the door.\" He does not get up, and he does not make it sound like a sales opening. \"The middle two knuckles. You are gripping with the outside of the hand and letting those two do nothing.\"\n\n\"How long has it been like that?\""
+    },
+    "lw_wait_price": {
+      "_vine": {
+        "x": 1400,
+        "y": 1080
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the catch?",
+          "next": "lw_wait_catch"
+        }
+      ],
+      "text": "\"A year means the cartilage is gone and the tendon is fine, which is the cheap way round.\" He writes two numbers on a pad and turns it towards you.\n\n\"Nine hundred is a whole new hand. Full sensory, matched to your skin tone, and you do not need it. People buy it because it is the one on the poster.\"\n\n\"Two hundred and twenty is the two knuckles. You keep your own hand, your own nerves and your own fingerprints. It takes me an afternoon and you would be opening a door with that hand by Thursday.\"\n\nHe puts the pen down.\n\n\"I would rather you came back next week than said yes now. I am paid the same either way.\""
+    },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_loyalty",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "enabled": true,
+          "label": "(he has clearly been waiting for a chance to say something)",
+          "next": "lw_wait_offer"
+        },
         {
           "label": "How does this work?",
           "next": "how"
@@ -97,7 +190,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sit if you like. I'm Kesh.\" The ocular whirs, focusing on your least-improved parts. \"You've got good bones. Be a shame to die with them still original.\""
+      "text": "\"Sit if you like. I am Kesh.\" The ocular whirs, focusing on your least-improved parts. \"You have got good bones. Be a shame to die with them still original.\""
     }
   },
   "faction": "ideology_ascendants",

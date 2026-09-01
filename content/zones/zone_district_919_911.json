@@ -9,7 +9,7 @@
     "west": "zone_district_918_911"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "industrial",
     "region_id": "region_coldwater",
     "terrain": "road"
   },

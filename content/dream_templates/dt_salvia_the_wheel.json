@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Your radius comes round to where it was.",
+    "Something at a larger radius takes longer and arrives anyway.",
+    "The whole assembly moves through a quarter and continues."
+  ],
+  "cause": "drug",
+  "description": "Something enormous is turning and you are one of the things fixed to it. Everything you can see is fixed to it too, at its own radius, going round at its own rate, and all of it is correct. There has been no moment at which this started.",
+  "drug_id": "drug_salvia",
+  "fx": "swim",
+  "fx_intensity": 0.85,
+  "id": "dt_salvia_the_wheel",
+  "name": "The Wheel",
+  "objects": [
+    {
+      "looks": [
+        "Turning. Not fast. It has never not been turning.",
+        "Its centre is not visible and is not far.",
+        "Everything is on it, at a radius, including the parts that look like ground."
+      ],
+      "name": "the wheel"
+    },
+    {
+      "looks": [
+        "Sound. Whatever holds you on is holding.",
+        "You are at a radius that suits you and were put here.",
+        "It has been checked. There is a mark on it from the checking."
+      ],
+      "name": "your fixing"
+    }
+  ],
+  "weather": "A steady pull outward that has always been the direction of down."
+}

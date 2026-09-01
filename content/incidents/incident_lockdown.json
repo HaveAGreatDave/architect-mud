@@ -1,0 +1,37 @@
+{
+  "cooldown_min": 1440,
+  "description": "The heaviest thing the sim can do, and rare on purpose: a citywide ESP. ⚠ The ESP is a SINGLETON in plugins/emergency, so only one incident may ever hold it — the step declines rather than joining somebody else's lockdown.",
+  "duration_min": 30,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_lockdown",
+  "min_band": "flashpoint",
+  "name": "Emergency protocol",
+  "stage": [
+    {
+      "do": "news",
+      "priority": "critical",
+      "text": "An emergency security protocol is in effect across the Basin — all residents are instructed to shelter in place until further notice."
+    },
+    {
+      "do": "esp",
+      "message": "⚠ EMERGENCY SECURITY PROTOCOL ACTIVE — SHELTER IN PLACE — ARMED RESPONSE UNITS ARE DEPLOYED — THIS IS NOT A DRILL ⚠"
+    },
+    {
+      "do": "ambient",
+      "lines": [
+        "The siren is the only thing on this street that is not hiding.",
+        "Every door on the row is shut and the red light goes over them, and over again.",
+        "Nothing is moving out here except the light."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "They put the whole Basin under protocol over {place}. Whatever happened up there, they are not calling it a fight."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 4,
+  "writes": "grip"
+}
+

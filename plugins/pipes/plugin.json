@@ -1,0 +1,15 @@
+{
+  "name": "pipes",
+  "version": "1.0.0",
+  "description": "Smoking apparatus: personal pipes and shared hookahs. An apparatus is not a thing you use up, it is a thing you PACK and then PUFF, and what gets spent is whatever you packed into it. A pipe (item tag smoking_apparatus) keeps its bowl on the item's own custom_data, so it survives a logout and belongs to whoever is holding the pipe. A hookah (furniture flag hookah, whose value is its hose count) keeps its bowl in memory and SHARES it: one person packs, everyone on a hose smokes it down, and the charge count is the thing they are sharing. That shared bowl is the entire reason the furniture exists rather than being a second pipe. Applying the drug goes through the engine's own useDrug with route 'smoke', so tolerance, addiction, the polydrug class ceiling, overdose and the smoking plugin's behavioural layer all run exactly as they do for a cigarette, and this plugin implements none of them. It deliberately does NOT gate the drug itself: raw resin stays chewable by the ordinary use path at the neutral route, and the apparatus is simply the better route (x1.15), which is what keeps this plugin from having to reach into anybody else's verb.",
+  "commands": ["hookah", "pack", "puff"],
+  "specializedActions": ["pack"],
+  "hooks": [],
+  "events": {
+    "consumes": ["zone.entered", "player.logout", "player.stop", "posture.changed"]
+  },
+  "extensionPoints": [
+    "furniture.flags.hookah",
+    "item.tags.smoking_apparatus"
+  ]
+}

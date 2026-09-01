@@ -72,6 +72,13 @@
         {
           "label": "Why the Reach, of all places?",
           "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's what I needed.",
+          "next": "bye"
         }
       ],
       "text": [

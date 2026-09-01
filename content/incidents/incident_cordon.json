@@ -1,0 +1,46 @@
+{
+  "cooldown_min": 480,
+  "description": "The flashpoint answer. A real checkpoint stands on one of the block's streets while it runs, so the prose and the mechanism are the same event seen from two distances.",
+  "duration_min": 90,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_cordon",
+  "min_band": "flashpoint",
+  "name": "The street is closed",
+  "stage": [
+    {
+      "do": "sound",
+      "loudness": 8,
+      "text": "A loudhailer says something about compliance, twice, from further up."
+    },
+    {
+      "do": "ambient",
+      "lines": [
+        "The street is full of uniforms. Anyone with somewhere else to be has gone there.",
+        "There is tape across the road and a person standing at each end of it.",
+        "A marshal is telling a queue of people that this will not take long."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "They have shut {place} off at both ends. Whatever that is about, it is not a search for a bicycle."
+    },
+    {
+      "do": "news",
+      "text": "A temporary closure is in effect in {place} — the operation is proceeding as planned and will conclude shortly."
+    },
+    {
+      "checks": [
+        "wanted"
+      ],
+      "do": "checkpoint",
+      "guards": "the cordon marshals",
+      "wantedMode": "bluff",
+      "warn": "Vehicles stop at the top of the street, and people start getting out of them."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 12,
+  "writes": "grip"
+}
+

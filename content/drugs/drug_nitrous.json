@@ -47,7 +47,14 @@
       "mods": {
         "stat_reflexes": -2
       },
-      "onset_seconds": 1800
+      "onset_seconds": 1800,
+      "stages": {
+        "easing": "It backs off to your fingertips and stays there.",
+        "onset": "Your hands and feet start buzzing, and there is no bulb, and the buzzing goes on anyway.",
+        "peak": "The buzzing has not stopped once, and it stopped being funny somewhere in the first hour, and it is still going.",
+        "rising": "It is in your fingers and it is in your feet and it is not the good buzzing.",
+        "tail": "Mostly gone. Something in your feet has not entirely agreed to that."
+      }
     }
   },
   "flags": {

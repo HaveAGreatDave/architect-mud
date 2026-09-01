@@ -38,14 +38,14 @@
           "next": "bye"
         }
       ],
-      "text": "\"Where the money goes.\" He says it like it is obvious, and it is. \"Halcyon settles a claim and the money leaves the Basin westward and does not come back and nobody at the counter will say the word for where it went. I have asked eleven people. Four laughed. Six changed the subject. One got frightened.\""
+      "text": "\"Where the money goes.\" He says it as though it were obvious, and it is.\n\n\"Halcyon settles a claim, and the money leaves the Basin westward, and does not come back, and nobody at the counter will say the word for where it went.\"\n\nHe checks the page.\n\n\"I have asked eleven people. Four laughed. Six changed the subject. One got frightened, and that one was the useful answer.\""
     },
     "bye": {
       "options": [],
       "text": "He opens the notebook again."
     },
     "root": {
-      "first": "He has the notebook open and does not close it, which tells you he has decided you are worth the risk before you have said anything. \"You came from out there,\" he says. \"The road west. I can tell by the dust, it goes a different colour.\"",
+      "first": "He has the notebook open and does not close it, which tells you he decided you were worth the risk before you said anything. \"You came from out there,\" he says. \"The road west. I can tell by the dust, it goes a different colour.\"",
       "options": [
         {
           "conditions": [
@@ -82,7 +82,7 @@
           "next": "bye"
         }
       ],
-      "text": "He shuts the notebook properly for the first time. \"You are serious.\" A breath. \"All right. I have wanted somebody to say that for a year and now that it is said I would quite like to sit down, which I already am.\" He stands up anyway. \"Slowly. I am not built for the road and I would rather arrive.\""
+      "text": "He shuts the notebook properly for the first time.\n\n\"You are serious.\" A breath. \"All right. I have wanted somebody to say that for a year, and now that it is said I would quite like to sit down, which I already am.\"\n\nHe stands up anyway.\n\n\"Slowly. I am not built for the road and I would rather arrive.\""
     }
   },
   "faction": null,

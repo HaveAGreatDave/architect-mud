@@ -81,6 +81,11 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
   const { entries, unknownDirs } = tree;
   for (const d of unknownDirs) errors.push(`content/${d}/ is not a content table (classify it in server/models/content-registry.js or remove the directory)`);
 
+  // A paragraph written twice into one dialogue node — see the note on the
+  // function for why this is fatal and why it is checked on the content rather
+  // than on the script that produced it.
+  errors.push(...checkRepeatedDialogueBlocks(entries.find(e => e.entry.table === 'npcs')?.files || []));
+
   const contentTables = new Set(contentEntries().map(e => e.table));
   const pkSets = new Map(); // table -> Set of refCol values present in files
   for (const { entry, files } of entries) {
@@ -301,8 +306,16 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       // cleanup this whole mechanism is built to prevent: someone deletes the
       // catalog entry, the palette keeps presetting a key nothing validates, and
       // the preset and its readers drift apart again.
+      // `runtime: true` entries are exempt for the same reason `preset` ones are, one
+      // step further along: the flag is never AUTHORED at all. `heading` is injected
+      // onto the live Echelon zone by the yacht plugin as she steers, and
+      // `is_dreamzone` is retired and survives only so the login rescue recognises a
+      // legacy row. Both say so in their own `help` text, and neither can ever appear
+      // on a tile in `content/` — so listing them here trained the reader to scroll
+      // past a warning whose other five entries are real: a built feature that no
+      // author has opted a tile into yet, which is worth knowing about.
       const dead = Object.entries(CATALOG)
-        .filter(([k, d]) => d?.scope === 'zone' && !d.preset && !usedFlags.has(k))
+        .filter(([k, d]) => d?.scope === 'zone' && !d.preset && !d.runtime && !usedFlags.has(k))
         .map(([k]) => k);
       if (dead.length) warnings.push(`${dead.length} zone flag(s) catalogued but on no tile: ${dead.join(', ')}`);
     }
@@ -889,6 +902,48 @@ export function warnQuestAmbiguousTargets() {
     }
   } catch (e) { warnings.push(`(objective-ambiguity scan skipped: ${e.message})`); }
   return warnings;
+}
+
+// ── A line that got written twice ───────────────────────────────────────────
+// ⚠ THE BUG THIS EXISTS FOR IS A CONTENT SCRIPT THAT APPENDS WITHOUT CHECKING.
+// On 2026-08-25 the Quartermaster's greeting ended with the sentence "What are
+// you carrying?" repeated FIFTEEN times. Nothing anywhere failed, because a
+// repeated paragraph is perfectly valid content: it only shows up by talking to
+// her. The cause was one layer shortening a line and a later layer no longer
+// recognising its own work, but the cause does not matter here -- the SYMPTOM is
+// generic, cheap to test, and identical for every appender that gets it wrong.
+//
+// This is a check on the CONTENT, deliberately, rather than on the scripts.
+// Asserting that a script is idempotent means running it twice; asserting that
+// its output has no duplicated paragraph is a string comparison, and it catches
+// a hand-edit exactly as well as a script.
+//
+// Fatal, not advisory: there is no legitimate reason for a dialogue node to say
+// the same sentence twice, and the one time it happened it was live for hours.
+// Takes the ALREADY-PARSED npc files rather than re-reading the tree: this
+// file's own note upstream measures the read at ~15s against ~0.8s for every
+// rule combined, so a rule that opens content/ again is the expensive thing in
+// the linter by two orders of magnitude.
+export function checkRepeatedDialogueBlocks(npcFiles = []) {
+  const errors = [];
+  for (const f of npcFiles) {
+    const tree = f.data?.dialogue_tree;
+    if (!tree || typeof tree !== 'object') continue;
+    for (const [nodeId, node] of Object.entries(tree)) {
+      const raw = Array.isArray(node?.text) ? node.text.join('\n\n') : (node?.text || '');
+      if (typeof raw !== 'string' || !raw) continue;
+      // Paragraphs, which is the unit these scripts append in. Short fragments
+      // are excluded: "..." and stage directions legitimately recur.
+      const seen = new Map();
+      for (const p of raw.split(/\n\n+/).map((s) => s.trim()).filter((s) => s.length > 15)) {
+        seen.set(p, (seen.get(p) || 0) + 1);
+      }
+      for (const [p, n] of seen) {
+        if (n > 1) errors.push(`npcs/${f.name} ${nodeId}: says the same paragraph ${n}x - "${p.slice(0, 50)}..."`);
+      }
+    }
+  }
+  return errors;
 }
 
 // CLI entry

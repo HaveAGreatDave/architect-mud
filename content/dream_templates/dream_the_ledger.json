@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Another line is added, correctly, and initialled.",
+    "A drawer opens behind the desk and a further folder comes out.",
+    "The person doing the adding pauses, checks something, and is satisfied it is right."
+  ],
+  "cause": "dream",
+  "description": "A sum is owed and the paperwork is in order. The figure is arrived at properly, from small honest amounts you recognise, and each of them is fair. It is added up in front of you by somebody who is good at their job and does not enjoy this part, and the total goes on past the width of the page.",
+  "drug_id": null,
+  "fx": "ash",
+  "fx_intensity": 0.4,
+  "id": "dream_the_ledger",
+  "name": "The Amount Owing",
+  "objects": [
+    {
+      "looks": [
+        "Every entry is a thing you did. Small. Ordinary. Yours.",
+        "The dates run from a year you were happy.",
+        "The column continues onto a page that is fixed in at the side, and then another."
+      ],
+      "name": "the ledger"
+    },
+    {
+      "looks": [
+        "Careful, and quick, and not unkind about it.",
+        "They have done this for you before and remember which column you query.",
+        "They turn the book round so you can see it, which is a courtesy."
+      ],
+      "name": "the clerk"
+    }
+  ],
+  "weather": "Dry and still and lit from above, evenly, for reading by."
+}

@@ -104,6 +104,16 @@
       "price": 175
     },
     {
+      "item_id": "item_opium",
+      "min_trust": 45,
+      "price": 170
+    },
+    {
+      "item_id": "item_opium_pipe",
+      "min_trust": 45,
+      "price": 400
+    },
+    {
       "item_id": "item_coldfire",
       "min_trust": 70,
       "price": 360

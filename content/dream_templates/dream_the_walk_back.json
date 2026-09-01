@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "You pass the corner you turn at. The corner you turn at is ahead.",
+    "A light goes on in an upstairs window and it is the window you know.",
+    "Your feet find a kerb before you see it, correctly."
+  ],
+  "cause": "dream",
+  "description": "The way you always go, at the hour you always go it. Every street is the correct street. There are more of them than there have ever been, and each one is where it should be, and the whole walk is the length of the whole walk plus another one.",
+  "drug_id": null,
+  "fx": "rain",
+  "fx_intensity": 0.5,
+  "id": "dream_the_walk_back",
+  "name": "The Walk Back",
+  "objects": [
+    {
+      "looks": [
+        "Yours. The bins are out on the right night.",
+        "You have walked this in every weather and never at this length.",
+        "The numbers go up, which is correct, and they do not stop, which is also correct."
+      ],
+      "name": "the street"
+    },
+    {
+      "looks": [
+        "Ahead, at the distance it was.",
+        "The light is on behind it and you left it off.",
+        "Your key is in your hand and has been for some time."
+      ],
+      "name": "your door"
+    }
+  ],
+  "weather": "Rain that has been falling for the length of the journey and will last it."
+}

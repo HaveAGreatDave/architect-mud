@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Something is decided at the far end and carried out.",
+    "A voice reaches you at the volume of a voice across a field.",
+    "Your hands finish and rest."
+  ],
+  "cause": "drug",
+  "description": "A room seen from the wrong end of the length of it. Everything that is happening is happening at the other end, correctly, at the right size for where it is. Your hands are down there too, doing something competent.",
+  "drug_id": "drug_khole",
+  "fx": "tunnel",
+  "fx_intensity": 0.9,
+  "id": "dt_khole_the_far_end",
+  "name": "The Far End",
+  "objects": [
+    {
+      "looks": [
+        "A room. Ordinary. Full size, from where it is standing.",
+        "The people in it are managing without any input.",
+        "It gets no closer and it is not going away."
+      ],
+      "name": "the far end"
+    },
+    {
+      "looks": [
+        "Down there. Doing it well.",
+        "They are yours. You could describe every mark on them from here.",
+        "They stop, and wait, and are not waiting on you."
+      ],
+      "name": "your hands"
+    }
+  ],
+  "weather": "Thin. The air of somewhere high, where sound arrives late."
+}

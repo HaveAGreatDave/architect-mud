@@ -1,0 +1,19 @@
+{
+  "description": "Nineteen feet of maple lane, arrows and all, sawn out of somewhere that stopped needing it and bolted onto a frame of scaffold pipe. The elbows have worn two pale patches through the varnish and nobody is allowed to sand them out.",
+  "flags": {
+    "aliases": "bar,counter,lane",
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_bar_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bowling-lane bar",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_jolenes_bar"
+}

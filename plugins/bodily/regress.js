@@ -730,7 +730,13 @@ export default async function regress({ run, check, getPlayer }) {
   // ignoring both the real weather and the indoor gate. Ash falling in a windowless
   // corridor is the point: it SHOWS the rules are off instead of saying so.
   check('dream rooms drive the FX canvas', await pool(`SELECT 1 FROM dream_templates WHERE fx IS NOT NULL`) >= 25);
-  const VALID_FX = ['rain', 'snow', 'ash', 'fog', 'wind', 'none'];
+  // Weather + the drug symptoms added 2026-08-25. ⚠ Keep in step with WEATHER_FX
+  // / DRUG_FX in client/game/js/panels/weather-fx.js — an unknown name renders
+  // nothing at all, so a typo is invisible in play and this is the only thing
+  // that will ever say so. scripts/shapes/weatherfx-smoke.mjs proves each of
+  // these actually puts paint down.
+  const VALID_FX = ['rain', 'snow', 'ash', 'fog', 'wind', 'none',
+                    'static', 'tunnel', 'tracers', 'bloom', 'crawl', 'swim'];
   const badFx = (await q(`SELECT id, fx FROM dream_templates WHERE fx IS NOT NULL`)).rows
     .filter(r => !VALID_FX.includes(r.fx));
   // weather-fx.js silently renders nothing for an unknown effect name, so a typo
@@ -741,7 +747,19 @@ export default async function regress({ run, check, getPlayer }) {
   check('...and intensities inside 0..1', badInt.length === 0, badInt.map(r => r.id).join(', '));
   const fxEntry = await buildDreamscape('regress-fx', { size: 1, cause: 'drug', drugId: 'drug_dmt' });
   check('...carried onto the built room', !!world.zones.get(fxEntry)?.dreamFx?.effect);
+  // ⚠ And it must be TAKEN BACK. The client's override ignores the indoor gate and
+  // the real weather until a `dream_fx` clear arrives, so a teardown that skips one
+  // leaves the field running over the room for the rest of the session. Asserted on
+  // dissolveDreamscape because that is the funnel every exit path goes through.
+  const { setBroadcast, getBroadcast } = await import('../../server/engine/messaging.js');
+  const prevBroadcast = getBroadcast();
+  const fxMsgs = [];
+  setBroadcast((_z, msg) => { fxMsgs.push(msg); });
   dissolveDreamscape('regress-fx');
+  setBroadcast(prevBroadcast);
+  check('...and cleared again when the dream dissolves',
+    fxMsgs.some(m => m?.type === "dream_fx" && m.effect === "none"),
+    fxMsgs.map(m => m?.type).join(", "));
 
   // Per-viewer, and it must not bleed: the weather warp is keyed to the zone it
   // was set in, so walking on does not carry a stale line into the next room.

@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "When did you last lie on anything soft?",
+    "Do you want to know what is under it?",
+    "Are you going to sleep or not?"
+  ],
+  "description": "A long low bank of moss, deep green and springy and a good foot thick, grown into exactly the shape and place of the cot. It is warm from underneath and it smells like the ground after rain.",
+  "drug_id": "drug_psilocybin",
+  "emotes": [
+    "{it} springs slowly back where something pressed it.",
+    "{it} releases a faint green smell into the room.",
+    "{it} puts out one more small white flower."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_cot_moss",
+  "looks": [
+    "Pressing a hand into it, the moss comes back up slowly and completely.",
+    "There are small white flowers through it in the places nobody has lain.",
+    "It is warm from below, steadily, as though there is something under it."
+  ],
+  "matches": "cot",
+  "name": "a bank of deep moss",
+  "says": [
+    "You would sleep. That is the risk.",
+    "It grows back by morning.",
+    "The warm comes up from underneath. Do not ask."
+  ],
+  "scope": "object"
+}

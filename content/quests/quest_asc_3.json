@@ -1,15 +1,17 @@
 {
   "category": null,
-  "description": "Inside at last. Curator Vess wants to show you the Spire the way the Ascendants show it to the promising: the ladder in the Gallery, a resurrection in the Vats, and whatever waits at the top. Walk it, and learn what Halcyon has really been selling.",
+  "description": "Vess will show you the building. She is very good at this and she has done it several thousand times.\n\nThe Gallery first, because it is beautiful. Then the Vats, because that is the promise — the room where a body is kept against the day you need another one, warm, indexed, and paid up. Vess talks about it the way a good manager talks about a well-run store room, and every word of it is accurate. Then the Sanctum, which is small, and quiet, and where the actual signing happens.\n\n\"People think we sell chrome,\" she says on the stairs. \"We sell the sentence *and then*. Everything else is delivery.\"",
   "fail_on": [],
   "id": "quest_asc_3",
   "meta": {},
   "name": "Assurance for the Assured",
   "objectives": [
     {
-      "desc": "Walk the Gallery of Rungs",
+      "desc": "Walk the Gallery with Vess.",
       "emotes": [
-        "{who} walks the lit vitrines from crude jack to cortical backup, and feels the exhibit doing its quiet work."
+        "{who} is walked past the portraits of eleven people who are all still alive.",
+        "{who} notices the vitrines get warmer in colour the further in they go.",
+        "{who} is told the name of the artist, and the name of the client, and only one of them was paid."
       ],
       "id": "o0",
       "taskSeconds": 5,
@@ -17,9 +19,11 @@
       "zone": "zone_asc_spire_gallery"
     },
     {
-      "desc": "Witness a policy payout in the Vats",
+      "desc": "See the Vats.",
       "emotes": [
-        "{who} watches a tank drain and a backed-up client sit up, blinking, alive on a paid account."
+        "{who} comes out onto the colonnade and finds the room is warm, and quiet, and enormous.",
+        "{who} looks into the nearest tank because everybody does, and Vess waits, because everybody does.",
+        "{who} is told the tank is a subscription rather than a purchase, in the tone of somebody clearing up a common misunderstanding."
       ],
       "id": "o1",
       "requires": [
@@ -30,9 +34,10 @@
       "zone": "zone_asc_vats_hall"
     },
     {
-      "desc": "Ascend to the Executive Sanctum",
+      "desc": "Finish the tour in the Sanctum.",
       "emotes": [
-        "{who} rides to the crown of the Spire, where the seal waits, the same calm eye that watches every Halcyon claim."
+        "{who} is shown into a small room with two chairs and no window.",
+        "{who} is told this is where it is signed, and that it takes less time than the tour did."
       ],
       "id": "o2",
       "requires": [
@@ -58,6 +63,11 @@
         "flag": "halcyon_reveal",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "3"
       }
     ],
     "xp": 60

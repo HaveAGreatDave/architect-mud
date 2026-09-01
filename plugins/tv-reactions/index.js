@@ -147,6 +147,11 @@ function resolveLine(line, beat) {
   return ok ? out : null;
 }
 
+// The subset of the generic pool that needs nothing from the beat. This is the
+// floor under pickLine and it is computed once, because the whole point of it is
+// that it can never fail.
+const PLAIN_GENERIC_LINES = GENERIC_LINES.filter(l => !/\{(program|station)\}/.test(l));
+
 function pickLine(beat) {
   const pool = MODE_LINES[beat.mode] || [];
   for (let i = 0; i < 4; i++) {
@@ -154,7 +159,14 @@ function pickLine(beat) {
     const line = resolveLine(rand(src), beat);
     if (line) return line;
   }
-  return null;
+  // ⚠ Deterministic floor, and it is not decoration. The four tries above are
+  // each an independent 85/15 weighting, so they can land on GENERIC_LINES four
+  // times running — and two of that pool's six entries want {program}/{station}
+  // themselves. On a beat carrying neither token that is 0.05^4, about one run
+  // of the regress suite in eight hundred, and it went red exactly once here
+  // after four green runs. A null means the set is on in an occupied room and
+  // nobody in it can ever remark on the thing they are all looking at.
+  return PLAIN_GENERIC_LINES.length ? rand(PLAIN_GENERIC_LINES) : null;
 }
 
 // ── The listener ──────────────────────────────────────────────────────────────

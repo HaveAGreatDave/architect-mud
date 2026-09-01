@@ -23,7 +23,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Go on in. You're safe here.\" He settles back onto his stool."
+      "text": "\"Go on in. You are safe here.\" He settles back onto his stool."
     },
     "door": {
       "options": [
@@ -32,7 +32,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"That door only opens for people the Watch have squared with. You're standing inside it, so that's you now.\" He nods at the dark beyond. \"Out there the machine's got eyes in every wire. In here it's got nothing. No cameras, no cops, no record you were ever here. Heat on you? Sit a while. It cools faster down here than anywhere in the Basin. That's the point of the place.\""
+      "text": "\"That door opens for people the Watch have squared with. You are standing inside it, so that is you now.\"\n\nHe nods at the dark beyond.\n\n\"Out there the machine has eyes in every wire. In here it has nothing. No cameras, no police, no record you were ever in this room. Heat on you? Sit a while. It cools faster down here than anywhere in the Basin.\"\n\n\"That is the whole point of the place.\"\n\nThen he tips the mug at the wall behind the stove, where somebody has scratched a column of names into the brick. It is not a short column, and there is a great deal of brick left under it.\n\n\"And that is the cost of the place. We do not keep them on a screen. A screen can be switched off by somebody who never met them.\"\n\n\"You eaten?\""
     },
     "kept": {
       "options": [
@@ -41,7 +41,7 @@
           "next": "bye"
         }
       ],
-      "text": "Pike nods at the stool as you pass, which he does now, and did not before."
+      "text": "Pike nods at the stool as you pass. He did not use to."
     },
     "rite_accept": {
       "actions": [
@@ -52,16 +52,38 @@
       ],
       "options": [
         {
-          "label": "(take the stool)",
+          "label": "(go)",
           "next": "bye"
         }
       ],
-      "text": "He stands, stretches something that clicks, and hands you the mug, which is still warm.\n\n\"Morning, then.\""
+      "text": "He stands, stretches something that clicks, and takes the mug off you rather than handing it over.\n\n\"I will keep this warm.\""
+    },
+    "rite_charge": {
+      "_vine": {
+        "x": 700,
+        "y": 980
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "All right.",
+          "next": "rite_accept"
+        },
+        {
+          "label": "I need to think about it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Quartermaster has one on the counter. She has had one on the counter since the day you walked in, and she will not look at you while you pick it up, and you are not to hold that against her.\"\n\n\"You wire it, and you set the fuse yourself, and the fuse is the only part of this that is nobody's business but yours. Short and you are running. Long and somebody finds it.\""
     },
     "rite_offer": {
       "options": [
         {
-          "label": "Go and get some sleep, Pike.",
+          "label": "Where do I get a charge?",
+          "next": "rite_charge"
+        },
+        {
+          "label": "Understood.",
           "next": "rite_accept"
         },
         {
@@ -69,7 +91,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Right.\" Pike puts the mug down, which you have not seen before.\n\n\"There is no ceremony and I am not going to invent one for you. I get off the stool, and I go, and I do not come back until morning. You sit the Blind on your own until somebody relieves you.\"\n\n\"Nothing will happen. Nothing is supposed to happen. That is not a warning, it is the entire content of the thing — the Watch are called the Watch because somebody has been sitting in a cold room the whole time, and tonight the somebody is you, and there is nobody behind you to check.\"\n\nHe looks at you properly for the first time in all of this.\n\n\"Do not open the door. Do not go and look. Do not do anything at all. If you get up, you start again, and I will not say a word about it.\""
+      "text": "Pike puts the mug down, which you have not seen him do.\n\n\"There is one job this place does that is not watching. It comes round about once every four years. I have been on this door for eleven.\"\n\nHe tells you the rest of it flatly, in order.\n\n\"The vats. Not the Spire, not the man at the top, not the money. The vats, because that is where they keep the thing they are actually selling, and every single person who has ever said yes to them said yes to that room. Bring the colonnade down.\"\n\n\"The woman at the gate will be at the gate. Ives. She has spent six years putting a price on our people and she is very good at it, and she is the reason two of the names on that wall are on that wall.\"\n\nHe is careful with the next part.\n\n\"You walk past her. She will have something to say and you will want to answer it, and neither of those matters. What matters is that you do not stop. Taking people out of the world is not what we are for. Still being here is what we are for.\"\n\nHe looks at you properly for the first time in all of this.\n\n\"Then come home. That is not decoration. Three of us have done this and one came back.\""
     },
     "rite_report": {
       "actions": [
@@ -80,17 +102,24 @@
       ],
       "options": [
         {
-          "label": "Nothing. All night.",
+          "label": "Nothing. Nothing at all.",
           "next": "bye"
         }
       ],
-      "text": "Pike comes back at whatever hour it is with his coat still buttoned wrong and looks at you sitting exactly where he left you.\n\nHe does not say congratulations. He does not say well done. He takes the mug out of your hands, looks down the wash out of habit, and says:\n\n\"Anything?\"\n\nAnd you say no. And that is the whole of it, and you understand, sitting there with your legs gone dead under you, that it was always going to be the whole of it."
+      "text": "Pike is on the stool when you come down the stair, which means he has been on it the whole time, which means he did not sleep either.\n\nHe looks at the state of you. He looks at the door behind you. Then he looks back down the Outfall, out of habit, and asks the only question the Watch has ever asked anybody.\n\n\"Anything?\"\n\nAnd you tell him: no. Nothing behind you. Nothing following.\n\nHe nods once and moves along the bench to make room."
     },
     "root": {
       "options": [
         {
-          "label": "How safe is 'safe'?",
+          "label": "How safe is safe?",
           "next": "door"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the Outfall?",
+          "next": "what_wash"
         },
         {
           "_src": "lw_vigil",
@@ -196,7 +225,7 @@
           "next": "bye"
         }
       ],
-      "text": "The big man lifts his mug in greeting without getting up. \"Welcome in. Pike.\" He tips his head at the sealed door behind you. \"You made it past that, so you're one of ours, which means you can finally put your back to a wall and mean it. Warm stove's through in the commons.\""
+      "text": "The big man lifts his mug in greeting without getting up.\n\n\"Welcome in. Pike.\" He tips his head at the sealed door behind you. \"You got past that, so you are one of ours, which means you can finally put your back to a wall and mean it.\"\n\n\"Warm stove through in the commons.\""
     },
     "sit_accept": {
       "actions": [
@@ -211,12 +240,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Do not open the door. If something comes down the wash you watch it come, and you write the time, and you do not open the door.\""
+      "text": "\"Do not open the door. If something comes down the Outfall you watch it come, and you write the time, and you do not open the door.\""
     },
     "sit_offer": {
       "options": [
         {
-          "label": "I'll take a turn.",
+          "label": "I will take a turn.",
           "next": "sit_accept"
         },
         {
@@ -224,7 +253,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Somebody has to sit the Blind while somebody else sleeps.\" He says it the way you would mention weather. \"Mirror looks down the wash. Shortwave talks to itself. The whole of the job is that you are there and you are awake.\"\n\n\"I have sat it about ten thousand times. I will not thank you for it, and neither will anyone else, and that is not rudeness. It is just that somebody sitting there is the ordinary state of things.\""
+      "text": "\"Somebody has to sit the Blind while somebody else sleeps.\" He says it like it is Tuesday.\n\n\"Mirror looks down the Outfall. Shortwave talks to itself. The whole of the job is that you are there, and you are awake.\"\n\n\"I have sat it about ten thousand times. I will not thank you for it, and neither will anybody else, and that is not rudeness. It is that somebody sitting there is the ordinary state of things, and you do not thank the ordinary state of things.\""
     },
     "sit_report": {
       "actions": [
@@ -239,16 +268,57 @@
           "next": "bye"
         }
       ],
-      "text": "He takes the stool back without ceremony. \"Anything?\" You say no. \"Good,\" says Pike, and means it."
+      "text": "He takes the stool back without ceremony. \"Anything?\"\n\nYou say no.\n\n\"Good,\" says Pike, and means it."
     },
     "teach": {
       "options": [
         {
-          "label": "I'll come and stand, then.",
+          "label": "I will come and stand, then.",
           "next": "bye"
         }
       ],
-      "text": "\"Teach.\" Pike considers the mug rather than you. \"I can show you two things and they are the same thing twice. How to stand for a long time without it costing you anything, and how to breathe while you do it.\"\n\nHe shifts on the stool, which is the most he has moved since you came in.\n\n\"That is not modesty. Everybody who has ever lasted down here started with those two, and most of what comes after is people dressing them up. `train body`, or `train breath`. Bring the rest of it to somebody who has seen more than a door.\""
+      "text": "\"Teach.\" Pike considers the mug rather than you.\n\n\"I can show you two things and they are the same thing twice. How to stand for a long time without it costing you anything, and how to breathe while you do it.\"\n\nHe shifts on the stool, which is the most he has moved since you came in.\n\n\"That is not modesty. Everybody who has ever lasted down here started with those two, and most of what comes after is people dressing them up. `train body`, or `train breath`. Bring the rest of it to somebody who has seen more than a door.\""
+    },
+    "what_wash": {
+      "_vine": {
+        "x": 1200,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the room at the bottom of it?",
+          "next": "what_wash_room"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Outfall is the channel you just walked down. Storm drain, originally. It runs a quarter mile off the Meltwater outfall and it comes out at our door, and there is no other way in.\"\n\nHe tips the mug at the mirror over the shelf.\n\n\"That is angled down the length of it. Anybody coming to us is in the open for four minutes before they arrive, and I have four minutes to decide about them. It is the only advantage we have got and it is the whole reason we are here and not somewhere more comfortable.\"\n\n\"When it rains hard it runs, so you go the long way. It has drowned two of us.\""
+    },
+    "what_wash_room": {
+      "_vine": {
+        "x": 1440,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That is the lockers. Everything that can be listened to goes in one before you come any further in. Tablet, chip, anything with a cell in it. There is a locker with your name on it now, and it is lead-lined, and that is not decoration.\"\n\n\"Then somebody checks you for chrome. With calipers, not by asking.\"\n\n\"Nobody enjoys it. Nobody skips it either.\""
     }
   },
   "faction": "ideology_long_watch",

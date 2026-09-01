@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The light gets as far as the floor.",
+    "Outside, the first of them goes past on the road.",
+    "Something you were shown settles into the place it will stay."
+  ],
+  "cause": "drug",
+  "description": "It gets light. That is all that happens and it takes the usual amount of time. The night is behind you and everything in it stays true, and the light comes up on a room with you in it, and there is a whole day.",
+  "drug_id": "drug_ibogaine",
+  "fx": "bloom",
+  "fx_intensity": 0.35,
+  "id": "dt_ibogaine_the_morning",
+  "name": "The Morning After The Long Night",
+  "objects": [
+    {
+      "looks": [
+        "Ordinary morning. It has done this before.",
+        "It reaches the wall, and then along it, at the rate it does.",
+        "It is on your hands and your hands are yours."
+      ],
+      "name": "the light"
+    },
+    {
+      "looks": [
+        "A whole one. Nothing in it yet.",
+        "You will be tired in it and it is still a day.",
+        "It starts where you are standing, which is where you were standing."
+      ],
+      "name": "the day"
+    }
+  ],
+  "weather": "First light, coming up properly, in no hurry, on a cold room."
+}

@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "The playback has stopped for a moment, and there is nowhere to go and nothing to do with the moment. Everything you have just been shown is still in the room, at rest, waiting to resume. Nobody is asking you for a verdict. There is going to be more.",
   "drug_id": "drug_ibogaine",
-  "fx": "ash",
-  "fx_intensity": 0.4,
+  "fx": "tunnel",
+  "fx_intensity": 0.45,
   "id": "dt_ibogaine_the_interval",
   "name": "The Interval",
   "objects": [

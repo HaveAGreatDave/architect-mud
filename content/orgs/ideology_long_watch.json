@@ -1,27 +1,34 @@
 {
   "color": "#E0A030",
-  "description": "The city belongs to its people, not its machine. The Long Watch is an enduring underground movement that would keep Coldwater Basin's infrastructure and technology intact, but wrest its stewardship back from the Architect. They are reformers, not arsonists: the tools stay, the hand on them changes. They do not seek to transcend humanity; they seek to free it, and remain human while they do. Their finest wear no augment and carry no mutation, only a lifetime's honed discipline, and the unsettling habit of out-shooting the chromed and out-thinking the machine with nothing but a steady hand and everything they ever bothered to master. That last part is not an aspiration but an entry requirement: they will not train a body with metal in it or flesh that has gone its own way, and they will not be argued round. Come back cleansed, or do not come back.",
+  "description": "The city belongs to its people, not its machine. The Long Watch is an underground movement that means to take the Coldwater Basin off the Architect, and has decided it cannot do that yet. So it waits, and while it waits it makes the machine weaker: a relay that fails in the wrong weather, a records floor that loses eleven years, a shipment that arrives short and correctly signed for, a clerk who was theirs for six years before anybody asked her for anything. Sabotage and subterfuge, and nothing that cannot be explained as the Basin wearing out. Nothing is ever claimed. An operation that leaves the Watch visible has failed whatever else it achieved, and the cell that ran it goes quiet for a season. They will not touch the water, the grid or the trains, because those belong to the city and the city is what they intend to be holding on the day they surface. Where a thing serves both at once they argue about it, and that argument is most of what a cell does with its evenings. They do not seek to transcend humanity; they seek to free it, and remain human while they do. Their finest wear no augment and carry no mutation, only a lifetime's honed discipline, and the unsettling habit of out-shooting the chromed and out-thinking the machine with nothing but a steady hand and everything they ever bothered to master. That last part is not an aspiration but an entry requirement: they will not train a body with metal in it or flesh that has gone its own way, and they will not be argued round. Come back cleansed, or do not come back.",
   "flags": {
     "creed": "The city belongs to its people, not its machine.",
     "path": "human",
     "reader": {
-      "experience": "Run with the Long Watch and the underground opens to you: safehouses, honest quartermasters, people who'll hold a line at your back because you held one at theirs. You climb on nothing but what you master: a steadier hand, a sharper read, gear kept immaculate and skills drilled long past the point anyone thinks is reasonable. The fantasy here is the quiet one. Out-shooting the chromed over iron sights, out-thinking the machine with a paper map, and never once needing a single wire to do it. You stay human, and you make being human look like the unfair advantage. They keep no hall and no roster you could find; but those who've gone looking say the way in runs through the industrial east, past the machine's dead ends, to people who still fix things by hand, and that the Long Watch does not surface for you until you've truly decided whose side of the switch you're on. Understand what you are deciding. They do not take the chromed and they do not take the mutated, and the ones who go looking with wire under the skin are turned round at the door by people who are unfailingly polite about it. Whatever you are carrying has to come out first. Have the metal cut, have the flesh corrected, and present yourself in the body you started with; the Watch will note that you were once something else, and let you in anyway, and never quite stop mentioning it.",
+      "experience": "Run with the Long Watch and the underground opens to you: safehouses, honest quartermasters, people who'll hold a line at your back because you held one at theirs. You climb on nothing but what you master: a steadier hand, a sharper read, gear kept immaculate and skills drilled long past the point anyone thinks is reasonable. The fantasy here is the quiet one. The Watch has been at this longer than you have been alive and does not expect to win this year; the work is to hand the next lot a weaker machine than you were given, without ever having been seen doing it. Out-shooting the chromed over iron sights, out-thinking the machine with a paper map, and never once needing a single wire to do it. You stay human, and you make being human look like the unfair advantage. They keep no hall and no roster you could find; but those who've gone looking say the way in runs through the industrial east, past the machine's dead ends, to people who still fix things by hand, and that the Long Watch does not surface for you until you've truly decided whose side of the switch you're on. Understand what you are deciding. They do not take the chromed and they do not take the mutated, and the ones who go looking with wire under the skin are turned round at the door by people who are unfailingly polite about it. Whatever you are carrying has to come out first. Have the metal cut, have the flesh corrected, and present yourself in the body you started with; the Watch will note that you were once something else, and let you in anyway, and never quite stop mentioning it.",
       "motto": "reclaim",
       "path_label": "skill",
       "path_text": "The Human way. Stay as we are. No steel, no mutation, no psionics: the human form is not the problem, the machine's grip is. Held as a condition of membership, not a preference. Cleanse yourself before you ask them for anything.",
-      "pull": "Keep the lights on. Take back the switch.",
+      "pull": "Keep the lights on. Take the switch when we can hold it.",
       "relnote": "No agents have surfaced in the Basin. The Watch keeps to the dark.",
       "tenets": [
         "The Basin belongs to its people, not its machine.",
-        "Preserve the infrastructure, reclaim its stewardship.",
-        "Reform civilization; stay human doing it."
+        "Weaken the machine now. Take it when we can hold it.",
+        "Preserve what the city needs; we intend to inherit it.",
+        "Work unseen, and stay human doing it."
       ]
+    },
+    "role": {
+      "drift": "north",
+      "reads": "grip",
+      "writes": "heat"
     },
     "stance": "redeem",
     "values": [
       "Liberty",
+      "Patience",
+      "Secrecy",
       "Responsibility",
-      "Reform",
       "Community",
       "Hope"
     ]

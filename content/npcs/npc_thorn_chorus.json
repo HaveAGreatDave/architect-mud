@@ -158,6 +158,11 @@
               "flag": "quest_wild_seen",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_wild",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,
@@ -191,6 +196,11 @@
               "flag": "quest_wild_quickening",
               "op": "unset",
               "scope": "player"
+            },
+            {
+              "flag": "arc_open_wild",
+              "op": "set",
+              "scope": "world"
             }
           ],
           "enabled": true,

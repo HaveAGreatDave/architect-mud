@@ -1,0 +1,32 @@
+{
+  "cooldown_min": 300,
+  "description": "The polite end of the squeeze. Every line the Ascendants say about it is true and none of it is the point.",
+  "duration_min": 90,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_id_check",
+  "min_band": "watchful",
+  "name": "Identity verification",
+  "stage": [
+    {
+      "do": "ambient",
+      "lines": [
+        "A marshal checks a face against a tablet, nods, and waves the face on.",
+        "There is a short queue at the corner that nobody joined on purpose.",
+        "Somebody is explaining, at length and quietly, where they live."
+      ]
+    },
+    {
+      "do": "news",
+      "text": "Routine identity verification is under way in {place} — residents are reminded that cooperation shortens it considerably."
+    },
+    {
+      "do": "gossip",
+      "text": "They are checking everybody at the corner in {place}. Bring your account or bring an hour."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 22,
+  "writes": "grip"
+}
+

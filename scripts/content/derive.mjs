@@ -583,6 +583,10 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
   gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
   butcher: 'bldg_butcher',
+  // The Grand Ole Apron — Molly Darton's roadhouse on Meltwater Row. A honky-tonk is a bar
+  // with a stage in it, and the glyph says so: a gable with a note under it, which is the one
+  // thing that tells it apart from the four other places on that street you can get a drink.
+  honkytonk: 'bldg_honkytonk',
   comic_shop: 'bldg_comics',
   // The Reach (docs/../memory: project_the_reach) — the frontier town's Main Street. These are
   // trades the rest of the world runs out of a corner of some other building and the Reach gives

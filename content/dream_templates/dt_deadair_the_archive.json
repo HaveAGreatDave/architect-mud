@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A reel finishes and the end of it goes round.",
+    "Something is refiled, in the correct place, by nobody.",
+    "A label is legible from across the room and it is a date you know."
+  ],
+  "cause": "drug",
+  "description": "Shelves of everything that was ever put out, labelled and dated and in order. All of it is recorded. You can take any of it down and put it on, and every one of them is the sound of a room with the microphone open and nobody in it.",
+  "drug_id": "drug_deadair",
+  "fx": "static",
+  "fx_intensity": 0.6,
+  "id": "dt_deadair_the_archive",
+  "name": "The Archive",
+  "objects": [
+    {
+      "looks": [
+        "Full, in order, going back to before the station.",
+        "Nothing is missing. There are no gaps anywhere along it.",
+        "The oldest ones are at the far end and are in the same condition."
+      ],
+      "name": "the shelves"
+    },
+    {
+      "looks": [
+        "An hour of an empty studio, logged as an hour of programming.",
+        "You can hear the room. You can hear how big the room is.",
+        "Halfway through it, a chair takes somebody’s weight, and then nothing."
+      ],
+      "name": "a recording"
+    }
+  ],
+  "weather": "Cold and dry, the way a place is kept when what is in it must last."
+}

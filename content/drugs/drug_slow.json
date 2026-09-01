@@ -45,7 +45,14 @@
         "stat_cool": -3,
         "stat_endurance": -2
       },
-      "onset_seconds": 900
+      "onset_seconds": 900,
+      "stages": {
+        "easing": "It thins out into something you could carry if you had to.",
+        "onset": "Everything has an edge on it again, and the edges are all facing you.",
+        "peak": "The things slow was standing between you and are all in the room and none of them have aged.",
+        "rising": "You keep turning round. There is nothing behind you and you keep turning round.",
+        "tail": "Quieter. Not quiet. You have started to be able to tell the difference."
+      }
     }
   },
   "flags": {

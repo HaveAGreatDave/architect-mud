@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_broth_counter",
   "id": "zone_broth_galley",
   "max_capacity_kw": 200,
   "name": "Oyelaran's — Galley",

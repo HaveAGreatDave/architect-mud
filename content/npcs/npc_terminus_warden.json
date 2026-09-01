@@ -106,32 +106,8 @@
     },
     "root": {
       "actions": [],
-      "first": "\"You came a long way to look at a door.\" She says it without any edge at all. \"I'm the door. Ask what you like, and then go and trade with Stannard, because that's what there is here for you.\"",
+      "first": "\"You came a long way to look at a door.\" She says it without any edge at all. \"I'm the door. Ask what you like, and then go and trade with Stannard, because that's what there is here for you.\"\n\n\"What were you expecting to find?\"",
       "options": [
-        {
-          "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_admitted",
-              "op": "set"
-            }
-          ],
-          "enabled": true,
-          "label": "The child let me in.",
-          "next": "inside"
-        },
-        {
-          "actions": [],
-          "conditions": [
-            {
-              "flag": "terminus_admitted",
-              "op": "set"
-            }
-          ],
-          "enabled": true,
-          "label": "The child let me in.",
-          "next": "inside"
-        },
         {
           "actions": [],
           "conditions": [

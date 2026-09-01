@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "Everything here is a sentence and you are reading all of it at once, perfectly, for the first time in your life. It is spoken in shape, it is about you and about the arrangement of everything, and you can already feel the understanding declining to come back with you.",
   "drug_id": "drug_dmt",
-  "fx": "snow",
-  "fx_intensity": 1,
+  "fx": "bloom",
+  "fx_intensity": 0.85,
   "id": "dt_dmt_the_language",
   "name": "The Language",
   "objects": [

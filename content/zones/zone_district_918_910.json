@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Layers",
     "building_type": "outfitter",
-    "district": "wasteland",
+    "district": "marrow",
     "entrance": "north",
     "facade": true,
     "is_building": true,

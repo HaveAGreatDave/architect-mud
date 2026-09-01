@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A broadcast booth with the ON AIR light off and the desk still warm. Every fader is up. The monitors show a level that is not coming from anywhere. Whoever was talking stopped mid-word, and the room has the specific quality of a room that has just been listening.",
   "drug_id": "drug_deadair",
-  "fx": "ash",
-  "fx_intensity": 0.3,
+  "fx": "bloom",
+  "fx_intensity": 0.45,
   "id": "dt_deadair_studio",
   "name": "The Dead Studio",
   "objects": [

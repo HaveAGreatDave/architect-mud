@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A layer at the edge lifts a little and lies back down.",
+    "Something crosses the surface above and does not go over the side.",
+    "The edge continues away from you in both directions, at the same thickness."
+  ],
+  "cause": "drug",
+  "description": "The world here is a surface with a thickness, and you have got to the side of it. The thickness is about the width of a hand. Everything is painted on the top and it is painted well and the edge shows the layers, and you can count them, and there are more than there should be.",
+  "drug_id": "drug_salvia",
+  "fx": "crawl",
+  "fx_intensity": 0.8,
+  "id": "dt_salvia_the_edge_of_the_flat",
+  "name": "The Edge Of The Flat",
+  "objects": [
+    {
+      "looks": [
+        "Layers. Pressed. Each one a whole world done in a very thin coat.",
+        "You count eleven and lose the count and it is more than eleven.",
+        "The top one is the one you have been living on and it is the thinnest."
+      ],
+      "name": "the edge"
+    },
+    {
+      "looks": [
+        "Nothing. Not dark. Nothing, in the way the back of a picture is nothing.",
+        "It supports the surface without touching it.",
+        "You put a hand under and the hand is on the top again."
+      ],
+      "name": "underneath"
+    }
+  ],
+  "weather": "Air on one face only."
+}

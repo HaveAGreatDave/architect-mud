@@ -1,7 +1,24 @@
 # Map Pipeline Redesign — authoring, deriving and shipping the world map
 
-**Status: PROPOSAL. Nothing here is built.** Step 1 of 4 — investigate and plan. Steps 2
-(design in detail), 3 (cut over) and 4 (ship) follow a decision on the shape below.
+**Status: MOSTLY BUILT, piecemeal** (restamped 2026-08-30 against the world). This said "Nothing
+here is built" while four of its six settled decisions were shipping. They did not arrive as steps
+2–4 of this plan; they arrived one at a time, through whatever change happened to need them.
+
+| decision | state |
+|---|---|
+| The Studio owns all authored per-tile data | ✅ [`tools/studio/`](../../tools/studio/README.md) |
+| `tools/zone-planner` retired | ✅ gone; the dev-panel map editor remains |
+| Connections become their own table | ✅ `connections` |
+| Derived data in generated `runtime` tables | ⚠️ `zone_edges` yes, **`zone_render` never built** |
+| `suggestBuildingMarker()` read-only | ✅ `6a36f907` (this doc already said so) |
+| **Zone ids stop encoding coordinates** | ❌ still `zone_district_918_947`, `zone_scw_1024_957` |
+
+**So the outstanding work is two rows, not four steps.** `zone_render` and the id scheme are the
+only decisions here nobody has acted on, and the id change is the expensive one — every id in
+`content/`, every cross-reference, and the grid lookups that parse coordinates back out of a name.
+
+Original framing: step 1 of 4 — investigate and plan. Steps 2 (design in detail), 3 (cut over) and
+4 (ship) followed a decision on the shape below; in practice the cutover happened without them.
 
 Written 2026-07-26 against the working tree on `claude/agitated-hermann-382b76`; revised twice
 the same day after John's corrections. Every factual claim carries a `file:line` or a

@@ -38,7 +38,7 @@ import { query } from '../../server/models/db.js';
 import { getZone, world, getZoneNpcs, getZonePlayers, getZoneFurniture, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
-import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, getNpcTransforms, clearTransforms, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
+import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, addPlayerTransform, getNpcTransforms, clearTransforms, clearTransformsForRedress, beginTransformFade, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
 import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
 import { getRelation, relationTier } from '../../server/engine/relations.js';
 
@@ -233,7 +233,10 @@ async function loadTransformPool(state) {
  *      never there — the phantom half of the same engine law
  */
 async function applyTransformsHere(player, state) {
-  clearTransforms(player.id);
+  // Re-dressing, not coming down: the old shapes are replaced by new ones a beat
+  // later, so any pending comedown fade must go with them or a piece animates
+  // back to its real name in the middle of the trip.
+  clearTransformsForRedress(player.id);
   clearPhantoms(player.id);
   state.transformZone = player.current_zone;
 
@@ -298,17 +301,34 @@ async function applyTransformsHere(player, state) {
   // ones who stay themselves are what make the changed one land, exactly as with
   // the furniture. Talking to them, and hitting them, still reaches the real
   // person (see commands/social.js and plugins/weapon).
+  // A PERSON is a person. Other players are drawn from the same pool and the
+  // same roll as the NPCs, because the drug does not know the difference and
+  // neither should the authoring: a bar where the staff can turn into herons and
+  // the customers never can is a rule the player will work out and then use.
+  // They go in one shuffled list so the two or three that change are picked
+  // across everybody in the room rather than one from each kind.
   const personPool = scoped('person');
-  const npcsHere = getZoneNpcs(player.current_zone) || [];
-  if (personPool.length && npcsHere.length) {
-    const targets = [...npcsHere].sort(() => Math.random() - 0.5).slice(0, 1 + (Math.random() < 0.35 ? 1 : 0));
-    for (const n of targets) {
-      const fits = personPool.filter(t => !t.matches || (n.npc_type || '').toLowerCase().includes(t.matches.toLowerCase()));
-      const t = one(fits.length ? fits : personPool);
-      addNpcTransform(player.id, n.id, {
+  const npcsHere = (getZoneNpcs(player.current_zone) || []).map(n => ({ kind: 'npc', row: n }));
+  const playersHere = (getZonePlayers(player.current_zone) || [])
+    .filter(p => p.id !== player.id)
+    .map(p => ({ kind: 'player', row: p }));
+  const peopleHere = [...npcsHere, ...playersHere];
+  if (personPool.length && peopleHere.length) {
+    const targets = [...peopleHere].sort(() => Math.random() - 0.5).slice(0, 1 + (Math.random() < 0.35 ? 1 : 0));
+    for (const { kind, row } of targets) {
+      // `matches` narrows a transform to a kind of person by npc_type. A player
+      // has no npc_type, so only unnarrowed entries fit one — which is correct:
+      // a transform written for bartenders should not fire on a stranger.
+      const against = kind === 'npc' ? (row.npc_type || '') : '';
+      const fits = personPool.filter(t => !t.matches || against.toLowerCase().includes(t.matches.toLowerCase()));
+      const t = one(fits.length ? fits : personPool.filter(x => !x.matches));
+      if (!t) continue;
+      const spec = {
         name: t.name, description: t.description, looks: arr(t.looks), says: arr(t.says),
         emotes: arr(t.emotes), asks: arr(t.asks),
-      });
+      };
+      if (kind === 'npc') addNpcTransform(player.id, row.id, spec);
+      else addPlayerTransform(player.id, row.id, spec);
     }
   }
 
@@ -791,6 +811,12 @@ function endTrip(playerId, { reason } = {}) {
   state.timers.forEach(clearTimeout);
   state.intervals.forEach(clearInterval);
   clearPhantoms(playerId);
+  // Coming down where the player can watch it: snapshot what they are being
+  // shown FIRST, so the next render animates the room back to the truth the same
+  // way it animated away from it. Skipped on death and on a silent logout
+  // teardown — nobody is looking, and a fade left in memory for either would
+  // fire on some unrelated later look.
+  const fading = (reason !== 'death' && reason !== 'silent') ? beginTransformFade(playerId) : null;
   clearTransforms(playerId);   // the room stops misbehaving
   forgetSaid(playerId);        // nobody carries this trip into the next one
   endConversation(playerId);   // and nothing is still mid-sentence
@@ -822,6 +848,12 @@ function endTrip(playerId, { reason } = {}) {
       sendToPlayer(playerId, { type: 'trip_end' });
       if (reason !== 'death') sendToPlayer(playerId, { type: 'output', message: '<span class="msg-system">The colours drain back to grey. You come down.</span>' });
     }
+    // Re-look so the comedown is WATCHED rather than discovered. Without this the
+    // room only corrects itself the next time the player happens to look, which
+    // for anyone standing still is minutes later and reads as a glitch. The
+    // dreamzone branch above has already forced one; a fade with nothing left to
+    // animate is what makes a second harmless, but there is no reason to send it.
+    if (fading && state.mode !== 'dreamzone') sendToPlayer(playerId, { type: 'force_look' });
   }
 }
 

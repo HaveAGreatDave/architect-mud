@@ -3,6 +3,7 @@
 // doesn't depend on (possibly uncommitted) world content being loaded.
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
   addPlayerToZone, removePlayerFromZone, getEnemyInstance, removeEnemyInstance, getMinimapData, getZoneEnemies, getAllZones } from '../../server/engine/world.js';
+import { readdirSync, readFileSync } from 'node:fs';
 import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
@@ -729,6 +730,29 @@ export default async function regress({ run, check, getPlayer }) {
     // `vtol_only, charter: false`, so a trucker who drove there was stranded unless they already
     // owned an aircraft. Anything reachable has to be leavable, and the return has to be the SAME
     // distance, or the tank that got you there cannot get you back.
+    // ⚠ EVERY REGION NEEDS A ROAD, AND THE SWEEP BELOW CANNOT SEE THE ONES THAT DON'T.
+    // The two loops after this one both start from `VOIDS`, so they only ever ask about
+    // regions that are already in the table — which means a region shipped with NO entry
+    // at all is invisible to the whole file. The Scarletwastes shipped exactly that way:
+    // four regions were in the table, the fifth was not mentioned in either direction, and
+    // the only way in was to fly. A player without an aircraft could not reach the
+    // Thornwarren or any of its NPCs, and nothing went red. It was found by somebody
+    // reading the table, months later.
+    //
+    // So this one starts from the CONTENT instead. `content/regions/` is the roster; a
+    // region that exists in the world and not in this graph is a place with no road.
+    const authoredRegions = readdirSync('content/regions')
+      .filter(f => f.endsWith('.json'))
+      .map(f => JSON.parse(readFileSync(`content/regions/${f}`, 'utf8')).id)
+      .filter(Boolean);
+    check('every authored region is on the road graph — the roster is not empty',
+      authoredRegions.length > 0, String(authoredRegions.length));
+    for (const id of authoredRegions) {
+      check(`${id} has an overland route — it is in VOIDS at all`, !!VOIDS[id], id);
+      const inbound = Object.values(VOIDS).some(v => v.dests.some(d => d.region === id));
+      check(`…and something leads TO ${id}`, inbound, id);
+    }
+
     for (const v of Object.values(VOIDS)) {
       for (const d of v.dests) {
         const to = d.region;

@@ -1,0 +1,37 @@
+{
+  "cooldown_min": 480,
+  "description": "Flashpoint. Still no danger to the player in 1c — the danger arrives in 1d and stages on top of this same cell state.",
+  "duration_min": 90,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_bin_fire",
+  "min_band": "flashpoint",
+  "name": "Something is burning",
+  "stage": [
+    {
+      "do": "sound",
+      "loudness": 8,
+      "text": "Glass goes, somewhere off to one side, and nobody shouts about it."
+    },
+    {
+      "do": "ambient",
+      "lines": [
+        "A bin is burning in the mouth of the alley and nobody is watching it.",
+        "Smoke goes across the street at knee height and smells like a solvent.",
+        "The pavement is glass from wall to kerb and people are walking on it anyway."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "It has properly gone off in {place}. I would not walk it tonight, not for money."
+    },
+    {
+      "do": "news",
+      "text": "A minor fire in {place} has been contained — the cause is under review and there is no risk to Basin infrastructure."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 14,
+  "writes": "heat"
+}
+

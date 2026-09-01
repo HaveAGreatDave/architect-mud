@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "The enormous thing you have just understood turns out to be common knowledge, and always was, and the room is faintly amused that you have only got here now. Nobody is unkind about it. This is simply the ordinary state of things and you had not been paying attention.",
   "drug_id": "drug_nitrous",
-  "fx": null,
-  "fx_intensity": 0.5,
+  "fx": "bloom",
+  "fx_intensity": 0.55,
   "id": "dt_nitrous_everyone_knew",
   "name": "Everyone Already Knew",
   "objects": [

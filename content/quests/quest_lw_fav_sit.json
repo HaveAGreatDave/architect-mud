@@ -1,36 +1,75 @@
 {
   "category": null,
-  "description": "Somebody has to sit the post while somebody else sleeps. The Blind looks down the length of the wash and the shortwave mutters to itself, and the whole of the job is that you are there and awake. Pike will not thank you. Pike has sat it ten thousand times.",
-  "fail_on": [],
+  "description": "The Watch have one working wireless set and use it as little as they can, because using it is the most dangerous thing anybody in the order does.\n\nHalcyon run detection vans. Two of them take a bearing on a signal from different streets, and where the bearings cross is a roof, and then a building, and then a room. In a district this dense they can do it in half an hour.\n\nSo the drill is twenty minutes, start to finish. Climb, string the aerial, send, take it down, and be somewhere else.\n\nPike carries the set up for you, and says the only thing anybody ever says about this job.\n\n\"The set is worth more than the message. If you have to choose, you throw the message off the roof and you carry the set down.\"",
+  "fail_on": [
+    {
+      "count": 1200,
+      "desc": "Twenty minutes. A van has been sitting at the end of Kessler for six of them, and now there is a second one on the parallel street, and the two of them have your roof.",
+      "id": "f_van",
+      "type": "timeout"
+    }
+  ],
   "id": "quest_lw_fav_sit",
   "meta": {},
-  "name": "A Turn on the Blind",
+  "name": "Twenty Minutes",
   "objectives": [
     {
-      "desc": "Sit the post at the Blind. Do not open the door.",
+      "desc": "Take the wireless set from the Blind.",
       "emotes": [
-        "{who} watches the mirror down the length of the wash, and nothing comes.",
-        "{who} listens to the shortwave mutter, and nothing in it is for them.",
-        "{who} shifts once on the stool and settles again."
+        "{who} finds out what six kilos of suitcase does to the way a person walks."
       ],
-      "id": "o_sit",
-      "taskSeconds": 30,
+      "id": "o_set",
+      "item_id": "item_lw_wireless",
+      "type": "retrieve",
+      "zone": "zone_lw_bunk"
+    },
+    {
+      "desc": "Get up to the roof on Kessler and string the aerial.",
+      "emotes": [
+        "{who} runs the wire along a gutter, because a wire along a gutter is a gutter.",
+        "{who} works out which way is west from a chimney and hopes it is close enough."
+      ],
+      "id": "o_roof",
+      "requires": [
+        "o_set"
+      ],
       "type": "visit",
-      "zone": "zone_lw_blind"
+      "zone": "zone_district_921_909"
+    },
+    {
+      "desc": "Send. Keep it short.",
+      "emotes": [
+        "{who} sends the traffic first and the pleasantries never.",
+        "{who} watches the street between groups of letters."
+      ],
+      "id": "o_send",
+      "requires": [
+        "o_roof"
+      ],
+      "type": "hack"
+    },
+    {
+      "desc": "Get the set down and get off that roof.",
+      "emotes": [
+        "{who} coils the aerial on the way down rather than at the top.",
+        "{who} takes a different street home than the one they came up."
+      ],
+      "id": "o_clear",
+      "requires": [
+        "o_send"
+      ],
+      "type": "visit",
+      "zone": "zone_lw_bunk"
     }
   ],
   "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
-    "credits": 40,
-    "rep": [
-      {
-        "delta": 40,
-        "ideology": "ideology_long_watch"
-      }
-    ],
-    "xp": 12
+    "credits": 140,
+    "flags": [],
+    "items": [],
+    "xp": 30
   },
   "updated_at": "1787379039"
 }

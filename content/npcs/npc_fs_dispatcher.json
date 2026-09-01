@@ -137,6 +137,7 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"...So what's on the board?\"",
           "text": "\"...So what's on the board?\""
         }
       ],
@@ -146,6 +147,7 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"So what's on it?\"",
           "text": "\"So what's on it?\""
         }
       ],
@@ -189,6 +191,7 @@
               "scope": "player"
             }
           ],
+          "label": "\"Someone who eats. That's all.\"",
           "next": "eat",
           "text": "\"Someone who eats. That's all.\""
         },
@@ -228,6 +231,7 @@
               "scope": "player"
             }
           ],
+          "label": "\"Someone who remembers what all this was before.\"",
           "next": "remember",
           "text": "\"Someone who remembers what all this was before.\""
         },
@@ -267,6 +271,7 @@
               "scope": "player"
             }
           ],
+          "label": "\"Whatever the Architect needs me to be.\"",
           "next": "architect",
           "text": "\"Whatever the Architect needs me to be.\""
         },
@@ -306,6 +311,7 @@
               "scope": "player"
             }
           ],
+          "label": "\"The one who pulls the plug on all of it, eventually.\"",
           "next": "breaker",
           "text": "\"The one who pulls the plug on all of it, eventually.\""
         }
@@ -316,6 +322,7 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"So what's on it?\"",
           "text": "\"So what's on it?\""
         }
       ],
@@ -330,13 +337,16 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"What else is on the board?\"",
           "text": "\"What else is on the board?\""
         },
         {
+          "label": "\"Is this ever going to be more than tabs?\"",
           "next": "steady",
           "text": "\"Is this ever going to be more than tabs?\""
         },
         {
+          "label": "\"Is this all there is?\"",
           "next": "who_hires",
           "text": "\"Is this all there is?\""
         }
@@ -347,6 +357,7 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"So what's on it?\"",
           "text": "\"So what's on it?\""
         }
       ],
@@ -375,6 +386,7 @@
               "scope": "player"
             }
           ],
+          "label": "\"Something on your mind, Delia?\"",
           "next": "creed",
           "text": "\"Something on your mind, Delia?\""
         },
@@ -387,6 +399,7 @@
               "value": "true"
             }
           ],
+          "label": "\"I finished a job. Here.\"",
           "next": "job_turnin",
           "text": "\"I finished a job. Here.\""
         },
@@ -398,6 +411,7 @@
               "scope": "player"
             }
           ],
+          "label": "\"Is the board all there is?\"",
           "next": "who_hires",
           "text": "\"Is the board all there is?\""
         },
@@ -409,11 +423,13 @@
               "scope": "player"
             }
           ],
+          "label": "\"Is there anything steadier than a tab?\"",
           "next": "steady",
           "text": "\"Is there anything steadier than a tab?\""
         },
         {
           "cmd": "gigs",
+          "label": "\"What's on the board?\"",
           "text": "\"What's on the board?\""
         }
       ],
@@ -423,15 +439,13 @@
       "options": [
         {
           "cmd": "work",
+          "label": "\"Who's taking people on?\"",
           "text": "\"Who's taking people on?\""
         },
         {
+          "label": "\"What's the catch?\"",
           "next": "steady_warn",
           "text": "\"What's the catch?\""
-        },
-        {
-          "cmd": "gigs",
-          "text": "\"I'll stay on the tabs.\""
         }
       ],
       "text": "She squares the clipboard she doesn't need to square. \"Let me tell you what my board actually is, since you've now done one. It's tabs. A tab is an errand. Ten, fifteen credits, and then it's over and you're standing here again.\" No bitterness in it; she's reading a meter. \"It exists so nobody starves in their first week. It is not a living, and whoever tells you it is, is taking something off the top.\" A drag. \"A shift is a living. Somebody puts you behind a counter for a stretch and pays you for the stretch, and tips on top if you turn out to be any good at it. It's dull work. Dull is the entire point. Dull is how you finish a week holding more than you started it with.\""
@@ -440,11 +454,8 @@
       "options": [
         {
           "cmd": "work",
+          "label": "\"Fine. Where?\"",
           "text": "\"Fine. Where?\""
-        },
-        {
-          "cmd": "gigs",
-          "text": "\"Some other time.\""
         }
       ],
       "text": "\"The catch is it's real time and you can be thrown off it.\" She holds up fingers, flat. \"You turn up and you say clock in. Then you stay. Wander off, start a fight, and you've walked out mid-shift and they'll pay you for the part you did and remember the part you didn't. Whatever the floor throws at you, deal with it while it's still in front of you. Keep whoever's watching you happy and there's a tip in it. Let it slide and they'll send you home early and light.\" She almost smiles. \"That's the whole trade. It's the most honest arrangement in this basin, which tells you plenty about the basin.\""
@@ -452,11 +463,13 @@
     "the_waste": {
       "options": [
         {
+          "label": "\"Where do they go?\"",
           "next": "the_waste_how",
           "text": "\"Where do they go?\""
         },
         {
           "cmd": "gigs",
+          "label": "\"Sounds like a way to die.\"",
           "text": "\"Sounds like a way to die.\""
         }
       ],
@@ -466,6 +479,7 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"I'll stick to the board. For now.\"",
           "text": "\"I'll stick to the board. For now.\""
         }
       ],
@@ -474,15 +488,18 @@
     "who_hires": {
       "options": [
         {
+          "label": "\"Who's on that shift?\"",
           "next": "who_hires_names",
           "text": "\"Who's on that shift?\""
         },
         {
+          "label": "\"Is that everyone who leaves?\"",
           "next": "the_waste",
           "text": "\"Is that everyone who leaves?\""
         },
         {
           "cmd": "gigs",
+          "label": "\"The board's fine by me.\"",
           "text": "\"The board's fine by me.\""
         }
       ],
@@ -492,6 +509,7 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"Noted. Anything on the board meanwhile?\"",
           "text": "\"Noted. Anything on the board meanwhile?\""
         }
       ],

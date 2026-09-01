@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A kitchen table with two places set. You are at one of them. The other is taken by you at an age when you were still being asked what you wanted. Neither of you is going to raise their voice. The whole night is available for this.",
   "drug_id": "drug_ibogaine",
-  "fx": "fog",
-  "fx_intensity": 0.3,
+  "fx": "bloom",
+  "fx_intensity": 0.4,
   "id": "dt_ibogaine_the_table",
   "name": "The Table",
   "objects": [

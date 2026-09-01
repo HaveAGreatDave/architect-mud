@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "The Cherry Pit",
     "building_type": "club",
-    "district": "wasteland",
+    "district": "glasshouse",
     "entrance": "east",
     "facade": true,
     "is_building": true,

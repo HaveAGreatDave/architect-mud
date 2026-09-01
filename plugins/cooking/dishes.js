@@ -752,6 +752,67 @@ export const DISHES = {
     ceiling: 'masterful', difficulty: 9,
     blurb: 'Tomato cooked down hard, a slug of gin off the heat, cream in last. The alcohol goes, the juniper stays, and the sauce clings to the ridges the way it is supposed to.',
   },
+  // Baked macaroni and cheese, the way the soup kitchen under St Garneau's makes
+  // it: three cheeses if three can be got, a milk custard poured down through it,
+  // and most of an hour in a moderate oven so it comes out of the tray in squares.
+  //
+  // ANCHORED BY NOUN, NOT BY keyItems, and that distinction is the whole reason
+  // this template works. A keyItem is an exact id and every one listed is
+  // mandatory, so naming the box would forbid any second macaroni the world ever
+  // sells, and a version made with one cheese rather than three would be refused
+  // for want of a specific block. `requires` is the level the rule actually lives
+  // at: the class still does the counting, and something in it has to answer to
+  // the name. Penne and cream on a tray is a gratin with ideas. This is macaroni,
+  // and it is cheese, however either of them happens to be sold.
+  //
+  // THE FAT IS REQUIRED, for the reason penne alla gin's is: the method greases
+  // the tray with it and melts it into the custard, and a step that names an
+  // ingredient the recipe does not ask for is a decorative lie. Butter or oil,
+  // either; it is a modifier, so it seasons rather than scoring.
+  mac_and_cheese: {
+    noun: 'mac and cheese', vessel: 'tray',
+    // The dairy band is wide on purpose. Two units is one block with the milk
+    // counting itself, which is a real and slightly thin version of this dish;
+    // four is the one the recipe is actually about. Nothing in the range punishes
+    // going to the top of it, which is the correct opinion to hold about cheese.
+    needs: { dry_starch: [1, 2], dairy: [2, 4], liquid: [1, 2], egg: [1, 2], fat_or_oil: 1 },
+    optional: ['aromatic'],
+    nameSlots: [],
+    nameFormat: 'mac and cheese',
+    requires: { dry_starch: 'macaroni', dairy: 'cheese' },
+    nouns: { dry_starch: 'macaroni', dairy: 'cheese', liquid: 'milk' },
+    // The egg, the milk and the melted butter are one thing, and that thing is a
+    // custard rather than a sauce, which is the part everybody gets wrong.
+    // Grouping them says so on the shopping list instead of filing three errands
+    // flat beside the pasta.
+    parts: [{ label: 'the custard', of: ['egg', 'liquid', 'fat_or_oil'], steps: [3] }],
+    seasoning: 2,
+    notes: {
+      dry_starch: 'a whole box for a tray, boiled short and drained, since it has forty minutes in the oven still to go',
+      dairy: 'three kinds if three can be got: one sharp, one that pulls, one that melts smooth',
+      liquid: 'milk, out of the cold a while before it meets the eggs, and a spoon of cream with it if there is any',
+      egg: 'beaten into the milk, and the reason the tray cuts into squares',
+      fat_or_oil: 'butter, melted into the custard, and more of it for the tray',
+      aromatic: 'mustard powder and salt, which you will not taste and are not meant to',
+    },
+    // TWO VESSELS, and the method says so, same as penne alla gin. The macaroni
+    // boils in a POT and the dish is built in the TRAY, and the two only meet
+    // once the pasta has been drained. Every verb in it is one the game already
+    // has: `fill pot`, `cook pot`, `drain pot`, `stow macaroni in tray`,
+    // `cook tray`, `plate tray`.
+    steps: [
+      'Butter the tray first, corners and all. That is the difference between serving it and chiselling it out.',
+      'Fill a pot at the tap and get it on the heat. Salt the water heavily, a slug of oil in, then the macaroni.',
+      'Boil it short and drain it while it still has some fight in it. It has most of an hour in the oven ahead of it, and soft macaroni is a thing you did rather than a thing that happened to you.',
+      'Beat the eggs into the milk, mustard powder and salt through it, and the butter melted in last. That is the custard, and it is what makes the tray cut into squares instead of running off the spoon.',
+      'All the cheese into one bowl and mixed together before any of it goes near the tray, so no square comes out being only the cheap one.',
+      'Half the macaroni into the tray, half the cheese over that, then the rest of the macaroni. Do not stir it into one thing. The layers are the entire argument.',
+      'Custard over the lot, slowly, until it comes up level through the macaroni. The last of the cheese on top.',
+      'In until the top browns and the middle has stopped wobbling. Then leave it standing ten minutes, which is the hardest step in it.',
+    ],
+    ceiling: 'masterful', difficulty: 6,
+    blurb: 'Three cheeses, a milk custard poured down through it, and most of an hour in the oven. It comes out of the tray in squares, and that is the whole case for making it this way.',
+  },
   ramen: {
     noun: 'ramen', vessel: 'pot',
     keyItems: ['item_ramen_noodles'],

@@ -1,5 +1,5 @@
 {
-  "addiction_chance": 0.01,
+  "addiction_chance": 0,
   "description": "A waxy white-orange resin. Fifteen minutes, and you will be told something you cannot bring back.",
   "duration_seconds": 150,
   "effects": {

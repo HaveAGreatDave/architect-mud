@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A wide flat place with a low ceiling, lit evenly by nothing in particular. You are very heavy here. Everything you decide to do happens a moment after you decide it, and the gap has stopped bothering you.",
   "drug_id": "drug_dxm",
-  "fx": "fog",
-  "fx_intensity": 0.55,
+  "fx": "tunnel",
+  "fx_intensity": 0.6,
   "id": "dt_dxm_the_plateau",
   "name": "The Plateau",
   "objects": [

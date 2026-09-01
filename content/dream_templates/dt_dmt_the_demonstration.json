@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The whole sequence runs again, faster, because you did well.",
+    "A part of it is held still for you, kindly, and then released.",
+    "Something checks that you are following and decides that you are."
+  ],
+  "cause": "drug",
+  "description": "They are showing you how it works. The whole of it, from the beginning, at the speed they think you can take. It is going too fast and they are delighted with how you are doing, and they will run it again from the top as many times as you need.",
+  "drug_id": "drug_dmt",
+  "fx": "tracers",
+  "fx_intensity": 0.75,
+  "id": "dt_dmt_the_demonstration",
+  "name": "The Demonstration",
+  "objects": [
+    {
+      "looks": [
+        "Beginning, middle, end, and it is all three at once and that is the point.",
+        "You understood it. You are not able to say what it was.",
+        "It resolves into one motion, and the motion is obvious, and it goes."
+      ],
+      "name": "the demonstration"
+    },
+    {
+      "looks": [
+        "Patient in the way of teachers who love the material.",
+        "They have done this for others. They mention this, somehow, without saying it.",
+        "They are pleased. They were pleased before you arrived."
+      ],
+      "name": "the ones showing you"
+    }
+  ],
+  "weather": "The dry, charged air of something running at full power."
+}

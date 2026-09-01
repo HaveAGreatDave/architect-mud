@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#c67a86",
-  "description": "THE FLESHERY. Gristle's tent, and it smells of iodine and copper. Racks of clean tools, a scrubbed slab, jars of things budding in cloudy fluid. Gristle keeps it all gentle and spotless, which is somehow worse. This is where the Quickening is done: south, at the pool.",
+  "description": "The tent is gone and the frame it stood on is still pegged out. In the middle of it is a stone slab, scrubbed, with a drain cut into one end and a shallow gutter worked around three sides. It has been rained on for a long time and it is still the cleanest thing for a mile.",
   "exits": {
     "east": "zone_district_921_925",
     "north": "zone_district_920_924",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_920_925",
   "map_id": "map_world",
-  "name": "The Fleshery",
+  "name": "The Scrubbed Slab",
   "parent_zone": null
 }

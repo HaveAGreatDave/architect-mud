@@ -12,7 +12,7 @@
     "ascendant_campus": true,
     "building_name": "The Weave",
     "building_type": "asc_weave",
-    "district": "wasteland",
+    "district": "glasshouse",
     "entrance": "east",
     "facade": true,
     "floors": 5,

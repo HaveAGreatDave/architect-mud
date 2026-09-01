@@ -7,7 +7,7 @@
   "cause": "drug",
   "description": "The pattern has begun to fold itself down into a shape you could leave through. This is being done for you, and well, and with a certain formality. There is a great deal of goodwill here and none of it will come back with you.",
   "drug_id": "drug_dmt",
-  "fx": "fog",
+  "fx": "tracers",
   "fx_intensity": 0.6,
   "id": "dt_dmt_the_gate_back",
   "name": "The Way Back",

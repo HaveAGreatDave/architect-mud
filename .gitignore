@@ -16,3 +16,17 @@ tools/combat-sim/combat-sim.html
 
 # Free-tier watch: scheduled-task stdout (the history JSON beside it IS committed)
 data/ops/last-run.log
+
+# Saved regress output. `npm run test:regress > reg.log 2>&1` is the correct way
+# to read the trailing "N/N passed" line — piping to tail reports TAIL's exit
+# code, not the suite's — so these accumulate in the repo root. ~570 KB each.
+reg*.log
+
+# Push output. The pre-push hook runs the whole suite, so a push is redirected to a file
+# for the same reason a regress run is — reading its exit code through a pipe reports the
+# PIPE, not the push, and the line that actually matters is `main -> main`.
+push*.log
+
+# One-off DB probes written to answer a single question and never deleted.
+scratch_*.mjs
+tmp-*.mjs

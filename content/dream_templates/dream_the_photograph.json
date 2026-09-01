@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Somebody walks past behind you and slows at the photograph, as people do.",
+    "The frame is straightened by nobody and stays straightened.",
+    "A name comes back to you, and then the rest of that person."
+  ],
+  "cause": "dream",
+  "description": "A group photograph on a wall, of a day you were not there for, and you are in it. Second row. You remember the morning of it. You remember what you had been arguing about and who drove and the smell of the hall, and you were not there, and the photograph has been on this wall for years.",
+  "drug_id": null,
+  "fx": "ash",
+  "fx_intensity": 0.35,
+  "id": "dream_the_photograph",
+  "name": "The Photograph",
+  "objects": [
+    {
+      "looks": [
+        "Second row, fourth from the left, squinting. You were squinting all day.",
+        "Everyone in it is the age they were. So are you.",
+        "The glass has your breath on it from standing this close."
+      ],
+      "name": "the photograph"
+    },
+    {
+      "looks": [
+        "A date. You can account for that date.",
+        "The names, in order, and yours in the correct position.",
+        "Somebody has written it out carefully, and they knew everyone."
+      ],
+      "name": "the caption"
+    }
+  ],
+  "weather": "The dry warmth of a corridor with radiators and no window."
+}

@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "You live here. You have always lived here, the arrangement is entirely familiar, and there is a bag by the door with the whole of your life in the Basin folded up inside it. That was the holiday. You are back now, and everything is where you left it.",
   "drug_id": "drug_threshold",
-  "fx": "wind",
-  "fx_intensity": 0.4,
+  "fx": "crawl",
+  "fx_intensity": 0.5,
   "id": "dt_threshold_residence",
   "name": "The Residence",
   "objects": [

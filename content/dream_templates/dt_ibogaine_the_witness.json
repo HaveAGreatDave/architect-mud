@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "It runs on past the point where you stop it.",
+    "Nothing is said.",
+    "The thing you did is done again, at the speed it happened."
+  ],
+  "cause": "drug",
+  "description": "Something is watching a thing you did, with you, from the position you were in at the time. It has no opinion. It stays for the whole of it, including the parts you have never let run to the end, and it is still there afterwards.",
+  "drug_id": "drug_ibogaine",
+  "fx": "tunnel",
+  "fx_intensity": 0.55,
+  "id": "dt_ibogaine_the_witness",
+  "name": "The Witness",
+  "objects": [
+    {
+      "looks": [
+        "From where you were standing. The angle is right.",
+        "It takes as long as it took. Not longer.",
+        "The part you remember is a small part of it and it is in there."
+      ],
+      "name": "the thing you did"
+    },
+    {
+      "looks": [
+        "Present. Watching. Not judging and not withholding judgement.",
+        "It was there at the time, which is a thing you had not considered.",
+        "It has no face and it is turned the same way as you."
+      ],
+      "name": "the witness"
+    }
+  ],
+  "weather": "Still, with no draught, in a space that has stopped for this."
+}

@@ -90,7 +90,14 @@
         "stat_brains": -2,
         "stat_cool": -2
       },
-      "onset_seconds": 2400
+      "onset_seconds": 2400,
+      "stages": {
+        "easing": "The certainty stops being aggressive about it.",
+        "onset": "The world thickens up. Everything is exactly as solid as it says it is.",
+        "peak": "It is all completely certain of itself and none of it will admit anything, and the thing you saw through the thin patch is still in the room and has stopped being visible.",
+        "rising": "You keep checking corners for a seam and finding a corner.",
+        "tail": "Solid, ordinary, and closed. The legions are drawing off and not all of them have gone."
+      }
     }
   },
   "flags": {

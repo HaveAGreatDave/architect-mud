@@ -1,6 +1,18 @@
 # District Interior Pass v2 — Proposal & Phased Build Plan
 
-**Status:** REPLANNED 2026-07-11, not built. Supersedes the 2026-07-03 plan, which targeted the
+**Status: BUILT, by other means** (restamped 2026-08-30 against the world, not against this plan).
+The insides exist: **541** zones carry a `parent_zone` and **669** carry `flags.floor`. They were not
+built by walking the phases below — the interior work arrived through the ensuite generator, the
+building generator and the district population passes — so the plan is superseded rather than
+completed, and the phase list is kept as the reasoning that shaped it.
+
+⚠ **This doc said "not built" for seven weeks after it was.** Nothing could have caught that:
+`docs:lint` fires when a status line contradicts its own BODY, and this body is honest design. The
+world moving past a doc is invisible to every gate we have, so a status line here is only ever as
+current as the last person who thought to check it against the database.
+
+The superseded history, kept because it explains what this was for:
+REPLANNED 2026-07-11. Supersedes the 2026-07-03 plan, which targeted the
 coldwater expansion districts (North City / Docks / Yards / Undermarket / Wastes) — **those zones no
 longer exist**. The map migration (2026-07-11) replaced the surface with the generated 888-tile
 district (`tools/zone-planner` + `bp_district`), and the population wave gave it street life, scav,

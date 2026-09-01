@@ -9,7 +9,9 @@
     {
       "desc": "Take the sealed box up the road and leave it at the gate.",
       "emotes": [
-        "{who} sets the box down in front of the gate and steps back off it."
+        "{who} sets the box down in front of the gate and steps back off it.",
+        "{who} walks the box up a road with nobody on it and a wall at the end of it.",
+        "{who} does not open the box, and is aware for the whole walk of not opening it."
       ],
       "id": "o_gate",
       "type": "visit",
@@ -18,7 +20,8 @@
     {
       "desc": "Bring the empty back to Ivo Stannard at Last Requisition.",
       "emotes": [
-        "{who} comes back down the road with an empty box and nothing to report."
+        "{who} comes back down the road with an empty box and nothing to report.",
+        "{who} hands the empty over and watches a man look at it for longer than an empty box needs."
       ],
       "id": "o_back",
       "type": "visit",

@@ -2,7 +2,7 @@
   "blurb": "The city’s underside, folded in on itself and still breathing.",
   "color": "#cf6a2e",
   "id": "slum",
-  "landmark": "slums",
+  "landmark": null,
   "name": "the Sprawl",
   "prefixes": [
     "deep",

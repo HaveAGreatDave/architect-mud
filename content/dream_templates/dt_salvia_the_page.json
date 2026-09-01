@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "You are a page a long way into a book, and somebody is reading you, and you have been the same eleven words for a very long time. The reading is unhurried. When the page turns you will go with it and stop being a page, and you have no view about that.",
   "drug_id": "drug_salvia",
-  "fx": "rain",
-  "fx_intensity": 0.35,
+  "fx": "crawl",
+  "fx_intensity": 0.7,
   "id": "dt_salvia_the_page",
   "name": "The Page",
   "objects": [

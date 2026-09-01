@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Do you want this remembered?",
+    "Would you like to say it properly, for the record?",
+    "Is this the part that matters?"
+  ],
+  "description": "A person in plain unbleached robes standing where they can see the whole room. They are not doing anything and do not intend to. They are here to have seen it, and they are very good at it.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} moves its gaze one notch around the room.",
+    "{it} folds its hands and continues.",
+    "{it} notes something, without writing anything down."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_mescaline_witness",
+  "looks": [
+    "The cloth is undyed and unmarked and has been kept that way with real effort.",
+    "They look at everything in the room in turn, evenly, and give none of it more than its share.",
+    "When they look at you it lasts exactly as long as it lasted for the chair."
+  ],
+  "matches": null,
+  "name": "a witness in undyed cloth",
+  "says": [
+    "I am not here to stop anything.",
+    "It will be remembered accurately. That is all I offer.",
+    "Go on. I am not the point of the room."
+  ],
+  "scope": "person"
+}

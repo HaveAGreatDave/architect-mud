@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "When were you last outside?",
+    "Do you know what time it is really?",
+    "Can you feel the heat of it?"
+  ],
+  "description": "A hole punched clean through the roof onto an enormous open sky, and the light coming down through it is daylight, whatever the hour is where you are standing.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} throws the beam a hand further across the floor.",
+    "{it} dims as something enormous passes over, and returns.",
+    "{it} fills with turning dust and settles again."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_mescaline_light_hole",
+  "looks": [
+    "The edges are rock, a full arm thick, and the sky beyond is the pale blue of the middle of the day.",
+    "The beam moves across the floor at the rate the sun moves, and you can watch it going.",
+    "Dust turns in the shaft of it, unhurried, all the way up."
+  ],
+  "matches": "light",
+  "name": "a hole through to the sky",
+  "says": [
+    "It is the afternoon up there. It usually is.",
+    "Stand in it if you want. That is what it is for.",
+    "The building is the temporary part."
+  ],
+  "scope": "object"
+}

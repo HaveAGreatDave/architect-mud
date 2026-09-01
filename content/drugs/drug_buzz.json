@@ -26,6 +26,21 @@
       "gain_per_dose": 0.18,
       "max_reduction": 0.8,
       "recovery_per_sec": 0.000011
+    },
+    "withdrawal": {
+      "message": "Everything you had been doing at speed is still there, and is being done at the other one.",
+      "mods": {
+        "stamina_max": -5,
+        "stat_reflexes": -1
+      },
+      "onset_seconds": 900,
+      "stages": {
+        "easing": "Your head clears enough to hold one job in it at a time.",
+        "onset": "The jitter goes, and takes your footing with it.",
+        "peak": "You are heavy in a way sleep does not fix, and you have tried, twice, for eleven minutes each.",
+        "rising": "Your eyes are gritty and you have read the same sign three times on the way past it.",
+        "tail": "Working order, at the speed you were always working at before you were wrong about it."
+      }
     }
   },
   "flags": {

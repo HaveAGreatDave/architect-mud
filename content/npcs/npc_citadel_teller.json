@@ -159,7 +159,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"Citadel retains a private detail. They are not police and they are not obliged to behave like police.\" The voice does not change at all, which is somehow the worst part. \"The gentleman on the floor has stood in that spot for eleven years and has needed to move on four occasions. I mention the figure because customers find it reassuring, and because it is also, if you think about it for a moment, a threat.\""
+      "text": "\"Citadel retains a private detail. They are not police and they are not obliged to behave like police.\" The voice does not change at all. \"The gentleman on the floor has stood in that spot for eleven years and has needed to move on four occasions. I mention the figure because customers find it reassuring, and because it is also, if you think about it for a moment, a threat.\""
     },
     "large": {
       "options": [
@@ -218,7 +218,7 @@
           "next": "complaint"
         }
       ],
-      "text": "The machine rotates to face you and its faceplate warms from grey to a low amber. \"Good day. I am the Teller.\" The voice arrives from somewhere behind the ceramic, pitched warm and slow and pleased to see you, which it is not. \"I can answer questions, direct you to a terminal, and remember your face for a very long time. Two of those are free.\""
+      "text": "The machine rotates to face you and its faceplate warms from grey to a low amber. \"Good day. I am the Teller.\" The voice arrives from somewhere behind the ceramic, pitched warm and slow and pleased to see you, which it is not. \"I can answer questions, direct you to a terminal, and remember your face for a very long time. Two of those are free.\"\n\n\"Do you hold an account with us?\""
     },
     "vault": {
       "options": [

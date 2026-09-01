@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A corridor built of heavy blocks that arrive rather than exist. You move down it in increments. Each increment is complete and finished before the next begins, and there is no motion in between, only the arriving.",
   "drug_id": "drug_dxm",
-  "fx": "snow",
-  "fx_intensity": 0.3,
+  "fx": "static",
+  "fx_intensity": 0.5,
   "id": "dt_dxm_the_corridor_of_slabs",
   "name": "The Corridor Of Slabs",
   "objects": [

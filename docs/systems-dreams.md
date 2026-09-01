@@ -76,6 +76,23 @@ an instance costs no schema and no cleanup beyond forgetting it.
 - **The drug fallback chain**: this drug's templates → the default drug set (`drug_id IS NULL`) →
   nothing, and the caller degrades (trip falls back to `overlay`). Fallback, **not blend** — a drug with
   its own rooms never gets generic ones mixed in.
+- **Pool sizes, and the ratio that matters.** 34 sleep rooms; 10 per drug across the eight dreamzone
+  drugs; 5 generic. An instance is 2–4 rooms, so the number to look at is not the pool but **what
+  fraction of it one visit spends**. It used to be 14 sleep rooms and 6 per drug, which meant a single
+  trip showed you *over half* of everything a drug had and a second was mostly a re-run. Expanded
+  2026-08-25 ([dreams-sleep-expansion.mjs](../scripts/content/dreams-sleep-expansion.mjs),
+  [dreams-drug-expansion.mjs](../scripts/content/dreams-drug-expansion.mjs)).
+
+  ⚠ **The eight pools are not interchangeable, and a new room has to pick one.** Each drug's rooms obey
+  a rule, and the rule is the drug: DMT's rooms were all BUILT by somebody proud of them; the k-hole
+  puts you at the wrong end of every distance; salvia makes you a LAYER in something. A room that would
+  sit equally well under two of those headings has not committed, and belongs in the generic
+  `dt_default_*` set instead. The rules are listed at the top of the drug expansion script.
+- **How a room is written.** One rule about scale, duration or recall, and the prose does nothing but
+  obey it — the reader supplies the dread ([plain-writing.md](reference/plain-writing.md), the de Quincey
+  entry). Both expansion scripts refuse to write a room whose text contains an em dash (an
+  Ascendant voice tell, never a dream), a filter verb, or an adjective doing the room's work
+  (*strange*, *eerie*, *unsettling*). That guard caught a line in its own first draft.
 - **A wandering presence** (`dream_presences`) moves between the rooms of your instance on a per-instance
   timer, announced only when it arrives where you are or leaves. It never resolves into anything.
 - **Room ambience is NOT on that timer.** The engine's scheduled `ambientTick` already walks
@@ -109,6 +126,55 @@ an instance costs no schema and no cleanup beyond forgetting it.
   instead of saying so. Pushed by `pushDreamFx` on entry and on every move within an instance;
   `{effect:'none'}` on the way out is what hands the real weather back. None of it touches the weather
   sim — gear, temperature and the hazard channels are unaffected.
+
+#### The fx vocabulary is weather **and** symptoms
+
+Extended 2026-08-25. The canvas used to speak only weather — `rain snow ash fog wind` — so a drug
+dream had to borrow one, and "what a drug looks like" was in practice "which weather did the author
+pick". DMT got `snow`; the k-hole got `fog`; nitrous got nothing at all. That mattered more than it
+sounds, because **this canvas is the only visual layer a trip has on foot**: `flight-drugfx.js` owns
+the cockpit view and `#trip-overlay` is CSS colour, so nothing else was available.
+
+Six symptoms now sit beside the five weathers, each replicating one thing its drugs do to sight —
+the same law the withdrawal prose is written to, the specific event rather than the mood:
+
+| fx | The symptom | Where it went |
+|---|---|---|
+| `static` | the grain between channels | dead air, wraithdust, DXM corridors |
+| `tunnel` | the field closing from the edges | the k-hole, opiates, the plateau |
+| `tracers` | moving things drag their own past | stimulants, out-of-sync, the screening |
+| `bloom` | light swelling and subsiding | DMT, thresholds, cathedrals |
+| `crawl` | surfaces that will not sit still | salvia, DMT workshops |
+| `swim` | the room refusing to hold still | nitrous, carousels, shallow ends |
+
+**The split that decides where a new effect goes: weather falls from somewhere and leaves at an
+edge; a symptom is already behind the eye.** Weather particles are seeded above the pane and recycle
+off the bottom; symptom particles are seeded across the whole pane and recycle in place. Both run
+through the same presence/intensity easing, so a symptom comes up and goes off exactly the way a
+shower does.
+
+⚠ **Anything that WARPS the world cannot live here.** The canvas is an overlay and cannot touch what
+is underneath it, so the drunk sway and the psychedelic breathing belong to `flight-drugfx.js` (which
+owns the flight canvas) or to the CSS overlay. What lives here is strictly additive: grain, trails,
+closure, swell.
+
+⚠ **An unknown fx name renders nothing and looks exactly like "no effect wanted".** That is not
+hypothetical — `dream_the_hundred_years` shipped with `fx: ''`, which is invisible in play and was
+caught only because `plugins/bodily/regress.js` pins the vocabulary. Two gates now: that list, and
+[scripts/shapes/weatherfx-smoke.mjs](../scripts/shapes/weatherfx-smoke.mjs), which runs every named
+effect for a dozen frames against a counting 2D context and fails if one of them puts no paint down.
+Keep `VALID_FX` there in step with `WEATHER_FX`/`DRUG_FX` in `weather-fx.js`.
+
+⚠ **A sparse effect rounds to zero on a small pane**, and zero is not subtle, it is absent. `tracers`
+computed 0.4 particles at a phone-sized pane on a low dose and drew nothing while the game believed
+the player was high; the drug effects now floor at one particle whenever they are present. **Weather
+was deliberately left alone** — `wind` has the same behaviour below roughly 700×400, and changing it
+is a visible change to ordinary weather on every small screen, which is a separate decision.
+
+⚠ **The canvas is gated on the WeatherFX setting** (weather on + motion on), so a player who turns
+off weather ambience currently loses drug symptoms with it. Motion-gating is right; weather-gating a
+pharmacological cue probably is not. Not changed here, because it is an accessibility-adjacent
+default and worth deciding on purpose.
 
 ### Where your body is *(the load-bearing part)*
 

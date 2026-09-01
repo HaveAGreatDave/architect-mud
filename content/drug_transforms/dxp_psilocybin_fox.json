@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Are you eating that?",
+    "Is anyone looking for me?",
+    "What time do they lock up?"
+  ],
+  "description": "A fox standing upright in a faded work shirt with the sleeves rolled, entirely at home, doing nothing in particular. The shirt fits. Somebody took the trouble.",
+  "drug_id": "drug_psilocybin",
+  "emotes": [
+    "{it} scratches an ear with a back foot, which takes some organising.",
+    "{it} rolls a sleeve up one further turn.",
+    "{it} yawns, and every tooth is briefly available for inspection."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_psilocybin_fox",
+  "looks": [
+    "The shirt is worn through at one elbow and has been mended with the wrong colour thread.",
+    "It watches the room the way something watches a field, without ever appearing to.",
+    "The tail is out of the back of the shirt and moving slightly, and it is not thinking about it."
+  ],
+  "matches": null,
+  "name": "a fox in a work shirt",
+  "says": [
+    "I am on a break. This is what a break looks like.",
+    "You would be amazed what people leave out.",
+    "I am not doing anything. Genuinely."
+  ],
+  "scope": "person"
+}

@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A tiled scrub room with a run of hooks, a drain, and a hose fed from somewhere upstream. This is where you leave everything that can be listened to: tablets, chips, anything with a cell in it goes into a lead-lined locker with your name chalked on it, and the sewer goes down the drain with the rest. There is a mirror bolted at eye height, and beside it a set of calipers and a probe, because the Watch check for chrome and they do not take your word for it.",
+  "description": "A tiled room with a run of lead-lined lockers along one wall, each with a name chalked on the door, and a drain in the middle of the floor. Anything that can be listened to goes in a locker before you go any further in: tablet, chip, anything with a cell in it. There is a hose fed from somewhere upstream and a mirror bolted at eye height, and beside the mirror a set of calipers and a probe, because the Watch check for chrome and they do not take your word for it.",
   "exits": {
     "east": "zone_lw_blind",
     "west": "zone_lw_sally"
@@ -26,6 +26,6 @@
   "grid_z": 0,
   "id": "zone_lw_wash",
   "map_id": "map_int_longwatch",
-  "name": "The Wash",
+  "name": "The Lockers",
   "parent_zone": "zone_under_watchthresh"
 }

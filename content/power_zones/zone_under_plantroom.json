@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_under_plantroom",
+  "id": "zone_under_plantroom",
+  "max_capacity_kw": 200,
+  "name": "Pump House Four",
+  "source_type": "junction_box"
+}

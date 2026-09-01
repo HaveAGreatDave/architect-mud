@@ -9,7 +9,7 @@
     "west": "zone_district_918_912"
   },
   "flags": {
-    "district": "residential",
+    "district": "industrial",
     "region_id": "region_coldwater",
     "terrain": "road"
   },

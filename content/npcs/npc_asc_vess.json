@@ -33,7 +33,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Take the Gallery first — it's just inside. Walk it slowly. The exhibit does the persuading; I merely open the doors.\""
+      "text": "\"Take the Gallery first — it is just inside. Walk it slowly. The exhibit does the persuading; I merely open the doors.\""
     },
     "actuarial_accept": {
       "actions": [
@@ -61,7 +61,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A slate, and a route.\" She hands you both without ceremony. \"Halcyon prices a district by walking it, because no instrument yet built can smell a stairwell. You will take a reading on the Boulevard and another on Meltwater Row.\" A small, serene pause. \"They are, I am told, the same road. The model disagrees, and the model is what we sell.\""
+      "text": "\"A slate, and a route.\" She hands you both without ceremony. \"Halcyon prices a district by walking it, because no instrument yet built can smell a stairwell. You will take a reading on the Boulevard and another on Meltwater Row.\"\n\nA small, serene pause.\n\n\"They are, I am told, the same road. The model disagrees, and the model is what we sell.\""
     },
     "actuarial_report": {
       "actions": [
@@ -76,7 +76,7 @@
           "next": "bye"
         }
       ],
-      "text": "She takes the slate, glances at nothing on it, and files it. \"Lovely. Two more points of resolution on a map that already knew the answer.\" She means it kindly, which is somehow worse."
+      "text": "She takes the slate, glances at nothing on it, and files it. \"Lovely. Two more points of resolution on a map that already knew the answer.\" She means it kindly."
     },
     "adjuster_accept": {
       "actions": [
@@ -104,7 +104,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"An adjustment.\" Vess does not blink. \"There is a claim we would rather not contest in the open, and a terminal on the records approach holding the one document that would oblige us to. I am not asking you to burn anything. I am asking you to go and read it, and to be the sort of person nobody remembers reading it.\"\n\n\"If you are seen, we did not send you. If a camera has you, we did not send you and we will be sorry about it in writing.\""
+      "text": "\"An adjustment.\" Vess does not blink. \"There is a claim we would rather not contest in the open, and a terminal on the records approach holding the one document that would oblige us to. I am not asking you to burn anything. I am asking you to go and read it, and to be the sort of person nobody remembers having read it.\"\n\n\"If you are seen, we did not send you. If a camera has you, we did not send you, and we will be sorry about it in writing.\""
     },
     "adjuster_report": {
       "actions": [
@@ -125,6 +125,231 @@
       "options": [],
       "text": "\"Ascend well.\" She presses her palms together and is serene again."
     },
+    "choosing": {
+      "_vine": {
+        "x": 1100,
+        "y": 1150
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And if somebody wants to choose?",
+          "next": "choosing_want"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That sounds like a cage.",
+          "next": "choosing_cage"
+        }
+      ],
+      "text": "\"Oh, nobody here decides anything difficult.\" Vess says it as the good news it is meant to be. \"Where you live, what you do, when you stop working, who looks after you when you cannot. All of it settled on the day your account opens.\"\n\n\"People come up that road worn out, and not from working. From deciding. Rent this month or the doctor. Which of two bad jobs. Whether the water is worth boiling tonight or whether you are too tired and will risk it. Forty of those a week, for twenty years.\"\n\n\"And then they put it down. They sleep properly for the first time since they were children.\""
+    },
+    "choosing_cage": {
+      "_vine": {
+        "x": 1360,
+        "y": 1220
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I do not want a session.",
+          "next": "vess_no_session"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks at you with real warmth.\n\n\"You are unsettled. That is very normal in the first fortnight and there is no need to carry it about with you.\" She is already writing. \"I will put you down for a session with somebody kind. It is not a mark against you. It goes on the wellbeing side of the file, which nobody but me reads.\"\n\n\"Do come. It is much easier than not coming.\""
+    },
+    "choosing_want": {
+      "_vine": {
+        "x": 1360,
+        "y": 1080
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not choosing.",
+          "next": "vess_not_choosing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then they choose.\" She is quite untroubled. \"Nobody is held here. The Gate opens both ways and it always has.\"\n\n\"They simply do it without the clinic, the account, the water and the power, and after a winter of that most of them come back up the road and we are pleased to see them.\""
+    },
+    "climb_approve": {
+      "_vine": {
+        "x": 1420,
+        "y": 1900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(go with her)",
+          "next": "bye"
+        }
+      ],
+      "text": "The warmth comes back all at once, and it is like a light being switched on.\n\n\"Thank you. Honestly — thank you. One spends so much of one's day being careful.\"\n\nShe takes your arm, which she has not done before.\n\n\"Come on. I am going to show you the Vats properly, not the version they get.\""
+    },
+    "climb_deflect": {
+      "_vine": {
+        "x": 1420,
+        "y": 2200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have gone cold on me.",
+          "next": "climb_deflect_ask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(keep walking)",
+          "next": "bye"
+        }
+      ],
+      "text": "She walks, and she talks, and everything she says is exactly as pleasant as it was.\n\nIt takes you most of the corridor to work out what has changed: she is saying the things she says to people who are here to make a claim.\n\n\"The Vats are through here. Mind the threshold, it catches everybody.\""
+    },
+    "climb_deflect_ask": {
+      "_vine": {
+        "x": 1680,
+        "y": 2200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "approved"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": ""
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_vess",
+              "reason": "vess:answered",
+              "warmth": 2
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 40,
+              "ideology_id": "ideology_ascendants",
+              "reason": "intake"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "I think you are right about them.",
+          "next": "climb_recover"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": "1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "You do not need to know.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing, and keep walking)",
+          "next": "bye"
+        }
+      ],
+      "text": "She stops, and she looks at you, and she is not offended in the least.\n\n\"I have not. I am being professional with you, and you have noticed the difference, which most people cannot.\"\n\nA small, honest pause.\n\n\"I would rather be the other thing. It is only that I do not know what you are yet.\""
+    },
+    "climb_object": {
+      "_vine": {
+        "x": 1420,
+        "y": 2060
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(follow her)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nShe does not flinch and she does not pretend she has to think about it.\n\n\"There would have been nowhere to send him. He could not work and he could not be covered, and no district would have housed him — you know that as well as I do, and it is the part nobody ever says out loud.\"\n\nShe smooths the front of her coat.\n\n\"It was handled kindly. I did ask.\"\n\nShe starts walking, and her voice is exactly as warm as it was ten minutes ago.\n\n\"The Vats are this way. You will like them. Everybody does.\""
+    },
+    "climb_recover": {
+      "_vine": {
+        "x": 1940,
+        "y": 2200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(go with her)",
+          "next": "bye"
+        }
+      ],
+      "text": "You watch yourself decide to say it, and you say it anyway.\n\nThe warmth comes back all at once, and it is like a light being switched on.\n\n\"Oh, good.\" She takes your arm. \"Then let me show you them properly.\""
+    },
+    "cold": {
+      "_vine": {
+        "x": 40,
+        "y": 1400
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "(leave it)",
+          "next": "bye"
+        }
+      ],
+      "text": "The Curator does not stop walking, does not raise his voice, and manages to be entirely courteous about it.\n\n\"I show the Spire to people who are going to be in it. You told an actuary you would rather die on schedule.\"\n\nA small, real shrug.\n\n\"That is a position. I have held worse ones.\"\n\nHe is already at the next case.\n\n\"The Gallery is public on the first of the month, like anywhere else. Do come.\""
+    },
     "coldchain_accept": {
       "actions": [
         {
@@ -138,7 +363,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Both hands. It is heavier than it looks and it is worth more than you are, at present.\""
+      "text": "\"Both hands. It is heavier than it looks, and it is worth rather more than you are, at present.\""
     },
     "coldchain_offer": {
       "options": [
@@ -168,6 +393,103 @@
       ],
       "text": "Somebody takes the tray from you without looking up. Vess thanks you with the exact warmth she would give a working machine, which on this campus is not an insult."
     },
+    "cross_done": {
+      "_vine": {
+        "x": 1040,
+        "y": 1600
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_cross"
+        }
+      ],
+      "options": [
+        {
+          "label": "(say nothing about the woman in the dark)",
+          "next": "bye"
+        }
+      ],
+      "text": "He takes the address, repeats it once to be sure, and does not write it down.\n\n\"Thank you.\"\n\nA pause very slightly too long to be nothing.\n\n\"Was anybody there?\"\n\nAnd whatever you say, he accepts it, immediately and completely, and walks on. You will spend some time later deciding whether that was trust."
+    },
+    "cross_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1600
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "You want me to go back down there.",
+          "next": "cross_offer2"
+        },
+        {
+          "label": "Not that.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Curator walks, and you walk with him, which is how every conversation in this building happens.\n\n\"Somebody is putting their orders on paper. Paper comes off a press. A press weighs six hundred kilos and has never once been moved in a hurry by anybody.\"\n\nHe stops at a case containing nothing you can identify.\n\n\"I would like the address.\""
+    },
+    "cross_offer2": {
+      "_vine": {
+        "x": 700,
+        "y": 1600
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_cross"
+        }
+      ],
+      "options": [
+        {
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I want you to notice that I have not asked you to break anything.\" He says it pleasantly, and then says the rest of it just as pleasantly. \"That is because breaking things is a different department. They are extremely good, and they have never once had to find an address.\"\n\nHe moves on to the next case.\n\n\"You know the way in. That is the entire reason you were asked, and I would think less of both of us if I pretended otherwise.\""
+    },
+    "gallery_removal": {
+      "_vine": {
+        "x": 900,
+        "y": 1560
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is happening back there?",
+          "next": "gallery_removal_ask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(follow her)",
+          "next": "bye"
+        }
+      ],
+      "text": "Behind you, at the far end of the Gallery, two people in grey take an elbow each of a third and walk him towards a door that is already open. He is not shouting. One of his shoes comes off and nobody stops for it.\n\n\"— and the west wall is the original glass, which everybody assumes is a reproduction.\" Vess has not stopped, and turns, pleasantly, so that the group turns with her and you are facing the other way.\n\n\"Come and look at this while the light is on it.\""
+    },
+    "gallery_removal_ask": {
+      "_vine": {
+        "x": 1160,
+        "y": 1560
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(look at the glass)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Somebody's account. Not our department.\"\n\nShe says the next part gently, as advice, and it lands as advice.\n\n\"It would be rude to watch.\"\n\n\"The glass, though. Look at the green in it.\""
+    },
     "lapse_accept": {
       "actions": [
         {
@@ -194,7 +516,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A recovery.\" The word is chosen. \"A client on Marrow Street has stopped paying and is still wearing the collateral. She is not in trouble, you understand — the account remains open, it always remains open. The hardware simply comes home until she is current.\"\n\nHer hands come apart, which is as close as she gets to emphasis. \"She is not to be killed. I want to be very clear, because people hear 'recovery' and reach for the simple version. A dead client never resumes payments. Put her down and take the jack. Nothing else.\""
+      "text": "\"A recovery.\" The word is chosen. \"A client on Marrow Street has stopped paying and is still wearing the collateral. She is not in trouble, you understand — the account remains open, it always remains open. The hardware simply comes home until she is current.\"\n\nHer hands come apart, which is as close as she gets to emphasis.\n\n\"She is not to be killed. I want to be very clear, because people hear the word recovery and reach for the simple version. A dead client never resumes payments. Put her down, take the jack, and nothing else.\""
     },
     "lapse_report": {
       "actions": [
@@ -211,8 +533,157 @@
       ],
       "text": "She turns the jack over once and sets it in a tray. \"Home. Good.\" She does not ask how it went, and you understand that she has never once asked."
     },
+    "looked_after": {
+      "_vine": {
+        "x": 900,
+        "y": 2120
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Looked after where?",
+          "next": "looked_after_where"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They are looked after.\"\n\nShe says it warmly and it is plain she believes it.\n\n\"Nobody is put out on the road. That is the thing people always assume and it has never once been true.\""
+    },
+    "looked_after_where": {
+      "_vine": {
+        "x": 1160,
+        "y": 2120
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then ask.",
+          "next": "vess_ask"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She thinks about it, and the thinking is genuine, and it does not take long.\n\n\"Do you know, I have never asked.\"\n\nShe is already turning back to the case she was showing you.\n\n\"Somebody will know.\""
+    },
     "root": {
       "options": [
+        {
+          "conditions": [
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "5"
+            },
+            {
+              "flag": "quest_asc_cross",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_refused",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "You have something harder.",
+          "next": "cross_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens to a mutant who comes here for help?",
+          "next": "looked_after"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You keep talking about a climb.",
+          "next": "the_climb"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Does any of this actually help anybody?",
+          "next": "the_numbers_that_matter"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Is any of this difficult for you?",
+          "next": "the_difficulty"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(somebody has come in with a pot)",
+          "next": "the_pot"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(there is something happening at the end of the Gallery)",
+          "next": "gallery_removal"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who decides things here?",
+          "next": "choosing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does a room like the Gallery cost to keep?",
+          "next": "the_gallery_cost"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_cross",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "I found the press.",
+          "next": "cross_done"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "asc_refused",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Show me the Spire.",
+          "next": "cold"
+        },
         {
           "conditions": [
             {
@@ -222,6 +693,11 @@
             },
             {
               "flag": "quest_asc_3",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_refused",
               "op": "unset",
               "scope": "player"
             }
@@ -235,6 +711,11 @@
             {
               "flag": "asc_pledged",
               "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_refused",
+              "op": "unset",
               "scope": "player"
             }
           ],
@@ -298,7 +779,277 @@
           "next": "bye"
         }
       ],
-      "text": "\"Welcome, welcome — past the Gate at last.\" Curator Vess takes both your hands. \"I'm Vess. I greet those the Threshold judges worth greeting. You've no idea how few that is.\""
+      "text": "\"Welcome, welcome — past the Gate at last.\" Curator Vess takes both your hands. \"I am Vess. I greet those the Threshold judges worth greeting. You have no idea how few that is.\""
+    },
+    "the_climb": {
+      "_vine": {
+        "x": 900,
+        "y": 1980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where do mutants come in?",
+          "next": "the_climb_off"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There are stages. It is not a secret and it is not a judgement.\"\n\nShe counts them on her fingers without any ceremony.\n\n\"Unmodified. Fitted. Extensively fitted. Backed up. And then the ones upstairs, who are mostly pattern by now.\"\n\n\"You are on the first. Almost everybody is.\""
+    },
+    "the_climb_off": {
+      "_vine": {
+        "x": 1160,
+        "y": 1980
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "approved"
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_vess",
+              "reason": "vess:climb-agreed",
+              "warmth": 1
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 40,
+              "ideology_id": "ideology_ascendants",
+              "reason": "intake"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then they do not belong here.",
+          "next": "climb_approve"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "quiet"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": "1"
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_vess",
+              "reason": "vess:unreadable",
+              "warmth": -1
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "(follow her to the Vats)",
+          "next": "climb_deflect"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "objected"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "He never came back out, did he.",
+          "next": "climb_object"
+        }
+      ],
+      "text": "For the first time she is not warm.\n\n\"They are going the other way down it.\"\n\nShe glances at the door of the Gallery, and the glance is a check rather than a look.\n\n\"We had one in here in '71. A nice enough man, and it was not his fault, and nobody says it is their fault.\" <span class=\"text-dim\">A small, controlled pause.</span> \"He was seen the same afternoon. They are very quick with it, which I have always been grateful for.\"\n\nThen it passes, and she is herself again, and she moves you along with a hand that does not quite touch your back.\n\n\"Come and see the Vats. That is the part everybody remembers.\""
+    },
+    "the_difficulty": {
+      "_vine": {
+        "x": 900,
+        "y": 1700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Decent.",
+          "next": "the_difficulty_decent"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Difficult? Constantly.\"\n\nShe says it without any self-consciousness at all.\n\n\"Somebody has to decide who is covered. It is not pleasant work and we do not pretend it is. Anyone who enjoyed it would be removed.\"\n\n\"We do it and we stay decent about it. That is the whole of the qualification.\""
+    },
+    "the_difficulty_decent": {
+      "_vine": {
+        "x": 1160,
+        "y": 1700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not the same as it being right.",
+          "next": "vess_decent_right"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nobody here has ever raised their voice at a claimant.\"\n\nShe means it, and she is proud of it.\n\n\"I have signed things I did not like. I signed them properly, and I went home, and I did not take it out on anybody. You would be surprised how few people manage that.\""
+    },
+    "the_gallery_cost": {
+      "_vine": {
+        "x": 1100,
+        "y": 1300
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Waiting on what?",
+          "next": "vess_waiting_on"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Eleven degrees, year round, sixty per cent. Triple glass. The west wall is on its own circuit.\"\n\nShe says the figures without any sense that they are figures.\n\n\"It draws more than Meltwater Row does. The Row is in run-off — we stopped writing there in '68.\"\n\n\"You do not re-wire a district you are waiting on.\""
+    },
+    "the_numbers_argued": {
+      "_vine": {
+        "x": 1160,
+        "y": 1840
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nine years for who?",
+          "next": "vess_nine_for_who"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It could.\" She is genuinely pleased you said it. \"It is the first thing anybody honest asks.\"\n\n\"We ran it that way as well. Same districts, before and after cover. It is nine years.\"\n\n\"The paper is in the Gallery. You are welcome to disagree with the method.\""
+    },
+    "the_numbers_that_matter": {
+      "_vine": {
+        "x": 900,
+        "y": 1840
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That could be the districts, not you.",
+          "next": "the_numbers_argued"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sixty-one years, inside the gate. Forty-four, outside it, in the districts we cover.\"\n\n\"In the ones we do not, thirty-eight.\"\n\nShe does not press it. She has said it and it is said."
+    },
+    "the_pot": {
+      "_vine": {
+        "x": 900,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who was that?",
+          "next": "the_pot_who"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It can wait.",
+          "next": "bye"
+        }
+      ],
+      "text": "A woman in Spire grey comes in with a fresh pot, takes the cold one, and puts a cloth under Vess's cup without being asked.\n\n\"— and that is why the eastern figures look worse than they are, of course. Two winters of it and the model has not caught up.\" Vess does not pause, does not look up, and moves her elbow to let the cloth go under.\n\nThe woman goes out. The door is closed quietly from the other side.\n\n\"Sorry. You wanted to ask me something.\""
+    },
+    "the_pot_who": {
+      "_vine": {
+        "x": 1160,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let it go)",
+          "next": "bye"
+        }
+      ],
+      "text": "Vess looks at the door with real, brief attention, the way you look at a clock.\n\n\"I am not sure. One of the floor staff.\"\n\nShe refills your cup herself, gracefully, and hands it across.\n\n\"Was she rude to you?\""
     },
     "tour_talk": {
       "options": [
@@ -311,7 +1062,109 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then let me show you the Spire the way we show it to the promising. The Gallery of Rungs, to see the ladder whole. The Vats, to see what waiting at the top actually buys. And then the crown — where you'll understand, finally, what Halcyon has been selling all along.\""
+      "text": "\"Then let me show you the Spire the way we show it to the promising. The Gallery of Rungs, to see the ladder whole. The Vats, to see what waiting at the top actually buys. And then the crown — where you will understand, finally, what Halcyon has been selling all along.\""
+    },
+    "vess_ask": {
+      "_vine": {
+        "x": 1320,
+        "y": 2870
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I will.\"\n\nShe writes herself a note, and it is a real note, and she will genuinely do it.\n\n\"Come and see me in a month. If it turns out to be nothing, I will tell you it was nothing.\""
+    },
+    "vess_decent_right": {
+      "_vine": {
+        "x": 1400,
+        "y": 3050
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No, it is not, and I have never said it was.\"\n\n\"It is the only part of it that is mine to decide. If you find something else in this building that is mine, tell me, and I will decide that properly as well.\""
+    },
+    "vess_nine_for_who": {
+      "_vine": {
+        "x": 1360,
+        "y": 2960
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everybody in the district. That is the number, averaged.\"\n\n\"You are about to ask whether it is nine years for everybody or eighteen for half of them. It is nearer the second. I have said so in writing twice.\""
+    },
+    "vess_no_session": {
+      "_vine": {
+        "x": 1280,
+        "y": 2780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Of course. I will take it off.\"\n\nShe does, in front of you, and you watch the line go.\n\n\"It stays on the wellbeing side either way, because I have to record that it was offered. That is not a mark against you either.\""
+    },
+    "vess_not_choosing": {
+      "_vine": {
+        "x": 1440,
+        "y": 3140
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is the only kind there is.\"\n\nShe is not being combative. She thinks this is obvious.\n\n\"Nobody chooses between a good thing and a better one. They choose between a hard winter and an easier one, and they always have, and we did not invent the winter.\""
+    },
+    "vess_waiting_on": {
+      "_vine": {
+        "x": 1240,
+        "y": 2690
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"For the book to close on it.\"\n\nShe says it as a scheduling fact, because to her it is one.\n\n\"The Row has about nine years in it. After that it is not a district, it is a site, and you wire a site properly rather than patching one twice.\""
     },
     "work_hub": {
       "options": [

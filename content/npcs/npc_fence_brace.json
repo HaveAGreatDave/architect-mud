@@ -1,0 +1,232 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "\"Read the card. The card is the price.\"",
+    "\"You want it now or you want it working. Pick one and I’ll price it.\"",
+    "\"I have never sold a thing that went off early. I would like that to keep being true.\"",
+    "\"Everything on that wall is legal somewhere. Not here. Somewhere.\""
+  ],
+  "description": "A broad, unhurried woman with a shot-firer’s forearms and both eyebrows burned back to a memory. She checks things twice while you talk: the crate straps, the counter edge, your hands. Nobody has ever seen her hurry, and the people who knew her upstairs say that is exactly why she still has all of her fingers.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "She goes back to the crate straps and checks the one she already checked."
+    },
+    "lore": {
+      "options": [
+        {
+          "label": "And you were not six inches out.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Shot-firer. Nineteen years. I took down the old exchange, the bridge caissons, the tannery. All of it signed off, all of it swept, all of it to the inch.\" She checks the strap again. \"Then a man in a good coat asked me to be six inches out on a building that still had people filing in it, and I said no, and my licence went into a drawer that does not open. So now I am down a hole selling the same putty to idiots. The putty does not know the difference. I do.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Show me what you have.",
+          "next": "shop"
+        },
+        {
+          "label": "Who were you, upstairs?",
+          "next": "lore"
+        },
+        {
+          "label": "How do I get at the good stuff?",
+          "next": "trust"
+        }
+      ],
+      "text": [
+        "She does not look up from the strap she is checking. \"Say what you need. Whole words.\"",
+        "She sets a roll of lead wire down where it cannot roll. \"Go on.\"",
+        "\"Hands on the counter where I can see them. Not for my sake. For yours.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There you are.\" She is already sliding the card out of your eyeline. \"The usual shape of thing?\"",
+          "\"Still got the same number of hands. Good.\" She taps the counter twice. \"What are we doing.\""
+        ],
+        "first": "\"Brace. Sabine Brace. I was a licensed shot-firer for nineteen years and I have blown up more of this city on paperwork than you will manage in a lifetime without it. Down here I sell, I do not advise, and I do not sell to people who are in a rush.\"",
+        "known": "\"You again. You still have your eyebrows, I see.\" She almost approves. \"What is it.\""
+      }
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_fence_brace"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"On the counter is what you can have. What is on the wall is what you can have later. Do not touch the wall.\""
+    },
+    "trust": {
+      "options": [
+        {
+          "label": "Then I will come back with my parts attached.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You buy the cheap end and you come back with all your parts attached. That is the whole test. Do it enough times and I will start showing you the crates at the back.\" She shrugs. \"It is not about money. Anybody can have money. I am waiting to see whether you are the kind of person who reads a fuse length twice.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a scorched leather blast apron with every pocket stitched shut",
+      "a boiler suit with the company patch unpicked",
+      "a plain grey sports bra and shorts"
+    ],
+    "inner_circle_flag": "brace_inner_circle",
+    "personality": "vendor",
+    "trust_flag": "brace_trust",
+    "trust_max": 100,
+    "trust_per_buy": 8
+  },
+  "home_activities": [],
+  "home_zone": "zone_under_plantroom",
+  "hp": 70,
+  "hp_max": 70,
+  "id": "npc_fence_brace",
+  "name": "Sabine Brace",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_scrap_armor",
+      "min_trust": 0,
+      "price": 65,
+      "stock": 4
+    },
+    {
+      "item_id": "item_riot_vest",
+      "min_trust": 0,
+      "price": 200,
+      "stock": 3
+    },
+    {
+      "item_id": "item_motion_sensor",
+      "min_trust": 0,
+      "price": 310,
+      "stock": 4
+    },
+    {
+      "item_id": "item_breach_charge",
+      "min_trust": 0,
+      "price": 475,
+      "stock": 6
+    },
+    {
+      "item_id": "item_null_jammer_cell",
+      "min_trust": 25,
+      "price": 120,
+      "stock": 6
+    },
+    {
+      "item_id": "item_audio_sensor",
+      "min_trust": 25,
+      "price": 335,
+      "stock": 3
+    },
+    {
+      "item_id": "item_null_emp_charge",
+      "min_trust": 25,
+      "price": 670,
+      "stock": 3
+    },
+    {
+      "item_id": "item_relay_node",
+      "min_trust": 45,
+      "price": 840,
+      "stock": 2
+    },
+    {
+      "item_id": "item_rattlecan_smg",
+      "min_trust": 45,
+      "price": 3440,
+      "stock": 2
+    },
+    {
+      "item_id": "item_nyra_tattoo_neural",
+      "min_trust": 70,
+      "price": 3080,
+      "stock": 1
+    },
+    {
+      "item_id": "item_pyre_projector",
+      "min_trust": 70,
+      "price": 3360,
+      "stock": 1
+    },
+    {
+      "item_id": "item_nyra_iris_implant",
+      "min_trust": 90,
+      "price": 4900,
+      "stock": 1
+    },
+    {
+      "item_id": "item_arc_lance",
+      "min_trust": 90,
+      "price": 4340,
+      "stock": 1
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Under the Counter",
+  "vendor_stock_size": 13,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_under_plantroom"
+}

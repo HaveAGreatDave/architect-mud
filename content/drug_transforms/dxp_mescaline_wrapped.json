@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Are you coming, or are you staying?",
+    "Do you know the way from here?",
+    "When did you last go anywhere?"
+  ],
+  "description": "Somebody dressed head to foot in layered cloth gone the colour of the ground, wound over the mouth and across the brow, with only the eyes left out. They are packed and ready and have been for some time.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} tightens a wrapping at the wrist without looking at it.",
+    "{it} looks toward the door, and keeps looking for a while.",
+    "{it} shifts the pack an inch and is comfortable again."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_mescaline_wrapped",
+  "looks": [
+    "The cloth is dusted red in every fold and has been beaten out and rewound many times.",
+    "The eyes are the only part uncovered and they are entirely calm.",
+    "Everything they own is on them, arranged so that none of it swings when they walk."
+  ],
+  "matches": null,
+  "name": "a traveller wrapped for the road",
+  "says": [
+    "I am going as far as it goes.",
+    "You would want more water than you think.",
+    "There is nothing out there. That is what it is for."
+  ],
+  "scope": "person"
+}

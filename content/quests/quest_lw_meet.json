@@ -1,0 +1,73 @@
+{
+  "category": null,
+  "description": "A letter-box is a hiding place a cell uses to pass things without two people ever meeting. The Watch have one behind a loose brick on Kessler Street, and for four months it has worked.\n\nTwo nights ago the runner who empties it did not come back.\n\nHalloran will not send anyone to it, because if it is being watched then whoever reaches behind that brick is the next person who does not come back. He wants somebody to go and look at the street instead.\n\n\"Sit somewhere you have a reason to be sitting. Give it an hour. If a man reads the same page twice, if a van parks where a van has no delivery, if the same face goes past three times, that is your answer and you come home with it.\"\n\nHe is specific about the part everyone gets wrong.\n\n\"Do not touch the brick. Not to check. If it is clean we will use it again next week, and if it is not, you have just shown them who we are.\"",
+  "fail_on": [
+    {
+      "desc": "Somebody on that street worked out what you were doing. Now they know the Watch are still interested in the brick, which is the one thing the errand was meant to hide.",
+      "id": "f_seen",
+      "type": "spotted"
+    }
+  ],
+  "id": "quest_lw_meet",
+  "meta": {},
+  "name": "The Wrong Brick",
+  "objectives": [
+    {
+      "desc": "Get to the corner of Kessler and find somewhere you have a reason to be.",
+      "emotes": [
+        "{who} buys something they do not want so that sitting there means something.",
+        "{who} picks a seat that faces the brick without facing the brick."
+      ],
+      "id": "o_sit",
+      "type": "visit",
+      "zone": "zone_district_922_909"
+    },
+    {
+      "desc": "Work the length of the street once, slowly, and look at who is not moving.",
+      "emotes": [
+        "{who} counts the same coat past the same window twice.",
+        "{who} finds the van, and finds that nobody has delivered anything to anybody.",
+        "{who} walks past the loose brick without slowing down at all."
+      ],
+      "id": "o_watch",
+      "requires": [
+        "o_sit"
+      ],
+      "type": "visit",
+      "zone": "zone_district_922_908"
+    },
+    {
+      "count": 1,
+      "desc": "Go back to Halloran and tell him what was on that street.",
+      "emotes": [
+        "{who} describes a van, a coat and a window, in that order, without being asked twice."
+      ],
+      "id": "o_report",
+      "requires": [
+        "o_watch"
+      ],
+      "target": "npc_lw_halloran",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 60,
+    "flags": [
+      {
+        "flag": "lw_meet_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "4"
+      }
+    ],
+    "xp": 18
+  },
+  "updated_at": "1787990000"
+}

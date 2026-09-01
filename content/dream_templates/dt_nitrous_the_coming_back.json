@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A part of it goes and you can name what it was as it goes.",
+    "The room comes back around you at its usual size.",
+    "The last of it goes, cleanly, and the going is not painful."
+  ],
+  "cause": "drug",
+  "description": "The part where it goes. It goes in the reverse of the order it came in, at the same rate, so that you can watch it. What is left at the end is a room, and a person in it, and the certainty that there had been something and that it was enormous.",
+  "drug_id": "drug_nitrous",
+  "fx": "tunnel",
+  "fx_intensity": 0.5,
+  "id": "dt_nitrous_the_coming_back",
+  "name": "The Coming Back",
+  "objects": [
+    {
+      "looks": [
+        "The big part first, then the parts that explained the big part.",
+        "You are keeping hold of one word of it, and the word is an ordinary word.",
+        "It goes at a rate that lets you say goodbye to it, which is a courtesy."
+      ],
+      "name": "what is going"
+    },
+    {
+      "looks": [
+        "A room. This one. The one you were in the whole time.",
+        "Somebody has been standing here for forty seconds.",
+        "Everything in it is the size it is, and that is the disappointing part."
+      ],
+      "name": "the room"
+    }
+  ],
+  "weather": "Ordinary air arriving, in the correct amount, at the correct temperature."
+}

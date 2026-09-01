@@ -419,7 +419,7 @@
           "next": "n_cook"
         }
       ],
-      "text": "\"Bulk's in the back, glass up front, gas is chained by the door. Sign the sheet on your way out.\"",
+      "text": "\"Bulk's in the back, glass up front, gas is chained by the door. Sign the sheet on your way out.\"\n\n\"You cooking, or buying for somebody who is?\"",
       "text_by_relation": {
         "close": "<span class=\"text-dim\">He does not look up from the sheet, but the pen stops.</span>\n\n\"There you are. I'd a shoulder on all night and nobody in this building to tell about it.\" He caps the pen. \"That's the state of my life, since you asked. Which you didn't.\"",
         "familiar": "\"Aye.\" <span class=\"text-dim\">He has the sheet turned round and facing you before you reach the counter.</span>\n\n\"Glass is where it was. Ask if you're after something that isn't.\"",

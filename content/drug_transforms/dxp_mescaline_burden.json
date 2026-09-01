@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Would you like to know what it is?",
+    "How long have you had yours?",
+    "Do you think anybody is coming to take it?"
+  ],
+  "description": "A person bent under a weight that is not there. Everything about how they are standing is correct for a great load across the shoulders, and the air above them is empty, and they are managing.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} adjusts its grip on nothing and braces again.",
+    "{it} lets out a long breath and does not straighten up.",
+    "{it} takes one step, and takes a moment before the next."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_mescaline_burden",
+  "looks": [
+    "Their knees are locked and their breathing is measured out the way you breathe under a real weight.",
+    "There are marks worn into both shoulders, deep and old and exactly where straps would sit.",
+    "They shift the nothing to the other side and take a moment to get their balance back."
+  ],
+  "matches": null,
+  "name": "somebody carrying something enormous",
+  "says": [
+    "It is not heavy. It is only constant.",
+    "I could put it down. I have thought about it.",
+    "You are carrying one too. Yours is just newer."
+  ],
+  "scope": "person"
+}

@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "You get a fix on the far wall. It resolves, and is further.",
+    "Something crosses the floor at a great distance and takes a long time to finish doing it.",
+    "The ceiling is up there. Your eye declines to say by how much."
+  ],
+  "cause": "dream",
+  "description": "An interior. You can tell it is an interior because there is a floor and a ceiling and, a long way off, a wall. The wall is too far away to be a wall. Your eye keeps trying to put a size on it and arriving at nothing, then trying again, and something behind your eye has started to ache from the attempt. The whole thing is ordinary in every respect except one, and the one is not negotiable.",
+  "drug_id": null,
+  "fx": "fog",
+  "fx_intensity": 0.35,
+  "id": "dream_the_far_wall",
+  "name": "The Far Wall",
+  "objects": [
+    {
+      "looks": [
+        "A wall. At a distance that is not available to walls.",
+        "You look for a door in it, on the reasoning that a door would give you the scale, and there is a door, and it does not help.",
+        "It has details on it. You can see them. That is the part that is wrong."
+      ],
+      "name": "the far wall"
+    },
+    {
+      "looks": [
+        "Flat, level, and swept, and it goes on doing that for longer than a floor should have to.",
+        "Boards. You count nine hundred and stop counting, and you have not gone anywhere.",
+        "It is entirely ordinary. Everything here is entirely ordinary at the wrong size."
+      ],
+      "name": "the floor"
+    }
+  ],
+  "weather": "The still, dustless air of somewhere sealed, at a scale where weather would have to be indoors."
+}

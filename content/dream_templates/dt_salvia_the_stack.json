@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "Everything that exists is stacked in flat layers and you are between two of them, being slid. There is a mechanism doing this. It has no opinion. It has been running the whole time and you have only just been included.",
   "drug_id": "drug_salvia",
-  "fx": "rain",
-  "fx_intensity": 0.8,
+  "fx": "crawl",
+  "fx_intensity": 0.75,
   "id": "dt_salvia_the_stack",
   "name": "The Stack",
   "objects": [

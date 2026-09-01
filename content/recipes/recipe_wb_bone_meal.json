@@ -9,7 +9,7 @@
   "id": "recipe_wb_bone_meal",
   "ingredients": [
     {
-      "item_id": "item_bone_scrap",
+      "item_id": "item_wb_bone_plate",
       "quantity": 2
     }
   ],

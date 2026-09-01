@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "Your footfall arrives, on time, late.",
+    "A door you opened opens.",
+    "Something ahead does a thing and you understand it in a moment."
+  ],
+  "cause": "drug",
+  "description": "A corridor where everything you do arrives after you have done it, by the same amount, every time. The amount does not vary. You have learned to work with it and are working with it well, and the corridor has been built for people who have learned that.",
+  "drug_id": "drug_dxm",
+  "fx": "tracers",
+  "fx_intensity": 0.8,
+  "id": "dt_dxm_the_delay_line",
+  "name": "The Delay Line",
+  "objects": [
+    {
+      "looks": [
+        "Long, level, and lit at intervals that go on at those intervals.",
+        "The far end is doing what this end did.",
+        "Handrails at your height, worn, on both sides, all the way."
+      ],
+      "name": "the corridor"
+    },
+    {
+      "looks": [
+        "The same every time. You could set a watch by it and have.",
+        "It applies to everything, including the things you did not do on purpose.",
+        "You reach for the rail. Your hand is already there."
+      ],
+      "name": "the lag"
+    }
+  ],
+  "weather": "Flat, recycled air with a hum under it."
+}

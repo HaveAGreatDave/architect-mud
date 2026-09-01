@@ -1,0 +1,1453 @@
+{
+  "banter": [],
+  "chitchat": [
+    "\"Everyone who comes up this road is doing arithmetic. Most of them are doing it badly.\"",
+    "\"I priced a man last week who thought he was here to sell me something.\"",
+    "\"The Watch call it a wall. We call it a waiting room — the difference is whether anybody is coming.\"",
+    "\"You are worth a number today and a different number tomorrow. I only ever tell people the good one.\""
+  ],
+  "description": "A trim, unhurried woman in a pale grey coat that has never been rained on, standing at the gate the way an auditor stands at a doorway — not blocking it, simply present, and counting. She holds a slate she does not look at. When she looks at you she does it once, all the way down, and then stops, as though she has finished the sum and is being polite about the answer.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 900,
+        "y": 60
+      },
+      "actions": [],
+      "options": [],
+      "text": "\"Mind the road down,\" she says. \"It is worse in the dark, and nobody out there is insured.\""
+    },
+    "file_accept": {
+      "_vine": {
+        "x": 1040,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_file"
+        }
+      ],
+      "options": [
+        {
+          "label": "(take it)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Underwriting first. They will make you wait, and that is not personal, that is simply the counter.\""
+    },
+    "file_done": {
+      "_vine": {
+        "x": 360,
+        "y": 1080
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_file"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 1,
+          "npc_id": "npc_asc_ives",
+          "reason": "ives:file",
+          "warmth": 1
+        }
+      ],
+      "options": [
+        {
+          "label": "Next one?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"On time.\" She marks it. \"You would be astonished how much of what I do is that column.\"\n\nShe looks up, briefly, all the way down, and stops.\n\n\"The Curator has been asking. That is not a small sentence. He asks about four people a year and two of them are auditors.\""
+    },
+    "file_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I'll walk it.",
+          "next": "file_accept"
+        },
+        {
+          "label": "That is it? A wallet?",
+          "next": "file_small"
+        }
+      ],
+      "text": "She is almost apologetic.\n\n\"Underwriting has a settled file that needs to be in the Registry by end of day. The Spire does not put settled files on a wire — never has, never will, and if you ever find out why, they will have had to make you permanent first.\"\n\nShe holds out a docket.\n\n\"It is a walk with a wallet in it. I would like you to do a fortnight of walks with wallets in them. Then we will discuss the second fortnight.\""
+    },
+    "file_small": {
+      "_vine": {
+        "x": 700,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Fine. Give me the docket.",
+          "next": "file_accept"
+        }
+      ],
+      "text": "\"That is it. A wallet.\"\n\nShe does not take the docket back.\n\n\"You have spent a fortnight being told by people in a basement that we are a machine which eats you. And here I am, handing you stationery.\"\n\nA small movement that is not quite a shrug.\n\n\"I could give you something dramatic instead. You would enjoy it, and it would tell you nothing true about us at all.\""
+    },
+    "hired": {
+      "_vine": {
+        "x": 360,
+        "y": 1300
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "What is the job?",
+          "next": "hired2"
+        },
+        {
+          "label": "Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "She knows before you finish the sentence, and does not bother to hide it.\n\n\"Marcus is a romantic. He thinks he found you.\" She marks something. \"He did find you, to be fair to him. I simply read the docket first.\"\n\nShe looks up, once, all the way down, and stops.\n\n\"Verity Ives. Claims oversight. You have been doing our small jobs well and cheaply for a fortnight, and I would like to stop paying you by the job.\""
+    },
+    "hired2": {
+      "_vine": {
+        "x": 700,
+        "y": 1300
+      },
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "asc_intent",
+          "scope": "player",
+          "value": "hired"
+        },
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_2"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 2,
+          "npc_id": "npc_asc_ives",
+          "reason": "ives:hired",
+          "warmth": 1
+        }
+      ],
+      "options": [
+        {
+          "label": "Where do I start?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The same job, more of it, and a scan on the way in.\" She hands you a chit.\n\n\"The Gate first. It is not a formality — it is how you stop being a person we are discussing and start being a person we are covering. After that you are on the rota, and somebody upstairs starts caring whether you come back.\"\n\nA truck goes past, west, full of something heavy.\n\n\"Nothing else changes yet. That is the whole point of the first month, and I say it to everybody, and it is true every time.\""
+    },
+    "ives_again": {
+      "_vine": {
+        "x": 1480,
+        "y": 3230
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Eleven thousand and forty.\"\n\nShe says it exactly as she said it the first time, which is the answer to what you were actually asking."
+    },
+    "ives_backdown": {
+      "_vine": {
+        "x": 2980,
+        "y": 2600
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(carry on)",
+          "next": "bye"
+        }
+      ],
+      "text": "The ledger opens again.\n\n\"Thank you.\" She means it, and there is no edge on it at all. \"It is a long day and I would rather not have spent it on that.\"\n\nShe finds her place, which takes her no time.\n\n\"Now. You wanted to know about the walk with the wallet in it.\""
+    },
+    "ives_carried_out": {
+      "_vine": {
+        "x": 3240,
+        "y": 2840
+      },
+      "actions": [
+        {
+          "action": "END_CONVERSATION"
+        }
+      ],
+      "options": [],
+      "text": "There are two of them. The second one comes through the side door without being called, which means somebody upstairs has been watching this conversation.\n\nChrome arms on both, shoulder to fingertip, the plating dulled and scuffed along the forearms the way a much-used tool gets scuffed. One of them has a hand you can hear — a small servo whine as the fingers close.\n\nThey give you about four seconds. Then one takes your upper arm and the other takes a fistful of the back of your coat, and your feet stop being load-bearing.\n\nNeither of them says a word to you. They talk over your head about a delivery that is late. At the first door they turn you sideways without slowing down and your shoulder goes into the frame, and neither of them notices, and neither of them adjusts.\n\nIves has gone back to the ledger before you are through it.\n\nOn the road they set you on your feet and let go at the same moment, so you have to catch your own balance. One of them flexes his hand twice, the way you would after carrying shopping.\n\n\"Mind the step. It is slick tonight.\""
+    },
+    "ives_count_them": {
+      "_vine": {
+        "x": 1400,
+        "y": 3050
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Thousands is the count.\"\n\nShe turns the page.\n\n\"You want me to say that I remember one. I remember four. I am not going to tell you about them, because you would take it as the good news and it is not.\""
+    },
+    "ives_ejected": {
+      "_vine": {
+        "x": 2980,
+        "y": 2760
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(go)",
+          "next": "ives_walked_out"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_asked_to_leave",
+              "scope": "player",
+              "value": "1"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_carried_out",
+              "scope": "player",
+              "value": "1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "(stay where you are)",
+          "next": "ives_carried_out"
+        }
+      ],
+      "text": "\"Yes.\"\n\nShe does not stand up and she does not call anybody. She simply looks past your shoulder and a man in Spire grey is already there, because he was always already there.\n\nHis sleeves are turned back and both forearms are chrome to the elbow, matched to his skin and not remotely disguised.\n\n\"Thank you for coming in. Sign out at the plate.\""
+    },
+    "ives_go_meet": {
+      "_vine": {
+        "x": 1280,
+        "y": 2780
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I could. I did, once, in my second year.\"\n\n\"Ranner, on Cinder Lane. I put four hundred of my own into his account and the file closed on the day it was always going to close.\"\n\nShe marks the column.\n\n\"So now I do the column.\""
+    },
+    "ives_met": {
+      "_vine": {
+        "x": 1240,
+        "y": 2690
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It would change the afternoon.\"\n\nShe finishes the column before she answers the rest of it.\n\n\"It would not change the reserve. That is the argument for not meeting him. I did not invent it and I have never been able to fault it.\""
+    },
+    "ives_nine": {
+      "_vine": {
+        "x": 2200,
+        "y": 2600
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Closed.",
+          "next": "ives_nine_closed"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Assessment, and then whatever assessment finds.\"\n\nShe says it without any weight on it at all.\n\n\"They are a good department. I have never had a page sit with them overnight — it comes back closed the same day, every time, which I have always thought was rather impressive for that volume.\""
+    },
+    "ives_nine_closed": {
+      "_vine": {
+        "x": 2460,
+        "y": 2600
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No. Nothing else.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You know what that means.",
+          "next": "ives_press"
+        }
+      ],
+      "text": "\"Closed.\"\n\nShe looks up, because you have repeated a word back at her and people do not usually do that with the ordinary ones.\n\n\"It is what a file does when there is nothing further to record.\"\n\nShe is already reaching for the next one.\n\n\"Was there something else?\""
+    },
+    "ives_press": {
+      "_vine": {
+        "x": 2460,
+        "y": 2680
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You could refuse to use it.",
+          "next": "ives_warning"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I cannot. I do not write the forms.\"\n\nShe is still perfectly civil, and she has said this before to other people.\n\n\"The committee sat in '39. You may write to them. Two are alive.\""
+    },
+    "ives_price_it": {
+      "_vine": {
+        "x": 1360,
+        "y": 2960
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She stops writing.\n\nIt is the longest she has gone without writing since you came in.\n\n\"I would want a fortnight, the second book, and somebody's authority. All three in writing.\"\n\nShe picks the pen back up.\n\n\"Bring me somebody who can give me those and I will do it properly.\""
+    },
+    "ives_should_be": {
+      "_vine": {
+        "x": 1520,
+        "y": 3320
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Why.\"\n\nNot hostile. She would like the argument, if you have one.\n\n\"If it were difficult I would be slower. The slowness would come off the lights on the approach, and then there would be four hundred people watching a dark road.\""
+    },
+    "ives_still_event": {
+      "_vine": {
+        "x": 1320,
+        "y": 2870
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Yes.\"\n\nShe does not soften it and she does not add to it.\n\n\"It is simply not one of ours, and I have no book for those.\""
+    },
+    "ives_walked_out": {
+      "_vine": {
+        "x": 3240,
+        "y": 2680
+      },
+      "actions": [
+        {
+          "action": "END_CONVERSATION"
+        }
+      ],
+      "options": [],
+      "text": "He walks you to the road. He is pleasant the whole way and does not touch you once, and at the bottom he says the road is a bit slick tonight and to mind how you go."
+    },
+    "ives_warning": {
+      "_vine": {
+        "x": 2720,
+        "y": 2680
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Something else, then.",
+          "next": "ives_backdown"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_asked_to_leave",
+              "scope": "player",
+              "value": "1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are a clerk who files people as animals.",
+          "next": "ives_ejected"
+        }
+      ],
+      "text": "Ives closes the ledger.\n\nShe has written in it, turned it, blotted it and marked her place in it since you walked up, and now it is shut and her hands are flat on the cover.\n\n\"I am going to ask you to leave in a moment, and I would rather not, because you would be signed out and you would have to be signed back in, and that is a fortnight.\"\n\n\"So. Either we talk about something else, or we do not talk.\""
+    },
+    "ives_your_name": {
+      "_vine": {
+        "x": 1440,
+        "y": 3140
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She tells you. Correctly, with the stress in the right place, and she has not looked at anything to do it.\n\n\"It was on the gate log at eleven minutes past.\"\n\n\"You are not being watched, you are being served. Those feel identical from where you are standing and they are not the same thing.\""
+    },
+    "pitch": {
+      "_vine": {
+        "x": 360,
+        "y": 240
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Go on.",
+          "next": "pitch2"
+        },
+        {
+          "label": "You have the wrong person.",
+          "next": "pitch2"
+        }
+      ],
+      "text": "She steps off the kerb before you reach it, which means she was waiting, which means she knew.\n\n\"Halcyon Assurance, claims oversight. You have been standing in my claims hall for two days with a face like a man doing long division.\"\n\nShe does not look at the slate.\n\n\"You are not a claimant, you are not staff, and you walked in from the east on a road the Long Watch use because it is the one with no cameras on it. I am not guessing. Guessing is what people do who have not read the file — and I have read the file.\""
+    },
+    "pitch2": {
+      "_vine": {
+        "x": 680,
+        "y": 240
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "And if I said yes?",
+          "next": "terms"
+        },
+        {
+          "label": "Say the rest of it.",
+          "next": "terms"
+        }
+      ],
+      "text": "\"So — no theatre. I know who sent you and I am not going to have you stopped, because a man walking home with the truth is worth rather more to me than a man in a cell.\"\n\nShe turns, so that you are both looking down the road east, at Coldwater lying in its own smoke.\n\n\"They are going to lose. Not this year, and not cheaply, and not because anybody out-thought them. I have eleven names I am certain of, in a basement, arguing about a machine that runs a city — and every one of those names is fixed to a body that wears out.\"\n\nA truck goes past behind you, west, unhurried.\n\n\"We are not asking you to believe anything. We are asking whether you would like to still be here in forty years to find out who was right.\""
+    },
+    "refused": {
+      "_vine": {
+        "x": 1040,
+        "y": 420
+      },
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "asc_refused",
+          "scope": "player",
+          "value": "done"
+        }
+      ],
+      "options": [
+        {
+          "label": "(walk away)",
+          "next": "bye"
+        }
+      ],
+      "text": "She laughs. Not unkindly — the short, genuine laugh of somebody who has been told a very old joke very well.\n\n\"Death to the Architect. Yes.\" She wipes her eye with a knuckle. \"You have no idea how much I needed that today.\"\n\nShe steps back to let you past, and she does not look at the slate, and she does not need to.\n\n\"You are making a mistake, and I mean that professionally rather than personally. But go on — go and tell them what you saw. I would genuinely rather you did.\"\n\nShe is already looking at the next person coming up the road.\n\n\"We will keep an eye on you. Not as a threat. As an actuary. People in your line of work come back to me eventually, one way or the other, and the other one still counts.\""
+    },
+    "root": {
+      "_vine": {
+        "x": 40,
+        "y": 60
+      },
+      "actions": [],
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "asc_invited",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_arc",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Broch sent me.",
+          "next": "hired"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is a mutant worth to Halcyon?",
+          "next": "the_mutant_number"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(there is a second ledger under the first)",
+          "next": "the_second_book"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens when somebody you cover dies?",
+          "next": "the_loss_event"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(she is writing while you talk)",
+          "next": "the_note"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have a number for me, then.",
+          "next": "the_number"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you make of the people underground?",
+          "next": "the_watch"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "0"
+            },
+            {
+              "flag": "quest_asc_file",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Anything that needs walking?",
+          "next": "file_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_file",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "The file is in the Registry.",
+          "next": "file_done"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_1",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            },
+            {
+              "flag": "asc_refused",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_intent",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "You were waiting for me.",
+          "next": "pitch"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_3",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "Vess is expecting me.",
+          "next": "signin"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "asc_refused",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Still counting?",
+          "next": "watched"
+        },
+        {
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "The woman at the gate finishes a sum she was not writing down, and looks up.",
+        "\"Back up the road,\" she says, and marks something. \"Fourth one this week.\""
+      ],
+      "text_by_relation": {
+        "first": "\"Verity Ives,\" she says, before you have said anything. \"Claims oversight. I price things — mostly people, lately.\"",
+        "known": "\"You again.\" She almost smiles. \"You are becoming a trend, and I do like a trend.\""
+      }
+    },
+    "signin": {
+      "_vine": {
+        "x": 360,
+        "y": 600
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "After you.",
+          "next": "bye"
+        }
+      ],
+      "text": "She signs you in with two strokes and does not ask for a name.\n\n\"The Curator will walk you through the Gallery, then the Vats, then up. Watch the Vats properly — everybody watches the ceiling and misses the part that matters.\"\n\nShe hands the slate back to a man who was not there a moment ago.\n\n\"I will be here when you come down. I am always here when people come down.\""
+    },
+    "stance_approve": {
+      "_vine": {
+        "x": 1940,
+        "y": 2180
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(look at the line)",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks at you for slightly longer than the answer needed.\n\n\"It is. Most people cannot say that out loud, and then they use the clinic anyway.\"\n\nShe turns the ledger round properly this time, and puts a finger on a line partway down.\n\n\"That is yours. Class four. You are two above the man who was just here and four below the woman who signs my wages.\"\n\n\"Nobody is shown that. Do not make me regret it.\""
+    },
+    "stance_object": {
+      "_vine": {
+        "x": 1940,
+        "y": 2460
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What did you just write?",
+          "next": "stance_object_note"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"He is, yes.\"\n\nShe does not argue and she does not look away.\n\n\"And there is no column on that form for it, so it does not go anywhere, and the page still goes to Nine.\"\n\nShe writes four or five words on the left-hand page and blots it with the side of her hand.\n\n\"That is not a mark against you. Almost nothing is.\""
+    },
+    "stance_object_note": {
+      "_vine": {
+        "x": 2200,
+        "y": 2460
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then change the form.",
+          "next": "ives_press"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That you said it.\"\n\nShe caps the pen.\n\n\"People who say it at the desk mostly stop saying it by the second winter. The ones who do not are worth knowing about, and I do not mean that unkindly.\""
+    },
+    "stance_quiet": {
+      "_vine": {
+        "x": 1940,
+        "y": 2320
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": "1"
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_ives",
+              "reason": "ives:unreadable",
+              "warmth": -1
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "Put it in the tray and go.",
+          "next": "stance_quiet_go"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I have not decided.",
+          "next": "stance_quiet_undecided"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing, and go)",
+          "next": "bye"
+        }
+      ],
+      "text": "You take the slip. It is warm from the printer and it weighs nothing.\n\nIves does not go back to the ledger.\n\n\"You did not say.\"\n\nIt is not an accusation. It is the tone she would use to point out that a form was not signed.\n\n\"Everyone says something. The ones who agree say so, and the ones who do not say that instead, and either way I know where to put them.\""
+    },
+    "stance_quiet_go": {
+      "_vine": {
+        "x": 2200,
+        "y": 2320
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Of course.\"\n\nShe writes nothing at all, which she has done after every other thing you have said today.\n\n\"Mind the step on the way down.\""
+    },
+    "stance_quiet_undecided": {
+      "_vine": {
+        "x": 2200,
+        "y": 2460
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "approved"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": ""
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_ives",
+              "reason": "ives:answered",
+              "warmth": 2
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 40,
+              "ideology_id": "ideology_ascendants",
+              "reason": "intake"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "No. The system is right.",
+          "next": "stance_recover"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Yes.",
+          "next": "stance_object"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_watched",
+              "scope": "player",
+              "value": "1"
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_ives",
+              "reason": "ives:refused",
+              "warmth": -1
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am still not going to answer that.",
+          "next": "stance_refused"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let the question sit, and leave)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That is a class of its own and I do not have a column for it.\"\n\nShe sets the pen down, which is worse than her picking it up.\n\n\"I am going to ask you plainly, because it saves us both a fortnight. The man who was here. Should he have a policy?\""
+    },
+    "stance_recover": {
+      "_vine": {
+        "x": 2460,
+        "y": 2400
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "You hear yourself say it, and it comes out easily, and it sounds exactly like something you believe.\n\nIves picks the pen back up.\n\n\"Good. That is all it was.\"\n\nShe writes one word this time, and turns the page, and she is warm again in the way she was before you took the slip.\n\n\"Come back on Thursday. There is a thing I would like you to carry and I would rather it was somebody I have talked to.\""
+    },
+    "stance_refused": {
+      "_vine": {
+        "x": 2460,
+        "y": 2540
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No. I did not think you were.\"\n\nShe is entirely pleasant about it and she does not try again.\n\n\"Then you go in as unclassified, which is not a punishment. It only means that when somebody upstairs runs the list, you come up on it, and they will send somebody who is better at this than I am.\"\n\n\"He will be very nice to you as well.\""
+    },
+    "taken": {
+      "_vine": {
+        "x": 1040,
+        "y": 240
+      },
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "asc_intent",
+          "scope": "player",
+          "value": "done"
+        },
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_2"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 2,
+          "npc_id": "npc_asc_ives",
+          "reason": "ives:signed",
+          "warmth": 2
+        }
+      ],
+      "options": [
+        {
+          "label": "What now?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good.\" No triumph in it at all. She says it the way you would say a figure balanced.\n\n\"Then the first thing is the Gate, and the Gate is a scan, and the scan is not a formality. It is how you stop being a person we are discussing and start being a person we are covering.\"\n\nShe writes something down at last.\n\n\"You will want to go and be seen in Coldwater tonight, doing whatever it is you normally do. Nothing changes yet. That is the entire point of the first month.\""
+    },
+    "terms": {
+      "_vine": {
+        "x": 900,
+        "y": 240
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "All right. I'm listening properly now.",
+          "next": "taken"
+        },
+        {
+          "label": "No. Death to the Architect.",
+          "next": "refused"
+        },
+        {
+          "label": "I need to think about it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The terms, then, since you asked plainly.\" She counts them off on the slate she still is not looking at.\n\n\"An account. Cover on the body you are currently wearing. Access to a clinic where the staff are not drunk. And work — real work, paid, some of which you will not enjoy, none of which I will lie to you about beforehand.\"\n\nA truck goes past, west, full of something heavy.\n\n\"What we want in return is not your friends. Nobody is asking you for eleven names, and if you offered them I would think less of you and take them anyway. What we want is that when it comes apart out there — and it will, and I can tell you roughly when — you are standing on this side of the road.\""
+    },
+    "the_loss_body": {
+      "_vine": {
+        "x": 1160,
+        "y": 1560
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Do you count them?",
+          "next": "ives_count_them"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Full assurance, we print you again.\"\n\n\"Anything less is a disposal. It is a line item. I have signed thousands.\""
+    },
+    "the_loss_event": {
+      "_vine": {
+        "x": 900,
+        "y": 1560
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And the body?",
+          "next": "the_loss_body"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A loss event. File closes, reserve releases, salvage goes where it can be used.\"\n\n\"The chrome is ours. You were renting it.\""
+    },
+    "the_mutant_class": {
+      "_vine": {
+        "x": 1420,
+        "y": 2260
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Somebody wrote that rule.",
+          "next": "the_mutant_written"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The machine decides nothing. It applies what it is given.\"\n\nShe squares the slip against the edge of the counter.\n\n\"And it is fairer than I am. It put him in Nine. It puts everybody like him in Nine, every time, whoever is standing at this desk and whatever kind of morning she is having.\"\n\n\"That is what fair means.\""
+    },
+    "the_mutant_count": {
+      "_vine": {
+        "x": 1160,
+        "y": 2120
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am asking.",
+          "next": "ives_price_it"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks up properly, which she does about once a conversation.\n\n\"We do count it. It is in the second book.\"\n\n\"Nobody has ever asked me to price it.\""
+    },
+    "the_mutant_form": {
+      "_vine": {
+        "x": 1160,
+        "y": 2260
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So the machine decides who counts as a person.",
+          "next": "the_mutant_class"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is where we record anything alive that we cannot put a value on.\"\n\nShe is not defensive. She has not understood the objection and does not know that she has not.\n\n\"The page goes to Nine. Not the ninth floor — the department. There is no name on the slip, only the number, which I have always assumed is an oversight.\"\n\n\"Nineteen years, and I have never had cause to send anything else there.\""
+    },
+    "the_mutant_number": {
+      "_vine": {
+        "x": 900,
+        "y": 2120
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Living property.",
+          "next": "the_mutant_form"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "They still die. You could count that.",
+          "next": "the_mutant_count"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is no number.\"\n\nShe turns the ledger back and does not offer it this time.\n\nShe enters his details anyway, to show you. Under the counter a terminal wakes up and begins printing, unhurried, the way a machine prints a thing it prints all day.\n\n\"To price a life I need thirty years of people dying on schedule. Nobody has that for a mutant. No two of them are alike and none of them were designed.\"\n\nShe tears the slip off and turns it round so you can read the top of it.\n\n<span class=\"term-print\">FORM 9 — UNVALUED LIVING PROPERTY</span>\n\n\"I did not pick that. I typed what he is and the system printed what applies.\""
+    },
+    "the_mutant_written": {
+      "_vine": {
+        "x": 1680,
+        "y": 2260
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "approved"
+            },
+            {
+              "action": "RELATION_ADJUST",
+              "familiarity": 1,
+              "npc_id": "npc_asc_ives",
+              "reason": "ives:intake-agreed",
+              "warmth": 1
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 40,
+              "ideology_id": "ideology_ascendants",
+              "reason": "intake"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then the machine is doing its job.",
+          "next": "stance_approve"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does Nine do with him?",
+          "next": "ives_nine"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "quiet"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "(take the slip and let it go)",
+          "next": "stance_quiet"
+        },
+        {
+          "actions": [
+            {
+              "action": "SET_FLAG",
+              "flag": "asc_mutant_stance",
+              "scope": "player",
+              "value": "objected"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "He is a man. You have him down as property.",
+          "next": "stance_object"
+        }
+      ],
+      "text": "\"Of course somebody did. It did not fall out of the sky.\"\n\nShe says it the way you would explain that a bridge has engineers.\n\n\"A committee, in '39. Eleven of them, and they took four years over it, and the minutes are in the Gallery if you would like to read them. They were careful people.\"\n\nShe turns back to the ledger.\n\n\"The page goes to Nine — not the ninth floor, the department. There is no name on the slip, only the number. Nineteen years, and I have never had cause to send anything else there.\""
+    },
+    "the_note": {
+      "_vine": {
+        "x": 900,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What did you just write?",
+          "next": "the_note_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(carry on)",
+          "next": "bye"
+        }
+      ],
+      "text": "While you are still talking she writes four or five words on the left-hand page, blots it with the side of her hand, and goes on listening.\n\nShe does not offer to show you and does not hide it either."
+    },
+    "the_note_what": {
+      "_vine": {
+        "x": 1160,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is my name?",
+          "next": "ives_your_name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Something about you.\"\n\nShe turns the page over, which is not the same as showing you.\n\n\"You have not told me your name and I have used it twice. You did not notice. That is in there too.\""
+    },
+    "the_number": {
+      "_vine": {
+        "x": 1100,
+        "y": 1150
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is a bad one?",
+          "next": "the_number_bad"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And if the numbers stop working?",
+          "next": "the_number_stop"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everybody has one. Yours is not bad.\"\n\nShe turns the ledger a few degrees.\n\n\"Your reserve. What we hold in case you die on our ground this year.\"\n\n\"If you do not, it becomes profit in December.\""
+    },
+    "the_number_bad": {
+      "_vine": {
+        "x": 1340,
+        "y": 1080
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Would it change anything if you had?",
+          "next": "ives_met"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then go and meet him.",
+          "next": "ives_go_meet"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Impaired life on Meltwater Row. Four dependants, emphysema inside two years. His premium has never covered his reserve.\"\n\nShe does not look up.\n\n\"I have not met him.\""
+    },
+    "the_number_stop": {
+      "_vine": {
+        "x": 1340,
+        "y": 1220
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It is still an event.",
+          "next": "ives_still_event"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then the district comes off the book.\"\n\nShe turns the page.\n\n\"After that it is not a Halcyon event.\""
+    },
+    "the_second_book": {
+      "_vine": {
+        "x": 900,
+        "y": 1700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How many?",
+          "next": "the_second_book_many"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "There is a second ledger under the first. It is thinner and the spine is not broken.\n\n\"Declinatures. Everyone we would not cover, and why.\"\n\n\"Nobody asks for it. I do it because it should be done properly.\""
+    },
+    "the_second_book_many": {
+      "_vine": {
+        "x": 1160,
+        "y": 1700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Say that number again.",
+          "next": "ives_again"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Since March, eleven thousand and forty.\"\n\nShe does not look it up.\n\n\"Ask me in a year and I will know that number too.\""
+    },
+    "the_watch": {
+      "_vine": {
+        "x": 1100,
+        "y": 1300
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It should be difficult.",
+          "next": "ives_should_be"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(say nothing)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sixty declined lives in a storm drain. I could not name one of them.\"\n\nShe marks the column.\n\n\"They are also the plate on this gate, the lights on the approach, and four hundred people watching empty roads.\"\n\n\"Both true. Neither difficult.\""
+    },
+    "watched": {
+      "_vine": {
+        "x": 680,
+        "y": 780
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Nothing's changed.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Always.\" She does not step off the kerb this time, and the slate stays where it is.\n\n\"You are still in the book. Everybody is still in the book. The only thing that changed is which column.\"\n\nA pause exactly long enough to be a courtesy.\n\n\"Was there something?\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "a pale grey overcoat with a chromed lapel pin, immaculate",
+      "a charcoal suit cut for standing still in",
+      "a collarless shirt buttoned to the throat"
+    ],
+    "mis_willing": false,
+    "personality": "politician",
+    "posted": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_893_906",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_asc_ives",
+  "name": "Actuary Verity Ives",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_893_906"
+}

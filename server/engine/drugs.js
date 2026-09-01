@@ -360,6 +360,32 @@ function withdrawalSeverity(sinceOnset, wd) {
   return 1 - (1 - WD_FLOOR) * t;
 }
 
+// Which BEAT of withdrawal this is, as a name an author can hang a line on.
+//
+// ⚠ This deliberately reads the clock, not the severity. Severity is a hill —
+// it climbs to 1 and comes back down the far side — so a band on the number
+// alone cannot tell going-in from coming-out, and those are the two beats that
+// feel least alike. De Quincey's whole account of coming off opium is that it
+// is a SEQUENCE with a shape, not a state you sit in: the first day is not the
+// third and the third is not the tenth, and the part where it starts easing is
+// its own event. `withdrawal.stages` is how a drug says so.
+//
+// Returns null before onset. The five names are the authoring vocabulary and
+// nothing else may appear in a `stages` block.
+function withdrawalPhase(sinceOnset, wd) {
+  if (sinceOnset <= 0) return null;
+  const ramp  = wd.ramp_seconds  ?? WD_RAMP_SECONDS;
+  const peak  = wd.peak_seconds  ?? WD_PEAK_SECONDS;
+  const taper = wd.taper_seconds ?? WD_TAPER_SECONDS;
+  if (sinceOnset < ramp * 0.5) return 'onset';
+  if (sinceOnset < ramp) return 'rising';
+  if (sinceOnset < ramp + peak) return 'peak';
+  if (sinceOnset < ramp + peak + taper * 0.6) return 'easing';
+  return 'tail';
+}
+
+export const WITHDRAWAL_PHASES = ['onset', 'rising', 'peak', 'easing', 'tail'];
+
 export async function loadDrugs() {
   const { rows } = await query('SELECT * FROM drugs');
   const cache = {};
@@ -534,6 +560,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // Re-dosing clears any active withdrawal for this drug.
   reverseMods(player, `withdrawal:${stateKey}`);
   player._withdrawalActive?.delete(stateKey);
+  player._withdrawalPhase?.delete(stateKey);   // a relapse restarts the sequence, it does not resume it
 
   // Substitution: if this dose is easing a DIFFERENT drug's withdrawal — a cousin
   // in the same class — say so. The relief itself is applied by the withdrawal
@@ -598,6 +625,11 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   if (shows) {
     player._visibleDrug = {
       note: shows, illegal: !drug.flags?.legal, name: displayName,
+      // Carried so the mirror can differ from the bystander. What a stranger sees
+      // is one line about your face; what YOU see is whatever the drug is doing to
+      // your sense of your own body, which is class-shaped.
+      drugClass: drug.flags?.drug_class || null,
+      tripping: !!eff.hallucination,
       until: Date.now() + durationSeconds * 1000,
     };
   }
@@ -910,6 +942,10 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
   // drugId -> the mod block currently applied, so a severity that hasn't moved
   // doesn't churn the ledger through a reverse-and-reapply every single minute.
   if (!player._withdrawalActive) player._withdrawalActive = new Map();
+  // drugId -> the withdrawal beat the player was last told about, so a phase
+  // line fires once per beat rather than once per minute. Kept separate from
+  // the mod signature above because the two change on different clocks.
+  if (!player._withdrawalPhase) player._withdrawalPhase = new Map();
 
   for (const state of states) {
     // Normal drugs resolve from the cache; spliced compounds have no drugs row, so
@@ -955,11 +991,23 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
         applyMods(player, source, scaled);
         const first = !player._withdrawalActive.has(state.drug_id);
         player._withdrawalActive.set(state.drug_id, sig);
-        if (first && wd.message) messages.push(`<span class="withdrawal-warning">${wd.message}</span>`);
         // Withdrawal has actually started biting — mods applied, not merely a
         // clock passing onset. You now know what coming off this costs, and
         // that is knowledge nobody could have handed you.
         if (first) learnDrugFact(player.id, state.drug_id, DRUG_FACTS.WITHDRAWAL);
+      }
+
+      // Say something when the BEAT changes, not only when it starts. This sits
+      // outside the signature check on purpose: the mods block churns every
+      // minute as severity drifts, and a line tied to that would either repeat
+      // constantly or be swallowed by a plateau where the number stops moving.
+      // Falls back to the legacy one-shot `wd.message` at onset for any drug
+      // with no authored `stages`, so nothing that shipped before this changes.
+      const phase = withdrawalPhase(elapsed - onset, wd);
+      if (phase && player._withdrawalPhase.get(state.drug_id) !== phase) {
+        player._withdrawalPhase.set(state.drug_id, phase);
+        const line = wd.stages?.[phase] ?? (phase === 'onset' ? wd.message : null);
+        if (line) messages.push(`<span class="withdrawal-warning">${line}</span>`);
       }
       // `*_regen_per_sec` keys are a per-second drip, not a ledger buff. The phases
       // engine has always honoured them; withdrawal silently dropped them into
@@ -970,6 +1018,7 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
     } else if (player._withdrawalActive.has(state.drug_id)) {
       reverseMods(player, source);
       player._withdrawalActive.delete(state.drug_id);
+      player._withdrawalPhase.delete(state.drug_id);
     }
   }
 
@@ -1174,6 +1223,7 @@ export function clearActiveDrugBuffs(player) {
   player.pendingOnsets = [];
   player._visibleDrug = null;      // a fresh clone doesn't wear the last one's pupils
   player._withdrawalActive?.clear?.();
+  player._withdrawalPhase?.clear?.();
   // Banked stimulant relief dies with the body/session too. tickDrugs returns
   // early when activeDrugs is empty, so a debt left behind here would sit unpaid
   // until the player's next dose and then land on them for a bender they don't

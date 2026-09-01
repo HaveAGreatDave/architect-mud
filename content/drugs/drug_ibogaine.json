@@ -55,7 +55,14 @@
       "mods": {
         "stat_brains": -2
       },
-      "onset_seconds": 1800
+      "onset_seconds": 1800,
+      "stages": {
+        "easing": "You stop reaching for it every few minutes.",
+        "onset": "The thread you were being shown goes slack.",
+        "peak": "It laid your whole life out and then left the room, and you are the only one here who saw it, and you cannot get it back to check.",
+        "rising": "You keep waiting for it to finish telling you the thing. It stopped a while ago.",
+        "tail": "Whatever it showed you is yours now, unverified, and it is not coming back to confirm anything."
+      }
     }
   },
   "flags": {

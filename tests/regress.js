@@ -24,6 +24,7 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink, getRandomAmbient, getAmbientPool } from '../server/engine/world.js';
+import { districtFor } from '../server/engine/districts.js';
 import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard, tickEntityAI, isVendorClosed } from '../server/engine/ai-behaviour.js';
 import { openShopSession, closeShopSession, getNpcForShopper } from '../server/engine/vendor-session.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
@@ -45,7 +46,7 @@ import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
 import { npcHomedInOwnedUnit, authoredRentCost } from '../server/engine/apartments.js';
-import { validateTags, validateZoneColumns, zoneColumnCatalog, TAG_CATALOG } from '../server/engine/tags.js';
+import { validateTags, validateZoneColumns, zoneColumnCatalog, TAG_CATALOG, hasTag } from '../server/engine/tags.js';
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
@@ -1049,6 +1050,73 @@ console.log('— layer 1i: relations substrate —');
   // regardless), so this gate is fiction rather than a mechanical lock — but it
   // has to track the SAME predicate the graph holds on, or an author ends up
   // hand-maintaining a second copy of the schedule.
+  // ── BUSINESS DONE IS NOT THE CONVERSATION OVER ─────────────────────────────
+  // A node that hands a job in or takes one on almost always authors `bye` and
+  // nothing else, so finishing an NPC's first errand dropped you out of the
+  // conversation while their second job sat one click away at root. 75 of the
+  // game's 102 quest nodes were shaped that way across 20 NPCs, so the renderer
+  // offers the way back rather than 75 trees being edited to remember it.
+  {
+    const { dialogueOptionKind } = await import('../server/engine/dialogue.js');
+    const tree = {
+      root: { text: 'What do you want?', options: [
+        { label: 'Got another job?', next: 'offer' },
+        { label: 'Done the first one.', next: 'report' },
+      ] },
+      offer:  { text: 'There is one.', options: [{ label: 'I will take it.', next: 'accept' }, { label: 'No.', next: 'bye' }] },
+      accept: { text: 'Good.', actions: [{ action: 'START_QUEST', params: { quest_id: 'q_regress_dlg' } }], options: [{ label: 'Bye', next: 'bye' }] },
+      report: { text: 'Settled.', actions: [{ action: 'TURN_IN', params: { quest_id: 'q_regress_dlg2' } }], options: [{ label: 'Bye', next: 'bye' }] },
+      hub:    { text: 'Chat.', options: [{ label: 'Shop', next: 'shopnode' }, { label: 'Job', next: 'accept' }] },
+      shopnode: { text: 'Wares.', actions: [{ action: 'OPEN_SHOP' }], options: [] },
+      bye:    { text: 'Later.', options: [] },
+      quiet:  { text: 'Nothing doing.', options: [] },
+    };
+    const npc = { id: 'npc_regress_dlg', name: 'Dialogue Dummy', dialogue_tree: tree };
+    const dp = { id: 'regress_dlg_player', _relations: new Map() };
+
+    const afterTurnIn = await renderDialogueNode(npc, 'report', dp, { npc });
+    check('dialogue: a turn-in offers the way back to root',
+      afterTurnIn.options.some((o) => o.next === 'root'),
+      afterTurnIn.options.map((o) => o.next).join(','));
+    const afterAccept = await renderDialogueNode(npc, 'accept', dp, { npc });
+    check('dialogue: …and so does taking a job on',
+      afterAccept.options.some((o) => o.next === 'root'),
+      afterAccept.options.map((o) => o.next).join(','));
+    // ⚠ Root's own options are gated, so a root with nothing left to say must not
+    // be offered — "Anything else?" leading nowhere is worse than the goodbye.
+    const barren = { id: 'npc_regress_dlg2', name: 'Barren',
+      dialogue_tree: { root: { text: 'Hm.', options: [] },
+        report: { text: 'Settled.', actions: [{ action: 'TURN_IN', params: { quest_id: 'q_x' } }], options: [{ label: 'Bye', next: 'bye' }] },
+        bye: { text: 'Later.', options: [] } } };
+    const noReturn = await renderDialogueNode(barren, 'report', dp, { npc: barren });
+    check('dialogue: …but not when root has nothing left to offer',
+      !noReturn.options.some((o) => o.next === 'root'),
+      noReturn.options.map((o) => o.next).join(','));
+    // An ordinary node is untouched — this fires on quest business only.
+    const plainNode = await renderDialogueNode(npc, 'offer', dp, { npc });
+    check('dialogue: an ordinary node gains no return option',
+      !plainNode.options.some((o) => o.next === 'root'),
+      plainNode.options.map((o) => o.next).join(','));
+
+    // ── The ❗ belongs on the option that LEADS to the job ────────────────────
+    // A quest is authored as an offer node plus an accept node, so the mark used to
+    // land on "yes, I'll do it" — by which point you had already found the work.
+    check('dialogue: the option leading to a quest offer is marked as a job',
+      dialogueOptionKind(tree.root.options[0], tree) === 'quest',
+      String(dialogueOptionKind(tree.root.options[0], tree)));
+    check('dialogue: a turn-in option still reads as a hand-in',
+      dialogueOptionKind(tree.root.options[1], tree) === 'turnin',
+      String(dialogueOptionKind(tree.root.options[1], tree)));
+    // ⚠ NOT A GENERAL LOOKAHEAD. `hub` leads to a shop AND a job; marking it would
+    // be a claim about a chat node, and would light up half of every tree.
+    check('dialogue: a hub node is not tagged from what lies beyond it',
+      dialogueOptionKind({ label: 'x', next: 'hub' }, tree) === null,
+      String(dialogueOptionKind({ label: 'x', next: 'hub' }, tree)));
+    check('dialogue: a node that goes nowhere is not a quest offer',
+      dialogueOptionKind({ label: 'x', next: 'quiet' }, tree) === null,
+      String(dialogueOptionKind({ label: 'x', next: 'quiet' }, tree)));
+  }
+
   const { filterDialogueOptions } = await import('../server/engine/dialogue.js');
   const { registerNpcScheduleChecker } = await import('../server/engine/broadcast-bridge.js');
   const host = { id: 'npc_regress_host' };
@@ -1688,14 +1756,62 @@ const uniqueName = (z) => z && nameCount.get(z.name) === 1;
 // the player aboard for every suite that followed.
 const inVehicle = (z) => !!(z.flags?.aircraft_cabin || z.flags?.vessel || z.flags?.echelon);
 const nearVehicle = (z) => inVehicle(z) || neighborZoneIds(z).some(n => inVehicle(zoneById.get(n)));
+// …and it must not be next door to a SHOP THAT CAN BE SHUT. `commerce:shop-hours`
+// blocks a step into an interior whose vendors are all off-shift or not yet behind
+// the counter, and that is a different gate winning before the one under test: the
+// rad fixture read the refusal as a step it had taken, and the weapon fixture had
+// its move eaten before any flee intent could be armed, so `move blocked while
+// under attack` passed for the wrong reason and the intent check failed. Exactly
+// the door exclusion's shape, and exactly its cause — which neighbour you get is
+// DB-row-order dependent, so this anchors or fails on world content.
+// Mirrors shopVendorsFor/shopClosedFor in plugins/commerce/index.js: an interior
+// room with a non-covert vendor working it to a schedule. Rebuilt here rather than
+// imported — the harness must not reach into a plugin's internals to pick a zone.
+const shopGated = new Set();
+for (const n of world.npcs.values()) {
+  if (!n?.work_zone_id || n.flags?.covert) continue;
+  if (!n.vendor_inventory?.length) continue;
+  if (!n.vendor_schedule || !Object.keys(n.vendor_schedule).length) continue;
+  if (zoneById.get(n.work_zone_id)?.flags?.is_interior) shopGated.add(n.work_zone_id);
+}
+// …and neither it nor a neighbour may hold anything DEMOLISHABLE. demolition's
+// fixture asserts that `breach` in an ordinary room answers "nothing here worth
+// wiring" rather than "you are not carrying a charge" — the useful refusal before
+// the confusing one — so a room with a target in it gets the second and reds.
+// The neighbour half is the load-bearing half, and it is the Leviathan bite above
+// happening again with a different room: the anchor landed on
+// `zone_util_zone_asc_vats_hall`, the utility room the power self-heal built under
+// the Vat Hall, whose one exit goes up into the hall itself. The move fixtures
+// take that exit and leave the player standing next to the vat colonnade — which
+// is the ONLY demolishable object in the world — for every suite that follows.
+// Keyed on the tag, so it is the same question demolishableIn() asks.
+const demolishableZones = new Set();
+for (const f of world.furniture.values()) {
+  if (f?.zone_id && hasTag(f, 'demolishable')) demolishableZones.add(f.zone_id);
+}
+// …and it must not be a SANCTUARY. The zone-tag fixtures assert that an untagged
+// zone has none, then set the tag themselves and `delete` it in a finally — so an
+// authored sanctuary both fails that assertion and strips a real flag off the live
+// zone object for every suite that runs after it.
+// …and it must not be a UTILITY ROOM. These are built by the power self-heal, not
+// authored, and they are a poor anchor twice over: they are the room the Leviathan
+// and vat-colonnade bites both came through, and they have exactly one exit, so
+// every fixture that wants an ordinary room with somewhere to go SKIPS instead of
+// running. That is worse than a red — the suite still prints green, six checks
+// lighter, and nothing says which six.
+const isUtilityRoom = (z) => /^zone_util_/.test(z.id);
 const baseOk = (z) =>
   z.exits && Object.keys(z.exits).length > 0 &&
+  !isUtilityRoom(z) &&
   !z.flags?.water &&
+  !z.flags?.sanctuary &&
   !nearVehicle(z) &&
   !doorZones.has(z.id) &&
   !getApartment(z.id) &&
   !z.flags?.prologue &&
-  !neighborZoneIds(z).some(n => doorZones.has(n)) &&
+  !shopGated.has(z.id) &&
+  !demolishableZones.has(z.id) &&
+  !neighborZoneIds(z).some(n => doorZones.has(n) || shopGated.has(n) || demolishableZones.has(n)) &&
   dryExit(z);
 const zone =
   zones.find(z => baseOk(z) && uniqueName(z) && uniqueName(zoneById.get(dryExit(z)[1])))
@@ -4557,6 +4673,56 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     `${missingRows.length} missing / ${extraRows.length} extra — run npm run map:derive`
     + (missingRows.length ? ` — e.g. ${missingRows[0]}` : '')
     + (extraRows.length ? ` — e.g. ${extraRows[0]}` : ''));
+}
+
+// LAW: THE CITY IS NOT FILED AS WILDERNESS.
+// `districtFor` runs per move, per describe and per ambient beat, and three shipped
+// systems read it: the boundary-crossing threshold, the room description, and
+// district-ambience's leitmotif. For months 160 of Coldwater's 274 urban tiles —
+// paved streets, the Spire, the Ascension Gate — were affirmatively filed
+// `wasteland`, so the plugin whose whole stated purpose is that "you just notice the
+// Docks smell different" played wasteland cues on the downtown pavement.
+//
+// ⚠ THE TEST IS URBAN TILES ONLY. `wilds` is the correct answer for the 28-tile
+// column at x918 running south of y919 — that is the Gate Road leaving town through
+// real wilderness, and an earlier draft of the repair counted it as part of the bug.
+{
+  const URBAN_TERRAIN = new Set(['road', 'asphalt', 'concrete', 'park', 'dirt_road']);
+  const isUrban = (z) => URBAN_TERRAIN.has(z?.flags?.terrain) || !!z?.flags?.building_type
+    || z?.flags?.is_building === true || z?.flags?.is_building === 'true';
+  const urban = getAllZones().filter(z =>
+    z?.flags?.region_id === 'region_coldwater' && z.map_id === 'map_world'
+    && z.grid_x != null && (z.grid_z ?? 0) === 0 && (z.grid_y ?? 0) <= 919 && isUrban(z));
+  check('district: the built city has urban tiles to judge', urban.length > 200, String(urban.length));
+  const wilderness = urban.filter(z => ['wasteland', 'wilds'].includes(districtFor(z)?.key));
+  check('district: no tile in the built city is filed as wilderness',
+    wilderness.length === 0,
+    wilderness.slice(0, 6).map(z => `${z.id}=${districtFor(z)?.key}`).join(', '));
+
+  // A short street firing "You cross into…" mid-block is the noise this repair exists
+  // to kill. A LONG ARTERIAL crossing quarters is not — Meltwater Row runs most of the
+  // height of the city and passes through three of them, exactly as a real road does.
+  // So the bar is on SHORT streets, and the arterial is named rather than exempted by
+  // a length rule nobody would recognise later.
+  const ARTERIALS = new Set(['Meltwater Row', 'Grasslands']);
+  const at = new Map(urban.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+  const broken = new Set();
+  for (const z of urban) {
+    if (!z.name || ARTERIALS.has(z.name)) continue;
+    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+      const n = at.get(`${z.grid_x + dx},${z.grid_y + dy}`);
+      if (n && n.name === z.name && districtFor(n)?.key !== districtFor(z)?.key) broken.add(z.name);
+    }
+  }
+  check('district: no short street changes district mid-block',
+    broken.size === 0, [...broken].join(', '));
+
+  // ⚠ `util` was on media.json's prefixes, so all 116 zone_util_* rooms — plant rooms,
+  // risers, service corridors — resolved to the Media District, and "the Media
+  // District is under lockdown" could fire in a boiler room.
+  const utilAsMedia = getAllZones().filter(z => z.id?.startsWith('zone_util') && districtFor(z)?.key === 'media');
+  check('district: no utility corridor resolves to the Media District',
+    utilAsMedia.length === 0, utilAsMedia.slice(0, 4).map(z => z.id).join(', '));
 }
 
 // LAW: YOU LEAVE THE CITY THROUGH A GATE, OR YOU DO NOT LEAVE IT.

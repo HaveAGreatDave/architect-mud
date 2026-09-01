@@ -1,5 +1,5 @@
 {
-  "description": "A wet-rated strip light behind a scratched perspex cover, sunk into the ceiling well out of reach. It never goes off, which is the point: there is no hour in here that is dark enough to do anything in.",
+  "description": "A wet-rated strip light behind a scratched perspex cover, sunk into the ceiling well out of reach. It never goes off. There is no hour in here dark enough to do anything in.",
   "flags": {
     "interactions": [
       "switch"

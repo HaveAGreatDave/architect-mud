@@ -42,7 +42,22 @@
       "lethal": true,
       "message": "You breathe in one rag too many. The lights go out mid-thought."
     },
-    "take_line": "You soak the rag and hold it over your face."
+    "take_line": "You soak the rag and hold it over your face.",
+    "withdrawal": {
+      "message": "The room will not hold still, and the smell is on you when it should not be.",
+      "mods": {
+        "stat_cool": -2,
+        "stat_reflexes": -1
+      },
+      "onset_seconds": 1200,
+      "stages": {
+        "easing": "It settles into an ordinary bad day, which after the last one is almost hospitality.",
+        "onset": "The smell arrives first, on your own hands, with no rag anywhere near them.",
+        "peak": "You are sick, and being sick does not help, and then you are sick again.",
+        "rising": "The room will not hold still at the corners, and shutting your eyes makes it worse rather than better.",
+        "tail": "Level. The smell is still turning up in places it has no business being."
+      }
+    }
   },
   "flags": {
     "drug_class": "depressant",

@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The First does not want a body. Bodies are cheap and He has a building full of them. What He wants is the eastern approaches back in service — the cameras the Watch have spent years quietly blinding, working again by morning. You know where every one of them is. That is the point, and everybody in the room knows it.",
+  "description": "Nine cameras on the approach to the Outfall have been faulty for a long time. Some of them have been faulty for years.\n\nThe work order calls it restoring service. It is restoring service — the cabling is sound, the housings are intact, the faults are all in software, and every one of them will come back on in an afternoon with the right credentials and somebody willing to walk the approach.\n\nVess mentions that the district has had four assaults on that stretch this year and no pictures of any of them. She is not making an argument, and she does not need to. Halcyon owns the cable, the housings, the software and the afternoon it takes to fix them, and the only people who ever wanted that stretch dark were the ones standing in it.",
   "fail_on": [
     {
       "desc": "You did not come back from the eastern approaches, and the Watch are not fools about who was out there.",
@@ -12,10 +12,10 @@
   "name": "Restoring Service",
   "objectives": [
     {
-      "desc": "Restore the street camera on the Precinct 9 approach.",
+      "desc": "Get to the distribution point on the approach.",
       "emotes": [
-        "{who} seats a fresh core in a housing they emptied themselves, not so long ago.",
-        "{who} waits for the amber light, and it comes back on."
+        "{who} walks the approach in daylight, which nobody from either side does.",
+        "{who} finds the cabinet, and finds it unlocked, because nobody has needed to lock it for years."
       ],
       "id": "o_p9",
       "taskSeconds": 12,
@@ -24,7 +24,12 @@
     },
     {
       "count": 1,
-      "desc": "Push the Watch's blind-spot map back onto the civic net.",
+      "desc": "Restore the camera records.",
+      "emotes": [
+        "{who} clears nine faults in about forty minutes and none of them put up a fight.",
+        "{who} watches the last picture come up, and the picture is of the road home.",
+        "{who} closes the cabinet and walks back past nine cameras that are working."
+      ],
       "id": "o_records",
       "requires": [
         "o_p9"
@@ -48,6 +53,11 @@
         "flag": "lw_burned",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "9"
       }
     ],
     "rep": [

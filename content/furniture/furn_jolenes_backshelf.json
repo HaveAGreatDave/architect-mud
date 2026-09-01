@@ -1,0 +1,18 @@
+{
+  "description": "Bottles ranked in front of a mirror, sorted by nothing, and a shelf of jars and glasses that match in no respect whatsoever. A row of chipped enamel plates stands on end at the back.",
+  "flags": {
+    "aliases": "shelf,back shelf,bottles,glassware",
+    "container": 40000,
+    "dish_cabinet": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_backshelf",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "back shelf",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_jolenes_bar"
+}

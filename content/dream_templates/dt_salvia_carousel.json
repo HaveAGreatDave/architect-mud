@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "You are one of the painted panels on a fairground ride, in a town you have never been to, at two in the afternoon, going round. The music belongs to the ride and has done since before you were included. Nobody is riding it. It was always going to run anyway.",
   "drug_id": "drug_salvia",
-  "fx": "wind",
-  "fx_intensity": 0.3,
+  "fx": "swim",
+  "fx_intensity": 0.8,
   "id": "dt_salvia_carousel",
   "name": "The Carousel",
   "objects": [

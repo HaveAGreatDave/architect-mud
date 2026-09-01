@@ -18,7 +18,7 @@ import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
-import { availableActions } from '../specializedActions.js';
+import { itemVerbs } from '../itemActions.js';
 import { logRender } from '../minigame.js';
 import { getHelpTopic, listHelpTopics } from '../help.js';
 import '../help-topics.js';
@@ -551,22 +551,14 @@ function describeFill(customData, capacity) {
 
 // The verbs an inventory item affords — the single source shared by `examine`
 // and `help <item>`, so the two never disagree. `equip`/`unequip` for anything
-// with a body `slot` (state-aware from is_equipped), then the tag-gated
-// specialized actions (eat/drink/use/read/smoke/…) the item's tags unlock.
+// with a body `slot` (state-aware from is_equipped), then the item's own
+// affordances from itemActions.js, the same list the inventory payload carries.
 function itemActionVerbs(it) {
   const verbs = [];
   if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'slot')) {
     verbs.push(it.is_equipped ? 'unequip' : 'equip');
   }
-  for (const v of availableActions(it)) if (!verbs.includes(v)) verbs.push(v);
-  // A currency chip is `consumable` (so the credit-payout path fires), which the
-  // food plugin surfaces as "eat". You don't eat a credit chip — you `use` it to
-  // bank it, so swap the consumable verbs for the plain `use` the payout keys on.
-  if (it.tags?.currency) {
-    const cleaned = verbs.filter(v => v !== 'eat' && v !== 'drink');
-    if (!cleaned.includes('use')) cleaned.push('use');
-    return cleaned;
-  }
+  for (const v of itemVerbs(it)) if (!verbs.includes(v)) verbs.push(v);
   return verbs;
 }
 

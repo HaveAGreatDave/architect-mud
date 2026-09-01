@@ -1,0 +1,17 @@
+{
+  "description": "Four polystyrene heads on the dresser, three of them wearing a platinum tower in a different stage of repair, one bare and faintly menacing. Each block has a name written on the base in marker. Roberta is the good one.",
+  "flags": {
+    "aliases": "wigs,blocks,dresser,wig stand",
+    "container": 8000
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_wigs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wig blocks",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_jolenes_loft"
+}

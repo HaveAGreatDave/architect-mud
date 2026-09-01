@@ -1,0 +1,21 @@
+{
+  "description": "Painted 4, and newer than the rest by twenty years, which out here means the porthole is only slightly frosted. It runs hot and everybody knows it, so this is the one there is a queue for.",
+  "flags": {
+    "interactions": [
+      "launder"
+    ],
+    "wash_cycle_ms": 120000,
+    "wash_price": 8,
+    "washing_machine": true
+  },
+  "hp": 60,
+  "hp_max": 60,
+  "id": "furn_wash_machine_4",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "washing machine 4",
+  "object_type": "fixture",
+  "power_draw_kw": 0.6,
+  "price": 55,
+  "zone_id": "zone_the_wash"
+}

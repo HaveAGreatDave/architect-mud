@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Nuts to That",
     "building_type": "hardware",
-    "district": "wasteland",
+    "district": "marrow",
     "entrance": "south",
     "facade": true,
     "is_building": true,

@@ -1,0 +1,14 @@
+{
+  "description": "A hand-sized slate off a claims counter, still warm. Two hundred settled payouts, and against forty of them a routing code that is not a bank, not a clinic and not an address — just a bearing and a number, repeated, west.",
+  "flags": {},
+  "id": "item_claims_routing_slate",
+  "name": "claims routing slate",
+  "tags": {
+    "description": "Two hundred settled payouts, and against forty of them a routing code that is not a bank, not a clinic and not an address.",
+    "electronic": true,
+    "misc": true
+  },
+  "type": "misc",
+  "value": 45,
+  "weight": 300
+}

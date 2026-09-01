@@ -1,5 +1,5 @@
 {
-  "addiction_chance": 0.01,
+  "addiction_chance": 0,
   "description": "A single breath of vaporised DMT-analog. Ten thousand years in four hundred seconds.",
   "duration_seconds": 200,
   "effects": {

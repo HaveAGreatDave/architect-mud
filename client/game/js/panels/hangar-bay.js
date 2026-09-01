@@ -18,6 +18,7 @@ import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
 import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from './wireframe-plane.js';
 import { showConfirmDialog } from './confirm.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
+import { compactHidePanel } from '../../../shared/compact-view.js';
 
 let B = null;       // { data, screen, selId, work (paint edit copy) }
 let raf = null;      // shared spin/scene-draw loop
@@ -44,6 +45,11 @@ export function openHangarBay(data) {
   // Snap the top pane back to its default auto size so the whole hangar UI fits the
   // interface, regardless of any manual drag height left on the previous room look.
   if (freshOpen) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
+  // ⚠ AND ON A PHONE THE LOG FOLDS AWAY. The bay is a full-height UI in a pane that is a third of
+  // a phone screen, and the scrollback takes the rest. Only on a FRESH open, which is what stops a
+  // background refresh (a remote tablet sale) re-asserting it over a player who reopened the log.
+  // The buttons light themselves off the body class at render, so there is nothing to pass here.
+  if (freshOpen) compactHidePanel('hb-hidepanel');
   B = B || { screen: 'floor', selId: null, work: null };
   B.data = data || {};
   const craft = B.data.craft || [];

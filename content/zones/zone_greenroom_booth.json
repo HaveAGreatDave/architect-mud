@@ -7,7 +7,7 @@
     "west": "zone_greenroom_lounge"
   },
   "flags": {
-    "building_name": "The Green Room",
+    "building_name": "The Deadline",
     "building_type": "bar",
     "floor": "boards",
     "is_building": true,

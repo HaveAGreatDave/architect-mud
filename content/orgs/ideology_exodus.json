@@ -16,6 +16,11 @@
         "Awaken the mind: discipline, then psionics."
       ]
     },
+    "role": {
+      "writes": "none",
+      "reads": null,
+      "drift": null
+    },
     "stance": "renounce",
     "values": [
       "Renewal",

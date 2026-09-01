@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A stair landing between two flights, both of which go up. The wallpaper is a pattern you knew as a child and cannot now describe. There is a window with the light of a whole day passing through it in the time it takes to look away and back.",
   "drug_id": "drug_threshold",
-  "fx": "ash",
-  "fx_intensity": 0.35,
+  "fx": "crawl",
+  "fx_intensity": 0.45,
   "id": "dt_threshold_landing",
   "name": "The Landing",
   "objects": [

@@ -11,7 +11,7 @@
   },
   "flags": {
     "airfield_id": "af_regional",
-    "district": "wasteland",
+    "district": "docks",
     "hangar_interior_zone": "zone_hangar_outskirts",
     "icon": "runway_ns",
     "region_id": "region_coldwater",

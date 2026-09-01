@@ -1,8 +1,21 @@
 # Void Arrival Checkpoints — border re-entry from the void
 
-**STATUS: PLAN, awaiting approval (2026-07-20).** Land foot-crossers at a region's *edge* and
-make them walk inward through an inspected **checkpoint** to reach the city, instead of teleporting
-them into the region mid-map. Extends [Overland Void Travel](../systems-overland-void-travel.md);
+**STATUS: the arrival half SHIPPED; the checkpoint half was never needed** (restamped 2026-08-30).
+
+This asked for two things and only the first turned out to be a real problem. **Foot-crossers already
+land at a region's edge**: every limb in `VOIDS` deposits its walker on a rim tile — the Reach at
+`zone_the_reach_870_1958`, Terminus at `zone_terminus_1200_940`, the Scarletwastes at
+`zone_scw_1000_968` — so nobody is teleported mid-map any more. Overland void travel solved it on the
+way past, without this plan being read.
+
+What is NOT built is the **inspected checkpoint** itself: the walk inward, the search, the contraband
+question. That is still design, and it is a smaller idea than it looks now that arrival is correct —
+it is a border post, not a border. Do not treat the section below as outstanding work in full; the
+premise it opens with ("instead of teleporting them into the region mid-map") is no longer true.
+
+Original framing, kept because the checkpoint design still rests on it: land foot-crossers at a
+region's *edge* and make them walk inward through an inspected **checkpoint** to reach the city.
+Extends [Overland Void Travel](../systems-overland-void-travel.md);
 reuses the already-built `checkpoint` law almost wholesale.
 
 Related: [[project_overland_void_travel]], [[project_the_reach]], [[project_wildlands_curtain]]

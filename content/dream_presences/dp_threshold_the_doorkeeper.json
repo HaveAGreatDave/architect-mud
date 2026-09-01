@@ -1,0 +1,22 @@
+{
+  "arrivals": [
+    "Somebody comes through who is on duty here.",
+    "They step out of the inner room and pull the door to behind them.",
+    "They arrive from the other side, briefly, on an errand."
+  ],
+  "cause": "drug",
+  "departures": [
+    "They go back through and the door is closed properly.",
+    "They are called from inside and answer and go.",
+    "They finish what they are doing out here and return to the post."
+  ],
+  "drug_id": "drug_threshold",
+  "id": "dp_threshold_the_doorkeeper",
+  "looks": [
+    "On duty. Doing the job. Not obstructing you and not standing aside.",
+    "They know whether you are expected and it is not their place to say.",
+    "They have the list. The list is turned away from you out of habit.",
+    "They are kind about it, which is the part that has no answer."
+  ],
+  "name": "the one on the door"
+}

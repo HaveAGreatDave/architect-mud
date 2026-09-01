@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Are you going to wake it?",
+    "Do you know what it is?",
+    "Were you wanting to use the tap?"
+  ],
+  "description": "A deep woven nest of twigs and wire and torn cloth, fitted into the place the sink was, with something small and warm curled at the bottom of it, breathing steadily and entirely uninterested in you.",
+  "drug_id": "drug_psilocybin",
+  "emotes": [
+    "{it} rises and falls, slowly, with the thing inside it.",
+    "{it} shifts as whatever is in it turns over.",
+    "{it} makes a small contented noise and stops."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_sink_nest",
+  "looks": [
+    "The weave is tight and clever and includes a good deal of stolen material.",
+    "Whatever is in the bottom of it is a grey curve that rises and falls and does not wake.",
+    "It is warm above the nest, noticeably, the way it is warm above an animal."
+  ],
+  "matches": "sink",
+  "name": "a nest with something asleep in it",
+  "says": [
+    "Keep it down.",
+    "It has been up all night.",
+    "There is room, if you are small."
+  ],
+  "scope": "object"
+}

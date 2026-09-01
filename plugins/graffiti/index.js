@@ -227,6 +227,53 @@ async function doTag(args, raw, player) {
   return applyTag(player, picked.wall, text, [], can);
 }
 
+// The row write, shared by the player's hand and the world's. Kept in one place
+// so the RAM map and the table can never disagree about what is on a wall.
+async function persistTag(zoneId, entry) {
+  tags.set(zoneId, entry);
+  await query(
+    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, day_index)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT (zone_id) DO UPDATE SET
+       target_zone_id=EXCLUDED.target_zone_id, target_name=EXCLUDED.target_name,
+       author_id=EXCLUDED.author_id, author_handle=EXCLUDED.author_handle,
+       text=EXCLUDED.text, style=EXCLUDED.style, day_index=EXCLUDED.day_index,
+       created_at=EXTRACT(EPOCH FROM NOW())`,
+    [zoneId, entry.targetZoneId, entry.targetName, entry.authorId, entry.authorHandle,
+     entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.dayIndex]
+  ).catch(() => {});
+}
+
+/**
+ * A tag nobody in the game sprayed — the world's own hand. Used by the unrest sim
+ * when a cell goes loud enough that somebody has been at the walls.
+ *
+ * ⚠ Deliberately NOT a route into `applyTag`: there is no player, so there is no
+ * can to spend and no crime to charge, and `graffiti.tagged` must not fire — that
+ * event is read by surveillance as "a person did this", and a witnessed crime with
+ * no suspect is a wanted star nobody can be given.
+ *
+ * The result is an ordinary tag in every other respect, including the lazy
+ * three-game-day expiry, which is why an incident that never gets torn down (a
+ * process that died mid-staging) leaves a wall that simply weathers.
+ */
+export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
+  const zone = getZone(zoneId);
+  if (!zone) return null;
+  const wall = wallsNear(zone)[0] || { id: zoneId, name: zone.name || 'the wall' };
+  const entry = {
+    text: esc(String(text).slice(0, TAG_MAX_LEN)),
+    style: null,
+    authorId: null,
+    authorHandle,
+    targetZoneId: wall.id,
+    targetName: wall.name,
+    dayIndex: gameDayIndex(gameToday()),
+  };
+  await persistTag(zoneId, entry);
+  return entry;
+}
+
 /**
  * Put a tag up. The one write path — `tag` (typed) and `sprayapply` (the dialog)
  * both land here, so the crime, the can, the upsert and the "straight over
@@ -247,18 +294,7 @@ async function applyTag(player, wall, text, runs, can) {
     targetName: wall.name,
     dayIndex: gameDayIndex(gameToday()),
   };
-  tags.set(player.current_zone, entry);
-  await query(
-    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, day_index)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-     ON CONFLICT (zone_id) DO UPDATE SET
-       target_zone_id=EXCLUDED.target_zone_id, target_name=EXCLUDED.target_name,
-       author_id=EXCLUDED.author_id, author_handle=EXCLUDED.author_handle,
-       text=EXCLUDED.text, style=EXCLUDED.style, day_index=EXCLUDED.day_index,
-       created_at=EXTRACT(EPOCH FROM NOW())`,
-    [player.current_zone, entry.targetZoneId, entry.targetName, entry.authorId, entry.authorHandle,
-     entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.dayIndex]
-  ).catch(() => {});
+  await persistTag(player.current_zone, entry);
 
   const left = await spendCan(can, text.length);
 

@@ -163,6 +163,7 @@
       "options": [
         {
           "cmd": "gigs",
+          "label": "\"What else is on the board?\"",
           "text": "\"What else is on the board?\""
         }
       ],

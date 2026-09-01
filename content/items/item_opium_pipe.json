@@ -1,0 +1,12 @@
+{
+  "description": "A long-stemmed pipe with a small brass bowl set part-way down it, kept clean by somebody who cared. The stem is cool to hold no matter how long it has been going.",
+  "flags": {},
+  "id": "item_opium_pipe",
+  "name": "opium pipe",
+  "tags": {
+    "smoking_apparatus": "pipe"
+  },
+  "type": "misc",
+  "value": 340,
+  "weight": 60
+}

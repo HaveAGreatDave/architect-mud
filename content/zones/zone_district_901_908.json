@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Second Skin",
     "building_type": "shop",
-    "district": "wasteland",
+    "district": "glasshouse",
     "entrance": "east",
     "facade": true,
     "is_building": true,

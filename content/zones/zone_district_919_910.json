@@ -7,7 +7,7 @@
     "south": "zone_district_919_911"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "industrial",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "terrain": "road"

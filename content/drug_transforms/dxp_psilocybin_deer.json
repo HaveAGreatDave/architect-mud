@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Are you going to move?",
+    "Did you hear that, outside?",
+    "Why are none of you running?"
+  ],
+  "description": "A deer, upright, filling more of the room vertically than anything ought to, balanced with no apparent effort at all. It is looking at you with the whole of its attention and it is not frightened, which is the wrong way round.",
+  "drug_id": "drug_psilocybin",
+  "emotes": [
+    "{it} lowers its head almost to yours and raises it again.",
+    "{it} steps once, delicately, and the hooves are very loud.",
+    "{it} freezes completely, for a while, and then stops."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_psilocybin_deer",
+  "looks": [
+    "The front legs hang at its sides, and the joints in them are all in the wrong places for arms.",
+    "The eyes are black and wet and set too far apart to both be aimed at you, and both are.",
+    "The ears track independently, and one of them is on the door."
+  ],
+  "matches": null,
+  "name": "a deer standing on its hind legs",
+  "says": [
+    "I can stand like this for as long as I want to.",
+    "You are between me and the way out. It is fine.",
+    "Nothing in here has ever hurt me."
+  ],
+  "scope": "person"
+}

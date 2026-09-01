@@ -1,15 +1,17 @@
 {
   "category": null,
-  "description": "Bracken Hale walks the road out past the wall twice a week and checks what is on it, and the hounds go with her. She is short a pair of hands this week. It is a long walk in bad ground and the dogs do most of the work.",
+  "description": "Bracken Hale walks the road out past the wall twice a week and checks what is on it, and the hounds go with him. He is short a pair of hands this week.\n\nIt is a long walk in bad ground and the dogs do most of the work.",
   "fail_on": [],
   "id": "quest_wild_proving",
   "meta": {},
   "name": "The Road and the Dogs",
   "objectives": [
     {
-      "desc": "Collect the hounds from Bracken Hale",
+      "desc": "Take the hounds off the wire at the Runs.",
       "emotes": [
-        "{who} gets the leads over their shoulder and lets four large animals decide how fast this is going to go."
+        "{who} gets the leads over their shoulder and lets four large animals decide how fast this is going to go.",
+        "{who} gets the wire gate open one-handed while a dozen animals decide whether to be interested.",
+        "{who} counts four leads out and puts the rest back on the peg."
       ],
       "id": "o0",
       "requires": [],
@@ -20,7 +22,9 @@
     {
       "desc": "Walk the road out past the wall and check what is on it",
       "emotes": [
-        "{who} walks the line of poles, checking the fixings, straightening what has gone crooked in the wind."
+        "{who} walks the line of poles, checking the fixings, straightening what has gone crooked in the wind.",
+        "{who} keeps the wall on one side for as long as there is wall, and then there is not.",
+        "{who} lets the dogs get out in front, because they know the ground and the ground is the difficulty."
       ],
       "id": "o1",
       "requires": [

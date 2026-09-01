@@ -9,7 +9,9 @@
     {
       "desc": "Walk up to the breach where the old grid came in, and look at what is left of it.",
       "emotes": [
-        "{who} stands at the cut for a while longer than looking at it requires."
+        "{who} stands at the cut for a while longer than looking at it requires.",
+        "{who} finds a cut in the hillside, a stub of conduit, and the weather getting into both.",
+        "{who} works out how much cable came through here once, and stops working it out."
       ],
       "id": "o_breach",
       "type": "visit",
@@ -18,7 +20,8 @@
     {
       "desc": "Go back to the tally. Threlfall will be waiting, and she will not be at the board.",
       "emotes": [
-        "{who} comes in with the answer already worked out and says none of it."
+        "{who} comes in with the answer already worked out and says none of it.",
+        "{who} comes in to find Threlfall away from the board and facing the door."
       ],
       "id": "o_tally",
       "type": "visit",

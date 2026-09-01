@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Ration Nine",
     "building_type": "grocery",
-    "district": "wasteland",
+    "district": "industrial",
     "entrance": "west",
     "facade": true,
     "is_building": true,

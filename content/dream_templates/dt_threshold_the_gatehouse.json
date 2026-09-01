@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The ledger is turned to a fresh page.",
+    "Behind the gatehouse, something very large adjusts its lights.",
+    "A stamp comes down on something, twice, and is put away."
+  ],
+  "cause": "drug",
+  "description": "A small building whose whole purpose is the larger one behind it. It has a counter and a ledger and a person’s job in it. Everything about it is in good order. What is behind it goes up out of the top of what you can see and has been there longer than the gatehouse.",
+  "drug_id": "drug_threshold",
+  "fx": "crawl",
+  "fx_intensity": 0.5,
+  "id": "dt_threshold_the_gatehouse",
+  "name": "The Gatehouse",
+  "objects": [
+    {
+      "looks": [
+        "Names, times, and a column for out that has entries in it.",
+        "The hand is careful and the entries are recent.",
+        "There is a line ready, and the date has been filled in."
+      ],
+      "name": "the ledger"
+    },
+    {
+      "looks": [
+        "It goes up past the top of the gate and keeps going.",
+        "Lit, all the way up, in the pattern of a place with people in it.",
+        "It was here before the wall and the wall was built to reach it."
+      ],
+      "name": "what is behind it"
+    }
+  ],
+  "weather": "A draught through, from the gate side, carrying the air of the other place."
+}

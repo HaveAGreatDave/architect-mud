@@ -2,7 +2,7 @@
   "blurb": "The city gave up out here, and the wind took the rest.",
   "color": "#7c6a4a",
   "id": "wasteland",
-  "landmark": "waste_gantry",
+  "landmark": "zone_district_891_907",
   "name": "the Wastes",
   "prefixes": [
     "badland",
@@ -16,6 +16,6 @@
     "A loose sheet of tin bangs somewhere, over and over, keeping no time.",
     "The silence out here has a weight to it, and it leans on you."
   ],
-  "skyline": "a skeletal gantry leans on the horizon",
+  "skyline": "a gun nest squats black on the western rise, pointed at nothing now",
   "sort": 120
 }

@@ -1,0 +1,20 @@
+{
+  "description": "An iron-framed bed made tight enough to bounce a coin off, under a quilt somebody hand-stitched out of stage shirts that had finished being stage shirts.",
+  "flags": {
+    "aliases": "bed,mattress",
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "iron bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_jolenes_loft"
+}

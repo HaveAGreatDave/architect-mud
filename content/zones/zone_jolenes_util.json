@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#3b2a1c",
+  "color": "#f0dcc0",
+  "description": "A cellar closet under the stairs holding a grey junction cabinet, a mop bucket, two dead kegs and a milk crate of stage cable that somebody coils properly every single time. A small sealed hacking port sits below the latch.",
+  "exits": {
+    "up": "zone_jolenes_bar"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_jolenes_util",
+  "map_id": "map_int_jolenes",
+  "name": "Jolene's — Utility Room",
+  "parent_zone": "zone_district_906_913"
+}

@@ -1,7 +1,13 @@
 {
   "name": "ascendant",
-  "version": "1.0.0",
-  "description": "Ascendant Stronghold campus mechanics — the Threshold move-gate (the inner ring turns away the uncleared), and the Rite of Ascension (`ascend` at the Uplink: a deliberate, claimed death over the cortical economy plugins/augments already owns).",
+  "version": "1.1.0",
+  "description": "Ascendant Stronghold campus mechanics — the Threshold move-gate (the inner ring turns away the uncleared), the Rite of Ascension (`ascend` at the Uplink: a deliberate, claimed death over the cortical economy plugins/augments already owns), and lapsing (the cheap exit before the rite locks you in).",
+  "actions": {
+    "registers": [
+      "ASC_LAPSE",
+      "ASC_LAPSE_QUOTE"
+    ]
+  },
   "dependencies": [
     "ideologies",
     "augments"

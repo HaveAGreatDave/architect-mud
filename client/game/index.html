@@ -129,6 +129,202 @@
 				}
 			})();
 		</script>
+		<!-- BOOT SCREEN — critical CSS, inline and deliberately not in styles.css.
+		     This overlay has to be on screen in the FIRST paint: it is the frame that
+		     catches the hand-off from the host's own wake-up page, and a boot screen
+		     that arrives on the second paint has already shown the player the seam it
+		     exists to hide. A linked stylesheet cannot promise that; ~40 lines in the
+		     head can. Colours are the literal token values from styles.css rather than
+		     var() references, because the theme block above may not have resolved a
+		     custom theme yet and a transparent boot screen is worse than a slightly
+		     off-palette one. -->
+		<style>
+			#boot-screen {
+				position: fixed;
+				inset: 0;
+				z-index: 400;
+				background: #05050a;
+				color: #8888a8;
+				font-family: "Courier New", Courier, monospace;
+				font-size: 0.8125rem;
+				/* Wide leading. A POST log packed at 1.5 reads as output scrolling
+				   past; opened out to 2 it reads as a machine taking its time, which
+				   is the thing the player is actually waiting on. */
+				line-height: 2.05;
+				overflow: hidden;
+				transition: opacity 0.32s ease;
+			}
+			#boot-screen.boot-out { opacity: 0; pointer-events: none; }
+
+			/* The content column sits above the decoration and owns the padding, so
+			   the grid and the mosaic can bleed off the edges behind it. */
+			#boot-screen .boot-frame {
+				position: relative;
+				z-index: 2;
+				box-sizing: border-box;
+				height: 100%;
+				padding: 5vh 5vw;
+				display: flex;
+				flex-direction: column;
+			}
+
+			#boot-screen .boot-brand {
+				display: flex;
+				align-items: center;
+				gap: 0.75em;
+				color: #e8e8f5;
+				font-size: 1.28em;
+				letter-spacing: 0.2em;
+			}
+			#boot-screen .boot-brand svg { width: 1.5em; height: 1.5em; flex: 0 0 auto; }
+
+			#boot-screen .boot-log {
+				flex: 1 1 auto;
+				margin-top: 4vh;
+				overflow: hidden;
+			}
+			/* Two columns: a fixed-width clock and the line itself. The clock is the
+			   single strongest tell that this is a log rather than a splash, so it
+			   stays legible-but-quiet at every step while the text brightens. */
+			#boot-screen .boot-line {
+				display: flex;
+				gap: 1.2em;
+				min-height: 2.05em;
+				white-space: pre;
+				color: #6a6a86;
+			}
+			#boot-screen .boot-line .boot-ts { flex: 0 0 auto; color: #3d3d55; }
+			/* The newest line only. Everything above it has already happened and is
+			   dimmed to say so. */
+			#boot-screen .boot-line.boot-now { color: #e8e8f5; font-weight: 700; }
+			#boot-screen .boot-line.boot-now .boot-ts { color: #55557a; }
+
+			#boot-screen .boot-banner {
+				display: none;
+				position: relative;
+				width: max-content;
+				max-width: 100%;
+				margin: 1.5em 0 1.9em;
+				padding: 1.1em 1.7em;
+				border: 1px dashed #24243a;
+				overflow: hidden;
+			}
+			#boot-screen .boot-banner.on { display: block; }
+			/* Corner ticks, two of the four. Enough to read as a bracketed plate;
+			   all four starts looking like a table cell. */
+			#boot-screen .boot-banner::before,
+			#boot-screen .boot-banner::after {
+				content: "";
+				position: absolute;
+				width: 11px;
+				height: 11px;
+				border: 1px solid #3a3a5a;
+			}
+			#boot-screen .boot-banner::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
+			#boot-screen .boot-banner::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+			#boot-screen .boot-banner pre {
+				margin: 0;
+				font: inherit;
+				font-size: 1.55em;
+				line-height: 1.2;
+				color: #1f1f36;
+				/* A single offset shadow in a near-background tone. Block glyphs
+				   cannot be outlined with text-stroke, and this reads as the same
+				   embossed-off-the-panel treatment at a fraction of the effort. */
+				text-shadow: 1px 1px 0 #0d0d18;
+			}
+
+			/* ── Decoration. Nothing here carries meaning; it exists so the right
+			   two-thirds of a very empty screen is not simply black. ───────────── */
+			#boot-screen .boot-grid {
+				position: absolute;
+				top: -46px;
+				right: -70px;
+				width: 66vw;
+				height: 82vh;
+				z-index: 1;
+				background-image:
+					linear-gradient(#1a1a2b 1px, transparent 1px),
+					linear-gradient(90deg, #1a1a2b 1px, transparent 1px);
+				background-size: 94px 94px;
+				/* Dense at the corner, gone by the middle. A full grid squares off
+				   the whole panel and fights the text; a faded one reads as a plate
+				   the screen is sitting on. */
+				-webkit-mask-image: radial-gradient(118% 96% at 100% 0%, #000 0%, #000 42%, transparent 80%);
+				mask-image: radial-gradient(118% 96% at 100% 0%, #000 0%, #000 42%, transparent 80%);
+			}
+			#boot-screen .boot-mosaic {
+				position: absolute;
+				right: 0;
+				bottom: 19vh;
+				z-index: 1;
+				display: grid;
+				grid-template-columns: repeat(8, 26px);
+				grid-auto-rows: 26px;
+				gap: 2px;
+			}
+			/* The opacity lives in the keyframes rather than on the element, so the
+			   two motion escapes below can hand it straight back. Note a hidden tab
+			   PAUSES these — the same freeze the memory counter was moved off
+			   requestAnimationFrame for — so an unfocused boot paints no tiles at
+			   all. That is fine here and only here: this is decoration, the
+			   sequence is driven by timers that keep running, and a player who
+			   comes back mid-boot just watches them arrive late. */
+			#boot-screen .boot-mosaic i { display: block; animation: boot-tile 0.5s ease both; }
+			#boot-screen .boot-mosaic i.mm { background: #ff2ec4; }
+			#boot-screen .boot-mosaic i.mp { background: #b86bff; }
+			#boot-screen .boot-mosaic i.mg { background: #39ff8f; }
+			#boot-screen .boot-mosaic i.mc { background: #28e5ff; }
+			#boot-screen .boot-mosaic i:nth-child(3n) { animation-delay: 0.35s; }
+			#boot-screen .boot-mosaic i:nth-child(3n + 1) { animation-delay: 0.9s; }
+			#boot-screen .boot-mosaic i:nth-child(3n + 2) { animation-delay: 1.5s; }
+			@keyframes boot-tile { from { opacity: 0; } to { opacity: 1; } }
+
+			#boot-screen .boot-foot {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 2em;
+				letter-spacing: 0.16em;
+			}
+			/* Escape has always skipped this and nothing ever said so. The footer is
+			   where the host's page puts its one link, so it is where ours puts the
+			   one thing a waiting player can actually do. */
+			#boot-screen .boot-skip { color: #ff2ec4; }
+			#boot-screen .boot-status { display: flex; align-items: center; gap: 0.85em; }
+			#boot-screen .boot-spin {
+				width: 0.95em;
+				height: 0.95em;
+				border-radius: 50%;
+				border: 1px solid #2a2a40;
+				border-top-color: #28e5ff;
+				animation: boot-spin 1.05s linear infinite;
+			}
+			#boot-screen .boot-status.on .boot-spin { border-color: #39ff8f; animation: none; }
+			@keyframes boot-spin { to { transform: rotate(360deg); } }
+
+			/* The caret rides the newest line. It and the spinner are the only two
+			   things that move on their own, which is what stops a paused sequence
+			   reading as a frozen page. */
+			#boot-screen .boot-caret {
+				display: inline-block;
+				width: 0.62em;
+				height: 1em;
+				background: #28e5ff;
+				vertical-align: text-bottom;
+				margin-left: 0.35em;
+				animation: boot-blink 1.06s step-end infinite;
+			}
+			@keyframes boot-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+			[data-motion="off"] #boot-screen .boot-caret,
+			[data-motion="off"] #boot-screen .boot-spin,
+			[data-motion="off"] #boot-screen .boot-mosaic i { animation: none; opacity: 1; }
+			@media (prefers-reduced-motion: reduce) {
+				#boot-screen .boot-caret,
+				#boot-screen .boot-spin,
+				#boot-screen .boot-mosaic i { animation: none; opacity: 1; }
+			}
+		</style>
 	</head>
 	<body>
 		<!-- Skip links. THE FIRST TWO TAB STOPS IN THE DOCUMENT, and invisible until
@@ -141,6 +337,38 @@
 			<a href="#cmd-input" class="skip-link">Skip to command input</a>
 			<a href="#output" class="skip-link">Skip to game log</a>
 		</nav>
+		<!-- Painted immediately, torn down by js/panels/bootscreen.js. Decorative
+		     throughout: the POST is a picture of a machine starting, and everything
+		     it says the game also says properly elsewhere, so it is aria-hidden and
+		     never becomes a second live region. Not focusable, so the skip links
+		     above keep the first two tab stops. -->
+		<div id="boot-screen" aria-hidden="true">
+			<div class="boot-grid"></div>
+			<div class="boot-mosaic">
+				<i class="mm"></i><i></i><i class="mp"></i><i></i><i class="mg"></i><i class="mp"></i><i></i><i class="mc"></i>
+				<i></i><i class="mp"></i><i></i><i class="mm"></i><i></i><i></i><i class="mg"></i><i></i>
+				<i class="mm"></i><i></i><i class="mp"></i><i class="mp"></i><i class="mc"></i><i></i><i class="mp"></i><i class="mg"></i>
+			</div>
+			<div class="boot-frame">
+				<div class="boot-brand">
+					<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+						<path d="M12 2 L22 12 L12 22 L2 12 Z" fill="none" stroke="#ff2ec4" stroke-width="1.4" />
+						<rect x="9" y="9" width="6" height="6" fill="#28e5ff" />
+					</svg>
+					<span>ARCHITECT</span>
+				</div>
+				<div class="boot-log"></div>
+				<!-- The wordmark plate, revealed partway through the cold sequence.
+				     Same block glyphs as the login banner below, painted almost into
+				     the background — it is the shape of the name, not the name. -->
+				<div class="boot-banner"><pre>▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀
+█▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░</pre></div>
+				<div class="boot-foot">
+					<span class="boot-skip">PRESS ESC TO SKIP →</span>
+					<span class="boot-status"><span class="boot-spin"></span><span class="boot-status-text">SUBSTRATE LOADING</span></span>
+				</div>
+			</div>
+		</div>
 		<!-- AUTH SCREEN -->
 		<div id="auth-screen">
 			<div id="auth-box">
@@ -528,7 +756,8 @@
 				top: 20%;
 				left: 50%;
 				transform: translateX(-50%);
-				z-index: 300;
+				/* must-answer layer — see the ladder comment on #auth-screen in styles.css */
+				z-index: 9910;
 				background: var(--bg2);
 				border: 1px solid var(--accent);
 				width: 340px;
@@ -614,7 +843,8 @@
 				top: 20%;
 				left: 50%;
 				transform: translateX(-50%);
-				z-index: 300;
+				/* must-answer layer — see the ladder comment on #auth-screen in styles.css */
+				z-index: 9920;
 				background: var(--bg2);
 				border: 1px solid var(--accent);
 				width: 340px;

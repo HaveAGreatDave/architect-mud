@@ -11,7 +11,7 @@
     "north": "zone_district_920_910"
   },
   "flags": {
-    "building_name": "Pawn & Pity",
+    "building_name": "Sentimental Value Pawn",
     "claimable_asset": "fence",
     "floor": "concrete",
     "is_building": true,
@@ -29,6 +29,6 @@
   "grid_z": 0,
   "id": "zone_fence_interior",
   "map_id": "map_interior_zone_fence_interior",
-  "name": "Pawn & Pity",
+  "name": "Sentimental Value Pawn",
   "parent_zone": "zone_district_920_910"
 }

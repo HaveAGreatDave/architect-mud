@@ -7,7 +7,7 @@
   "cause": "drug",
   "description": "A vaulted space built out of moving pattern, every surface working at something. It has been prepared. There is a sense of a great deal of activity that paused, politely, about a second before you arrived, and is now waiting to resume.",
   "drug_id": "drug_dmt",
-  "fx": "snow",
+  "fx": "bloom",
   "fx_intensity": 0.9,
   "id": "dt_dmt_the_chamber",
   "name": "The Chamber",

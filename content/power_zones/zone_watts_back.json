@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_watts_shop",
   "id": "zone_watts_back",
   "max_capacity_kw": 200,
   "name": "Watts The Damage — The Donor Wall",

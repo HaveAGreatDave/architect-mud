@@ -1,8 +1,36 @@
 # Dead drops — a cache a stranger can find
 
-**Status: DESIGN ONLY, with one exception** — the `handling` ambient routines of
-§9 are seeded and live as ordinary street life, deliberately ahead of everything
-else here (see the base-rate rule). No other part of this document is built.
+**Status: PHASES 0–1 BUILT** (`plugins/deaddrop/`, 2026-08-30) — the finding roll, the
+`STRANGER_BAR` wall and the swept window, with three authored caches. Phase 2
+(`dead_drop_disturbed`), phase 3 (§8b, the player-placed cache) and phase 4 (§9, the
+courier) are still design. The `handling` ambient routines of §9 were already seeded and
+live as ordinary street life, deliberately ahead of everything else here (see the
+base-rate rule).
+
+⚠ **This doc read as far more unbuilt than it was, and §1 is why.** "What already exists
+(and is not being rebuilt)" is a table of eight shipped pieces, so the page opens by
+listing everything that works and then says DESIGN ONLY — which is true of the feature and
+misleading about the distance to it. The gap was never eight things; it was the thin layer
+joining them.
+
+**The census that made it concrete** (world state, 2026-08-30):
+
+| | rows |
+|---|---|
+| furniture with `flags.container` | 57 |
+| furniture with `flags.concealed` | 58 |
+| **both** | **0** |
+
+The placing half and the hiding half had both shipped and had **never met**. A dead drop is
+precisely that intersection, and it had no members — you could conceal a thing, and you
+could store in a thing, and no row in the world did both.
+
+**And the shape of the concealed 58 is what fixed the design.** 53 of them are planted
+security devices — SPECTER's spy cameras. So the tempting simplification, keying the
+finding roll on `flags.concealed` because it is already deployed and already means hidden,
+would have made `search` a generic counter-surveillance sweep and ended the plant-a-camera
+game. §2's insistence that a cache carries its own `flags.dead_drop` is right for a reason
+this document did not know when it was written.
 
 A dead drop is a container in a public room that one player stocks and another
 player empties, without the two of them ever being in the same place. The engine

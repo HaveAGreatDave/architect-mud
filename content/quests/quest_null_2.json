@@ -9,7 +9,9 @@
     {
       "desc": "Sit down at the bench in the schoolroom and let Denholm hand you the tray.",
       "emotes": [
-        "{who} lays the parts out in the order they came off, which is the whole lesson."
+        "{who} lays the parts out in the order they came off.",
+        "{who} is handed a tray with a thing on it and no name for the thing.",
+        "{who} finds the first three parts obvious and the fourth one seated in a way that means somebody has been here before."
       ],
       "id": "o_school",
       "type": "visit",
@@ -18,7 +20,8 @@
     {
       "desc": "Take the reassembled thing to Machin at the bench and let her look at it.",
       "emotes": [
-        "{who} sets it down and takes their hands off it, which is harder than it sounds."
+        "{who} sets it down and takes their hands off it, which is harder than it sounds.",
+        "{who} watches Machin turn it over twice without saying anything."
       ],
       "id": "o_bench",
       "type": "visit",

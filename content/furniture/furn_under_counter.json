@@ -1,0 +1,14 @@
+{
+  "description": "A slab of steel deck plate laid across two impeller housings and worn bright in one place, which is where her elbows go. Everything on the customer side of it is bolted down. Nothing on her side is.",
+  "flags": {},
+  "hp": 90,
+  "hp_max": 90,
+  "id": "furn_under_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "counter of bolted deck plate",
+  "object_type": "fixture",
+  "power_draw_kw": 0,
+  "price": 140,
+  "zone_id": "zone_under_plantroom"
+}

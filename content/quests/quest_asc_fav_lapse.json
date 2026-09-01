@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A client has stopped paying and is still wearing the collateral. Vess is at pains to point out that this is not a punishment: the account remains open, the hardware simply comes home until it is current. She is also at pains to point out that the client is not to be killed. Halcyon does not kill clients. Halcyon repossesses.",
+  "description": "A client has stopped paying and is still wearing the collateral.\n\nVess is at pains to point out that this is not a punishment — the account remains open, in good standing, ready to resume the moment it is current. The hardware simply comes home in the meantime. She uses the word \"home\" without any apparent irony.\n\nShe is also at pains to point out that the client is not to be killed. Halcyon does not kill clients. Halcyon repossesses, and then it writes, and then it waits.",
   "fail_on": [
     {
       "desc": "You killed a client. A dead client pays nothing, ever, and Halcyon is very clear about the difference.",
@@ -14,9 +14,10 @@
   "objectives": [
     {
       "count": 1,
-      "desc": "Put the lapsed client down — DOWN, not out. Halcyon does not kill clients.",
+      "desc": "Put the lapsed client down. Down, not out. Halcyon does not kill clients.",
       "emotes": [
-        "{who} waits for the shoulders to drop, and takes them across the back of the head."
+        "{who} waits for the shoulders to drop, and takes them across the back of the head.",
+        "{who} checks for breath, finds it, and gets on with the part they were actually sent for."
       ],
       "id": "o_down",
       "target": "npc_lapsed_client",
@@ -25,6 +26,10 @@
     {
       "count": 1,
       "desc": "Recover the collateral.",
+      "emotes": [
+        "{who} takes the collateral off a person who is going to wake up without it.",
+        "{who} leaves the account paperwork where the client will find it, because those are the standing instructions."
+      ],
       "id": "o_asset",
       "item_id": "item_aug_dermal_jack",
       "requires": [

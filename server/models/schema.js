@@ -1480,6 +1480,33 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE script_triggers ADD COLUMN IF NOT EXISTS params JSONB NOT NULL DEFAULT '{}';
 
+  -- Unrest incidents (plugins/unrest). One row is a THING THAT CAN HAPPEN in a
+  -- city block, not a thing that is happening: the live staging is RAM only and
+  -- deliberately never persisted, because a "checkpoint here" row that outlives
+  -- its teardown is a permanent checkpoint nobody authored.
+  --   writes       — the role that stages it, 'grip' (the authority) or 'heat'
+  --                  (the resident insurgency). Never an org id: role is the
+  --                  authored knob and a third order needs no code.
+  --   min_band     — the lowest cell band this may stage at (watchful/tense/flashpoint)
+  --   stage        — ordered list of {do, ...} steps; see plugins/unrest/incidents.js
+  --                  for the vocabulary. An unregistered \`do\` FAILS regress.
+  --   duration_min — how long the staging stands before teardown
+  --   cooldown_min — per cell, how long before this same incident may return
+  CREATE TABLE IF NOT EXISTS incidents (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    writes TEXT NOT NULL DEFAULT 'heat',
+    min_band TEXT NOT NULL DEFAULT 'watchful',
+    weight INTEGER NOT NULL DEFAULT 10,
+    duration_min INTEGER NOT NULL DEFAULT 60,
+    cooldown_min INTEGER NOT NULL DEFAULT 240,
+    stage JSONB NOT NULL DEFAULT '[]',
+    flags JSONB NOT NULL DEFAULT '{}',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- Pending long wait-node continuations (server/engine/graph.js). A short wait is
   -- a bare setTimeout; anything at or past GRAPH_DURABLE_WAIT_S is parked here so
   -- a restart doesn't eat it, which is what makes a multi-day consequence
@@ -1836,6 +1863,18 @@ export const SCHEMA_SQL = `
   -- ones standing in it, and every line the acting layer puts in a room goes into that
   -- room. Null (the overwhelming default) means the channel studio, exactly as before.
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS location_zone_id TEXT;
+
+  -- PERFORMED, NOT PRINTED. channel_type='live' has always meant "the cast are
+  -- really in a room", but it is a property of the CHANNEL, so a show made by
+  -- NPCs could only be performed by moving it to a live channel — which would
+  -- drag every film and ball game on that channel onto the same gate. This is
+  -- the per-programme opt-in: it staffs the cast (they commute to the stage) and
+  -- presence-gates the airing (_requireHost), exactly as a live channel does.
+  -- Deliberately AUTHORED rather than derived from "has npc_anchor nodes": a
+  -- recorded drama names its actors that way too, and presence-gating a
+  -- recording would take Chrome & Circumstance off the air whenever its cast
+  -- were asleep. False (the default) is the old behaviour for everything.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS acted BOOLEAN DEFAULT FALSE;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 

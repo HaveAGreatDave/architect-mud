@@ -9,7 +9,7 @@
     "west": "zone_district_923_908"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "residential",
     "loading_dock": {
       "name": "Shelf Life"
     },

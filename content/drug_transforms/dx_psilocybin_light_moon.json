@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Which phase would you like?",
+    "Can you see the mountains at the bottom?",
+    "Do you want it darker?"
+  ],
+  "description": "A pale moon about the size of a head, hanging up near the ceiling, cratered and quite cold-looking, giving out a soft even light that reaches the corners better than a bulb ever has.",
+  "drug_id": "drug_psilocybin",
+  "emotes": [
+    "{it} turns another degree and a new crater comes into the light.",
+    "{it} dims to a crescent and slowly fills again.",
+    "{it} drifts a hand span and settles."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_light_moon",
+  "looks": [
+    "It is turning, slowly, and the far side comes round about once a minute.",
+    "The craters are picked out in shadow and there are mountains at the bottom edge.",
+    "It gives no heat whatsoever, and the light is the colour of a night you remember."
+  ],
+  "matches": "light",
+  "name": "a small moon near the ceiling",
+  "says": [
+    "I am much further away than I look.",
+    "I do this whether or not anybody is in.",
+    "Nothing up here has changed in a while."
+  ],
+  "scope": "object"
+}

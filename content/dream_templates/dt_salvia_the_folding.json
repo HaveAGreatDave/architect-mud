@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "A fold is made and the two halves agree along the line.",
+    "Something on the far side of the room is suddenly beside you and belongs there.",
+    "The room is opened out again to check, and folded back."
+  ],
+  "cause": "drug",
+  "description": "The room is being folded, along lines it has, by something that knows where they are. It is done neatly. Each fold brings a far part of the room against a near part and they match, because the room was made to be folded and you have only ever seen it open.",
+  "drug_id": "drug_salvia",
+  "fx": "crawl",
+  "fx_intensity": 0.95,
+  "id": "dt_salvia_the_folding",
+  "name": "The Folding",
+  "objects": [
+    {
+      "looks": [
+        "Along lines that were always in the floor. You had taken them for boards.",
+        "Sharp, and pressed, and done many times before.",
+        "They are the same lines each time, which is why it goes so neatly."
+      ],
+      "name": "the folds"
+    },
+    {
+      "looks": [
+        "The far wall against the near wall, and the pattern runs on across the join.",
+        "A door meets a door and makes a door.",
+        "You meet the part of the room you were standing in."
+      ],
+      "name": "what matches up"
+    }
+  ],
+  "weather": "The air changes each time and is always the air of somewhere indoors."
+}

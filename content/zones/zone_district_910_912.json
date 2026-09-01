@@ -10,7 +10,7 @@
     "west": "zone_district_909_912"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "commercial",
     "park_feature": "pond",
     "region_id": "region_coldwater",
     "street_life": true,

@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_slag_shop",
   "id": "zone_slag_shop",
   "max_capacity_kw": 200,
   "name": "Slag & Wares — Shop",

@@ -1,11 +1,11 @@
 {
-  "description": "A whole shoulder, bone in, marbled through with fat like bad wiring. Too big for one meal, too big for one day, and that is the entire point of it.",
+  "description": "A whole shoulder, bone in, marbled through with fat like bad wiring. Too big for one meal, and too big for one day.",
   "flags": {},
   "id": "item_pork_shoulder",
   "name": "Porky Pork Pork shoulder",
   "tags": {
     "consumable": true,
-    "description": "A whole shoulder, bone in, marbled through with fat like bad wiring. Too big for one meal, too big for one day, and that is the entire point of it.",
+    "description": "A whole shoulder, bone in, marbled through with fat like bad wiring. Too big for one meal, and too big for one day.",
     "food_noun": "pork",
     "food_profile": "dense_meat",
     "needs_cooking": true,

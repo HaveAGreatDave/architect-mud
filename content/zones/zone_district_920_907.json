@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Screw It",
     "building_type": "chem_supply",
-    "district": "wasteland",
+    "district": "industrial",
     "entrance": "west",
     "facade": true,
     "is_building": true,

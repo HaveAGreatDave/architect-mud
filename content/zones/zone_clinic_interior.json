@@ -11,7 +11,7 @@
     "west": "zone_district_920_906"
   },
   "flags": {
-    "building_name": "Mercy Row Clinic",
+    "building_name": "Stitch 'n' Bitch",
     "claimable_asset": "clinic",
     "floor": "tile",
     "is_building": true,
@@ -29,6 +29,6 @@
   "grid_z": 0,
   "id": "zone_clinic_interior",
   "map_id": "map_interior_zone_clinic_interior",
-  "name": "Mercy Row Clinic",
+  "name": "Stitch 'n' Bitch",
   "parent_zone": "zone_district_920_906"
 }

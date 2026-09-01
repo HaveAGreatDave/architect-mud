@@ -55,7 +55,14 @@
       "mods": {
         "stat_brains": -2
       },
-      "onset_seconds": 1800
+      "onset_seconds": 1800,
+      "stages": {
+        "easing": "A little room opens back up, on its own, without being asked for.",
+        "onset": "You are very definitely inside your own body and can feel where all of it is.",
+        "peak": "There is no distance left between you and any of it, and the funnel was distance, and it is closed.",
+        "rising": "Your own hands keep being yours. This has stopped being obvious and started being a fact you notice.",
+        "tail": "You are here. You keep checking the corner where the door used to not be."
+      }
     }
   },
   "flags": {

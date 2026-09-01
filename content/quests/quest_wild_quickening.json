@@ -9,7 +9,9 @@
     {
       "desc": "Go into the Quickening Pool and stay in it",
       "emotes": [
-        "{who} walks out into the pool until it takes their weight, and then stops fighting it."
+        "{who} walks out into the pool until it takes their weight, and then stops fighting it.",
+        "{who} is told once more what it will cost, in the same voice, with nothing taken out of it.",
+        "{who} finds the water is warmer than the air and stops being able to tell where the edge of it is."
       ],
       "id": "o0",
       "requires": [],

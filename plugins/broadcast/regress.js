@@ -2954,8 +2954,41 @@ export default async function regress({ check, run, getPlayer }) {
     const philRow = JSON.parse(readFileSync('content/npcs/npc_phil_mccracken.json', 'utf8'));
     check('slot: the producer is routed by the call sheet, not by a pinned studio',
       !philRow.work_zone_id, String(philRow.work_zone_id));
+    // Neil is the case the rule was written for and the one that broke it: he fronts
+    // the basement cookery show AND a studio show, so he is called to two buildings
+    // and can hold neither. The staffing pass used to write his work_zone_id with a
+    // COALESCE, which pinned him to whichever slot reconciled first (the basement)
+    // and then preserved it for ever.
+    const neilRow = JSON.parse(readFileSync('content/npcs/npc_neil_mcmanistan.json', 'utf8'));
+    check('slot: the host works in two buildings, so he is pinned to neither',
+      !neilRow.work_zone_id, String(neilRow.work_zone_id));
 
+    // The programme and its channel are read once here, ahead of both blocks
+    // below. The `acted` checks were written later and landed above the
+    // declarations they borrow, which is a TDZ, not a missing file.
     const bc = JSON.parse(readFileSync('content/media_broadcasts/bc_cooking_shit_neil.json', 'utf8'));
+    const chan = JSON.parse(readFileSync(`content/media_channels/${bc.channel_id}.json`, 'utf8'));
+
+    // ── Performed, not printed ─────────────────────────────────────────────
+    // Both Neil shows are made by NPCs standing in a room, on a channel that is a
+    // `playlist`. Without `acted` the only way to say so is to flip KSAB to a live
+    // channel, which would presence-gate all 28 of its slots — six films and two
+    // ball games included — on a cast that does not exist.
+    const studioShow = JSON.parse(readFileSync('content/media_broadcasts/bc_1783047001982.json', 'utf8'));
+    check('acted: the cookery show is performed', bc.acted === true, String(bc.acted));
+    check('acted: ...and so is the studio show', studioShow.acted === true, String(studioShow.acted));
+    check('acted: the studio show names no location, so it plays in the channel studio',
+      !studioShow.location_zone_id, String(studioShow.location_zone_id));
+    // Which is precisely what makes Neil a two-building employee: same channel, same
+    // host, two different stages. If these ever resolve to one zone this whole block
+    // stops testing anything.
+    check('acted: ...and that is a different room from the basement',
+      (studioShow.location_zone_id || chan.studio_zone_id) !== bc.location_zone_id);
+    // A recording is not a performance. A drama names its actors with npc_anchor too,
+    // so gating one on its cast being awake would take it off the air.
+    const recording = JSON.parse(readFileSync('content/media_broadcasts/bc_1782872045373.json', 'utf8'));
+    check('acted: an ordinary broadcast is not acted by default', !recording.acted, String(recording.acted));
+
     check('slot: the broadcast knows where it is shot', bc.location_zone_id === 'zone_stgarneau_basement', String(bc.location_zone_id));
     check('slot: ...and it is the zone the keyholder watches', bc.location_zone_id === act.stage);
     // ⚠ THE CHANNEL NOW HAS A STUDIO, AND THE LOCATION STILL HAS TO WIN.
@@ -2968,7 +3001,6 @@ export default async function regress({ check, run, getPlayer }) {
     // Get this backwards and the cast are called to KSAB on the Tuesday while the
     // programme films in a church basement, and their lines come out of an empty
     // room. Same failure the old assertion guarded, one rung harder to reach.
-    const chan = JSON.parse(readFileSync(`content/media_channels/${bc.channel_id}.json`, 'utf8'));
     check('slot: the show now airs on a channel that HAS a studio of its own',
       !!chan.studio_zone_id, String(chan.studio_zone_id));
     check('slot: ...and the shoot still beats it', bc.location_zone_id !== chan.studio_zone_id);

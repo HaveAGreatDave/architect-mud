@@ -1,22 +1,90 @@
 {
   "category": null,
-  "description": "There is no ceremony. Pike gets off the stool, and does not explain, and does not come back.\n\nYou sit the Blind alone until somebody relieves you. The mirror shows the length of the wash. The shortwave mutters. Nothing happens, and nothing is supposed to, and the entire point of the order you are joining is that somebody was sitting here the whole time anyway.\n\nDo not open the door. Do not go and check. Do not do anything at all.",
-  "fail_on": [],
+  "description": "Pike puts his mug down and does not pick it up again.\n\nThere is one job the Watch does that is not watching, and it comes round about once every four years. Pike has been at the blast door for eleven of them.\n\nThe Quartermaster has a charge on the counter and will not meet your eye while you pick it up.\n\nThe vats are the promise. Not the Spire, not the man at the top, not the money. The vats. It is the room where they keep the thing they actually sell, and every person who has ever said yes to them said yes to that room.\n\nPike has never seen it. Nobody in this room has. They have been arguing with a room they know about the way you know about a country.\n\nBring the colonnade down. Ives will be at the gate on the way out and she will have something to say. Walk past her.\n\nThen get home. That last part is not decoration. Three people have done this and one came back.\n\n\"Coming back is the whole of it,\" Pike says. \"After that you are on the roster, and the roster is a great deal of standing about in the cold for the rest of your life.\"",
+  "fail_on": [
+    {
+      "desc": "You died out there. The Watch will hear about it from Halcyon, which is the worst way for them to hear anything.",
+      "type": "died"
+    },
+    {
+      "count": 1200,
+      "desc": "Too slow. The Spire had time to close, and a door that closes on the Watch stays closed for years.",
+      "type": "timeout"
+    }
+  ],
   "id": "quest_lw_rite",
   "meta": {},
-  "name": "The Long Watch",
+  "name": "Nothing Kept Back",
   "objectives": [
     {
-      "desc": "Stand the watch. Anything you do ends it and you start again.",
+      "count": 1,
+      "desc": "Take the charge off the Quartermaster's counter.",
       "emotes": [
-        "{who} watches the mirror, and the wash is empty, and stays empty.",
-        "{who} stops noticing the shortwave, which is the first useful thing that happens.",
-        "{who} has been here long enough to hear the base breathing above them.",
-        "{who} does not check the door. There is nothing at the door.",
-        "{who} sits, and the hours the Watch are named for start to mean something."
+        "{who} picks up the charge. The Quartermaster finds something else to be doing.",
+        "{who} waits a moment in case she says anything, and she does not, and that is her saying it."
       ],
-      "id": "o_watch",
-      "taskSeconds": 180,
+      "id": "o_charge",
+      "item_id": "item_breach_charge",
+      "spawn": true,
+      "type": "retrieve",
+      "zone": "zone_lw_quarter"
+    },
+    {
+      "desc": "Get inside the Vats Hall.",
+      "emotes": [
+        "{who} walks the concourse at the pace of somebody who is expected.",
+        "{who} goes under the seal at the door and is not stopped, because nobody stops a person who is already inside."
+      ],
+      "id": "o_inside",
+      "requires": [
+        "o_charge"
+      ],
+      "taskSeconds": 6,
+      "type": "visit",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "desc": "Wire the charge to the vat colonnade and bring it down.",
+      "emotes": [
+        "{who} works along the colonnade with their back to the room, the way somebody works who belongs there.",
+        "{who} sets the last of it and does not look into the nearest tank, having decided that on the way in."
+      ],
+      "id": "o_blow",
+      "requires": [
+        "o_inside"
+      ],
+      "target": "furniture_asc_vat_colonnade",
+      "type": "demolish",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "desc": "Actuary Verity Ives is at the gate. She is always at the gate. Get past her.",
+      "emotes": [
+        "{who} finds Verity Ives exactly where she said she would be, standing in the noise with her hands at her sides.",
+        "{who} recognises the pale grey coat, and an appointment that was already in somebody's diary.",
+        "{who} does not answer the thing she says first, because answering it is how she has always started.",
+        "{who} listens to the end of it, because she is going to get to the end of it either way.",
+        "{who} walks past her, and she does not turn to watch, and that costs her something."
+      ],
+      "id": "o_ives",
+      "requires": [
+        "o_blow"
+      ],
+      "target": "npc_asc_ives",
+      "type": "talk"
+    },
+    {
+      "desc": "Get back to the Blind.",
+      "emotes": [
+        "{who} comes down the mirror-polished plaza steps at a walk, because running is what they look for.",
+        "{who} takes the road east with the sound still going on behind them.",
+        "{who} gets to the Outfall and finds Pike on the stool, awake, as though he had simply not gone to bed."
+      ],
+      "id": "o_home",
+      "requires": [
+        "o_ives"
+      ],
+      "taskSeconds": 8,
       "type": "visit",
       "zone": "zone_lw_blind"
     }
@@ -31,6 +99,11 @@
         "flag": "watch_kept",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "10"
       }
     ],
     "rep": [
@@ -41,5 +114,5 @@
     ],
     "xp": 220
   },
-  "updated_at": "1787379039"
+  "updated_at": "1787980000"
 }

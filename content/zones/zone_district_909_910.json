@@ -10,7 +10,7 @@
     "west": "zone_district_908_910"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "commercial",
     "park_feature": "grove",
     "region_id": "region_coldwater",
     "street_life": true,

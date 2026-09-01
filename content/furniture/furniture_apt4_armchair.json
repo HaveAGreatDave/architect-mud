@@ -1,5 +1,5 @@
 {
-  "description": "A wide, low armchair, upholstery worn smooth at the arms. Something lumpy is stuffed into the left cushion. You decide not to investigate.",
+  "description": "A wide, low armchair, upholstery worn smooth at the arms. Something lumpy is stuffed into the left cushion.",
   "flags": {
     "interactions": [
       "sit"

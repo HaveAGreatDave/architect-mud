@@ -16,7 +16,7 @@
   "flags": {
     "building_name": "Chrome Court",
     "building_type": "apartment",
-    "district": "wasteland",
+    "district": "glasshouse",
     "entrance": "west",
     "facade": true,
     "is_building": true,

@@ -1,31 +1,35 @@
 {
   "category": null,
-  "description": "The Quartermaster keeps a ledger of everything the Watch owns and a shorter one of everything it has lost. There is a cache under the Fisherman's Green that has been on the second list for a month, which she considers a personal failing. It is not a dangerous errand. She would like it back all the same.",
+  "description": "There is a document case in a lock-up off the Yards. The Quartermaster wants it at the Blind by morning, carried by hand, because every wire in this city belongs to somebody who reads it.\n\nIt is not heavy. The catches are up, which she mentions on the way past and does not come back to.\n\n\"Straight through. If it goes wrong, put it down and walk away from it. It is worth less than you are, and I will only say that once.\"",
   "fail_on": [],
   "id": "quest_lw_fav_carry",
   "meta": {},
   "name": "Carry It Back",
   "objectives": [
     {
-      "count": 1,
-      "desc": "Recover the cache from under the Fisherman's Green.",
+      "desc": "Collect the case from the lock-up off the Yards.",
+      "emotes": [
+        "{who} finds it exactly where they were told, which is its own kind of unsettling.",
+        "{who} notices the catches are up."
+      ],
       "id": "o_get",
-      "item_id": "item_lw_package",
+      "item_id": "item_lw_caselist",
       "type": "retrieve",
-      "zone": "zone_district_909_912"
+      "zone": "zone_district_918_912"
     },
     {
-      "desc": "Carry it back to the Quartermaster.",
+      "count": 1,
+      "desc": "Get the case to the Quartermaster at the Blind.",
       "emotes": [
-        "{who} sets it on the counter and waits to be told which shelf."
+        "{who} puts it on the counter with the catches still up.",
+        "{who} is not asked whether they looked, then or ever."
       ],
-      "id": "o_home",
+      "id": "o_back",
       "requires": [
         "o_get"
       ],
-      "taskSeconds": 5,
-      "type": "visit",
-      "zone": "zone_lw_bunk"
+      "target": "npc_lw_quartermaster",
+      "type": "talk"
     }
   ],
   "penalties": {},
@@ -33,6 +37,13 @@
   "repeatable": 0,
   "rewards": {
     "credits": 110,
+    "flags": [
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "5"
+      }
+    ],
     "rep": [
       {
         "delta": 55,

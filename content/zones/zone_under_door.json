@@ -1,15 +1,16 @@
 {
   "ambient_events": [
-    "The sealed door hums faintly, as if something behind it still draws power.",
-    "A keypad beside the frame is dark, its casing cracked but intact.",
-    "Cold, machine-scented air seeps under the door's bottom edge."
+    "The door hums faintly, as if something behind it still draws power.",
+    "The keypad wakes when you shift your weight, shows a single amber dot, and waits.",
+    "Cold, machine-scented air seeps under the door’s bottom edge."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "description": "The gallery narrows to a landing before a heavy steel maintenance door, set deep in a reinforced frame and streaked with old rust-weep. A dead keypad guards it. Whatever lies beyond has been sealed off from the sewer for a long time, and unlike the rest of the Under, it still smells faintly of clean, cold machinery. It will not open for you today.",
+  "description": "The gallery narrows to a landing before a heavy steel maintenance door, set deep in a reinforced frame and streaked with old rust-weep. The keypad beside it is cracked across the casing but it lights when you come close, which nothing else down here does. Whatever lies beyond was sealed off from the sewer a long time ago, and it still smells faintly of clean, cold machinery. The door has been opened recently, and often, and by somebody who oils the hinges.",
   "exits": {
-    "north": "zone_under_silt"
+    "north": "zone_under_silt",
+    "south": "zone_under_plantroom"
   },
   "flags": {
     "district": "sewer",

@@ -100,7 +100,7 @@ tag model and the rationale behind it.
 | `quest_item` | flag | Cannot be dropped or sold. |
 | `unique` | flag | Prevents stacking. Items merge into one quantity row by default; tag Unique to keep each as its own row. |
 | `weapon` | flag | Marks the combat weapon. The equipped item with this tag is used when you attack. |
-| `consumable` | flag | Usable via `use`/`eat`/`drink`; gates the consumable path. |
+| `consumable` | flag | Gates the consumable path (restores, payouts, the timed-consume hand-off). **Not a statement that the item is edible** — bandages, hand warmers and credit chips carry it too. Which of `eat`/`drink`/`use` actually takes it is derived from the item's other tags by `consumeVerb()` in [itemActions.js](../server/engine/itemActions.js); see [plugins/food/README.md](../plugins/food/README.md). |
 | `drug` | flag | Drug marker (visibility/flavor). Mechanics still come from the `drugs` table joined by `item_id`. |
 | `material` / `currency` / `misc` | flag | Category markers (filtering/flavor). |
 | `slot` | enum | `head`·`torso`·`hands`·`legs`·`feet`·`weapon_hand`·`accessory`. **Presence of this tag is what makes an item equippable.** |

@@ -1,0 +1,33 @@
+{
+  "cooldown_min": 300,
+  "description": "The authority making itself audible. Uses the sound seam rather than a described one, so it reaches a neighbouring block the way a real one would.",
+  "duration_min": 60,
+  "enabled": 1,
+  "flags": {},
+  "id": "incident_drone_sweep",
+  "min_band": "tense",
+  "name": "Low pass",
+  "stage": [
+    {
+      "do": "sound",
+      "loudness": 9,
+      "text": "A drone comes over low enough to feel in your teeth, and holds."
+    },
+    {
+      "do": "ambient",
+      "lines": [
+        "The drone is still up there, holding station, close enough to hear.",
+        "Everyone on this street has stopped looking up, which took about a minute.",
+        "A shadow crosses the road at walking pace and does not belong to anything on it."
+      ]
+    },
+    {
+      "do": "news",
+      "text": "Aerial survey over {place} continues as scheduled — the Basin thanks residents for their patience."
+    }
+  ],
+  "updated_at": "1787702400",
+  "weight": 18,
+  "writes": "grip"
+}
+

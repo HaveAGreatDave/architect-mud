@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "The hour continues.",
+    "Somebody passing says your name in the tone of somebody confirming an arrangement.",
+    "A clock somewhere makes the small sound clocks make before they strike, and does not strike."
+  ],
+  "cause": "drug",
+  "description": "You are expected. The arrangements have been made and confirmed and the hour is this one. Everybody here knows about it and is pleased for you, and there is a chair, and nobody has come to fetch you yet, and it is still the hour.",
+  "drug_id": "drug_threshold",
+  "fx": "tunnel",
+  "fx_intensity": 0.5,
+  "id": "dt_threshold_the_appointed_hour",
+  "name": "The Appointed Hour",
+  "objects": [
+    {
+      "looks": [
+        "In writing. Correct. Countersigned.",
+        "Your name is spelled the way you spell it.",
+        "The hour is given, and the place, and both are these."
+      ],
+      "name": "the arrangements"
+    },
+    {
+      "looks": [
+        "Put out for you, at an angle to the door.",
+        "It is a good chair. Somebody chose it.",
+        "It has had a lot of use, and all of it recent."
+      ],
+      "name": "the chair"
+    }
+  ],
+  "weather": "The cool, ordered air of somewhere that runs to time."
+}

@@ -1,0 +1,36 @@
+{
+  "category": "Halcyon",
+  "description": "A policyholder is signing something and the wording requires a witness with no interest in the outcome. You have never met them and you will never meet them again. That is the qualification.",
+  "fail_on": [],
+  "id": "quest_hal_witness",
+  "meta": {},
+  "name": "Independent Witness",
+  "objectives": [
+    {
+      "desc": "Sit in the claims room while somebody signs four copies.",
+      "emotes": [
+        "{who} watches a man sign his own name four times and get slower at it each time.",
+        "{who} prints their own name in a box, and it looks strange, the way a word does."
+      ],
+      "id": "o0",
+      "taskSeconds": 10,
+      "type": "visit",
+      "zone": "zone_halcyon_claims"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 40,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ],
+    "xp": 7
+  },
+  "updated_at": "1788000000"
+}

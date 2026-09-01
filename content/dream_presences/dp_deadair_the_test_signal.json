@@ -1,0 +1,22 @@
+{
+  "arrivals": [
+    "A tone comes up somewhere and holds, and it is in the room.",
+    "The room is suddenly carrying something, at full strength, and it is a tone.",
+    "It arrives at the top of the hour, on time, as it does."
+  ],
+  "cause": "drug",
+  "departures": [
+    "It goes off at the end of its allotted time.",
+    "It is faded out by nobody, professionally.",
+    "It stops. The rush comes back in behind it."
+  ],
+  "drug_id": "drug_deadair",
+  "id": "dp_deadair_the_test_signal",
+  "looks": [
+    "One tone at a fixed level. It is there to prove the path is good.",
+    "It has been broadcast every hour for longer than anybody has listened.",
+    "It carries no information and it is not silent, and that is its whole job.",
+    "It is the loudest thing in the room and nothing about it is urgent."
+  ],
+  "name": "the test signal"
+}

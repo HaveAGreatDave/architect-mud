@@ -8,7 +8,7 @@
     "south": "zone_district_907_911"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "commercial",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,

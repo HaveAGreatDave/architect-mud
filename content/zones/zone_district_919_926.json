@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b79ad0",
-  "description": "THE CHORUS' DEN. A dim hollow hung with hides and wind-chimes of finger-bone, where the elder called the Chorus waits: a figure so remade that they speak in several voices at once, overlapping, kind. They have been expecting someone like you for a long time. A narrow trail slips south, out toward the deeper wild.",
+  "description": "Hides that were hung here have gone to strips and come down. The chimes have not: finger-bone on gut cord, a dozen of them, still turning in the draught off the trail. Somebody cut them down to shoulder height before they left, so they would not tangle. A narrow trail slips south.",
   "exits": {
     "east": "zone_district_920_926",
     "north": "zone_district_919_925",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_919_926",
   "map_id": "map_world",
-  "name": "The Chorus' Den",
+  "name": "The Bone Chimes",
   "parent_zone": null
 }

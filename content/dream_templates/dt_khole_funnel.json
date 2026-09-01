@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A smooth grey slope going down and inward, and you are sliding along the inside of it at a speed that has no urgency in it at all. There is no fear here. There is not much of anything here. Your body is a thing you have been told about by somebody reliable.",
   "drug_id": "drug_khole",
-  "fx": "snow",
-  "fx_intensity": 0.85,
+  "fx": "tunnel",
+  "fx_intensity": 0.95,
   "id": "dt_khole_funnel",
   "name": "The Grey Funnel",
   "objects": [

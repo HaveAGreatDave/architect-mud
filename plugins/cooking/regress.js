@@ -1918,6 +1918,25 @@ export default async function regress({ run, check, getPlayer }) {
     check('nameFormat degrades cleanly when the slot is empty',
       dishName(DISHES.jerk_chicken, [], P) === 'jerk', dishName(DISHES.jerk_chicken, [], P));
 
+    // ── Mac and cheese: a dish anchored by NOUN rather than by key item ──────
+    // The only template that names its ingredients without owning a keyItem, so
+    // it is the one that proves `requires` can carry an anchor on its own. All
+    // three cases below turn on the noun and nothing else: same classes, same
+    // counts, same vessel, and the pan either has macaroni and cheese in it or
+    // it does not.
+    const macRows = ['item_macaroni', 'item_vat_cheese', 'item_ration_cheese', 'item_ration_milk', 'item_battery_egg', 'item_butter_analog'];
+    const macProfiles = ['dry_starch', 'dairy', 'dairy', 'liquid', 'egg', 'fat_or_oil'];
+    const mac = named(macRows, 'tray', macProfiles);
+    check('macaroni, cheese, milk, egg and butter on a tray is mac and cheese', mac?.key === 'mac_and_cheese', mac?.key);
+    const macPenne = named(['item_penne', ...macRows.slice(1)], 'tray', macProfiles);
+    check('the same tray with penne in it is NOT mac and cheese', macPenne?.key !== 'mac_and_cheese', macPenne?.key);
+    const macNoCheese = named(['item_macaroni', 'item_synth_cream', 'item_ration_milk', 'item_water_bottle', 'item_battery_egg', 'item_butter_analog'], 'tray', macProfiles);
+    check('dairy that is not cheese does not answer the cheese requirement', macNoCheese?.key !== 'mac_and_cheese', macNoCheese?.key);
+    // The method is two vessels and eight steps, and the pasta half of it is the
+    // half a player can get wrong: boiled long, it is soft before it ever sees
+    // the oven. The card has to say so, or the dish is a list of ingredients.
+    check('mac and cheese ships an authored method', (DISHES.mac_and_cheese.steps || []).length >= 6, DISHES.mac_and_cheese.steps?.length);
+
     const badKey = validateDishes({ bad: { ...DISHES.ramen, keyItems: ['ramen_noodles'] } });
     check('the validator rejects a keyItem that is not an item id', !badKey.ok, badKey.errors);
     const badFmt = validateDishes({ bad: { ...DISHES.okonomiyaki, nameFormat: '{0} okonomiyaki', nameSlots: [] } });

@@ -1,0 +1,46 @@
+{
+  "category": "Halcyon",
+  "description": "A vehicle down the Dray Lane side is the subject of a claim, and the claim says one thing while the vehicle probably says another. Photograph it from four sides. Do not speak to the owner.",
+  "fail_on": [],
+  "id": "quest_hal_photo",
+  "meta": {},
+  "name": "Evidence of Damage",
+  "objectives": [
+    {
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_dray_lane_den",
+      "taskSeconds": 12,
+      "desc": "Photograph the vehicle from four sides.",
+      "emotes": [
+        "{who} works around the wreck, and it is a lot more wrecked from the far side.",
+        "{who} photographs a repair that was done in a hurry by somebody who knew what they were doing."
+      ]
+    },
+    {
+      "id": "o1",
+      "type": "visit",
+      "zone": "zone_halcyon_claims",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "desc": "Hand the plate in at Claims."
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 55,
+    "xp": 9,
+    "flags": [
+      {
+        "flag": "hal_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "updated_at": "1788000000"
+}

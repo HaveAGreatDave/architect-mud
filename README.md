@@ -63,12 +63,26 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 
 ## What's Next
 
-- Zone node graph view
-- Player crews / guilds
-- Sanity effects (hallucinated room text)
-- Architect Interface skill events
-- Apartment storage and decor (currently sleep + lock only)
-- More world — the city map is intentionally small right now; a full expansion pass is planned
+Refreshed 2026-08-31 against the tree. Three entries that sat here for months had
+shipped in the meantime — sanity effects (`plugins/sanity`, and `getRoomTransform`
+rewrites the room for a tripping viewer), crews and guilds (`plugins/corps`), and
+"more world", which is now four regions and ~17,000 zones.
+
+- **Apartment storage and decor** — still sleep + lock only. No placement verb exists.
+- **Zone node graph view** — a graph of how zones connect, for authoring.
+- **Architect Interface skill events**
+- **Six districts with no ground** — `civic`, `government`, `hazard`, `longwatch`,
+  `redline`, `slaglands`, `slum` each have a name, a colour and authored prose, and not
+  one tile in the world. The Sprawl, the Redline and the Slaglands are the ones the
+  fiction leans on hardest.
+- **The Glasshouse wants filling out** — 31 tiles and 16 buildings is thin for the
+  Ascendants' entire seat.
+- **Five built features nothing opts into** — `enemy_barrier`, `claimable`,
+  `water_temp_c`, `gov_enclave`, `airspace_restricted` are read by code and carried by no
+  tile. `npm run content:lint` names them every run.
+- **Coordinate-free zone ids** — ids still encode grid coordinates
+  (`zone_district_918_903`); see [map-pipeline-redesign.md](docs/proposals/map-pipeline-redesign.md),
+  whose other decisions have all landed.
 
 ---
 

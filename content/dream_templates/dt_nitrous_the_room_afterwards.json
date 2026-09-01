@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A room. An ordinary one, with the last of the beat going out of it. You are standing up holding a balloon and the enormous thing you understood forty seconds ago has left no forwarding address. It was going to change everything.",
   "drug_id": "drug_nitrous",
-  "fx": null,
-  "fx_intensity": 0.5,
+  "fx": "tunnel",
+  "fx_intensity": 0.35,
   "id": "dt_nitrous_the_room_afterwards",
   "name": "Just A Room",
   "objects": [

@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A door frame standing on its own, with no wall to belong to and both sides fully lit. Going through it is the simplest thing available to you and you have not done it yet. You have a very clear sense that the person who comes out is going to be asked to account for the person who went in.",
   "drug_id": "drug_threshold",
-  "fx": "wind",
-  "fx_intensity": 0.5,
+  "fx": "bloom",
+  "fx_intensity": 0.6,
   "id": "dt_threshold_doorway",
   "name": "The Doorway",
   "objects": [

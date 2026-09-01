@@ -1,0 +1,20 @@
+{
+  "description": "A commercial range in enamel that was white, six rings over a double oven, every dial worn illegible and every one of them known by feel. The oven door has to be shut twice. Everyone who works here does it without noticing they have done it.",
+  "flags": {
+    "aliases": "range,stove,burners,oven",
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "mid"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_range",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "six-burner range",
+  "object_type": "fixture",
+  "power_draw_kw": 3,
+  "price": 0,
+  "zone_id": "zone_jolenes_kitchen"
+}

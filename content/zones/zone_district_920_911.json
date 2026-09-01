@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Velk's Pre-Owned Furnishings",
     "building_type": "shop",
-    "district": "wasteland",
+    "district": "marrow",
     "entrance": "west",
     "facade": true,
     "is_building": true,

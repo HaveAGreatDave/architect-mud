@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "What have you got on you?",
+    "Do you know what any of this is for?",
+    "Would you take something, if I let you?"
+  ],
+  "description": "A slab of stone the length of the room, standing at waist height, with things laid along it at even intervals. Everything on it has been put down deliberately and nothing on it has been taken.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} holds everything on it perfectly level.",
+    "{it} takes the light along its whole length at once.",
+    "{it} sits under the weight of a very long habit."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_mescaline_counter_offering",
+  "looks": [
+    "The intervals are exact, and whoever laid them out was not hurrying.",
+    "Some of what is on it is very old and some of it was put there today.",
+    "The stone under each item is a slightly different colour, from how long it has sat there."
+  ],
+  "matches": "counter",
+  "name": "a long offering shelf",
+  "says": [
+    "Put something down or do not.",
+    "Nothing here has been moved since it was laid.",
+    "The order is the point."
+  ],
+  "scope": "object"
+}

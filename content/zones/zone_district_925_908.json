@@ -9,7 +9,7 @@
     "west": "zone_district_924_908"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "residential",
     "loading_dock": {
       "name": "Some Assembly Required"
     },

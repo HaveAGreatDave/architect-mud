@@ -1,0 +1,33 @@
+{
+  "ambient": [
+    "It resolves, and the resolution is better than the chord.",
+    "A note is added underneath that was implied the whole time.",
+    "The whole thing rises by a step and is the same chord."
+  ],
+  "cause": "drug",
+  "description": "A chord being held by something large enough to hold it, and the room is inside the chord rather than the other way round. It resolves. Then it resolves again, further, into a chord that the first one had been on the way to.",
+  "drug_id": "drug_nitrous",
+  "fx": "swim",
+  "fx_intensity": 0.75,
+  "id": "dt_nitrous_the_chord",
+  "name": "The Chord",
+  "objects": [
+    {
+      "looks": [
+        "Held. Big. You are somewhere in the middle of the voicing.",
+        "It contains a note you would not have put in and it is the reason it works.",
+        "It is going somewhere. It has been going there for a while and is not late."
+      ],
+      "name": "the chord"
+    },
+    {
+      "looks": [
+        "Inside the sound, which is the correct arrangement.",
+        "It is the shape the chord needs and it changes when the chord does.",
+        "The walls are at the distance the sound says they are."
+      ],
+      "name": "the room"
+    }
+  ],
+  "weather": "The air moves with the chord and is warm at the resolution."
+}

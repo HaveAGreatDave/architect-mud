@@ -1,33 +1,86 @@
 {
   "category": null,
-  "description": "Cyrelle's noticed it too: Halcyon Assurance settles its biggest claims by routing them west, past the grasslands, to somewhere that's on no map the Watch keeps. Watch the claims hall, follow the trail, and find out what's out there without getting made.",
-  "fail_on": [],
+  "description": "Halcyon is paying somebody in Civic and the Watch would like the paper that proves it.\n\nThe Quartermaster has a route in, a name on a door, and a warning she delivers flatly and does not repeat: the woman at the gate reads people for a living, she will already have been told you are coming, and she will be pleasant.\n\n\"She is not going to stop you,\" she says. \"She is going to make you an offer. That is not the same as a trap and I want you to know the difference before you are standing in it.\"",
+  "fail_on": [
+    {
+      "desc": "Somebody made you in the claims hall, and Halcyon knows which face to look for now.",
+      "type": "witnessed"
+    }
+  ],
   "id": "quest_asc_1",
   "meta": {},
   "name": "Follow the Money",
   "objectives": [
     {
-      "desc": "Watch the claims hall in Halcyon Towers",
+      "desc": "Get into the Halcyon underwriting annexe.",
       "emotes": [
-        "{who} lingers by the claims-hall queue, counting how many payouts route somewhere nobody will name."
+        "{who} goes in behind a delivery, which works because nobody watches a thing going in.",
+        "{who} counts three cameras on the way to the stair and is seen by all three."
       ],
       "id": "o0",
-      "taskSeconds": 5,
+      "taskSeconds": 12,
       "type": "visit",
       "zone": "zone_halcyon_lobby"
     },
     {
-      "desc": "Follow the trail west (follow the green GPS line)",
+      "count": 1,
+      "desc": "Get the payment record.",
       "emotes": [
-        "{who} follows the graded track west until the grass gives way to mirror-polished plaza, and a chrome wall of a place turns its scanners on {who}."
+        "{who} finds the record filed under a heading so dull it is almost a hiding place.",
+        "{who} reads a name they know from a counter in Civic, and a figure, and the figure is small."
       ],
       "id": "o1",
+      "item_id": "item_claims_routing_slate",
       "requires": [
         "o0"
+      ],
+      "spawn": true,
+      "type": "retrieve",
+      "zone": "zone_halcyon_lobby"
+    },
+    {
+      "desc": "Get out to the gate.",
+      "emotes": [
+        "{who} takes the annexe stair down at the pace of somebody finishing a shift.",
+        "{who} comes out into the plaza and finds a woman in a pale grey coat already looking at the door they are coming out of."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
       ],
       "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_district_893_906"
+    },
+    {
+      "desc": "Actuary Verity Ives would like a word.",
+      "emotes": [
+        "{who} is greeted by name by somebody who has never met them.",
+        "{who} is told, accurately and without malice, what the Watch pays and what it costs to stay in it.",
+        "{who} listens to her explain the whole machine out loud — the vats, the premiums, who actually gets covered — as though describing weather.",
+        "{who} is offered a number, and the number is not insulting, which is worse.",
+        "{who} is told to take a week, and that the offer does not expire, because offers that expire are for people you do not want."
+      ],
+      "id": "o3",
+      "requires": [
+        "o2"
+      ],
+      "target": "npc_asc_ives",
+      "type": "talk"
+    },
+    {
+      "desc": "Take the record back to the Blind.",
+      "emotes": [
+        "{who} walks east with the paper in one pocket and a figure in their head that will not settle.",
+        "{who} puts the record on the counter and does not mention the plaza, or does, and either way the Quartermaster already knows."
+      ],
+      "id": "o4",
+      "requires": [
+        "o3"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_lw_ops"
     }
   ],
   "penalties": {},
@@ -40,9 +93,14 @@
         "flag": "asc_q1_done",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "7"
       }
     ],
     "xp": 30
   },
-  "updated_at": "1783740000"
+  "updated_at": "1787980000"
 }

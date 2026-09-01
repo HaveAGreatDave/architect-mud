@@ -13,7 +13,7 @@
     "ascension_gate": true,
     "building_name": "The Ascension Gate",
     "building_type": "asc_gate",
-    "district": "wasteland",
+    "district": "glasshouse",
     "entrance": "east",
     "facade": true,
     "floors": 4,

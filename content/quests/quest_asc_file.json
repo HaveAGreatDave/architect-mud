@@ -1,0 +1,64 @@
+{
+  "category": null,
+  "description": "A settled claim file is with a broker two districts over. It needs to be on the underwriting floor before the desk closes.\n\n\"Most of the work is carrying a number from where it was measured to where it is decided,\" Ives says.\n\nThe number is how many years the model gives Aldous Frear, forty-one, a substandard risk out of the Yards. Somebody on the ninth floor reads it this afternoon and sets his premium against it.\n\nIves files about four hundred of these a month. She has not read the name.",
+  "fail_on": [],
+  "id": "quest_asc_file",
+  "meta": {},
+  "name": "Proof of Loss",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Collect the claim file from the broker two districts over.",
+      "emotes": [
+        "{who} gives a name at a counter and is handed a folder by somebody who was expecting them.",
+        "{who} notices the folder has been opened, read, and closed by somebody careful.",
+        "{who} is thanked for their business, which is a strange thing to be thanked for."
+      ],
+      "id": "o_get",
+      "item_id": "item_asc_claim_file",
+      "spawn": true,
+      "type": "retrieve",
+      "zone": "zone_halcyon_underwriting"
+    },
+    {
+      "desc": "Take the file to the underwriting floor.",
+      "emotes": [
+        "{who} carries a folder across a marble lobby and is not stopped once.",
+        "{who} puts it on a desk where eleven identical folders are already waiting, and none of them are urgent."
+      ],
+      "id": "o_take",
+      "requires": [
+        "o_get"
+      ],
+      "taskSeconds": 6,
+      "type": "visit",
+      "zone": "zone_asc_vats_registry"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 90,
+    "flags": [
+      {
+        "flag": "asc_file_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "2"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 30,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 16
+  },
+  "updated_at": "1787990000"
+}

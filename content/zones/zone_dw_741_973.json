@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere in particular. Nothing grows in it worth the word and nothing has for a long time. There is a great deal of sky, and the quiet out here is not the absence of noise, it is the absence of anything that would make one.",
+  "description": "Grey ash to the horizon, level and going nowhere. Nothing grows in it. The quiet is not the absence of noise. It is the absence of anything that would make one.",
   "exits": {
     "east": "zone_dw_742_973",
     "north": "zone_dw_741_972",

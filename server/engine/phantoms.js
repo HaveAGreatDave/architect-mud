@@ -43,6 +43,66 @@ export function addTransform(playerId, furnitureId, spec) {
   return spec;
 }
 
+// ── Coming down: the way back is the way in, played backwards ────────────────
+//
+// A transform going ON is animated — the pane takes the old name apart letter by
+// letter and settles the new one in its place, so you WATCH the bed become a
+// lion. A transform coming OFF was not: the map was simply cleared, and the next
+// render printed "Bed" where the lion had been, with nothing to say it had
+// changed. That reads as a rendering glitch rather than as coming down, and it
+// is the half of the effect the player is soberest for.
+//
+// So a cleared transform leaves a FADE behind: for a short window afterwards the
+// piece renders under its real name while still reporting the name the viewer
+// had been seeing, which is exactly the input the pane's morph already takes.
+// The animation is not reimplemented backwards; it is the same animation with
+// its two ends swapped.
+//
+// Time-boxed rather than one-shot on purpose. `applyTransforms` is called from
+// several render paths and a single look can hit more than one of them, so
+// consuming the fade on first read would race and drop the animation. The client
+// plays a given (from → to) pair once per its own TTL, so a fade surviving a few
+// renders costs nothing and a fade consumed too early costs the whole effect.
+const FADE_MS = 20000;
+
+// playerId -> { at, furniture: Map(furnitureId -> nameTheySaw), npcs: Map(npcId -> nameTheySaw) }
+const fadingByPlayer = new Map();
+
+/**
+ * Snapshot what this viewer is currently being shown, so the next render can
+ * animate back to the truth. Call this IMMEDIATELY BEFORE clearTransforms on any
+ * path where the illusion ends while the player is still awake to see it.
+ *
+ * Deliberately not called BY clearTransforms: death and logout also clear, and
+ * animating a room back for somebody who is not looking at it would leave a fade
+ * sitting in memory to fire on some unrelated later look.
+ */
+export function beginTransformFade(playerId) {
+  const furn = transformsByPlayer.get(playerId);
+  const npcs = npcTransformsByPlayer.get(playerId);
+  const plrs = playerTransformsByPlayer.get(playerId);
+  if (!furn?.size && !npcs?.size && !plrs?.size) return null;
+  const snap = { at: Date.now(), furniture: new Map(), npcs: new Map(), players: new Map() };
+  for (const [id, spec] of furn || []) if (spec?.name) snap.furniture.set(id, spec.name);
+  for (const [id, spec] of npcs  || []) if (spec?.name) snap.npcs.set(id, spec.name);
+  for (const [id, spec] of plrs  || []) if (spec?.name) snap.players.set(id, spec.name);
+  fadingByPlayer.set(playerId, snap);
+  return snap;
+}
+
+function fadeFor(playerId) {
+  const f = fadingByPlayer.get(playerId);
+  if (!f) return null;
+  if (Date.now() - f.at > FADE_MS) { fadingByPlayer.delete(playerId); return null; }
+  return f;
+}
+
+export function clearTransformFade(playerId) { fadingByPlayer.delete(playerId); }
+
+// Exposed for the regression suite and for anything that wants to know whether a
+// viewer is mid-comedown.
+export function getTransformFade(playerId) { return fadeFor(playerId); }
+
 // The ROOM ITSELF, re-read for one viewer. Separate from the furniture map
 // because it is not keyed on anything — there is one room, and a psychedelic
 // always warps it whether or not the place has so much as a chair. This is what
@@ -125,18 +185,98 @@ export function findNpcTransformByName(playerId, target) {
  */
 export function applyNpcTransforms(playerId, npcs) {
   const m = npcTransformsByPlayer.get(playerId);
-  if (!m?.size || !Array.isArray(npcs)) return npcs;
+  const fade = fadeFor(playerId);
+  if ((!m?.size && !fade?.npcs.size) || !Array.isArray(npcs)) return npcs;
   return npcs.map(n => {
-    const t = m.get(n.id);
-    return t ? { ...n, name: t.name || n.name, _realName: n.name, _transformed: t } : n;
+    const t = m?.get(n.id);
+    if (t) return { ...n, name: t.name || n.name, _realName: n.name, _transformed: t };
+    // Coming down — see applyTransforms. `_morphFrom` and not `_realName`,
+    // because for an NPC that field is also the talk target: naming the person
+    // by what they looked like on acid would send the dialogue nowhere.
+    const was = fade?.npcs.get(n.id);
+    return was && was !== n.name ? { ...n, _morphFrom: was } : n;
+  });
+}
+
+// ── ...and the other PLAYERS in it ───────────────────────────────────────────
+//
+// The same map again, pointed at real people. Held apart from the NPC map for
+// one reason only: the two lists come from different places (`getZoneNpcs` vs
+// `getZonePlayers`) and the ids are from different namespaces, so a single map
+// would need every caller to know which kind of thing it was holding.
+//
+// The rule from the NPC block applies here WITH TEETH. A player's handle still
+// answers to everything — examine, attack, trade, talk. Somebody else's night is
+// not your hallucination: they must not become unaddressable because you took
+// something, and a griefer must never be able to hide behind another player's
+// trip. So this changes the LABEL and nothing else, and the room link keeps the
+// real handle as its target.
+//
+// viewerId -> Map(targetPlayerId -> { name, description, looks[], says[], ... })
+const playerTransformsByPlayer = new Map();
+
+export function addPlayerTransform(viewerId, targetId, spec) {
+  if (viewerId === targetId) return null;   // your own body is not the joke
+  if (!playerTransformsByPlayer.has(viewerId)) playerTransformsByPlayer.set(viewerId, new Map());
+  playerTransformsByPlayer.get(viewerId).set(targetId, spec);
+  return spec;
+}
+export function getPlayerTransform(viewerId, targetId) {
+  return playerTransformsByPlayer.get(viewerId)?.get(targetId) ?? null;
+}
+export function getPlayerTransforms(viewerId) {
+  const m = playerTransformsByPlayer.get(viewerId);
+  return m ? [...m.entries()].map(([targetId, spec]) => ({ targetId, ...spec })) : [];
+}
+export function findPlayerTransformByName(viewerId, target) {
+  const t = String(target || '').toLowerCase().trim();
+  if (!t) return null;
+  return getPlayerTransforms(viewerId).find(x => {
+    const n = String(x.name || '').toLowerCase();
+    return n.includes(t) || n.split(/[^a-z0-9]+/).some(w => w && w.startsWith(t));
+  }) || null;
+}
+
+/**
+ * Overlay a viewer's people-transforms onto a PLAYER list.
+ *
+ * ⚠ COPIES, ALWAYS — `getZonePlayers` hands back the live player objects, which
+ * are the actual session state for those people. Mutating one here would rename
+ * somebody for themselves and for everyone else in the world.
+ *
+ * `handle` is deliberately LEFT ALONE. Every caller that acts on a player reads
+ * `handle`, so overwriting it here would reroute somebody's `attack` at a name
+ * that does not exist. The seen name rides on `_seenAs` and only the room
+ * listing reads it.
+ */
+export function applyPlayerTransforms(viewerId, players) {
+  const m = playerTransformsByPlayer.get(viewerId);
+  const fade = fadeFor(viewerId);
+  if ((!m?.size && !fade?.players.size) || !Array.isArray(players)) return players;
+  return players.map(p => {
+    const t = m?.get(p.id);
+    if (t) return { ...p, _seenAs: t.name, _transformed: t };
+    const was = fade?.players.get(p.id);
+    return was && was !== p.handle ? { ...p, _morphFrom: was } : p;
   });
 }
 
 export function clearTransforms(playerId) {
+  playerTransformsByPlayer.delete(playerId);
   transformsByPlayer.delete(playerId);
   npcTransformsByPlayer.delete(playerId);
   roomTransformByPlayer.delete(playerId);
   weatherWarpByPlayer.delete(playerId);
+}
+
+// ⚠ Re-dressing a room mid-trip clears the old transforms and immediately writes
+// new ones (applyTransformsHere). That is NOT a comedown, and a fade left over
+// from it would animate a piece back to its real name while the player is still
+// tripping. Only the comedown path calls beginTransformFade, so this exists to
+// make the other case explicit rather than implicit.
+export function clearTransformsForRedress(playerId) {
+  clearTransformFade(playerId);
+  clearTransforms(playerId);
 }
 export function hasTransforms(playerId) { return (transformsByPlayer.get(playerId)?.size ?? 0) > 0; }
 export function getTransform(playerId, furnitureId) {
@@ -191,13 +331,20 @@ export function isTransformed(playerId, furnitureId) {
  */
 export function applyTransforms(playerId, furniture) {
   const m = transformsByPlayer.get(playerId);
-  if (!m?.size || !Array.isArray(furniture)) return furniture;
+  const fade = fadeFor(playerId);
+  if ((!m?.size && !fade?.furniture.size) || !Array.isArray(furniture)) return furniture;
   return furniture.map(f => {
-    const t = m.get(f.id);
+    const t = m?.get(f.id);
     // `_realName` rides along for two callers: the room render, which tells the
     // client what this thing WAS so the pane can play the change letter by
     // letter, and anything that has to act on the actual row.
-    return t ? { ...f, name: t.name || f.name, description: t.description || f.description, _realName: f.name, _transformed: t } : f;
+    if (t) return { ...f, name: t.name || f.name, description: t.description || f.description, _realName: f.name, _transformed: t };
+    // Coming down. The row is itself again in every respect that matters — real
+    // name, real description, no `_transformed`, so nothing targets or acts on
+    // the illusion any more — and the ONLY thing it carries is what the viewer
+    // had been seeing, purely so the pane can play it back to the truth.
+    const was = fade?.furniture.get(f.id);
+    return was && was !== f.name ? { ...f, _morphFrom: was } : f;
   });
 }
 

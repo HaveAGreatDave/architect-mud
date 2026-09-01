@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "You have been moved to the back of your own life, and it is carrying on very competently without you. Your body is up at the front doing the necessary things. From here you can see that it is good at them, and that it does not need watching.",
   "drug_id": "drug_khole",
-  "fx": "fog",
-  "fx_intensity": 0.6,
+  "fx": "tunnel",
+  "fx_intensity": 0.75,
   "id": "dt_khole_back_of_the_room",
   "name": "The Back Of The Room",
   "objects": [

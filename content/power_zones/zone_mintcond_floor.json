@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_mintcond_floor",
   "id": "zone_mintcond_floor",
   "max_capacity_kw": 200,
   "name": "Mint Condition — Shop Floor",

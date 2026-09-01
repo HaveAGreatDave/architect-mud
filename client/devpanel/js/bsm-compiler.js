@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', acted: false, sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [], unterminatedBlocks: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -247,6 +247,13 @@ function compileBsm(text) {
         // lines the acting layer puts in a room go into that room. Omit for the
         // overwhelming default, which is that a show happens where the channel lives.
         else if (key === 'location') meta.location = val;
+        // PERFORMED BY NPCs. A show whose npc_anchors name real npc_ ids and which
+        // should actually be acted out — the cast commute to the stage and the
+        // airing is presence-gated, so an empty floor becomes technical
+        // difficulties. Omit for a recording: a drama names its actors with
+        // npc_anchor too, and gating one on its cast being awake would take it off
+        // the air. Takes no value — the directive's presence is the opt-in.
+        else if (key === 'acted')    meta.acted = val === '' || /^(1|true|yes)$/i.test(val);
         // film: the pre-roll cards. @presents is the production company on the
         // distributor card, @rating the certification card, @director the "a film by"
         // credit. All three are plain strings — a film has no studio cast.

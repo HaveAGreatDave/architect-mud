@@ -1,6 +1,18 @@
 # Mastery — the Long Watch's third answer
 
-**Status: DESIGN ONLY. Nothing here is implemented.**
+**Status: PHASES 0–3 BUILT** (restamped 2026-08-31). It ships as
+[`plugins/mastery/`](../../plugins/mastery/) — ten modules covering the swing seam, the
+purity cap, the stain, Read and Exploit — and the as-built account is
+[systems-mastery.md](../systems-mastery.md), which outranks this document wherever the two
+disagree. What follows is the design that produced it, kept for its reasoning.
+
+⚠ **This said "DESIGN ONLY. Nothing here is implemented." while the plugin was live.**
+`docs:lint` cannot catch it: that check fires when a status line contradicts its own BODY,
+and this body genuinely is design — it is the *world* that moved past it. The same
+staleness hid something worse for months, and it is worth remembering which way round it
+went: mastery shipped a `train` verb, a rep gate, a purity gate and a per-teacher ceiling
+with **no instructor anywhere in the world**, so the discipline was unreachable while
+documented as built. Three instructors exist now (see systems-mastery.md §8).
 
 The third leg of the body-philosophy triangle. Wildblood mutate, Ascendants
 install chrome, and the Long Watch do neither — their counterpart is **mastery**

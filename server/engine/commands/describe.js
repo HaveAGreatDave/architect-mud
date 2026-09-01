@@ -37,7 +37,7 @@ import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName, escAttr } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
-import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
+import { getPhantomsInZone, applyTransforms, applyNpcTransforms, applyPlayerTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
 import { signalLamp, junctionOffset, isJunction, LAMP_WORD } from "../../../client/shared/traffic.js";
 import { getZonePowerStatus } from "../environment.js";
@@ -445,7 +445,7 @@ function weaveFurniture(pieces, viewer) {
 function weaveOccupied(entries, viewer) {
 	if (!entries.length) return "";
 	return entries
-		.map(({ f, occ }) => {
+		.map(({ f, occ, seated }) => {
 			const raw = (f.name || "").toLowerCase();
 			// Names are authored freely: some already carry their article ("the
 			// embassy lounge bar"), some are plural ("cracked vinyl stools"). Both
@@ -458,8 +458,10 @@ function weaveOccupied(entries, viewer) {
 				"furniture-link furniture-woven",
 			);
 			// Sitting on it yourself is worth saying directly — "The stools is taken
-			// (you)" is a strange way to tell somebody where they are.
-			if (occ.length === 1 && occ[0] === "you")
+			// (you)" is a strange way to tell somebody where they are. Only for a
+			// SEAT, though: a machine you have running is taken BY you without you
+			// being on it, and "You're on the number two washer" is a lie.
+			if (seated !== false && occ.length === 1 && occ[0] === "you")
 				return `You're on ${furnitureSpan(f, viewer, `the ${bare}`, "furniture-link furniture-woven")}.`;
 			const verb = /s$/i.test(bare) ? "are" : "is";
 			return `${subject} ${verb} taken <span class="text-dim">(${occ.join(", ")})</span>.`;
@@ -793,6 +795,34 @@ function furnitureOccupants(fname, zonePlayers, npcs, viewer) {
 	return names;
 }
 
+// The other kind of occupied: a piece that is IN USE without anybody sitting on
+// it. A washing machine mid-cycle is claimed by whoever loaded it, and until this
+// existed the only way a plugin could say so was to invent its own line in the
+// room text, next to the one the engine already writes for seats.
+//
+// ⚠ Contributed occupancy is keyed by furniture ID, never by name, and that is
+// the whole reason it can't reuse the seat path: seat occupancy resolves by NAME
+// (`sittingOn` holds a string), so the loop below attributes it to the first row
+// of each name and lets the rest group as free. Four washers with the same head
+// noun are four separate machines and any of them can be the busy one, so a
+// name-keyed answer would put somebody else's wash in the wrong drum.
+//
+// Contributors return `{ [furnitureId]: 'label' | ['label', …] }`. One gather per
+// LOOK, not one per row — this runs on the room-describe path.
+async function contributedOccupants(zone, viewer) {
+	const byId = new Map();
+	const parts = await gatherHook("zone.furnitureOccupants", zone, viewer);
+	for (const part of parts) {
+		if (!part || typeof part !== "object") continue;
+		for (const [id, who] of Object.entries(part)) {
+			const names = (Array.isArray(who) ? who : [who]).filter(Boolean).map(String);
+			if (!names.length) continue;
+			byId.set(id, [...(byId.get(id) || []), ...names]);
+		}
+	}
+	return byId;
+}
+
 function _vaguePresence(npc) {
 	const g = npc.flags?.gender;
 	const GENERIC = [
@@ -1005,10 +1035,17 @@ export async function describeZone(zone, player, out = {}) {
 	// Sneakers this viewer has not clocked are simply not in the room as far as
 	// they are concerned — per viewer, so the same crouched player can be listed
 	// for one person and absent for another. One Set lookup, no query.
+	// Per-viewer people-transforms apply to real players exactly as they do to
+	// NPCs — a room where the bartender is a heron and the three drinkers are
+	// plainly themselves reads as a bug in the bartender. Returns COPIES and
+	// leaves `handle` alone; only the label below reads the seen name.
 	const others = isDark
 		? []
-		: getZonePlayers(zone.id).filter(
-				(p) => p.id !== player.id && !isHiddenFrom(p, player.id),
+		: applyPlayerTransforms(
+				player.id,
+				getZonePlayers(zone.id).filter(
+					(p) => p.id !== player.id && !isHiddenFrom(p, player.id),
+				),
 			);
 
 	// These are mutually independent, so they issue together rather than
@@ -1097,17 +1134,26 @@ export async function describeZone(zone, player, out = {}) {
 	// name and let the remainder group as free — one taken plus three free still
 	// counts to four, and it beats printing the same sitter four times.
 	const seatedHere = getZonePlayers(zone.id);
+	const inUse = await contributedOccupants(zone, player);
 	const occupiedIds = new Set();
 	const occupiedEntries = [];
 	const occNamed = new Set();
 	for (const f of tierable) {
 		const key = (f.name || "").toLowerCase();
-		if (occNamed.has(key)) continue;
-		const occ = furnitureOccupants(f.name, seatedHere, npcs, player);
+		// Contributed occupancy is per-ROW and so never name-deduped: two washers
+		// running at once are two lines, where two people on the same-named bench
+		// are still one.
+		const used = inUse.get(f.id) || [];
+		let occ = [];
+		if (!occNamed.has(key)) {
+			occ = furnitureOccupants(f.name, seatedHere, npcs, player);
+			if (occ.length) occNamed.add(key);
+		}
+		const seated = occ.length > 0;
+		occ = [...occ, ...used];
 		if (!occ.length) continue;
-		occNamed.add(key);
 		occupiedIds.add(f.id);
-		occupiedEntries.push({ f, occ });
+		occupiedEntries.push({ f, occ, seated });
 	}
 	const wovenPieces = tierable.filter(
 		(f) => f.flags?.woven && !occupiedIds.has(f.id),
@@ -1409,8 +1455,13 @@ export async function describeZone(zone, player, out = {}) {
 			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).
 			// What it WAS, for the pane's letter-by-letter morph (render.js). Only
 			// ever present on a piece a psychedelic is re-reading for this viewer.
-			const morphAttr = f._realName
-				? ` data-morph="${escAttr(titleCaseName(String(f._realName).replace(/^(?:a|an|the)\s+/i, "")))}"`
+			// `_morphFrom` is the comedown: the piece is itself again and this is
+			// what the viewer had been seeing, so the same animation plays with its
+			// two ends swapped. Either way the attribute means one thing — what
+			// this name is changing FROM.
+			const morphFrom = f._morphFrom || f._realName;
+			const morphAttr = morphFrom
+				? ` data-morph="${escAttr(titleCaseName(String(morphFrom).replace(/^(?:a|an|the)\s+/i, "")))}"`
 				: "";
 			// A light clicks through to its own switch rather than to examine — see
 			// lightClick. The (on)/(off) tag beside it is what the click acts on.
@@ -1520,10 +1571,18 @@ export async function describeZone(zone, player, out = {}) {
 		// query on offline_sleeping), so without this an online sleeper — dreaming
 		// or not — stood in the room looking wide awake, and nothing in the room
 		// description hinted that they were lootable.
-		const playerLinks = others.map(
-			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}" title="Look at ${escAttr(p.handle)}">${p.handle}${bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : ''}</span>`,
-		);
+		const playerLinks = others.map((p) => {
+			// ⚠ `data-target` and the title stay the REAL handle, always. The label
+			// is the only thing a trip is allowed to change: somebody else's night
+			// is not your hallucination, and a player who could not be examined,
+			// attacked or traded with because a third party took something would be
+			// a griefing tool rather than a drug effect.
+			const seen = p._seenAs || p.handle;
+			const morphFrom = p._morphFrom || (p._seenAs ? p.handle : null);
+			const morphAttr = morphFrom ? ` data-morph="${escAttr(morphFrom)}"` : "";
+			const tell = bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : '';
+			return `<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}"${morphAttr} title="Look at ${escAttr(p.handle)}">${seen}${tell}</span>`;
+		});
 		desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(", ")}`;
 	}
 	if (sleepingBodies.length) {
@@ -1547,7 +1606,10 @@ export async function describeZone(zone, player, out = {}) {
 				// The LABEL is what this viewer sees (a psychedelic may have made this
 				// person into something else); the target stays the real name, so a
 				// click reaches them however your eyes are behaving.
-				const morphAttr = n._realName ? ` data-morph="${escAttr(n._realName)}"` : "";
+				// `_morphFrom` is the comedown (see the furniture branch). The talk
+				// target below stays `_realName || name` — never the fading one.
+				const morphSource = n._morphFrom || n._realName;
+				const morphAttr = morphSource ? ` data-morph="${escAttr(morphSource)}"` : "";
 				return `<span class="action-link npc-link" data-action="talk" data-target="${escAttr(n._realName || n.name)}"${morphAttr} title="Talk to ${escAttr(n.name)}">${n.name}</span>${postureTag}`;
 			};
 			// A phantom person wears the exact same markup as a real NPC — the

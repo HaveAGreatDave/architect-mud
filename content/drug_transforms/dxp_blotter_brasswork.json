@@ -1,0 +1,30 @@
+{
+  "asks": [
+    "Can you hear the ratio?",
+    "Do you want to know what I am counting?",
+    "Should I go faster?"
+  ],
+  "description": "A person assembled out of small brass parts, each one turning against the next, the whole arrangement holding a shape that is unmistakably somebody standing and waiting for you to finish looking.",
+  "drug_id": "drug_blotter",
+  "emotes": [
+    "{it} flexes a hand, and the whole arm resolves through forty small movements to do it.",
+    "{it} tilts its head with a sound like a lock being satisfied.",
+    "{it} runs down almost to stopping, and then winds itself back up."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_blotter_brasswork",
+  "looks": [
+    "Every joint is a gear meshed into three others, and all of them are turning, and none of them is loose.",
+    "The metal is warm and worn bright at the places a person would be touched.",
+    "It ticks, very quietly, and the ticking keeps time with nothing in the room."
+  ],
+  "matches": null,
+  "name": "a figure of interlocking brasswork",
+  "says": [
+    "Everything is fitted. Nothing here is a coincidence.",
+    "I was made to this tolerance on purpose.",
+    "If you listen you can hear where it goes next."
+  ],
+  "scope": "person"
+}

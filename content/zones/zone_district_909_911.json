@@ -10,7 +10,7 @@
     "west": "zone_district_908_911"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "commercial",
     "icon": "statue-fisherman",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",

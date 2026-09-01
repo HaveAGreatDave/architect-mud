@@ -43,6 +43,8 @@ import { openCalibration } from './panels/calibration.js';
 import { openTextCalibration, isTextCalibrationActive, command as textCalibrationCommand } from './panels/textcalibration.js';
 import { openTextHololock, isTextHololockActive, command as textHololockCommand } from './panels/texthololock.js';
 import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
+import { openBombRig, openBombDefuse } from './panels/demolition.js';
+import { openTextBombRig, openTextBombDefuse, isTextDemolitionActive } from './panels/textdemolition.js';
 import { openTextSignal, isTextSignalActive, command as textSignalCommand } from './panels/textsignal.js';
 import { openTextFishing, isTextFishingActive, command as textFishingCommand } from './panels/textfishing.js';
 import { openTextRead, isTextReadActive } from './panels/textread.js';
@@ -326,7 +328,8 @@ function paneFreeForRoom() {
     && !isCabActive() && !isTruckDepotActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
-    && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive();
+    && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
+    && !isTextDemolitionActive();
 }
 
 function autoResolved(msg, onResult) {
@@ -348,6 +351,15 @@ const handlers = {
     state.authPending = false;
     state.player = msg.player;
     document.getElementById('auth-screen').style.display = 'none';
+    // Every pre-game overlay goes down here, not just the login form. The verify
+    // and reset windows are separate fixed elements at z-index 300, so one left
+    // standing sits UNDER the tour veil (9750) once play starts: drawn over the
+    // room and impossible to click. Logging in is the one moment that means none
+    // of them apply any more, so it is the one place to close them all.
+    for (const id of ['verify-screen', 'reset-screen']) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    }
     const bmcBtn = document.getElementById('bmc-btn');
     if (bmcBtn) bmcBtn.style.display = 'none';
     document.getElementById('handle-display').textContent = state.player.handle;
@@ -1513,6 +1525,42 @@ const handlers = {
     openVaultCrack(args);
   },
 
+  // Wiring a breaching charge to something, and cutting somebody else's off it.
+  // Two boards, one family: the same payload shape as every other minigame, so
+  // all three Display Mode rungs are served without a protocol of its own.
+  bomb_rig: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'rigresolve';
+    const args = {
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'TARGET',
+      fuseMin: msg.fuseMin ?? 10,
+      fuseMax: msg.fuseMax ?? 120,
+      fuseDefault: msg.fuseDefault ?? 45,
+      // The fuse the player CHOSE rides back with the result — it is the one
+      // number the board decides and the server clamps it on arrival.
+      onResult: ({ won, fuse }) =>
+        sendCmdSilent(`${resolveCmd} ${msg.chargeId} ${won ? 1 : 0} ${fuse ?? (msg.fuseDefault ?? 45)}`),
+    };
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextBombRig(args)) return;
+    openBombRig(args);
+  },
+
+  bomb_defuse: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'defuseresolve';
+    const args = {
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'CHARGE',
+      seconds: msg.seconds ?? 30,
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.chargeId} ${won ? 1 : 0}`),
+    };
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextBombDefuse(args)) return;
+    openBombDefuse(args);
+  },
+
   synth_minigame: (msg) => {
     // This family has no character board, so at `textgames` it falls back UP to the
     // graphical one — correct, that rung's audience can see it. At `log` the server
@@ -1618,7 +1666,8 @@ const handlers = {
 
   // Dream / hallucination particle field. Drives the weather FX canvas directly,
   // ignoring the real weather and the indoor gate — ash falling in a windowless
-  // corridor is the point. { effect: rain|snow|ash|fog|wind|none, intensity }.
+  // corridor is the point. Weather: rain|snow|ash|fog|wind|none. Drug symptoms:
+  // static|tunnel|tracers|bloom|crawl|swim — see weather-fx.js for what each one is.
   dream_fx:   (msg) => { setDreamFx(msg); },
 
   // "This room has no weather and no clock" (plugins/prologue, off flags.prologue).

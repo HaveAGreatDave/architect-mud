@@ -1,0 +1,29 @@
+{
+  "name": "unrest",
+  "version": "1.0.0",
+  "description": "The conflict between the orders, made observable: a grip/heat/pressure ledger per derived city block, the perceivable signals a band crossing produces, and the incidents that stage on top of them. Phase 1 complete (1a-1d).",
+  "routePrefix": "/unrest",
+  "commands": [],
+  "hooks": ["zone.describeAmbient"],
+  "after": ["district-ambience"],
+  "events": {
+    "emits": ["unrest.band.changed", "unrest.incident.staged", "unrest.incident.ended"],
+    "consumes": ["zone.entered"]
+  },
+  "actions": {
+    "registers": [],
+    "dispatches": ["broadcast.newsWire", "ESP_ACTIVATE", "ESP_DEACTIVATE"]
+  },
+  "extensionPoints": ["unrest.stageStep"],
+  "ticks": ["30m", "5m"],
+  "config": {
+    "BLOCK": "12 — the cell is a 12x12 square of grid coordinates (blocks.js)",
+    "flagKey": "unrest_ledger — the one world_flags key this plugin writes, and it is the only writer",
+    "SIGNAL_WINDOW_MS": "6h — how long a perceivable signal stays answerable, which is what rule 1 gates an incident on (signals.js)",
+    "MAX_LIVE": "3 — simultaneous incidents CITYWIDE, not per cell (incidents.js)"
+  },
+  "dataSchema": {
+    "tables": ["incidents"],
+    "note": "The LEDGER has no table: one versioned world_flags blob, RAM-authoritative with write-behind, because ~10 cells x 4 numbers does not justify a schema change, a registry entry and a read-tier decision. Band memory, the signal record and every live staging are RAM only, deliberately — rule 6 persists the ledger and never the incidents. world_events takes one audit row per staging and is not the ledger."
+  }
+}

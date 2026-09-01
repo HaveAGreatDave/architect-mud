@@ -55,7 +55,14 @@
       "mods": {
         "stat_brains": -2
       },
-      "onset_seconds": 1800
+      "onset_seconds": 1800,
+      "stages": {
+        "easing": "The plateau lets you down onto flat ground, and the flat ground holds.",
+        "onset": "The distance goes. Everything is at the end of your arms again.",
+        "peak": "Nothing is happening at a remove any more. It is all happening at exactly the range it is happening at, which is here.",
+        "rising": "Sounds arrive on time, at full size, in the room you are in.",
+        "tail": "Near. Everything is near. You have got most of the way to used to it."
+      }
     }
   },
   "flags": {

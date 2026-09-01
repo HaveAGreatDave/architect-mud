@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "One of Bracken Hale's hounds went out onto the flats four days ago and did not come back, and she is heavy in whelp. He has been out three nights looking and he is fifty-one and he will not stop. Quarrel Nine asked you to go and find her, and was extremely clear that this is not a test and buys you nothing, and asked anyway.\n\nShe will not come to you. Find her, stay with her, and she will follow when she has decided about you.",
+  "description": "A hound of Bracken Hale's went out onto the flats four days ago and has not come back. She is heavy in whelp.\n\nBracken has been out three nights looking for her. He is fifty-one and he will not stop.\n\nQuarrel Nine asked you to go and find the dog, and was extremely clear that this is not a test and buys you nothing, and asked anyway.\n\nShe will not come to you. Find her, stay with her, and she will follow when she has decided about you.",
   "fail_on": [],
   "id": "quest_thorn_toll",
   "meta": {},
@@ -9,7 +9,9 @@
     {
       "desc": "Search the flats west and south of the Thornwarren.",
       "emotes": [
-        "{who} works the low ground with the wall at their back, quartering it properly."
+        "{who} works the low ground with the wall at their back, quartering it properly.",
+        "{who} works the low ground in lines rather than circles, which takes longer and finds things.",
+        "{who} finds a print, and then the same print going the other way, and follows the second one."
       ],
       "id": "o_flats",
       "type": "visit",
@@ -18,7 +20,9 @@
     {
       "desc": "Find the hound in the dry ground below the Slake.",
       "emotes": [
-        "{who} stops moving, and sits down in the dirt, and waits, which is the only thing that was ever going to work."
+        "{who} stops moving, and sits down in the dirt, and waits.",
+        "{who} finds her wedged under an overhang with her back to the open and her eyes on it.",
+        "{who} does not reach out, and does not talk, and lets a very large animal make up its own mind."
       ],
       "id": "o_found",
       "type": "visit",
@@ -27,7 +31,8 @@
     {
       "desc": "Walk her back to the North Gate.",
       "emotes": [
-        "{who} comes up the trophy road at a walking pace with something enormous following four feet behind them."
+        "{who} comes up the trophy road at a walking pace with something enormous following four feet behind them.",
+        "{who} matches her pace all the way in, which is slower than a walk and not negotiable."
       ],
       "id": "o_home",
       "type": "visit",

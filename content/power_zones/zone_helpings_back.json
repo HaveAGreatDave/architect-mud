@@ -1,7 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
-  "generator_id": null,
+  "generator_id": "gen_zone_util_zone_helpings_shop",
   "id": "zone_helpings_back",
   "max_capacity_kw": 200,
   "name": "Second Helpings — Restock Bay",

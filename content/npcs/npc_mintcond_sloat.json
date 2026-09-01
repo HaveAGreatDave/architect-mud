@@ -297,9 +297,16 @@
         {
           "label": "Nothing. Just looking.",
           "next": "looking"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's me. Thanks.",
+          "next": "bye"
         }
       ],
-      "text": "\"Mm.\" He does not get off the stool. \"Racks are reading copies, wall is graded, counter is cards, back room is tapes and the back room is by invitation. Ask before you handle anything and we will get along.\"",
+      "text": "\"Mm.\" He does not get off the stool. \"Racks are reading copies, wall is graded, counter is cards, back room is tapes and the back room is by invitation. Ask before you handle anything and we will get along.\"\n\n\"After something, or looking? Both are fine. They want different answers out of me.\"",
       "text_by_relation": {
         "familiar": "He is already reaching under the counter before you are all the way through the door, and what comes out is a book in a sleeve with a strip of paper in it marked, in blunt pencil, with your name.\n\n\"Came in Thursday. I did not put it out.\" He slides it across the glass and immediately looks somewhere else, as though the transaction embarrasses him. \"You do not have to take it.\"",
         "first": "The large man on the stool marks his place with a finger and looks at you the way a customs officer looks at a bag.\n\n\"Emmett Sloat. This is mine.\" A small pause, in which he decides to be generous. \"Racks in the middle are reading copies — creased, cheap, meant to be read, that is what they are FOR. The wall is graded and the wall is not a browsing wall. Counter is cards. Back room is tapes.\" He returns to his page. \"Ask before you handle anything and we will get along famously.\"",
@@ -432,4 +439,3 @@
   "wanders": 0,
   "work_zone_id": "zone_mintcond_floor"
 }
-

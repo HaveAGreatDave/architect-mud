@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "description": "A long low shed on the south side of the street with a boiler stack coming up through the roof and a permanent thread of steam leaning off it. THE LONG SOAK is spelled out in mismatched letters bolted to the front, one of them upside down and left that way for so long it counts as the name now. Water is the most expensive thing in the Reach and this building spends it on purpose, which is the whole point of the building.",
+  "description": "A long low shed on the south side of the street with a boiler stack coming up through the roof and a permanent thread of steam leaning off it. THE LONG SOAK is spelled out in mismatched letters bolted to the front, one of them upside down and left that way for so long it counts as the name now. Water is the most expensive thing in the Reach and this building spends it on purpose.",
   "exits": {
     "north": "zone_the_reach_870_1955",
     "south": "zone_bld_reach_soak_lobby"

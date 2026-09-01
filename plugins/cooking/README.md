@@ -376,6 +376,13 @@ Why not `keyItems`: a key item is an exact id and all of them are mandatory, so
 naming the tin would forbid the tube and the fresh one. **The noun is the level
 the requirement actually lives at** — it is tomato, however it's sold.
 
+**Mac and cheese is the case where `requires` carries the anchor on its own.**
+It has no key items at all: `requires: { dry_starch: 'macaroni', dairy: 'cheese' }` is the
+whole identity of the dish, because both halves of the name are things the world
+sells under more than one label, and a key item would pin each of them to one row.
+It is what makes a tray of penne, cream, egg and butter fall through to something
+else, which is correct: the classes alone would have called it mac and cheese.
+
 It is **opt-in per dish and deliberately not derived from `nouns`**. Half the
 catalog's `nouns` name a thing no item carries at all ("stock", "meatballs") and
 could never be a rule, and promoting the rest would make eight dishes stricter as

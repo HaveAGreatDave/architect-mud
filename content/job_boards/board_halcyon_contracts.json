@@ -1,0 +1,16 @@
+{
+  "description": "Casual contracts, posted daily, paid same day at the underwriting desk. Halcyon Assurance is an equal-opportunity employer and does not require references, a fixed address, or a surname.",
+  "id": "board_halcyon_contracts",
+  "name": "Halcyon Assurance — Contract Work",
+  "quest_pool": [
+    "quest_hal_file",
+    "quest_hal_witness",
+    "quest_hal_queue",
+    "quest_hal_photo",
+    "quest_hal_escort"
+  ],
+  "rotation_period": "21600",
+  "rotation_size": 3,
+  "updated_at": "1788000000",
+  "zone_id": "zone_halcyon_lobby"
+}

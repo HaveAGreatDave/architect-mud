@@ -1,10 +1,10 @@
 {
-  "description": "Six hover-lifter housings banded together on a rack, shrouds pitted from somebody else's road. The emitter faces are clean, which is the only part anybody checks. Heavy enough that loading them is a decision and light enough that a driver who thinks ahead carries a set.",
+  "description": "Six hover-lifter housings banded together on a rack, shrouds pitted from somebody else's road. The emitter faces are clean. Nobody checks anything else. Heavy enough that loading them is a decision and light enough that a driver who thinks ahead carries a set.",
   "flags": {},
   "id": "item_wheel_set",
   "name": "set of lifter housings",
   "tags": {
-    "description": "Six hover-lifter housings banded together on a rack, shrouds pitted from somebody else's road. The emitter faces are clean, which is the only part anybody checks. Heavy enough that loading them is a decision and light enough that a driver who thinks ahead carries a set.",
+    "description": "Six hover-lifter housings banded together on a rack, shrouds pitted from somebody else's road. The emitter faces are clean. Nobody checks anything else. Heavy enough that loading them is a decision and light enough that a driver who thinks ahead carries a set.",
     "misc": true
   },
   "type": "misc",

@@ -7,8 +7,8 @@
   "cause": "drug",
   "description": "A concrete hut on nothing, with a mast on it and an equipment rack inside that is entirely lit and entirely idle. It has power. It has been serviced. It is relaying, faithfully and at full strength, an absence.",
   "drug_id": "drug_deadair",
-  "fx": "wind",
-  "fx_intensity": 0.7,
+  "fx": "static",
+  "fx_intensity": 0.75,
   "id": "dt_deadair_repeater",
   "name": "The Repeater Hut",
   "objects": [

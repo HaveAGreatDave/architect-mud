@@ -141,6 +141,7 @@
       ],
       "options": [
         {
+          "label": "\"What are the rules again?\"",
           "next": "rules",
           "text": "\"What are the rules again?\""
         }
@@ -150,16 +151,14 @@
     "root": {
       "options": [
         {
+          "label": "\"What're the rules in here?\"",
           "next": "rules",
           "text": "\"What're the rules in here?\""
         },
         {
+          "label": "\"What goes on in the VIP room?\"",
           "next": "vip",
           "text": "\"What goes on in the VIP room?\""
-        },
-        {
-          "next": "vip",
-          "text": "\"How do I get into VIP?\""
         },
         {
           "actions": [
@@ -167,9 +166,11 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"Nothing. Just looking.\"",
           "text": "\"Nothing. Just looking.\""
         },
         {
+          "label": "\"Anything I should know about this block?\"",
           "next": "gossip",
           "text": "\"Anything I should know about this block?\""
         }
@@ -184,9 +185,11 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"Crystal.\"",
           "text": "\"Crystal.\""
         },
         {
+          "label": "\"And VIP?\"",
           "next": "vip",
           "text": "\"And VIP?\""
         }
@@ -201,9 +204,11 @@
               "action": "END_CONVERSATION"
             }
           ],
+          "label": "\"Fine, fine. No touching.\"",
           "text": "\"Fine, fine. No touching.\""
         },
         {
+          "label": "\"What are the rules again?\"",
           "next": "rules",
           "text": "\"What are the rules again?\""
         }

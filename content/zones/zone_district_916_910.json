@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "In Hock We Trust",
     "building_type": "fence",
-    "district": "wasteland",
+    "district": "marrow",
     "entrance": "north",
     "facade": true,
     "is_building": true,

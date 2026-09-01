@@ -1,0 +1,22 @@
+{
+  "arrivals": [
+    "Somebody is here who has had this thought before.",
+    "They arrive at the resolution and were waiting for you at it.",
+    "They come in already agreeing with you."
+  ],
+  "cause": "drug",
+  "departures": [
+    "They go, having got what they came for, which was to see you get it.",
+    "They leave on the beat.",
+    "They are gone, and the understanding is still here, briefly."
+  ],
+  "drug_id": "drug_nitrous",
+  "id": "dp_nitrous_the_one_who_already_knows",
+  "looks": [
+    "Delighted, and not surprised. They have had this one.",
+    "They are nodding. They started nodding before you began.",
+    "They would tell you and it would not survive being told and they know that.",
+    "They have been here for all of the repeats and have not got bored."
+  ],
+  "name": "somebody who already knows"
+}

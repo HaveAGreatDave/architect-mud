@@ -6727,11 +6727,24 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 }
 
 /* Auth screen */
+/* ── THE MUST-ANSWER LAYER (9800+) ────────────────────────────────────────────
+   Everything below 9700 can be covered by a veil, and that is usually right: a
+   panel you opened yourself is fine hidden under the modal you opened after it.
+   A dialog that DEMANDS an answer is not. These sat at 200-400 — under the tour
+   veil (9755), the trade and voidwalk overlays (9000) and the confirm window
+   (9600) — so any of them landing during one of those was drawn over the game
+   and swallowed no clicks at all: visibly stuck, with a countdown still running
+   in two of the cases. They live above every veil now, and are numbered apart
+   from each other so that two at once still leaves both answerable.
+     9800  apprehend prompt        9900  auth screen
+     9810  conceal sweep           9910  reset password
+                                   9920  verify email
+   (auth/reset/verify carry their z-index inline in index.html.)          */
 #auth-screen {
 	position: fixed;
 	inset: 0;
 	background: var(--bg);
-	z-index: 200;
+	z-index: 9900;
 	display: flex;
 	/* flex-start + margin:auto on the box, not align-items:center — a centered
 	   flex child taller than the container is clipped at the TOP and can't be
@@ -15022,7 +15035,7 @@ body.esp-active #output {
 /* Apprehend prompt — the submit-or-run countdown when a cop grabs you (≤3.5★). */
 .apprehend-window {
 	position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%);
-	z-index: 400; width: 340px; padding: 18px 20px 16px;
+	z-index: 9800; width: 340px; padding: 18px 20px 16px;   /* must-answer layer — see #auth-screen */
 	background: rgba(14, 5, 5, 0.96); border: 1px solid var(--red); border-radius: 6px;
 	box-shadow: 0 0 0 1px rgba(255, 60, 60, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 40, 40, 0.25);
 	font-family: var(--font-mono); text-align: center;
@@ -15056,7 +15069,7 @@ body.esp-active #output {
 /* Conceal scan-sweep — palm contraband before the scanner line reaches it. */
 .conceal-window {
 	position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%);
-	z-index: 400; padding: 18px 20px 22px;
+	z-index: 9810; padding: 18px 20px 22px;   /* must-answer layer — see #auth-screen */
 	background: rgba(12, 8, 5, 0.97); border: 1px solid #7a5a16; border-radius: 6px;
 	box-shadow: 0 0 0 1px rgba(255, 190, 60, 0.18), 0 10px 44px rgba(0, 0, 0, 0.65);
 	font-family: var(--font-mono); text-align: center;
@@ -15474,6 +15487,10 @@ body.insane #output { animation: sanity-shudder 5.5s steps(1) infinite; }
 	cursor: grab;
 	outline: 1px dashed var(--border, rgba(255,255,255,0.15));
 	outline-offset: -1px;
+	/* Reserve the corner the absolutely-positioned del button sits in. A row whose
+	   own content is right-aligned (the vitals numbers) otherwise renders underneath
+	   it — HP 2 reads as X2, sanity 100 as 1X0. */
+	padding-right: 14px;
 }
 .list-editing > .list-row-dragging { opacity: 0.45; cursor: grabbing; }
 
@@ -18881,3 +18898,17 @@ html[data-status-glyphs="on"] #output .combat-hit::before  { content: "✕\00a0"
 .sift-opt:focus-visible,
 .sift-navbtn:focus-visible,
 .sift-x:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+/* A slip printed by a Halcyon terminal, shown inside dialogue text. Uppercase
+   and monospaced so a form header reads as a physical object the player is being
+   handed rather than as something a character said. */
+.term-print {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: 0.92em;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border: 1px solid var(--dim, #555);
+  color: var(--fg, #ccc);
+  background: rgba(255, 255, 255, 0.04);
+}

@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The Quartermaster hands you a purse heavy enough to be a point, and a list of parts the Watch cannot make and will not do without. All of it is sold on Halcyon Boulevard, and the clinic on that same street will fit you anything you like while you wait, at a discount, to anybody who looks like they are considering it.\n\nShe does not tell you not to. She says: bring the parts back, and bring yourself back, and she watches you the whole way to the door.",
+  "description": "The Quartermaster hands you a purse heavy enough to be a point, and a list of parts the Watch cannot make and will not do without.\n\nAll of it is sold on Halcyon Boulevard. So is everything else. The clinic on that same street will fit you anything you like while you wait, at a discount, to anybody who looks like they might be considering it, and they are extremely good at spotting who is considering it.\n\nShe does not tell you not to. She has never told anybody not to, in twenty years of handing out that purse.\n\nShe says: bring the parts back, and bring yourself back. Then she watches you the whole way to the door.",
   "fail_on": [
     {
       "desc": "You had something fitted. The parts are on the counter and so is the receipt, and the Quartermaster reads the second one first.",
@@ -18,7 +18,9 @@
     {
       "desc": "Work the length of Halcyon Boulevard for the parts on the list.",
       "emotes": [
-        "{who} works down the list, counter by counter, and is offered something better at every one of them."
+        "{who} works down the list, counter by counter, and is offered something better at every one of them.",
+        "{who} is called by their first name by a man they have never met, who read it off a screen.",
+        "{who} finds the fourth item is stocked by nobody on the Boulevard, and buys it in an alley off it."
       ],
       "id": "o_street",
       "taskSeconds": 10,
@@ -29,7 +31,9 @@
       "desc": "The last part is behind the clinic counter. Wait for it.",
       "emotes": [
         "{who} sits in a warm, clean waiting room while somebody explains what could be done about the ache in their hands.",
-        "{who} is handed a brochure, and holds it, and does not read it."
+        "{who} is handed a brochure, and holds it, and does not read it.",
+        "{who} is told there is no obligation, twice, by two different people.",
+        "{who} is quoted a figure, and the figure is less than what is in the purse."
       ],
       "id": "o_wait",
       "requires": [
@@ -40,13 +44,31 @@
       "zone": "zone_asc_clinic_consult"
     },
     {
+      "count": 1,
+      "desc": "The surgeon has time while you wait, and would like to use it.",
+      "emotes": [
+        "{who} is asked, pleasantly, what they do with their hands all day.",
+        "{who} is talked out of the expensive one by the man who would have been paid for it.",
+        "{who} is quoted a price, and then a smaller price, and is not pushed on either.",
+        "{who} is told the offer stands, and that it is not the kind that expires."
+      ],
+      "id": "o_offer",
+      "requires": [
+        "o_wait"
+      ],
+      "target": "npc_asc_kesh",
+      "type": "talk"
+    },
+    {
       "desc": "Take the parts back to the Quartermaster.",
       "emotes": [
-        "{who} puts the parts and what is left of the purse on the counter, in that order."
+        "{who} puts the parts and what is left of the purse on the counter, in that order.",
+        "{who} notices her counting the purse second."
       ],
       "id": "o_back",
       "requires": [
-        "o_wait"
+        "o_wait",
+        "o_offer"
       ],
       "taskSeconds": 5,
       "type": "visit",
@@ -63,6 +85,11 @@
         "flag": "lw_loyal",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "9"
       }
     ],
     "rep": [

@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "The pipes overhead tick as somebody four floors up runs a tap.",
+    "A hand-lettered card propped on the counter reads PRICES ARE NOT AN OPENING POSITION.",
+    "The strung bulbs hum. Everything in the room is exactly where it was.",
+    "Behind the crates a fan cycles on, runs for a minute, and gives up.",
+    "A wall chart of fuse lengths has been annotated in three colours of pen, all of them angry."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c211c",
+  "color": "#a8bb9e",
+  "description": "A district pump house the city sealed in a hurry and never came back for: four dead impellers in a row, a control desk with its panel unscrewed and never put back, and a ceiling of lagged pipe that still ticks with somebody else’s hot water. It is dry, it is warm, and it is the only room down here with the lights on. Somebody has swept it. Somebody has swept it very thoroughly, and stacked what they found against the far wall in crates that are all the same size, which is not how salvage arrives.",
+  "exits": {
+    "north": "zone_under_door"
+  },
+  "flags": {
+    "district": "sewer",
+    "floor": "concrete",
+    "is_interior": true,
+    "terrain": "sewer"
+  },
+  "grid_x": 920,
+  "grid_y": 906,
+  "grid_z": -1,
+  "id": "zone_under_plantroom",
+  "map_id": "map_world",
+  "name": "Pump House Four",
+  "parent_zone": null
+}

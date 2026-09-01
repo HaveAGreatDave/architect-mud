@@ -1,0 +1,20 @@
+{
+  "description": "Two feet of decking on beer crates, carpeted in something that was red. A stool, a microphone on a boom bent permanently to one height, and a strip of tape on the boards marking where to stand so the ceiling fan does not catch the wig. The boom is set low. Whoever set it was not tall and was not planning to adjust it for anybody.",
+  "flags": {
+    "aliases": "stage,riser,boards",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_stage",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stage",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_jolenes_bar"
+}

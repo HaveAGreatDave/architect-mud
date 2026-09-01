@@ -5,6 +5,7 @@ import { command as textSignalCommand } from './panels/textsignal.js';
 import { command as textFishingCommand } from './panels/textfishing.js';
 import { command as textNullCommand } from './panels/textnullboard.js';
 import { command as textCalibrationCommand } from './panels/textcalibration.js';
+import { command as textDemolitionCommand } from './panels/textdemolition.js';
 import {
 	loadSettings,
 	saveSettings,
@@ -73,6 +74,13 @@ import { stopEngineAudio } from "./panels/engine-audio.js";
 import { isFlightSimActive } from "./panels/cockpit.js";
 import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
 import { isTruckDepotWalkActive } from "./panels/truck-depot.js";
+import { runBootScreen } from "./panels/bootscreen.js";
+
+// Started before anything else is wired, and deliberately NOT awaited: the POST
+// screen is an overlay over a client that is booting underneath it, so holding
+// the rest of main.js behind it would turn a cosmetic sequence into real load
+// time. It tears itself down when the socket is up (see net.js `game-connected`).
+runBootScreen();
 
 // Settings
 const settings = loadSettings();
@@ -331,7 +339,7 @@ setWhoModalHandler(openWhoModal);
 // text minigame runs entirely client-side, so there is nothing server-side to
 // receive those words. Returns false when the board is shut, so the verbs stay
 // available to whatever else owns them.
-setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd) || textCalibrationCommand(cmd) || textNullCommand(cmd));
+setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd) || textCalibrationCommand(cmd) || textNullCommand(cmd) || textDemolitionCommand(cmd));
 
 // Auth form — restore remembered credentials
 const _savedUser = localStorage.getItem("mud_remember_user");
