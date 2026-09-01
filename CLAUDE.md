@@ -265,6 +265,35 @@ check itself: it feeds each file to `node --check` on **stdin with `--input-type
 plain `node --check <path>` parses a `.js` in the CommonJS goal and *passes* that exact broken file.
 Don't "simplify" it to a path argument. Takes ~2 s, no browser, DB or network.
 
+`pretest:regress` also runs **`imports:smoke`** ([scripts/imports/smoke.mjs](scripts/imports/smoke.mjs)),
+which checks that every **named** import across `server/`, `plugins/`, `client/`, `scripts/`, `tests/`
+and `tools/` resolves to something the target module actually exports. ESM resolves these at LINK
+time, so a missing export is not a bug you hit when the feature is used — the module never loads and
+everything it owns silently stops existing.
+
+⚠ **It has two modes, and the one that matters reads a COMMIT.** Bare, it checks the working tree.
+With `--ref <oid>` it checks out a detached worktree and reads that instead, and **the pre-push hook
+runs it that way against every oid being pushed** — because the working tree is not what you are
+pushing. That distinction is the whole reason it exists: on 2026-09-01 a commit shipped
+`plugins/surveillance/index.js` importing `drugForItem` from `server/engine/drugs.js` while the
+export sat uncommitted in the working tree. The local suite passed 8988/8988 against a tree that had
+it; CI checks out the commit and could not load the plugin. Surveillance owns `plant`, `retrieve`,
+`sweep`, `hijack`, `wanted`, `bribe`, `submit` and `scrub`, so the break surfaced as help-verb and
+object-gated-verb failures that named nothing to do with drugs, and every content deploy stopped.
+**Staging by file is not enough when one change spans two files** — that is the trap this catches.
+
+⚠ **Do not "simplify" the scanner to a regex over raw source.** It blanks comments, template literals
+and regex literals first, and a first cut without that reported eleven findings of which ten were its
+own fault: a multi-declarator `export const A = 0.45, B = 0.5;` (only the first name seen), a
+**comment inside an `export { … }` block** naming the symbol, a nested object literal in an
+interpolation (`?? {}`) unbalancing a brace counter, and — the one that proves the point — a regex
+holding a double quote inside an interpolation (`${h.replace(/"/g, '&quot;')}`, which every
+HTML-building client panel does), which desynchronised the rest of the file. There is ONE scanner and
+an interpolation is scanned as ordinary code; two scanners means the weaker one decides what the
+stronger one sees. Only NAMED imports are checked — proving a module has no default export means
+being sure it is ESM, and being wrong on a push gate is worse than the miss. Escape hatch is
+`// imports-ok: <reason>`, reason required. ~2 s over ~1,150 files, no browser, DB or network.
+
 ## VINE Graph Workflow
 
 Creating or updating an NPC behaviour graph, dialogue tree, or enemy behaviour graph is covered by
