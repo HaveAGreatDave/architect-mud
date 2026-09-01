@@ -28,6 +28,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { cmdUse } from '../../server/engine/commands/inventory.js';
+import { isDrugItem } from '../../server/engine/drugs.js';
 import { getAllLivePlayers, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { burnCharge } from '../../server/engine/inventory.js';
@@ -67,14 +68,17 @@ const ROOM_COUGH = [
 
 async function findDrug(targetStr, player) {
   if (!targetStr) return false;
+  // The join against `drugs` this used to carry is answered from the cache
+  // instead — the table is already in memory, and asking Postgres to re-derive
+  // it made every carried item that merely SHARED A NAME with a drug cost a
+  // wider query. Same single round trip; the drug-ness is now free.
   const { rows } = await query(
-    `SELECT pi.id FROM player_inventory pi
+    `SELECT pi.item_id FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
-     JOIN drugs d ON d.item_id = i.id
-     WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) LIMIT 1`,
+     WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2)`,
     [player.id, `%${targetStr}%`]
   );
-  return rows.length > 0;
+  return rows.some(r => isDrugItem(r.item_id));
 }
 
 async function smoke(args, raw, player, broadcast) {

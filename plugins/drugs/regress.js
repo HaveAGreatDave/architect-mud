@@ -3,7 +3,7 @@
 // Covers the pharmacokinetic laws in server/engine/drugs.js. These are engine laws,
 // but this plugin owns the verbs that deliver a dose (use/inject), so the coverage
 // lives with it. Assertions run against the pure `_test` surface — no DB, no clock.
-import { _test as T } from '../../server/engine/drugs.js';
+import { _test as T, getDrugCache, drugForItem, isDrugItem } from '../../server/engine/drugs.js';
 import { _test as F } from './index.js';
 
 export default async function regress({ run, check }) {
@@ -212,4 +212,21 @@ export default async function regress({ run, check }) {
   check('a depressant self reads as a depressant', F.selfKey({ drugClass: 'depressant' }) === 'depressant');
   check('hallucination outranks class', F.selfKey({ drugClass: 'stimulant', tripping: true }) === 'tripping');
   check('an unclassed drug falls back rather than crashing', F.selfKey({}) === 'other');
+
+  // --- the item index -------------------------------------------------------
+  // "Is this item a drug?" is asked per item on the witness path and once per
+  // `use`, and the drugs table is already in memory — so the answer must be
+  // synchronous and must agree exactly with the row the join used to return.
+  const withItem = Object.values(getDrugCache()).filter(d => d.item_id);
+  check('the world has drugs that sit on items at all', withItem.length > 0, String(withItem.length));
+  if (withItem.length) {
+    const d = withItem[0];
+    check('an item carrying a drug resolves to its row', drugForItem(d.item_id)?.id === d.id, d.item_id);
+    check('and reads as a drug', isDrugItem(d.item_id) === true);
+    check('every drug with an item_id is reachable by it',
+      withItem.every(x => drugForItem(x.item_id)?.id === x.id));
+  }
+  check('an item nothing was authored on is not a drug', isDrugItem('item_not_a_drug_at_all') === false);
+  check('a missing item id is not a drug, and does not throw',
+    isDrugItem(null) === false && isDrugItem(undefined) === false);
 }

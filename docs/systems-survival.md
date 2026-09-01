@@ -156,7 +156,31 @@ system's view of it only.
 ## Drugs & addiction
 
 [drugs.js](../server/engine/drugs.js), invoked from `use`/`inject` when the item joins to a row in
-`drugs`. Dev-panel editable, cached at boot. The `effects` JSON is one schema with all sub-blocks
+`drugs`. Dev-panel editable, cached at boot.
+
+### Connecting to it
+
+The cache is indexed twice — by drug id (`getDrugCache()`) and by the item the drug sits on. Ask
+"is this item a drug?" with **`drugForItem(itemId)`** or **`isDrugItem(itemId)`**, which are
+**sync by contract**: they are called from per-item loops and from the witness path, so neither may
+ever become a query. Before they existed, six callers each wrote their own
+`JOIN drugs d ON d.item_id = i.id`, and surveillance spent a round trip per given item asking a
+table the process was already holding.
+
+Five signals reach the rest of the game. Two fire at the dose — the `drug.used` hook (any drug with
+a `hallucination` block; the trip plugin's entry point) and the `player.drugUsed` event (used by
+smoking, cannabis, intoxication, gossip, mis and surveillance) — plus the `drug.overdose` hook. The
+other two are the arc *after* the dose:
+
+- **`drug.addicted`** `{ player, drug, drugId, addiction }` — the dose that latched dependency.
+- **`drug.withdrawal`** `{ player, drugId, phase, severity }` — fired on the **beat**, never per
+  minute. Severity drifts every tick, so a per-tick event would wake a subscriber sixty times an hour
+  and make it debounce a clock it cannot see; the engine's own phase map is already that debounce.
+- **`drug.cleaned`** `{ player, drugId, stillAddicted }` — the mods are reversed and the arc is
+  over, whether that came from re-dosing or from riding it out. `stillAddicted` is how you tell.
+
+⚠ Subscribe to these rather than polling `getDrugStatus()` on a tick — that is a query per player,
+and the engine already knows every one of these moments at the point it computes them. The `effects` JSON is one schema with all sub-blocks
 optional; a flat object with none of the structured keys is treated as an `instant` block (back-compat
 for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_system`, `times_used`,
 `is_addicted`, `active_until`, plus `tolerance` and `addiction`).
