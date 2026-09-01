@@ -365,8 +365,12 @@ const PANELS = {
   },
   incidents: {
     title: 'Incidents',
-    description: 'The authored catalogue behind Unrest — what CAN happen in a city block, never what is happening. The live side is on the Unrest panel.',
+    description: 'The authored catalogue behind Unrest — what CAN happen in a city block, never what is happening. The live side is the Live ledger tab.',
     idPrefix: 'incident',
+    // Half of the Unrest suite — one nav row, two tabs. This half renders through
+    // the generic list, so the strip arrives via beforeList (which runs even when
+    // the list is empty).
+    beforeList: () => unrestSuiteHeader('incidents'),
     fetch: () => API('/incidents'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -536,7 +540,8 @@ const OPS_WRITABLE_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timew
                                      'flight', 'cards']);
 function opsPanelReadOnly(name) {
   if (!window.OPS_MODE) return false;
-  return !OPS_WRITABLE_PANELS.has(NAV_ALIASES[name] || name);
+  // Per PANEL, never per nav row — see the ⚠ on NAV_ALIASES below.
+  return !OPS_WRITABLE_PANELS.has(name);
 }
 const OPS_READONLY_BANNER =
   '<b>READ-ONLY — production.</b> This is world content: it\'s edited on your <b>local</b> dev panel and '
@@ -544,9 +549,16 @@ const OPS_READONLY_BANNER =
   + 'and if it did, the next deploy would revert it. Live-world actions (spawning an enemy, restocking a '
   + 'vendor) still work.';
 // A panel that shares a nav entry with its siblings highlights that entry rather
-// than one of its own (the Unreality suite: three panels, one 🌒 row, two tabs).
+// than one of its own (the Unreality suite: three panels, one 🌒 row, two tabs;
+// Unrest and its Incidents catalogue: two panels, one 🔥 row, two tabs).
+// ⚠ Nav only. The ops permission deliberately does NOT resolve through this — see
+// opsPanelReadOnly. Two panels share a nav row precisely when they are two halves
+// of one system, and those halves are routinely one live-ops surface and one
+// content surface; a permission that followed the nav would unlock content editing
+// on prod the day somebody unlocked the live half.
 const NAV_ALIASES = {
   dream_templates: 'dreams', dream_presences: 'dreams', drug_transforms: 'dreams',
+  incidents: 'unrest',
 };
 
 function activatePanelNav(name) {

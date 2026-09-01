@@ -2,9 +2,9 @@
 //
 // A row here is a THING THAT CAN HAPPEN in a city block, never a thing that is
 // happening. The live side — what is standing right now, and why nothing is —
-// lives on the Unrest panel and is directAPI. This one is authored content and
-// goes through API() so it is staged like everything else; picking the wrong one
-// either silently stages an operator action or bypasses review on content.
+// is the Live ledger tab beside this one, and is directAPI. This one is authored
+// content and goes through API() so it is staged like everything else; picking the
+// wrong one either silently stages an operator action or bypasses review on content.
 //
 // The stage vocabulary is a registry in the plugin, not a list here, so the
 // picker below is a discoverability aid rather than a whitelist. An unregistered
