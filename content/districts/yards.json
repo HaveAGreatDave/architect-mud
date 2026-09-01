@@ -2,7 +2,7 @@
   "blurb": "Everything the city eats comes through here, in a box, with paperwork.",
   "color": "#7a8fa6",
   "id": "yards",
-  "landmark": null,
+  "landmark": "zone_district_924_911",
   "name": "the Yards",
   "prefixes": [],
   "signature": [
@@ -11,6 +11,6 @@
     "Gulls argue over the sheds, fat on cargo nobody logged.",
     "A tannoy clips a number, a bay, and half a name before it gives up."
   ],
-  "skyline": null,
+  "skyline": "the Coldwater cooling stacks trail steam northward",
   "sort": 180
 }

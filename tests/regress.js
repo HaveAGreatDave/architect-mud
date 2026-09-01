@@ -4702,13 +4702,21 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // A short street firing "You cross into…" mid-block is the noise this repair exists
   // to kill. A LONG ARTERIAL crossing quarters is not — Meltwater Row runs most of the
   // height of the city and passes through three of them, exactly as a real road does.
-  // So the bar is on SHORT streets, and the arterial is named rather than exempted by
-  // a length rule nobody would recognise later.
-  const ARTERIALS = new Set(['Meltwater Row', 'Grasslands']);
+  //
+  // ⚠ THE EXEMPTION IS BY LENGTH, NOT BY NAME. It was a hardcoded pair, and that is a
+  // list somebody has to remember to extend: the Yards reshuffle split Kessler Street
+  // (15 tiles, an arterial by any reading) and this went red for a street behaving
+  // exactly as Meltwater Row is allowed to. `ARTERIAL_LEN` is the same 8 the repair
+  // itself used — "a street of eight tiles or fewer is snapped whole" — so the guard
+  // now enforces the rule that was actually written down rather than a sample of it.
+  const ARTERIAL_LEN = 8;
+  const NOT_A_STREET = new Set(['Grasslands']);   // bare ground that shares one name
+  const spanOf = new Map();
+  for (const z of urban) if (z.name) spanOf.set(z.name, (spanOf.get(z.name) || 0) + 1);
   const at = new Map(urban.map(z => [`${z.grid_x},${z.grid_y}`, z]));
   const broken = new Set();
   for (const z of urban) {
-    if (!z.name || ARTERIALS.has(z.name)) continue;
+    if (!z.name || NOT_A_STREET.has(z.name) || (spanOf.get(z.name) || 0) > ARTERIAL_LEN) continue;
     for (const [dx, dy] of [[1, 0], [0, 1]]) {
       const n = at.get(`${z.grid_x + dx},${z.grid_y + dy}`);
       if (n && n.name === z.name && districtFor(n)?.key !== districtFor(z)?.key) broken.add(z.name);

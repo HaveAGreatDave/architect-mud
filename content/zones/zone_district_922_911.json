@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Precinct 9",
     "building_type": "police",
-    "district": "residential",
+    "district": "yards",
     "entrance": "east",
     "facade": true,
     "is_building": true,
