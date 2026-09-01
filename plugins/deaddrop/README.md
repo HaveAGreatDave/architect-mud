@@ -1,8 +1,7 @@
 # deaddrop — a cache a stranger can find
 
-**Status: BUILT (the finding roll, the swept memory, the disturbance mark, the
-player-placed cache).** The courier who stocks a drop for you (§9 of the proposal) and the
-keypad tier of §8b are still design — see
+**Status: BUILT — all four phases.** The keypad *tier* of §8b (the two-row disguise pair)
+and the `hack`-it-open route are still authoring rather than code — see
 [docs/proposals/dead-drops.md](../../docs/proposals/dead-drops.md).
 
 A dead drop is a container in a public room that one player stocks and another empties
@@ -150,3 +149,43 @@ something in it is a better story than a vanished one.
 differs, the same way `use` belongs to both the ATM and the TV. ⚠ It could not be a plain
 command: `deploy` as a global verb is the generator's, and a plugin command silently beats
 a specialized action.
+
+## The courier (phase 4)
+
+**A cache is never conjured.** An authored drop does not spring into existence when a
+dialogue node fires — `BOOK_COURIER` commissions one, an NPC walks it there on ordinary
+movement, and puts it in. Until they arrive there is nothing to find, so a player told
+early can get there first and watch it happen.
+
+⚠ **The one who tells you and the one who stashes are never the same NPC**, and booking
+enforces it rather than trusting authoring. The advisor knows *where*, the courier knows
+*what*, neither knows both — so killing, robbing or interrogating the advisor still leaves
+you looking for the courier, and whoever watched the stash has no idea who paid for it.
+⚠ Neither NPC's dialogue may ever name the other.
+
+⚠ **It waits for privacy and stashes anyway when patience runs out** (4 minutes). This is
+deliberately not a deadlock: if a loiterer could deny a drop, standing in a room would be a
+hard counter to the whole system — discoverable in one evening, unbeatable after — and
+worse, every drop you *didn't* see would be one that provably hadn't happened, turning a
+system built on ambiguity into a reliable sensor. The recipient never counts as a witness.
+
+**The line it broadcasts is the same one cover traffic uses.** On stashing it asks
+ambient-life for a `handling` line naming the courier — the identical pool fourteen
+non-couriers draw from every day. That is the rule the whole thing rests on:
+
+> A line is deniable if and only if non-couriers emit it more often than couriers do.
+
+Covert is not invisible. The act is performed in front of you, described accurately, and
+reads as nothing. ⚠ The line never names the container and never fires on a failed stash: a
+player paying attention gets one signal only — *this NPC was here, and later there was a
+cache here* — and that must stay inference.
+
+**Nothing imports across plugins.** `zone.witnessed` (surveillance's cameras-and-cops
+sweep) and `ambient.categoryLine` (ambient-life) are both reached by **hook**, the same
+reason the ESP actions live inside `plugins/emergency` rather than being called from unrest.
+⚠ Both degrade to "no": without surveillance the courier judges the room on who is standing
+in it, and a missing line must never mean a missing stash.
+
+Bookings are **RAM only**, like the unrest incidents and for the same reason — a booking
+holds a live NPC and a half-walked route, and a persisted "somebody is on their way" that
+outlives the walk is a promise the world cannot keep.

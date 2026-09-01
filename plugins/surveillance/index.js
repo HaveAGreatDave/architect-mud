@@ -20,7 +20,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { exitTargets } from '../../server/engine/exits.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
-import { visibleIntoxication } from '../../server/engine/drugs.js';
+import { visibleIntoxication, drugForItem } from '../../server/engine/drugs.js';
 import { getPowerMap, getZoneVisibility, LIGHT_LADDER } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
@@ -2110,10 +2110,9 @@ on('npc.killed', ({ actor, npc }) => {
 // never zero) — raiseCrime's witness roll for the `any`-witnessed drug_dealing
 // crime models exactly that. Legal drugs (coffee/beer, drugs.flags.legal) and
 // non-drug items pass unremarked. The giver (the dealer) wears the charge.
-on('item.given', async ({ actor, item }) => {
+on('item.given', ({ actor, item }) => {
   if (!actor?.id || !item?.item_id) return;
-  const { rows } = await query('SELECT flags FROM drugs WHERE item_id=$1 LIMIT 1', [item.item_id]).catch(() => ({ rows: [] }));
-  const d = rows[0];
+  const d = drugForItem(item.item_id);
   if (!d || d.flags?.legal) return;   // not a drug, or a legal one — no heat
   raiseCrime(actor, 'drug_dealing', actor.current_zone, actor.handle);
 });
@@ -3183,6 +3182,11 @@ export const hooks = {
   // this plugin owns those rows, so this plugin describes them. The nullcraft
   // engine imports nothing from here.
   'tech.targets': cameraTargets,
+  // "Is anything looking at this room?" — the same cameras-and-cops sweep the
+  // wanted system runs, offered as a hook so a caller can ask without importing
+  // this plugin. The dead-drop courier uses it to decide whether the coast is
+  // clear before it stashes; anything else that wants to be unobserved can too.
+  'zone.witnessed': ({ zoneId }) => isWitnessed(zoneId),
   'zone.delete': async (id, allDeletedIds) => {
     const zoneIds = Array.isArray(allDeletedIds) && allDeletedIds.length ? allDeletedIds : [id];
     const { rows: gone } = await query(

@@ -1,11 +1,14 @@
 # Dead drops — a cache a stranger can find
 
-**Status: PHASES 0–3 BUILT** (`plugins/deaddrop/`, 2026-08-30/31) — the finding roll, the
-`STRANGER_BAR` wall, the swept window, the disturbance mark and the player-placed cache
-(`deploy`/`recover` on `item_stash_box`, stale-swept a cycle later off the day-rollover
-event). Three authored caches remain. Phase 4 (§9, the courier) is still design, as is the
-keypad TIER of §8b — what ships is the one-row disposable box, which is the tier that
-spec says should feel like weather when you lose one. The `handling` ambient routines of §9 were already seeded and
+**Status: ALL FOUR PHASES BUILT** (`plugins/deaddrop/`, 2026-08-30 / 09-01) — the finding
+roll, the `STRANGER_BAR` wall, the swept window, the disturbance mark, the player-placed
+cache, and the courier who walks a commissioned drop there rather than conjuring it.
+
+⚠ **Two pieces of §9 are deliberately not built.** The keypad TIER of §8b ships as the
+one-row disposable box only — the tier the spec says should feel like weather when you lose
+one. And a courier writes a rolled `conceal_code` onto the cache it stashes, but the
+`conceal_hides` DISGUISE PAIR and the `hack`-the-keypad route are untouched: `hack` already
+treats a keypad as an ordinary target, so that half is authoring rather than code. The `handling` ambient routines of §9 were already seeded and
 live as ordinary street life, deliberately ahead of everything else here (see the
 base-rate rule).
 
