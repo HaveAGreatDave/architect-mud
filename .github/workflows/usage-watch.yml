@@ -1,0 +1,109 @@
+# Free-tier usage watch — daily Neon + Render burn-rate report.
+#
+# See docs/ops-usage-watch.md. This is the Phase 2 runner: the same
+# `npm run ops:usage` a developer runs by hand, on a schedule, so the report
+# does not depend on anybody's laptop being awake.
+#
+# ── WHY :17 AND NOT :00 ────────────────────────────────────────────────────
+# Same lesson deploy-content.yml records at :37 — GitHub's scheduled dispatch
+# is heavily contended on the hour, with 29–106 min delays measured on this
+# repo. An off-the-hour minute gets picked up promptly.
+#
+# ── WHY THIS JOB NEVER FAILS ───────────────────────────────────────────────
+# A monitor that goes red is a monitor that gets muted, and a red X here would
+# say "the watch is broken" when it usually means "usage is high" or "a secret
+# is missing". scripts/ops/usage-report.mjs already exits 0 on every collection
+# failure and records the reason as a note, so this workflow simply does not
+# pass --fail-on-alert. The alarm must never be the thing that raises the
+# alarm — the same rule deploy-content.yml's notify job learned from a GitHub
+# outage painting green deploys red.
+#
+# ── MISSING SECRETS DEGRADE, THEY DO NOT BREAK ─────────────────────────────
+# NEON_API_KEY and PROD_DATABASE_URL already exist, so the Neon half and the
+# whole attribution model work the day this lands. RENDER_API_KEY and
+# OPS_WEBHOOK_URL do not exist yet (johna is a collaborator, not an admin — only
+# the repo owner can add them). Without them the report prints a "COLLECTION
+# FAILED" note for Render and delivers no webhook, and still exits 0. Adding the
+# secrets later needs no change to this file.
+name: Free-tier usage watch
+
+on:
+  schedule:
+    - cron: '17 8 * * *'
+  workflow_dispatch:
+
+# Never let two runs race on the history file's commit-back.
+concurrency:
+  group: usage-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Report usage
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          OPS_WEBHOOK_URL: ${{ secrets.OPS_WEBHOOK_URL }}
+          # Attribution reads production directly — boot payload and world
+          # loads/day. A few KB per run against the budget it measures.
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: npm run ops:usage
+
+      - name: Warn if the Render half is unconfigured
+        # Surfaced as a workflow annotation rather than a failure, so the gap is
+        # visible in the Actions UI without the run going red every morning.
+        #
+        # The secrets are mapped into env and tested there, rather than checked
+        # in an `if:` expression — the `secrets` context is not dependably
+        # available in a step-level conditional, and an expression that silently
+        # evaluates empty would make this warning either never fire or always
+        # fire. Testing the env var is unambiguous.
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          OPS_WEBHOOK_URL: ${{ secrets.OPS_WEBHOOK_URL }}
+        run: |
+          missing=""
+          [ -z "$RENDER_API_KEY" ]   && missing="$missing RENDER_API_KEY"
+          [ -z "$OPS_WEBHOOK_URL" ]  && missing="$missing OPS_WEBHOOK_URL"
+          if [ -n "$missing" ]; then
+            echo "::warning::Partial run — missing repo secret(s):$missing. Neon and attribution were reported; Render metrics and/or Discord alerting stay inactive until the repo owner adds them."
+          else
+            echo "All four secrets present — full report."
+          fi
+
+      - name: Commit the history row
+        # data/ops/** is outside deploy-content.yml's push path filter, so this
+        # cannot trigger a production content deploy.
+        #
+        # ⚠ [skip ci] IS LOAD-BEARING. sync-commits.yml triggers on EVERY push to
+        # main with no path filter at all, and writes to the prod database. Without
+        # this marker, a bookkeeping commit whose only purpose is to record a
+        # number would kick off a prod DB write every single morning.
+        run: |
+          if [ -z "$(git status --porcelain data/ops)" ]; then
+            echo "No history change to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ops
+          git commit -m "usage watch: $(date -u +%Y-%m-%d) [skip ci]"
+          # Rebase before pushing: a human may have landed a commit on main
+          # between checkout and here, and losing the day's row to a rejected
+          # push would be a silent gap in the trend.
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
