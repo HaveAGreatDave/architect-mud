@@ -13,7 +13,8 @@
 // makes these checks double as a guard on the caches staying authored the way the
 // feature needs them.
 import { _test } from './index.js';
-import { getFurnitureById } from '../../server/engine/world.js';
+import { getFurnitureById, updateFurniture } from '../../server/engine/world.js';
+ import { setFlag, clearFlag } from '../../server/engine/flags.js';
 
 const CACHES = ['furn_dd_embassy_cistern', 'furn_dd_yards_mailbox', 'furn_dd_precinct_bench'];
 
@@ -96,6 +97,55 @@ export default async function regress({ check, getPlayer }) {
     // An empty room is silent rather than erroring.
     const nowhere = await _test.searchForCaches({ player: p, zoneId: 'zone_regress_dd_empty', margin: 99 });
     check('a room with no cache is silent', nowhere === null, JSON.stringify(nowhere));
+
+    // ── Somebody has been in it (phase 2) ────────────────────────────────────
+    // The disturbance flag is written through updateFurniture, so these drive the
+    // real hook against a real cache row and read the world cache back.
+    {
+      const id = CACHES[0];
+      const flagsOf = () => getFurnitureById(id)?.flags || {};
+      const asContainer = () => ({ id, kind: 'furniture', name: 'cistern lid', tags: flagsOf() });
+      const clean = async () => {
+        const f = { ...flagsOf() }; delete f.dead_drop_disturbed;
+        await updateFurniture(id, { flags: JSON.stringify(f) });
+      };
+      await clean();
+      await clearFlag('player', _test.knownKey(id), p);
+
+      // A stranger with the lid up leaves a mark.
+      await _test.noteDisturbance({ container: asContainer(), player: p });
+      check('disturbed: a stranger opening a cache marks it', flagsOf().dead_drop_disturbed === true,
+        JSON.stringify(flagsOf().dead_drop_disturbed));
+
+      // ⚠ IT RECORDS THAT IT HAPPENED, NEVER WHO. An owner handed a name has been
+      // handed a kill order by the UI; "who" is SPECTER's question.
+      const written = JSON.stringify(flagsOf());
+      check('disturbed: …and records no identity', !written.includes(p.id) && !written.includes(String(p.handle)), written.slice(0, 120));
+
+      // The knower reads it once, and reading it clears it — so the notice means
+      // "since you were last here" rather than "at some point, forever", and the
+      // cache re-arms for the next stranger.
+      await setFlag('player', _test.knownKey(id), '1', p);
+      await _test.noteDisturbance({ container: asContainer(), player: p });
+      check('disturbed: the knower reading it clears the mark', !flagsOf().dead_drop_disturbed,
+        JSON.stringify(flagsOf().dead_drop_disturbed));
+
+      // A knower opening their own cache never marks it — otherwise every owner
+      // reports themselves and the signal means nothing.
+      await _test.noteDisturbance({ container: asContainer(), player: p });
+      check('disturbed: a knower never marks their own cache', !flagsOf().dead_drop_disturbed,
+        JSON.stringify(flagsOf().dead_drop_disturbed));
+
+      // An ordinary container is not a cache and must not grow the flag.
+      const plain = { id: 'furn_rg_plainbox', kind: 'furniture', name: 'a crate', tags: { container: 5000 } };
+      await _test.noteDisturbance({ container: plain, player: p });
+      check('disturbed: an ordinary container is left alone', !getFurnitureById('furn_rg_plainbox'));
+
+      // And the knower's SEARCH line agrees with the flag rather than asserting
+      // "untouched" on a cache somebody has been through.
+      await clearFlag('player', _test.knownKey(id), p);
+      await clean();
+    }
 
     // The swept memory is per cache per player, not per zone.
     _test.swept.clear();
