@@ -6,7 +6,7 @@ import { renderDialogueNode, advanceDialogue, renderTalkLog, getLogTalk, setLogT
 import { loggedPanelsSync } from '../presentation.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
-import { DEFAULT_CHITCHAT_LINES, formatChitchat, disturbSleeper, isVendorRole, isVendorOffHours, vendorOffHoursLine } from '../ai-behaviour.js';
+import { DEFAULT_CHITCHAT_LINES, ANIMAL_CHITCHAT_LINES, formatChitchat, disturbSleeper, isVendorRole, isVendorOffHours, vendorOffHoursLine } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
 import { fireHook } from '../plugins.js';
 import { emit } from '../events.js';
@@ -76,7 +76,12 @@ async function cmdTalk(targetStr, player, broadcast) {
   // No dialogue tree (or no root node): the NPC is talkable but scripted only for
   // chitchat — say a random line to the room instead of opening a dialogue panel.
   if (!rendered) {
-    const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
+    // An animal with nothing authored gets animal noises rather than a person's
+    // small talk — otherwise the stray cat mutters about the radiation levels and
+    // checks a wrist terminal. `isAnimal` is the same predicate `pet` uses, so a
+    // creature you can pet and one that cannot hold a conversation are one set by
+    // construction rather than by two lists agreeing.
+    const lines = getNpcChitchat(npc) || (isAnimal(npc) ? ANIMAL_CHITCHAT_LINES : DEFAULT_CHITCHAT_LINES);
     const line = lines[Math.floor(Math.random() * lines.length)];
     const msg = formatChitchat(npc.name, line);
     if (broadcast) broadcast(player.current_zone, msg, player.id);

@@ -9,7 +9,7 @@
     "west": "zone_district_923_908"
   },
   "flags": {
-    "district": "residential",
+    "district": "yards",
     "loading_dock": {
       "name": "Shelf Life"
     },

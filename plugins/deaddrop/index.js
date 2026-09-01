@@ -27,8 +27,9 @@
 // be opened, which reads as a bug in `search` rather than as a mis-authored row.
 // `isCache` below demands the flag for exactly this reason.
 
-import { getZoneFurniture } from '../../server/engine/world.js';
+import { getZoneFurniture, getFurnitureById, updateFurniture } from '../../server/engine/world.js';
 import { getFlagById, setFlagById } from '../../server/engine/flags.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 
 // The bar a STRANGER's roll has to clear, as a margin over `scavenging` difficulty 4
@@ -114,10 +115,17 @@ async function searchForCaches({ player, zoneId, margin }) {
   // in that moment the cat is not what you came for.
   for (const cache of caches) {
     if (await knowsCache(player.id, cache.id)) {
+      // ⚠ This line used to end "has not been touched", which phase 2 can make a
+      // lie: a stranger who opened it leaves `dead_drop_disturbed` on the row. The
+      // search only ever says the cache is THERE; whether the lid has moved is the
+      // same one fact `open` reports, told in one place rather than two that can
+      // disagree.
       return {
         found: true,
         priority: 40,
-        message: `You know what you are looking for, and it is where you left it. ${cache.name} has not been touched.`,
+        message: cache.flags?.dead_drop_disturbed
+          ? `You know what you are looking for, and it is where you left it. ${cache.name} is not sitting quite as you left it.`
+          : `You know what you are looking for, and it is where you left it. ${cache.name} looks untouched.`,
       };
     }
   }
@@ -142,13 +150,58 @@ async function searchForCaches({ player, zoneId, margin }) {
   };
 }
 
+// ── SOMEBODY HAS BEEN IN IT ──────────────────────────────────────────────────
+//
+// Finding a cache is only half a story. The other half is the person who stocked
+// it opening it later and knowing, and that costs one flag on a row that already
+// exists — no log, no table, no tick.
+//
+// ⚠ IT RECORDS THAT IT HAPPENED, NEVER WHO. An owner handed a name has been handed
+// a kill order by the user interface, and "who" is a question SPECTER exists to
+// answer — go and ask a camera. This is the cache saying only that the lid moved.
+//
+// Rides `container.view`, the gather hook `open` already fires (cooking and
+// wardrobe decorate through the same one), so nothing new is wired into the open
+// path. The write goes through `updateFurniture`, the funnel `concealment` already
+// writes `concealed` through, so the world cache and the room description agree
+// with no new seam.
+async function noteDisturbance({ container, player }) {
+  if (!player || container?.kind !== 'furniture' || !container.tags?.dead_drop) return;
+  const knows = await knowsCache(player.id, container.id);
+
+  // A stranger with the lid up. Stamp it once and stay quiet — telling them the
+  // cache is somebody's would be telling them it is worth coming back to.
+  if (!knows) {
+    if (container.tags.dead_drop_disturbed) return;
+    const row = getFurnitureById(container.id);
+    if (!row) return;
+    const flags = { ...(row.flags || {}), dead_drop_disturbed: true };
+    await updateFurniture(container.id, { flags: JSON.stringify(flags) }).catch(() => {});
+    return;
+  }
+
+  // The knower, on their next look. Clearing it as they read it is what makes the
+  // notice mean "since you were last here" rather than "at some point, forever" —
+  // and re-arms the cache for the next stranger.
+  if (!container.tags.dead_drop_disturbed) return;
+  const row = getFurnitureById(container.id);
+  if (row) {
+    const flags = { ...(row.flags || {}) };
+    delete flags.dead_drop_disturbed;
+    await updateFurniture(container.id, { flags: JSON.stringify(flags) }).catch(() => {});
+  }
+  sendToPlayer(player.id, { type: 'output', message:
+    `<span class="msg-system">Somebody has had this open since you were last here. Whoever it was put it back almost right.</span>` });
+}
+
 export const hooks = {
   'search.provider': searchForCaches,
+  'container.view': noteDisturbance,
 };
 
 export const _test = {
   STRANGER_BAR, SWEPT_MS, swept,
-  isCache, cachesIn, isSwept, markSwept, knownKey, searchForCaches,
+  isCache, cachesIn, isSwept, markSwept, knownKey, searchForCaches, noteDisturbance,
 };
 
 console.log('[deaddrop] Plugin loaded.');

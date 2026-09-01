@@ -12,6 +12,8 @@
 import { _test as strays, CAT_ID, DEN_ZONE, LANE_ZONES } from './index.js';
 import { BEHAVIOURS, pickBehaviour } from './behaviours.js';
 import { moodToward, PETS_FLAG, KILLS_FLAG, PET_AT_FLAG, PET_COOLDOWN_MS } from './memory.js';
+import { ANIMAL_CHITCHAT_LINES, DEFAULT_CHITCHAT_LINES, formatChitchat } from '../../server/engine/ai-behaviour.js';
+import { getNpcChitchat } from '../../server/engine/npc-personality.js';
 import { world, getZone } from '../../server/engine/world.js';
 import { setFlag, clearFlag } from '../../server/engine/flags.js';
 
@@ -453,4 +455,28 @@ export default async function regress({ run, check, getPlayer }) {
       }
     }
   }
+  // ── She is a cat, and she talks like one ─────────────────────────────────
+  // `talk` falls through to chitchat for an NPC with no dialogue tree, and the
+  // engine default is a PERSON's small talk: wrist terminals, recycled air,
+  // knuckles. Cathode had none authored, so talking to the stray cat used to
+  // make her mutter about the radiation levels.
+  {
+    const c = strays.cat();
+    const lines = getNpcChitchat(c) || [];
+    check('cathode has her own noises', lines.length > 0, String(lines.length));
+    // ⚠ UNQUOTED, DELIBERATELY. formatChitchat renders a "quoted" line as
+    // `Cathode says, "…"` and anything else as an emote with the name prepended.
+    // A quoted cat noise is a person doing an impression of a cat.
+    const quoted = lines.filter((l) => l.trim().startsWith('"'));
+    check('…and none of them is speech', quoted.length === 0, quoted.join(' | '));
+    for (const l of lines) {
+      const out = formatChitchat('Cathode', l).message;
+      if (/says,/.test(out)) { check('…every line renders as an emote', false, out); break; }
+    }
+    check('…every line renders as an emote', !lines.some((l) => /says,/.test(formatChitchat('Cathode', l).message)));
+    // The engine floor under an animal nobody has written lines for yet.
+    check('the animal fallback is not a person s small talk',
+      !ANIMAL_CHITCHAT_LINES.some((l) => DEFAULT_CHITCHAT_LINES.includes(l)));
+  }
+
 }

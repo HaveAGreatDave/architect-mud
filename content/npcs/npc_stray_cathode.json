@@ -1,7 +1,16 @@
 {
   "banter": [],
   "behaviour_graph": {},
-  "chitchat": [],
+  "chitchat": [
+    "meows once, flatly, as though answering a question you did not ask.",
+    "looks at you, then at the middle distance, and settles on the middle distance.",
+    "chirrups. It is not a meow and it is not a purr, and she does not do it twice.",
+    "opens her mouth, produces no sound whatsoever, and closes it again.",
+    "trills, walks two steps away, and glances back to see whether that worked.",
+    "yawns at you with her whole head, which takes some time.",
+    "mrrps, low and unimpressed, and resettles a paw.",
+    "holds your eye and blinks, slowly, once."
+  ],
   "description": "A grey tabby, rangy, missing most of one ear and unbothered about it. The right front leg stops at the wrist and continues as something else: a machined paw in dull steel, four articulated toes, a seam of amber light under the fur where it joins. It walks on it perfectly well. It has clearly walked on it for years. Nothing about the rest of the animal suggests it thinks the arrangement is unusual.",
   "dialogue_tree": {},
   "faction": null,

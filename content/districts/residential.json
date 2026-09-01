@@ -2,7 +2,7 @@
   "blurb": "People sleep here, stacked and dreaming, one thin wall apart.",
   "color": "#c9a884",
   "id": "residential",
-  "landmark": null,
+  "landmark": "zone_district_925_912",
   "name": "Nine Elms",
   "prefixes": [
     "apt",
@@ -16,6 +16,6 @@
     "Somewhere a baby cries, then stops, then thinks better of it.",
     "Laundry snaps on a line strung between two dead satellite dishes."
   ],
-  "skyline": "the Coldwater cooling stacks trail steam northward",
+  "skyline": "St Garneau's tower stands over the roofs, unlit",
   "sort": 40
 }

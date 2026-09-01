@@ -9,7 +9,7 @@
     "west": "zone_district_924_908"
   },
   "flags": {
-    "district": "residential",
+    "district": "yards",
     "loading_dock": {
       "name": "Some Assembly Required"
     },

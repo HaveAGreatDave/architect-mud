@@ -11,7 +11,7 @@
   "flags": {
     "building_name": "Coldwater Power Plant — Turbine Hall",
     "building_type": "power",
-    "district": "residential",
+    "district": "yards",
     "entrance": "west",
     "facade": true,
     "is_building": true,

@@ -1,7 +1,8 @@
 # deaddrop — a cache a stranger can find
 
-**Status: BUILT (the finding roll + the swept memory).** The courier who stocks a drop
-for you (§9 of the proposal) and the player-placed cache (§8b) are still design — see
+**Status: BUILT (the finding roll, the swept memory, the disturbance mark).** The courier
+who stocks a drop for you (§9 of the proposal) and the player-placed cache (§8b) are still
+design — see
 [docs/proposals/dead-drops.md](../../docs/proposals/dead-drops.md).
 
 A dead drop is a container in a public room that one player stocks and another empties
@@ -87,3 +88,28 @@ stranger standing next to them.
 There is deliberately **no verb that makes you a knower**. `tellPlayerAboutCache()` is
 exported for a quest turn-in, an NPC or a note to call: knowing is something the fiction
 grants.
+
+## Somebody has been in it
+
+Finding a cache is half a story. The other half is the person who stocked it opening it
+later and knowing — and that costs one flag on a row that already exists. No log, no
+table, no tick.
+
+A stranger who opens a cache sets `flags.dead_drop_disturbed` on it. The knower sees it
+on their next look, and **reading it clears it**, so the notice means *since you were
+last here* rather than *at some point, forever* — and the cache re-arms for the next
+stranger. A knower opening their own cache never marks it; otherwise every owner reports
+themselves and the signal means nothing.
+
+⚠ **It records that it happened, never who.** An owner handed a name has been handed a
+kill order by the user interface. "Who" is the question SPECTER exists to answer — go and
+find a camera. Regress asserts no identity reaches the row.
+
+It rides `container.view`, the gather hook `open` already fires (cooking and wardrobe
+decorate through the same one), so nothing new is wired into the open path. The write goes
+through `updateFurniture`, the funnel `concealment` already writes `concealed` through, so
+the world cache and the room description agree with no new seam.
+
+⚠ The knower's `search` line reads the same flag. It used to end "has not been touched",
+which this phase can make a lie — whether the lid has moved is one fact, told in one
+place, rather than two that can disagree.

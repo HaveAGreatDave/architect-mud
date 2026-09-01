@@ -1,9 +1,9 @@
 # Dead drops — a cache a stranger can find
 
-**Status: PHASES 0–1 BUILT** (`plugins/deaddrop/`, 2026-08-30) — the finding roll, the
-`STRANGER_BAR` wall and the swept window, with three authored caches. Phase 2
-(`dead_drop_disturbed`), phase 3 (§8b, the player-placed cache) and phase 4 (§9, the
-courier) are still design. The `handling` ambient routines of §9 were already seeded and
+**Status: PHASES 0–2 BUILT** (`plugins/deaddrop/`, 2026-08-30/31) — the finding roll, the
+`STRANGER_BAR` wall, the swept window and the disturbance mark, with three authored
+caches. Phase 3 (§8b, the player-placed cache) and phase 4 (§9, the courier) are still
+design. The `handling` ambient routines of §9 were already seeded and
 live as ordinary street life, deliberately ahead of everything else here (see the
 base-rate rule).
 

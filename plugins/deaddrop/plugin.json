@@ -1,13 +1,20 @@
 {
   "name": "deaddrop",
   "version": "1.0.0",
-  "description": "The finding half of a dead drop: a container in a public room that one player stocks and another empties without the two ever meeting. The placing half already shipped (flags.container is a hole to put things in, flags.concealed is a thing the room description refuses to mention) and the two had never met — 57 furniture rows were containers, 58 were concealed, and none was both. This adds one search.provider contributor that reports a cache to a stranger who rolls well enough, and a per-cache-per-player swept memory so a failed roll cannot be re-rolled by stepping one tile out and back. It never creates a cache and never reveals contents: the item comes out through the container plugin's own `open`.",
+  "description": "The finding half of a dead drop: a container in a public room that one player stocks and another empties without the two ever meeting. The placing half already shipped (flags.container is a hole to put things in, flags.concealed is a thing the room description refuses to mention) and the two had never met — 57 furniture rows were containers, 58 were concealed, and none was both. This adds one search.provider contributor that reports a cache to a stranger who rolls well enough, and a per-cache-per-player swept memory so a failed roll cannot be re-rolled by stepping one tile out and back. It never creates a cache and never reveals contents: the item comes out through the container plugin's own `open`. A cache also remembers being opened by a stranger (flags.dead_drop_disturbed, set through updateFurniture off the container.view hook) and tells its knower once, on their next look — that it happened, never who, because a name is a kill order and who is SPECTER's question.",
   "commands": [],
-  "hooks": ["search.provider"],
+  "hooks": [
+    "search.provider",
+    "container.view"
+  ],
   "events": {
     "consumes": [],
-    "emits": ["deaddrop.found"]
+    "emits": [
+      "deaddrop.found"
+    ]
   },
   "ticks": [],
-  "extensionPoints": ["furniture.flags.dead_drop"]
+  "extensionPoints": [
+    "furniture.flags.dead_drop"
+  ]
 }

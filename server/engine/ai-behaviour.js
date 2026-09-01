@@ -384,6 +384,24 @@ export function vendorOffHoursLine(npc) {
 
 // ── Chitchat ────────────────────────────────────────────────────────────────
 
+// ── An animal does not make small talk ───────────────────────────────────────
+// `talk` falls through to DEFAULT_CHITCHAT_LINES for any NPC with no dialogue tree
+// and no authored chitchat, and those lines are a PERSON's: wrist terminals,
+// complaints about recycled air, knuckles. Put them in an animal's mouth and the
+// stray cat mutters about radiation levels.
+//
+// Deliberately species-NEUTRAL, because this is the engine. A cat's actual noises
+// are Cathode's own `chitchat`, authored in content where a second game's animals
+// would author their own; this is only the floor under an animal nobody has written
+// lines for yet, and it says the one thing true of all of them — it made a sound and
+// it was not words.
+export const ANIMAL_CHITCHAT_LINES = [
+  'makes a short sound at you and does not repeat it.',
+  'looks up, considers you for a moment, and looks away again.',
+  'shifts its weight and watches you without blinking.',
+  'makes a noise that is clearly meant, and clearly not words.',
+];
+
 export const DEFAULT_CHITCHAT_LINES = [
   'mutters something about the radiation levels.',
   'checks a flickering wrist terminal.',

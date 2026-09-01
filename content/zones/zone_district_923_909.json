@@ -8,7 +8,7 @@
     "west": "zone_district_922_909"
   },
   "flags": {
-    "district": "residential",
+    "district": "yards",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true,
