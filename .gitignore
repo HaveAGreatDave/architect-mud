@@ -13,3 +13,6 @@ tools/combat-sim/combat-sim.html
 
 # stray export archives
 *.zip
+
+# Free-tier watch: scheduled-task stdout (the history JSON beside it IS committed)
+data/ops/last-run.log
