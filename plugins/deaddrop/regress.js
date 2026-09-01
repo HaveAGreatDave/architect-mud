@@ -13,6 +13,7 @@
 // makes these checks double as a guard on the caches staying authored the way the
 // feature needs them.
 import { _test } from './index.js';
+import { readFileSync } from 'node:fs';
 import { getFurnitureById, updateFurniture } from '../../server/engine/world.js';
  import { setFlag, clearFlag } from '../../server/engine/flags.js';
 
@@ -153,6 +154,42 @@ export default async function regress({ check, getPlayer }) {
     check('swept is keyed to this player and this cache', _test.isSwept(p.id, CACHES[0]));
     check('…and not to another player', !_test.isSwept('someone_else', CACHES[0]));
     check('…and not to another cache', !_test.isSwept(p.id, CACHES[1]));
+
+    // ── The player-placed cache (phase 3) ────────────────────────────────────
+    {
+      const box = JSON.parse(readFileSync('content/items/item_stash_box.json', 'utf8'));
+      check('phase3: the stash box is deployable', !!box.tags?.stash_box,
+        JSON.stringify(Object.keys(box.tags || {})));
+      check('phase3: …and carries a real capacity',
+        Number(box.tags?.stash_box?.capacity) > 0, String(box.tags?.stash_box?.capacity));
+      // ⚠ The box must ALSO be an ordinary container class. object_type and
+      // flags.container are two different questions and a cache needs both
+      // answered, or a placed cache is a hole nothing can open.
+      check('phase3: …and is a container in its own right',
+        Number(box.tags?.container) > 0, String(box.tags?.container));
+
+      // A placed cache has to satisfy the SAME predicate an authored one does, or
+      // `search` never reports it and the whole phase is invisible in play.
+      const placed = { id: 'x', name: 'stash box', object_type: 'container',
+        flags: { container: 4000, concealed: true, dead_drop: true, dead_drop_placed: true, placed_day: 0 } };
+      check('phase3: a placed cache is findable like an authored one', _test.isCache(placed));
+      check('phase3: …and is marked as player-placed', _test.isPlacedCache(placed));
+      // An authored cache is NOT player-placed, so `recover` can never lift one —
+      // otherwise a quest drop walks off in somebody's pocket.
+      const authored = getFurnitureById(CACHES[0]);
+      check('phase3: an authored cache can never be picked up',
+        !_test.isPlacedCache(authored), JSON.stringify(authored?.flags?.dead_drop_placed));
+
+      // Staleness is the difference of two game-day numbers, never a running
+      // timer, so a restart cannot reset everyone's clock.
+      const today = _test.currentDay();
+      check('phase3: the day counter is a plain number',
+        Number.isFinite(today) && today > 0, String(today));
+      check('phase3: a cache younger than a cycle is kept',
+        today - (today - 1) < _test.CACHE_KEEP_DAYS);
+      check('phase3: a cache older than a cycle goes stale',
+        today - (today - _test.CACHE_KEEP_DAYS) >= _test.CACHE_KEEP_DAYS);
+    }
   } finally {
     p.current_zone = savedZone;
     _test.swept.clear();

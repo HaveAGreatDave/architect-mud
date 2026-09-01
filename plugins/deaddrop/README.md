@@ -1,8 +1,8 @@
 # deaddrop — a cache a stranger can find
 
-**Status: BUILT (the finding roll, the swept memory, the disturbance mark).** The courier
-who stocks a drop for you (§9 of the proposal) and the player-placed cache (§8b) are still
-design — see
+**Status: BUILT (the finding roll, the swept memory, the disturbance mark, the
+player-placed cache).** The courier who stocks a drop for you (§9 of the proposal) and the
+keypad tier of §8b are still design — see
 [docs/proposals/dead-drops.md](../../docs/proposals/dead-drops.md).
 
 A dead drop is a container in a public room that one player stocks and another empties
@@ -113,3 +113,40 @@ the world cache and the room description agree with no new seam.
 ⚠ The knower's `search` line reads the same flag. It used to end "has not been touched",
 which this phase can make a lie — whether the lid has moved is one fact, told in one
 place, rather than two that can disagree.
+
+## Placing your own (phase 3)
+
+Buy a **stash box** (`item_stash_box`), `deploy` it in a room, `recover` it to take it
+back up. Placement is limited by what you paid for, so the world gains no cache nobody
+bought. The rejected alternative — *any existing container in a public room* — needs no
+content at all, and that is exactly why it fails: every bin and locker in Coldwater
+becomes potentially somebody's stash, which makes sweeping every room worth doing forever.
+
+**Taking somebody else's cache is not a crime.** No stars, no witness check, no ownership
+test at `open`. A found cache is simply lost. ⚠ Which is what makes the bar and the
+concealment tiers the *entire* defence — if a competent sweeper can clear a district's
+caches profitably, the fix is `STRANGER_BAR`, never a crime flag bolted on afterwards.
+
+⚠ **`recover` works for anyone, but only on an EMPTY box.** Ownership is not tested,
+because finders keepers is the rule — but a loaded box cannot be lifted, so a thief has to
+open it and take the contents out through the path that already exists. Without that,
+`recover` is a one-word way to walk off with a stranger's whole cache, skipping every
+interesting part of it including the disturbance mark the owner would have read.
+
+⚠ **One cache per room.** The `search` provider can only ever report the first, so a
+second would be invisible forever — and stacking them is the obvious way to defeat a
+sweeper.
+
+**Going stale.** An untouched cache is cleared a cycle later (7 days, the same number
+`zone-filth.js` sweeps stains on, for the same reason). It rides `environment.dayRollover`
+— the event rent and daily maintenance already use — so the feature adds **no tick of its
+own**, and age is the difference of two game-day numbers rather than a running timer, so a
+restart cannot reset everyone's clock. A **loaded** box is left alone: deleting furniture
+with inventory rows pointing into it orphans them forever, and a forgotten cache with
+something in it is a better story than a vanished one.
+
+`deploy` is tag-gated on the carried box, which is how it shares a verb with
+`plugins/generator` — two plugins may register one specialized action when the **gate**
+differs, the same way `use` belongs to both the ATM and the TV. ⚠ It could not be a plain
+command: `deploy` as a global verb is the generator's, and a plugin command silently beats
+a specialized action.

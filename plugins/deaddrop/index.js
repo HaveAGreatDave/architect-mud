@@ -30,7 +30,8 @@
 import { getZoneFurniture, getFurnitureById, updateFurniture } from '../../server/engine/world.js';
 import { getFlagById, setFlagById } from '../../server/engine/flags.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { emit } from '../../server/engine/events.js';
+import { emit, on } from '../../server/engine/events.js';
+ import { deployCache, recoverCache, sweepStaleCaches, _test as placeTest } from './place.js';
 
 // The bar a STRANGER's roll has to clear, as a margin over `scavenging` difficulty 4
 // (the one roll `search` makes for every provider). Compare concealment's 6, which
@@ -199,9 +200,24 @@ export const hooks = {
   'container.view': noteDisturbance,
 };
 
+// `deploy` is TAG-GATED on the carried box, which is how it can share a verb with
+// `plugins/generator` — two plugins may register one specialized action when the
+// gate differs, the same way `use` already belongs to both the ATM and the TV.
+// ⚠ It could not be a plain command: `deploy` as a global verb is the generator's,
+// and a plugin command silently beats a specialized action.
+export const specializedActions = [
+  { verb: 'deploy', requiredTag: 'stash_box', handler: deployCache },
+  { verb: 'recover', requiredFlag: 'dead_drop_placed', handler: recoverCache },
+];
+
+// The stale sweep rides the day-rollover event rent and daily maintenance already
+// use, so the feature adds no tick of its own.
+on('environment.dayRollover', () => { sweepStaleCaches().catch(() => {}); });
+
 export const _test = {
   STRANGER_BAR, SWEPT_MS, swept,
   isCache, cachesIn, isSwept, markSwept, knownKey, searchForCaches, noteDisturbance,
+  ...placeTest,
 };
 
 console.log('[deaddrop] Plugin loaded.');

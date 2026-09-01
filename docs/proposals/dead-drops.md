@@ -1,9 +1,11 @@
 # Dead drops — a cache a stranger can find
 
-**Status: PHASES 0–2 BUILT** (`plugins/deaddrop/`, 2026-08-30/31) — the finding roll, the
-`STRANGER_BAR` wall, the swept window and the disturbance mark, with three authored
-caches. Phase 3 (§8b, the player-placed cache) and phase 4 (§9, the courier) are still
-design. The `handling` ambient routines of §9 were already seeded and
+**Status: PHASES 0–3 BUILT** (`plugins/deaddrop/`, 2026-08-30/31) — the finding roll, the
+`STRANGER_BAR` wall, the swept window, the disturbance mark and the player-placed cache
+(`deploy`/`recover` on `item_stash_box`, stale-swept a cycle later off the day-rollover
+event). Three authored caches remain. Phase 4 (§9, the courier) is still design, as is the
+keypad TIER of §8b — what ships is the one-row disposable box, which is the tier that
+spec says should feel like weather when you lose one. The `handling` ambient routines of §9 were already seeded and
 live as ordinary street life, deliberately ahead of everything else here (see the
 base-rate rule).
 
