@@ -19,7 +19,7 @@ import { registerAction, getRegisteredActions } from '../../server/engine/action
 import { on, emit } from '../../server/engine/events.js';
 import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
 import { isVendorClosed, isVendorAbsent, isVendorOffHours, vendorClosedLine, openInPhrase, formatChitchat } from '../../server/engine/ai-behaviour.js';
-import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { registerMoveGate, registerShutProvider } from '../../server/engine/movement-gates.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { propagateSound } from '../../server/engine/sounds.js';
 import { dispatchAction } from '../../server/engine/actions.js';
@@ -311,6 +311,20 @@ registerMoveGate(({ player, to }) => {
     return { block: true, message: `The door won't give. ${place || 'The shop'} keeps these hours, but ${shut.name} isn't behind the counter yet.` };
   }
   return { block: true, message: `The door won't give — shutters down, lights off. ${shut.name} opens ${place ? `${place} ` : ''}again ${reopensPhrase(shut)}.` };
+}, 'commerce:shop-hours');
+
+// The same fact, told BEFORE the step. The gate above owns the refusal and every
+// word of its reason; this only says "shut", so the room description can tag the
+// door and the minimap can paint the tile. Both read the identical predicate pair
+// (shopClosedFor + livesHere), so a surface can never disagree with the door.
+//
+// Sync and query-free, as the seam requires: shopVendorsFor is a 60s-TTL index over
+// the world Maps, and livesHere walks the in-memory apartments Map.
+registerShutProvider((player, zone) => {
+  const shut = shopClosedFor(zone);
+  if (!shut) return null;
+  if (livesHere(player, zone)) return null;   // you live here; the hours aren't about you
+  return { shut: true, label: 'closed' };
 }, 'commerce:shop-hours');
 
 // Closing time: put anyone still inside out the front. Runs on the shared 30s

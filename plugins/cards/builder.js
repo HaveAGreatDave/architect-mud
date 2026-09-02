@@ -337,7 +337,10 @@ function damageFor(slot, band) {
   return DAMAGE[band]?.[slot] || (band === 'failing' ? 'barely holding' : band === 'battered' ? 'badly worn' : '');
 }
 
-// ── tier, borrowed from the portrait renderer's own roll ───────────────────────
+// ── tier, rolled off the loadout ───────────────────────────────────────────────
+// Lifted from the portrait renderer's own tier logic when the text face was built.
+// That renderer was deleted on 2026-09-02 and this is now the only copy, which is
+// the whole of what changed: the numbers below are the ones that always shipped.
 export function tierIndex(value = 0, armor = 0) {
   const v = Number(value) || 0, a = Number(armor) || 0;
   let t = v >= 8000 ? 4 : v >= 3000 ? 3 : v >= 900 ? 2 : v >= 200 ? 1 : 0;

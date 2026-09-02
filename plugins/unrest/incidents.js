@@ -12,8 +12,15 @@
 // window. That is the whole difference between consequence and spawn noise — the
 // player who walked past the tag yesterday reads today's checkpoint as a reply.
 //
+// ⚠ Phase 3: that gate is a REGISTRY, not a rule. It is correct for the two
+// orders that fight over ground and wrong for the two that do not, so the test
+// lives in roles.js keyed on an authored `flags.driver` and phase 1's version is
+// the default. This file no longer knows what makes an incident eligible; it
+// knows who to ask.
+//
 // The stage vocabulary is a REGISTRY, not a switch. 1c registers the safe steps
-// here; 1d registers the dangerous ones from stage.js. A step name nothing has
+// here; 1d registers the dangerous ones from stage.js; phase 3's drivers are the
+// same pattern applied to the gate rather than to the effect. A step name nothing has
 // registered is a build failure (regress sweeps every authored `do`), because an
 // authored key that nothing reads is the failure mode that hid in `mutations`
 // for months.
@@ -26,10 +33,9 @@ import * as pool from '../gossip/pool.js';
 import { tagFromWorld, removeTag } from '../graffiti/index.js';
 import * as ledger from './ledger.js';
 import * as signals from './signals.js';
+import { driverFor, driverNameFor, guard, readClock } from './roles.js';
 import { allBlocks } from './blocks.js';
 import { quarterOf } from './voice.js';
-
-const RANK = { quiet: 0, watchful: 1, tense: 2, flashpoint: 3 };
 
 // ⚠ Citywide, not per cell. Three simultaneous incidents over ten blocks is a
 // city with something going on in it; ten is a city where the sim is the only
@@ -155,12 +161,18 @@ registerStep('sound', (ctx, step) => {
  * shows that string, because an operator who cannot see why nothing is staging
  * will conclude the sim is broken.
  */
-export function eligible(def, key, now = nowMs()) {
-  if (RANK[ledger.bandOf(key)] < RANK[def.minBand]) return 'band';
-  // ⚠ RULE 1. Same order, inside the window. A cell whose mood belongs to the
-  // authority cannot host an insurgency incident until heat has actually said
-  // something there, which is what makes every staging attributable.
-  if (!signals.hadSignal(key, def.writes, signals.SIGNAL_WINDOW_MS, now)) return 'signal';
+export function eligible(def, key, now = nowMs(), clock = readClock()) {
+  // Whatever the driver, an order that has withdrawn from the fight stages
+  // nothing, and a driver whose backing order is absent from content stages
+  // nothing. See roles.js.
+  const blocked = guard(def);
+  if (blocked) return blocked;
+  // ⚠ RULE 1 IS NOT ONE RULE. Phase 1's band-and-signal gate is the 'ground'
+  // driver and is still the default; the Null read grip instead and the Wildblood
+  // read the clock instead. The refusal string comes back from whichever one
+  // this incident authored.
+  const why = driverFor(def).gate(def, key, now, clock);
+  if (why) return why;
   // ⚠ Occupancy is tested BEFORE the cooldown, and the order is the whole value
   // of the string. Staging sets the cooldown, so a cell that is currently hosting
   // this very incident would otherwise report "on cooldown" — true, and the least
@@ -173,9 +185,12 @@ export function eligible(def, key, now = nowMs()) {
 /** Every (definition, cell) pair that could stage this instant. */
 export function candidates(now = nowMs()) {
   const out = [];
+  // ⚠ ONCE for the whole pass, not once per pair. This is defs × cells, and the
+  // dev panel's blocked-reason table is the same product again.
+  const clock = readClock();
   for (const def of catalogue) {
     for (const key of allBlocks()) {
-      if (!eligible(def, key, now)) out.push({ def, key });
+      if (!eligible(def, key, now, clock)) out.push({ def, key });
     }
   }
   return out;
@@ -201,10 +216,22 @@ export async function stage(def, key, now = nowMs()) {
     }
   }
 
+  // The driver's own mark on the world, after its steps and before it is live.
+  // ⚠ Only the incursion has one, and it is a heat BURST and never pressure:
+  // pressure raises heat's baseline over days, and a raid that raised a baseline
+  // would make the Wildblood a permanent tenant of a city they do not want. A
+  // vendetta has none at all, because the Null are not fighting for the ground
+  // the ledger measures.
+  const driver = driverFor(def);
+  if (driver.onStage) {
+    try { driver.onStage(def, key); }
+    catch (e) { console.error(`[unrest] driver onStage failed in ${def.id}: ${e.message}`); }
+  }
+
   const instanceId = `inc_${now}_${rand()}_${seq++}`;
   const inc = {
     instanceId, defId: def.id, name: def.name, key, zone,
-    writes: def.writes, band: ctx.band, startedAt: now,
+    writes: def.writes, driver: driverNameFor(def), band: ctx.band, startedAt: now,
     endsAt: now + def.durationMin * 60000, undo,
   };
   live.set(instanceId, inc);
@@ -217,13 +244,15 @@ export async function stage(def, key, now = nowMs()) {
     `INSERT INTO world_events (id, event_type, description, zone_id, data)
      VALUES ($1, $2, $3, $4, $5)`,
     [`we_${instanceId}`, 'unrest.incident', `${def.name} staged in ${quarterOf(key)}`, zone,
-     JSON.stringify({ cell: key, incident: def.id, writes: def.writes, band: ctx.band })]
+     JSON.stringify({ cell: key, incident: def.id, writes: def.writes, band: ctx.band,
+       driver: driverNameFor(def) })]
   ).catch(() => {});
 
   // Named `zone` because script-triggers normalises payload.zone ?? payload.zoneId;
   // an authored trigger row filtering on zone_id matches nothing otherwise.
   emit('unrest.incident.staged', {
     zone, cell: key, incident: def.id, instanceId, writes: def.writes, band: ctx.band,
+    driver: driverNameFor(def),
   });
   return inc;
 }
@@ -276,4 +305,4 @@ export async function _reset() {
   seq = 0;
 }
 
-export const _test = { live, cooldowns, STEPS, RANK, setCatalogue: (c) => { catalogue = c; } };
+export const _test = { live, cooldowns, STEPS, setCatalogue: (c) => { catalogue = c; } };

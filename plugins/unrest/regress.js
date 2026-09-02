@@ -134,7 +134,13 @@ export default async function regress({ check, getPlayer }) {
     const clamped = ledger.read(key).grip;
     check('a scalar cannot exceed 100', clamped <= 100 && clamped > 99, String(clamped));
     ledger.bump(key, 'grip', -9999);
-    check('…nor fall below 0', ledger.read(key).grip === 0, String(ledger.read(key).grip));
+    // ⚠ SAME RACE, and it was left here when the upper bound above was fixed. Grip
+    // decays toward a baseline of 10, so a value clamped to 0 starts climbing back
+    // the moment a millisecond passes and `=== 0` only holds when the bump and the
+    // read land inside the same one. It failed on 2026-09-02 at 6.4e-7. The invariant
+    // is that the clamp happened rather than -9899 being stored.
+    const floored = ledger.read(key).grip;
+    check('…nor fall below 0', floored >= 0 && floored < 1, String(floored));
     let bad = false;
     try { ledger.bump(key, 'morale', 1); } catch { bad = true; }
     check('an unknown scalar throws rather than writing a stray field', bad);
@@ -735,5 +741,188 @@ export default async function regress({ check, getPlayer }) {
       for (const k of Object.keys(flags)) if (arcFlag.test(k)) offenders.push(`${q.id}:${k}`);
     }
     check('favour: no repeatable quest writes an arc flag', offenders.length === 0, offenders.join(', '));
+  }
+
+  // ── Phase 3: the Null and the Wildblood ───────────────────────────────────
+  //
+  // Phases 1 and 2 had ONE eligibility rule, and it is correct for exactly the
+  // two orders that fight over ground. The two added here do not, and each of
+  // them breaks the rule in a different direction: the Null want a cell phase 1
+  // would refuse for being quiet, and the Wildblood want no local precondition at
+  // all. So the gate became a registry, and these are the cases that pin the
+  // three ways that goes silently wrong — a vendetta that quietly needs heat
+  // after all, an incursion whose target moves at midnight, and an order that
+  // opted out of the fight staging anyway because 'none' is a truthy string.
+  {
+    const roleMod = await import('./roles.js');
+    const incidents = _test.incidents;
+    const signals = _test.signals;
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const { eligible } = incidents;
+
+    await _test.ensureLoaded();
+    await incidents._reset();
+    signals._reset();
+
+    const mk = (id, writes, driver) => ({
+      id, name: id, writes, minBand: 'flashpoint', weight: 10,
+      durationMin: 10, cooldownMin: 10, stage: [], flags: driver ? { driver } : {},
+    });
+    // ⚠ minBand 'flashpoint' on every one of these, deliberately. It is the
+    // strictest band there is, and both phase-3 drivers must clear it on a quiet
+    // cell — if either ever starts consulting the band again, these go red.
+    const vendetta = mk('x_vendetta', 'assets', 'vendetta');
+    const incursion = mk('x_incursion', 'heat', 'incursion');
+    const withdrawn = mk('x_withdrawn', 'none', null);
+
+    const cells = allBlocks();
+    const cell = cells[0];
+
+    // ── The registry itself ──────────────────────────────────────────────────
+    check('phase 3: the default driver is still phase 1',
+      roleMod.driverNameFor(mk('x_plain', 'heat', null)) === 'ground');
+    check('phase 3: an unknown authored driver falls back rather than throwing',
+      roleMod.driverNameFor(mk('x_typo', 'heat', 'vendettta')) === 'ground');
+
+    // ⚠ Both directions of the orphan-key rule. An authored driver nothing
+    // registers is prose pretending to be behaviour; a registered driver nothing
+    // authors is code pretending to be a feature, which is how the mutations
+    // effects vocabulary sat unread for months.
+    const known = new Set(roleMod.driverNames());
+    const authored = new Map();
+    const badDrivers = [];
+    for (const f of readdirSync('content/incidents')) {
+      if (!f.endsWith('.json')) continue;
+      const d = JSON.parse(readFileSync('content/incidents/' + f, 'utf8'));
+      const name = d.flags?.driver;
+      if (!name) continue;
+      if (!known.has(name)) badDrivers.push(d.id + ':' + name);
+      authored.set(name, (authored.get(name) || 0) + 1);
+    }
+    check('phase 3: every authored driver is registered', badDrivers.length === 0, badDrivers.join(' '));
+    check('phase 3: the vendetta driver has incidents to run', (authored.get('vendetta') || 0) > 0);
+    check('phase 3: the incursion driver has incidents to run', (authored.get('incursion') || 0) > 0);
+
+    // ── WITHDRAWN NEVER STAGES ANYTHING ──────────────────────────────────────
+    // ⚠ 'none' is a truthy string, so an order that opted out sails through every
+    // filter that merely tests for a role at all. The Exodus are not in this
+    // fight and nothing attributed to them may ever appear on a street.
+    check('withdrawn: an order that is not in the fight stages nothing',
+      eligible(withdrawn, cell) === 'withdrawn', String(eligible(withdrawn, cell)));
+    const exodus = roleMod.roles().find(r => r.id === 'ideology_exodus');
+    check('withdrawn: …and the Exodus are authored that way', exodus?.writes === 'none', JSON.stringify(exodus));
+
+    // ── VENDETTA: grip, regardless of heat ───────────────────────────────────
+    // The Null do not want the block. They want what is bolted to it, so their
+    // target is the street the authority has already finished pacifying — the one
+    // with the most licensed hardware on it and nobody left outside to watch it
+    // stop working. Phase 1's gate would refuse that cell for being quiet.
+    signals._reset();
+    // grip 40 with no heat is band t=20, i.e. QUIET, and still well over
+    // VENDETTA_GRIP. Above grip 50 the band alone would carry the cell into
+    // watchful and the test would stop proving the thing it is here to prove.
+    ledger.force(cell, { grip: 40, heat: 0, pressure: 0 });
+    check('vendetta: a heavily held cell can read completely quiet',
+      ledger.bandOf(cell) === 'quiet', ledger.bandOf(cell));
+    check('vendetta: …and refuses with no signal at all',
+      eligible(vendetta, cell) === 'signal', String(eligible(vendetta, cell)));
+
+    // ⚠ RULE 1 STILL HOLDS, POINTED AT SOMEBODY ELSE. The Null have no street
+    // voice and want none, so the signal they answer is the AUTHORITY'S. Asking
+    // for a signal from 'assets' would make them announce themselves first.
+    signals.noteSignal(cell, 'heat');
+    check('vendetta: …and the insurgency talking is not the signal it answers',
+      eligible(vendetta, cell) === 'signal', String(eligible(vendetta, cell)));
+    signals.noteSignal(cell, 'grip');
+    check('vendetta: a quiet cell under a visible hand IS the target',
+      eligible(vendetta, cell) === null, String(eligible(vendetta, cell)));
+
+    // The other direction, which is the half that actually says "regardless of
+    // heat": a cell that is going off but has never been squeezed is not a target.
+    ledger.force(cell, { grip: 5, heat: 100, pressure: 0 });
+    check('vendetta: …while a loud cell nobody is holding is not',
+      eligible(vendetta, cell) === 'grip', String(eligible(vendetta, cell)));
+    check('vendetta: …even though it is at flashpoint',
+      ledger.bandOf(cell) === 'flashpoint', ledger.bandOf(cell));
+
+    // ⚠ The Null are not fighting over the ground the ledger measures, so a
+    // vendetta contributes nothing to it. A sim that scored one would be counting
+    // the wrong thing entirely.
+    check('vendetta: the Null put nothing into the ledger',
+      roleMod.driverFor(vendetta).onStage === null);
+
+    // ⚠ Roles are DATA. Take the Null out of content and their incidents stop
+    // staging, rather than staging anonymously off a driver nobody backs.
+    const nullOrg = world.orgs.get('ideology_null');
+    try {
+      world.orgs.delete('ideology_null');
+      check('vendetta: no Null in content, no vendetta',
+        eligible(vendetta, cell) === 'no-order', String(eligible(vendetta, cell)));
+    } finally {
+      if (nullOrg) world.orgs.set('ideology_null', nullOrg);
+    }
+
+    // ── INCURSION: the clock, and nothing else ───────────────────────────────
+    // They are not a fifth participant in the city's argument. They arrive.
+    const night = { date: '2087-03-05', minutes: 23 * 60 };
+    const day = { date: '2087-03-05', minutes: 13 * 60 };
+    const target = roleMod.nightTarget(night);
+    check('incursion: the night has a way in', !!target && cells.includes(target), String(target));
+
+    signals._reset();
+    ledger.force(target, { ...ledger.BASELINE, pressure: 0 });
+    check('incursion: the target cell is at baseline and silent',
+      ledger.bandOf(target) === 'quiet', ledger.bandOf(target));
+    // ⚠ NO LOCAL PRECONDITION OF ANY KIND. No band, no signal, no grip, no heat.
+    // The moment one of those creeps back in, an incursion reads as the city's own
+    // trouble coming to a head, which is the one thing it must never be.
+    check('incursion: nothing local is required',
+      eligible(incursion, target, Date.now(), night) === null,
+      String(eligible(incursion, target, Date.now(), night)));
+    check('incursion: …but the clock is',
+      eligible(incursion, target, Date.now(), day) === 'clock',
+      String(eligible(incursion, target, Date.now(), day)));
+    const other = cells.find(k => k !== target);
+    check('incursion: …and there is one way in per night, not ten',
+      eligible(incursion, other, Date.now(), night) === 'elsewhere',
+      String(eligible(incursion, other, Date.now(), night)));
+
+    // ⚠ THE MIDNIGHT TRAP. A night spans midnight, so the small hours belong to
+    // the night before. Key it on the calendar date and the way in moves at 00:00
+    // — half a raid in one part of town and half in another, on the one system
+    // whose entire promise is that it came from somewhere.
+    check('incursion: the small hours belong to the night before',
+      roleMod.nightOf({ date: '2087-03-06', minutes: 60 }) === roleMod.nightOf(night));
+    check('incursion: …so the way in does not move during a night',
+      roleMod.nightTarget({ date: '2087-03-06', minutes: 60 }) === target);
+    check('incursion: …and tomorrow night is a different night',
+      roleMod.nightOf({ date: '2087-03-06', minutes: 23 * 60 }) !== roleMod.nightOf(night));
+
+    // An unbooted environment must read as "the window is shut", never as an
+    // error and never as "open". This suite never boots the environment, so this
+    // is also why no incursion can spawn a Thornwarren raid into another suite.
+    check('incursion: no clock means no incursion',
+      roleMod.readClock() === null && roleMod.nightOpen(null) === false);
+
+    // ── THE BURST LEAVES NO BASELINE ─────────────────────────────────────────
+    // Heat's half-life is twenty minutes, so the block is loud by morning and
+    // back to exactly what it was by lunchtime. ⚠ Pressure is the scalar that
+    // raises heat's OWN baseline over days: an incursion that moved it would make
+    // the Wildblood a permanent tenant of a city they have no interest in holding.
+    const before = ledger.read(target);
+    roleMod.driverFor(incursion).onStage(incursion, target);
+    const after = ledger.read(target);
+    check('incursion: the burst goes into heat',
+      after.heat >= before.heat + roleMod.INCURSION_BURST - 1,
+      before.heat + ' -> ' + after.heat);
+    check('incursion: …and never into pressure',
+      after.pressure === before.pressure, before.pressure + ' -> ' + after.pressure);
+    check('incursion: …and never into grip',
+      after.grip === before.grip, before.grip + ' -> ' + after.grip);
+
+    // Leave the ledger where the rest of the suite expects to find it.
+    for (const k of cells) ledger.force(k, { ...ledger.BASELINE });
+    signals._reset();
+    await incidents._reset();
   }
 }

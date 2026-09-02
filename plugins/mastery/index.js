@@ -35,6 +35,7 @@ import { getZoneNpcs, getZoneEnemies, getLivePlayer, world } from '../../server/
 import { getReputation } from '../../server/engine/ideologies.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { registerSwingContributor } from '../../server/engine/combat.js';
+import { registerSanityResistor } from '../../server/engine/condition.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import {
@@ -48,6 +49,8 @@ import {
   archetypeOf, noteExchange, bankHeat, sweepStaleFights, tierOn, tierLine, tierAtLeast,
 } from './reads.js';
 import { exploitById } from './exploits.js';
+import { applyBlindFighting, blindFightingLine } from './senses.js';
+import { fearResist } from './mind.js';
 import {
   canArm, armWindow, resolveWindow, clearWindow, takeAnswer, OPTIONS,
 } from './readgame.js';
@@ -121,6 +124,13 @@ const BANDS = [
   [0, 'untrained'], [10, 'green'], [25, 'schooled'], [40, 'practised'],
   [60, 'accomplished'], [80, 'expert'], [95, 'masterful'],
 ];
+// The rite, slot 10 of the Long Watch's forty. See docs/systems-faction-arcs.md.
+// Stated once here rather than trusted to every instructor's authored config,
+// for the same reason `MIN_INSTALL_TIER` is stated once in plugins/augments: an
+// instructor authored without it would be a way to skip the commitment entirely.
+const LW_ARC_FLAG = 'lw_arc';
+const MIN_ARC_SLOT = 10;
+
 export function bandOf(rank) {
   let out = 'untrained';
   for (const [floor, label] of BANDS) if (rank >= floor) out = label;
@@ -345,6 +355,35 @@ async function doTrain(player, entry, wanted) {
     };
   }
 
+  // ── THE OATH ────────────────────────────────────────────────────────────────
+  //
+  // Mastery is the Long Watch's discipline and they do not teach it to people who
+  // have not sworn in. Standing gets you spoken to; the rite is what gets you
+  // taught, and it is checked AFTER reputation on purpose: somebody who has done
+  // nothing at all for the Watch should be told to find a voucher, not told to
+  // finish a rite they have never been offered.
+  //
+  // ⚠ THIS IS THE COMMITMENT GATE AND IT IS THE ONLY ONE MASTERY HAS. Chrome has
+  // `chromed_ever` — one install and the flesh path is shut for ever, so the
+  // machine path locks you in by construction. Nothing did that for this one:
+  // before this gate a player could climb the whole discipline on reputation
+  // alone and never commit to anybody.
+  //
+  // ⚠ `Number(undefined)` is `NaN` and `NaN >= 10` is false, so an unset arc
+  // fails the gate with no special case — the same trick the forty-slot ladder
+  // uses for every one of its own gates.
+  //
+  // It gates TEACHING, never what you already know. A rank earned before this
+  // shipped is still yours and still rides every seam; you simply cannot be
+  // taught more until you have stood the watch.
+  if (Number(await getFlag('player', LW_ARC_FLAG, player)) < MIN_ARC_SLOT) {
+    return {
+      type: 'output',
+      message: `${npc.name} stops, and looks at you properly for the first time.`
+        + `\n<span class="text-dim">"You have not stood a watch. I am not going to teach you how we move before you have done that. Talk to Pike."</span>`,
+    };
+  }
+
   const discipline = wanted || (offered.length === 1 ? offered[0] : null);
   if (!discipline) {
     return {
@@ -486,6 +525,14 @@ registerSwingContributor((phase, ctx) => {
   if (!player || !enemy) return;
 
   if (phase === 'pre') {
+    // Senses: give back part of what the dark took. In a lit room this is a
+    // no-op by arithmetic rather than by a guard — see senses.js for why it
+    // rides this seam and not `visibility.perceive`.
+    if (ctx.kind === 'outgoing' && applyBlindFighting(player, ctx)) {
+      const line = blindFightingLine(player, enemy);
+      if (line) ctx.lines.push(line);
+    }
+
     // A held brace is read HERE, at the moment the blow lands, rather than baked
     // into player.soak — see the header of techniques.js for why.
     if (ctx.kind === 'incoming') {
@@ -553,6 +600,12 @@ registerSwingContributor((phase, ctx) => {
     if (player._readWindow?.enemyId === (enemy.instanceId || enemy.id)) clearWindow(player);
   }
 }, 'mastery');
+
+// Mind: Fear Discipline, on the seam condition.js added for exactly this. The
+// engine owns the arithmetic — resistors combine multiplicatively and each is
+// capped, so no stack of them reaches immunity — and mind.js returns one
+// fraction. Registered by owner, so a reload replaces rather than stacks.
+registerSanityResistor(fearResist, 'mastery');
 
 on('player.logout', async ({ id }) => {
   const p = getLivePlayer(id);

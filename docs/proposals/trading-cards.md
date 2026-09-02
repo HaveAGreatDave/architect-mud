@@ -8,13 +8,17 @@
 > two separate acts. This document is the design rationale and stays authoritative on
 > *why*; the plugin README is the quick reference.
 >
-> It answers the adopt/drop question left open in [systems-cards.md](../systems-cards.md) — the
-> answer was **adopt**. The portrait renderer (`client/game/js/card-render.js`) is untouched and
-> still unwired: **portrait is one of two faces a card can wear**, and the text face is the one that
-> ships, because an enemy has no silhouette and a text card can say what a tint cannot.
+> ⚠ **The portrait face was DELETED on 2026-09-02, and a card has one face.** For a year the plan
+> was two — a text face that ships and a vector-portrait face the card view could grow into —
+> and `client/game/js/card-render.js` sat there, 606 lines, loaded by nothing. It was never wired,
+> an enemy card could never have used it (there is no silhouette for a rot-hound), and "a second
+> face we might grow" is the sentence that keeps unreachable code in a repo indefinitely. The text
+> face says what a tint cannot, which was always the argument for it being primary; being the only
+> one is the same argument finished. Sections below that describe two faces are superseded and kept
+> only as the record of why there was nearly a second.
 >
-> **Still open:** the portrait face is not wired to the card view; there is no tablet app (the shelf
-> reads through the `cards` verb); trading a card between players goes through no bespoke path yet.
+> **Still open:** there is no tablet app (the shelf reads through the `cards` verb); trading a card
+> between players goes through no bespoke path yet.
 
 A card is a **snapshot of somebody on a specific night** — their body, what they were wearing, what
 they'd written about themselves, and something they said. It is minted for money, it goes into a
@@ -221,9 +225,10 @@ keeps the pool the single thing to balance and keeps a sleeve worth opening.
 
 ## 3. Rarity
 
-Six ranks. For a player, five are **derived from the loadout** at mint — the same `tierIndex` roll the
-portrait renderer already does, so chasing an impressive kit to mint a better card is the natural
-flex loop. The sixth cannot be rolled at all.
+Six ranks. For a player, five are **derived from the loadout** at mint, so chasing an impressive kit
+to mint a better card is the natural flex loop. The sixth cannot be rolled at all. (The `tierIndex`
+roll was originally lifted from the portrait renderer's own tier logic; that renderer is gone and
+`builder.js` owns the roll outright.)
 
 | Rank | Roll | Pool weight | Notes |
 |---|---|---:|---|
@@ -600,7 +605,11 @@ CREATE TABLE IF NOT EXISTS cards (
   serial       INTEGER NOT NULL,          -- № within series
   subject_type TEXT NOT NULL,             -- 'player' | 'npc' | 'enemy'
   subject_ref  TEXT NOT NULL,             -- players.id | npcs.id | enemies.id, per type
-  body         TEXT,                      -- silhouette; NULL for enemies (no portrait face)
+  body         TEXT,                      -- ⚠ VESTIGIAL. The silhouette selector for the deleted
+                                           -- portrait face. Still written at mint ('male'/'female',
+                                           -- NULL for enemies) and read by nothing. Kept rather than
+                                           -- dropped because dropping a column is irreversible
+                                           -- against prod rows and this one costs a few bytes.
   spec         JSONB NOT NULL,            -- item_ids, conditions, seed, power
   text_blocks  JSONB NOT NULL,            -- {last_seen, origin, overheard} as rendered
   rarity       TEXT NOT NULL,             -- common…legendary | architect
@@ -639,10 +648,11 @@ substrate other systems build on. Follow [plugin-builder](../../.claude/skills);
 starts truncating is exactly the regression a text card cannot survive, and it must be tested against
 all three subject types (an enemy row with a 900-character description is the case that breaks it).
 
-The renderer stays where it is. `card-render.js` becomes the **portrait face**; the text face is
-DOM. One stored spec, two faces, and the player flips between them. Enemies have no portrait face —
-there is no silhouette for a rot-hound — so an enemy card is text-only, which is itself an argument
-for the text face being the primary one.
+⚠ **Superseded 2026-09-02.** This section proposed keeping `card-render.js` as a second, portrait
+face the player could flip to. That never happened, and the argument it makes against itself is the
+reason it was deleted instead: enemies have no portrait face, because there is no silhouette for a
+rot-hound, so an enemy card was always text-only. A face that a third of all subjects can never wear
+is not a second face, it is a special case waiting to be found. The text face is the face.
 
 ---
 

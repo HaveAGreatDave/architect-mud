@@ -30,7 +30,9 @@ const SKIP_FILE = /(regress|smoke|\.test)\.js$/;
 const CACHED_TABLES = 'furniture|npcs|zones|doors|orgs';
 
 // Tables carrying fat JSONB / blob columns where SELECT * is real egress.
-const WIDE_TABLES = 'items|npcs|zones|audio_samples';
+// audio_songs is here for its per-row weight, not its row count: 17 rows of
+// tracker pattern JSON are 2.7MB, heavier than all 717 items put together.
+const WIDE_TABLES = 'items|npcs|zones|audio_samples|audio_songs';
 
 // TWO SEVERITIES, and the split is the whole reason this lint survives.
 //

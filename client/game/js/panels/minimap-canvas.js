@@ -282,7 +282,9 @@ function drawTile(ctx, node, px, py, t, remembered) {
 	// 4. Enterable buildings are doors, not rooms — outlined, and clickable (hitTest).
 	if (node.enterable) {
 		ctx.globalAlpha *= 0.9;
-		inset(ctx, px, py, t, themeColor('--accent', '#59c2d6'), 1);
+		// Red when a law is holding it shut (shop hours) — same rule, same colour and
+		// same source flag as the DOM path's .mm-shut, so the two surfaces agree.
+		inset(ctx, px, py, t, node.shut ? themeColor('--red', '#d65a5a') : themeColor('--accent', '#59c2d6'), 1);
 	}
 	ctx.restore();
 }

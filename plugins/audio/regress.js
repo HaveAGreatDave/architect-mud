@@ -120,4 +120,33 @@ export default async ({ check }) => {
   for (const id of ['proc:footsteps', 'proc:doors', 'proc:locks']) {
     check(`${id} is registered for the dev panel`, !!P.TABLE_IDS[id]);
   }
+
+  // ── The library list routes answer from RAM ───────────────────────────────
+  // /audio/songs is PUBLIC and the game client calls it on every AMP panel open,
+  // so when it ran `SELECT *` it pulled 2.7MB of tracker patterns out of Neon per
+  // open. The rows were already in the boot cache. What has to stay true is that
+  // the cached answer is the SAME answer — every row, name-ordered, channels
+  // intact — because the client filters on `channels.length` and a shape change
+  // here empties the AMP rather than erroring.
+  const { routeHandler } = await import('./index.js');
+  const { query } = await import('../../server/models/db.js');
+
+  const list = await routeHandler('/audio/songs', 'GET', null, null, {});
+  const { rows: dbSongs } = await query('SELECT id, name FROM audio_songs');
+  check('/audio/songs answers 200 from the cache', list?.status === 200 && Array.isArray(list.body));
+  check('…with every song the table holds', list.body.length === dbSongs.length,
+    `route ${list?.body?.length} vs db ${dbSongs.length}`);
+  check('…name-ordered, as ORDER BY name was',
+    list.body.every((r, i) => i === 0 || String(list.body[i - 1].name).localeCompare(String(r.name)) <= 0));
+  check('…carrying the channels the client filters on',
+    list.body.every(r => Array.isArray(r.channels)),
+    list.body.filter(r => !Array.isArray(r.channels)).map(r => r.name).join(', '));
+
+  // Same route shape for samples, where the invariant is the opposite one: the
+  // cache holds SAMPLE_META_COLS and the base64 blob must NOT ride along, or a
+  // list fetch becomes a 12MB download.
+  const smp = await routeHandler('/audio/samples', 'GET', null, null, {});
+  check('/audio/samples answers from the cache too', smp?.status === 200 && Array.isArray(smp.body));
+  check('…and never carries the sample blob', smp.body.every(r => r.data === undefined),
+    smp.body.filter(r => r.data !== undefined).map(r => r.name).join(', '));
 };

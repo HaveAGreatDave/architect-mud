@@ -445,6 +445,33 @@ checkout, and the compute is bounded. If any of those is false, it is an ordinar
 The TABLE still exists and CI still writes it — `apiGetMap` joins it for the editor, and *writing* it
 is ingress, which is not what the transfer cap counts. This is only about who reads it at boot.
 
+### A seventh: read it off the checkout
+
+The same logic reaches one step further. In production the server runs from the git checkout the
+content pipeline deploys, so a column that is **purely authored** is already on the local disk — and
+fetching it from Neon buys nothing. `plugins/audio` has read its library and sample blobs that way
+since July; `loadZones` now does it for **`zones.description`**, which was 3.28MB of the 8.6MB that
+`SELECT * FROM zones` pulled, and about a quarter of the whole cold-start payload.
+
+Two details make it work, and both are the reason this is a tier rather than a one-liner.
+
+**It is lazy.** Reading 17,263 small files at boot takes seconds (~7s measured), and a cold start is
+a player waiting — so each zone gets a self-replacing getter and pays ~0.7ms for its own file the
+first time somebody looks at that room. ⚠ Which means **no bulk scan may touch the column**:
+`getAllZones()` used to copy it for every tile, and one `map` command would have faulted in all 17k
+files. Its projection dropped the field in the same commit, and regress asserts it stays dropped.
+
+**Not every row has a file.** `environment.js` INSERTs power and junction rooms at runtime and the
+studio builder makes zones too; neither has content until the next export. Those are found by NAME —
+one `readdir`, nothing parsed — and their descriptions come from the DB in a single extra query that
+is normally empty. A tier like this needs its own answer for rows the checkout has never seen.
+
+**When this tier applies:** the column is authored (the derive pass never writes it), the file is the
+same text the DB holds (regress checks a sample, because a divergence would show prod prose that
+exists nowhere else), and no bulk path reads it. Dev keeps reading the DB — local WIP lives there
+until `content:export` — so the whole scheme is inert outside production, which is exactly why the
+pieces are exported and tested directly rather than through a boot.
+
 Any new writer to either table MUST use its funnel — a raw `query('UPDATE furniture …')` now
 silently desyncs room descriptions, and a raw `UPDATE npcs` desyncs shop shelves. Every content
 table's decided read tier is machine-readable as `readTier` in

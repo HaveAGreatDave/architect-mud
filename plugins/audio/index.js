@@ -62,6 +62,8 @@ export async function loadAudioLibrary() {
   const load = async (table, sql) => contentTableRows(table) ?? (await query(sql)).rows;
   const [i, s, fx, am, ev, sm] = await Promise.all([
     load('audio_instruments', 'SELECT * FROM audio_instruments'),
+    // query-lint-ok: this IS the loader that fills the songs cache every other
+    // reader answers from, and in prod it takes the disk branch above.
     load('audio_songs', 'SELECT * FROM audio_songs'),
     load('audio_sfx', 'SELECT * FROM audio_sfx'),
     load('audio_ambient', 'SELECT * FROM audio_ambient'),
@@ -1397,6 +1399,13 @@ const EVENT_ROUTE_COLS = ['event_name', 'sfx_id', 'ambient_id', 'song_id', 'samp
 
 const JSONB_COLS = new Set(['config', 'channels', 'instrument_ids', 'channel_pan']);
 
+// A boot-cache Map rendered as the list GETs used to render it: every row, by
+// name. Postgres would order by its own collation; localeCompare is the same
+// order for these names and costs no round trip.
+function cachedList(cache) {
+  return [...cache.values()].sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')));
+}
+
 function colValue(col, body) {
   const v = body[col];
   if (JSONB_COLS.has(col)) return JSON.stringify(v ?? (col === 'config' ? {} : []));
@@ -1485,8 +1494,10 @@ export const routeHandler = async (path, method, body, auth, reqHeaders) => {
         return { status: 200, headers, body: { data: rows[0].data } };
       }
       if (!id && method === 'GET') {
-        const { rows } = await query(`SELECT ${SAMPLE_META_COLS} FROM audio_samples ORDER BY name`);
-        return { status: 200, body: rows };
+        // Same as the generic list GET below: the `samples` cache already holds
+        // exactly SAMPLE_META_COLS (the blob is stripped at load), and the game
+        // client fetches this list beside /audio/songs on every AMP open.
+        return { status: 200, body: cachedList(samples) };
       }
       if (!id && method === 'POST') {
         const newId = body.id || `smp_${randomUUID()}`;
@@ -1562,8 +1573,13 @@ export const routeHandler = async (path, method, body, auth, reqHeaders) => {
 
   try {
     if (!id && method === 'GET') {
-      const { rows } = await query(`SELECT * FROM ${spec.table} ORDER BY name`);
-      return { status: 200, body: rows };
+      // Served from the boot cache, never re-queried. This route is PUBLIC and the
+      // game client hits it on every AMP panel open (musicplayer.js _loadLibrary),
+      // so `SELECT * FROM audio_songs` was pulling 2.7MB of tracker patterns out of
+      // Neon per open — for rows already sitting in spec.cache, which is loaded at
+      // boot and reloaded by every write below. The only way to make it stale is to
+      // write the table with raw SQL behind the API's back.
+      return { status: 200, body: cachedList(spec.cache) };
     }
     if (!id && method === 'POST') {
       const newId = body.id || `aud_${randomUUID()}`;

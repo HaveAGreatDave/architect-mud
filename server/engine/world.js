@@ -4,6 +4,7 @@ import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName } from './text.js';
 import { districtFor, loadDistricts, registerZoneLookup } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
+import { shutStatus } from './movement-gates.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat } from './danger.js';
@@ -12,6 +13,9 @@ import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PR
 // way (routes.js for the editor's swatches, plugins/audio for its sample blobs);
 // loadZoneRender needs it to derive rather than re-read what the build resolved.
 import { readPalette } from '../../scripts/content/lib.mjs';
+// Authored columns sourced from the checkout rather than from Neon — see
+// docs/architecture.md → "A seventh: read it off the checkout".
+import { contentColumn } from '../models/content-column.js';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -637,11 +641,53 @@ export async function clearNpcHomeOverride(npcId) {
   if (rows.length) syncNpc(npcId, { home_zone: rows[0].home_zone });
 }
 
+// ── zones.description: authored text, read off the checkout ──────────────────
+//
+// 3.28MB of the 8.6MB `SELECT * FROM zones` used to pull, on a cold start that
+// happens ~13 times a day — about a quarter of the whole boot payload. It is also
+// the one big zone column that is purely AUTHORED: all 17,263 tiles carry a
+// non-empty description in content/zones/, the derive pass never writes one, and
+// in production this process is running from that very checkout
+// (CONTENT_READONLY). So the rows we were paying Neon to send are already on the
+// local disk. Same trade plugins/audio makes for its sample blobs, and the same
+// one loadZoneRender makes by deriving zone_derived instead of reading it back.
+//
+// LAZILY, though. Reading 17k small files at boot costs seconds (~7s measured),
+// and a cold start is a player waiting at a loading screen — so each zone gets a
+// self-replacing getter and pays for its own file, once, the first time somebody
+// looks at that room. ⚠ That rests entirely on nothing walking every zone and
+// touching .description: getAllZones() did, which is why its projection dropped
+// the field in the same commit. Check that before adding a bulk zone scan.
+//
+// ⚠ NOT every zone has a file. environment.js INSERTs power and junction rooms at
+// runtime and the dev-gated studio builder makes zones too; neither has content
+// until the next export. Those are spotted by NAME (one readdir, nothing parsed)
+// and their descriptions come from the DB in one extra query — normally no rows.
+//
+// Dev keeps reading the column: the local DB is where WIP prose lives until
+// content:export, so the whole scheme is inert outside production.
+const contentBacked = !!process.env.CONTENT_READONLY;
+
+export const ZONE_DESCRIPTION = contentColumn({
+  table: 'zones', column: 'description',
+  coerce: (v) => (typeof v === 'string' ? v : ''),
+});
+export const NPC_DIALOGUE = contentColumn({
+  table: 'npcs', column: 'dialogue_tree',
+  // A fresh object per row: the loader used to write `npc.dialogue_tree || {}`,
+  // and one shared empty object handed to 250 NPCs is one mutation away from
+  // every silent NPC sharing a tree.
+  coerce: (v) => (v && typeof v === 'object' ? v : {}),
+});
+
 async function loadZones() {
+  const files = contentBacked ? ZONE_DESCRIPTION.fileNames() : null;
+  const cols = files?.size ? await ZONE_DESCRIPTION.columnsExcept(query) : null;
   // query-lint-ok: boot loader for world.zones — read once so nothing else has to.
-  const { rows } = await query('SELECT * FROM zones');
+  const { rows } = await query(cols ? `SELECT ${cols} FROM zones` : 'SELECT * FROM zones');
+  const noFile = [];
   for (const zone of rows) {
-    world.zones.set(zone.id, {
+    const live = {
       ...zone,
       exits: zone.exits || {},
       ambient_events: zone.ambient_events || [],
@@ -651,20 +697,51 @@ async function loadZones() {
       enemies: new Set(),
       npcs: new Set(),
       corpses: new Set(),
-    });
+    };
+    if (cols) {
+      if (ZONE_DESCRIPTION.has(files, zone.id)) ZONE_DESCRIPTION.defineLazy(live, zone.id);
+      else noFile.push(zone.id);
+    }
+    world.zones.set(zone.id, live);
+  }
+  if (noFile.length) {
+    const { rows: extra } = await query('SELECT id, description FROM zones WHERE id = ANY($1)', [noFile]);
+    for (const r of extra) {
+      const z = world.zones.get(r.id);
+      if (z) z.description = r.description ?? '';
+    }
+    console.log(`✓ zones: ${noFile.length} tile(s) have no content file — descriptions read from the DB`);
   }
 }
 
 async function loadNpcs() {
+  // dialogue_tree is 0.70MB of the 1.19MB this row set weighs and the registry
+  // calls it "authoring-only" — nothing at runtime writes one. So in production it
+  // comes off the checkout instead of the wire. EAGERLY, unlike zones: 250 NPC
+  // files parse in ~120ms, which is cheap enough that the lazy-getter machinery
+  // (and its standing rule that nothing may bulk-scan the column) buys nothing here.
+  const npcFiles = contentBacked ? NPC_DIALOGUE.fileNames() : null;
+  const npcCols = npcFiles?.size ? await NPC_DIALOGUE.columnsExcept(query) : null;
   const [{ rows }, homeOverrides] = await Promise.all([
     // query-lint-ok: boot loader for world.npcs (write-funneled via updateNpc/syncNpc).
-    query('SELECT * FROM npcs'),
+    query(npcCols ? `SELECT ${npcCols} FROM npcs` : 'SELECT * FROM npcs'),
     loadNpcHomeOverrides(),
   ]);
+  // An NPC with no content file — none ship today, but apiCreateNpc exists and a
+  // dev DB is a different world — keeps its tree from the DB in one extra query.
+  const npcNoFile = npcCols ? rows.filter(n => !NPC_DIALOGUE.has(npcFiles, n.id)).map(n => n.id) : [];
+  const npcFromDb = new Map();
+  if (npcNoFile.length) {
+    const { rows: extra } = await query('SELECT id, dialogue_tree FROM npcs WHERE id = ANY($1)', [npcNoFile]);
+    for (const r of extra) npcFromDb.set(r.id, r.dialogue_tree);
+    console.log(`✓ npcs: ${npcNoFile.length} NPC(s) have no content file — dialogue read from the DB`);
+  }
   for (const npc of rows) {
     const live = {
       ...npc,
-      dialogue_tree: npc.dialogue_tree || {},
+      dialogue_tree: npcCols
+        ? (npcFromDb.has(npc.id) ? (npcFromDb.get(npc.id) || {}) : NPC_DIALOGUE.read(npc.id))
+        : npc.dialogue_tree || {},
       vendor_inventory: npc.vendor_inventory || [],
       wander_zones: npc.wander_zones || [],
       behaviour_graph: npc.behaviour_graph || {},
@@ -1357,6 +1434,13 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       radiation: getZoneRadiation(zone),
       // Pass-through building tile: rendered as an enterable marker, not a room.
       enterable: isEnterableFacade(zone),
+      // A way in that a law is currently holding shut (shop hours, so far), asked
+      // through the shut seam about the FINAL destination — a facade forwards into
+      // its interior, which is the room whose hours are kept. Per viewer, because
+      // the resident of a mixed-use building is exempt from its shop's hours.
+      // The tile draws it red rather than accent, so a closed shop stops looking
+      // like a door you can walk through until you have walked into it.
+      shut: shutStatus(viewer, world.zones.get(resolveLanding(zone.id)))?.shut || null,
       building_name: zone.flags?.building_name || null,
       exits: primaryExits(zone),
       map_id: zone.map_id || null,
@@ -1406,8 +1490,14 @@ export function getAllZones() {
   // void-crossing rooms must never be seen as real tiles by corps/gps/work/etc.
   // The per-player minimap uses getMinimapData (exit-BFS from the center), not
   // this, so a player standing in a void room still sees it.
+  // ⚠ NO `description`. This is a bulk scan over every tile in the world, and the
+  // column is lazily read off the checkout in production (see loadZones) — copying
+  // it here would fault in all 17k files on the first `map` command, which is the
+  // one thing that scheme cannot survive. Nothing read it: every caller (corps,
+  // gps, warmth, trucking, voidwalking, movement) wants coordinates, flags and
+  // danger. A caller that genuinely needs the prose has a zone id and getZone().
   return [...world.zones.values()].filter(z => !world.transientZones.has(z.id)).map(z => ({
-    id: z.id, name: z.name, description: z.description,
+    id: z.id, name: z.name,
     sanctuary: isSanctuary(z), radiation: getZoneRadiation(z), danger: zoneDanger(z),
     exits: z.exits, ambient_events: z.ambient_events, ambient_theme: z.ambient_theme, flags: z.flags,
     map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,

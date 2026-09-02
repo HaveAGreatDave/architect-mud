@@ -21,6 +21,7 @@ import { getFlag } from "./flags.js";
 import { rollDream } from "./dreams.js";
 import { buildDreamscape, wakeFromDream, pushDreamFx } from "./dreamscape.js";
 import { addPlayerToZone } from "./world.js";
+import { teachVerb } from "./messaging.js";
 
 // ── Rent runs on the GAME calendar ──────────────────────────────────────────
 // Rent is billed every RENT_PERIOD_DAYS *game* days, so it scales with the
@@ -1136,7 +1137,7 @@ export async function tickSleep(player, broadcastFn) {
 			addPlayerToZone(player.id, entry);
 			broadcastFn(null, {
 				type: 'output',
-				message: `<span style="color:var(--cyan)">The room you were in stops being the room you are in.</span>\n<span class="text-dim">You can move. You are fairly sure you are asleep. (Look around. You will wake when you wake.)</span>`,
+				message: `<span style="color:var(--cyan)">The room you were in stops being the room you are in.</span>\n<span class="text-dim">You can move. You are fairly sure you are asleep. (Look around. You will wake when you wake, or ${teachVerb('wake')} yourself out of it.)</span>`,
 			}, null, player.id);
 			broadcastFn(null, { type: 'sleep_state', sleeping: true, dreaming: true }, null, player.id);
 			pushDreamFx(player, broadcastFn);

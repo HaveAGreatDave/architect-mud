@@ -1,6 +1,16 @@
 # Mastery — the Long Watch's third answer
 
-**Status: PHASES 0–3 BUILT** (restamped 2026-08-31). It ships as
+**Status: BUILT** (restamped 2026-09-02; the Senses and Mind disciplines landed the same day,
+so all eight now do something). [systems-mastery.md](../systems-mastery.md) is the as-built
+authority. The per-discipline technique catalogue below — Pain Discipline, Cold Mind, Combat
+Meditation, Ghost Step, Wall Run — was never scheduled and remains design.
+
+⚠ **Where the build departed from this plan, on the Senses half:** §2 says "Blind Fighting is
+a `visibility.perceive` contributor and nothing else". It cannot be. That hook keeps ONE
+answer and hands every handler the same original arguments, and `plugins/flashlight` is
+already on it — so mastery, which sorts after, would replace a torch's boost with a shift of
+the raw value, and a carried light would stop working for anybody who trained. It rides the
+swing seam instead, on the perceived darkness penalty, which composes by construction. It ships as
 [`plugins/mastery/`](../../plugins/mastery/) — ten modules covering the swing seam, the
 purity cap, the stain, Read and Exploit — and the as-built account is
 [systems-mastery.md](../systems-mastery.md), which outranks this document wherever the two

@@ -56,12 +56,12 @@
 //                                              cache would go stale (build the write
 //                                              funnel before promoting to 'boot')
 //                                    'dead'  — zero runtime readers
-//                 servedFromCheckout — production reads these rows from the git
-//                                  checkout (content/<table>/*.json), not from Neon.
-//                                  readTier stays 'boot' (that is where they live at
-//                                  runtime); this says the cold start spends no
-//                                  EGRESS on them. scripts/ops/attribution.mjs
-//                                  excludes them from boot payload for that reason.
+//                 bootSource     — 'files' when the loader reads this table off the
+//                                  checkout in production instead of the DB, so it
+//                                  costs no Neon egress at boot. Only the audio
+//                                  tables today. Read by scripts/ops/attribution.mjs,
+//                                  which would otherwise model egress that never
+//                                  happens; set it whenever a loader moves to disk.
 //                 runtimeInserts — note naming gameplay code that INSERTs rows into
 //                                  this table at runtime (2026-07-06 census). Those
 //                                  rows have no files; the pipeline's git-diff-driven
@@ -90,21 +90,21 @@ export const REGISTRY = [
   // refreshed on CRUD). The audio_samples.data blob is deliberately NOT cached —
   // served on demand per client (disk in prod, DB in dev).
   //
-  // ⚠ servedFromCheckout: in production (CONTENT_READONLY) loadAudioLibrary reads
-  // content/<table>/*.json out of the git checkout and NEVER touches Neon — see the
-  // content-backed block at the top of plugins/audio/index.js. The tier is still
-  // 'boot' because that is where the rows live at runtime, but these six tables
-  // contribute ZERO bytes to the Neon egress a cold start spends. Anything
-  // measuring boot payload as an egress figure must exclude them, or it overstates
-  // the one number it exists to watch (measured 2026-09-02: 20.8MB reported vs
-  // ~13.6MB actually pulled from Neon, a 35% overstatement, most of it the
-  // audio_samples blobs that prod reads off disk).
-  { table: 'audio_samples', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
-  { table: 'audio_songs', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
-  { table: 'audio_instruments', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
-  { table: 'audio_sfx', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
-  { table: 'audio_ambient', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
-  { table: 'audio_event_routes', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
+  // bootSource: 'files' — in production (CONTENT_READONLY) loadAudioLibrary reads
+  // these from the content/ tree on the checkout, not from Neon, so they cost NO
+  // egress at boot. The flag exists because the ops usage report was counting them:
+  // it sums pg_column_size over every readTier 'boot' table, which put 14.2MB of
+  // audio at the top of a printout whose whole purpose is naming what to trim —
+  // 11.5MB of that being audio_samples.data, a column no boot read has ever
+  // selected (loadAudioLibrary asks for SAMPLE_META_COLS). Half the modelled boot
+  // payload was work nobody could do anything about. Any future loader that reads
+  // its table off the checkout instead of the DB belongs here too.
+  { table: 'audio_samples', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
+  { table: 'audio_songs', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
+  { table: 'audio_instruments', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
+  { table: 'audio_sfx', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
+  { table: 'audio_ambient', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
+  { table: 'audio_event_routes', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
 
   // ── content: world structure ──
   { table: 'zones', class: 'content', pk: ['id'], readTier: 'boot',

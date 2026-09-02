@@ -65,33 +65,30 @@ export async function closeAttribution() {
 }
 
 /**
- * Content tables declared `readTier: 'boot'` — the rows a cold start pulls FROM NEON.
+ * Content tables a cold start pulls OUT OF NEON: `readTier: 'boot'` minus the ones
+ * whose loader reads the checkout instead (`bootSource: 'files'`).
  *
- * ⚠ `servedFromCheckout` tables are excluded, and that exclusion is the whole point
- * of this function rather than a detail of it. The six audio_* tables are boot-tier —
- * they live in the audio plugin's caches at runtime — but in production
- * (CONTENT_READONLY) loadAudioLibrary reads them out of content/*.json in the git
- * checkout and never opens a Neon connection for them. Counting them here inflated
- * the reported payload to 20.8MB against ~13.6MB actually transferred (measured
- * 2026-09-02), almost all of the difference being audio_samples.data — sample blobs
- * that are not merely uncached but never read from the database in prod at all.
- *
- * That is a 35% overstatement of the single number this whole report exists to watch,
- * and it errs toward reassurance in the worst way: it makes the modelled egress agree
- * with Neon's own figure for the wrong reason, which is exactly the divergence check
- * this module was built to perform.
+ * ⚠ The subtraction is the point, and leaving it out is how this measured the
+ * wrong thing for months. `readTier` says "in memory at boot", not "fetched from
+ * the DB at boot" — the six audio tables are both, and in production they are
+ * loaded off disk. Summing them anyway put 14.2MB of untouchable audio at the top
+ * of a report whose one job is naming the next thing to trim, 11.5MB of it the
+ * audio_samples.data blob, which no boot read has ever selected in any
+ * environment. Model minus reality is not a rounding error here: it was about
+ * half the modelled payload, and it lands on the model-vs-API divergence this
+ * whole module exists to make readable.
  */
 export function bootTables() {
   return REGISTRY
-    .filter((e) => e.class === 'content' && e.readTier === 'boot' && !e.servedFromCheckout)
+    .filter((e) => e.class === 'content' && e.readTier === 'boot' && e.bootSource !== 'files')
     .map((e) => ({ table: e.table, where: e.where || null }));
 }
 
-/** Boot-tier tables production reads from the git checkout — zero Neon egress. */
-export function checkoutTables() {
+/** Boot-tier tables deliberately left out of the payload, for the report to name. */
+export function bootTablesOffDb() {
   return REGISTRY
-    .filter((e) => e.class === 'content' && e.readTier === 'boot' && e.servedFromCheckout)
-    .map((e) => ({ table: e.table, where: e.where || null }));
+    .filter((e) => e.class === 'content' && e.readTier === 'boot' && e.bootSource === 'files')
+    .map((e) => e.table);
 }
 
 /**
@@ -103,28 +100,15 @@ export function checkoutTables() {
  * enough for a trend — we care about 15MB → 30MB, not about ±3%.
  */
 export async function bootPayload() {
-  const tables = [...bootTables(), ...checkoutTables()];
-  const fromCheckout = new Set(checkoutTables().map((t) => t.table));
+  const tables = bootTables();
   const parts = tables.map(({ table, where }) =>
     `SELECT '${table}' AS table_name, COALESCE(SUM(pg_column_size(t.*)), 0)::bigint AS bytes, COUNT(*)::bigint AS rows
        FROM ${table} t${where ? ` WHERE ${where}` : ''}`);
   const { rows } = await query(`${parts.join('\nUNION ALL\n')}\nORDER BY bytes DESC`);
-  // The checkout tables are measured too — knowing how much they WOULD cost is what
-  // keeps the saving visible and stops somebody "simplifying" the disk read away —
-  // but they are kept out of the total, which is an egress figure.
-  const all = rows.map((r) => ({
-    table: r.table_name,
-    bytes: Number(r.bytes),
-    rows: Number(r.rows),
-    fromCheckout: fromCheckout.has(r.table_name),
-  }));
-  const wire = all.filter((t) => !t.fromCheckout);
-  const checkout = all.filter((t) => t.fromCheckout);
+  const total = rows.reduce((a, r) => a + Number(r.bytes), 0);
   return {
-    totalBytes: wire.reduce((a, t) => a + t.bytes, 0),
-    tables: wire,
-    checkoutBytes: checkout.reduce((a, t) => a + t.bytes, 0),
-    checkoutTables: checkout,
+    totalBytes: total,
+    tables: rows.map((r) => ({ table: r.table_name, bytes: Number(r.bytes), rows: Number(r.rows) })),
   };
 }
 

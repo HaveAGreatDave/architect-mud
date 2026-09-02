@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink, getRandomAmbient, getAmbientPool } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink, getRandomAmbient, getAmbientPool, ZONE_DESCRIPTION, NPC_DIALOGUE } from '../server/engine/world.js';
 import { districtFor } from '../server/engine/districts.js';
 import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard, tickEntityAI, isVendorClosed } from '../server/engine/ai-behaviour.js';
 import { openShopSession, closeShopSession, getNpcForShopper } from '../server/engine/vendor-session.js';
@@ -360,6 +360,65 @@ console.log('— layer 1c: CONTENT_READONLY gate —');
   check('CONTENT_READONLY blocks content writes, passes ops routes', gateErrors.length === 0, gateErrors.join('; '));
   // Gate off ⇒ fully inert: the same content write must not see the gate message.
   check('gate is inert when CONTENT_READONLY is unset', !(await hitsGate('PUT', '/api/zones/zone_regress_gate_probe')));
+}
+
+// ── Layer 1c2: authored columns read off the checkout ────────────────────────
+// In production loadZones stops selecting zones.description (3.28MB of the boot
+// payload) and loadNpcs stops selecting npcs.dialogue_tree (0.70MB); both come
+// from content/<table>/<id>.json instead. The suite runs WITHOUT CONTENT_READONLY,
+// so the live world here is the ordinary DB-loaded one and none of that path
+// executes — these exercise the pieces directly, because a path that only runs in
+// production is a path that only breaks there.
+console.log('— layer 1c2: authored columns off the checkout —');
+{
+  const sample = [...world.zones.keys()].slice(0, 200);
+  const blank = sample.filter(id => !ZONE_DESCRIPTION.read(id));
+  check('every sampled tile has authored prose in content/', blank.length === 0,
+    `${blank.length} blank, e.g. ${blank.slice(0, 3).join(', ')}`);
+
+  // The file IS the same text the DB holds. If these ever diverge, production
+  // shows prose that no longer exists anywhere else — silently, since both look
+  // like valid rooms.
+  const { rows: dbRows } = await query('SELECT id, description FROM zones WHERE id = ANY($1)', [sample]);
+  const drift = dbRows.filter(r => (r.description || '') !== ZONE_DESCRIPTION.read(r.id));
+  check('…and it is the same text the DB holds', drift.length === 0,
+    `${drift.length} differ, e.g. ${drift.slice(0, 3).map(r => r.id).join(', ')}`);
+
+  // A row with no file must not resolve to somebody else's content, and an id is
+  // never a path: fileNameForRow's sanitiser is what stops `../` escaping the dir.
+  check('a missing tile reads empty, not stale', ZONE_DESCRIPTION.read('zone_no_such_tile') === '');
+  check('an id can never walk out of the content dir', ZONE_DESCRIPTION.read('../../package') === '');
+  // Deliberately not compared to world.zones.size: a dev DB drifts from the tree
+  // and this check exists to prove the listing WORKS, not to police that drift.
+  check('fileNames sees the content tree', (ZONE_DESCRIPTION.fileNames()?.size ?? 0) > 1000);
+
+  // The getter has to behave like the plain string property it replaces: settle
+  // on read, and — the one that would throw in strict mode — accept a write.
+  const probe = { id: sample[0] };
+  ZONE_DESCRIPTION.defineLazy(probe, sample[0]);
+  check('the lazy description reads through', probe.description === ZONE_DESCRIPTION.read(sample[0]));
+  check('…and settles into a plain value', !Object.getOwnPropertyDescriptor(probe, 'description').get);
+  const written = { id: sample[0] };
+  ZONE_DESCRIPTION.defineLazy(written, sample[0]);
+  written.description = 'overwritten';
+  check('…and an assignment still writes rather than throwing', written.description === 'overwritten');
+
+  // The whole scheme dies if a bulk scan touches the column: getAllZones() runs
+  // over every tile in the world, so one `description` in its projection would
+  // fault in 17k files on the first `map` command.
+  check('getAllZones does not carry description',
+    getAllZones().every(z => !('description' in z)));
+
+  // NPC dialogue is the eager half of the same tier, and the failure that matters
+  // is a shared empty object: `|| {}` handed to every treeless NPC would be ONE
+  // object, and the first writer to it would give all of them the same words.
+  const treeless = ['npc_no_such_person', 'npc_also_missing'].map(id => NPC_DIALOGUE.read(id));
+  check('a treeless NPC reads an empty tree', treeless.every(t => t && !Object.keys(t).length));
+  check('…and never the SAME empty tree', treeless[0] !== treeless[1]);
+  const talkers = [...world.npcs.values()].filter(n => Object.keys(n.dialogue_tree || {}).length).slice(0, 40);
+  const lost = talkers.filter(n => !Object.keys(NPC_DIALOGUE.read(n.id)).length);
+  check('every sampled talker has its tree in content/', lost.length === 0,
+    `${lost.length} missing, e.g. ${lost.slice(0, 3).map(n => n.id).join(', ')}`);
 }
 
 // ── Layer 1d: zone tag substrate ──────────────────────────────────────────────

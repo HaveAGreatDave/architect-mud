@@ -994,12 +994,29 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   // It is in the air and you are not. Ranged ignores this; so does a stunned
   // flier, because a stunned flier is on the floor.
   const flight = flightCombatPenalty(enemy, weaponStats, attackSkill);
+  // ⚠ The darkness penalty is computed BEFORE the ctx and handed to it, rather
+  // than added to the margin afterwards. A contributor that wants to fight in
+  // the dark could otherwise only add a flat `hitMod` — which is a bonus in a
+  // LIT room, i.e. a permanent passive wearing a situational costume. Handing
+  // over the real number means the only thing a contributor can do is give back
+  // some of what the dark took.
+  //
+  // It is the PERCEIVED penalty, so a carried light has already shrunk it and
+  // nothing downstream can discount the same darkness a second time. That is why
+  // this is the seam for it and `visibility.perceive` is not: that hook keeps one
+  // answer, so a second opinion REPLACES a flashlight's rather than composing
+  // with it. See the header of plugins/mastery/senses.js.
+  const darkness = await darknessHitPenalty(enemy.zoneId, player);
   const swing = beginSwing({
     kind: 'outgoing', player, enemy, weaponStats, attackSkill, power, enemyDodge,
-    hitMod: 0, damageScale: 1, critBonus: 0, lines: [],
+    hitMod: 0, damageScale: 1, critBonus: 0, darkness, lines: [],
   });
+  // ⚠ Clamped at 0, and read back defensively: a contributor may cancel the
+  // penalty and may never invert it into a bonus for the room being dark, nor
+  // delete it by writing a non-number over the field.
+  const darkTerm = Math.min(0, Number.isFinite(swing?.darkness) ? swing.darkness : darkness);
   const margin = (attackSkill + hitBonus(player) - enemyDodge) + aimCost + (unskilled?.hitMod || 0)
-    + (flight?.hitMod || 0) + (swing?.hitMod || 0) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
+    + (flight?.hitMod || 0) + (swing?.hitMod || 0) + rollSwing() + darkTerm;
   const hit = margin >= 0;
 
   // Water drags the swing out on top of the stance interval.

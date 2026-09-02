@@ -440,8 +440,9 @@ message pointing nowhere near overclocking.
   [`equip-gates.js`](../server/engine/equip-gates.js), written for exactly this.
 - **Multi-limb chrome** via `registerBodyPartProvider`, the way mutations grow parts.
 - **The paperdoll UI.** Reusing it is not free: it is inline functions inside
-  `tablet-os.js`, not a component, and there are already three independent
-  silhouette renderers (`tablet-os.js`, `wardrobe.js`, `card-render.js`).
+  `tablet-os.js`, not a component, and there are already two independent
+  silhouette renderers (`tablet-os.js`, `wardrobe.js`). There were three until
+  `card-render.js` was deleted on 2026-09-02 with the card portrait face.
   Extracting one shared doll is its own task; the `augment` verbs carry the
   system without it.
 

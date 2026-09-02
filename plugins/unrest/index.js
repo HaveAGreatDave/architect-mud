@@ -4,8 +4,10 @@
 // can walk into (incidents.js + stage.js).
 //
 // See docs/proposals/unrest.md and docs/systems-unrest.md. Phases 1a–1d are
-// built: ledger, perceivability, incidents, danger. Phase 2 (favours) and phase 3
-// (the Null and the Wildblood) are not.
+// built (ledger, perceivability, incidents, danger), phase 2's favour seam is
+// built, and phase 3 adds the other two orders as DRIVERS into the same ledger:
+// the Null's vendetta and the Wildblood's incursion, both in roles.js, neither
+// of which adds a scalar, a table or a verb.
 //
 // ⚠ Rule 2, in code as well as at the client boundary: every scalar in this plugin
 // is visible at /dev and none of it crosses into client/game. The moment there is
@@ -14,28 +16,16 @@
 // tonight", a wall somebody has been at, and a street that has a checkpoint on it.
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
-import { world } from '../../server/engine/world.js';
 import * as ledger from './ledger.js';
 import * as signals from './signals.js';
 import * as incidents from './incidents.js';
 import './stage.js';   // registers the dangerous stage steps (1d)
  import './favours.js'; // registers the unrest_incident condition shape (phase 2)
+// Roles are authored on orgs.flags.role and read there — never a switch
+// statement. roles.js also owns what an order's role lets it STAGE, which is
+// phase 3's whole content.
+import { roles, driverNames, driverNameFor, readClock, nightTarget, nightOpen } from './roles.js';
 import { reindex, allBlocks, blockOf } from './blocks.js';
-
-// Roles are authored on orgs.flags.role and read here — never a switch statement.
-// The four expansion orders (Prometheans, Synthesis, Pioneers, Lucid) carry
-// flags.expansion and are preview-only, never winning the lean, so they take no
-// role and the sim skips them.
-function roles() {
-  const out = [];
-  for (const org of world.orgs.values()) {
-    if (org?.flags?.expansion) continue;
-    const role = org?.flags?.role;
-    if (!role || !role.writes) continue;
-    out.push({ id: org.id, writes: role.writes, reads: role.reads || null, drift: role.drift || null });
-  }
-  return out;
-}
 
 let ready = false;
 async function ensureLoaded() {
@@ -105,7 +95,16 @@ export const routeHandler = async (path, method, body, auth) => {
       signalHeat: signals.lastSignalAt(c.key, 'heat'),
       signalGrip: signals.lastSignalAt(c.key, 'grip'),
     }));
-    return { status: 200, body: { cells, roles: roles(), blocks: allBlocks().length } };
+    // The Wildblood's clock is the one thing in the sim an operator cannot infer
+    // from the cells, because it is not in them: it is what time it is.
+    const clock = readClock();
+    return {
+      status: 200,
+      body: {
+        cells, roles: roles(), blocks: allBlocks().length, drivers: driverNames(),
+        night: { open: nightOpen(clock), target: nightTarget(clock), clock },
+      },
+    };
   }
 
   if (path === '/unrest/force' && method === 'POST') {
@@ -139,12 +138,14 @@ export const routeHandler = async (path, method, body, auth) => {
   // picking the wrong one either silently stages an operator action or bypasses
   // review on authored content.
   if (path === '/unrest/incidents' && method === 'GET') {
+    const clock = readClock();
     return {
       status: 200,
       body: {
         live: incidents.liveIncidents().map(i => ({
           instanceId: i.instanceId, incident: i.defId, name: i.name, cell: i.key,
-          zone: i.zone, writes: i.writes, band: i.band, startedAt: i.startedAt, endsAt: i.endsAt,
+          zone: i.zone, writes: i.writes, driver: i.driver, band: i.band,
+          startedAt: i.startedAt, endsAt: i.endsAt,
         })),
         cap: incidents.MAX_LIVE,
         steps: incidents.stepNames(),
@@ -152,7 +153,8 @@ export const routeHandler = async (path, method, body, auth) => {
         // see the refusal reason concludes the sim is broken.
         catalogue: incidents.getCatalogue().map(d => ({
           id: d.id, name: d.name, writes: d.writes, minBand: d.minBand, weight: d.weight,
-          blocked: allBlocks().map(k => ({ cell: k, why: incidents.eligible(d, k) })),
+          driver: driverNameFor(d),
+          blocked: allBlocks().map(k => ({ cell: k, why: incidents.eligible(d, k, Date.now(), clock) })),
         })),
       },
     };

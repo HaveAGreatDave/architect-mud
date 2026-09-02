@@ -258,7 +258,8 @@ export async function handleCommand(input, player, broadcast, opts = {}) {
       player.sleeping = null;
       setPosture(player, 'standing');
       broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} stirs and opens their eyes.` }, player.id);
-      broadcast(null, { type: 'force_look' }, null, player.id);
+      // No force_look here: wakeFromDream pushes the room refresh itself on every
+      // wake path, and sleep_state rides this reply (server/index.js).
       return { type: 'output', message: 'You surface. The room reassembles itself around you, and this time it stays put.' };
     }
     if (!DREAM_VERBS.has(cmd)) {

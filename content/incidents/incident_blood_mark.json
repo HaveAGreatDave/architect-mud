@@ -1,0 +1,34 @@
+{
+  "cooldown_min": 1440,
+  "description": "Wildblood incursion, the one with nothing to fight. They were through here and they left something, and the street reads it correctly as an invitation without anybody knowing what it invites you to. Deliberately the commoner of the two: most nights they pass through and take nothing.",
+  "duration_min": 180,
+  "enabled": 1,
+  "flags": {
+    "driver": "incursion"
+  },
+  "id": "incident_blood_mark",
+  "min_band": "quiet",
+  "name": "A mark on the wall",
+  "stage": [
+    {
+      "author": "nobody who signed it",
+      "do": "graffiti",
+      "text": "a handprint pressed flat at head height, in something dark, with too much finger"
+    },
+    {
+      "do": "ambient",
+      "lines": [
+        "There is a handprint on the shutter and the fingers do not stop where fingers stop.",
+        "Somebody has been at the mark on the wall with a brush and got about half of it.",
+        "The dogs on this street will not go past the corner and nobody can make them."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "There is a mark on the wall on {place}. It is an invitation, and it is not for you, so keep your hands off it."
+    }
+  ],
+  "updated_at": "1788307200",
+  "weight": 14,
+  "writes": "heat"
+}

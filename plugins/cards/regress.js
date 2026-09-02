@@ -185,7 +185,11 @@ export default async function regress({ run, check, getPlayer }) {
       JSON.stringify(quoteOrNothing([])));
 
     const enemyCard = buildEnemyCard({ id: 'en_x', name: 'Thing', description: 'It is a thing.', hp_max: 40, hit: 3, dodge: 2, weapon: [{ min: 1, max: 5 }] }, { spawn_weight: 100, max_count: 4, zones: 3 });
-    check('an enemy card has no portrait body', enemyCard.body === null, String(enemyCard.body));
+    // ⚠ `body` is VESTIGIAL — it selected a silhouette for the portrait face, which
+    // was deleted on 2026-09-02. The column and this check stay because the value is
+    // still written at mint and a NULL for enemies is still the honest answer; if you
+    // ever drop the column, drop this with it.
+    check('an enemy card has no silhouette body', enemyCard.body === null, String(enemyCard.body));
     check('enemy power derives from combat numbers', enemyCard.power > 0, String(enemyCard.power));
     // ⚠ A THING THAT DOES NOT TALK IS NOT TOLD OFF FOR IT. The silence copy on a
     // rot-hound read as a card that failed to fill; it now gets its anatomy and

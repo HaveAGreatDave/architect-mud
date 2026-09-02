@@ -1,0 +1,52 @@
+{
+  "category": null,
+  "description": "You told Kesh you would think about it, and you have thought about it.\n\nThis is the rite. The Ascendants do not have a ceremony, because they think a ceremony would be a way of pretending the thing has not already been decided by arithmetic — but this is it, and everybody in that clinic knows it, and that is why nobody in there will look at you on the way in.\n\n⚠ Understand what the chair does. It is not the hardware, which can be pulled out again by anyone with a licence and a steady hand. It is that afterwards you are a person who has been opened, permanently and on the record, and the flesh path closes behind you the moment the first piece goes in. The Wildblood will not take you. The Watch will teach you nothing. Your standing with the Ascendants stops being something you can lose, which sounds like a gift until you notice it has stopped being something you can put down.\n\nThere is one way back and it is the Exodus on their table, taking out everything Halcyon ever put in, and charging you for the privilege.\n\n\"You will be walking in an hour,\" Kesh says, and that is true, and it is not the part anybody worries about.",
+  "fail_on": [],
+  "id": "quest_asc_fitting",
+  "meta": {},
+  "name": "Nothing Original Left",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Take the chair and be fitted.",
+      "emotes": [
+        "{who} takes the chair, and the last thing they hear is somebody counting backwards without much interest.",
+        "{who} comes round to find the room tidied and a cup of water already poured and gone cold.",
+        "{who} finds it does not hurt, and that this is somehow the part that is difficult."
+      ],
+      "id": "o_fitted",
+      "requires": [],
+      "type": "install"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "asc_pledged",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "10"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 250,
+        "ideology": "ideology_ascendants"
+      },
+      {
+        "delta": -150,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 60
+  },
+  "updated_at": "1788307200"
+}

@@ -456,4 +456,84 @@ export default async function regress({ run, check, getPlayer }) {
   p.stamina = p.stamina_max ?? 100;
   p._augHeat?.clear();
   p._augWearPending?.clear();
+
+  // ── The oath, and the warning the code has always claimed to give ─────────
+  //
+  // ⚠ SOURCE ASSERTIONS, and they are the honest tool here. `installAugment`
+  // needs a clinic zone, a surgeon NPC, real hardware in inventory and credits
+  // before it reaches either of these, and this suite has never driven it — it
+  // INSERTs into `player_augments` directly (see above). So the install path had
+  // no coverage at all, which is exactly how a comment reading "a deliberate,
+  // WARNED, one-way choice" sat above an unwarned one-way choice for months.
+  //
+  // What is pinned here is ORDER and one CONSTANT, because both fail silently:
+  // a gate below the charge takes money for a refusal, a confirm below the
+  // charge takes money for a question, and a MIN_ARC_SLOT of 10 deadlocks the
+  // very quest whose only objective is the install.
+  {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync('plugins/augments/install.js', 'utf8');
+
+    const at = (re) => { const m = src.match(re); return m ? src.indexOf(m[0]) : -1; };
+    const oath = at(/THE OATH, and it is checked here/);
+    const confirm = at(/The point of no return, said out loud/);
+    const charge = at(/adjustCredits\(player, -cost, undefined, 'augment:install'\)/);
+    const quote = at(/const cost = installQuote\(player, surgeon, aug\);/);
+
+    check('oath: the arc gate exists on the install path', oath > 0, String(oath));
+    check('oath: …and sits ABOVE the quote, not at the counter', oath > 0 && oath < quote,
+      `oath@${oath} quote@${quote}`);
+    check('oath: …so nobody unsworn is ever told they cannot afford it', oath < charge,
+      `oath@${oath} charge@${charge}`);
+
+    check('first fitting: the point-of-no-return confirm exists', confirm > 0, String(confirm));
+    // ⚠ It must sit BELOW the quote (do not warn about a fitting that is going to
+    // fail for some other reason) and ABOVE the charge (do not bill somebody for
+    // a question).
+    check('first fitting: …after everything else has validated', confirm > quote,
+      `confirm@${confirm} quote@${quote}`);
+    check('first fitting: …and before a credit moves', confirm < charge,
+      `confirm@${confirm} charge@${charge}`);
+
+    // ⚠ NINE, NOT TEN. Slot 10 IS the fitting (`quest_asc_fitting`), and the
+    // forty-slot ladder offers slot n at `arc > n-2`, so a player standing in
+    // front of the surgeon to do slot 10 is carrying arc 9. A 10 here means the
+    // quest can never be completed and the whole Ascendant path dead-ends.
+    const slot = Number((src.match(/const MIN_ARC_SLOT = (\d+);/) || [])[1]);
+    check('oath: the arc floor is 9, the slot BEFORE the fitting', slot === 9, String(slot));
+
+    // The confirm is armed-then-run like the Rite and the Purifier. All three
+    // irreversible things in this game ask the same way.
+    check('first fitting: the confirm is armed, not a yes/no prompt',
+      /FIRST_CONFIRM_MS/.test(src) && /pendingFirst/.test(src));
+    // Only the first one asks: afterwards the door it closes is already closed.
+    check('first fitting: …and only the first one asks',
+      /const isFirst = roster\.size === 0;/.test(src));
+
+    // The arc really does end at the fitting, and the claimed death really did
+    // move off slot 10. If somebody renumbers the content back, the gate above
+    // is wrong and this is the case that says so.
+    const fitting = JSON.parse(readFileSync('content/quests/quest_asc_fitting.json', 'utf8'));
+    const arcOf = (q) => Number((q.rewards?.flags || []).find(f => f.flag === 'asc_arc')?.value);
+    check('oath: the fitting is slot 10', arcOf(fitting) === 10, String(arcOf(fitting)));
+    check('oath: …and its objective is the install',
+      (fitting.objectives || []).some(o => o.type === 'install'));
+    const death = JSON.parse(readFileSync('content/quests/quest_asc_rite.json', 'utf8'));
+    check('oath: the claimed death sits above the rite slot', arcOf(death) === 11, String(arcOf(death)));
+
+    // ⚠ Every slot 1..10 filled exactly once, or the ladder has a hole and the
+    // arc stalls at it with nothing to explain why.
+    const { readdirSync } = await import('node:fs');
+    const slots = new Map();
+    for (const f of readdirSync('content/quests')) {
+      if (!f.endsWith('.json')) continue;
+      const q = JSON.parse(readFileSync(`content/quests/${f}`, 'utf8'));
+      const n = arcOf(q);
+      if (Number.isFinite(n)) slots.set(n, (slots.get(n) || 0) + 1);
+    }
+    const holes = [];
+    for (let n = 1; n <= 10; n++) if (!slots.get(n)) holes.push(n);
+    check('oath: the Ascendant ladder has no hole in 1-10', holes.length === 0, holes.join(','));
+  }
+
 }

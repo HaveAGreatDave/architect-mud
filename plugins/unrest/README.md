@@ -10,9 +10,15 @@ Design: [docs/proposals/unrest.md](../../docs/proposals/unrest.md). As built:
 
 ## Status
 
-**Phase 1 is built, all four steps.** 1a the ledger, 1b perceivability, 1c incidents,
-1d danger. Phase 2 (incident-response favours paying ideology rep) and phase 3 (the
-Null's `vendetta` and the Wildblood's `incursion`) are **design only**.
+**Phases 1, 2 and 3 are built.** 1a the ledger, 1b perceivability, 1c incidents, 1d
+danger; phase 2's favour seam (the `unrest_incident` condition shape — the favour
+QUESTS themselves are content and nobody has written one yet); and phase 3, the Null's
+`vendetta` and the Wildblood's `incursion`.
+
+Phase 3 adds no scalar, no table and no verb. It makes ELIGIBILITY a registry, because
+phase 1 had one rule and that rule is correct for exactly the two orders that fight over
+ground. The Null do not want the block, they want what is bolted to it; the Wildblood do
+not read the block at all. See `roles.js`.
 
 ## The files
 
@@ -24,6 +30,8 @@ Null's `vendetta` and the Wildblood's `incursion`) are **design only**.
 | `voice.js` | the two voices, and the one rule about place |
 | `incidents.js` | the selector, the staging, the teardown, and the safe stage steps |
 | `stage.js` | the dangerous stage steps: hostiles, checkpoints, the lockdown |
+| `favours.js` | the `unrest_incident` condition shape, so a quest can gate on live trouble |
+| `roles.js` | who is playing, and what their authored role lets them stage |
 
 ## The rules worth knowing before you touch it
 

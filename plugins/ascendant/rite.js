@@ -104,9 +104,13 @@ function warning() {
     '<span class="dmg-taken">This will kill you.</span>',
     '<span class="text-dim">Not metaphorically, and not gently. The pattern held in the Vats is the one you committed, not the one standing here — anything you have become since your last scan is not in it.</span>',
     '',
+    '<span class="dmg-taken">And it will finish something.</span>',
+    '<span class="text-dim">Getting up in the Vats is the last step of the Rite, and after it you are theirs on the ledger, permanently. Your standing with them stops being something you can lose. The flesh path shut the day you were first fitted; this shuts the rest of the doors behind it, and the orders who might have taken you will not be taking you now.</span>',
+    '<span class="text-dim">There is no quiet way back out. Walking away from the Ascendants after tonight is not a conversation you can have — it is the Exodus on their table, taking out everything Halcyon ever put in.</span>',
+    '',
     '<span class="ambient">Somewhere behind you, Orrin is not saying anything.</span>',
     '',
-    '<span class="text-dim">`ascend` again within thirty seconds to go through with it.</span>',
+    '<span class="text-dim">`ascend` again within thirty seconds to go through with it. Nobody will ask you a third time.</span>',
   ].join('<br>');
 }
 

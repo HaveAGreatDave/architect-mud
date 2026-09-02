@@ -1,8 +1,8 @@
 # Mastery — the Long Watch's discipline
 
-**STATUS: Phases 0–5 built (the swing seam, the purity cap, the stain, Read and Exploit,
-Composure, stances, techniques, and the read window across all three Display Mode rungs).
-The Senses and Mind disciplines are design.**
+**STATUS: BUILT.** The swing seam, the purity cap, the stain, Read and Exploit, Composure,
+stances, techniques, the read window across all three Display Mode rungs, and — as of
+2026-09-02 — the Senses and Mind disciplines. All eight disciplines now do something.
 
 The third body philosophy. The Wildblood become something else, the Ascendants replace what
 they were born with, the Exodus hold that reality is permeable — and the Long Watch master
@@ -24,6 +24,8 @@ the body they were issued.
 | `plugins/mastery/reads.js` | Heat, familiarity, tiers. |
 | `plugins/mastery/exploits.js` | The exploit table and its matching rule. |
 | `plugins/mastery/composure.js` | The resource. Runtime only — no column, no table. |
+| `plugins/mastery/senses.js` | Blind Fighting. Gives back part of the dark, never a bonus. |
+| `plugins/mastery/mind.js` | Fear Discipline. Resists what you saw, never what you chose. |
 | `plugins/mastery/techniques.js` | Stances and techniques, and the roll that lets them fail. |
 | `plugins/mastery/readgame.js` | The reaction window: arming, the deadline, resolution. |
 | `plugins/mastery/index.js` | The verbs, the swing contributor, the training. |
@@ -303,10 +305,66 @@ own combat-stance verb is untouched for everybody else.
 blows, not by staring, and a `read` that paid out would be a free action spammed at the top of
 every fight.
 
+## Senses — Blind Fighting
+
+Their answer to enhanced-sense mutants: not new organs, extraordinary use of the ones
+everybody has. A veteran does not see in the dark. They have stopped needing to look.
+
+⚠ **It is not a `visibility.perceive` contributor, and this doc used to say it would be.**
+That hook hands every handler the *same original arguments* and keeps the *last*
+non-undefined answer. `plugins/flashlight` already answers it, and `flashlight` sorts
+before `mastery`, so mastery would answer second — off the raw visibility — and its answer
+would **replace** the torch's. A player holding a lit torch would perceive a dark room
+*worse* for having trained. Returning `undefined` when there is no opinion, which is what
+the old note prescribed, does not help: in a dark room this discipline **has** an opinion,
+and it still stomps.
+
+So it rides the swing seam mastery already owns, on the one number that actually matters.
+`combat.js` now computes the darkness to-hit penalty **before** building the outgoing swing
+ctx and hands it over as `ctx.darkness`, reading it back clamped at 0. Three consequences,
+all of them the point:
+
+- **It is the PERCEIVED penalty**, so a carried light has already shrunk it. Two systems,
+  one number, no double-counting and no load order to get wrong.
+- **It cannot be a passive.** A contributor can only give back a share of what the dark
+  took. In a lit room the penalty is 0 and the discipline contributes 0 *by arithmetic*,
+  not by a guard. A flat `hitMod` would have been a permanent bonus in a situational
+  costume — the exact thing [the founding rule](#the-rule-the-whole-system-is-built-on)
+  forbids. Regress asserts this at every rank on the ladder.
+- **Never all of it** (`BLIND_MAX_GIVEBACK`, 0.8). A discipline that erased darkness would
+  delete darkness as a thing the game does, and every light source with it.
+
+The line is said **once per opponent**, on the same reasoning as the tier lines: a system
+whose fiction is that it does not look supernatural cannot narrate itself every exchange.
+
+## Mind — Fear Discipline
+
+On `registerSanityResistor`, whose header in [`condition.js`](../server/engine/condition.js)
+already named this as the seam's first customer. The engine owns the arithmetic — resistors
+combine multiplicatively, each is individually capped, and no stack of them reaches
+immunity — so `mind.js` returns one fraction and nothing else.
+
+⚠ **It resists what you WITNESSED, never what you did to yourself.** Most sanity loss in
+this game is self-inflicted: a drug, a botched splice, a synthesis byproduct, psionic
+strain, the Purifier, going without sleep. Discipline is not a defence against a choice.
+A Fear Discipline that softened all of it would be "take less sanity damage", which is a
+flat passive on the one resource with no other defence. So the gate is an **allow-list**
+(`FEAR_REASONS`) and it fails closed.
+
+The finest cut in it: `'you watched that'` is in and `'you killed the stray'` is not.
+Watching an animal killed in front of you is horror; killing it yourself is guilt.
+
+⚠ **The list is short because the game is.** `adjustSanity` has about twenty call sites and
+only two are losses this should touch. That is a fact about how much horror is currently
+wired, not a gap here — and it is why the set is exported: **a new grotesque thing opts in
+by naming its reason there**, in one place. Adding a horror source and forgetting that line
+is the failure mode to watch for. Regress sweeps `server/` and `plugins/` to confirm every
+reason in the list is still one somebody actually passes, so a rename cannot orphan it
+silently.
+
 ## Not built yet
 
-The Senses and Mind disciplines: **Blind Fighting** as a `visibility.perceive` contributor
-(note that hook keeps only the *last* handler's answer, so mastery must return `undefined`
-when it has no opinion or it stomps `plugins/flashlight`), and **Fear Discipline** on the
-`registerSanityResistor` seam added with the sanity funnel. See
-[proposals/mastery.md](proposals/mastery.md).
+Nothing in this document. The remaining Long Watch ideas — Pain Discipline, Cold Mind,
+Combat Meditation, Ghost Step, Wall Run and the rest of the per-discipline technique
+catalogue — are in [proposals/mastery.md](proposals/mastery.md) and have never been
+scheduled.
