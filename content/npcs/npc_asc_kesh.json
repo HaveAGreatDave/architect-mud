@@ -61,43 +61,6 @@
       ],
       "text": "\"The drift.\" She says it flatly, a diagnosis. \"Ask anybody deep in the chrome. There is a point where a replaced hand stops being a thing you move and becomes a thing that moves. Fractionally early. Fractionally right.\"\n\nThe ocular whirs back to life.\n\n\"Nothing on the readouts. Latency, we call it. Latency.\"\n\nShe preps the chair for the next patient.\n\n\"It fits perfectly. That is the part nobody forgives.\""
     },
-    "fitting_no": {
-      "options": [
-        {
-          "label": "(go)",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Good.\" The ocular stays down a moment more, then lifts. \"That was the right answer this week. It is allowed to be the right answer next week too.\n\n\"I am here most days. The file does not close.\""
-    },
-    "fitting_offer": {
-      "options": [
-        {
-          "actions": [
-            {
-              "action": "START_QUEST",
-              "quest_id": "quest_asc_fitting"
-            }
-          ],
-          "label": "Today.",
-          "next": "fitting_yes"
-        },
-        {
-          "label": "Another day.",
-          "next": "fitting_no"
-        }
-      ],
-      "text": "The ocular comes down, and stays down longer than it needs to.\n\n\"Then I am going to say the part I say to everybody, and I am going to say it slowly, because people nod through it and then come back in a year angry with me.\n\n\"The metal is reversible. Any licensed pair of hands can take a piece out. That is not what you are deciding.\n\n\"What you are deciding is that you become a person who has been opened. That is on your record and it does not come off it. The flesh path shuts today: whatever was going to grow in you does not, after this, and the ones who care about that will know inside a minute of meeting you and will not be making you offers. The Watch will not teach you. The Wildblood will not have you.\n\n\"And the Ascendants stop being something you can fall out of. People hear that as a promise. It is also a wall, and it is on your side of it.\"\n\nA pause, and the ocular does not move.\n\n\"One way back. The Exodus, on a table like this one, taking out everything Halcyon ever put in and charging you for the afternoon. I do not do that work and I will not tell you who does.\n\n\"So. Today, or another day. Both are answers.\""
-    },
-    "fitting_yes": {
-      "options": [
-        {
-          "label": "(go)",
-          "next": "bye"
-        }
-      ],
-      "text": "The ocular clicks back up, and that is the whole of the ceremony.\n\n\"Buy the piece. I cut, I do not sell, and I am not going to help you choose it either. `augment` will show you what I can fit.\n\n\"Choose one you would be happy to be buried in.\""
-    },
     "how": {
       "options": [
         {
@@ -129,7 +92,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The catch is that it is ours.\" He says it without any change of tone at all. \"Halcyon makes the joint, Halcyon services it, and in eleven years it will want servicing. You would be on our books from Thursday and you would stay there.\"\n\n\"I am not going to pretend that is nothing. It is the whole business. But you asked me what the catch was and I have got no reason to lie about it -- you will read it on the form before you sign it, and then you would only think I had tried.\""
+      "text": "\"The catch is that it is ours.\" She says it without any change of tone at all. \"Halcyon makes the joint, Halcyon services it, and in eleven years it will want servicing. You would be on our books from Thursday and you would stay there.\"\n\n\"I am not going to pretend that is nothing. It is the whole business. But you asked me what the catch was and I have got no reason to lie about it -- you will read it on the form before you sign it, and then you would only think I had tried.\""
     },
     "lw_wait_offer": {
       "_vine": {
@@ -153,7 +116,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You have been favouring your left hand since you came through the door.\" He does not get up, and he does not make it sound like a sales opening. \"The middle two knuckles. You are gripping with the outside of the hand and letting those two do nothing.\"\n\n\"How long has it been like that?\""
+      "text": "\"You have been favouring your left hand since you came through the door.\" She does not get up, and she does not make it sound like a sales opening. \"The middle two knuckles. You are gripping with the outside of the hand and letting those two do nothing.\"\n\n\"How long has it been like that?\""
     },
     "lw_wait_price": {
       "_vine": {
@@ -184,7 +147,7 @@
           "next": "lw_wait_catch"
         }
       ],
-      "text": "\"A year means the cartilage is gone and the tendon is fine, which is the cheap way round.\" He writes two numbers on a pad and turns it towards you.\n\n\"Nine hundred is a whole new hand. Full sensory, matched to your skin tone, and you do not need it. People buy it because it is the one on the poster.\"\n\n\"Two hundred and twenty is the two knuckles. You keep your own hand, your own nerves and your own fingerprints. It takes me an afternoon and you would be opening a door with that hand by Thursday.\"\n\nHe puts the pen down.\n\n\"I would rather you came back next week than said yes now. I am paid the same either way.\""
+      "text": "\"A year means the cartilage is gone and the tendon is fine, which is the cheap way round.\" She writes two numbers on a pad and turns it towards you.\n\n\"Nine hundred is a whole new hand. Full sensory, matched to your skin tone, and you do not need it. People buy it because it is the one on the poster.\"\n\n\"Two hundred and twenty is the two knuckles. You keep your own hand, your own nerves and your own fingerprints. It takes me an afternoon and you would be opening a door with that hand by Thursday.\"\n\nShe puts the pen down.\n\n\"I would rather you came back next week than said yes now. I am paid the same either way.\""
     },
     "root": {
       "options": [
@@ -199,7 +162,7 @@
             }
           ],
           "enabled": true,
-          "label": "(he has clearly been waiting for a chance to say something)",
+          "label": "(she has clearly been waiting for a chance to say something)",
           "next": "lw_wait_offer"
         },
         {
@@ -221,28 +184,6 @@
           ],
           "label": "The First says my account is open.",
           "next": "account"
-        },
-        {
-          "conditions": [
-            {
-              "flag": "quest_asc_turn",
-              "op": "eq",
-              "scope": "player",
-              "value": "turned_in"
-            },
-            {
-              "flag": "quest_asc_fitting",
-              "op": "unset",
-              "scope": "player"
-            },
-            {
-              "flag": "asc_pledged",
-              "op": "unset",
-              "scope": "player"
-            }
-          ],
-          "label": "I've thought about it.",
-          "next": "fitting_offer"
         },
         {
           "label": "Nothing today.",
