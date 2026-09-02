@@ -157,6 +157,22 @@ understates usage by 10⁶, which presents as a permanently, reassuringly empty
 bandwidth row. `toBytes()` converts through the declared unit and refuses to
 guess an unrecognised one.
 
+### Are the gaps real? (`ops:gaps`)
+
+Instance-hours and cold starts are derived from the *same* CPU series, and on
+2026-09-02 they disagreed: 93–96% uptime beside 12.6 cold starts/day, which
+works out at an average gap under 7 minutes — shorter than the 15 minutes Render
+waits before spinning a free service down. Both cannot be true. Either the gaps
+are scrape misses (and the cold-start rate, the multiplier in the whole egress
+model, is overstated), or they are real and the spin-down saving
+[`keepalive.js`](../server/keepalive.js) was written to collect is not being
+collected.
+
+A gap *histogram* separates the two, bucketed either side of the idle threshold.
+That is what [`scripts/ops/gaps.mjs`](../scripts/ops/gaps.mjs) prints, in about
+twenty lines, from the same endpoint `--discover` dumps ten thousand timestamps
+of.
+
 **⚠ Render reports no instance-count for free services** — `200` with an empty
 array. That is a plan limitation, not a zero, so it is left **unreported**;
 recording 0 would read as a wide-open budget on the metric a 24/7 free service
@@ -197,7 +213,8 @@ OPS_WEBHOOK_URL=…    # Discord channel → Integrations → Webhooks
 | Command | Does |
 |---|---|
 | `npm run ops:usage` | Verdict table, attribution, alert if warranted. |
-| `npm run ops:usage:discover` | Raw API payloads, no verdicts. Use when a shape changes. |
+| `npm run ops:usage:discover` | Raw API payloads, no verdicts. Use when a shape changes. ⚠ A week of CPU samples is ~10,000 timestamps, so this scrolls off a terminal — redirect it (`> dump.json`) rather than reading it live, and reach for `ops:gaps` when the question is about uptime. |
+| `npm run ops:gaps` | Gap histogram over Render's CPU timeline — tells a spin-down from a missed scrape. `--days N` to widen the window. |
 | `npm run ops:smoke` | The pure decision logic. Wired into `pretest:regress`. |
 
 Flags: `--json`, `--no-alert`, `--no-db` (skip attribution), `--fail-on-alert`
