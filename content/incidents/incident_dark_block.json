@@ -1,0 +1,33 @@
+{
+  "cooldown_min": 720,
+  "description": "Null vendetta. Every camera on the block stops at once, which is not a thing that happens by accident and is not a thing anybody will admit happened. Gated on GRIP, not on the band: the target is a street the authority has already finished pacifying, because that is the street with the most of their hardware on it and the fewest people left outside to notice it go quiet.",
+  "duration_min": 120,
+  "enabled": 1,
+  "flags": {
+    "driver": "vendetta"
+  },
+  "id": "incident_dark_block",
+  "min_band": "quiet",
+  "name": "Nobody is watching this street",
+  "stage": [
+    {
+      "do": "ambient",
+      "lines": [
+        "Every camera on this stretch is aimed at the ground, and not one of the little red lights is on.",
+        "Somebody has been the length of the row with a ladder. The lenses are all still there. None of them are doing anything.",
+        "A maintenance van has been under the same pole for two hours and nobody has got out of it."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "Every eye on {place} has been out since last night. Nobody official is saying so, and that is how you know it was not weather."
+    },
+    {
+      "do": "news",
+      "text": "A scheduled optical maintenance window is under way toward {place} — coverage is unaffected and residents should expect no change to response times."
+    }
+  ],
+  "updated_at": "1788307200",
+  "weight": 12,
+  "writes": "assets"
+}

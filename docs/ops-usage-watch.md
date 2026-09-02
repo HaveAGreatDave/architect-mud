@@ -99,8 +99,19 @@ A percentage does not tell you what to do, so the report also measures both
 factors of the egress model directly, from **production**:
 
 - **Boot payload** — `sum(pg_column_size(t.*))` over every table declaring
-  `readTier: 'boot'` in [`content-registry.js`](../server/models/content-registry.js).
-  One `UNION ALL`, not one query per table.
+  `readTier: 'boot'` in [`content-registry.js`](../server/models/content-registry.js),
+  **minus the ones marked `bootSource: 'files'`**. One `UNION ALL`, not one query
+  per table.
+
+  ⚠ **`readTier: 'boot'` means "in memory at boot", not "fetched from Neon at
+  boot", and for months this counted the difference.** The six audio tables are
+  both — and in production `loadAudioLibrary` reads them off the checkout, so
+  they cost nothing. Summing them anyway put **14.2 MB** of untouchable audio at
+  the top of the printout, 11.5 MB of it `audio_samples.data`, a column no boot
+  read selects in any environment. That was about **half** the modelled payload,
+  and it landed on the divergence check below, which is the one thing here that
+  cannot afford a constant offset. Corrected 2026-09-02: real cold-start payload
+  is ~13.7 MB, `zones` is 63% of it, and the report now names what it left out.
 - **World loads/day** — cold starts from **Render's CPU timeline** (§5).
 
 ⚠ **Not from `player_count_log`, which undercounts by roughly half.** That was
@@ -159,7 +170,7 @@ exposes no build-minutes endpoint. Labelled `derived` everywhere it travels.
 
 | Row | First thing to check |
 |---|---|
-| **Neon egress** | The attribution block. High payload → trim boot-tier tables (`zones.description` and `power_zones` are the named remaining wins in [neon-egress-cause](../CLAUDE.md)). High loads/day → deploy frequency, or Render cold starts. Model ≪ API → something other than world boot is reading prod. |
+| **Neon egress** | The attribution block. High payload → trim boot-tier tables. `zones.description` was the biggest named win and is **done** (2026-09-02 — read off the checkout, see architecture.md → *read it off the checkout*); what is left is `zones.flags`/`exits` (hot, not trimmable), `npcs.dialogue_tree` ~0.70MB, `media_broadcasts.broadcast_graph` ~0.63MB and `power_zones`. High loads/day → deploy frequency, or Render cold starts. Model ≪ API → something other than world boot is reading prod. |
 | **Neon compute** | A tick pinning a connection stops Neon suspending. See the persistence tiers in [architecture.md](architecture.md) and `hasActivePlayers()` idle-gating. |
 | **Neon storage** | `neon_usage_log.top_tables` names the biggest tables; the report prints growth per day. |
 | **Neon branches** | Almost always `predeploy-*` snapshots. The prune in `deploy-content.yml` keeps the newest 5 but is `continue-on-error`, so a wedged prune is silent — until the *next* deploy's snapshot fails and aborts the deploy before prod. Delete stale branches in the Neon console. |

@@ -577,6 +577,300 @@ export default async function regress({ run, check, getPlayer }) {
     check('…while the STORED rank is untouched', storedRank(C, 'body') === 95, String(storedRank(C, 'body')));
   }
 
+  // ── Senses: Blind Fighting ────────────────────────────────────────────────
+  //
+  // Two things go wrong here invisibly. The first is that it becomes a passive:
+  // a flat to-hit bonus is indistinguishable from a working situational one
+  // right up until somebody fights in daylight, and it would make mastery the
+  // stat block the whole system is built on not being. The second is the
+  // flashlight stomp — the reason this is not a `visibility.perceive`
+  // contributor, and a "fix" somebody would very reasonably attempt.
+  {
+    const senses = await import('./senses.js');
+    const { applyBlindFighting, blindFightingGiveback, blindFightingLine, BLIND_MIN_RANK, BLIND_MAX_GIVEBACK } = senses;
+    const S = getPlayer();
+    S._disciplines = new Map(); S._disciplinesDirty = new Set();
+    S._augments = new Map();
+    delete S._blindSaid;
+
+    const dark = () => ({ kind: 'outgoing', darkness: -4, lines: [] });
+    const lit = () => ({ kind: 'outgoing', darkness: 0, lines: [] });
+
+    check('blind fighting: an untrained body gives nothing back',
+      applyBlindFighting(S, dark()) === 0);
+    setRank(S, 'senses', BLIND_MIN_RANK - 1);
+    check('blind fighting: …nor one that has only heard of it',
+      applyBlindFighting(S, dark()) === 0, String(blindFightingGiveback(S)));
+
+    // ⚠ THE PASSIVE TEST. In a lit room the penalty is 0, so the discipline must
+    // contribute exactly 0 — by arithmetic, not by a guard somebody can drop.
+    setRank(S, 'senses', 100);
+    const litCtx = lit();
+    check('blind fighting: a lit room gets nothing at all, at any rank',
+      applyBlindFighting(S, litCtx) === 0 && litCtx.darkness === 0, String(litCtx.darkness));
+
+    // …and the same at every rank, because a fraction of zero is zero however
+    // good you are. This is the assertion that survives a retune of the curve.
+    let leaked = [];
+    for (let r = 0; r <= 100; r += 10) {
+      setRank(S, 'senses', r);
+      const c = lit();
+      if (applyBlindFighting(S, c) !== 0 || c.darkness !== 0) leaked.push(r);
+    }
+    check('blind fighting: …at every rank on the ladder', leaked.length === 0, leaked.join(','));
+
+    setRank(S, 'senses', 100);
+    const darkCtx = dark();
+    const given = applyBlindFighting(S, darkCtx);
+    check('blind fighting: the dark gives something back', given > 0, String(given));
+    // ⚠ NEVER ALL OF IT. A discipline that erased darkness would delete darkness
+    // as a thing the game does, and every light source with it.
+    check('blind fighting: …but never all of it', darkCtx.darkness < 0, String(darkCtx.darkness));
+    check('blind fighting: …and never past the cap',
+      given <= 4 * BLIND_MAX_GIVEBACK + 1e-9, `${given} of 4`);
+    check('blind fighting: …and never inverts into a bonus', darkCtx.darkness <= 0, String(darkCtx.darkness));
+
+    // A better body gives more back than a worse one, monotonically.
+    setRank(S, 'senses', 50);
+    const mid = applyBlindFighting(S, dark());
+    setRank(S, 'senses', 100);
+    const top = applyBlindFighting(S, dark());
+    check('blind fighting: rank buys more of it back', top > mid && mid > 0, `${mid} -> ${top}`);
+
+    // ⚠ It reads effectiveRank, never storedRank. Chrome must close this the way
+    // it closes everything else, or the Long Watch's own discipline is the one
+    // thing you can buy your way into.
+    S._augments = new Map([['aug_regress_arm', { augment_id: 'aug_regress_arm', slot: 'arms', condition: 1, calibration: 100 }]]);
+    const chromed = applyBlindFighting(S, dark());
+    check('blind fighting: chrome lowers what it gives back', chromed < top, `${top} -> ${chromed}`);
+    check('blind fighting: …while the stored rank is untouched', storedRank(S, 'senses') === 100);
+    S._augments = new Map();
+    // ⚠ Taking chrome back OUT leaves a decaying stain on `_purity` — that is the
+    // feature working, and on a SHARED harness player it is residue. Left in, it
+    // silently caps every rank the next block reads and the failure names
+    // nothing to do with chrome.
+    delete S._purity; delete S._purityDirty;
+
+    // Said once per opponent, not once per swing.
+    delete S._blindSaid;
+    const foe = { instanceId: 'e_regress_blind', name: 'a thing' };
+    check('blind fighting: the line is said', !!blindFightingLine(S, foe));
+    check('blind fighting: …and not again for the same opponent', blindFightingLine(S, foe) === null);
+    check('blind fighting: …but is for the next one',
+      !!blindFightingLine(S, { instanceId: 'e_regress_blind_2', name: 'another thing' }));
+    delete S._blindSaid;
+
+    // ── THE FLASHLIGHT STOMP ────────────────────────────────────────────────
+    // ⚠ `fireHook` hands every handler the SAME original args and keeps the LAST
+    // non-undefined answer. plugins/flashlight answers `visibility.perceive` and
+    // sorts before mastery, so a mastery handler would answer second, off the RAW
+    // visibility, and REPLACE the torch's boost — the torch would stop working
+    // because its owner got good at fighting. Registering that hook here is the
+    // obvious "fix" and it is the bug. If this goes red, read senses.js's header
+    // before changing it back.
+    const { readFileSync } = await import('node:fs');
+    const manifest = JSON.parse(readFileSync('plugins/mastery/plugin.json', 'utf8'));
+    check('blind fighting: mastery does not answer visibility.perceive',
+      !(manifest.hooks || []).includes('visibility.perceive'), JSON.stringify(manifest.hooks || []));
+    const idxSrc = readFileSync('plugins/mastery/index.js', 'utf8');
+    check('blind fighting: …not in code either',
+      !/['"]visibility\.perceive['"]\s*:/.test(idxSrc));
+
+    // ── THE ENGINE HANDOFF ──────────────────────────────────────────────────
+    // The seam only works because combat.js computes the PERCEIVED penalty, puts
+    // it on the ctx, and reads it back CLAMPED. Written as a source assertion
+    // because there is no way to drive a real swing from here — the same shape
+    // the unrest suite uses to pin script-triggers' payload field.
+    const combatSrc = readFileSync('server/engine/combat.js', 'utf8');
+    check('blind fighting: the outgoing swing ctx carries the darkness penalty',
+      /const darkness = await darknessHitPenalty\(enemy\.zoneId, player\)/.test(combatSrc)
+      && /kind: 'outgoing'[\s\S]{0,220}darkness,/.test(combatSrc));
+    check('blind fighting: …and the margin reads it back clamped at 0',
+      /Math\.min\(0,\s*Number\.isFinite\(swing\?\.darkness\)\s*\?\s*swing\.darkness\s*:\s*darkness\)/.test(combatSrc));
+
+    S._disciplines = new Map(); S._disciplinesDirty = new Set();
+  }
+
+  // ── Mind: Fear Discipline ─────────────────────────────────────────────────
+  //
+  // The failure here is scope creep in one direction: a Fear Discipline that
+  // quietly resists everything is "take less sanity damage", a flat passive on
+  // the one resource with no other defence. The allow-list is the feature.
+  {
+    const mindMod = await import('./mind.js');
+    const { fearResist, isFear, FEAR_REASONS, FEAR_MIN_RANK, FEAR_MAX_RESIST } = mindMod;
+    const { adjustSanity, getSanityResistors } = await import('../../server/engine/condition.js');
+    const M = getPlayer();
+    M._disciplines = new Map(); M._disciplinesDirty = new Set();
+    M._augments = new Map();
+    // A clean body, stain included — the cap assertion below is exact.
+    delete M._purity; delete M._purityDirty;
+
+    check('fear: the resistor is registered under its own owner',
+      getSanityResistors().includes('mastery'), getSanityResistors().join(','));
+
+    check('fear: an untrained body resists nothing', fearResist(M, 'haunt') === 0);
+    setRank(M, 'mind', FEAR_MIN_RANK - 1);
+    check('fear: …nor one below the rung', fearResist(M, 'haunt') === 0);
+
+    setRank(M, 'mind', 100);
+    check('fear: a witnessed horror lands softer', fearResist(M, 'haunt') > 0, String(fearResist(M, 'haunt')));
+    check('fear: …and tops out exactly on the engine cap',
+      Math.abs(fearResist(M, 'haunt') - FEAR_MAX_RESIST) < 1e-9, String(fearResist(M, 'haunt')));
+
+    // ⚠ WHAT YOU DID TO YOURSELF IS NOT FEAR. Every one of these is a real reason
+    // string from a real call site, and discipline is not a defence against a
+    // choice. If one of these starts resisting, the allow-list has become a
+    // deny-list by accident.
+    const selfInflicted = ['drug', 'splice_critical', 'synthesis_byproduct', 'psionic strain',
+      'psionic backlash', 'the Purifier', 'sleep_deprivation', 'food_hazard', 'you killed the stray'];
+    const resisted = selfInflicted.filter(r => fearResist(M, r) !== 0);
+    check('fear: nothing self-inflicted is resisted, at rank 100', resisted.length === 0, resisted.join(' '));
+
+    // Fails closed, the direction every shape in this codebase fails.
+    check('fear: an unknown reason resists nothing', fearResist(M, 'a thing nobody named') === 0);
+    check('fear: …and so does no reason at all',
+      fearResist(M, null) === 0 && fearResist(M, undefined) === 0);
+    check('fear: isFear agrees with the set', isFear('haunt') === true && isFear('drug') === false);
+
+    // ⚠ A reason string is a free-text argument at a call site, so this list can
+    // be orphaned by a rename with nothing to notice. Sweep the callers.
+    {
+      const { readFileSync, readdirSync, statSync } = await import('node:fs');
+      const walk = (dir, out = []) => {
+        for (const f of readdirSync(dir)) {
+          const p = `${dir}/${f}`;
+          if (statSync(p).isDirectory()) { if (f !== 'node_modules') walk(p, out); }
+          else if (f.endsWith('.js')) out.push(p);
+        }
+        return out;
+      };
+      const src = [...walk('server'), ...walk('plugins')]
+        .filter(p => !p.endsWith('regress.js') && !p.endsWith('mind.js'))
+        .map(p => readFileSync(p, 'utf8')).join('\n');
+      const orphans = [...FEAR_REASONS].filter(r => !src.includes(`'${r}'`));
+      check('fear: every reason in the allow-list is one somebody actually passes',
+        orphans.length === 0, orphans.join(' | '));
+    }
+
+    // ── END TO END, THROUGH THE ONE FUNNEL ──────────────────────────────────
+    // The arithmetic above is only worth anything if it reaches `adjustSanity`,
+    // which is the single path every sanity writer in the game goes through.
+    const sanityBefore = M.sanity;
+    const cool = M.stat_cool;
+    try {
+      M.stat_cool = 1;                 // hold Cool's own resistance still
+      M.sanity_max = 100;
+
+      M._disciplines = new Map();      // untrained
+      M.sanity = 100;
+      const rawLoss = -adjustSanity(M, -20, 'haunt');
+      check('fear: an untrained body eats the whole horror', rawLoss > 0, String(rawLoss));
+
+      setRank(M, 'mind', 100);
+      M.sanity = 100;
+      const trainedLoss = -adjustSanity(M, -20, 'haunt');
+      check('fear: a trained one eats less of it', trainedLoss < rawLoss, `${rawLoss} -> ${trainedLoss}`);
+      // Never immunity. The engine caps each resistor and combines them
+      // multiplicatively precisely so no stack can reach zero.
+      check('fear: …and never none of it', trainedLoss > 0, String(trainedLoss));
+
+      // The same body, a loss it chose: no discount at all.
+      M.sanity = 100;
+      const chosenLoss = -adjustSanity(M, -20, 'drug');
+      check('fear: …and pays full price for what it did to itself',
+        Math.abs(chosenLoss - rawLoss) < 1e-9, `${rawLoss} vs ${chosenLoss}`);
+
+      // ⚠ GAINS ARE NEVER DAMPED — condition.js's own rule. A resistor that
+      // touched a gain would make the discipline a penalty on every restorative.
+      M.sanity = 10;
+      const gain = adjustSanity(M, 20, 'haunt');
+      check('fear: a gain is never resisted', Math.abs(gain - 20) < 1e-9, String(gain));
+
+      // Chrome closes it, like everything else in this system.
+      M._augments = new Map([['aug_regress_arm', { augment_id: 'aug_regress_arm', slot: 'arms', condition: 1, calibration: 100 }]]);
+      check('fear: chrome lowers what it resists', fearResist(M, 'haunt') < FEAR_MAX_RESIST,
+        String(fearResist(M, 'haunt')));
+      check('fear: …while the stored rank is untouched', storedRank(M, 'mind') === 100);
+      M._augments = new Map();
+      delete M._purity; delete M._purityDirty;
+    } finally {
+      M.sanity = sanityBefore;
+      M.stat_cool = cool;
+      M._disciplines = new Map(); M._disciplinesDirty = new Set();
+    }
+  }
+
+  // ── The oath: mastery is not taught to people who have not sworn in ───────
+  //
+  // ⚠ This is the ONLY commitment gate mastery has. Chrome locks you in by
+  // construction — one install and `chromed_ever` shuts the flesh path for ever —
+  // and nothing did that for this discipline: before the gate a player could
+  // climb the whole thing on reputation alone and never commit to anybody.
+  {
+    const { setFlag, getFlag } = await import('../../server/engine/flags.js');
+    const { doTrain, LONG_WATCH } = _internals;
+    const T = getPlayer();
+    const savedArc = await getFlag('player', 'lw_arc', T);
+    T._disciplines = new Map(); T._disciplinesDirty = new Set();
+    T._augments = new Map(); T._mutationCache = null;
+    delete T._purity; delete T._purityDirty;
+
+    // A teacher who will take anybody the gate lets through: no rep, no ceiling
+    // trouble, so the ONLY thing under test below is the arc.
+    const entry = {
+      npc: { id: 'npc_regress_pike', name: 'Pike' },
+      cfg: { disciplines: ['body'], max_rank: 100, rep_required: 0 },
+    };
+
+    await setFlag('player', 'lw_arc', '', T);
+    const unsworn = await doTrain(T, entry, 'body');
+    check('oath: an unsworn body is not taught', /stood a watch/i.test(unsworn?.message || ''), unsworn?.message);
+    check('oath: …and learns nothing from being refused', storedRank(T, 'body') === 0);
+
+    // ⚠ Number(undefined) is NaN and NaN >= 10 is false, so an unset arc fails
+    // with no special case — the trick every gate on the forty-slot ladder uses.
+    check('oath: an UNSET arc fails the gate rather than passing it',
+      Number.isNaN(Number(undefined)) && !(Number(undefined) >= 10));
+
+    // Nine of ten is not ten. Slots 1-9 are the movements where the order is
+    // still measuring you, and the whole point of the rite is that they end.
+    await setFlag('player', 'lw_arc', '9', T);
+    const nearly = await doTrain(T, entry, 'body');
+    check('oath: nine slots of ten is still not sworn in',
+      /stood a watch/i.test(nearly?.message || ''), nearly?.message);
+    check('oath: …and still teaches nothing', storedRank(T, 'body') === 0);
+
+    await setFlag('player', 'lw_arc', '10', T);
+    const sworn = await doTrain(T, entry, 'body');
+    check('oath: the rite opens the discipline', !/stood a watch/i.test(sworn?.message || ''), sworn?.message);
+    check('oath: …and the lesson actually lands', storedRank(T, 'body') > 0, String(storedRank(T, 'body')));
+
+    // ⚠ It gates TEACHING, never what you already know. A rank earned before this
+    // shipped is still yours and still rides every seam — the gate must never
+    // read as a retroactive confiscation.
+    const earned = storedRank(T, 'body');
+    await setFlag('player', 'lw_arc', '', T);
+    check('oath: an unsworn body keeps a rank it already earned',
+      storedRank(T, 'body') === earned, `${earned} -> ${storedRank(T, 'body')}`);
+    check('oath: …and it is still worth its effective value',
+      effectiveRank(T, 'body') === earned, String(effectiveRank(T, 'body')));
+
+    // The door still comes FIRST. A chromed stranger is told about the metal,
+    // not about the rite — they would otherwise go and do ten missions and be
+    // refused at the end of them for the reason nobody mentioned.
+    await setFlag('player', 'lw_arc', '', T);
+    T._augments = new Map([['aug_regress_arm', { augment_id: 'aug_regress_arm', slot: 'arms', condition: 1, calibration: 100 }]]);
+    const chromed = await doTrain(T, entry, 'body');
+    check('oath: chrome is still refused before the oath is mentioned',
+      !/stood a watch/i.test(chromed?.message || ''), chromed?.message);
+    T._augments = new Map();
+    delete T._purity; delete T._purityDirty;
+
+    await setFlag('player', 'lw_arc', savedArc == null ? '' : String(savedArc), T);
+    T._disciplines = new Map(); T._disciplinesDirty = new Set();
+  }
+
   // Leave the harness player as we found it.
   P._disciplines = new Map(); P._disciplinesDirty = new Set();
 }

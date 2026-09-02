@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Kesh will see you now.\n\nIt is a consultation, and it is genuinely one — he will talk you out of two of the three things you might have wanted, on the grounds that they are not worth what they cost you. He is a good surgeon and he is not selling.\n\nWhat he does not say, because it is on the form and he assumes you have read the form, is that this is the last appointment at which you are a person who has never been opened. The Exodus can undo it, at a price, and nobody else in this city can — and Kesh does not do that work, and will not say who does.\n\n\"Sit down,\" he says. \"You will be walking in an hour.\"",
+  "description": "Kesh will see you now.\n\nIt is a consultation, and it is genuinely one. He will talk you out of two of the three things you might have wanted, on the grounds that they are not worth what they cost you. He is a good surgeon and he is not selling.\n\nWhat he does not say, because it is on the form and he assumes you have read the form, is that this is the last appointment at which you are a person who has never been opened. The Exodus can undo it, at a price, and nobody else in this city can, and Kesh does not do that work and will not say who does.\n\n\"Sit down,\" he says. \"Nothing today. Today we talk about it, and you go home, and you think about whether you want it. Come back when you know.\"",
   "fail_on": [],
   "id": "quest_asc_turn",
   "meta": {},
@@ -17,20 +17,6 @@
       "id": "o_consult",
       "target": "npc_asc_kesh",
       "type": "talk"
-    },
-    {
-      "count": 1,
-      "desc": "Take the chair and be fitted.",
-      "emotes": [
-        "{who} takes the chair, and the last thing they hear is somebody counting backwards without much interest.",
-        "{who} comes round to find the room tidied and a cup of water already poured and gone cold.",
-        "{who} finds it does not hurt, and that this is somehow the part that is difficult."
-      ],
-      "id": "o_fitted",
-      "requires": [
-        "o_consult"
-      ],
-      "type": "install"
     }
   ],
   "penalties": {},
@@ -40,27 +26,22 @@
     "credits": 0,
     "flags": [
       {
-        "flag": "asc_pledged",
-        "scope": "player",
-        "value": "done"
-      },
-      {
         "flag": "asc_arc",
         "scope": "player",
-        "value": "8"
+        "value": "9"
       }
     ],
     "rep": [
       {
-        "delta": 250,
+        "delta": 90,
         "ideology": "ideology_ascendants"
       },
       {
-        "delta": -150,
+        "delta": -40,
         "ideology": "ideology_long_watch"
       }
     ],
-    "xp": 60
+    "xp": 20
   },
   "updated_at": "1787377233"
 }

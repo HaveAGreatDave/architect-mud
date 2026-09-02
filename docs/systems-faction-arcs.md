@@ -16,6 +16,14 @@ Every order gets **forty missions**, in three movements:
 | **4–6** | **Tests that do not look like tests.** The player should be able to finish these without ever realising they were being weighed — and should be able to work it out afterwards. | No |
 | **7–9** | **Work with a cost.** The first jobs that take something from somebody. **The crossover sits at 7**: you are sent against a rival order's target, and that order makes you a counter-offer on the spot. | No |
 | **10** | **The rite.** A real test, not a ceremony. Passing it locks you in. | **Yes** |
+
+⚠ **Slot 10 is the exclusionary rung and it must be the IRREVERSIBLE act, not the ceremony that
+follows one.** Where an order already has an irreversible act, slot 10 is that act: the Ascendants'
+is the fitting (`chromed_ever`), not the Uplink death that needs the fitting to have happened. And
+**each order's discipline is gated on its own arc reaching the rite** — mastery on `lw_arc`
+(`plugins/mastery/index.js`), chrome on `asc_arc` (`plugins/augments/install.js`). ⚠ The chrome gate
+is **9, not 10**, because slot 10 IS the fitting and the ladder offers slot *n* at `arc > n-2`; a 10
+there would deadlock the one quest whose only objective is the install.
 | **11–40** | **Rank.** Five ranks of six, each more serious than the last, each paying standing that opens hardware, doors and dialogue. | Yes |
 
 **Why the crossover is slot 7 and not slot 1.** A recruiter's offer is only interesting if you have
@@ -155,9 +163,26 @@ reason a trigger can gate on it.
 | 5 | `quest_asc_fav_lead` A Warm Lead | Bring somebody else in. | test |
 | 6 | `quest_asc_fav_adjuster` Adjuster | *"Nobody will remember me."* | test |
 | 7 | **`quest_asc_cross` Where It Is Printed** | Find the Watch's press — and **Wessel Ardy is sitting in the dark next to it**, and does not get up. | **crossover** |
-| 8 | `quest_asc_turn` The Account | The fitting. `chromed_ever` burns the flesh path. | cost |
-| 9 | `quest_asc_loyalty` Restoring Service | Put the Watch's blinded cameras back. −400 with them. | cost |
-| 10 | `quest_asc_rite` The Rite of Ascension | Back up, die at the Uplink, get printed. | **rite** |
+| 8 | `quest_asc_loyalty` Restoring Service | Put the Watch's blinded cameras back. −400 with them. | cost |
+| 9 | `quest_asc_turn` The Account | The consultation with Kesh, and only that. You go home and think about it. | cost |
+| 10 | **`quest_asc_fitting` Nothing Original Left** | **The fitting.** `chromed_ever` burns the flesh path and shuts it for ever. | **rite** |
+| 11 | `quest_asc_rite` The Rite of Ascension | Back up, die at the Uplink, get printed. | rank 1 |
+
+⚠ **Restructured 2026-09-02 so that slot 10 is the fitting.** Slot 10 is the exclusionary rung for
+every order, so it has to be the irreversible act — and for the machine path the irreversible act is
+the chair, not the Uplink. `chromed_ever` fires on the first fitting and shuts the flesh path
+permanently; the claimed death is a *demonstration* that the account works, which is why it now sits
+at 11 as the first thing the order asks of a member.
+
+It could not simply be swapped with the death, because **the death depends on the fitting** — the
+Rite of Ascension needs `aug_cortical_backup` installed, which is chrome. So `quest_asc_turn` was
+split at the seam it already had (two objectives, a consultation and a fitting, with a `requires`
+between them): the consultation stays at 9 under its own name, and the fitting becomes slot 10 on
+its own. **Kesh** offers it rather than The First — the surgeon is the one who has to say what the
+chair does, and "come back when you know" only means something if there is a coming back.
+
+⚠ `asc_pledged` moved with the FITTING, not with the consultation. Sitting a consultation is not
+pledging anything, and that flag is what the rest of the order reads to decide you are theirs.
 
 ⚠ **The NPC at the press is `npc_asc_lapsed` — Wessel Ardy, male, faction null.** This table said
 "Cyrelle" for months while the paragraph twenty lines below correctly said Ardy, and on 2026-08-25
@@ -173,7 +198,7 @@ same scene. Neither of them threatens you and neither of them wins the
 argument, and both of them let you walk — which is the only version of a recruitment scene that
 respects the player enough to make the other answer feel like something they chose.
 
-Slots 11–40 are rank work and are not designed yet.
+Slots 12–40 are rank work and are not designed yet (11 is now the claimed death).
 
 ## Lapsing — the cheap exit, and the last one
 

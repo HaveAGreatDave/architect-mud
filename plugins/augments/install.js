@@ -24,7 +24,7 @@ import { world } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { emit } from '../../server/engine/events.js';
-import { setFlag } from '../../server/engine/flags.js';
+import { setFlag, getFlag } from '../../server/engine/flags.js';
 import { burnAllMutations } from '../../server/engine/mutations.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
@@ -68,6 +68,27 @@ const TIER_RANK = Object.fromEntries(REP_TIERS.map((t, i) => [t.id, i]));
  * back door, and that is intentional rather than an oversight.
  */
 const MIN_INSTALL_TIER = 'known';
+
+/**
+ * THE OATH. Slot 10 of the Ascendant arc IS the fitting — `quest_asc_fitting`,
+ * "Nothing Original Left" — so nobody is opened up before slot 9 is turned in.
+ *
+ * ⚠ NINE, NOT TEN, AND THAT IS NOT AN OFF-BY-ONE. The forty-slot ladder offers
+ * slot n at `arc > n-2`, so a player standing in front of the surgeon about to
+ * do slot 10 is carrying arc 9. Gating on 10 would mean the quest whose only
+ * objective is the install could never be completed — the deadlock this number
+ * exists to avoid. See docs/systems-faction-arcs.md.
+ *
+ * Stated once here, beside the reputation floor, for the same reason that one
+ * is: an augment authored without it would be a way to skip the commitment.
+ */
+const ASC_ARC_FLAG = 'asc_arc';
+const MIN_ARC_SLOT = 9;
+
+// Arm-then-run, the same 30 seconds the Rite and the Purifier ask for. The three
+// irreversible things in this game all ask the same way on purpose.
+const FIRST_CONFIRM_MS = 30_000;
+const pendingFirst = new Map();   // playerId -> armed at
 
 /**
  * The five bands. Condition and calibration both fall together, but they fall for
@@ -202,6 +223,16 @@ export async function installAugment(rest, player) {
       : `${aug.name} is reserved for those the Ascendants trust (${gate?.label || 'higher standing'}). Raise your standing first.` };
   }
 
+  // ── THE OATH, and it is checked here with the other door checks rather than
+  // at the counter. A player who has not sworn in must not be told they cannot
+  // afford it: that sends them away to earn money for a thing money was never
+  // going to buy. Same reasoning as mastery checking the metal before the
+  // vouching, and it is why this sits above the surgeon and the quote.
+  if (Number(await getFlag('player', ASC_ARC_FLAG, player)) < MIN_ARC_SLOT) {
+    return { type: 'error', message: 'The theatre is not open to you. The Ascendants fit their own, and finishing what they asked of you is what makes you one.'
+      + '\n<span class="text-dim">"Come back when it is done. I will not ask you twice, and I will not ask you for anything else either."</span>' };
+  }
+
   // The hardware itself must be in your hands. This is the whole point of the
   // hybrid model: you cannot install what you do not own.
   const itemId = aug.item_id;
@@ -225,6 +256,37 @@ export async function installAugment(rest, player) {
   const cost = installQuote(player, surgeon, aug);
   if ((player.credits || 0) < cost) {
     return { type: 'error', message: `${surgeon.name} wants ₵${cost} to fit ${aug.name}. You don't have it.` };
+  }
+
+
+  // ── The point of no return, said out loud ───────────────────────────────
+  //
+  // ⚠ The comment further down has claimed this was "a deliberate, WARNED,
+  // one-way choice" since the day it shipped, and nothing warned. `chromed_ever`
+  // fired silently on the first fitting, burned every mutation the player was
+  // carrying, and shut the flesh path for ever, at the end of a command they
+  // could have typed by accident.
+  //
+  // Only the FIRST one asks. Afterwards there is nothing left to warn about —
+  // the door it closes is already closed.
+  const isFirst = roster.size === 0;
+  if (isFirst) {
+    const armed = pendingFirst.get(player.id);
+    if (!armed || Date.now() - armed > FIRST_CONFIRM_MS) {
+      pendingFirst.set(player.id, Date.now());
+      return { type: 'output', message: [
+        '<span class="hdr">THE FIRST ONE</span>',
+        `<span class="ambient">${surgeon.name} has the piece in one hand and has not started yet.</span>`,
+        '',
+        '<span class="dmg-taken">This is the one that cannot be undone.</span>',
+        '<span class="text-dim">The hardware itself comes out again; anyone licensed can pull it. What does not come out is that you were opened. The flesh path shuts today, whatever you are carrying in it burns off on the table, and the orders who care about that will know inside a minute of meeting you.</span>',
+        '<span class="text-dim">The Watch will teach you nothing after this. The Wildblood will not have you. Your standing with the Ascendants stops being a thing you can lose, and stops being a thing you can put down.</span>',
+        '<span class="text-dim">One way back, and it is the Exodus taking out everything Halcyon ever put in.</span>',
+        '',
+        `<span class="text-dim">\`augment install ${aug.name.toLowerCase()}\` again within thirty seconds to go through with it.</span>`,
+      ].join('<br>') };
+    }
+    pendingFirst.delete(player.id);
   }
 
   // --- commit: charged before the roll ---
@@ -282,7 +344,8 @@ export async function installAugment(rest, player) {
     player.hp = Math.max(1, Math.round(player.hp - player.hp_max * band.hpLoss));
   }
 
-  // The first chrome burns off the flesh — a deliberate, warned, one-way choice.
+  // The first chrome burns off the flesh — a deliberate, warned (see the confirm
+  // above, which is where the warning finally went) one-way choice.
   // `chromed_ever` is what makes it one-way: without it, a death that corrupts
   // every augment would silently re-open the flesh path.
   let burnLine = '';

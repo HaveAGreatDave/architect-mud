@@ -1,8 +1,13 @@
 # Unrest — dynamic faction conflict (as built)
 
-**Status: Phase 1 BUILT, all four steps** — 1a the ledger, 1b perceivability, 1c
-incidents, 1d danger. **Phase 2 (favours) and phase 3 (the Null and the Wildblood)
-are design only** and live in [proposals/unrest.md](proposals/unrest.md).
+**Status: Phases 1, 2 and 3 BUILT.** Phase 1's four steps (1a the ledger, 1b
+perceivability, 1c incidents, 1d danger); **phase 2's SEAM** — `plugins/unrest/favours.js`
+registers the `unrest_incident` condition shape, so an authored repeatable quest can be
+offered and turned in only while there is something live to respond to, though the favour
+QUESTS themselves are content and nobody has written one yet; and **phase 3**, the Null's
+`vendetta` and the Wildblood's `incursion`, which add no scalar, no table and no verb.
+The design record, including what is still outstanding, is
+[proposals/unrest.md](proposals/unrest.md).
 
 Implementation: [plugins/unrest/](../plugins/unrest/README.md). The design record,
 including everything not yet built, is [proposals/unrest.md](proposals/unrest.md).
@@ -48,8 +53,8 @@ Ashway"* is nonsense for a resistance. Role is **authored data** on `orgs.flags.
 | Ascendants | `authority` | **grip ↑** | heat in its theatre. The only order that raises grip | ✅ |
 | Long Watch | `insurgency` | **heat ↑** | grip + pressure. Resident, persistent, local | ✅ |
 | Exodus | `withdrawn` | nothing | never. Encodes "not in this fight" as data | ✅ |
-| Null | `vendetta` | Ascendant *assets*, not ground | grip anywhere | design (phase 3) |
-| Wildblood | `incursion` | heat ↑ in a burst, then nothing | an external clock | design (phase 3) |
+| Null | `vendetta` | Ascendant *assets*, not ground | grip anywhere | ✅ |
+| Wildblood | `incursion` | heat ↑ in a burst, then nothing | an external clock | ✅ |
 
 ⚠ **Insurgency is "writes heat AND reads grip"**, not merely "writes heat". The
 Wildblood also write heat and must stay outside the cycle: they are a driver *into* the
@@ -252,18 +257,91 @@ Regress asserts the cap and asserts both Actions are idempotent under double dis
 
 ---
 
+## The two drivers (phase 3)
+
+Phases 1 and 2 had **one** eligibility rule, in `eligible()`: a band high enough, plus a
+perceivable signal from the same order inside the window. That rule is correct for exactly
+the two orders that fight over ground, and wrong for both orders that do not.
+
+So the gate is now a **registry** keyed on an authored `flags.driver`, the same shape the
+stage vocabulary already used for `do`. Phase 1's version is the `ground` driver and is
+still the default, so every incident that already shipped is unchanged and un-reauthored.
+The drivers live in [`plugins/unrest/roles.js`](../plugins/unrest/roles.js), which also
+took over the role roster from `index.js`.
+
+| Driver | Order | What makes a cell eligible | What it puts in the ledger |
+|---|---|---|---|
+| `ground` | Ascendants, Long Watch | band ≥ `min_band`, and a signal from the same order | nothing (the tick moves the scalars) |
+| `vendetta` | Null | **grip ≥ 25**, and a signal from the **authority** | nothing at all |
+| `incursion` | Wildblood | **the clock**, and nothing else | a heat burst, never pressure |
+
+Each driver declares the authored role that backs it. Remove the Null from
+`content/orgs/` and vendetta incidents stop staging rather than staging anonymously,
+which is what keeps *roles are data, never a switch statement* true of the gate as well
+as of the tick.
+
+### The Null read grip, never the band
+
+The band is `heat + grip/2`, so a block the authority has finished pacifying reads quiet
+however heavy the hand still on it. That is precisely the block with the most licensed
+machinery bolted to it and the fewest people left outside to notice it stop working, and
+phase 1's gate would refuse it **for being quiet**. A vendetta is the reply to the
+squeeze, arriving after the squeeze has worked.
+
+⚠ **Rule 1 still holds, pointed at somebody else.** The signal a vendetta answers is the
+authority's, not its own: the Null have no street voice and want none, so requiring a
+signal from `assets` would make them announce themselves first. What must have happened
+in that cell is that a player could *see* the grip they are being made to pay for.
+
+⚠ **A vendetta puts nothing in the ledger.** Every other incident's order is fighting
+over the ground the ledger measures. The Null are not. A sim that scored one would be
+counting the wrong thing.
+
+### The Wildblood read the clock, and nothing else
+
+No band, no signal, no grip, no heat. The only question is what time it is, because the
+one thing an incursion must never be is a consequence of what the city has been doing —
+that is the whole difference between a fifth participant and something happening *to* the
+participants. Their authored role is `{ writes: 'heat', reads: 'clock' }`, and
+`reads: 'clock'` is exactly why `ledger.step()` already excluded them from the insurgency
+loop: they push the same scalar the Long Watch do and are not doing the same thing with
+it. The Long Watch live here and grind. The Wildblood arrive.
+
+⚠ **One way in per night, DERIVED rather than rolled.** A stored roll would be RAM state
+that does not survive a restart (rule 6), and a fresh roll per selection pass would let
+them arrive in four parts of town in one night. The target cell is a function of the
+night, so two players agree on where they came in and a restart cannot contradict it.
+
+⚠ **A night spans midnight, and the small hours belong to the night before.** Key the
+target on the calendar date and it moves at 00:00 — half a raid up the north end and half
+down the south, on the one system whose entire promise is that it came from somewhere.
+Regress pins this directly.
+
+⚠ **The burst is heat and never pressure.** Pressure is the scalar that raises heat's own
+baseline over days. Heat's half-life is twenty minutes, so the block is loud by morning
+and back to exactly what it was by lunchtime, with nothing in the ledger to say they were
+ever there. An incursion that moved pressure would make the Wildblood a permanent tenant
+of a city they have no interest in holding.
+
+The street gets the direction right and the wire gets it wrong. They come **up**, out of
+the Under, which was theirs before the Basin was poured over it — so the wire's line that
+the perimeter was not breached is true, and misses the point entirely. See
+[lore-wildblood.md](lore-wildblood.md); nothing in the game ever settles it.
+
+### The Exodus stage nothing, and that is data too
+
+⚠ `writes: 'none'` is a **truthy string**, so an order that opted out of the fight sails
+through every filter that merely tests for a role at all. `guard()` refuses it by name.
+
+---
+
 ## Not built
 
-- **Phase 2 — favours.** Repeatable incident-response quests paying ideology rep through
-  `ADJUST_REPUTATION` on turn-in. This is the answer to a gap
-  [systems-ideologies.md](systems-ideologies.md) already documents: rep decays on a
-  30-day half-life but no repeatable work pays it, so an order cannot be lived in.
-  ⚠ Rule 4 holds until then and after: **the sim never moves ideology standing
-  implicitly.** `plugins/drugwar` records this decision being made once already, when
-  its invisible alignment ledger was removed.
-- **Phase 3 — the Null and the Wildblood.** `vendetta` (targets Ascendant assets, not
-  ground) and `incursion` (an external clock, a burst, no residual baseline). Both are
-  drivers into the existing ledger, so neither needs new state.
+- **Favour quests.** Phase 2 shipped the seam, not the content: no repeatable
+  incident-response quest has been authored yet, so nothing currently pays ideology rep
+  for turning up. ⚠ Rule 4 holds before and after: **the sim never moves ideology
+  standing implicitly.** `plugins/drugwar` records this decision being made once already,
+  when its invisible alignment ledger was removed.
 - **A grip hostile.** The authority's danger is the checkpoint and the lockdown, not a
   mob. The only Ascendant enforcement enemy in the world is the Arbiter at 100 HP and
   10 hit, which on an ordinary street is an execution rather than an incident.

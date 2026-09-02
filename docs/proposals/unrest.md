@@ -1,7 +1,8 @@
 # Unrest — dynamic faction-conflict events
 
-**Status: PHASE 1 BUILT (1a–1d, 2026-08-26); PHASE 2's SEAM BUILT (2026-09-01); phase 3 is
-still design.**
+**Status: PHASES 1, 2 AND 3 BUILT** (1a–1d 2026-08-26; phase 2's seam 2026-09-01;
+phase 3 2026-09-02). The favour QUESTS are the one outstanding piece and are content,
+not code.
 
 ⚠ **Phase 2 is a seam, not a set of favours.** `plugins/unrest/favours.js` registers the
 `unrest_incident` condition shape, which is the whole mechanism: an authored repeatable
@@ -266,7 +267,16 @@ each is a place to stop and look, but the milestone is a player walking into som
 | **1c — Incidents** | `incidents` table + `content-registry.js` entry + `content/incidents/*.json`. Selector, staging, teardown, concurrency cap (~3 citywide), cooldowns. Safe stage Actions: gossip, graffiti, news, ambient override, NPC mood. One `world_events` audit row per staging. Signal-before-effect enforced. **Incidents editor** (§B), staged through `API()`. | `server/models/schema.js`, `server/models/content-registry.js`, `plugins/unrest/incidents.js`, `content/incidents/**`, `client/devpanel/js/panels/unrest.js` | An incident cannot stage without a prior signal in that cell; teardown restores exact prior state; the cap holds under a forced storm; exactly one `world_events` row per staging; a `script_triggers` row binding `unrest.incident.staged` matches on `zone_id`. |
 | **1d — Danger** | Dangerous stage Actions: `SPAWN_HOSTILE` (`spawnEnemySync` + behaviour graph + tracked instance ids), `SET_ZONE_FLAG` for a **RAM-only** `checkpoint_cfg`, and `ESP_ACTIVATE`/`ESP_DEACTIVATE` **registered as Actions inside `plugins/emergency`** so nothing imports across plugins. `propagateSound` warning to neighbours before anything hostile lands. | `plugins/emergency/index.js` (+ manifest, README status header), `plugins/unrest/stage.js` | Every spawned instance is removed on teardown (instance-count leak check); an incident-set `checkpoint_cfg` is gone after teardown *and* after a simulated restart; no hostile stages without a prior neighbour warning; ESP activate/deactivate is idempotent under double dispatch; at most one ESP is live at a time. |
 | **2 — Participation** | Incident-response **favours**: repeatable quests keyed to live incidents, paying `rep` on turn-in through `ADJUST_REPUTATION`. Player-side resolution deltas. Closes the documented repeatable-work gap. | `content/quests/**`, `plugins/unrest/favours.js`, `docs/systems-ideologies.md` | Rep moves only through an explicit turn-in; a favour cannot be turned in for an already-resolved incident; repeated turn-ins never walk an `<order>_arc` flag backwards. |
-| **3 — Null + Wildblood** | `vendetta` (reads grip, targets Ascendant assets not ground) and `incursion` (external clock, burst, no baseline). Both are drivers into the existing ledger — no new state. Exodus stays `withdrawn`. | `content/orgs/ideology_{null,wildblood}.json`, `content/incidents/**`, `plugins/unrest/roles.js` | A `vendetta` incident stages against high-grip cells regardless of heat; an `incursion` fires off the clock with no local-state precondition and leaves no residual baseline; `withdrawn` never stages anything. |
+| **3 — Null + Wildblood** ✅ | `vendetta` (reads grip, targets Ascendant assets not ground) and `incursion` (external clock, burst, no baseline). Both are drivers into the existing ledger — no new state. Exodus stays `withdrawn`. | `content/orgs/ideology_{null,wildblood}.json`, `content/incidents/**`, `plugins/unrest/roles.js` | A `vendetta` incident stages against high-grip cells regardless of heat; an `incursion` fires off the clock with no local-state precondition and leaves no residual baseline; `withdrawn` never stages anything. |
+
+**Where phase 3's build departed from this plan**, and it is one decision: the roles were
+already authored on the orgs by 1a, so the file the plan names as `roles.js` is not a set
+of two behaviours but a **registry**. Eligibility, not the tick, was the thing that needed
+to stop being one rule — `ledger.step()` had correctly excluded both orders from its cycle
+since 1a and needed no change at all. The incursion also gained one thing the plan does not
+mention: the night's target cell is **derived from the night** rather than rolled, because a
+clock-only gate makes every cell in the city eligible at once and the selector would have
+staged raids in four places on the same night.
 
 ---
 

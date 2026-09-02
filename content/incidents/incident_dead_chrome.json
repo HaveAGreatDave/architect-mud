@@ -1,0 +1,33 @@
+{
+  "cooldown_min": 960,
+  "description": "Null vendetta, the quieter and nastier one. Licensed augments stutter the length of the block and back-alley work carries on fine, which is the faction's entire argument made without anybody having to say it. The wire's reply blames the unlicensed, which is exactly backwards, and nothing in the game ever corrects it.",
+  "duration_min": 90,
+  "enabled": 1,
+  "flags": {
+    "driver": "vendetta"
+  },
+  "id": "incident_dead_chrome",
+  "min_band": "quiet",
+  "name": "Licensed hardware is having a night",
+  "stage": [
+    {
+      "do": "ambient",
+      "lines": [
+        "A man stops mid-stride, looks at his own hand, and waits for it to start working again.",
+        "Somebody is sat on the kerb with a sleeve rolled up, pressing the same spot over and over.",
+        "Three people on this street are walking like the ground is further down than it was this morning."
+      ]
+    },
+    {
+      "do": "gossip",
+      "text": "Anything licensed goes dead on {place} and comes back a street later. Anything you bought out a back door works fine all night. Draw your own conclusion."
+    },
+    {
+      "do": "news",
+      "text": "Reports of intermittent augment telemetry in {place} are under review — affected residents are reminded that unlicensed modification voids all diagnostic support."
+    }
+  ],
+  "updated_at": "1788307200",
+  "weight": 8,
+  "writes": "assets"
+}

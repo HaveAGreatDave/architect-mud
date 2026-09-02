@@ -1,5 +1,6 @@
 {
   "name": "augments",
+  "_gates": "Two doors, and they answer different questions. MIN_INSTALL_TIER ('known') plus each piece's own rep_gate is 'do they trust you with this'. MIN_ARC_SLOT (asc_arc >= 9) is 'have you committed' — slot 10 of the Ascendant arc IS the fitting (quest_asc_fitting), so the gate is the slot BEFORE it or the quest could never complete. The arc gate sits above the surgeon and the quote, so an unsworn player is never told they cannot afford a thing money was never going to buy. And the FIRST fitting now asks for confirmation before a credit moves: chromed_ever shuts the flesh path for ever and burns every mutation carried, and until 2026-09-02 it did that silently at the end of a command somebody could have typed by accident.",
   "version": "3.0.0",
   "description": "Chrome as a machine you own — installed from an item by a surgeon who can botch it, tuned on a calibration board, fed from a cell, pushed past spec until it comes apart and takes a piece of you with it, repaired, and corrupted by death so nobody farms it off corpses. Plus the Ascendant cortical loop: your pattern is re-scanned, never your pockets, and the vats print you a new body with the chrome cut fresh to the old measurements.",
   "commands": [

@@ -279,7 +279,7 @@ async function main() {
   let attribution = null;
   if (!NO_DB) {
     try {
-      const { collectAttribution, connection } = await import('./attribution.mjs');
+      const { collectAttribution, connection, bootTablesOffDb } = await import('./attribution.mjs');
       attribution = await collectAttribution({ coldStartsPerDay: render?.uptime?.coldStartsPerDay ?? null });
       if (connection.note) notes.push(`attribution: ${connection.note}`);
       const { payload, loads, storage, modelledEgressPerDay } = attribution;
@@ -287,6 +287,10 @@ async function main() {
       say(`Attribution — where the egress comes from  (read from ${connection.target})`);
       say(`  boot payload      ${fmt(payload.totalBytes, 'bytes')} across ${payload.tables.length} boot-tier tables`);
       say(`  biggest three     ${payload.tables.slice(0, 3).map((t) => `${t.table} ${fmt(t.bytes, 'bytes')}`).join(', ')}`);
+      // Say what was left out, or the number silently halves one day and the next
+      // person reading this report has no way to know why.
+      const offDb = bootTablesOffDb();
+      if (offDb.length) say(`  not counted       ${offDb.join(', ')} — read off the checkout in prod, no egress`);
       say(`  world loads/day   ${loads.loadsPerDay === null ? '—' : loads.loadsPerDay.toFixed(1)}  [${loads.source}]`);
       if (loads.fallbackComparison) say(`                    (player_count_log alone would say ${loads.fallbackComparison.toFixed(1)} — it is idle-gated, so it cannot tell "down" from "up but empty")`);
       if (modelledEgressPerDay !== null) {

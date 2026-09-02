@@ -64,11 +64,31 @@ export async function closeAttribution() {
   if (pool) { await pool.end(); pool = null; }
 }
 
-/** Content tables declared `readTier: 'boot'` — the rows a cold start pulls. */
+/**
+ * Content tables a cold start pulls OUT OF NEON: `readTier: 'boot'` minus the ones
+ * whose loader reads the checkout instead (`bootSource: 'files'`).
+ *
+ * ⚠ The subtraction is the point, and leaving it out is how this measured the
+ * wrong thing for months. `readTier` says "in memory at boot", not "fetched from
+ * the DB at boot" — the six audio tables are both, and in production they are
+ * loaded off disk. Summing them anyway put 14.2MB of untouchable audio at the top
+ * of a report whose one job is naming the next thing to trim, 11.5MB of it the
+ * audio_samples.data blob, which no boot read has ever selected in any
+ * environment. Model minus reality is not a rounding error here: it was about
+ * half the modelled payload, and it lands on the model-vs-API divergence this
+ * whole module exists to make readable.
+ */
 export function bootTables() {
   return REGISTRY
-    .filter((e) => e.class === 'content' && e.readTier === 'boot')
+    .filter((e) => e.class === 'content' && e.readTier === 'boot' && e.bootSource !== 'files')
     .map((e) => ({ table: e.table, where: e.where || null }));
+}
+
+/** Boot-tier tables deliberately left out of the payload, for the report to name. */
+export function bootTablesOffDb() {
+  return REGISTRY
+    .filter((e) => e.class === 'content' && e.readTier === 'boot' && e.bootSource === 'files')
+    .map((e) => e.table);
 }
 
 /**
