@@ -1,25 +1,25 @@
 // Are the gaps in Render's CPU timeline real spin-downs, or missed scrapes?
 //
-// The usage report derives two numbers from ONE series and they disagree.
-// Measured 2026-09-02: instance-hours tracked wall clock at 93–96% (the service
-// was up essentially all month), while cold starts came out at 12.6/day. Those
-// cannot both be true. 12.6 gaps a day against ~1.4h/day of missing samples is
-// an average gap under 7 minutes, and Render will not spin a free service down
-// until 15 minutes have passed with no inbound request. So either:
+// ANSWERED 2026-09-02, and the answer was "real": over 7 days, 82 gaps, 50 of
+// them past the 15-minute idle threshold, 110.8h up out of 168h. So the service
+// does spin down, it is woken ~12x/day, and every wake re-reads the whole boot
+// payload. The cold-start rate the egress model multiplies by is sound.
 //
-//   • the gaps are scrape misses, and the cold-start rate — which is the
-//     MULTIPLIER in the whole egress model — is inflated; or
-//   • they are real, the service is being woken constantly, and the spin-down
-//     saving keepalive.js was written to collect is not being collected.
+// It was worth asking, because the report's own two figures looked like they
+// could not both be true: 93-96% uptime beside 12.6 cold starts/day implies an
+// average gap under 7 minutes, which is shorter than Render will wait before
+// spinning a free service down. The resolution is that they measure different
+// WINDOWS. The report's uptime is cycle-to-date, the cycle was two days old,
+// and in those two days the service had stopped spinning down. Both numbers
+// were right about their own window and the shorter one was unrepresentative.
 //
-// A gap HISTOGRAM tells the two apart, and a histogram is about twenty lines.
-// `--discover` dumps the whole series instead: a week at one-minute resolution
-// is ~10,000 timestamps of JSON, which is why it scrolls off a terminal and why
-// pasting it around is the wrong move. Same API, same auth, one question.
+// Which is the lasting reason this script prints a histogram AND a per-day
+// breakdown rather than one average: an average over a week cannot show you the
+// day the behaviour changed, and that day was the finding.
 //
-// Read it like this: a cluster at exactly 2–3× the resolution is a scraper
-// missing a beat. A population at 15 minutes and above is the idle threshold,
-// i.e. genuine spin-downs. A handful of multi-minute gaps at deploy times are
+// Read it like this: a cluster at 2-3x the sample resolution is a scraper
+// missing a beat, not an outage. A population at 15 minutes and above is the
+// idle threshold, i.e. genuine spin-downs. Multi-minute gaps at deploy times are
 // the 4-hourly content deploy rebooting the service, and are expected.
 //
 //   node scripts/ops/gaps.mjs [--days 7]
@@ -115,6 +115,26 @@ console.log();
 console.log(short / Math.max(gaps.length, 1) > 0.5
   ? `VERDICT  ${short}/${gaps.length} gaps are shorter than the idle threshold, so most are not spin-downs.\n         The cold-start rate — the multiplier in the egress model — is overstated by roughly that much.`
   : `VERDICT  ${gaps.length - short}/${gaps.length} gaps reach the idle threshold, so the spin-downs are real.\n         The service is being woken ${fmt((gaps.length + 1) / span, 1)}x/day, and each wake re-reads the boot payload.`);
+
+// PER DAY, because a 7-day average hides a change of behaviour — and on the
+// first run it was hiding one. The cycle-window figure said 93-96% uptime while
+// the 7-day window said 66%, which is not a contradiction: the cycle was two
+// days old, and the service had stopped spinning down partway through. An
+// average over a week cannot show you the day it changed.
+console.log();
+console.log('uptime by day (UTC)   — a day at ~100% is a day it never spun down');
+const byDay = new Map();
+for (const t of stamps) {
+  const d = new Date(t).toISOString().slice(0, 10);
+  byDay.set(d, (byDay.get(d) ?? 0) + 1);
+}
+for (const [day, n] of [...byDay.entries()].sort()) {
+  const hours = (n * res) / 3_600_000;
+  const pctUp = Math.min(hours / 24, 1);
+  const bar = '█'.repeat(Math.round(pctUp * 30)).padEnd(30, '·');
+  const dayGaps = gaps.filter((g) => g.at.toISOString().slice(0, 10) === day).length;
+  console.log(`  ${day}  ${bar} ${fmt(hours, 1).padStart(5)}h  ${String(dayGaps).padStart(3)} gaps`);
+}
 
 console.log();
 console.log('ten longest gaps (UTC):');

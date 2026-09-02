@@ -159,19 +159,24 @@ guess an unrecognised one.
 
 ### Are the gaps real? (`ops:gaps`)
 
-Instance-hours and cold starts are derived from the *same* CPU series, and on
-2026-09-02 they disagreed: 93–96% uptime beside 12.6 cold starts/day, which
-works out at an average gap under 7 minutes — shorter than the 15 minutes Render
-waits before spinning a free service down. Both cannot be true. Either the gaps
-are scrape misses (and the cold-start rate, the multiplier in the whole egress
-model, is overstated), or they are real and the spin-down saving
-[`keepalive.js`](../server/keepalive.js) was written to collect is not being
-collected.
+Yes — measured 2026-09-02 over 7 days: 82 gaps, 50 of them past the 15-minute
+idle threshold, **110.8h up out of 168h**. The service spins down as designed, is
+woken ~12x/day, and every wake re-reads the whole boot payload. The cold-start
+rate the egress model multiplies by is sound.
 
-A gap *histogram* separates the two, bucketed either side of the idle threshold.
-That is what [`scripts/ops/gaps.mjs`](../scripts/ops/gaps.mjs) prints, in about
-twenty lines, from the same endpoint `--discover` dumps ten thousand timestamps
-of.
+⚠ **It looked otherwise, and the trap is worth keeping.** The report's own two
+figures appeared to contradict each other: 93–96% uptime beside 12.6 cold
+starts/day is an average gap under 7 minutes, which is shorter than Render will
+wait before spinning anything down. They measure different **windows**. The
+report's uptime is cycle-to-date, the cycle was two days old, and across those
+two days the service had stopped spinning down. Both numbers were right about
+their own window, and the shorter one was unrepresentative of the month.
+
+So [`scripts/ops/gaps.mjs`](../scripts/ops/gaps.mjs) prints a histogram bucketed
+either side of the idle threshold **and** a per-day uptime breakdown, from the
+same endpoint `--discover` dumps ten thousand timestamps of. The per-day half is
+not decoration: an average over a week cannot show you the day the behaviour
+changed, and that day was the finding.
 
 **⚠ Render reports no instance-count for free services** — `200` with an empty
 array. That is a plan limitation, not a zero, so it is left **unreported**;
