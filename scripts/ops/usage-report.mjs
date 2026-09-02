@@ -287,6 +287,9 @@ async function main() {
       say(`Attribution — where the egress comes from  (read from ${connection.target})`);
       say(`  boot payload      ${fmt(payload.totalBytes, 'bytes')} across ${payload.tables.length} boot-tier tables`);
       say(`  biggest three     ${payload.tables.slice(0, 3).map((t) => `${t.table} ${fmt(t.bytes, 'bytes')}`).join(', ')}`);
+      if (payload.checkoutBytes) {
+        say(`  served off disk   ${fmt(payload.checkoutBytes, 'bytes')} across ${payload.checkoutTables.length} tables (${payload.checkoutTables.map((t) => t.table).join(', ')}) — read from the git checkout in prod, so NOT egress`);
+      }
       say(`  world loads/day   ${loads.loadsPerDay === null ? '—' : loads.loadsPerDay.toFixed(1)}  [${loads.source}]`);
       if (loads.fallbackComparison) say(`                    (player_count_log alone would say ${loads.fallbackComparison.toFixed(1)} — it is idle-gated, so it cannot tell "down" from "up but empty")`);
       if (modelledEgressPerDay !== null) {

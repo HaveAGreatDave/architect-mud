@@ -64,10 +64,33 @@ export async function closeAttribution() {
   if (pool) { await pool.end(); pool = null; }
 }
 
-/** Content tables declared `readTier: 'boot'` — the rows a cold start pulls. */
+/**
+ * Content tables declared `readTier: 'boot'` — the rows a cold start pulls FROM NEON.
+ *
+ * ⚠ `servedFromCheckout` tables are excluded, and that exclusion is the whole point
+ * of this function rather than a detail of it. The six audio_* tables are boot-tier —
+ * they live in the audio plugin's caches at runtime — but in production
+ * (CONTENT_READONLY) loadAudioLibrary reads them out of content/*.json in the git
+ * checkout and never opens a Neon connection for them. Counting them here inflated
+ * the reported payload to 20.8MB against ~13.6MB actually transferred (measured
+ * 2026-09-02), almost all of the difference being audio_samples.data — sample blobs
+ * that are not merely uncached but never read from the database in prod at all.
+ *
+ * That is a 35% overstatement of the single number this whole report exists to watch,
+ * and it errs toward reassurance in the worst way: it makes the modelled egress agree
+ * with Neon's own figure for the wrong reason, which is exactly the divergence check
+ * this module was built to perform.
+ */
 export function bootTables() {
   return REGISTRY
-    .filter((e) => e.class === 'content' && e.readTier === 'boot')
+    .filter((e) => e.class === 'content' && e.readTier === 'boot' && !e.servedFromCheckout)
+    .map((e) => ({ table: e.table, where: e.where || null }));
+}
+
+/** Boot-tier tables production reads from the git checkout — zero Neon egress. */
+export function checkoutTables() {
+  return REGISTRY
+    .filter((e) => e.class === 'content' && e.readTier === 'boot' && e.servedFromCheckout)
     .map((e) => ({ table: e.table, where: e.where || null }));
 }
 
@@ -80,15 +103,28 @@ export function bootTables() {
  * enough for a trend — we care about 15MB → 30MB, not about ±3%.
  */
 export async function bootPayload() {
-  const tables = bootTables();
+  const tables = [...bootTables(), ...checkoutTables()];
+  const fromCheckout = new Set(checkoutTables().map((t) => t.table));
   const parts = tables.map(({ table, where }) =>
     `SELECT '${table}' AS table_name, COALESCE(SUM(pg_column_size(t.*)), 0)::bigint AS bytes, COUNT(*)::bigint AS rows
        FROM ${table} t${where ? ` WHERE ${where}` : ''}`);
   const { rows } = await query(`${parts.join('\nUNION ALL\n')}\nORDER BY bytes DESC`);
-  const total = rows.reduce((a, r) => a + Number(r.bytes), 0);
+  // The checkout tables are measured too — knowing how much they WOULD cost is what
+  // keeps the saving visible and stops somebody "simplifying" the disk read away —
+  // but they are kept out of the total, which is an egress figure.
+  const all = rows.map((r) => ({
+    table: r.table_name,
+    bytes: Number(r.bytes),
+    rows: Number(r.rows),
+    fromCheckout: fromCheckout.has(r.table_name),
+  }));
+  const wire = all.filter((t) => !t.fromCheckout);
+  const checkout = all.filter((t) => t.fromCheckout);
   return {
-    totalBytes: total,
-    tables: rows.map((r) => ({ table: r.table_name, bytes: Number(r.bytes), rows: Number(r.rows) })),
+    totalBytes: wire.reduce((a, t) => a + t.bytes, 0),
+    tables: wire,
+    checkoutBytes: checkout.reduce((a, t) => a + t.bytes, 0),
+    checkoutTables: checkout,
   };
 }
 

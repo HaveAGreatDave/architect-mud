@@ -56,6 +56,12 @@
 //                                              cache would go stale (build the write
 //                                              funnel before promoting to 'boot')
 //                                    'dead'  — zero runtime readers
+//                 servedFromCheckout — production reads these rows from the git
+//                                  checkout (content/<table>/*.json), not from Neon.
+//                                  readTier stays 'boot' (that is where they live at
+//                                  runtime); this says the cold start spends no
+//                                  EGRESS on them. scripts/ops/attribution.mjs
+//                                  excludes them from boot payload for that reason.
 //                 runtimeInserts — note naming gameplay code that INSERTs rows into
 //                                  this table at runtime (2026-07-06 census). Those
 //                                  rows have no files; the pipeline's git-diff-driven
@@ -83,12 +89,22 @@ export const REGISTRY = [
   // All six audio tables live in the audio plugin's boot caches (loadAudioLibrary,
   // refreshed on CRUD). The audio_samples.data blob is deliberately NOT cached —
   // served on demand per client (disk in prod, DB in dev).
-  { table: 'audio_samples', class: 'content', pk: ['id'], readTier: 'boot' },
-  { table: 'audio_songs', class: 'content', pk: ['id'], readTier: 'boot' },
-  { table: 'audio_instruments', class: 'content', pk: ['id'], readTier: 'boot' },
-  { table: 'audio_sfx', class: 'content', pk: ['id'], readTier: 'boot' },
-  { table: 'audio_ambient', class: 'content', pk: ['id'], readTier: 'boot' },
-  { table: 'audio_event_routes', class: 'content', pk: ['id'], readTier: 'boot' },
+  //
+  // ⚠ servedFromCheckout: in production (CONTENT_READONLY) loadAudioLibrary reads
+  // content/<table>/*.json out of the git checkout and NEVER touches Neon — see the
+  // content-backed block at the top of plugins/audio/index.js. The tier is still
+  // 'boot' because that is where the rows live at runtime, but these six tables
+  // contribute ZERO bytes to the Neon egress a cold start spends. Anything
+  // measuring boot payload as an egress figure must exclude them, or it overstates
+  // the one number it exists to watch (measured 2026-09-02: 20.8MB reported vs
+  // ~13.6MB actually pulled from Neon, a 35% overstatement, most of it the
+  // audio_samples blobs that prod reads off disk).
+  { table: 'audio_samples', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
+  { table: 'audio_songs', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
+  { table: 'audio_instruments', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
+  { table: 'audio_sfx', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
+  { table: 'audio_ambient', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
+  { table: 'audio_event_routes', class: 'content', pk: ['id'], readTier: 'boot', servedFromCheckout: true },
 
   // ── content: world structure ──
   { table: 'zones', class: 'content', pk: ['id'], readTier: 'boot',

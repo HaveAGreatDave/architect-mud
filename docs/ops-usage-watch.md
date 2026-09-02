@@ -99,8 +99,22 @@ A percentage does not tell you what to do, so the report also measures both
 factors of the egress model directly, from **production**:
 
 - **Boot payload** — `sum(pg_column_size(t.*))` over every table declaring
-  `readTier: 'boot'` in [`content-registry.js`](../server/models/content-registry.js).
-  One `UNION ALL`, not one query per table.
+  `readTier: 'boot'` in [`content-registry.js`](../server/models/content-registry.js),
+  **minus the ones marked `servedFromCheckout`**. One `UNION ALL`, not one query
+  per table.
+
+  ⚠ **Boot-tier is not the same question as egress.** The six `audio_*` tables are
+  boot-tier — they live in the audio plugin's caches at runtime — but in production
+  `loadAudioLibrary` reads them from `content/*.json` in the git checkout and never
+  opens a Neon connection for them, `audio_samples.data` blobs included. Counting
+  them made the report say 20.8MB where ~13.6MB was actually pulled from Neon
+  (measured 2026-09-02): a 35% overstatement of the one number this whole report
+  exists to watch, and it errs toward *reassurance* — it makes the modelled egress
+  agree with Neon's own figure for the wrong reason, which is precisely the
+  divergence check below. They are still measured and printed, on a `served off
+  disk` line, so the saving stays visible and nobody "simplifies" the disk read
+  away. ⚠ `bootPayloadBytes` in `data/ops/usage-history.json` therefore steps down
+  on 2026-09-02; it is a definition change, not a win.
 - **World loads/day** — cold starts from **Render's CPU timeline** (§5).
 
 ⚠ **Not from `player_count_log`, which undercounts by roughly half.** That was
