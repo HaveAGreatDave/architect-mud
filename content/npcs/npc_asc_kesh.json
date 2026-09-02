@@ -61,6 +61,43 @@
       ],
       "text": "\"The drift.\" She says it flatly, a diagnosis. \"Ask anybody deep in the chrome. There is a point where a replaced hand stops being a thing you move and becomes a thing that moves. Fractionally early. Fractionally right.\"\n\nThe ocular whirs back to life.\n\n\"Nothing on the readouts. Latency, we call it. Latency.\"\n\nShe preps the chair for the next patient.\n\n\"It fits perfectly. That is the part nobody forgives.\""
     },
+    "fitting_no": {
+      "options": [
+        {
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good.\" The ocular stays down a moment more, then lifts. \"That was the right answer this week. It is allowed to be the right answer next week too.\n\n\"I am here most days. The file does not close.\""
+    },
+    "fitting_offer": {
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "START_QUEST",
+              "quest_id": "quest_asc_fitting"
+            }
+          ],
+          "label": "Today.",
+          "next": "fitting_yes"
+        },
+        {
+          "label": "Another day.",
+          "next": "fitting_no"
+        }
+      ],
+      "text": "The ocular comes down, and stays down longer than it needs to.\n\n\"Then I am going to say the part I say to everybody, and I am going to say it slowly, because people nod through it and then come back in a year angry with me.\n\n\"The metal is reversible. Any licensed pair of hands can take a piece out. That is not what you are deciding.\n\n\"What you are deciding is that you become a person who has been opened. That is on your record and it does not come off it. The flesh path shuts today: whatever was going to grow in you does not, after this, and the ones who care about that will know inside a minute of meeting you and will not be making you offers. The Watch will not teach you. The Wildblood will not have you.\n\n\"And the Ascendants stop being something you can fall out of. People hear that as a promise. It is also a wall, and it is on your side of it.\"\n\nA pause, and the ocular does not move.\n\n\"One way back. The Exodus, on a table like this one, taking out everything Halcyon ever put in and charging you for the afternoon. I do not do that work and I will not tell you who does.\n\n\"So. Today, or another day. Both are answers.\""
+    },
+    "fitting_yes": {
+      "options": [
+        {
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "The ocular clicks back up, and that is the whole of the ceremony.\n\n\"Buy the piece. I cut, I do not sell, and I am not going to help you choose it either. `augment` will show you what I can fit.\n\n\"Choose one you would be happy to be buried in.\""
+    },
     "how": {
       "options": [
         {
@@ -184,6 +221,28 @@
           ],
           "label": "The First says my account is open.",
           "next": "account"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_turn",
+              "op": "eq",
+              "scope": "player",
+              "value": "turned_in"
+            },
+            {
+              "flag": "quest_asc_fitting",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_pledged",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "I've thought about it.",
+          "next": "fitting_offer"
         },
         {
           "label": "Nothing today.",
