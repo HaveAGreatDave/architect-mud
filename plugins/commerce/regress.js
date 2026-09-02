@@ -4,10 +4,10 @@
 import { vendorGrudgeRemaining, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
 import { isVendorClosed, hoursUntilOpen, openInPhrase, vendorClosedLine, isVendorOffHours, isVendorRole, vendorOffHoursLine } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
-import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
+import { getRegisteredMoveGates, getRegisteredShutProviders, shutStatus } from '../../server/engine/movement-gates.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
 import { getCrimeStars } from '../../server/engine/crimes.js';
-import { world, streetExitFrom, isStreetLanding, isEnterableFacade } from '../../server/engine/world.js';
+import { world, streetExitFrom, isStreetLanding, isEnterableFacade, getMinimapData } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { furnitureObjectType } from '../../server/engine/furniture-shop.js';
 import { query } from '../../server/models/db.js';
@@ -105,6 +105,49 @@ export default async function regress({ run, check, getPlayer }) {
     !isVendorRole({ name: 'Clerk', vendor_schedule: onShift }));
 
   check('shop-hours move gate registered', getRegisteredMoveGates().includes('commerce:shop-hours'), getRegisteredMoveGates().join(','));
+
+  // ── Telling them BEFORE the step ───────────────────────────────────────────
+  // The gate above refuses the move; the shut provider is the same fact offered to
+  // every surface that draws a way in (the room description's (closed) tag, the
+  // dpad's red arrow, the minimap tile). The two must never disagree, so they read
+  // one pair of predicates — these assert the provider obeys the gate's own rules.
+  check('shop-hours shut provider registered',
+    getRegisteredShutProviders().includes('commerce:shop-hours'), getRegisteredShutProviders().join(','));
+
+  const shutPlayer = getPlayer();
+  check('a null destination is never shut', shutStatus(shutPlayer, null) === null);
+
+  // Whatever the clock happens to say, everything the provider calls shut must be a
+  // shop room with every one of its vendors closed — and nothing else may be. This
+  // is the gate's rule restated over the live world, so it holds at any hour.
+  const shutZones = [], wrongShut = [], missedShut = [];
+  for (const zone of world.zones.values()) {
+    const isShut = !!shutStatus(shutPlayer, zone)?.shut;
+    const vendors = [...world.npcs.values()].filter(n =>
+      n?.work_zone_id === zone.id && !n.flags?.covert && n.vendor_inventory?.length &&
+      n.vendor_schedule && Object.keys(n.vendor_schedule).length);
+    const shouldBeShut = !!zone.flags?.is_interior && vendors.length > 0 && vendors.every(isVendorClosed);
+    if (isShut) shutZones.push(zone.id);
+    if (isShut && !shouldBeShut) wrongShut.push(zone.id);
+    if (!isShut && shouldBeShut) missedShut.push(zone.id);
+  }
+  check('nothing is called shut that the hours do not shut', !wrongShut.length, wrongShut.slice(0, 5).join(','));
+  // The fake player owns no apartment, so the resident exemption can never fire here
+  // and every shut shop room must be reported.
+  check('every shut shop room is reported shut', !missedShut.length, missedShut.slice(0, 5).join(','));
+  check('a street tile is never shut', !shutZones.some(id => !world.zones.get(id)?.flags?.is_interior));
+
+  // And the minimap payload carries it, or the tile has nothing to paint red.
+  // Re-read the status after building the payload: the world clock runs during
+  // regress, and a shop that opened in between is not a failure.
+  const shutSample = shutZones[0];
+  if (shutSample) {
+    const nodes = getMinimapData(shutSample, 1, shutPlayer);
+    const node = nodes.find(n => n.id === shutSample);
+    if (shutStatus(shutPlayer, world.zones.get(shutSample))?.shut) {
+      check('the minimap node of a shut room carries shut', node?.shut === true, `${shutSample} → ${JSON.stringify(node?.shut)}`);
+    }
+  }
 
   // ── Self-service checkout ──────────────────────────────────────────────────
   // Verb routing only; the fake player carries nothing marked unpaid, so this

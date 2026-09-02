@@ -720,9 +720,15 @@ html[data-density="compact"] #auth-title {
 	background: color-mix(in srgb, var(--bg) 62%, var(--accent) 38%);
 }
 
+/* ⚠ 65% IS THE PROPORTION, --pane-cap IS THE GUARANTEE, and the smaller wins.
+   This pane never shrinks and the bottom stack below the log cannot shrink past
+   its own content, so on a short window 65% is more room than the column has to
+   give and the command line is pushed out through `overflow: hidden`. main.js
+   measures what is actually spare and publishes it on #output-container; with no
+   JS the min() collapses to the old 65% and nothing changes. */
 #area-pane {
 	flex: 0 0 auto;
-	max-height: 65%;
+	max-height: min(65%, var(--pane-cap, 65%));
 	overflow-y: auto;
 	padding: 12px var(--density-padding);
 	display: flex;
@@ -2759,6 +2765,14 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	font-weight: bold;
 	margin-right: 4px;
 }
+
+/* The "(closed)" tag on an exit a law is holding shut, with no door row to wear
+   the state itself. Same red as the dpad arrow it turns, because they are one
+   fact told twice. */
+.door-state {
+	color: var(--red);
+	font-size: 0.92em;
+}
 .building-link {
 	color: var(--purple);
 }
@@ -2983,6 +2997,15 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	border-radius: 2px;
 	opacity: 0.9;
 }
+
+/* A building held shut by a law rather than by a door — shop hours, so far. It
+   keeps its outline and its click (the refusal is where the opening time gets
+   said), but the outline is red: a door you can see is a door you can walk
+   through, and this one isn't, right now. Mirrors the canvas renderer's inset. */
+.mm-room.mm-building.mm-shut {
+	color: var(--red);
+}
+
 /* Nearby-but-unreachable tiles (beyond the reachable BFS) render faint so it's
    clear there are tiles there you just can't reach; their connectors dim too. */
 .mm-room.mm-unreachable {
@@ -7353,9 +7376,13 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 /* Bottom region wrapper. Desktop: plain vertical stack (cmds bar above input,
    dpad hidden). Mobile/compact: the dpad becomes a full-height column on the
    right while the cmds/weather bar and the input row stack to its left. */
+/* Never a candidate for the squeeze. It could not shrink below its content
+   anyway, so this changes no layout — it states the rule the pane's cap is
+   calculated from, in the one place somebody would look after breaking it. */
 #bottom-input-wrap {
 	display: flex;
 	flex-direction: column;
+	flex-shrink: 0;
 }
 #bottom-stack {
 	display: flex;
@@ -14120,7 +14147,7 @@ body.esp-active #output {
    room than the default 65% cap gives — that clips the action buttons off the
    bottom on shorter windows. Grow the pane specifically when a table is showing. */
 #area-pane:has(.poker-table-wrap) {
-	max-height: 88%;
+	max-height: min(88%, var(--pane-cap, 88%));
 }
 
 /* --poker-felt is the base felt hue (set by settings.js: classic green, the

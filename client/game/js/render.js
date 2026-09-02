@@ -609,6 +609,17 @@ export function scrollOutput() {
   paintChip();
 }
 
+// Re-pin the tail after the log box CHANGES SIZE rather than gains a line. A
+// resize moves the bottom of the box out from under a reader who never
+// scrolled, so the newest lines slide out of view without anything having
+// happened. Only for a reader who was following, and deliberately without
+// scrollOutput's held-line bookkeeping: nothing was appended, so nothing was
+// missed and the resume chip has nothing to announce.
+export function keepTail() {
+  const out = document.getElementById('output');
+  if (out && _following) snap(out);
+}
+
 export function updateVitals(p) {
   setBar('hp', p.hp, p.hp_max || 100);
   setBar('san', p.sanity, p.sanity_max || 100);

@@ -81,3 +81,55 @@ export async function climbCheck(player, to) {
     return null;
   }
 }
+
+// ── THE SHUT SEAM — ASKING THE GATE'S QUESTION WITHOUT WALKING INTO IT ────────
+// A move gate only ever answers at the moment of the step, which is the right
+// place to ENFORCE a law and the wrong place to be told about one. Shop hours
+// were a gate and nothing else: a closed shop kept its accent outline on the
+// minimap, its dpad arrow stayed lit, and `look` listed it as an ordinary way in,
+// because none of those surfaces has a door row to read a lock off (there are 158
+// doors in the whole world, and a shop front is usually not one of them). You
+// found out by trying it. That is exactly the failure describe.js already fixed
+// for real doors — "58 closed doors read as ordinary open exits in `look` and then
+// stopped you on the step" — and the hours law never got the same treatment.
+//
+// So a system that shuts a destination declares it here, and every surface that
+// draws a way in can ask ahead of the step. The gate stays the enforcement; this
+// is the same fact, told before you walk into it.
+//
+// provider(player, zone) → { shut: true, label } | null
+//   label — the word a surface prints for it ("closed"), never a sentence. The
+//           REASON stays with the gate, which has room for it; a door tag has not.
+//
+// ⚠ SYNC BY CONTRACT, and no query. `getMinimapData` asks this per tile of an
+// 81-tile window on every move by every player. A provider reads the world Maps
+// and a cached index or it does not belong here.
+//
+// It fails OPEN, unlike the climb seam next door, and for the mirror of that
+// reason: this decides what a surface DRAWS, never what a body may do. With no
+// provider registered every way in looks open — which is exactly how it looked
+// before any of this existed — and the gate still refuses the step.
+// Keyed by owner, like every other sync contributor registry in the engine, so a
+// re-registration replaces rather than stacks.
+const shutProviders = new Map();
+export function registerShutProvider(fn, owner = 'plugin') {
+  if (typeof fn !== 'function') throw new Error('registerShutProvider: function required');
+  shutProviders.set(owner, fn);
+}
+
+// The first provider that calls this destination shut, or null. A provider that
+// throws is skipped: a broken system must not paint the whole map shut.
+export function shutStatus(player, zone) {
+  if (!zone) return null;
+  for (const [owner, fn] of shutProviders) {
+    try {
+      const r = fn(player, zone);
+      if (r?.shut) return { shut: true, label: r.label || 'closed' };
+    } catch (e) {
+      console.error(`[shutProvider:${owner}] error: ${e.message}`);
+    }
+  }
+  return null;
+}
+
+export function getRegisteredShutProviders() { return [...shutProviders.keys()]; }

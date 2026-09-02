@@ -11,7 +11,9 @@ import {
 	facadeStreetTile,
 	getZoneFurniture,
 	propsOf,
+	resolveLanding,
 } from "../world.js";
+import { shutStatus } from "../movement-gates.js";
 import { OPPOSITE } from "../directions.js";
 import {
 	getZoneVisibility,
@@ -57,6 +59,28 @@ async function doorLockAttr(door, player) {
 	return "";
 }
 
+// ── A WAY IN THAT IS SHUT WITH NO DOOR TO SAY SO ─────────────────────────────
+// Shop hours (and any future law like them) shut a destination through a move gate,
+// which only answers at the moment of the step. Most shop fronts have no `doors`
+// row at all, so `doorSuffix` has nothing to read and the exit listed itself as an
+// ordinary way in — the same failure the paragraph below describes for real doors,
+// arriving by a different route.
+//
+// The seam (`registerShutProvider`, movement-gates.js) is asked about the FINAL
+// destination, resolved the way the gate chain resolves it: a facade forwards into
+// its interior entry zone, which is the zone whose hours are being kept.
+//
+// It wears the same two marks a shut door wears — the `(closed)` tag and the
+// `data-lock="locked"` the dpad colours red — because the player is being told one
+// thing, "you can't go that way right now", and which law holds the door is not
+// their problem. The WORD is the provider's; the reason stays with the gate, which
+// has a whole sentence to spend on it.
+function shutTag(targetId, player) {
+	if (!targetId) return null;
+	const st = shutStatus(player, getZone(resolveLanding(targetId)));
+	return st ? { lockAttr: ' data-lock="locked"', suffix: ` <span class="door-state">(${st.label})</span>` } : null;
+}
+
 // The door on a link, resolved the way MOVEMENT resolves it — near side, far side, or
 // (when the link leads to a building) the front door on the facade↔interior seam one
 // hop further in. Room descriptions used to check only the near side, so 58 closed
@@ -81,7 +105,7 @@ function doorOnLink(fromId, direction, targetId) {
 // walk in. The suffix is the clickable part that opens it.
 async function doorSuffix(fromId, direction, targetId, player) {
 	const door = doorOnLink(fromId, direction, targetId);
-	if (!door || door.is_open || door.hp <= 0) return "";
+	if (!door || door.is_open || door.hp <= 0) return shutTag(targetId, player)?.suffix || "";
 	const lockAttr = await doorLockAttr(door, player);
 	const doorName = door.name || "Door";
 	const state = door.lock_state === "locked" ? "locked" : "closed";
@@ -171,12 +195,12 @@ function getConnectedDestinations(zone) {
 // the destination has a name we also emit `data-dest`, and the client clicks with
 // `go <name>` so SIFT lands on that specific exit even when several share a
 // direction. Unnamed exits fall back to `go <direction>`.
-function destLink(direction, name, cls) {
+function destLink(direction, name, cls, extraAttr = "") {
 	const dirLabel = direction.charAt(0).toUpperCase() + direction.slice(1);
 	const label = name || dirLabel;
 	const destAttr = name ? ` data-dest="${String(name).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
 	const title = name ? `Go to ${name}` : `Go ${direction}`;
-	return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link ${cls}" data-action="go" data-target="${direction}"${destAttr} title="${title.replace(/"/g, '&quot;')}">${label}</span>`;
+	return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link ${cls}" data-action="go" data-target="${direction}"${destAttr}${extraAttr} title="${title.replace(/"/g, '&quot;')}">${label}</span>`;
 }
 
 const COUNT_WORDS = ["", "", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
@@ -1712,21 +1736,22 @@ export async function describeZone(zone, player, out = {}) {
 				const lockAttr = await doorLockAttr(door, player);
 				return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link door-link" data-action="open" data-target="door ${p.direction}"${lockAttr} title="Open ${doorName}">${doorName}</span>${describeDoorForcefield(door)}`;
 			}
-			return destLink(p.direction, p.name, "exit-link");
+			const shut = shutTag(p.targetId, player);
+			return destLink(p.direction, p.name, "exit-link", shut?.lockAttr) + (shut?.suffix || "");
 		}));
 		desc += `\n<span class="exits-row"><span class="exits-label">Exits:</span> ${exitLinks.join(", ")}</span>`;
 	}
 	desc += junctionSignalLine(zone);
 	if (buildings.length) {
 		const links = await Promise.all(buildings.map(async (b) =>
-			destLink(b.direction, b.name, "building-link") +
+			destLink(b.direction, b.name, "building-link", shutTag(b.targetId, player)?.lockAttr) +
 			await doorSuffix(zone.id, b.direction, b.targetId, player),
 		));
 		desc += `\n<span class="buildings-row"><span class="buildings-label">Buildings:</span> ${links.join(", ")}</span>`;
 	}
 	if (rooms.length) {
 		const links = await Promise.all(rooms.map(async (r) =>
-			destLink(r.direction, r.name, "room-nav-link") +
+			destLink(r.direction, r.name, "room-nav-link", shutTag(r.targetId, player)?.lockAttr) +
 			await doorSuffix(zone.id, r.direction, r.targetId, player),
 		));
 		desc += `\n<span class="rooms-row"><span class="rooms-label">Rooms:</span> ${links.join(", ")}</span>`;

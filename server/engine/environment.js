@@ -1864,7 +1864,16 @@ export function getZoneVisibility(zoneId) {
   // by power, windows, or daylight — so they short-circuit BEFORE the power-sim
   // lookup below (which only knows zones that have a power_zones row). Loaded once
   // at init from the zones table, so it works for any zone, powered or not.
-  if (state.alwaysLitZones?.has(zoneId)) {
+  //
+  // ⚠ THE SET IS A DB SNAPSHOT, SO IT CANNOT SEE A TRANSIENT ZONE. Dreamscape and
+  // void-crossing rooms are registered into world.zones at runtime and have no
+  // zones row to have been in that query — so a dream room, built always_lit
+  // precisely so it needs no light system, fell through to the power sim, found no
+  // row, took the outdoor ambient, and came out PITCH DARK at night. Which is when
+  // people sleep: the dream rendered as "It is completely dark here" over its own
+  // exits for most of the hours it can happen in. The live flag is the same value
+  // the query reads, so consulting it is a superset rather than a second source.
+  if (state.alwaysLitZones?.has(zoneId) || world.zones.get(zoneId)?.flags?.always_lit) {
     return {
       visibility: 0.85, category: 'bright',
       ambientLight: 0.85, artificialLight: 0.85, windowLight: 0,

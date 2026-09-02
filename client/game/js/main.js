@@ -15,7 +15,12 @@ import {
 	listenForSettingsChanges,
 	SETTINGS_KEY,
 } from "/shared/settings.js";
-import { appendMsg, initVitalsReorder, initScrollLock } from "./render.js";
+import {
+	appendMsg,
+	initVitalsReorder,
+	initScrollLock,
+	keepTail,
+} from "./render.js";
 import { initLogTools } from "./logtools.js";
 import { initAutomation } from "./automation.js";
 import { registerConfig, setConfigTransport } from "./configsync.js";
@@ -1077,6 +1082,12 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 		) {
 			pane.style.height = "";
 		}
+		// Re-measure the ceiling too. The ResizeObserver below is the general
+		// answer, but the bottom stack grows and shrinks for reasons no window
+		// resize accompanies — the smartbar arriving with a player's macros, the
+		// sleep bar appearing — and a ceiling that is stale HIGH is the direction
+		// that lets the command line be pushed out again.
+		syncCap();
 	});
 
 	// Full-pane apps (the hangar bay) snap the pane back to its default auto size on
@@ -1091,6 +1102,59 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 
 	handle.addEventListener("dblclick", () => setAuto());
 
+	// ⚠ THE PANE'S CEILING HAS TO BE MEASURED, NOT A PERCENTAGE. #area-pane is
+	// 'flex: 0 0 auto' — it never shrinks — and the bottom stack (quick commands,
+	// the command line, the smartbar) cannot shrink below its own content, so
+	// #output is the only thing in the column that gives. Once it has given
+	// everything, a proportional cap goes on growing the pane and the command line
+	// is pushed past the container's 'overflow: hidden' edge and out of view. At a
+	// 420px-tall window that was 26px of input row simply gone, with nothing on
+	// screen to say the game was still listening.
+	//
+	// So the ceiling is whatever is left after the handle, the bottom stack and a
+	// floor of log — published as a custom property the stylesheet mins() against
+	// its own 65%. A property rather than an inline style because the immersive
+	// modes beat an inline height with !important on purpose (see the note beside
+	// #area-pane in styles.css) and must go on doing so.
+	const MIN_LOG = 72;
+	const bottomWrap = document.getElementById("bottom-input-wrap");
+
+	function paneCap() {
+		const containerH = container.getBoundingClientRect().height;
+		const handleH = handle.getBoundingClientRect().height;
+		const bottomH = bottomWrap ? bottomWrap.getBoundingClientRect().height : 0;
+		return Math.max(40, Math.round(containerH - handleH - bottomH - MIN_LOG));
+	}
+
+	// ⚠ Idempotent by design. This runs from a ResizeObserver watching the very
+	// elements it writes the property onto, so an unconditional write is a feedback
+	// loop — the browser reports that as "ResizeObserver loop completed with
+	// undelivered notifications" and then drops the notifications it warned about.
+	let lastCap = null;
+	function syncCap() {
+		const cap = paneCap();
+		if (cap !== lastCap) {
+			lastCap = cap;
+			container.style.setProperty("--pane-cap", cap + "px");
+		}
+		// ⚠ OUTSIDE the guard. The log box changes height whenever the pane does,
+		// which is every frame of a drag and most of a window resize — the ceiling
+		// only moves at the end of it. Re-pinning solely when the ceiling changed
+		// leaves the newest lines scrolled out of sight for the whole gesture,
+		// which is the other half of the same complaint. Writing scrollTop resizes
+		// nothing, so this is safe to run from the observer; the property write is
+		// the only part that needs the loop guard.
+		keepTail();
+	}
+
+	syncCap();
+	window.addEventListener("resize", syncCap);
+	if (window.ResizeObserver) {
+		const ro = new ResizeObserver(syncCap);
+		ro.observe(container);
+		if (bottomWrap) ro.observe(bottomWrap);
+	}
+
 	let startY, startH;
 
 	handle.addEventListener("mousedown", (e) => {
@@ -1103,13 +1167,10 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 
 		function onMove(e) {
 			const delta = e.clientY - startY;
-			const containerH = container.getBoundingClientRect().height;
-			const newH = Math.min(
-				containerH - 80,
-				Math.max(40, startH + delta),
-			);
+			const newH = Math.min(paneCap(), Math.max(40, startH + delta));
 			pane.style.height = newH + "px";
 			pane.style.maxHeight = "";
+			keepTail();
 		}
 
 		function onUp() {
@@ -1138,13 +1199,10 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 			function onMove(e) {
 				const t = e.touches[0];
 				const delta = t.clientY - startY;
-				const containerH = container.getBoundingClientRect().height;
-				const newH = Math.min(
-					containerH - 80,
-					Math.max(40, startH + delta),
-				);
+				const newH = Math.min(paneCap(), Math.max(40, startH + delta));
 				pane.style.height = newH + "px";
 				pane.style.maxHeight = "";
+				keepTail();
 			}
 
 			function onEnd() {

@@ -469,7 +469,8 @@ export function noteDreamProgress(player, inst, broadcast) {
       p.sittingOn = null;
       try {
         broadcast?.(p.current_zone, { type: 'zone_event', message: `${p.handle} stirs and opens their eyes.` }, p.id);
-        broadcast?.(null, { type: 'force_look' }, null, p.id);
+        // No force_look here: wakeFromDream above already pushed one, and a second
+        // silent look is a wasted round trip that re-runs every arrival side effect.
         broadcast?.(null, { type: 'sleep_state', sleeping: false, dreaming: false }, null, p.id);
         broadcast?.(null, { type: 'output', message: 'You surface. The room reassembles itself around you, and this time it stays put.' }, null, p.id);
       } catch { /* they are awake either way */ }
@@ -540,6 +541,19 @@ export function wakeFromDream(player) {
   }
   player.sleeping.inDream = false;
   dissolveDreamscape(player.id);
+  // AND TELL THE CLIENT THE ROOM CHANGED. The mind just moved rooms without a
+  // command being typed, so nothing else on the wire says so: the room pane goes
+  // on showing the dream, its name, its darkness and its exits, until the player
+  // happens to type 'look'. Every click on one of those dead exits is then
+  // answered about the REAL room they are standing in ("No exit to the north"
+  // under a pane listing a room to the north), which reads as the dream being
+  // broken rather than over.
+  //
+  // It rides here for the same reason the dream_fx clear does: this is the one
+  // funnel every wake path already calls, and three of them (the natural wake in
+  // the sleep tick, a knife in the dark, the game loop) sent no refresh of their
+  // own. A wake path added later gets it for free.
+  sendToPlayer(player.id, { type: 'force_look' });
   return true;
 }
 

@@ -4,6 +4,7 @@ import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName } from './text.js';
 import { districtFor, loadDistricts, registerZoneLookup } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
+import { shutStatus } from './movement-gates.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat } from './danger.js';
@@ -1433,6 +1434,13 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       radiation: getZoneRadiation(zone),
       // Pass-through building tile: rendered as an enterable marker, not a room.
       enterable: isEnterableFacade(zone),
+      // A way in that a law is currently holding shut (shop hours, so far), asked
+      // through the shut seam about the FINAL destination — a facade forwards into
+      // its interior, which is the room whose hours are kept. Per viewer, because
+      // the resident of a mixed-use building is exempt from its shop's hours.
+      // The tile draws it red rather than accent, so a closed shop stops looking
+      // like a door you can walk through until you have walked into it.
+      shut: shutStatus(viewer, world.zones.get(resolveLanding(zone.id)))?.shut || null,
       building_name: zone.flags?.building_name || null,
       exits: primaryExits(zone),
       map_id: zone.map_id || null,

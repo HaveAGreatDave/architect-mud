@@ -805,7 +805,11 @@ export function glyphPlan(node, overlay) {
 // escapeHtml() it at the call site; the canvas path assigns it to `canvas.title`,
 // a property, where escaping would show the entities literally.
 export function titleFor(node) {
-  const parts = [node.enterable && node.building_name ? `${node.building_name} — enter` : node.name];
+  // A shut way in says so where the invitation used to be. Both renderers share
+  // this, so the DOM tile and the canvas tile can never describe the same door
+  // differently.
+  const enterWord = node.shut ? 'closed' : 'enter';
+  const parts = [node.enterable && node.building_name ? `${node.building_name} — ${enterWord}` : node.name];
   if (node.district?.name) parts.push(node.district.name);
   if (node.artery?.length) parts.push(node.artery.join(' / '));
   if (node.buildings?.length) parts.push(node.buildings.join(', '));
@@ -929,7 +933,10 @@ function renderMinimapDom(nodes, direction) {
       // Enterable buildings are doors, not rooms — clickable (action-link + data-dest
       // rides main.js's delegated handler, sending `go <building name>`).
       const dangerCls = node.enterable ? 'safe' : (node.danger || 'safe');
-      const enterCls = node.enterable ? ' mm-building action-link' : '';
+      // A building a law is holding shut (shop hours) keeps its outline and its click
+      // — the refusal is where the opening time is actually said, so walking into it
+      // is still the useful thing to do — but the outline goes red rather than accent.
+      const enterCls = node.enterable ? ` mm-building action-link${node.shut ? ' mm-shut' : ''}` : '';
       const enterAttrs = node.enterable && node.building_name
         ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
         : '';
