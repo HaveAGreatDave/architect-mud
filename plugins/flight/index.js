@@ -40,7 +40,7 @@ import {
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
-  airfieldOf, fieldName,
+  airfieldOf, fieldName, PILOT_IP,
 } from './state.js';
 import './hvac.js';   // registers a running cockpit as a climate-controlled cabin — see the file header
 import { boardCompanions } from './companions.js';
@@ -703,7 +703,7 @@ async function cmdStartup(args, raw, player, broadcast) {
   live.engines.forEach((e, i) => { e.spoolAt = i * 1.2; e.t = 0; });  // stagger multi-engine starts
   await persist(live);
   pushHud(live);
-  await awardSkillUse(player.id, 'piloting', 0);
+  await awardSkillUse(player.id, 'piloting', PILOT_IP.ROUTINE);
   // A text pilot's `startup` IS the engine-master switch, so it's what advances the
   // checkride out of its STARTUP stage (the 3D cockpit reports `flightevent engineon`).
   if (live.textPilot && live.checkride) await checkrideEvent(live, 'engineon', [], player);
@@ -783,7 +783,9 @@ async function cmdClimb(args, raw, player) {
   live.row.fuel = Math.max(0, live.row.fuel - 0.5);
   if (!chk.success) return { type: 'emote', message: 'You haul back on the stick but the climb mushes out — try again.' };
   live.row.altitude_band = BANDS[cur + 1];
-  await awardSkillUse(player.id, 'piloting', 0); pushHud(live);
+  // A real check just ran, so pass its own margin: a climb scraped by the
+  // handling ceiling teaches, a comfortable one barely does. See PILOT_IP.
+  await awardSkillUse(player.id, 'piloting', chk.margin); pushHud(live);
   return { type: 'emote', message: `<span class="text-cyan">You climb to ${BAND_LABEL[live.row.altitude_band]}.</span>` };
 }
 
@@ -998,7 +1000,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     }
     await persist(live);
     if (zone) broadcast(zone.id, { type: 'zone_event', message: `The ${live.type.name} lifts off and climbs away.` }, player.id);
-    await awardSkillUse(player.id, 'piloting', 0);
+    await awardSkillUse(player.id, 'piloting', PILOT_IP.TAKEOFF);
     out(player.id, '<span class="text-green">Wheels up — you claw into the sky.</span>');
     if (live.checkride) await checkrideEvent(live, 'takeoff', args, player);
     return { type: 'noop' };
@@ -1073,7 +1075,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
         crDone = await checkrideEvent(live, 'land', [grade, fpm, field.id], player);
       }
       await parkAt(live, field.id);
-      await awardSkillUse(player.id, 'piloting', 0);
+      await awardSkillUse(player.id, 'piloting', PILOT_IP.LANDING);
       await checkContractDelivery(player, live, field.id);
       await checkCargoDropDelivery(player, live, field.id);
       // Everyone climbs out onto the tile where she settled (parkAt set their zone to it).

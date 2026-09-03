@@ -95,6 +95,39 @@ export function salvoOf(live) { return Math.max(1, live.type?.data?.salvo || 1);
 export function bombLoad(live) { return Math.max(0, live.type?.data?.bombs || 0); }
 export function bombAmmo(live) { return Math.max(0, live.bombs ?? bombLoad(live)); }
 
+// ── Piloting IP margins ───────────────────────────────────────────────────────
+// ⚠ THE THIRD ARGUMENT TO awardSkillUse IS A SKILL-CHECK MARGIN, NOT AN XP AMOUNT
+// — a BIGGER number pays LESS. `awardIp` rolls `chance = base / (1 + |margin| *
+// scale)` (server/engine/ip.js), so on the default tunables 0.5 is ~50%, 1 is
+// ~33%, 2 is 20%, 4 is ~11%, and 0 is a GUARANTEED point. The parameter means
+// "how far INSIDE your ability this was", because you learn at the edge.
+//
+// These constants exist because that reads backwards at a call site, and it had
+// been read backwards at every one of them: `bombKillAA` passed 3 — the lowest
+// rate in the plugin — directly under a comment promising it "pays out
+// generously: this is the hardest way in the game to kill one", while takeoff,
+// landing, `startup`, `climb` and `scan` all passed 0, a guaranteed point per
+// press. Two of those are repeatable on the apron at will, so piloting was
+// trained fastest by starting the engine over and over, and combat trained it
+// slower than routine flying did.
+//
+// ⚠ Nothing here is 0, deliberately. A silenced AA site comes back as soon as a
+// living engineer repairs it (plugins/aa-sites), so every award below is farmable
+// given patience, and a guaranteed point is a faucet rather than a reward.
+// ⚠ Where a real skillCheck already ran, pass ITS `.margin` instead of any of
+// these — that is what the parameter is for, and it makes a barely-made climb
+// teach more than a comfortable one. Only events with no check of their own
+// belong in this table.
+export const PILOT_IP = {
+  BOMB_KILL:    0.5,   // ~50% — dive-bombing an AA site: the hardest kill in the game
+  MISSILE:      1,     // ~33% — ammo-limited, one award per impact
+  AA_SILENCED:  1,     // ~33% — a swarm or strafe pass that kills a battery
+  LANDING:      1.5,   // ~25% — the half of flying that is actually hard, once a trip
+  GUNS:         2,     // ~20% — free ammo, and a burst rolls repeatedly across one pass
+  TAKEOFF:      2,     // ~20%
+  ROUTINE:      4,     // ~11% — `startup`/`scan`: repeatable on the ground, at will
+};
+
 // ── Continuous-flight seam (Phase 1 slice) ────────────────────────────────────
 // The overhaul's continuous energy model runs client-side; the server reconciles
 // and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice

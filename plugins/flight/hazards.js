@@ -28,7 +28,7 @@ on('weather.event', ({ type, phase }) => {
 function empActive() { return Date.now() < empUntil; }
 import {
   liveAircraft, surfaceAt, pilotOf, persist, crash, toOccupants, out, sendToZone,
-  BANDS, effStats, getLivePlayer, detach, getZone, fieldFor as fieldOf,
+  BANDS, effStats, getLivePlayer, detach, getZone, fieldFor as fieldOf, PILOT_IP,
 } from './state.js';
 // `eject` also belongs to broadcast (eject a cassette); flight wins it by load
 // order and hands back when you're not bailing out of an aircraft.
@@ -177,7 +177,9 @@ async function cmdExtinguish(args, raw, player) {
   live.row.engine_temp = Math.min(live.row.engine_temp, 120);
   if (!chk.success) return { type: 'emote', message: cut ? 'You chop the fuel but the fire\'s still lit — try again.' : 'The bottle empties and the flames gutter but hold. Again!' };
   live.hazard = null;
-  await awardSkillUse(player.id, 'piloting', 1);
+  // A real check just ran — pass its margin, so a fire caught late (a harder
+  // difficulty, a narrower win) teaches more than an easy one. See PILOT_IP.
+  await awardSkillUse(player.id, 'piloting', chk.margin);
   return { type: 'emote', message: cut
     ? '<span class="text-green">Fuel cut, the fire starves and dies. You\'re a glider now — find a field.</span>'
     : '<span class="text-green">The extinguisher smothers it. Smoke, but no more flame.</span>' };
@@ -257,7 +259,7 @@ async function cmdSpot(args, raw, player) {
   }
   if (eff < 3 && finds.length > 1) finds.length = 1;   // an unskilled eye misses things
   if (!finds.length) return { type: 'output', message: 'You scan the ground below. Nothing worth marking from up here.' };
-  await awardSkillUse(player.id, 'piloting', 0);
+  await awardSkillUse(player.id, 'piloting', PILOT_IP.ROUTINE);
   return { type: 'output', message: `<span class="text-cyan">From altitude you make out:</span>\n· ${finds.join('\n· ')}` };
 }
 
