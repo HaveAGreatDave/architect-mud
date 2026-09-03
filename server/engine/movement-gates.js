@@ -133,3 +133,47 @@ export function shutStatus(player, zone) {
 }
 
 export function getRegisteredShutProviders() { return [...shutProviders.keys()]; }
+
+// ── THE SAME QUESTION, ASKED ABOUT A LINK ────────────────────────────────────
+// The shut seam above asks about a DESTINATION, which is the shape shop hours
+// have: the room is closed however you reach it. A lock is not that shape. It
+// hangs on ONE link, and the room behind it is wide open from its other three
+// sides — so a surface that draws the sides of a room has a second question to
+// ask, and it is the same question one step down.
+//
+// The minimap's edge lines are that surface: every side of an interior room with
+// a way through drew green, so a bolted apartment door and an empty doorway were
+// the same line, and you found out which by walking into it. Same failure the
+// shut seam fixed for a facade, one surface further in.
+//
+// provider(player, from, dir, to) → { locked: true } | null
+//   from/to — zone objects; dir — the cardinal being looked along.
+//
+// ⚠ SYNC BY CONTRACT, and no query. This is asked about every cardinal side of
+// every interior tile in an 81-tile window, on every move by every player.
+//
+// It fails OPEN, like the shut seam and unlike the climb seam, and for the same
+// reason: it decides what a surface DRAWS, never what a body may do. With no
+// provider registered every side looks open — exactly how it looked before this
+// existed — and the door-lock gate still refuses the step.
+const lockedProviders = new Map();
+export function registerLockedProvider(fn, owner = 'plugin') {
+  if (typeof fn !== 'function') throw new Error('registerLockedProvider: function required');
+  lockedProviders.set(owner, fn);
+}
+
+// The first provider that calls this link locked, or null. A provider that throws
+// is skipped: a broken system must not paint every doorway shut.
+export function lockedOnLink(player, from, dir, to) {
+  if (!from || !dir) return null;
+  for (const [owner, fn] of lockedProviders) {
+    try {
+      if (fn(player, from, dir, to)?.locked) return { locked: true };
+    } catch (e) {
+      console.error(`[lockedProvider:${owner}] error: ${e.message}`);
+    }
+  }
+  return null;
+}
+
+export function getRegisteredLockedProviders() { return [...lockedProviders.keys()]; }

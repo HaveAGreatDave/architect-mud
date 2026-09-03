@@ -4,7 +4,7 @@ import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName } from './text.js';
 import { districtFor, loadDistricts, registerZoneLookup } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
-import { shutStatus } from './movement-gates.js';
+import { shutStatus, lockedOnLink } from './movement-gates.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat } from './danger.js';
@@ -400,6 +400,25 @@ export function interiorOpenDirs(zone) {
   // in/out exit is walled on all four sides), so this returns [] rather than null —
   // null means "not an interior tile, don't draw edges at all".
   return Object.keys(primaryExits(zone)).filter(d => INTERIOR_EXIT_DIRS.has(d));
+}
+
+// The sides of that same room that a lock is currently holding shut. The edge lines
+// drew every way through green, so a bolted apartment door and an empty doorway were
+// the same line, and you learned which by walking into it — the failure the shut seam
+// fixed for a facade held closed by a law, one surface further in.
+//
+// A subset of interiorOpenDirs by construction: a side has to have a way through
+// before a door can be across it. The question itself belongs to the door law and is
+// asked through the locked seam (movement-gates.js), so this file keeps no opinion
+// about housing, keys or shopkeepers — it draws the answer the gate would give.
+//
+// ⚠ Sync and query-free, like the rest of this payload.
+export function interiorLockedDirs(zone, viewer = null) {
+  const open = interiorOpenDirs(zone);
+  if (!open?.length) return null;
+  const exits = primaryExits(zone);
+  const dirs = open.filter(d => lockedOnLink(viewer, zone, d, world.zones.get(exits[d]))?.locked);
+  return dirs.length ? dirs : null;
 }
 
 // Terrain class for the map/minimap surfaces: 'road' | 'water' | 'grass' | null.
@@ -1458,6 +1477,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
       exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
       open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
+      locked_dirs: interiorLockedDirs(zone, viewer), // ...and which of those a lock holds shut — the same lines, drawn red
       terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),

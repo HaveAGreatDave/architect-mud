@@ -1170,12 +1170,18 @@ const ENTRANCE_DIRS = new Set(['north', 'south', 'east', 'west']);
 // green where there's a way through, red where there's a wall. Server `open_dirs` is
 // the authority and is null on exterior tiles, so out on the street this draws only
 // the single green line on the facade's door edge (see doorMarks).
+//
+// `locked_dirs` is the third state, a subset of the open ones: a way through that a
+// lock is holding shut. Wall red, at full strength.
 const CARDINALS = ['north', 'south', 'east', 'west'];
 function edgeMarks(node, pfx) {
   const open = node?.open_dirs;
   if (!Array.isArray(open)) return '';
-  return CARDINALS.map(d =>
-    `<span class="${pfx}-edge ${pfx}-edge-${d} ${open.includes(d) ? 'open' : 'shut'}"></span>`).join('');
+  const locked = Array.isArray(node?.locked_dirs) ? node.locked_dirs : [];
+  return CARDINALS.map(d => {
+    const state = locked.includes(d) ? 'locked' : (open.includes(d) ? 'open' : 'shut');
+    return `<span class="${pfx}-edge ${pfx}-edge-${d} ${state}"></span>`;
+  }).join('');
 }
 
 // A facade out on the street gets the green line on its door edge and NOTHING on the

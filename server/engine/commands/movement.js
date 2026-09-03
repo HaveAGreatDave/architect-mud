@@ -2,7 +2,7 @@ import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
 import { renderMapBriefing, renderMapChart } from '../map-text.js';
 import { loggedPanelsSync, textMinigamesSync } from '../presentation.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, interiorLockedDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -17,7 +17,7 @@ import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
 import { isSneaking } from '../stealth.js';
 import { isDreamZone, pushDreamFx } from '../dreamscape.js';
-import { registerMoveGate, runMoveGates, climbCheck } from '../movement-gates.js';
+import { registerMoveGate, runMoveGates, climbCheck, registerLockedProvider } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment, isResidentOf, getBuildingName } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
@@ -97,6 +97,26 @@ registerMoveGate(async ({ player, direction, door, to, from }) => {
     const label = NAMED_LOCK_DIRS.has(direction) && to?.name ? to.name : `the ${direction}`;
     return { block: true, message: `The door to ${label} is locked.` };
   }
+}, 'engine:door-lock');
+
+// The drawn half of the gate above. A surface that shows the sides of a room can
+// now ask what the gate would answer, without a body walking into it — and it asks
+// HERE so the two can never drift: same door lookup, same three exemptions, in the
+// one place a change to either would be made.
+//
+// It is deliberately NOT the whole gate. Lock AUTH is async (resolveLockAuth reads
+// a player's keys), and this is called per side of every tile in the minimap
+// window, so the question it answers is "is this door locked", which is true for
+// everyone standing there, rather than "would it open for you". A resident sees
+// their own front door red and unlocks it, which is what the room description has
+// always told them too.
+registerLockedProvider((player, from, dir, to) => {
+  const door = doorOnLink(from.id, dir, to?.id);
+  if (!door || door.hp <= 0 || door.lock_state !== 'locked') return null;
+  if (doorGuardsOnlyUnownedApartment(door)) return null;       // unrented unit — vestigial
+  if (door._autoLockedInside && autoLockLetsThrough(player, door, from)) return null;
+  if (!getLockTagPublic(door)) return null;                    // locked with no lock installed
+  return { locked: true };
 }, 'engine:door-lock');
 
 // Encumbrance blocks the move — the law lives at movement, not acquisition
@@ -962,7 +982,7 @@ function mapPoi(zone) {
 }
 
 // One tile snapshot, positioned at (x,y) relative to the map's origin.
-function mapTile(zone, x, y, placed, currentId) {
+function mapTile(zone, x, y, placed, currentId, viewer = null) {
   const links = {};
   for (const [dir, target] of Object.entries(primaryExits(zone))) {
     if (placed.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
@@ -986,6 +1006,7 @@ function mapTile(zone, x, y, placed, currentId) {
     entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
     exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
     open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
+    locked_dirs: interiorLockedDirs(zone, viewer), // ...and which of those a lock holds shut — the same lines, drawn red
     terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
 
     // `water:` used to ride here, described as "the client refuses to route onto it".
@@ -1020,7 +1041,7 @@ function windowTiles(centerId, viewer = null, half = MAP_WINDOW_HALF) {
     const placed = new Set(onMap.map(z => z.id));
     // (The whole-map coord index that stood here fed roadConnector. The build resolves
     // the connector now — see world.js tileIconSvg.)
-    return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId));
+    return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId, viewer));
   }
 
   const coords = new Map([[centerId, [0, 0]]]);
@@ -1049,7 +1070,7 @@ function windowTiles(centerId, viewer = null, half = MAP_WINDOW_HALF) {
   const tiles = [];
   for (const [id, [x, y]] of inWindow) {
     const zone = getZone(id);
-    if (zone) tiles.push(mapTile(zone, x, y, placed, centerId));
+    if (zone) tiles.push(mapTile(zone, x, y, placed, centerId, viewer));
   }
   return tiles;
 }
@@ -1086,7 +1107,7 @@ export function regionalTiles(currentOverworldId, viewer = null) {
   const tilesOnLandmass = landmassTiles(onMap, currentOverworldId);
   const placed = new Set(tilesOnLandmass.map(z => z.id));
   return tilesOnLandmass.map(z =>
-    mapTile(z, z.grid_x, z.grid_y, placed, currentOverworldId));
+    mapTile(z, z.grid_x, z.grid_y, placed, currentOverworldId, viewer));
 }
 
 // The overworld tile the player occupies: their own tile on the surface, or the
