@@ -65,6 +65,11 @@ export const ALIAS_DEFAULTS = {
   vacate: 'unrent',
   picklock: 'pick',
   rest: 'sleep',
+  // The other end of sleep. `wake` is the only way out of a dream you choose
+  // yourself, and it is the word the dream's own entry line teaches — so the two
+  // spellings a player reaches for next have to land on it too.
+  awake: 'wake',
+  awaken: 'wake',
 };
 
 let overrides = {}; // alias → verb (from DB)
