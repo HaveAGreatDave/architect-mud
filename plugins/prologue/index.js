@@ -408,7 +408,7 @@ async function prologueMoveGate({ player, to }) {
     return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." <span class="hint">(try: ${teachVerb('use', 'use', 'MORPHEX 9000 BioSculpt terminal')} — or click the shimmering terminal)</span>` };
   }
   if (to.id === Z_BROADCAST && !(await isSet(player, F_BROADCAST))) {
-    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. <span class="hint">(the X-90 is in your pack: ${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or type <b>i</b> to see what you're holding)</span>` };
+    return { block: true, message: `There is no door here yet. Only lattice, waiting for you to make one. <span class="hint">(the X-90 is in your pack: ${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or type <b>i</b> to see what you're holding)</span>` };
   }
   if (to.id === Z_COLLAPSE && !(await isSet(player, F_COLLAPSE))) {
     if (!(await isSet(player, F_PLAYED))) setBeacons(player, [B_CHAIR]);
@@ -458,7 +458,7 @@ async function useHolosign(args, raw, player) {
   if (player.current_zone !== Z_LATTICE) return undefined;
 
   if (await isSet(player, F_INTERFACED)) {
-    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give — strength, and a way onward. The rest you take out there.` };
+    return { type: 'emote', message: `You reach into the holosign again. It has already given you what it had to give: strength, and a way onward. The rest you take out there.` };
   }
 
   await raise(player, F_INTERFACED);
@@ -470,7 +470,7 @@ async function useHolosign(args, raw, player) {
   setBeacons(player, []);
   playSoundscript(player, [{ at: 0, def: SFX.latticeTouch }, { at: 1500, def: SFX.grant, gain: 0.8 }]);
 
-  out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute — brawn, reflexes, endurance, brains, cool, senses.</span> <span class="hint">(that's your six STATS — buy more later with XP and RAISE)</span>`);
+  out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute: brawn, reflexes, endurance, brains, cool, senses.</span> <span class="hint">(that's your six STATS — buy more later with XP and RAISE)</span>`);
   out(player, `<span class="ip-gain">+1 IP — Architect Interface</span> <span class="hint">(reaching into the lattice was itself a SKILL; skills climb every time you use them — 100 IP is a level)</span>`);
   // The handoff, made physical: the thing doesn't "appear in your inventory", it
   // is pushed out of the light INTO YOUR HAND and your fingers close on it. Then
@@ -479,13 +479,13 @@ async function useHolosign(args, raw, player) {
   // firstClothing, where the city issues it), so the room link and the verb are the
   // whole of the nudge.
   setTimeout(() => {
-    out(player, `The light in front of you thickens, bunches, and <b>hands you something</b> — pushes it out of itself the way a wave puts a stone on a beach. Your fingers are already closed around it before you decide to close them. A palm-sized wedge of warm ceramic, one seam, one stud: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>.`);
+    out(player, `The light in front of you thickens, bunches, and <b>hands you something</b>, pushes it out of itself the way a wave puts a stone on a beach. Your fingers are already closed around it before you decide to close them. A palm-sized wedge of warm ceramic, one seam, one stud: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>.`);
   }, 1500);
   setTimeout(() => {
     out(player, `<span class="ambient">There is a stud under my thumb, and only one thing to do about it.</span> <span class="hint">(${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or click it up in the room)</span>`);
   }, 3400);
 
-  return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and it does not leave you as it found you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
+  return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
 }
 
 async function useHolocaster(args, raw, player) {
@@ -520,10 +520,10 @@ async function useHolocaster(args, raw, player) {
   setTimeout(() => sendToPlayer(player.id, { type: 'weather_event', eventType: null, phase: null }), 7000);
 
   setTimeout(() => out(player, `<span class="ambient">The seam splits with a sound like a held breath let go, and the wedge comes apart in your hand into two halves that no longer weigh anything.</span>`), 900);
-  setTimeout(() => out(player, `<span class="ambient">Light unspools out of the gap — not a beam, a THREAD, miles of it, pouring north faster than you can follow and knitting itself into geometry as it goes. The dark goes green at the edges. Somewhere far above your head the air cracks, twice, like a storm that has been waiting a long time to be let indoors.</span>`), 2400);
-  setTimeout(() => out(player, `<span class="ambient">It finishes. There is a doorway where there was no wall to put one in, and it is breathing light, and it is unmistakably an invitation.</span>`), 4600);
+  setTimeout(() => out(player, `<span class="ambient">Light unspools out of the gap. Not a beam. A THREAD, miles of it, pouring north faster than you can follow and knitting itself into geometry as it goes. The dark goes green at the edges. Somewhere far above your head the air cracks, twice, like a storm that has been waiting a long time to be let indoors.</span>`), 2400);
+  setTimeout(() => out(player, `<span class="ambient">It finishes. There is a doorway where there was no wall to put one in, and it is breathing light.</span>`), 4600);
   setTimeout(() => {
-    out(player, `<span class="ambient">The X-90 is gone — spent, both halves gone to dust and the dust gone too. One key. One lock.</span> <span class="hint">(the way ${teachVerb('north', 'go', 'north')} is open)</span>`);
+    out(player, `<span class="ambient">The X-90 is spent. Both halves gone to dust, and the dust gone too. One key. One lock.</span> <span class="hint">(the way ${teachVerb('north', 'go', 'north')} is open)</span>`);
     setBeacons(player, [B_NORTH]);
   }, 6100);
 
@@ -562,14 +562,14 @@ on('appearance.changed', async ({ actor }) => {
   setTimeout(() => sendToPlayer(actor.id, { type: 'morphex_close' }), 900);
   playSoundscript(actor, [{ at: 900, def: SFX.grant, gain: 0.6 }]);
 
-  out(actor, `The terminal goes quiet mid-cycle, as though it has been switched off from somewhere else. The attendant is already looking at you — it started before the machine finished.`);
+  out(actor, `The terminal goes quiet mid-cycle, as though it has been switched off from somewhere else. The attendant is already looking at you. It started before the machine finished.`);
   setTimeout(() => {
     out(actor, `"Yes," it says. "This is exactly how I predicted you would answer. You are in alignment." It sounds pleased. The certainty of it crawls up the back of your neck.`);
   }, 2200);
   setTimeout(() => {
     // The motion forward: a body language beat, not a hint line. The hint rides
     // along behind it because a first-timer still needs the verb spelled out.
-    out(actor, `<span class="ambient">Then it does something it has not done since I got here: it MOVES. One long chrome arm comes up and unfolds northward, and it steps out of my way, and it holds the gesture — patient, absolute, an usher at a door I cannot see. There is nowhere else in this room to be.</span> <span class="hint">(go ${teachVerb('north', 'go', 'north')})</span>`);
+    out(actor, `<span class="ambient">Then it does something it has not done since I got here: it MOVES. One long chrome arm comes up and unfolds northward, and it steps out of my way, and it holds the gesture: patient, absolute, an usher at a door I cannot see. There is nowhere else in this room to be.</span> <span class="hint">(go ${teachVerb('north', 'go', 'north')})</span>`);
     setBeacons(actor, [B_NORTH]);
   }, 5000);
   setTimeout(() => {
@@ -732,12 +732,12 @@ function speakArrival(player) {
     return;
   }
   player._prologueArrivalSpoken = true;
-  setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing — not <i>where</i> I am, but <i>how</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
+  setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing. Not <i>where</i> I am. <i>How</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
   setTimeout(() => {
     out(player, `<span class="ambient">Then I notice I'm not alone.</span>`);
   }, 8200);
   setTimeout(() => {
-    out(player, `<span class="ambient">It's tall, and it's chrome — warm chrome, seamless, shaped like a person the way a word is shaped like the thing it means. No face, just a smooth curve where one belongs, and I'd swear it's looking at me. When it shifts its weight the light follows a half-second late. One hand rests on a humming terminal. It doesn't hurry. It has the stillness of something that's been standing exactly there for a very long time, waiting for exactly me.</span>`);
+    out(player, `<span class="ambient">It's tall, and it's chrome. Warm chrome, seamless, shaped like a person the way a word is shaped like the thing it means. No face, just a smooth curve where one belongs, and I'd swear it's looking at me. When it shifts its weight the light follows a half-second late. One hand rests on a humming terminal. It doesn't hurry. It has the stillness of something that's been standing exactly there for a very long time, waiting for exactly me.</span>`);
   }, 11400);
   setTimeout(() => {
     out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
@@ -766,7 +766,7 @@ on('zone.entered', async ({ actor, zone, from }) => {
     else if (!(await isSet(actor, F_BROADCAST))) setBeacons(actor, []);
     else setBeacons(actor, [B_NORTH]);
   } else if (zone === Z_BROADCAST) {
-    out(actor, `<span class="ambient">The chair is the only thing here, and it is unmistakably for you.</span> <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>`);
+    out(actor, `<span class="ambient">The chair is the only thing here.</span> <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>`);
     if (!(await isSet(actor, F_COLLAPSE))) setBeacons(actor, [B_CHAIR]);
   } else if (zone === Z_COLLAPSE) {
     setBeacons(actor, [B_NORTH]);
@@ -792,7 +792,7 @@ function firstClothing(actor) {
   // only once the equips have LANDED, plus a grace window (see gameLoop.js).
   actor._vatDressing = true;
   setTimeout(() => {
-    out(actor, `<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves — cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
+    out(actor, `<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves: cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
   }, 2600);
   setTimeout(async () => {
     let grace = 4000;
@@ -812,7 +812,7 @@ function firstClothing(actor) {
       // the one this fixes.
       setTimeout(() => { actor._vatDressing = false; }, grace);
     }
-    out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — ${outfit} — with the tenderness of an industrial press. No invoice prints. The first clone, it seems, is free.</span>`);
+    out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you with the tenderness of an industrial press: ${outfit}. No invoice prints. The first clone, it seems, is free.</span>`);
   }, 5200);
   // The place-name lands HERE and nowhere earlier: the cold open alludes to
   // Coldwater as history and the prologue refuses to name it, so the first time
@@ -832,7 +832,7 @@ function firstClothing(actor) {
   // walkthrough that opens over the top of the room they just woke up in.
   setTimeout(async () => {
     await raise(actor, F_TABLET);
-    out(actor, `<span class="clone-vat-message">A hatch coughs open at hip height and something slides out of the wall at you, hard enough that catching it is not really optional: a slab of scuffed grey glass, warm on one side, a hairline crack across the corner that somebody has decided is within tolerance. Your name is already on it. Your <b>tablet</b> — issued, apparently, to whoever ends up wearing this body.</span>`);
+    out(actor, `<span class="clone-vat-message">A hatch coughs open at hip height and something slides out of the wall at you, hard enough that catching it is not really optional: a slab of scuffed grey glass, warm on one side, a hairline crack across the corner that somebody has decided is within tolerance. Your name is already on it. Your <b>tablet</b>. Issued, apparently, to whoever ends up wearing this body.</span>`);
     out(actor, `<span class="ambient">It wakes when I touch it, and it seems to think I'll know what to do with it.</span> <span class="hint">(it's in your bar, bottom left — or type <b>tablet</b> any time)</span>`);
     tabletAccess(actor, true);
     // The chip in the bar opens a walkthrough of the tablet SHELL, which a player
@@ -955,7 +955,7 @@ async function autoReadAdvert(actor) {
 function offerTwocellDirections(player, delay = 400) {
   const dest = getZone(Z_TWOCELL_TILE);
   if (!dest) return;
-  setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk. Grady pays for work, and paid work is food, and enough of it is a door you can lock behind you — which is the entire plan, for now.</span> ` +
+  setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk. Grady pays for work, and paid work is food, and enough of it is a door you can lock behind you. That's the entire plan, for now.</span> ` +
     // Yes routes AND sets off (the `!go` flag) — the question has already been
     // asked here, so the gps prompt asking it a second time would be a nag.
     `<span class="action-link prompt-link" data-raw-cmd="gps ${dest.name} !go" data-label="walk to Two-Cell Supply">Show me the way</span> ` +
@@ -1075,7 +1075,7 @@ function playBroadcast(player) {
         // Filed, not handed over on a screen: there is no tablet in this corridor
         // (it's issued at the vat), so the volume waits in the record until there's
         // something to read it on.
-        out(player, `<span class="ambient">Something else arrives with no sound at all. Not an object — a document, filed somewhere under your name, waiting for you to have somewhere to read it.</span> <span class="hint">(it'll be in your CODEX the moment you have a device; <b>codex</b> opens it)</span>`);
+        out(player, `<span class="ambient">Something else arrives with no sound at all. Not an object. A document, filed somewhere under your name, waiting for you to have somewhere to read it.</span> <span class="hint">(it'll be in your CODEX the moment you have a device; <b>codex</b> opens it)</span>`);
       } catch (e) {
         console.error('[prologue] codex grant failed:', e.message);
       }
@@ -1110,7 +1110,7 @@ on('zone.entered', async ({ actor, zone }) => {
   if (await isSet(actor, F_SEAT_TIP)) return;
   await raise(actor, F_SEAT_TIP);
   setTimeout(() => {
-    out(actor, `<span class="ambient">Grady looks up, takes one read of the state of you, and jerks his chin at the sagging armchair by the crates. "Sit down before you fall down. Go on — off your feet, and stay off 'em a while. Body knits itself back together when you stop asking it to carry you around. Cheapest medicine in the basin, and I can't charge you a credit for it."</span>`);
+    out(actor, `<span class="ambient">Grady looks up, takes one read of the state of you, and jerks his chin at the sagging armchair by the crates. "Sit down before you fall down. Go on. Off your feet, and stay off 'em a while. Body knits itself back together when you stop asking it to carry you around. Cheapest medicine in the basin, and I can't charge you a credit for it."</span>`);
   }, 1200);
   setTimeout(() => {
     out(actor, `<span class="ambient">Maybe I should ${teachVerb('sit', 'sit', 'sagging vinyl armchair')} and let it mend.</span>`);
@@ -1150,6 +1150,15 @@ const F_TOUR_TAKEN = 'tour_taken';   // they finished (or started) the walkthrou
 const cmdLink = (cmd, label) =>
   `<span class="action-link" data-action="cmd" data-cmd="${escAttr(cmd)}">${label || cmd}</span>`;
 
+// ⚠ A CLIENT VERB IS NOT A COMMAND LINK. `auto` is handled in
+// client/game/js/input.js and never reaches the socket, so the ordinary
+// `data-action="cmd"` link above would send it and the server would answer
+// `Unknown command` — a taught verb that fails on the one click it advertises.
+// `data-client-cmd` is the route handleActionLinkClick hands to
+// handleClientCommand instead (the same one the auto-walk y/n prompt uses).
+const clientLink = (cmd, label) =>
+  `<span class="action-link" data-client-cmd="${escAttr(cmd)}">${label || cmd}</span>`;
+
 function logTourOffer(player) {
   out(player, `<span class="msg-system">You're in text mode, so here's the offer in text: a short walkthrough of how this game reads and how you type at it. `
     + `${cmdLink('tutorial yes', 'tutorial yes')} to take it, ${cmdLink('tutorial no', 'tutorial no')} if you've played a MUD before.</span>`);
@@ -1161,8 +1170,8 @@ const LOG_TOUR = [
   `<b>Also here.</b> Items, corpses, vendors, furniture and doorways get folded into one line that starts "Also here:". It is a list of nouns you can examine, take or use. Nothing is ever hidden from you by being folded up — ${cmdLink('look')} unfolds all of it.`,
   `<b>Moving.</b> Directions are the verbs: <b>north</b>, <b>south</b>, <b>east</b>, <b>west</b>, and <b>n s e w</b> for short. The ways out are on the Exits line of every room, which you get on arrival and again from ${cmdLink('look')}. Buildings are entered by walking at them from the street.`,
   `<b>Your things and your body.</b> ${cmdLink('inventory', 'inventory')} (or <b>i</b>) is what you're carrying, ${cmdLink('gear')} is that plus what you're wearing, and ${cmdLink('score')} is you — health, hunger, thirst, money, the state you're in.`,
-  `<b>The tablet.</b> The city issues you one shortly. In text mode it isn't a screen, it's a menu you type at: ${cmdLink('tablet')} lists it, and each app has a verb of its own — <b>map</b>, <b>bank</b>, <b>gear</b>, <b>codex</b>. ${cmdLink('tablet verbs')} prints the whole list any time.`,
-  `<b>Making it read better.</b> ${cmdLink('accessibility')} on its own lists everything you can change about how this game reads — text size, typeface, how much motion there is, how much it beeps, and whether it reads itself aloud to you. Each one tells you exactly what to type to set it. It needs no tablet and works anywhere, which is the point: the switch that fixes the interface must not be inside the interface.`,
+  `<b>The tablet.</b> The city issues you one shortly. In text mode it isn't a screen, it's a menu you type at: ${cmdLink('tablet')} lists it, and each app has a verb of its own — <b>map</b>, <b>bank</b>, <b>gear</b>, <b>quests</b>, <b>codex</b>. ${cmdLink('tablet verbs')} prints the whole list any time.`,
+  `<b>Making it read better.</b> ${clientLink('accessibility')} on its own lists everything you can change about how this game reads — text size, typeface, how much motion there is, how much it beeps, and whether it reads itself aloud to you. Each one tells you exactly what to type to set it. It needs no tablet and works anywhere, which is the point: the switch that fixes the interface must not be inside the interface.`,
   `<b>When you're stuck.</b> ${cmdLink('help')} lists every command. Any verb the game teaches you it will name in the line where you first need it. And you can leave text mode as easily as you entered it — ${cmdLink('displaymode visual', 'displaymode visual')} turns the panels back on.`,
 ];
 
@@ -1175,9 +1184,25 @@ function speakLogTour(player) {
 
 // The tablet half, offered at the vat where the device is issued. Same reason:
 // the smartbar chip opens a walkthrough of a shell this player never sees.
+//
+// ⚠ THE ROUTE LINES LIVE HERE, NOT IN LOG_TOUR. Everything the game says about
+// getting somewhere is said in map language — the quest objectives say "follow
+// the green GPS line", Grady bellows about a line on your map — and at this rung
+// there is no map drawn to put a line on. The walking still works: `gps_route`
+// is handled the same at every rung (client/game/js/dispatch.js), and the node
+// payload that arms auto-walk is stored whatever is on screen, so `auto` is a
+// real verb here and not a described one. It just had to be SAID, because the
+// only places naming it point at a picture this player doesn't get.
+//
+// It belongs to the tablet half rather than the corridor tour because that is
+// when it becomes true: the corridor is a one-way line of rooms with no map, no
+// destination and no quest. The map and the first job both arrive with the
+// device.
 const LOG_TABLET_TOUR = [
   `${cmdLink('tablet')} prints the index: every app you've unlocked, one per line, with the verb that opens it.`,
-  `You don't navigate it, you name it. <b>map</b> draws where you are, <b>bank</b> is your money, <b>gear</b> is what you're carrying and wearing, <b>codex</b> is what this city is and how it got that way, <b>calendar</b> is the date and your alarms.`,
+  `You don't navigate it, you name it. <b>map</b> draws where you are, <b>bank</b> is your money, <b>gear</b> is what you're carrying and wearing, <b>quests</b> is what you've taken on, <b>codex</b> is what this city is and how it got that way, <b>calendar</b> is the date and your alarms.`,
+  `<b>What you're meant to be doing.</b> ${cmdLink('quests')} lists every job you've accepted and what's still outstanding on each one, in order. When a line of the game leaves you wondering what comes next, that's the one to type. ${cmdLink('quest track', 'quest track &lt;name&gt;')} pins one so its route is the one being plotted.`,
+  `<b>Being told where to go.</b> When a job wants you somewhere, the game plots a route to it and says how many stops away it is. You don't have to read a map to use it: type ${clientLink('auto')} and your character walks the route a step at a time, and ${clientLink('auto')} again stops. ${cmdLink('gps', 'gps &lt;place&gt;')} plots one to anywhere you can name. If a line ever tells you to hit AUTO or follow a green line, this is the thing it means.`,
   `${cmdLink('tablet verbs')} prints that list again at any moment, from anywhere, and works even if you go back to visual mode later.`,
 ];
 

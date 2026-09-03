@@ -6,7 +6,7 @@
   ],
   "ambient_theme": null,
   "bg_color": "#05070a",
-  "description": "The vastness draws in. All the light and wire and vastness of the between rushes toward one point ahead of you, and holds there, trembling, waiting for you to close the last distance. Beyond it you can almost feel a floor of grey tile, a cold that has weight, the specific gravity of being real. One step north and the wave collapses. You will wake somewhere that hurts, and it will be yours.",
+  "description": "The between draws in. All the light and wire and vastness of it rushes toward one point ahead of you, and holds there, trembling, waiting for you to close the last distance. Beyond it you can almost feel a floor of grey tile, a cold that has weight, the specific gravity of being real. One step north and the wave collapses. You will wake somewhere that hurts, and it will be yours.",
   "exits": {
     "north": "zone_start"
   },

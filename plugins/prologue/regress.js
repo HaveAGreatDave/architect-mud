@@ -271,18 +271,42 @@ export default async function regress({ check }) {
   const { getRegisteredCommands } = await import('../../server/engine/plugins.js');
   const { builtinCommandNames } = await import('../../server/engine/commands/index.js');
   const verbs = new Set([...getRegisteredCommands(), ...builtinCommandNames()]);
-  // Client verbs (client/game/js/input.js `handleClientCommand`) never reach
-  // dispatch and so appear in neither registry, but are typeable and do something.
-  const CLIENT_VERBS = new Set(['accessibility']);
   const offered = [...tourText.matchAll(/data-cmd="([^"]+)"/g)].map(m => m[1].split(' ')[0]);
-  const dead = offered.filter(v => !verbs.has(v) && !CLIENT_VERBS.has(v));
+  const dead = offered.filter(v => !verbs.has(v));
   check('every verb the spoken tour offers is registered', dead.length === 0, dead.join(', '));
+
+  // ⚠ THE EXEMPTION WAS THE BUG. The sweep above used to carry a CLIENT_VERBS
+  // allow-list holding `accessibility`, which let a card offer it as an ordinary
+  // `data-cmd` link and pass — but a `data-cmd` click goes to `sendCmd`, which
+  // puts it straight on the socket (client/game/js/main.js handleActionLinkClick
+  // → net.js sendCmd), and NOTHING server-side registers `accessibility`. So the
+  // one clickable route to the settings that make this rung usable answered
+  // `Unknown command`, for exactly the player who has no panel to reach them by
+  // instead. Typing it always worked, which is why it went unnoticed.
+  //
+  // A client verb belongs in a `data-client-cmd` link — the route
+  // handleActionLinkClick hands to handleClientCommand before the socket. So
+  // instead of exempting them from the sweep, assert they are not in it: a
+  // client verb appearing as `data-cmd` is now a failure, not a special case.
+  const CLIENT_VERBS = ['accessibility', 'auto'];
+  const miscast = CLIENT_VERBS.filter(v => new RegExp(`data-cmd="${v}\\b`).test(tourText));
+  check('client verbs are client links, not command links', miscast.length === 0, miscast.join(', '));
 
   // The settings surface is the reason this rung is usable at all, and it was
   // absent from the tour for months: the player was told how to LEAVE text mode
   // and never how to make text mode work. That omission read to a blind player as
   // "settings doesn't work at all", so its presence is now an assertion.
-  check('the spoken tour names the accessibility verb', /data-cmd="accessibility"/.test(tourText));
+  check('the spoken tour names the accessibility verb', /data-client-cmd="accessibility"/.test(tourText));
+
+  // The two gaps the log rung had that the visual tour never did. Everything
+  // pointing a player at a destination speaks in map language ("the green GPS
+  // line", Grady's "line on your map"), and there is no map drawn at this rung —
+  // so the route verbs have to be said. `auto` is the load-bearing one: the
+  // walking works here (gps_route is handled identically at every rung), it was
+  // simply never named anywhere this player would hear it.
+  check('the spoken tour teaches the quest log', /data-cmd="quests"/.test(tourText));
+  check('the spoken tour teaches auto-walk', /data-client-cmd="auto"/.test(tourText));
+  check('the spoken tour teaches plotting a route', /data-cmd="gps/.test(tourText));
 
   // At the bottom rung the tour is OURS to speak: `tutorial` must not hand off to
   // a client walkthrough that spotlights panels this player never receives.

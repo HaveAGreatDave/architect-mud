@@ -180,8 +180,97 @@ export default async function regress({ check, getPlayer }) {
     // cell being squeezed accumulates something the fast pair cannot decay away.
     check('pressure integrates grip over the run', after.pressure > before.pressure,
       `${before.pressure} -> ${after.pressure}`);
-    check('the insurgency answers grip with heat', after.heat > before.heat,
-      `${before.heat} -> ${after.heat}`);
+
+    // ── Ignition, and why the loop needs a negative term ─────────────────────
+    // ⚠ THESE ARE THE CASES THAT WOULD HAVE CAUGHT THE ORIGINAL BUG. The first
+    // model had no negative term anywhere: grip drove pressure, pressure drove
+    // heat, heat drove grip. Three positive couplings and a single fixed point, so
+    // the tick could only ever converge to it — and it converged at band 10.7,
+    // permanently quiet, in every cell, for ever. No value of any rate changed
+    // that; turning them up slid the fixed point straight past every band to a
+    // pinned flashpoint instead, with nothing in between. Ten of the fourteen
+    // authored incidents were unreachable the whole time.
+    //
+    // A sim that cannot leave quiet and a sim that cannot return to it are both
+    // green against every assertion that only ever looks at one step, which is why
+    // the last pair below runs the clock.
+    const { IGNITE_HI, IGNITE_LO, DRIFT_AT, RATE, HALF_LIFE_MIN, BASELINE: BASE } = ledger._test;
+    const decayPerTick = (k) => 1 - Math.pow(0.5, 30 / HALF_LIFE_MIN[k]);
+
+    check('a cell below the trigger does not ignite', after.heat === before.heat,
+      `heat ${before.heat} -> ${after.heat} at pressure ${after.pressure.toFixed(1)}`);
+
+    ledger.force(key, { grip: 40, heat: BASE.heat, pressure: IGNITE_HI + 1 });
+    ledger.step(roster);
+    const lit = ledger.read(key);
+    check('crossing the trigger ignites the block', lit.heat > BASE.heat, `${lit.heat}`);
+
+    // ⚠ The vent reads the heat the tick STARTED with, and the block was still
+    // quiet when this one began — so the igniting tick charges like any other and
+    // venting only starts on the next. Asserting the drop on the ignition tick
+    // fails on correct behaviour, which is what the first draft of this did.
+    ledger.step(roster);
+    const venting = ledger.read(key);
+    check('…and the burn then spends the grievance that caused it',
+      venting.pressure < lit.pressure,
+      `${lit.pressure.toFixed(1)} -> ${venting.pressure.toFixed(1)}`);
+
+    // Hysteresis, not a bare threshold. A bare threshold self-limits AT the
+    // trigger and settles there, which is the fixed point again wearing a fuse.
+    // Just under the trigger: a bare threshold would go out here, hysteresis does
+    // not. ⚠ Not the midpoint — one tick of venting from there lands within 0.05
+    // of IGNITE_LO, so the case would pass or fail on rounding rather than on the
+    // behaviour it names.
+    ledger.force(key, { grip: 40, heat: 50, pressure: IGNITE_HI - 1 });
+    ledger.step(roster);
+    check('a lit block keeps burning between the two thresholds',
+      ledger.read(key).heat > 50, `${ledger.read(key).heat}`);
+
+    ledger.force(key, { grip: 40, heat: 50, pressure: IGNITE_LO - 1 });
+    ledger.step(roster);
+    check('…and goes out once the grievance is spent', ledger.read(key).heat === 50,
+      `${ledger.read(key).heat}`);
+
+    // ⚠ THE SILENT-DEATH INVARIANT. Pressure approaches
+    // `restingGrip * RATE.pressure / decayPerTick`, and the resting grip is
+    // baseline plus what baseline heat keeps pushing into it — NOT baseline. Put
+    // the trigger above that ceiling and no cell ignites, the city is dead, and
+    // every other case on this page still passes. Derived from the rates rather
+    // than hardcoded, so retuning either knob re-checks it.
+    const restingGrip = BASE.grip + (BASE.heat * RATE.authority * 0.1) / decayPerTick('grip');
+    const ceiling = restingGrip * RATE.pressure / decayPerTick('pressure');
+    check('the trigger sits below the grievance ceiling it waits on',
+      IGNITE_HI < ceiling, `IGNITE_HI ${IGNITE_HI} vs ceiling ${ceiling.toFixed(1)}`);
+
+    // The same shape one level down: a drift threshold above the heat a burn
+    // actually reaches is a branch nothing can ever enter.
+    const burnHeat = BASE.heat + RATE.burn / decayPerTick('heat');
+    check('a burn gets hot enough to reach the drift threshold', DRIFT_AT < burnHeat,
+      `DRIFT_AT ${DRIFT_AT} vs sustained burn ${burnHeat.toFixed(1)}`);
+
+    // ── The cycle itself, with the clock running ─────────────────────────────
+    // ⚠ Every other case here steps in a tight loop, where no wall-clock time
+    // passes and so nothing decays. Decay is half of this sim, so the cycle can
+    // only be tested by advancing time. Date.now is stubbed for the length of one
+    // synchronous run and restored in a finally; nothing inside it awaits.
+    const realNow = Date.now;
+    let rose = false, returned = false, ticks = 0;
+    try {
+      let clock = realNow();
+      Date.now = () => clock;
+      for (const k of allBlocks()) ledger.force(k, { ...BASE });
+      for (; ticks < 48 * 30 && !returned; ticks++) {
+        clock += 30 * 60000;
+        ledger.step(roster);
+        const b = ledger.bandOf(key);
+        if (b === 'tense' || b === 'flashpoint') rose = true;
+        else if (rose && b === 'quiet') returned = true;
+      }
+    } finally { Date.now = realNow; }
+    check('the sim leaves quiet on its own', rose,
+      `still quiet after ${ticks} ticks (${(ticks / 48).toFixed(1)} days)`);
+    check('…and comes back down on its own', returned,
+      `never returned to quiet within ${(ticks / 48).toFixed(1)} days`);
 
     // A withdrawn order writes nothing at all — "not in this fight" as data.
     for (const k of allBlocks()) ledger.force(k, { grip: 30, heat: 30, pressure: 0 });

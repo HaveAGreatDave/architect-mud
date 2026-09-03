@@ -51,7 +51,7 @@ Ashway"* is nonsense for a resistance. Role is **authored data** on `orgs.flags.
 | Order | Role | Writes | Driven by | Built? |
 |---|---|---|---|---|
 | Ascendants | `authority` | **grip ↑** | heat in its theatre. The only order that raises grip | ✅ |
-| Long Watch | `insurgency` | **heat ↑** | grip + pressure. Resident, persistent, local | ✅ |
+| Long Watch | `insurgency` | **heat ↑** | pressure, past the ignition point. Resident, persistent, local | ✅ |
 | Exodus | `withdrawn` | nothing | never. Encodes "not in this fight" as data | ✅ |
 | Null | `vendetta` | Ascendant *assets*, not ground | grip anywhere | ✅ |
 | Wildblood | `incursion` | heat ↑ in a burst, then nothing | an external clock | ✅ |
@@ -86,16 +86,40 @@ that trusts 0,0 puts every interior in the game into one corner of the map.
 |---|---|---|
 | `grip` | 3 h | how hard the authority is squeezing |
 | `heat` | 20 min | dissident activity |
-| `pressure` | 3 days | a slow integrator of *grip over time*, which raises heat's **baseline** |
+| `pressure` | 3 days | grievance. Charges under grip, **ignites** heat, and is **spent** doing it |
 
 Decay is **lazy, on read** — the `decayRep` pattern. An idle-gated decay tick means you
 log in to exactly the state you left; `runWhenEmpty` pins Neon compute awake billing for
 nobody. Only the *forcing* tick is scheduled, and it is idle-gated.
 
-⚠ **Pressure is not optional.** Without it the fast pair converges: decay pulls both
-toward baseline and incidents gate on high heat, so a quiet cell could never generate
-what would make it loud, and **dead cells would stay dead for ever**. Fast pair + slow
-integrator is the minimal system that limit-cycles with no driver.
+⚠ **The loop needs a negative term, and for months it had none.** This section used to
+claim that a fast pair plus a slow integrator "is the minimal system that limit-cycles
+with no driver". It is not, and the sim did not. grip drove pressure, pressure drove
+heat and heat drove grip: three positive couplings, one fixed point, and a tick that
+could only converge to it. It converged at **band 10.7 — permanently quiet, in every
+cell** — and no value of any rate changed that, because a positive loop has no swing in
+it at any gain. Scaling `RATE.insurgency` up by 10 pinned the whole city at watchful and
+by 50 pinned it at flashpoint, with nothing in between. **Ten of the fourteen authored
+incidents could never fire**, and the only thing that ever moved a band was the
+Wildblood's nightly `+35` burst, which is a driver from outside.
+
+What makes it a cycle is that **unrest vents the grievance that produced it**. Three
+changes, each of which the fiction already implied:
+
+| | why |
+|---|---|
+| `pressure -= (heat − baseline) × RATE.vent` | a riot spends what built up. The only negative term in the loop |
+| heat **ignites** past `IGNITE_HI` rather than rising proportionally | heat's half-life (20 min) is shorter than the tick (30 min), so heat keeps a third of its gap per step and **cannot integrate** — it is algebraic, never an accumulator. Pressure is the only scalar slow enough to build, so the threshold has to live there. "Flashpoint" already promised this |
+| hysteresis: it burns until pressure falls below `IGNITE_LO`, not below `IGNITE_HI` | a bare threshold self-limits *at* the trigger and settles there, which is the fixed point again wearing a fuse |
+
+Tuned, one cell is quiet for about **nine days**, then over three hours ramps
+tense → flashpoint, collapses back through watchful, and leaves a **grip-dominant tail**
+decaying over six hours. Across the ten cells that is something kicking off somewhere
+about once a day. ⚠ `IGNITE_HI` must sit under pressure's own ceiling — which is set by
+a cell's **resting** grip, not by baseline grip — or nothing ever ignites and the city is
+silently dead again. Regress derives that ceiling from the rates and asserts it, along
+with the two cases that would have caught the original bug: *it leaves quiet on its own*
+and *it comes back down on its own*.
 
 Everything downstream keys on the **band** — quiet / watchful / tense / flashpoint —
 and never on the raw numbers. That is rule 2 holding inside the code as well as at the
@@ -124,6 +148,18 @@ minute cooldown so pacing a boundary is not a beat.
 `capGroup: 'unrest'`, capped at three live citywide) and one news bulletin (dispatched
 as `broadcast.newsWire`, an Action registered inside `plugins/broadcast` so nothing
 imports across the boundary).
+
+⚠ **Crossings that FALL into a non-quiet band speak too, and that is load-bearing.**
+Only a fall to *quiet* is silent, because "it has calmed down" is a line nobody here
+would bother saying. It used to be rises only, and that quietly made **every grip
+incident in the catalogue unstageable** — `id_check`, `drone_sweep`, `door_knock`,
+`cordon`, `lockdown`, and both Null vendettas, which gate on the authority's signal
+rather than one of their own. Rule 1 needs a perceivable signal from the *same* order,
+and `dominantWrites` answers `heat` for the whole of a rise, because heat is what is
+rising. Grip is what a cell is about only in the **aftermath** — heat decayed, crackdown
+still on the street — and that is a falling crossing. The existing grip prose already
+reads as aftermath ("Somebody got lifted in {place} this morning for standing still"),
+so this needed no new lines.
 
 ⚠ **They contradict each other and nothing ever reconciles them.** That single fact
 communicates "an authority and a resistance" better than any scalar could. Per house

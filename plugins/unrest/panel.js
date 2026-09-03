@@ -71,7 +71,7 @@ function _unrestMap(cells) {
     const col = Math.round((c.cx - minX) / step) + 1;
     const row = Math.round((c.cy - minY) / step) + 1;
     const band = _unrestBand[c.band] || _unrestBand.quiet;
-    return `<div title="${_unrestEsc(c.key)} — ${band.label} · grip ${c.grip} · heat ${c.heat} · pressure ${c.pressure}"
+    return `<div title="${_unrestEsc(c.key)} — ${band.label} · grip ${c.grip} · heat ${c.heat} · pressure ${c.pressure}${c.lit ? ' · LIT' : ''}"
       style="grid-column:${col};grid-row:${row};background:${band.color};opacity:.85;border-radius:3px;
              min-height:44px;display:flex;align-items:center;justify-content:center;
              font-size:9px;color:#000;font-weight:700;cursor:pointer"
@@ -87,7 +87,7 @@ function _unrestRows(cells) {
     const band = _unrestBand[c.band] || _unrestBand.quiet;
     return `<tr>
       <td style="padding:6px 12px 6px 0;font-weight:600;color:var(--text)">${_unrestEsc(c.key)}</td>
-      <td style="padding:6px 12px 6px 0"><span style="color:${band.color};font-size:9px;letter-spacing:1px;font-weight:700">${band.label}</span></td>
+      <td style="padding:6px 12px 6px 0"><span style="color:${band.color};font-size:9px;letter-spacing:1px;font-weight:700">${band.label}</span>${c.lit ? '<span title="lit: burning until the grievance under it is spent" style="color:#ff9f43;font-weight:700;margin-left:6px">&#9650;</span>' : ''}</td>
       <td style="padding:6px 12px 6px 0;width:90px">${_unrestBar(c.grip, '#60a5fa')}</td>
       <td style="padding:6px 12px 6px 0;color:var(--text-dim);width:34px">${c.grip}</td>
       <td style="padding:6px 12px 6px 0;width:90px">${_unrestBar(c.heat, '#ff6b6b')}</td>

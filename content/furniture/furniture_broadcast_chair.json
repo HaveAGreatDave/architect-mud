@@ -1,5 +1,5 @@
 {
-  "description": "A single metal chair, cold and institutional, bolted to a floor you can feel but not see. It faces the dark where a wall should be. It is the only thing here that wants you to do something: sit.",
+  "description": "A single metal chair, cold and institutional, bolted to a floor you can feel but not see. It faces the dark where a wall should be.",
   "flags": {
     "interactions": [
       "sit"

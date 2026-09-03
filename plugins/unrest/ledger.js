@@ -30,7 +30,7 @@ const cells = new Map();
 let loaded = false;
 let dirty = false;
 
-const fresh = () => ({ ...BASELINE, at: nowMs() });
+const fresh = () => ({ ...BASELINE, lit: false, at: nowMs() });
 
 // ── Decay on READ, never on a tick ───────────────────────────────────────────
 // An idle-gated decay tick means you log in to exactly the state you left, and
@@ -44,7 +44,10 @@ const fresh = () => ({ ...BASELINE, at: nowMs() });
 function decayed(row) {
   const minutes = (nowMs() - (row.at || 0)) / 60000;
   if (minutes <= 0) return row;
-  const out = { at: nowMs() };
+  // ⚠ `lit` is CARRIED, never rebuilt. decayed() returns a new row, so a flag
+  // left off here is a burn that ends on the next read that happens to decay it,
+  // which is every read, lazily, from anywhere.
+  const out = { at: nowMs(), lit: !!row.lit };
   for (const k of ['grip', 'heat', 'pressure']) {
     const base = BASELINE[k];
     const gap = (row[k] ?? base) - base;
@@ -110,6 +113,7 @@ export async function load() {
       grip: clamp(Number(v?.g) || 0),
       heat: clamp(Number(v?.h) || 0),
       pressure: clamp(Number(v?.p) || 0),
+      lit: !!v?.l,
       at: Number(v?.t) || nowMs(),
     });
   }
@@ -119,7 +123,7 @@ export async function flush(fromTick = false) {
   if (!dirty) return false;
   dirty = false;
   const out = {};
-  for (const [key, row] of cells) out[key] = { g: row.grip, h: row.heat, p: row.pressure, t: row.at };
+  for (const [key, row] of cells) out[key] = { g: row.grip, h: row.heat, p: row.pressure, l: row.lit ? 1 : 0, t: row.at };
   await setFlag('world', FLAG, JSON.stringify({ v: VERSION, at: nowMs(), cells: out, fromTick }));
   return true;
 }
@@ -130,7 +134,43 @@ export async function flush(fromTick = false) {
 // the wrong shape: "the Long Watch controls 60% of the Ashway" is nonsense for a
 // resistance, so the authority raises grip and the insurgency raises heat and
 // neither is the other's mirror.
-const RATE = { authority: 0.22, insurgency: 0.18, pressure: 0.02 };
+const RATE = { authority: 0.60, pressure: 0.02, burn: 34, vent: 0.35 };
+
+// ⚠ THE VENT IS THE ONLY NEGATIVE TERM IN THE LOOP, and without it there is no
+// sim at all. grip drives pressure, pressure drives heat, heat drives grip: three
+// positive couplings and a single fixed point, so the tick can only ever converge
+// to it. It converged at band 10.7 — permanently quiet, in every cell, for ever —
+// and no value of any rate changed that. Turning them up slid the fixed point
+// straight past every band to a permanently pinned flashpoint with nothing in
+// between, because a positive loop has no swing in it at any gain. Unrest venting
+// the grievance that produced it is what lets a block come back down on its own.
+//
+// ⚠ AND THE IGNITION IS WHY IT CAN GO UP. Heat's half-life (20 min) is shorter
+// than the tick (30 min), so heat keeps about a third of its gap per step and
+// cannot accumulate: it is an algebraic function of whatever drove it that tick,
+// never an integrator. Pressure is the only scalar slow enough to build, so the
+// threshold has to live on pressure, and the response has to be ignition rather
+// than a proportional push — which is what the word "flashpoint" already promised.
+//
+// Hysteresis, not a bare threshold: it burns until pressure falls well below the
+// trigger, not until it falls back under it. A bare threshold self-limits AT the
+// trigger and settles there, which is the fixed point again wearing a fuse.
+export const IGNITE_HI = 46;
+export const IGNITE_LO = 16;
+
+// ⚠ IGNITE_HI must sit below pressure's own ceiling, and the ceiling is lower than
+// it looks: pressure approaches `grip * RATE.pressure / (1 - 0.5 ** (30/4320))`,
+// but the `grip` in that is a cell's RESTING grip, which is baseline plus what
+// baseline heat keeps pushing into it — about 12.75, for a ceiling of 53. Set the
+// trigger above that and no cell ever ignites, the entire city is silently dead,
+// and every single-step assertion still passes. 46 leaves 13% of headroom, and it
+// is thin enough that lowering RATE.authority would eat it. Regress derives the
+// ceiling from the rates rather than hardcoding it, so retuning either knob
+// re-checks this instead of quietly breaking it.
+
+// Heat at which a sweep starts pushing into the next block. ⚠ Must sit below the
+// peak a burn actually reaches (about 57), or this is a branch nothing can enter.
+const DRIFT_AT = 45;
 
 // Displacement goes to the adjacent cell with the LOWEST heat, ties broken by the
 // order's authored `drift` bearing. One compass direction per order replaces the
@@ -174,22 +214,40 @@ export function step(roles = []) {
   for (const key of allBlocks()) {
     const row = rowFor(key);
 
-    // Pressure integrates grip over days and raises HEAT'S BASELINE, not heat.
-    // ⚠ Without it the fast pair converges: decay pulls both toward baseline and
-    // incidents gate on high heat, so a quiet cell could never generate what
-    // would make it loud and dead cells would stay dead for ever.
-    row.pressure = clamp(row.pressure + row.grip * RATE.pressure);
+    // Grievance charges under the squeeze and is VENTED by the unrest it
+    // produces. A block that kicks off spends what it had been accumulating,
+    // which is what sets both the recovery and the period.
+    row.pressure = clamp(
+      row.pressure
+      + row.grip * RATE.pressure
+      - Math.max(0, row.heat - BASELINE.heat) * RATE.vent
+    );
 
-    if (authority) row.grip = clamp(row.grip + row.heat * RATE.authority * 0.1);
-    for (const order of insurgency) {
-      const push = (row.grip + row.pressure) * RATE.insurgency * 0.1;
-      row.heat = clamp(row.heat + push);
-      // A sweep pushes heat OUT of the cell it landed in.
-      if (row.heat > 60) {
-        const to = driftTarget(key, order.drift);
-        if (to) { const moved = row.heat * 0.15; row.heat = clamp(row.heat - moved); bump(to, 'heat', moved); }
+    if (insurgency.length) {
+      // Ignition, with hysteresis. `lit` is per-cell state and is persisted, so a
+      // deploy in the middle of a burn does not quietly put the block out.
+      if (!row.lit && row.pressure > IGNITE_HI) row.lit = true;
+      else if (row.lit && row.pressure < IGNITE_LO) row.lit = false;
+
+      if (row.lit) {
+        row.heat = clamp(row.heat + RATE.burn);
+        // A sweep pushes heat OUT of the cell it landed in.
+        if (row.heat > DRIFT_AT) {
+          const to = driftTarget(key, insurgency[0].drift);
+          if (to) { const moved = row.heat * 0.15; row.heat = clamp(row.heat - moved); bump(to, 'heat', moved); }
+        }
       }
+    } else {
+      // Nobody left to carry it. An order removed from content mid-burn puts the
+      // block out, rather than leaving a fire with nobody behind it.
+      row.lit = false;
     }
+
+    // ⚠ Grip answers the heat THIS tick produced, not last tick's. A crackdown
+    // arriving a full half hour late is what leaves a burn with no aftermath, and
+    // the aftermath is the only phase in which grip is what a cell is about.
+    if (authority) row.grip = clamp(row.grip + row.heat * RATE.authority * 0.1);
+
     row.at = nowMs();
   }
   dirty = true;
@@ -206,6 +264,7 @@ export function snapshot() {
       heat: Math.round(row.heat * 10) / 10,
       pressure: Math.round(row.pressure * 10) / 10,
       band: bandOf(key),
+      lit: !!row.lit,
       zones: info?.zones.length ?? 0,
       cx: info?.cx ?? null,
       cy: info?.cy ?? null,
@@ -220,4 +279,4 @@ export function _reset() {
   dirty = false;
 }
 
-export const _test = { BASELINE, HALF_LIFE_MIN, decayed, driftTarget };
+export const _test = { BASELINE, HALF_LIFE_MIN, RATE, DRIFT_AT, IGNITE_HI, IGNITE_LO, decayed, driftTarget };

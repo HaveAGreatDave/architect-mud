@@ -121,10 +121,19 @@ export async function sweep() {
     // so this field must be named one of those or a trigger row's zone_id filter
     // silently never matches.
     emit('unrest.band.changed', { cell: c.key, zone, from: c.from, to: c.to, writes: c.writes });
-    // Only a RISE gets a voice. A cell going quiet again is a real event and
-    // other systems may want it, but "it has calmed down" is a line nobody in
-    // this city would bother saying.
-    if (c.rising && c.to !== 'quiet') await speak(c.key, c.to, c.writes, zone);
+    // Any crossing INTO a band that is not quiet gets a voice, rise or fall
+    // alike. A fall all the way to quiet stays silent: "it has calmed down" is a
+    // line nobody in this city would bother saying.
+    //
+    // ⚠ THE FALL IS NOT DECORATION. It is the only way the authority ever gets a
+    // signal, and rule 1 needs one from the SAME order. `dominantWrites` answers
+    // `heat` for the whole of a rise, because heat is what is rising; grip is what
+    // a cell is about only in the aftermath, once heat has decayed and the
+    // crackdown has not — and that is a FALLING crossing. On rises alone every
+    // grip incident in the catalogue was unstageable: id_check, drone_sweep,
+    // door_knock, cordon, lockdown, and both Null vendettas, which gate on the
+    // authority's signal rather than on one of their own.
+    if (c.to !== 'quiet') await speak(c.key, c.to, c.writes, zone);
   }
   return crossings;
 }

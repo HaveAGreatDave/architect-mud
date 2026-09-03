@@ -100,7 +100,7 @@ const STEPS = [
     on: 'desktop',
     sel: ['#minimap-section'],
     title: 'The map',
-    body: `The world is a grid, and this is the piece of it around you. You're the marker in the middle. Click a tile to plot a route; the footprints button walks it for you, and <b>+</b>/<b>−</b> zoom.`,
+    body: `The world is a grid, and this is the piece of it around you. You're the marker in the middle. Click a tile to plot a route; the footprints button walks it for you, and <b>+</b>/<b>−</b> zoom. <b>Double-click the map</b> for the full-screen version.`,
   },
   {
     on: 'mobile',
