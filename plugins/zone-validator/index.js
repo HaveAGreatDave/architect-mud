@@ -252,10 +252,29 @@ async function runZone(zoneId, opts = {}) {
   const { rows } = await query('SELECT id, exits, flags FROM zones WHERE id=$1', [zoneId]);
   if (!rows.length) return { error: `Zone not found: ${zoneId}` };
 
-  const { rows: all } = await query('SELECT id FROM zones');
-  const allZoneIds = new Set(all.map(z => z.id));
-
   const zone = rows[0];
+
+  // The exit-target set used to be a bare `SELECT id FROM zones` — 17k rows,
+  // ~0.5MB off Neon, on EVERY zone save. The dev-panel map painter saves one
+  // tile per request (brush stroke, flood fill and the map-wide sliders all go
+  // through `PUT /zones/:id`), so a single paint operation cost half a megabyte
+  // per tile it touched. That was the largest source of Neon egress in the
+  // project — 900MB of a 5GB monthly allowance in one evening, 2026-09-02.
+  //
+  // `world.zones` already holds every live zone, so ask memory first. It has to
+  // FAIL CLOSED, not open: autoRepair STRIPS an exit whose destination it can't
+  // find, and a bulk direct-DB insert is live in the table before it is live in
+  // the Map. So anything memory can't account for is confirmed against the DB —
+  // normally nothing, and never more than the handful of ids this zone points at.
+  const targets = [...new Set(allExits(zone).map(e => e.target).filter(Boolean))];
+  const allZoneIds = new Set(targets.filter(t => world.zones.has(t)));
+  const unresolved = targets.filter(t => !allZoneIds.has(t));
+  if (unresolved.length) {
+    // query-lint-ok: the Map already answered for every id it knew; this is the
+    // fail-closed check for the ones it did not, and it reads no more than those.
+    const { rows: found } = await query('SELECT id FROM zones WHERE id = ANY($1)', [unresolved]);
+    for (const r of found) allZoneIds.add(r.id);
+  }
   const result = await validateOne(zone, allZoneIds, autoRepair);
   return {
     zonesScanned: 1,
