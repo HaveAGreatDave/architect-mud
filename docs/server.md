@@ -309,6 +309,7 @@ DB round trip no matter what a plugin does inside it. These exist:
 | `registerHeatSource(fn)` | `environment.js` | `(zoneId, baseC) → °C bonus` | `getZoneTemperature` — summed into every ambient read |
 | `registerCabinProvider(fn)` | `environment.js` | `() → [{ id, on, zoneId, occupants }]` | `cabinTemperature` / the 1m tick — see [systems-survival.md](systems-survival.md#vehicle-cabins) |
 | `registerShutProvider(fn, owner)` | `movement-gates.js` | `(player, zone) → { shut, label }` | null | `shutStatus` — every room description, and every tile of the minimap window on every move |
+| `registerLockedProvider(fn, owner)` | `movement-gates.js` | `(player, from, dir, to) → { locked }` or null | `lockedOnLink` — every cardinal side of every interior tile in the minimap window |
 
 All except `registerArmorContributor` are **sync by contract**: a contributor
 that awaits returns a promise the loop ignores, so its work silently vanishes.

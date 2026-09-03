@@ -3,7 +3,8 @@
 // through to us), the device gate, the anti-spoof resolve guard, and clean
 // self-gating when there's nothing to hack. The full launch→win→burglary path
 // needs a real hacking device + witnessed crime and is covered by manual QA.
-import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache } from '../../server/engine/world.js';
+import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, world } from '../../server/engine/world.js';
+import { getRegisteredLockedProviders } from '../../server/engine/movement-gates.js';
 import { on, off, emit } from '../../server/engine/events.js';
 import { lockTypePassesWhileLocked, resolveLockAuth, getLockType } from '../../server/engine/locks.js';
 import { query } from '../../server/models/db.js';
@@ -223,6 +224,65 @@ export default async function regress({ run, check, getPlayer }) {
   }
 
   p.role = savedRole;
+
+  // ── The drawn half of the door-lock gate ──────────────────────────────────
+  // The minimap's edge lines ask the same question the gate answers, one step
+  // before the step (world.js interiorLockedDirs → the locked seam). What is
+  // being pinned here is that the two agree: every exemption the gate makes,
+  // the drawing makes too, or the map lies in the reassuring direction.
+  {
+    check('the engine registers a locked-link provider',
+      getRegisteredLockedProviders().includes('engine:door-lock'),
+      getRegisteredLockedProviders().join(','));
+
+    // A fabricated interior room with two ways through. It is deliberately not a
+    // real zone: the anchor zone is chosen door-free, so the only way to hold this
+    // still is to bring the geometry with us.
+    const roomId = 'zone_regress_edges_' + p.id;
+    const room = { id: roomId, flags: { is_interior: true },
+      exits: { north: 'zone_regress_edge_n_' + p.id, east: 'zone_regress_edge_e_' + p.id } };
+    const edgeDoor = 'door_regress_edge_' + p.id;
+    const holo = { 'lock:hololock': { canHack: true, difficulty: 5 } };
+    const put = (over = {}) => setDoorCache(edgeDoor, {
+      id: edgeDoor, zone_id: roomId, exit_dir: 'north', target_zone: room.exits.north,
+      is_open: 0, hp: 100, hp_max: 100, lock_state: 'locked', tags: holo, ...over,
+    });
+    const painted = (z = room) => JSON.stringify(interiorLockedDirs(z, p));
+
+    check('a room with no door on it paints no red edge', interiorLockedDirs(room, p) === null);
+    put();
+    check('a locked door paints its own side, and only its side', painted() === '["north"]', painted());
+    put({ lock_state: 'unlocked' });
+    check('an unlocked door is not painted', interiorLockedDirs(room, p) === null);
+    put({ is_open: 1, lock_state: 'locked' });
+    check('a locked door still counts while standing open (the lock is the state)',
+      painted() === '["north"]', painted());
+    put({ hp: 0 });
+    check('a door already smashed off its hinges is not painted', interiorLockedDirs(room, p) === null);
+    put({ tags: {} });
+    check('locked with no lock installed is not painted (the gate lets it pass)',
+      interiorLockedDirs(room, p) === null);
+    put();
+    check('an exterior tile has no edges at all, so it can never have a red one',
+      interiorLockedDirs({ ...room, flags: {} }, p) === null);
+
+    // The vestigial-lock exemption, which is most of the locked doors in the world:
+    // an unrented unit's lock holds nobody out, so the corridor outside must not
+    // draw a wall of red doors that all open when you push them.
+    const aptZone = [...world.zones.values()].find(z => z.flags?.is_apartment);
+    if (aptZone) {
+      const aptRoom = { ...room, exits: { ...room.exits, north: aptZone.id } };
+      const prior = getApartment(aptZone.id);
+      put({ target_zone: aptZone.id });
+      setApartmentCache(aptZone.id, null);
+      check("an unrented unit's lock is vestigial and is not painted",
+        interiorLockedDirs(aptRoom, p) === null, painted(aptRoom));
+      setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: 'regress_owner_' + p.id });
+      check('...but the same lock on a rented one is', painted(aptRoom) === '["north"]', painted(aptRoom));
+      setApartmentCache(aptZone.id, prior || null);
+    }
+    deleteDoorCache(edgeDoor);
+  }
 
   // The forced-charge path moved. Breaching a lock no longer auto-charges
   // burglary — a resident NPC hearing you is now gated by the burglary plugin.

@@ -2551,6 +2551,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; }
     #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#3fd07a; }
     #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:#d0453f; opacity:0.55; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.locked { background:#d0453f; }
     #tablet-os-overlay .tos-map-tile .tos-edge-north { top:0; left:20%; right:20%; height:2px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:20%; right:20%; height:2px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:20%; bottom:20%; width:2px; }
@@ -8098,12 +8099,14 @@ function renderMap(d) {
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
     // Doors as edge lines: an interior room gets a hairline on all four sides — green
-    // where it opens through, red where it's wall (server `open_dirs`); a facade out on
-    // the street gets the green door edge alone, no red.
+    // where it opens through, red where it's wall (server `open_dirs`), brighter red
+    // where a lock is holding a way through shut (`locked_dirs`); a facade out on the
+    // street gets the green door edge alone, no red.
     let ent = '', exits = '';
     if (Array.isArray(t.open_dirs)) {
+      const locked = Array.isArray(t.locked_dirs) ? t.locked_dirs : [];
       exits = ['north', 'south', 'east', 'west'].map(dr =>
-        `<span class="tos-edge tos-edge-${dr} ${t.open_dirs.includes(dr) ? 'open' : 'shut'}"></span>`).join('');
+        `<span class="tos-edge tos-edge-${dr} ${locked.includes(dr) ? 'locked' : (t.open_dirs.includes(dr) ? 'open' : 'shut')}"></span>`).join('');
     } else {
       // Out on the street: the door edge goes green and the other three stay bare. The
       // red "wall" half is a floorplan idea — outside it would just outline everything.

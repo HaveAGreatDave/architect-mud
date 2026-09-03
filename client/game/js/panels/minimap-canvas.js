@@ -384,19 +384,25 @@ function drawGlyph(ctx, node, px, py, t, ink) {
 // Green where the room opens through, red where it's wall. `open_dirs` is the
 // authority and is null outside a floorplan, so a street facade draws only the one
 // green line on its door edge — the red half would just outline every building.
+//
+// A side a lock is holding shut (`locked_dirs`, always a subset of the open ones)
+// takes that same red at full strength. A wall and a locked door both mean no way
+// through, so they share the colour; the alpha is what separates them.
 const EDGE_OPEN = '#3fd07a', EDGE_SHUT = '#d0453f';
 const CARDINALS = ['north', 'south', 'east', 'west'];
 function drawEdges(ctx, node, px, py, t) {
 	const open = Array.isArray(node.open_dirs) ? node.open_dirs : null;
+	const locked = Array.isArray(node.locked_dirs) ? node.locked_dirs : null;
 	const dirs = open ? CARDINALS : (CARDINALS.includes(node.entrance) ? [node.entrance] : []);
 	if (!dirs.length) return;
 	const w = Math.max(1, Math.round(t * 0.12));
 	const pad = t * 0.2, len = t - pad * 2;
 	ctx.save();
 	for (const d of dirs) {
-		const isOpen = open ? open.includes(d) : true;
+		const isLocked = !!locked?.includes(d);
+		const isOpen = !isLocked && (open ? open.includes(d) : true);
 		ctx.fillStyle = isOpen ? EDGE_OPEN : EDGE_SHUT;
-		ctx.globalAlpha = isOpen ? 1 : 0.55;
+		ctx.globalAlpha = isOpen || isLocked ? 1 : 0.55;
 		if (d === 'north') ctx.fillRect(px + pad, py, len, w);
 		else if (d === 'south') ctx.fillRect(px + pad, py + t - w, len, w);
 		else if (d === 'west') ctx.fillRect(px, py + pad, w, len);
