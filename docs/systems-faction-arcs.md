@@ -1,8 +1,9 @@
 # Faction arcs — the 40-slot ladder
 
-**Status: FRAMEWORK AGREED. LONG WATCH AND ASCENDANTS COMPLETE THROUGH SLOT 10.** The shape below is
-the design every order's questline is built to. Both first ladders are filled and gated; slots 11–40,
-the renounce mechanic, and the other three orders are outstanding.
+**Status: LONG WATCH AND ASCENDANTS BUILT THROUGH SLOT 10; RANKS 1–5 (SLOTS 11–40) DESIGNED, NOT
+AUTHORED.** The shape below is the design every order's questline is built to. Both first ladders are
+filled and gated, and the rank ladder above them is specified. The 59 rank missions themselves, the
+renounce mechanic, and the other three orders are outstanding.
 
 ---
 
@@ -198,7 +199,159 @@ same scene. Neither of them threatens you and neither of them wins the
 argument, and both of them let you walk — which is the only version of a recruitment scene that
 respects the player enough to make the other answer feel like something they chose.
 
-Slots 12–40 are rank work and are not designed yet (11 is now the claimed death).
+Slots 12–40 are rank work and are designed below (11 is now the claimed death).
+
+## Slots 11–40 — the five ranks
+
+**Status: DESIGNED. Not authored.** Slots 1–10 are the audition, the tests, the cost and the rite.
+Slots 11–40 are what the order is actually for, and the thing that has to hold across thirty of them
+is escalation. This section is the shape both remaining ladders are written to.
+
+### The rank boundaries are already in the engine
+
+`arcResting` ([server/engine/ideologies.js](../server/engine/ideologies.js)) reads the arc flag and
+returns the standing an order leaves you at for ever. It steps every six slots from the rite:
+
+| Rank | Slots | Capstone | Resting floor after it | Tier |
+|---|---|---|---|---|
+| — | 10 | the rite | 200 | Known |
+| 1 | 11–16 | **16** | 350 | Known |
+| 2 | 17–22 | **22** | 500 | **Trusted** |
+| 3 | 23–28 | **28** | 650 | Trusted |
+| 4 | 29–34 | **34** | 800 | Trusted |
+| 5 | 35–40 | **40** | 800 | Trusted |
+
+Two things fall out of that table and they decide most of the design.
+
+**The last slot of each rank is the one that changes you.** `Math.floor((slot - 10) / 6)` steps at
+16, 22, 28 and 34, so those four are where the floor actually moves. The rhythm of a rank is five
+missions of work and one that costs, and a capstone that reads like the five before it has failed.
+
+⚠ **Rank 5 pays no standing at all.** `ARC_RESTING_CAP` is 800 and rank 4 already reaches it, so
+slots 35–40 move the floor by zero. This is not a gap to fill by raising the cap: the source comment
+says the ceiling stops one tier short deliberately, so that Inner Circle is only ever a relationship
+you are holding right now. **Six missions at the top of the ladder have to be worth doing for a
+reason that is not reputation, and finding that reason is the design problem of rank 5.** A rank-5
+mission that hands out a large rep spike is paying in a number that decays back to 800 on its own.
+
+### The escalation spine
+
+One axis, moving one direction, expressible in both registers: **who the order is willing to spend.**
+
+| Rank | Who pays | What that means in the data |
+|---|---|---|
+| **1** | **You do, recoverably.** The order spends your time and your comfort. Nothing you do harms anybody else. | `visit` with long `taskSeconds`, `retrieve`, `talk`. No `fail_on`, or one. No crime. |
+| **2** | **Strangers do, permanently.** The work costs somebody you will not meet again and whose name you may never learn. | First `subdue`. First `fail_on: witnessed`. Rival rep starts moving. |
+| **3** | **The rival order does.** Not one crossover scene but sustained work, with their standing floored and kept there. | `hack`, `demolish`, `assassinate` become available. Rival rep at −200 a mission. Time limits appear. |
+| **4** | **Somebody you know does.** A named NPC the player has worked alongside, usually one they were sent to bring in earlier on this same ladder. | Two or three `fail_on` entries. The order stops explaining what the mission is for. |
+| **5** | **You do again, and it does not come back.** No standing to gain. The order asks for the thing it gave you. | Zero credits. Zero rep. Permanent flags. Consequences that outlive the quest row. |
+
+Rank 5 ending where rank 1 began is the point. The ladder does not finish by making the player
+powerful. It finishes by asking what the last five ranks were for, and it asks in a mission rather
+than in a speech.
+
+### Five rules for writing a rank mission
+
+⚠ **Escalation lives in the data or it did not happen.** A mission described as worse, carrying the
+same `fail_on` set, the same absent timer and the same objective types as slot 12, is a rank-1
+mission with different prose. Every rank should be legible as a step up from the quest JSON alone,
+with the description removed.
+
+⚠ **Never escalate by adding objectives.** `quest_lw_4` at slot 6 already has five, and it is a
+set-piece rather than a hard mission. More objectives make a mission longer. Intensity is the cost
+of failing it.
+
+⚠ **A rank mission may not require a system the player might not have.** Both ladders must be
+completable on foot with a weapon: no flight, no truck, no corp, no licence, no plugin the player
+could have skipped. A rank mission is welcome to *reward* reaching one of those.
+
+⚠ **Rank 5 must be refusable, and refusing must not eject you.** The ladder already has one
+exclusionary rung and it is slot 10. If slot 35 locks a second door, the rite stops being the rite.
+Refusing costs standing and leaves the slot offered.
+
+⚠ **The two registers have to survive the climb.** The Watch says the ugly part out loud; the
+Ascendants say nothing that would not survive being read back in a hearing. The temptation at rank 4
+is to let both orders drop the mask, at which point they are the same order in different colours.
+**The Watch's worst mission tells you exactly what it costs. The Ascendants' worst mission is a form.**
+
+### The Long Watch, slots 11–40
+
+Pike closes the rite by describing the roster as a great deal of standing about in the cold for the
+rest of your life. Rank 1 is that, meant literally.
+
+| # | Working title | What it is | Rank |
+|---|---|---|---|
+| 11 | Long Nights | A watch at the Under threshold. Nothing happens, at length. | 1 |
+| 12 | The Rota | Cover a shift at short notice. Nobody says whose, or why they are not here. | 1 |
+| 13 | Kit | Carry replacement parts to three pickets. Halloran's supply chain, seen from inside. | 1 |
+| 14 | What the Cold Does | A watch in bad weather, with the weather doing real damage to the unprepared. | 1 |
+| 15 | Relief | A runner does not come back off the Drift. You go and find out why. | 1 |
+| 16 | **Hold the Threshold** | `zone_under_watchthresh` is probed. Falling back is allowed and it costs. | **1 capstone** |
+| 17 | The List | Copy a list of names off a Halcyon terminal. You are not told what it is. | 2 |
+| 18 | Cold Chain | Take a shipment off a courier who is nobody and knows nothing. | 2 |
+| 19 | Two-Cell Supply | Lean on a supplier until they stop selling to Halcyon. They are not a villain. | 2 |
+| 20 | The Wrong Door | A raid on an address that turns out to be wrong, and the Watch does not go back. | 2 |
+| 21 | Ledger | Plant evidence. The Watch calls it evidence and means it. | 2 |
+| 22 | **A Name Off the List** | One of slot 17's names is now a target. `subdue`, not kill, and you learn what the list was. | **2 capstone** |
+| 23 | Interference | Blind a Halcyon feed during business hours. | 3 |
+| 24 | Repossession Season | Reach a lapsed client before Halcyon's people do. | 3 |
+| 25 | Underwriting | Work the claims hall while it is full. Witnessed by design. | 3 |
+| 26 | Moving the Press | Halcyon found `zone_lw_press`. It has to be somewhere else by morning. | 3 |
+| 27 | Actuarial Loss | Cost them a specific sum, to the credit. | 3 |
+| 28 | **Nothing Insured** | Bring a Halcyon asset down. Demolition, −400 Ascendant, and it does not decay back. | **3 capstone** |
+| 29 | Vetting | Vet a recruit. Your call decides whether they are let in. | 4 |
+| 30 | The Recruit | The one you vetted fails, in the field, expensively. | 4 |
+| 31 | Halloran's Books | Halloran has been buying from the wrong people. Establish that quietly. | 4 |
+| 32 | Three That I Know Of | The thread from slot 1–10 pays off: the supply chain has a Watch name in it. | 4 |
+| 33 | Cyrelle | She asks you, personally, not to take the next one. | 4 |
+| 34 | **The Quartermaster's Order** | You take it anyway. A named NPC, and the world does not put them back. | **4 capstone** |
+| 35 | Standing Down | The Watch asks for their gear back and does not say for how long. | 5 |
+| 36 | What You Kept | Slot 9 was a purse and a shopping list. Something in it never came back. | 5 |
+| 37 | Teague | The top of the discipline, and the price is a permanent mark on it. | 5 |
+| 38 | The Long Watch | A watch measured in real hours, with no objective but staying. | 5 |
+| 39 | Nobody Is Relieved | The picket you have held since 16 is abandoned by order. | 5 |
+| 40 | **The Line** | No credits, no standing, no item. The order stops asking. | **5 capstone** |
+
+### The Ascendants, slots 12–40
+
+Slot 11 is `quest_asc_rite`, the claimed death, and it is written. Rank 1 is the account being used
+for the first time, which for this order means induction paperwork.
+
+| # | Working title | What it is | Rank |
+|---|---|---|---|
+| 12 | Orientation | Vess walks you round the Concourse as a member rather than a guest. | 1 |
+| 13 | Continuity of Service | A shift on the Weave line under Foreman Duc. | 1 |
+| 14 | Preferred Provider | Route a claimant to `zone_asc_clinic_consult`. They are grateful. | 1 |
+| 15 | Exception Handling | A claim that should be denied, denied correctly. | 1 |
+| 16 | **Confirmed in Post** | Sub-Registrar Nine enters you in the Vats registry. The building knows your name. | **1 capstone** |
+| 17 | Actuarial Review | Reprice a block of policies. The names are a column. | 2 |
+| 18 | Non-Renewal | Deliver the letters. Most addresses are empty when you get there. | 2 |
+| 19 | Salvage Value | Recover collateral from an estate that has not finished being an estate. | 2 |
+| 20 | Duty of Care | A claimant who will not stop calling the Arcade desk. | 2 |
+| 21 | Aggregate Exposure | A block gets reclassified, and the reclassification is felt on the street. | 2 |
+| 22 | **Adverse Selection** | Slot 20's claimant comes off the book. `subdue`. Nobody uses a stronger word. | **2 capstone** |
+| 23 | Business Interruption | The Watch's supply line, interrupted. | 3 |
+| 24 | Named Perils | Identify Watch assets by what they are insured against. | 3 |
+| 25 | Subrogation | Recover from the Watch what they took at their own slot 28. | 3 |
+| 26 | Material Misstatement | Discredit a Watch name on air, through the broadcast system. | 3 |
+| 27 | First Loss | The Under picket, from the other side. | 3 |
+| 28 | **Total Loss** | A Watch asset written off. The mirror of the Watch's 28. | **3 capstone** |
+| 29 | Underwriting Standards | Assess a colleague against the standard. | 4 |
+| 30 | Impairment | The colleague does not meet it. Kesh explains the next step in full, pleasantly. | 4 |
+| 31 | Legacy Liability | Account four thousand and eleven is still alive and is still talking. | 4 |
+| 32 | The Warm Lead | The person you brought in at slot 5 wants out. | 4 |
+| 33 | Reservation of Rights | Ives asks you to sign something, and gives you time to read it. | 4 |
+| 34 | **Assumption of Risk** | You perform what you signed. It is exactly what the document said. | **4 capstone** |
+| 35 | Fair Value | Kesh values you. Calibration, as a number, out loud. | 5 |
+| 36 | Depreciation | Your own chrome is written down a grade, correctly, per the schedule. | 5 |
+| 37 | Reinstatement | Buy it back at the current rate, or do not. | 5 |
+| 38 | The Sanctum | The First asks a question and waits for the answer. | 5 |
+| 39 | Run-Off | The account is closed to new business. The offers stop arriving. | 5 |
+| 40 | **Paid in Full** | No credits, no standing, no item. The order stops asking. | **5 capstone** |
+
+⚠ **The two slot 28s mirror each other and both can be true on one character**, because the lapse
+mechanic lets a player climb one ladder and then the other. Neither may assume the other has not
+happened.
 
 ## Lapsing — the cheap exit, and the last one
 
