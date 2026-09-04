@@ -218,6 +218,45 @@ const LOWRY_VOICE = {
 };
 
 const VOICES = {
+  // Sully Holt — The Dead Pigeon, Coldwater. A dive with a back room, so his
+  // read on heat is neither moral nor admiring: there is a PD street camera in
+  // his bar (secdev_pd_zone_mq_pigeon_bar), he has never pretended otherwise,
+  // and a wanted guest is a problem for his till rather than for his conscience.
+  // No coworker keys — nobody else works the Pigeon, and the tick guards on
+  // coworkerId, so omitting them is the whole opt-out.
+  npc_barkeep: {
+    welcomes: [
+      `"New face. New faces drink the swill until they can afford not to." <span class="text-dim">He is already pouring one.</span> "Sully. Sit anywhere that holds."`,
+      `"You've got that look, {name}. Vat-fresh, and reading every sign in here twice."`,
+      `sets a glass down without being asked. "Four credits. Welcome to the Pigeon. Don't ask about the pigeon."`,
+    ],
+    graduation: [
+      `"You've stopped counting your credits out on the bar, {name}. That's the graduation. Nobody claps."`,
+      `"You come in, you order, you don't look at the camera. You'll do."`,
+    ],
+    veteranAdvice: [
+      `"Advice? You know where the swill is and you know where the door is. That's the tour."`,
+      `"Same as always, {name}. Bank it before you drink it."`,
+      `"You've drunk here long enough to know what I sell, and long enough not to say it out loud."`,
+    ],
+    heat: [
+      `"You're wearing stars, {name}." <span class="text-dim">He tips his head toward the corner without looking at it.</span> "So is that camera. Drink fast."`,
+      `"I don't care what you did. I care that it's pointed at my till."`,
+      `"Money's money and heat's heat, and only one of those gets my licence pulled."`,
+      `pours yours a little short, which is the only opinion he intends to offer.`,
+    ],
+    idle: [
+      `wipes a glass with a cloth that is making it worse.`,
+      `"Swill's four, whiskey's nine, and the cocktail is fourteen and a decision."`,
+      `"Espresso rig works. That surprises people more than it should."`,
+      `looks up at the taxidermied pigeon, then back down, the way you check a clock.`,
+      `"Tab's for regulars. You're not a regular until I say the word out loud."`,
+      `"Somebody asked me once if the pigeon was a joke. He doesn't drink here now."`,
+      `"If the back booth curtain's shut, it's shut. That's the whole sentence."`,
+      `rings something into the till that you did not see change hands.`,
+    ],
+  },
+
   // Marla Kest — The Coyote's Rest, the Reach. A haven bartender: she doesn't
   // hand out survival tips so much as house rules, and heat on a guest is a
   // credential here rather than a problem.

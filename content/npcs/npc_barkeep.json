@@ -1,8 +1,134 @@
 {
   "banter": [],
   "behaviour_graph": {
-    "_start": "",
-    "nodes": {}
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
   },
   "chitchat": [
     "\"Best prices in the district. That's not saying much.\"",
@@ -11,10 +137,11 @@
     "\"Trade you for it. Credits preferred. Bullets accepted.\"",
     "\"Limited supply. Always limited. That's the pitch.\"",
     "\"I don't know where it came from. That's not your business either.\"",
-    "\"Come back tomorrow, stock changes. If I'm still here.\"",
-    "\"Quality merchandise at prices that won't kill you. Probably.\""
+    "\"Quality merchandise at prices that won't kill you. Probably.\"",
+    "\"Drink's four. The stool's free. The advice is extra.\"",
+    "\"That pigeon has been dead longer than you have been drinking. Show some respect.\""
   ],
-  "description": "Runs the bar out of a gutted delivery van. Pours with the bored precision of someone who has heard every sob story twice.",
+  "description": "Runs the Dead Pigeon from behind a slab of reclaimed door laid across two oil drums. Pours with the bored precision of somebody who has heard every sob story twice, and the careful blankness of somebody whose till is not the interesting part of the business.",
   "dialogue_tree": {
     "bm_air_already": {
       "_vine": {
@@ -189,7 +316,7 @@
     "drug_buyer": true,
     "mis_willing": false,
     "mule_counter": true,
-    "personality": "travelling_vendor",
+    "personality": "bartender",
     "trust_flag": "bm_trust",
     "trust_max": 100,
     "trust_per_buy": 0
@@ -496,9 +623,9 @@
       }
     ]
   },
-  "vendor_shop_name": null,
+  "vendor_shop_name": "The Dead Pigeon",
   "vendor_stock_size": 12,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_mq_pigeon_bar"
 }

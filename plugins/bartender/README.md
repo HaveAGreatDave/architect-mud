@@ -46,8 +46,15 @@ copy of this plugin.** The shared `TIPS` pool stays common (the verbs it teaches
 universal), but the per-player "which tips have you heard" memory is keyed
 `npcId:playerId`, so draining Lowry's pool doesn't leave Marla with nothing to say.
 
-Current voices: **Lowry** (`npc_embassy_barkeep`, the Embassy) and **Marla Kest**
-(`npc_1784515589442`, The Coyote's Rest in the Reach).
+Current voices: **Lowry** (`npc_embassy_barkeep`, the Embassy), **Marla Kest**
+(`npc_1784515589442`, The Coyote's Rest in the Reach), and **Sully Holt**
+(`npc_barkeep`, The Dead Pigeon in Coldwater). Sully has no `coworkerId` — nobody
+else works the Pigeon, and the tick guards on that key, so omitting it is the opt-out.
+
+Sully is also the worked example of the trap in the Scope note below: his till-safe
+sat behind that bar with `vendor_npc_id: npc_barkeep` on it, while he himself had a
+null `work_zone_id` and no behaviour graph at all, so he stood in a tenement flat
+and this tick never once ran for him.
 
 ## Reactive dialogue actions
 
