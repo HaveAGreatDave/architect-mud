@@ -88,6 +88,12 @@ async function main() {
   // nothing to the captured geometry; this is the other half.
   for (const f of ws.nearTierSmoke()) problems.push(`near   ${f}`);
 
+  // ── WALL TEXTURES ──
+  // Every palette in WALL_COL bakes, and every material family is still reached by one. A wall
+  // texture is generated lazily the first time a building wearing it comes into view, so this is
+  // the only thing that ever runs most of these generators.
+  for (const f of ws.wallTexSmoke()) problems.push(`wall   ${f}`);
+
   // ── INTERIOR ──
   // The canopy, the cowl, the passenger window frame and the truck cab. Same rationale as the
   // models above: the only thing that ever runs one of these is somebody sitting in that vehicle,

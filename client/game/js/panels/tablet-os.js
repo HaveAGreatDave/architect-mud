@@ -8136,10 +8136,16 @@ function renderMap(d) {
         return `<span class="tos-edge tos-edge-${dr} ${st}"></span>`;
       }).join('');
     } else {
-      // Out on the street: the door edge goes green and the other three stay bare. The
-      // red "wall" half is a floorplan idea — outside it would just outline everything.
-      ent = ['north', 'south', 'east', 'west'].includes(t.entrance)
-        ? `<span class="tos-edge tos-edge-${t.entrance} open"></span>` : '';
+      // Out on the street: the door edge is the only one drawn and the other three stay
+      // bare. The red "wall" half is a floorplan idea — outside it would just outline
+      // everything. The one line still takes all three lock colours (facadeLockDirs,
+      // server/engine/world.js); it was hardcoded green, so a bolted front door read
+      // open here while the dpad reddened the same direction from the same door.
+      if (['north', 'south', 'east', 'west'].includes(t.entrance)) {
+        const lk = Array.isArray(t.locked_dirs) && t.locked_dirs.includes(t.entrance);
+        const mn = lk && Array.isArray(t.unlockable_dirs) && t.unlockable_dirs.includes(t.entrance);
+        ent = `<span class="tos-edge tos-edge-${t.entrance} ${mn ? 'unlockable' : lk ? 'locked' : 'open'}"></span>`;
+      }
     }
     // Perimeter wall (mirrors the sidebar minimap). The derived faces in spec.curtain
     // are the tile's own OUTWARD edges, so the stroke lands on the boundary: a run reads

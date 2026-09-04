@@ -26,15 +26,38 @@
 // values are read again OUTSIDE any frame by the collision helpers and the shape capture. A view
 // that overrode one of those would draw a building somewhere the solid world does not have one.
 export const CAB_VIEW_TUNE = Object.freeze({
-  // The dissolve now runs from 12 tiles out to 26 and FINISHES before the haze band, instead of
-  // starting at 20 and never completing.
-  lodNear: 12,
-  lodFar: 26,
+  // The dissolve now runs from 9 tiles out to 20 and FINISHES well before the haze band, instead of
+  // starting at 20 and never completing. Pulled in from 12/26 once the frame was actually measured:
+  // a ground camera in a dense block was still running 222 full model arms every frame, and a
+  // building nine tiles down the street is already mostly hidden behind the two in front of it.
+  lodNear: 9,
+  lodFar: 20,
   // The one that matters most, and the clearest case of an aeroplane's number meaning something
   // else on the ground. Any wall taller than this on screen takes the expensive textured blit.
   // 44px is roughly 4% of screen height — properly distant from a driver's seat — and the flat fill
   // is tone-matched to the texture average, so a wall does not change colour as it crosses over.
   wallLodPx: 44,
+  // ── THE GROUND RASTER'S CEILING, WHICH IS THE WHOLE FRAME ──────────────────
+  //
+  // `pixel` is the Mode-7 floor's texel size in CSS pixels, and profiling the cab found it is not
+  // one cost among several — it IS the frame. At the shipped ceiling of 1 (one texel per CSS pixel,
+  // set for "the crispest ground the frame will allow") the ground pass alone measures ~165 ms at
+  // 1280×720. Nothing pays that, so it never actually ran: `perfDS` saw the long frames and pinned
+  // its load-shed at the cap, +4, every frame of every drive. The driver has been looking at a
+  // floor rasterised at DS 5 the entire time — CHUNKIER than the 4 this dial used to ship with —
+  // while the renderer carried the bookkeeping of a quality setting it could never reach.
+  //
+  // The damage is not only that it is slow. A ceiling the frame cannot afford turns the adaptive
+  // dial into a saturated one, and a saturated dial has no authority left: make anything else in
+  // the frame cheaper and the floor immediately spends the gain, so the frame time never improves
+  // and no other optimisation can ever show up. That is why the cab could not be made smooth by
+  // trimming buildings.
+  //
+  // 4 is a ceiling this view can actually reach. It is SHARPER than what a driver sees today
+  // (DS 4 rather than the pinned 5), it costs about a sixth of the texels, and it leaves `perfDS`
+  // somewhere to go — 4 → 8 under real load — instead of starting at its cap. The chunky Mode-7
+  // floor is the intended look here, not a concession.
+  pixel: 4,
   // ── THE ROAD SURFACE IS THE SUBJECT HERE, NOT THE BACKDROP ─────────────────
   // The Mode-7 ground raster is sized in CSS pixels; everything else in the frame is drawn into a
   // backing store this view deliberately renders ABOVE 1:1 (superSample: 2). From altitude that
@@ -44,10 +67,17 @@ export const CAB_VIEW_TUNE = Object.freeze({
   // while the buildings standing on it got every one. That is where "the terrain looks blurry"
   // comes from, and it is a resolution mismatch rather than a filter.
   //
-  // The cost is real (dpr squared on a per-texel software loop) and is left on the adaptive dial:
-  // perfDS still coarsens the floor step by step when frames run long, so this raises the ceiling
-  // on a machine that can pay for it and changes nothing on one that cannot.
-  floorSubpixel: 1,
+  // ⚠ AND IT IS OFF, BECAUSE MEASURING IT SHOWED IT HAS NEVER ONCE BEEN ON.
+  // The argument above is sound and the arithmetic under it is not. This multiplies the whole DS
+  // ladder by 1/dpr, so on a supersampling view it asks for FOUR times the texels of a ceiling that
+  // already could not be paid for — and `perfDS` answers by pinning at its cap, which is where the
+  // dial has sat every frame since. Toggling it on and off in the profiler moves the frame by less
+  // than the noise, in both directions: it is inert, and it is the reason the unshed cost is 190 ms
+  // rather than 165.
+  // The honest version of what it was reaching for is the `pixel` ceiling above — a number this
+  // view can afford, so the shed has room to release it when the frame is cheap. Left here rather
+  // than deleted because the key is right and a machine that can pay for it may exist later.
+  floorSubpixel: 0,
   // Rooftop signage and ground shadows go BEHIND the building in front of them long before they go
   // small. That is a thing only a ground camera gets to be true about.
   decoFar: 12,

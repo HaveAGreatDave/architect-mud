@@ -1238,9 +1238,15 @@ function edgeMarks(node, pfx) {
 // the street it would just outline every building.
 function doorMarks(node, pfx) {
   if (Array.isArray(node?.open_dirs)) return edgeMarks(node, pfx);
-  if (ENTRANCE_DIRS.has(node?.entrance))
-    return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} open"></span>`;
-  return '';
+  if (!ENTRANCE_DIRS.has(node?.entrance)) return '';
+  // The one line a facade draws takes the same three lock colours an interior edge
+  // does (facadeLockDirs, server/engine/world.js). It was hardcoded 'open', which is
+  // why a bolted front door read green out on the street while the dpad reddened the
+  // same direction from the same door.
+  const locked = Array.isArray(node?.locked_dirs) && node.locked_dirs.includes(node.entrance);
+  const mine = locked && Array.isArray(node?.unlockable_dirs) && node.unlockable_dirs.includes(node.entrance);
+  const state = mine ? 'unlockable' : locked ? 'locked' : 'open';
+  return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} ${state}"></span>`;
 }
 
 // The tile-label overlay mode (none | labels) lives in the shared settings store as

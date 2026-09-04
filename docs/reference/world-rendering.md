@@ -197,6 +197,93 @@ world** (→ screen-space `fillText`)?
 texture (lit windows at night), `roofTex` a lighter roof. To give a model a distinct look, add a
 `ty_*` entry and point the model at it.
 
+#### Material families — and why the default branch is a trap
+
+`wallTex`'s **default branch paints a grid of lit apartment windows**, and a palette reaches it by
+being in **no family Set at all**. That makes the Sets load-bearing and silent: a palette nobody
+filed simply wears windows, and it looks merely wrong rather than broken. An audit in September 2026
+found **105 of the 283 palettes** still landing there — a marble colonnade, a ship's hull, a gantry,
+a bale of crushed scrap, and `ty_door`, the shared dark band that every awning, kerb, crate, plinth,
+security grille and stencilled sign band in the city is drawn with, which is the most frequently
+drawn palette in the game and was the most wrongly skinned one.
+
+Eighteen families now sit above that branch, checked **in order**, first match wins:
+
+| family | surface |
+| --- | --- |
+| `METAL_WALL` | corrugated ribbed steel siding + rivet rows |
+| `GLASS_WALL` | curtain glass: floor-plate striping + sky sheen |
+| `DECO_WALL` | art-deco limestone (The Meridian) |
+| `STRUCT_WALL` | painted structural steel — a column section, no apertures |
+| `PUMP_WALL` | a fuel dispenser, painted rather than modelled |
+| `PLAIN_WALL` | flat painted panel: soffits, kerbs, hide, canvas, `ty_door` |
+| `STONE_WALL` | coursed ashlar, half-bond, chipped arrises, rain streaks |
+| `BRICK_WALL` | running bond at twice the course count, soot + efflorescence |
+| `PLATE_WALL` | riveted plate: proud laps, rivet lines, rust bleeding down |
+| `LATTICE_WALL` | open truss — dark ground, lit members, gussets |
+| `CONCRETE_WALL` | board-formed: shutter lines, tie-holes, water staining |
+| `BALE_WALL` | compacted scrap in compression bands under wire |
+| `BRASS_WALL` | patinated bronze panels with verdigris out of the joints |
+| `TILE_WALL` | glazed tile: a highlight per unit, pale grout, a few tiles cracked out |
+| `STUCCO_WALL` | rendered and painted, coming off in sheets |
+| `SHOP_GLASS` | one glazed shopfront, lit interior |
+| `TIMBER_WALL` | board-and-batten, weathered (The Reach) |
+| `SHAKE_ROOF` | hand-split shingles |
+
+#### …and the same materials behind the windows — `FACADE_MAT`
+
+Families only solve half of it. The other half is that a **facade needs its windows**, and a family
+branch returns before the window grid is ever reached — so the 65 palettes that legitimately want
+windows shared **one** texture: a flat tinted panel with lit rooms scattered on it. A tenement, a
+police station, a dockside chandlery and a chrome boutique differed by base RGB and by nothing else.
+
+So a material is a **painter**, not a branch. `wallTex` either calls one and returns (a hull, a bale,
+a gantry — surfaces with no apertures), or the default branch calls one and puts windows *through*
+it. Same brick, one definition. `FACADE_MAT` names what each facade is faced in, assigned by what
+the building **is** rather than by district — Coldwater grew in layers, and a dockside chandlery and
+an uptown archive do not share a wall just because they share a skyline:
+
+| material | who |
+| --- | --- |
+| brick | old trade and old housing — the docks, the ruins, the bars, cafes and pawnbrokers |
+| stone | civic and money — police, embassy, archive, armoury, the uptown blocks |
+| concrete | anything poured after the lights went out — housing slabs, offices, hangars, the Ascendants |
+| tile | anything washed down at the end of a shift — clinic, chrome shop, boutique |
+| stucco | a small shop re-fronted six times, and the render is coming off |
+
+Two things carry it:
+
+- ⚠ **`amp` is why a material is one function and not two.** Tuned to carry a whole wall alone, a
+  material is far too loud behind glazing — the soot column starts competing with the thing the eye
+  is meant to read, which is the pattern of lit rooms. Every detail alpha scales by it: 1 bare,
+  0.5 behind windows.
+- ⚠ **The night dim goes on before the windows, never after** — and so it lives in the *caller*,
+  not in a painter. A facade at night is a dark wall with bright rooms in it; dimming the finished
+  texture takes the lit windows down with it and the building reads as switched off.
+- The **surround** — a stone sill, a brick soldier course, a deep concrete reveal, a painted render
+  frame — is two or three pixels per window and does most of the work once the glazing covers the
+  material.
+
+A palette with no `FACADE_MAT` entry keeps the speckled tint that has always shipped, so the table
+is additive.
+
+Three rules before you add a family:
+
+- **A palette belongs to exactly one family.** Two memberships means the answer depends on which
+  generator happens to be written higher up the file.
+- **Distance decides the vocabulary, not realism.** Stone reads as *blocks* and brick reads as
+  *texture*, so the difference that survives is the course count, not the mortar. A bale is painted
+  as banding rather than as objects because a single crushed thing in it is one pixel.
+- **There is no alpha on a wall texture** — it skins an opaque box. `LATTICE_WALL` says "you can
+  see through this" in value instead: near-black openings with the members as the only lit thing.
+
+`wallTexSmoke()` (run by `npm run shapes:smoke`) bakes **every** palette day and night, and fails on
+a palette in two families, a family no palette reaches, a member with no `WALL_COL` entry behind it,
+and a `FACADE_MAT` entry naming a palette some family already owns — that last one is dead code with
+no symptom, because the family branch returns first and the building just goes on looking like the
+plain tinted panel it was. A wall texture is generated lazily the first time something wearing it comes into view, so
+without it the only thing that ever runs most of these generators is a player driving past.
+
 ## Occlusion / draw order — the depth-sorted face queue
 
 A 2D canvas has **no depth buffer**, so order is painter's algorithm (back→front). It runs as **one

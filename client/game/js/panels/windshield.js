@@ -4816,7 +4816,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   // Texel size in CSS pixels. M7_MIN_DS scales the QUALITY end of the ladder (1 by default → this
   // is the old `pixel + PERF_DS` expression unchanged; 0.5 on a supersampling ground camera → one
   // texel per backing pixel), while the load-shed still adds whole steps on top of it.
-  const DS = Math.max(M7_MIN_DS, M7_MIN_DS * Math.round(RENDER_TUNE.pixel || 4) + PERF_DS);   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster)
+  const DS = Math.max(M7_MIN_DS, M7_MIN_DS * Math.round(TUNE.pixel || 4) + PERF_DS);   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster). TUNE, not RENDER_TUNE: a ground camera brings its own ceiling — see VIEW_TUNABLE and cab-render-tune.js
   // Horizontal extent, snapped to the ORIGINAL texel lattice (-W + k·DS). The snap is load-bearing:
   // X0 sets the sampling phase of the whole floor, so letting it slide by sub-texel amounts as the
   // bank angle changes would make the ground crawl and shimmer during a roll. Snapping keeps every
@@ -4961,7 +4961,19 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       const waterW = s00[3] * w00 + s10[3] * w10 + s01[3] * w01 + s11[3] * w11;
       const grassW = s00[4] * w00 + s10[4] * w10 + s01[4] * w01 + s11[4] * w11;
       const shadeW = s00[5] * w00 + s10[5] * w10 + s01[5] * w01 + s11[5] * w11;
-      const dryW = clamp(1 - waterW * 4, 0, 1) * (1 - grassW);   // bare dry land coord (1 = open desert, 0 = water/turf); drives arid material + aerial perspective
+      // ⚠ PAVED IS NOT DRY GROUND, AND FOR MONTHS IT COUNTED AS THE DRIEST THERE IS.
+      // `dryW` drives two desert treatments — wind-blown sand ripple with cracked-clay patches, and
+      // the aerial-perspective wash that fades an infinite plain into the horizon. Both were written
+      // for the wildlands, and the comment on the wash below says so in as many words: "parkland/city
+      // are left alone". They were not. Asphalt has no water and no grass, so `1 - grassW` left it at
+      // dryW = 1 — the maximum — and every road, apron and pier in the game got sand blown across it
+      // and washed out toward the horizon like open desert. From altitude that is invisible. From a
+      // truck cab it is the surface you are staring at.
+      // The LUT has carried a `paved` channel since the coast-warp needed one (index 6), so the fix
+      // is to blend it the same way as the other three and take it out of the term. That also
+      // removes two sines and a noise lookup from every paved texel, which in a city is most of them.
+      const pavedW = s00[6] * w00 + s10[6] * w10 + s01[6] * w01 + s11[6] * w11;
+      const dryW = clamp(1 - waterW * 4, 0, 1) * (1 - grassW) * (1 - pavedW);   // bare dry land coord (1 = open desert, 0 = water/turf/tarmac); drives arid material + aerial perspective
       // Base material: a WHISPER of concrete tone variation + within-tile diagonal gradient.
       // Kept very low — a stronger checker read as a distracting tiled pattern on flat grey
       // asphalt/apron (the whole thing pulsing like a chessboard as you flew over it).
@@ -6052,7 +6064,7 @@ const TR = () => Math.max(0.5, TUNE.texRes || 1);
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
 const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab', 'ty_reach_hangar', 'ty_reach_rust', 'ty_reach_dynamo', 'ty_reach_tank', 'ty_reefer', 'ty_stack_dk', 'ty_melt_tank', 'ty_2cell']);   // ...+ Two-Cell Supply, a shop built out of corrugated sheet   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block
-const GLASS_WALL = new Set(['ty_halcyon', 'ty_solenne', 'ty_ksab_glass']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
+const GLASS_WALL = new Set(['ty_halcyon', 'ty_solenne', 'ty_ksab_glass', 'ty_yacht_glass']);   // …+ the Echelon's saloon glazing, which is a curtain wall lying on its side, never a tenement grid   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
 const DECO_WALL = new Set(['ty_meridian']);   // bespoke art-deco limestone: reeded vertical piers + tall paired windows + chevron spandrels (The Meridian)
 // ── STRUCTURE IS NOT A BUILDING, AND IT WAS BEING SKINNED LIKE ONE ───────────
 // Every palette that is not in one of the three sets above falls through to the default branch at
@@ -6076,44 +6088,121 @@ const PUMP_WALL = new Set(['ty_pump']);
 // these has any.
 const PLAIN_WALL = new Set(['ty_soffit', 'ty_kerb', 'ty_pump_dk', 'ty_fuel_kiosk', 'ty_fuel_red', 'ty_fuel_white',
   // The three walls. Same argument as the forecourt above, and the reason 148 tiles of rampart,
-  // thorn and dam concrete are not 148 tiles of glowing apartment windows.
-  'ty_trm_wall', 'ty_trm_base', 'ty_trm_patch', 'ty_trm_rail',
+  // thorn and dam concrete are not 148 tiles of glowing apartment windows. The rampart and the dam
+  // moved on again to CONCRETE_WALL, which is what they are actually made of; the thorn stays here
+  // because it is grown rather than poured and board lines would be a lie about it.
+  'ty_trm_rail',
   'ty_thorn', 'ty_thorn_dk', 'ty_thorn_tip', 'ty_thorn_berm',
-  'ty_dam', 'ty_dam_dk', 'ty_dam_stain',
   // The seven civics. One- and two-storey buildings with hand-placed windows; the default
   // branch would put an apartment grid on a birthing room.
-  'ty_trm_creche', 'ty_trm_creche_roof', 'ty_trm_yard', 'ty_trm_hall', 'ty_trm_hall_dk',
+  'ty_trm_creche_roof', 'ty_trm_yard',
   'ty_trm_hall_glass', 'ty_trm_gate', 'ty_trm_gate_dk', 'ty_sw_gate', 'ty_sw_gate_dk',
-  'ty_sw_mask', 'ty_sw_den', 'ty_sw_hide', 'ty_sw_walk', 'ty_sw_walk_dk',
+  'ty_sw_mask', 'ty_sw_den', 'ty_sw_hide',
   'ty_sw_whelp', 'ty_sw_cloth',
   // Terminus, the rest. Nothing here is taller than two storeys and every window in the settlement
   // is placed by hand, so none of these wants the default branch's facade grid.
-  'ty_trm_glass', 'ty_trm_frame', 'ty_trm_board', 'ty_trm_still', 'ty_trm_ward', 'ty_trm_ward_dk',
-  'ty_trm_tank', 'ty_trm_pipe', 'ty_trm_shed', 'ty_trm_gantry', 'ty_trm_dynamo', 'ty_trm_cell',
+  'ty_trm_glass', 'ty_trm_frame', 'ty_trm_board', 'ty_trm_still',
+  'ty_trm_tank', 'ty_trm_pipe', 'ty_trm_shed', 'ty_trm_dynamo', 'ty_trm_cell',
   'ty_trm_copper', 'ty_trm_dorm', 'ty_trm_dorm_roof', 'ty_trm_inn', 'ty_trm_grave', 'ty_trm_marker',
   'ty_trm_vault', 'ty_trm_mound', 'ty_trm_blast', 'ty_trm_table', 'ty_trm_canvas', 'ty_trm_wash',
   'ty_trm_depot', 'ty_trm_sand',
+  // ⚠ THE SHARED DARK BAND, AND THE SINGLE WORST CASE OF THE WINDOW OVERUSE.
+  // `ty_door` is not a building at all. It is the one dark palette every arm in this file reaches
+  // for when it needs a door, an awning, a security grille, a stencilled masthead band, a crate on
+  // the pavement, a plinth, or a bit of roof plant — there are well over a hundred draws of it —
+  // and every one of them was being painted with a grid of lit apartment windows. It is the most
+  // frequently drawn palette in the game and it was the most wrongly skinned.
+  'ty_door',
+  // The rest of the strays the audit turned up: a gate leaf, a hide stretched over a frame, and a
+  // wall somebody has burned. None is a facade and none has an aperture.
+  'ty_asc_gate', 'ty_reach_skin',
   // The Thornwarren and Deadwater. Fired earth, hide, plate and dead concrete — no facades.
-  'ty_sw_kiln', 'ty_sw_kiln_dk', 'ty_sw_ember', 'ty_sw_foundry', 'ty_sw_slag', 'ty_sw_plate',
-  'ty_sw_flesh', 'ty_sw_vat', 'ty_sw_milk', 'ty_sw_milk_dk', 'ty_sw_fire', 'ty_sw_merc',
-  'ty_sw_merc_dk', 'ty_sw_hound', 'ty_sw_pen', 'ty_sw_water', 'ty_sw_bath', 'ty_sw_depot',
+  'ty_sw_ember',
+  'ty_sw_flesh', 'ty_sw_vat', 'ty_sw_fire', 'ty_sw_merc',
+  'ty_sw_merc_dk', 'ty_sw_hound', 'ty_sw_pen', 'ty_sw_water', 'ty_sw_depot',
   'ty_sw_physic', 'ty_sw_kept',
   'ty_dw_turbine', 'ty_dw_turbine_dk', 'ty_dw_rust', 'ty_dw_depot',
   'ty_honky', 'ty_honky_front', 'ty_honky_porch',
   // The twin pass. All single- and two-storey street buildings with hand-placed glazing.
-  'ty_ff_brick', 'ty_ff_patch', 'ty_ff_white', 'ty_2cell_crate', 'ty_fallow', 'ty_fallow_canvas',
+  'ty_ff_brick', 'ty_ff_patch', 'ty_ff_white', 'ty_2cell_crate', 'ty_fallow_canvas',
   'ty_unit', 'ty_unit_shut', 'ty_unit_board', 'ty_tomb', 'ty_tomb_glass', 'ty_tomb_brass',
   'ty_stitch', 'ty_stitch_glass', 'ty_giardia', 'ty_giardia_bus', 'ty_giardia_tarp',
   'ty_watts', 'ty_watts_roller', 'ty_hulls', 'ty_hulls_door', 'ty_slagw', 'ty_slagw_corr',
-  'ty_thumb', 'ty_thumb_brass', 'ty_slip', 'ty_sentimental', 'ty_sentimental_bar',
+  'ty_thumb', 'ty_slip', 'ty_sentimental', 'ty_sentimental_bar',
   'ty_grind', 'ty_grind_ember',
   'ty_signalbox', 'ty_signal_brick', 'ty_signal_yellow', 'ty_helpings', 'ty_helpings_mach',
   // Deadwater. Stone, iron and painted timber — none of it a facade wanting a window grid.
-  'ty_dw_stone', 'ty_dw_iron', 'ty_dw_brass', 'ty_dw_timber', 'ty_dw_slate', 'ty_dw_paint',
-  'ty_dw_belt', 'ty_dw_lamp', 'ty_dw_canvas', 'ty_dw_forge', 'ty_dw_coal',
+  'ty_dw_timber', 'ty_dw_belt', 'ty_dw_lamp', 'ty_dw_canvas', 'ty_dw_coal',
   // The Reach's sign ironwork and the paint on the boards it swings. Six storeys of glowing
   // offices in a bracket is exactly the failure the ⚠ on STRUCT_WALL above is about.
   'ty_reach_iron', 'ty_reach_paint']);
+// ── SEVEN MATERIALS THAT WERE ALL WEARING THE SAME APARTMENT WINDOWS ─────────
+//
+// The default branch at the bottom of wallTex paints a grid of lit windows, and until now anything
+// not named in one of the sets above fell into it. That is the right answer for a facade and an
+// absurd one for everything else, and an audit of the palette table found 105 keys still landing
+// there — a marble colonnade, a ship's hull, a gantry, a bale of crushed scrap, the shared dark
+// band `ty_door` that every awning, kerb, crate, plinth and security grille in the city is drawn
+// with. STRUCT_WALL and PLAIN_WALL were each written for one report of exactly this shape; the
+// families below are the rest of that list, sorted by what the thing is actually made of.
+//
+// They are also the answer to the other half of the brief — variety. PLAIN_WALL is one flat painted
+// panel doing duty for stone, brick, plate, concrete, scrap and bronze alike, and a city where every
+// non-window surface is the same painted panel has no material depth at all. Seven generators is
+// what a street looks like when the walls disagree with each other.
+//
+// ⚠ A PALETTE BELONGS TO EXACTLY ONE SET. The branches are checked in order and the first match
+// returns, so a key in two sets silently gets whichever branch is written higher up the file.
+
+// COURSED ASHLAR. Cut blocks laid in half-bond with a recessed mortar joint, each block its own
+// tone because no two came out of the quarry the same week. The chipped arris on one block in five
+// is the detail that separates cut stone from tile, and the rain streaks off the ledges are what
+// stop a civic frontage reading as a flat grey card.
+const STONE_WALL = new Set(['__statue_stone', 'ty_marble', 'ty_marble_col', 'ty_archive_col',
+  'ty_archive_dome', 'ty_gate', 'ty_gate_dk', 'ty_asc_shrine', 'ty_church', 'ty_dw_stone', 'ty_dw_slate']);
+// RUNNING-BOND BRICK. Smaller units than ashlar and a much tighter rhythm, which is the whole
+// difference at distance: stone reads as blocks, brick reads as texture. Soot up the wall where
+// something has been burning against it for fifty years, and the pale bloom of salts coming back
+// out of the mortar underneath it.
+const BRICK_WALL = new Set(['ty_forge', 'ty_kitchen', 'ty_butcher', 'ty_junk_shack',
+  'ty_sw_kiln', 'ty_sw_kiln_dk']);
+// RIVETED PLATE. Heavy steel laid in overlapping plates with a proud seam both ways, a rivet line
+// down every lap, and rust bleeding out from under each one. This is a hull, a tank, a reefer box
+// and a foundry shell — none of which has ever had a window in it, and all of which had six floors
+// of glowing apartments in them until now.
+const PLATE_WALL = new Set(['ty_yacht', 'ty_yacht_deck', 'ty_wharf_steel', 'ty_foundry',
+  'ty_foundry_stack', 'ty_cold_unit', 'ty_reefer_blk', 'ty_junk_crane', 'ty_clone_vat',
+  'ty_dw_iron', 'ty_dw_forge', 'ty_sw_plate', 'ty_sw_foundry']);
+// OPEN LATTICE. A gantry leg, a crane mast, a fenced compound — structure you can see daylight
+// through. There is no alpha here (a wall texture skins an opaque box), so the openings are painted
+// as near-black and the members as the only lit thing on the surface, which is exactly how an open
+// truss reads against a bright sky at any distance you can see one from.
+const LATTICE_WALL = new Set(['ty_gantry', 'ty_bond_fence', 'ty_trm_gantry']);
+// BOARD-FORMED CONCRETE. Poured against timber shuttering and never faced: the horizontal board
+// lines, the grid of tie-holes left by the formwork bolts, the dark bloom of water coming down from
+// every horizontal, and the paler patch where somebody made a repair and did not match the mix.
+const CONCRETE_WALL = new Set(['ty_garage_bay', 'ty_guard', '__nofly',
+  'ty_dam', 'ty_dam_dk', 'ty_dam_stain', 'ty_trm_wall', 'ty_trm_base', 'ty_trm_patch']);
+// COMPACTED SCRAP. A bale is not a surface, it is a cross-section: bands of crushed mixed debris
+// under the wire that holds them together. Painted as banded speckle rather than as objects,
+// because at the size a bale occupies on screen the individual thing in it is one pixel and the
+// BANDING is the only part that reads.
+const BALE_WALL = new Set(['ty_junk_bale', 'ty_junk_bale_dk', 'ty_slag', 'ty_pallet', 'ty_sw_slag']);
+// PATINATED BRONZE. Tall panels with a warm vertical sheen and verdigris running out of every
+// joint. The one material in this batch that is a deliberate luxury: it is on the trim of the
+// buildings that are trying to tell you something about themselves.
+const BRASS_WALL = new Set(['ty_meridian_bronze', 'ty_marble_bronze', 'ty_vig_trim',
+  'ty_thumb_brass', 'ty_dw_brass']);
+// GLAZED TILE. What you face a thing in when it has to be hosed down: a clinic's flank, a
+// bathhouse, a butcher's slab wall, a vat room. The only material here whose main event is a
+// HIGHLIGHT rather than a shadow, which is what keeps it from reading as very small brick.
+const TILE_WALL = new Set(['ty_sw_bath', 'ty_sw_milk', 'ty_sw_milk_dk', 'ty_trm_ward', 'ty_trm_ward_dk',
+  'ty_asc_vats']);
+// RENDERED STUCCO, cracking off in sheets. The one material in the set whose features are
+// IRREGULAR — everything else here is on a grid — so it is what a street reaches for when it needs
+// a surface that is not a rhythm.
+const STUCCO_WALL = new Set(['ty_trm_creche', 'ty_trm_hall', 'ty_trm_hall_dk', 'ty_sw_walk',
+  'ty_sw_walk_dk', 'ty_dw_paint', 'ty_fallow']);
 // A GLAZED SHOPFRONT — the kiosk's front wall, and the second-brightest thing on a forecourt after
 // the canopy. Not GLASS_WALL: that family is a TOWER's curtain wall (floor-plate striping over
 // dozens of storeys), and a single-storey shop window has no floor plates, one sill, one head, and
@@ -6134,11 +6223,324 @@ const SHOP_GLASS = new Set(['ty_fuel_glass']);
 // as corrugated sheet, which is the family next door.
 const TIMBER_WALL = new Set(['ty_reach_saloon', 'ty_reach_saloon_dk', 'ty_reach_board', 'ty_reach_shack',
   'ty_reach_merc', 'ty_reach_merc_dk', 'ty_reach_grey', 'ty_reach_grey_dk', 'ty_reach_bath',
+  'ty_reach_scorch',   // scorched board is still board — burnt timber, not a burnt facade
   'ty_reach_motel', 'ty_reach_water', 'ty_reach_assay_dk', 'ty_reach_awning', 'ty_reach_porch']);
 // SPLIT SHAKES. A roof of hand-split shingles laid in overlapping courses, each shake a slightly
 // different length and tone, the butt line ragged. Read from above (which is how the flight sim
 // mostly sees a roof) it is the single most recognisable wild-west surface there is.
 const SHAKE_ROOF = new Set(['ty_reach_shake', 'ty_reach_motel_roof', 'ty_reach_bath_roof']);
+// ── THE MATERIALS, AS PAINTERS ───────────────────────────────────────────────
+//
+// These were the bodies of the material family branches in wallTex, and they are out here because
+// the families turned out to be only HALF of what they were for.
+//
+// The other half: every windowed building in the game — 66 palettes, which is the entire city —
+// shared ONE texture. A flat tinted panel with a scatter of lit windows on it. A tenement, a police
+// station, a chrome boutique and a dockside chandlery differed by base RGB and by nothing else, and
+// no amount of new families for gantries and bales was going to change that, because a facade needs
+// its windows and a family branch returns before the window grid is ever reached.
+//
+// So a material is a painter, not a branch. `wallTex` calls one and returns (a hull, a bale, a
+// gantry — surfaces with no apertures), or the default branch calls one and then puts windows
+// through it (a facade). Same brick, one definition.
+//
+// ⚠ `amp` IS WHY THIS IS ONE FUNCTION AND NOT TWO. A material tuned to carry a whole wall on its
+// own is far too loud behind a window grid — the soot column and the rain streaking start competing
+// with the thing the eye is actually meant to read, which is the pattern of lit rooms. Every
+// detail alpha here is scaled by it: 1 for a bare surface, ~0.5 behind glazing.
+//
+// ⚠ AND NONE OF THEM APPLIES THE NIGHT DIM. The caller does, once, after the windows are in —
+// otherwise a facade would darken its brick and then paint full-brightness windows over the top,
+// which is the one thing that must NOT happen (lit windows at night are the whole picture).
+const matK = (w) => (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+
+// COURSED ASHLAR. Cut blocks laid in half-bond with a recessed mortar joint, each block its own
+// tone because no two came out of the quarry the same week.
+function matStone(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  g.fillStyle = k(0.90); g.fillRect(0, 0, W, H);   // the mortar bed every block is set into
+  const ch = Math.max(3, Math.round(H / 8));       // course height — eight courses to a tile
+  const bw = Math.max(4, Math.round(W / 2.4));     // and a block a bit under half the width
+  for (let row = 0, y = 0; y < H; row++, y += ch) {
+    const off = (row % 2) ? Math.round(bw * 0.5) : 0;   // HALF-BOND: no vertical joint runs two courses
+    for (let x = -bw; x < W + bw; x += bw) {
+      const i = row * 17 + ((x / bw) | 0) * 5;
+      g.fillStyle = k(1 - (0.16 - frac(i * 3.7) * 0.34) * A);   // no two blocks came out of the quarry the same week
+      g.fillRect(x + off, y, bw - px, ch - px);
+      g.fillStyle = `rgba(0,0,0,${0.32 * A})`; g.fillRect(x + off, y + ch - px, bw, px);        // the joint, shadowed under the block above
+      g.fillStyle = `rgba(255,255,255,${0.09 * A})`; g.fillRect(x + off, y, bw, px);            // …and catching the light on its own top arris
+      // A CHIPPED CORNER on one block in five. This is the line that says cut stone rather than
+      // tile: tile is perfect, and stone has been hit by something.
+      if (frac(i * 9.1) > 0.80) { g.fillStyle = k(1 + 0.24 * A); g.fillRect(x + off, y, Math.max(px, Math.round(bw * 0.18)), Math.max(px, Math.round(ch * 0.34))); }
+    }
+  }
+  // Rain off the ledges, running down over several courses. A stone wall weathers in vertical
+  // stripes and a painted one does not, so this is most of what tells the two apart at range.
+  for (let i = 0; i < Math.round(5 * tr); i++) {
+    const rx = Math.round(frac(i * 6.7) * W), ry = Math.round(frac(i * 2.3) * H * 0.5);
+    g.fillStyle = `rgba(0,0,0,${(0.06 + frac(i) * 0.07) * A})`;
+    g.fillRect(rx, ry, Math.max(px, Math.round(W * 0.06)), Math.round(H * (0.3 + frac(i * 4.1) * 0.5)));
+  }
+}
+
+// RUNNING-BOND BRICK. Smaller units than ashlar and a much tighter rhythm, which is the whole
+// difference at distance: stone reads as blocks, brick reads as texture.
+function matBrick(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  g.fillStyle = k(1 + 0.10 * A); g.fillRect(0, 0, W, H);   // mortar, paler than the brick it beds
+  const ch = Math.max(2, Math.round(H / 16));              // twice the course count of ashlar — that ratio IS the read
+  const bw = Math.max(3, Math.round(W / 4));
+  for (let row = 0, y = 0; y < H; row++, y += ch) {
+    const off = (row % 2) ? Math.round(bw * 0.5) : 0;
+    for (let x = -bw; x < W + bw; x += bw) {
+      const i = row * 23 + ((x / bw) | 0) * 11;
+      // Fired brick varies wildly kiln to kiln, and a wall built over decades of patching varies
+      // more. The spread here is deliberately wider than the stone above.
+      g.fillStyle = k(1 - (0.28 - frac(i * 4.3) * 0.52) * A);
+      g.fillRect(x + off, y, bw - px, ch - px);
+    }
+  }
+  // SOOT, and the salts coming back out underneath it. Fifty years of something burning against
+  // this wall, and the mortar leaching pale where the damp gets behind it and dries out.
+  const sg = g.createLinearGradient(0, H, 0, Math.round(H * 0.25));
+  sg.addColorStop(0, `rgba(12,10,10,${0.42 * A})`); sg.addColorStop(1, 'rgba(12,10,10,0)');
+  g.fillStyle = sg; g.fillRect(Math.round(frac(7.7) * W * 0.5), 0, Math.round(W * 0.55), H);
+  for (let i = 0; i < Math.round(9 * tr); i++) {
+    const rx = Math.round(frac(i * 5.9) * W), ry = Math.round(frac(i * 3.1) * H);
+    g.fillStyle = `rgba(226,224,214,${(0.05 + frac(i) * 0.09) * A})`;
+    g.fillRect(rx, ry, Math.max(px, Math.round(bw * 0.7)), px);
+  }
+}
+
+// RIVETED PLATE. Heavy steel laid in overlapping plates with a proud seam both ways, a rivet line
+// down every lap, and rust bleeding out from under each one.
+function matPlate(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  g.fillStyle = k(1.0); g.fillRect(0, 0, W, H);
+  const pw = Math.max(5, Math.round(W / 2)), ph = Math.max(6, Math.round(H / 4));
+  for (let py = 0, r = 0; py < H; py += ph, r++) for (let qx = 0, cc = 0; qx < W; qx += pw, cc++) {
+    // Each plate its own tone and its own weathering. A hull is a patchwork of replacements.
+    g.fillStyle = k(1 - (0.12 - frac(r * 5.1 + cc * 2.9) * 0.26) * A);
+    g.fillRect(qx, py, pw, ph);
+  }
+  // THE LAPS. A plate overlaps its neighbour, so every seam is a bright edge with a hard shadow
+  // under it — proud, not incised, which is what separates plate from panel.
+  for (let py = ph; py < H; py += ph) {
+    g.fillStyle = `rgba(255,255,255,${0.12 * A})`; g.fillRect(0, py - px, W, px);
+    g.fillStyle = `rgba(0,0,0,${0.36 * A})`; g.fillRect(0, py, W, px);
+    // RUST BLEEDING OUT FROM UNDER THE LAP. Water gets in at the seam and comes back out orange,
+    // and it always runs DOWN — which is the cue that fixes the surface's up.
+    for (let rx = Math.round(frac(py) * pw * 0.5); rx < W; rx += pw) {
+      g.fillStyle = `rgba(138,74,34,${0.30 * A})`;
+      g.fillRect(rx, py + px, Math.max(px, Math.round(pw * 0.22)), Math.round(ph * 0.55));
+    }
+  }
+  for (let qx = pw; qx < W; qx += pw) { g.fillStyle = `rgba(0,0,0,${0.30 * A})`; g.fillRect(qx, 0, px, H); }
+  // RIVET LINES down every lap. Dark dot, light catch above it — two pixels that read as a dome,
+  // which is the entire vocabulary of a riveted surface.
+  for (let py = Math.round(ph * 0.12); py < H; py += Math.max(3, Math.round(ph * 0.22))) for (let qx = px; qx < W; qx += pw) {
+    g.fillStyle = `rgba(0,0,0,${0.34 * A})`; g.fillRect(qx, py, px, px);
+    g.fillStyle = `rgba(255,255,255,${0.14 * A})`; g.fillRect(qx, py - px, px, px);
+  }
+}
+
+// OPEN LATTICE. There is no alpha on a wall texture, so "you can see through this" is said in
+// VALUE: the sky behind a truss is bright and the truss is a silhouette, so near-black openings
+// with lit members is the honest reading. Never a facade base — a window in a truss is nonsense.
+function matLattice(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), bar = Math.max(1, Math.round(1.6 * tr)), A = amp;
+  g.fillStyle = 'rgb(14,15,18)'; g.fillRect(0, 0, W, H);
+  const bay = Math.max(6, Math.round(H / 4));
+  g.strokeStyle = k(1 + 0.30 * A); g.lineWidth = bar; g.lineCap = 'butt';
+  for (let y = 0; y < H; y += bay) {   // the diagonals — a truss is triangles, or it is a ladder
+    g.beginPath(); g.moveTo(0, y); g.lineTo(W, y + bay); g.stroke();
+    g.beginPath(); g.moveTo(W, y); g.lineTo(0, y + bay); g.stroke();
+  }
+  g.fillStyle = k(1 + 0.42 * A);                                     // the two chords, either side of the section
+  g.fillRect(0, 0, bar, H); g.fillRect(W - bar, 0, bar, H);
+  for (let y = 0; y < H; y += bay) { g.fillStyle = k(1 + 0.16 * A); g.fillRect(0, y, W, bar); }   // a tie at every panel point
+  // Bolted gusset plates where the members meet — the only solid area on the whole surface.
+  for (let y = 0; y < H; y += bay) {
+    g.fillStyle = k(0.96);
+    g.fillRect(0, Math.max(0, y - px), Math.max(px, bar * 2), Math.max(px, bar * 2));
+    g.fillRect(W - bar * 2, Math.max(0, y - px), Math.max(px, bar * 2), Math.max(px, bar * 2));
+  }
+}
+
+// BOARD-FORMED CONCRETE. Poured against timber shuttering and never faced.
+function matConcrete(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  g.fillStyle = k(1.0); g.fillRect(0, 0, W, H);
+  // THE BOARD LINES. The wall carries the width of the boards that formed it — the one feature
+  // that makes raw concrete legible as concrete rather than as flat grey.
+  const bd = Math.max(3, Math.round(H / 9));
+  for (let y = 0, r = 0; y < H; y += bd, r++) {
+    g.fillStyle = k(1 - (0.06 - frac(r * 3.3) * 0.12) * A);   // each board left its own tone in the face
+    g.fillRect(0, y, W, bd - px);
+    g.fillStyle = `rgba(0,0,0,${0.22 * A})`; g.fillRect(0, y + bd - px, W, px);
+    g.fillStyle = `rgba(255,255,255,${0.07 * A})`; g.fillRect(0, y + bd, W, px);
+  }
+  // TIE-HOLES: the grid the formwork bolts left, plugged and never matched.
+  for (let y = Math.round(bd * 1.5); y < H; y += bd * 3) for (let x = Math.round(W * 0.22); x < W; x += Math.round(W * 0.5)) {
+    g.fillStyle = `rgba(0,0,0,${0.30 * A})`; g.fillRect(x, y, Math.max(px, Math.round(W * 0.06)), Math.max(px, Math.round(W * 0.06)));
+  }
+  // Water coming down off every horizontal, which is how a concrete wall ages, and one paler patch
+  // where somebody made a repair with whatever mix was in the mixer that morning.
+  for (let i = 0; i < Math.round(4 * tr); i++) {
+    const rx = Math.round(frac(i * 8.3) * W);
+    g.fillStyle = `rgba(20,22,24,${(0.07 + frac(i) * 0.08) * A})`;
+    g.fillRect(rx, Math.round(frac(i * 2.7) * H * 0.4), Math.max(px, Math.round(W * 0.10)), Math.round(H * 0.6));
+  }
+  g.fillStyle = k(1 + 0.12 * A);
+  g.fillRect(Math.round(W * 0.55), Math.round(H * 0.58), Math.round(W * 0.3), Math.round(H * 0.16));
+}
+
+// COMPACTED SCRAP. Bands, not objects: at the size a bale occupies on screen a single crushed thing
+// in it is one pixel and says nothing, and the compression banding is the whole silhouette.
+function matBale(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  g.fillStyle = k(0.80); g.fillRect(0, 0, W, H);
+  const band = Math.max(3, Math.round(H / 6));
+  for (let y = 0, r = 0; y < H; y += band, r++) {
+    g.fillStyle = k(1 - (0.30 - frac(r * 4.7) * 0.48) * A);
+    g.fillRect(0, y, W, band - px);
+    // The speckle inside the band: bright torn metal, dark voids, the odd fleck of colour off
+    // something that used to be painted.
+    for (let i = 0; i < Math.round(14 * tr); i++) {
+      const rx = Math.round(frac(r * 9.1 + i * 3.7) * W), ry = y + Math.round(frac(r * 2.3 + i * 5.1) * (band - px));
+      const t = frac(r + i * 1.7);
+      g.fillStyle = t > 0.86 ? `rgba(176,74,52,${0.55 * A})` : t > 0.55 ? `rgba(226,230,236,${0.28 * A})` : `rgba(0,0,0,${0.38 * A})`;
+      g.fillRect(rx, ry, px, px);
+    }
+    g.fillStyle = `rgba(0,0,0,${0.34 * A})`; g.fillRect(0, y + band - px, W, px);
+  }
+  // THE WIRE. Without it this is rubble; with it, it is a bale somebody made on purpose.
+  for (let x = Math.round(W * 0.22); x < W; x += Math.round(W * 0.42)) {
+    g.fillStyle = `rgba(178,182,188,${0.55 * A})`; g.fillRect(x, 0, px, H);
+    g.fillStyle = `rgba(0,0,0,${0.30 * A})`; g.fillRect(x + px, 0, px, H);
+  }
+}
+
+// PATINATED BRONZE. Polished on the face, dark at the edges. The sheen runs ACROSS the panel rather
+// than down it, because bronze cladding is hung in tall panels and that is the short way.
+function matBrass(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  const hg = g.createLinearGradient(0, 0, W, 0);
+  hg.addColorStop(0, k(1 - 0.42 * A)); hg.addColorStop(0.30, k(1 + 0.34 * A)); hg.addColorStop(0.52, k(1 + 0.04 * A)); hg.addColorStop(1, k(1 - 0.38 * A));
+  g.fillStyle = hg; g.fillRect(0, 0, W, H);
+  const pw = Math.max(4, Math.round(W / 3));
+  for (let x = pw; x < W; x += pw) {
+    g.fillStyle = `rgba(0,0,0,${0.34 * A})`; g.fillRect(x, 0, px, H);                    // the joint between panels
+    g.fillStyle = `rgba(255,236,190,${0.16 * A})`; g.fillRect(x + px, 0, px, H);          // and the return catching light
+    // VERDIGRIS, running out of the joint and down. The one green thing in a warm palette, so a
+    // very little of it does the work.
+    for (let i = 0; i < 2; i++) {
+      const vy = Math.round(frac(x * 1.7 + i * 4.3) * H * 0.55);
+      g.fillStyle = `rgba(84,132,104,${(0.14 + frac(i + x) * 0.14) * A})`;
+      g.fillRect(x, vy, Math.max(px, Math.round(pw * 0.24)), Math.round(H * (0.25 + frac(i * 2.9) * 0.35)));
+    }
+  }
+}
+
+// GLAZED TILE. Small units with a wet specular pop on each one and a pale grout between — the
+// surface a clinic, a bathhouse or a boutique is faced in because it can be hosed down. It is the
+// only material here with a HIGHLIGHT rather than a shadow as its main event, which is what makes
+// it read as glazed rather than as very small brick.
+function matTile(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  g.fillStyle = k(1 + 0.16 * A); g.fillRect(0, 0, W, H);   // grout, paler than the tile
+  const t = Math.max(2, Math.round(W / 5));
+  for (let y = 0, r = 0; y < H; y += t, r++) for (let x = 0, cc = 0; x < W; x += t, cc++) {
+    const i = r * 13 + cc * 7;
+    g.fillStyle = k(1 - (0.10 - frac(i * 2.7) * 0.18) * A);
+    g.fillRect(x, y, t - px, t - px);
+    // The glaze catch: one bright pixel in the top-left of every tile, which at this size is the
+    // whole difference between glazed and matte.
+    g.fillStyle = `rgba(255,255,255,${(0.10 + frac(i * 4.1) * 0.16) * A})`;
+    g.fillRect(x, y, px, px);
+  }
+  // A few tiles gone — cracked out and never replaced, showing the dark bed behind.
+  for (let i = 0; i < Math.round(3 * tr); i++) {
+    const x = Math.round(frac(i * 7.3) * (W / t | 0)) * t, y = Math.round(frac(i * 3.9) * (H / t | 0)) * t;
+    g.fillStyle = `rgba(0,0,0,${0.34 * A})`; g.fillRect(x, y, t - px, t - px);
+  }
+}
+
+// RENDERED STUCCO. Cement render over whatever is behind it, painted, and now cracking off in
+// sheets. The only material here whose features are IRREGULAR — everything else in this file is on
+// a grid — so it is what a street reaches for when it needs something that is not a rhythm.
+function matStucco(g, W, H, w, tr, amp) {
+  const k = matK(w), px = Math.max(1, tr | 0), A = amp;
+  const vg = g.createLinearGradient(0, 0, 0, H);
+  vg.addColorStop(0, k(1 + 0.08 * A)); vg.addColorStop(0.7, k(1.0)); vg.addColorStop(1, k(1 - 0.14 * A));   // dirtier toward the pavement
+  g.fillStyle = vg; g.fillRect(0, 0, W, H);
+  // The float marks the trowel left, as a fine mottle. Without this it is a flat card.
+  for (let i = 0; i < Math.round(70 * tr); i++) {
+    const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0;
+    g.fillStyle = frac(i * 1.9) > 0.5 ? `rgba(255,255,255,${(0.03 + frac(i) * 0.04) * A})` : `rgba(0,0,0,${(0.03 + frac(i) * 0.05) * A})`;
+    g.fillRect(rx, ry, px, px);
+  }
+  // PATCHES WHERE THE RENDER HAS COME OFF, and what is behind it. Rectangular-ish and hard-edged,
+  // because render fails in sheets along its own cracks rather than wearing away.
+  for (let i = 0; i < 3; i++) {
+    const pw2 = Math.max(px, Math.round(W * (0.14 + frac(i * 2.3) * 0.20)));
+    const ph2 = Math.max(px, Math.round(H * (0.08 + frac(i * 5.1) * 0.14)));
+    const x = Math.round(frac(i * 8.7) * (W - pw2)), y = Math.round(frac(i * 4.3) * (H - ph2));
+    g.fillStyle = `rgba(96,74,58,${0.30 * A})`; g.fillRect(x, y, pw2, ph2);
+    g.fillStyle = `rgba(0,0,0,${0.22 * A})`; g.fillRect(x, y, pw2, px);
+  }
+  // …and one long crack running off a corner, which is where render always goes first.
+  g.fillStyle = `rgba(0,0,0,${0.26 * A})`;
+  for (let y = 0, x = Math.round(W * 0.32); y < H; y += px) { g.fillRect(x, y, px, px); x += frac(y * 1.7) > 0.6 ? px : 0; }
+}
+// ── WHAT EACH FACADE IS FACED IN ─────────────────────────────────────────────
+//
+// The 66 palettes that legitimately want windows, and the material behind those windows. Before
+// this table they shared ONE texture — a flat tinted panel with lit rooms scattered on it — so the
+// whole city differed only by base RGB, and adding families for gantries and bales did nothing
+// about that, because a family branch returns before the window grid is ever reached.
+//
+// The assignment is by WHAT THE BUILDING IS, not by district: Coldwater grew in layers and a
+// dockside chandlery and an uptown archive do not share a wall just because they share a skyline.
+// Old trade and old housing are brick; civic and money are stone; anything poured after the lights
+// went out is concrete; anything that has to be washed down is tile; and a shopfront that has been
+// re-fronted six times is render over whatever was there before.
+//
+// `sur` is how the wall meets the hole in it. It is two or three pixels per window and it does most
+// of the work once the glazing is covering the material — a stone sill, a brick soldier course, a
+// deep concrete reveal, a painted render frame.
+//
+// A palette with NO entry here keeps the speckled tint that has always shipped, so the table is
+// additive and anything left off is byte-for-byte unchanged.
+const FACADE_AMP = 0.5;   // material strength behind a window grid — see the ⚠ on `amp` in the painters
+const FACADE_MAT = (() => {
+  const M = {};
+  const of = (paint, sur) => (keys) => { for (const k of keys) M[k] = { paint, sur }; };
+  // OLD TRADE AND OLD HOUSING. Everything built when the Basin still made things, plus the strip
+  // of bars, cafes and pawnbrokers that grew up to serve it.
+  of(matBrick, 'brick')(['oldcoldwater', 'ruins', 'industrial', 'docks',
+    'ty_bar_a', 'ty_bar_b', 'ty_diner', 'ty_pawn', 'ty_junk', 'ty_broth', 'ty_soak', 'ty_ration',
+    'ty_grocery', 'ty_jitter', 'ty_adequate', 'ty_bolt', 'ty_kessel', 'ty_mintcond', 'ty_secondskin',
+    'ty_freight_office', 'ty_garage', 'ty_chem', 'ty_wharf', 'ty_meltoffice']);
+  // CIVIC AND MONEY. Stone is expensive and slow, which is the point of it — these are the
+  // buildings whose whole argument is that they were here before you and will be here after.
+  of(matStone, 'stone')(['uptown', 'civic', 'ty_police', 'ty_embassy', 'ty_archive', 'ty_aurelia',
+    'ty_armory', 'ty_ward', 'ty_casino']);
+  // POURED AFTER THE LIGHTS WENT OUT. Housing blocks, offices, hangars and everything the
+  // Ascendants have put up, which is all the same wall with different signage.
+  of(matConcrete, 'reveal')(['citycore', 'freight', 'infra',
+    'ty_office', 'ty_hotel', 'ty_apt_a', 'ty_apt_b', 'ty_power', 'ty_clone', 'ty_greenroom',
+    'ty_sentinel', 'ty_hangar_a', 'ty_hangar_b', 'ty_asc_spire', 'ty_asc_clinic', 'ty_asc_weave']);
+  // WASHED DOWN AT THE END OF A SHIFT. A clinic, a chrome shop, a boutique whose whole pitch is
+  // that it is clean.
+  of(matTile, 'none')(['marquee', 'ty_clinic', 'ty_lux', 'ty_chrome', 'ty_tech', 'ty_showroom',
+    'ty_boutique', 'ty_voltage', 'ty_club']);
+  // RE-FRONTED SIX TIMES. A small shop is render over whatever was there before, and the render is
+  // coming off.
+  of(matStucco, 'frame')(['ty_shop_a', 'ty_shop_b', 'ty_shop_c', 'ty_shop_d', 'ty_shop_e',
+    'ty_vig', 'ty_reach_assay']);
+  return M;
+})();
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
@@ -6269,6 +6671,28 @@ function wallTex(biome, night) {
       if (nite) { g.fillStyle = 'rgba(0,0,0,0.32)'; g.fillRect(0, 0, W, H); }
       return c;
     }
+    // ── THE SEVEN MATERIALS, EACH ONE A CALL ─────────────────────────────────
+    // A bare surface: paint the material at full strength and stop. The same painters are called
+    // again from the default branch at the bottom of this function, at half strength and with
+    // windows put through them — see FACADE_MAT.
+    // ⚠ The night dim is applied HERE and not inside a painter, because the facade path must dim
+    // the wall BEFORE it paints lit windows over it, and a painter that dimmed itself would leave
+    // the facade path no way to order those two.
+    {
+      const mat = STONE_WALL.has(biome) ? matStone : BRICK_WALL.has(biome) ? matBrick
+        : PLATE_WALL.has(biome) ? matPlate : LATTICE_WALL.has(biome) ? matLattice
+        : CONCRETE_WALL.has(biome) ? matConcrete : BALE_WALL.has(biome) ? matBale
+        : BRASS_WALL.has(biome) ? matBrass : TILE_WALL.has(biome) ? matTile
+        : STUCCO_WALL.has(biome) ? matStucco : null;
+      if (mat) {
+        mat(g, W, H, w, tr, 1);
+        // A lattice is mostly sky-shaped hole and reads darker again at night; the rest take the
+        // ordinary dim. Nothing in this group has a light of its own — that is what makes it a
+        // material rather than a facade.
+        if (nite) { g.fillStyle = mat === matLattice ? 'rgba(0,0,0,0.40)' : 'rgba(0,0,0,0.31)'; g.fillRect(0, 0, W, H); }
+        return c;
+      }
+    }
     if (PLAIN_WALL.has(biome)) {   // painted panel: a soffit, a kerb, a kiosk flank — never a facade
       const vg = g.createLinearGradient(0, 0, 0, H);
       const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
@@ -6378,9 +6802,26 @@ function wallTex(biome, night) {
       }
       return c2;
     }
-    const N = Math.round(60 * tr);
-    for (let i = 0; i < N; i++) { const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0; g.fillStyle = `rgba(0,0,0,${0.05 + frac(i) * 0.06})`; g.fillRect(rx, ry, 1, 1); }
-    const xs = 4 * tr, ys = 5 * tr, ww = Math.max(1, 2 * tr), wh = Math.max(1, 3 * tr);
+    // ── A FACADE: A MATERIAL, THEN WINDOWS THROUGH IT ────────────────────────
+    //
+    // This is where every windowed building in the game lands, and until now it painted the same
+    // picture for all 66 of them — a flat tinted panel plus a scatter of lit rooms. The base RGB
+    // was the only thing telling a tenement from a police station from a chrome boutique.
+    //
+    // FACADE_MAT names what the building is FACED IN, and the material painters above do the rest.
+    // A palette with no entry gets the speckled tint that has always shipped, so this is additive:
+    // anything unassigned is byte-for-byte what it was.
+    const fmat = FACADE_MAT[biome];
+    if (fmat) fmat.paint(g, W, H, w, tr, FACADE_AMP);
+    else {
+      const N = Math.round(60 * tr);
+      for (let i = 0; i < N; i++) { const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0; g.fillStyle = `rgba(0,0,0,${0.05 + frac(i) * 0.06})`; g.fillRect(rx, ry, 1, 1); }
+    }
+    // ⚠ DIM THE WALL BEFORE THE WINDOWS GO IN, NOT AFTER. A facade at night is a dark wall with
+    // bright rooms in it; dimming the finished texture would take the lit windows down with it and
+    // the building would read as switched off.
+    if (nite && fmat) { g.fillStyle = 'rgba(0,0,0,0.34)'; g.fillRect(0, 0, W, H); }
+    const xs = 4 * tr, ys = 5 * tr, ww = Math.max(1, 2 * tr), wh = Math.max(1, 3 * tr), px = Math.max(1, tr | 0);
     for (let y = 3 * tr; y < H - 2 * tr; y += ys) for (let x = 2 * tr; x < W - 2 * tr; x += xs) {
       // Scatter lit windows in 2D. The old (x*7 + y*13) % 5 test degenerated at ys=5*tr — the row
       // term vanished mod 5, so whole columns lit identically on every floor (the "tiled" stripes).
@@ -6388,6 +6829,23 @@ function wallTex(biome, night) {
       const lit = frac(Math.round(x / tr) * 2.3 + Math.round(y / tr) * 7.9 + 0.5) < (nite ? 0.55 : 0.18);
       g.fillStyle = nite ? (lit ? 'rgba(255,214,120,0.9)' : 'rgba(14,18,26,0.85)') : (lit ? 'rgba(160,200,230,0.55)' : 'rgba(26,32,42,0.7)');
       g.fillRect(x, y, ww, wh);
+      // THE SURROUND — how the wall meets the hole in it, which is different for every material and
+      // is most of what says which material it is once the windows are covering the wall. Two or
+      // three pixels each, and skipped entirely for an unassigned palette so nothing that shipped
+      // before changes.
+      if (!fmat) continue;
+      if (fmat.sur === 'stone') {                                                    // a projecting sill, and a lintel across the head
+        g.fillStyle = `rgba(255,255,255,0.20)`; g.fillRect(x - px, y + wh, ww + px * 2, px);
+        g.fillStyle = `rgba(0,0,0,0.30)`; g.fillRect(x - px, y - px, ww + px * 2, px);
+      } else if (fmat.sur === 'brick') {                                              // a soldier course over the opening, on edge and darker
+        g.fillStyle = `rgba(0,0,0,0.34)`; g.fillRect(x - px, y - px, ww + px * 2, px);
+        g.fillStyle = `rgba(226,224,214,0.14)`; g.fillRect(x, y + wh, ww, px);        // the sill, weathered pale
+      } else if (fmat.sur === 'reveal') {                                             // set back in a thick wall: shadow down two sides
+        g.fillStyle = `rgba(0,0,0,0.36)`; g.fillRect(x - px, y, px, wh); g.fillRect(x, y - px, ww, px);
+      } else if (fmat.sur === 'frame') {                                              // a painted band round the opening — render, not structure
+        g.fillStyle = `rgba(255,255,255,0.13)`; g.fillRect(x - px, y - px, ww + px * 2, px);
+        g.fillStyle = `rgba(255,255,255,0.13)`; g.fillRect(x - px, y + wh, ww + px * 2, px);
+      }
     }
     return c;
   });
@@ -6711,7 +7169,10 @@ let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in pa
 //
 // Adding a key here is therefore a real decision, not a formality: it must be one that changes only
 // what is skipped, never where anything is.
-const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'floorSubpixel', 'texRes']);
+// `pixel` qualifies on the rule above and is the most consequential key in the set: it is the
+// Mode-7 ground raster's texel size, so it decides how much of a fixed-cost software loop runs and
+// decides nothing about where anything is. Nothing outside a frame reads it.
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes']);
 // The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
@@ -12115,6 +12576,64 @@ const SMOKE_BOARD = [{ g: 'DIESEL', p: 380, u: 'tank' }, { g: 'GASOLINE', p: 3, 
 // like success. So: run the shop arm at RICH and at NEAR with the entrance toward the camera, and
 // require the near pass to queue strictly more faces. Paired with the capture-equality gate in
 // shapeRenderSmoke, the two together say the tier adds detail to the PICTURE and nothing else.
+// EVERY WALL PALETTE BAKES, AND EVERY MATERIAL FAMILY IS REACHABLE.
+//
+// Why this exists. A wall texture is generated once, lazily, the first time something wearing that
+// palette comes into view — so a generator that throws takes the frame down for whoever happened to
+// drive past that one building, and nothing else in the suite would ever run it. That is the same
+// argument shapeRenderSmoke makes about the model arms, one layer down in the material.
+//
+// It also asserts the thing the audit that produced STONE/BRICK/PLATE/LATTICE/CONCRETE/BALE/BRASS
+// was about: the default branch at the bottom of wallTex paints a grid of lit apartment windows,
+// and a palette reaches it by being in NO family at all. A family Set is therefore load-bearing and
+// silent — mistype a key in one and the surface goes back to wearing windows with no error
+// anywhere. So each family must still be REACHED by at least one palette, and each palette must
+// land in at most one family (the branches are checked in order, so two would mean the answer
+// depends on which generator happens to be written higher up the file).
+//
+// It does NOT check that a texture looks right; there is no pixel comparison here, same bar as the
+// rest of this file's smokes.
+export function wallTexSmoke() {
+  const out = [];
+  const FAMILIES = { METAL_WALL, GLASS_WALL, DECO_WALL, STRUCT_WALL, PUMP_WALL, PLAIN_WALL,
+    STONE_WALL, BRICK_WALL, PLATE_WALL, LATTICE_WALL, CONCRETE_WALL, BALE_WALL, BRASS_WALL,
+    TILE_WALL, STUCCO_WALL, SHOP_GLASS, TIMBER_WALL, SHAKE_ROOF };
+  const keys = Object.keys(WALL_COL);
+  for (const key of keys) for (const night of [0, 1]) {
+    try {
+      const t = wallTex(key, night);
+      if (!t || !t.width || !t.height) out.push(`${key} (night=${night}) baked an empty texture`);
+    } catch (e) { out.push(`${key} (night=${night}) threw: ${e.message}`); }
+  }
+  // A palette in two families: whichever branch sits higher in the file wins, silently.
+  const owner = new Map();
+  for (const [name, set] of Object.entries(FAMILIES)) for (const k of set) {
+    if (owner.has(k)) out.push(`'${k}' is in both ${owner.get(k)} and ${name} — a palette belongs to exactly one material`);
+    else owner.set(k, name);
+  }
+  // A family nothing reaches. Almost always a typo in a key, and it fails OPEN — the surface goes
+  // back to the window grid the family was written to get it out of, and looks merely wrong.
+  for (const [name, set] of Object.entries(FAMILIES)) {
+    const live = [...set].filter((k) => WALL_COL[k]);
+    if (!live.length) out.push(`${name} matches no palette in WALL_COL — every key in it is a typo or has been deleted, and its surfaces are silently back on the window grid`);
+  }
+  // …and the same mistake one key at a time: a member with no palette behind it is dead weight and
+  // is usually the half of a rename that did not happen.
+  for (const [name, set] of Object.entries(FAMILIES)) for (const k of set) {
+    if (!WALL_COL[k]) out.push(`${name} names '${k}', which is not a key in WALL_COL`);
+  }
+  // ── AND THE FACADE TABLE, WHICH FAILS THE SAME WAY AND IS EASIER TO GET WRONG ──
+  // FACADE_MAT only ever reaches a palette that lands in the DEFAULT branch, so an entry naming a
+  // key some family already owns is dead — the family branch returns first — and an entry naming a
+  // key that is not in WALL_COL is a typo. Both leave the building looking like the plain tinted
+  // panel it looked like before the table existed, which is a failure with no symptom.
+  for (const k of Object.keys(FACADE_MAT)) {
+    if (!WALL_COL[k]) out.push(`FACADE_MAT names '${k}', which is not a key in WALL_COL`);
+    else if (owner.has(k)) out.push(`FACADE_MAT names '${k}', but ${owner.get(k)} already owns it — a family branch returns before the facade path is reached, so the entry does nothing`);
+    else if (typeof FACADE_MAT[k].paint !== 'function') out.push(`FACADE_MAT['${k}'] has no painter`);
+  }
+  return out;
+}
 export function nearTierSmoke() {
   const out = [];
   const m = TYPE_MODEL.shop;

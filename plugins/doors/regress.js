@@ -3,7 +3,8 @@
 // through to us), the device gate, the anti-spoof resolve guard, and clean
 // self-gating when there's nothing to hack. The full launch→win→burglary path
 // needs a real hacking device + witnessed crime and is covered by manual QA.
-import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, interiorLockDirs, world } from '../../server/engine/world.js';
+import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, interiorLockDirs, isEnterableFacade, frontDoorOf, buildingEntranceDir, getMapByParentZone, world } from '../../server/engine/world.js';
+import { allExits } from '../../server/engine/exits.js';
 import { getRegisteredLockedProviders } from '../../server/engine/movement-gates.js';
 import { on, off, emit } from '../../server/engine/events.js';
 import { lockTypePassesWhileLocked, resolveLockAuth, getLockType } from '../../server/engine/locks.js';
@@ -292,6 +293,51 @@ export default async function regress({ run, check, getPlayer }) {
       check('...and stays red as well — orange is a subset, not a swap',
         JSON.stringify(lockDirs().locked) === '["north"]', JSON.stringify(lockDirs()));
       setApartmentCache(aptZone.id, prior || null);
+    }
+
+    // ── THE SAME LOCK, SEEN FROM THE STREET ──────────────────────────────────
+    // A facade is never stood on, so its front door sits one hop further in than
+    // any near/far-side lookup reaches. The map drew that one edge green whatever
+    // the door was doing, while the dpad — which does reach through (describe.js)
+    // — reddened the same direction. What is pinned here is that the street answer
+    // and the corridor answer now come out of the same seam.
+    {
+      const facade = [...world.zones.values()].find(z => {
+        if (!isEnterableFacade(z)) return false;
+        if (!['north', 'south', 'east', 'west'].includes(buildingEntranceDir(z))) return false;
+        // A building that already HAS a front door is no good to us: doorOnLink asks
+        // the connection first, so the real row would answer and our fabricated one
+        // would never be reached.
+        if (frontDoorOf(z)) return false;
+        const eid = getMapByParentZone(z.id)?.entry_zone_id;
+        return !!eid && !!allExits(z).find(e => e.target === eid);
+      });
+      if (facade) {
+        const entrance = buildingEntranceDir(facade);
+        const entryId = getMapByParentZone(facade.id).entry_zone_id;
+        const seamDir = allExits(facade).find(e => e.target === entryId).dir;
+        const fDoor = 'door_regress_facade_' + p.id;
+        const putF = (over = {}) => setDoorCache(fDoor, {
+          id: fDoor, zone_id: facade.id, exit_dir: seamDir, target_zone: entryId,
+          is_open: 0, hp: 100, hp_max: 100, lock_state: 'locked', tags: holo, ...over,
+        });
+        const prior = interiorLockedDirs(facade, p);
+        check('a facade with no door on its seam paints no locked edge', prior === null,
+          JSON.stringify(prior));
+        putF();
+        // The ENTRANCE side is what gets coloured, never the seam direction — the
+        // arrow says which way the door faces, and the link into the building is
+        // labelled independently ('in' on legacy buildings).
+        check('a locked front door reddens the facade edge the dpad reddens',
+          JSON.stringify(interiorLockedDirs(facade, p)) === JSON.stringify([entrance]),
+          JSON.stringify(interiorLockedDirs(facade, p)));
+        putF({ lock_state: 'unlocked' });
+        check('...and an unlocked one leaves it green', interiorLockedDirs(facade, p) === null);
+        putF({ tags: {} });
+        check('...and the gate exemptions carry over: no lock installed is not painted',
+          interiorLockedDirs(facade, p) === null);
+        deleteDoorCache(fDoor);
+      }
     }
     deleteDoorCache(edgeDoor);
   }
