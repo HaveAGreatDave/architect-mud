@@ -103,6 +103,21 @@ top of a wall box. For a **non-window surface texture**, add the palette key to 
 `wallTex` (see `METAL_WALL` → corrugated ribbed steel for hangars) rather than the default lit-window
 curtain wall.
 
+### Near-tier detail (`ADORN_NEAR`)
+
+Everything else in `RENDER_TUNE` *subtracts* detail with distance. The near tier is the only one
+that adds it: an arm running within `detailNear` tiles (default 3) of the camera runs at
+`ADORN_NEAR`, unlocking detail that only reads at arm’s length — a recessed door, sill depth,
+frontage clutter. It is affordable because of the geometry: `lodNear` covers ~1250 tiles of ground
+and this covers ~28, of which only the forward half is ever in frame. It exists for the **truck
+cab**, which reads buildings at eye height 0 and sees their bottom fifteen feet constantly.
+`detailNear: 0` disables it and restores the renderer exactly.
+
+⚠ A near-tier helper paints through `emitFlat`, **never** `draw3DBoxAt` — see the invariant and its
+`shapes:smoke` gate in [building-shapes.md](building-shapes.md). `doorReveal`, `mullions` and
+`glazeParallax` are the worked examples, and `frontBays` is the one set of numbers the frame and the
+glass behind it are both derived from — two copies would drift and the glass would sit off its frame.
+
 ### Decoration helpers (all project through `cam`)
 `glowPool` (soft radial ground/roof glow), `blinkLight` (pulsing point light — beacons),
 `mast` (antenna line + red tip light), `neonBlade` / `verticalMarquee` / `marqueeBand` (signage),

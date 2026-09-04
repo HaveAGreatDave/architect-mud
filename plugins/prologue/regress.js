@@ -17,6 +17,7 @@ export default async function regress({ check }) {
     coldwaterSkyline, coldwaterShore, readTwocellAdvert, Z_CLONEVAT,
     cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ,
     LOG_TOUR, LOG_TABLET_TOUR,
+    NUDGES, NUDGE_DELAYS, NUDGE_TIMERS, armNudge, clearNudge, stepOfBeacon,
   } = _test;
 
   // ── The cold open's skyline manifest ───────────────────────────────────────
@@ -315,6 +316,52 @@ export default async function regress({ check }) {
   check('tutorial tablet at the log rung stays silent', (await cmdTutorial(['tablet'], 'tutorial tablet', p)) === null);
   p.displayRung = undefined;
 
+
+  // -- The idle nudge -------------------------------------------------------
+  // The prods exist for the player who has frozen, so the thing to protect is
+  // that they STOP. Three lines per step and then silence; a fourth would be a
+  // nag, and an unbounded ladder would be one forever.
+  check('every nudge step has exactly three lines',
+    Object.values(NUDGES).every(v => Array.isArray(v) && v.length === 3),
+    Object.entries(NUDGES).map(([k, v]) => `${k}=${v.length}`).join(' '));
+  check('the delay ladder only ever grows',
+    NUDGE_DELAYS.every((d, i) => i === 0 || d > NUDGE_DELAYS[i - 1]));
+  check('the first prod is not instant', NUDGE_DELAYS[0] >= 60000);
+
+  // Every beacon the prologue lights must resolve to a step that has lines, or
+  // a step ships its shimmer with nothing to say when the player stalls on it.
+  for (const [beacon, step] of [
+    [['talk', 'chrome attendant'], 'attendant'],
+    [['examine', 'MORPHEX 9000 BioSculpt terminal'], 'terminal'],
+    [['examine', 'floating holosign'], 'holosign'],
+    [['examine', 'metal chair'], 'chair'],
+    [['go', 'north'], 'north'],
+    [['take', 'aluminium bat'], 'kit'],
+  ]) {
+    const got = stepOfBeacon(beacon);
+    check(`beacon ${beacon.join(' ')} maps to the ${step} nudges`, got === step && !!NUDGES[got], `got=${got}`);
+  }
+  check('an unknown beacon nudges nothing', stepOfBeacon(['examine', 'a rock']) === null);
+
+  // Arming: a new step restarts at line 0, the SAME step re-armed keeps its
+  // place (a bounced move gate re-lights a beacon, and being told the first
+  // thing again is how a hint stops reading as an answer), and a null step
+  // leaves no timer behind at all.
+  clearNudge(p.id);
+  armNudge(p, 'chair');
+  check('arming a step registers it', NUDGE_TIMERS.get(p.id)?.step === 'chair');
+  NUDGE_TIMERS.get(p.id).line = 2;
+  armNudge(p, 'chair');
+  check('re-arming the same step keeps its place', NUDGE_TIMERS.get(p.id)?.line === 2);
+  armNudge(p, 'north');
+  check('a new step starts over', NUDGE_TIMERS.get(p.id)?.line === 0);
+  armNudge(p, null);
+  check('a null step leaves nothing armed', !NUDGE_TIMERS.has(p.id));
+  armNudge(p, 'chair');
+  NUDGE_TIMERS.get(p.id).line = 3;
+  armNudge(p, 'chair');   // re-arm past the end of the ladder
+  check('the ladder retires itself at the end', !NUDGE_TIMERS.has(p.id));
+  clearNudge(p.id);
   // ── Cleanup ────────────────────────────────────────────────────────────────
   for (const f of flags) await clearFlag('player', f, p).catch(() => {});
   await cleanup();

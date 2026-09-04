@@ -151,6 +151,12 @@ export const RENDER_TUNE = {
   // no blur, so a tower is still identifiable and still warns you it's tall. 0 = nothing.
   lodAdorn: 1,
   lodNear: 20,        // tiles: full model closer than this, captured segments beyond
+  // The near-detail tier: an arm this close runs at ADORN_NEAR and paints detail that only reads at
+  // arm’s length (recessed doors, sill depth, frontage clutter). It is affordable because of the
+  // geometry: lodNear=20 covers ~1250 tiles of ground, this covers ~28 — and only the forward half
+  // is ever in frame, so it is a handful of buildings, usually one or two. 0 disables the tier and
+  // restores the renderer exactly as it was, the same off-switch discipline as lodNear/shapeShadow.
+  detailNear: 3,      // tiles: run the model arm at ADORN_NEAR closer than this. 0 = off
   lodFar: 32,         // tiles: by here a building is down to its single biggest mass
   // Distance (tiles) within which a neon sign earns a REAL glow. shadowBlur is a software blur pass
   // per draw and one of the two things that genuinely cost time in canvas2d (the other, gradient
@@ -6891,7 +6897,14 @@ let MASS_OFF = false;
 // back. Tier 1 keeps what carries identity for free — blinking aviation beacons, masts, dishes —
 // and drops everything that blurs or builds a gradient.
 let ADORN_TIER = 2;
-const ADORN_CHEAP = 1, ADORN_RICH = 2;
+// ADORN_NEAR is the one tier that ADDS. Every other guard in this file is written
+// `ADORN_TIER < ADORN_RICH`, so a tier above RICH passes all of them unchanged — the near tier is
+// additive by construction and nothing that already shipped can notice it. It is set only for an
+// arm running within RENDER_TUNE.detailNear tiles of the camera, and it unlocks detail that only
+// reads at conversational range: a recessed door, sills with depth, frontage clutter. A cockpit
+// almost never sees it; a truck cab (eye height 0) sees it constantly, which is who it is for.
+// ⚠ Near-tier detail is ADORNMENT and must never reach SHAPE_SINK — see the helpers own guards.
+const ADORN_CHEAP = 1, ADORN_RICH = 2, ADORN_NEAR = 3;
 
 // One extruded, texture-mapped box between two heights (base wz0 → top wz1): painter-sorted
 // walls + an optional roof. Setback towers stack several of these. When a face sink is active the
@@ -12096,6 +12109,32 @@ export function forecourtDriveSmoke() {
 // is here to catch. Populated rather than empty because a blank board takes the early-out branch
 // and would leave the glyph path — the part that bakes a texture and maps it onto a quad — unrun.
 const SMOKE_BOARD = [{ g: 'DIESEL', p: 380, u: 'tank' }, { g: 'GASOLINE', p: 3, u: 'unit' }];
+// The near tier has to actually DO something. Every other check on it is a proof of absence — it
+// does not throw, it does not move the captured geometry — and a helper whose guard is subtly
+// unreachable would pass all of them while painting nothing, which is the failure that looks most
+// like success. So: run the shop arm at RICH and at NEAR with the entrance toward the camera, and
+// require the near pass to queue strictly more faces. Paired with the capture-equality gate in
+// shapeRenderSmoke, the two together say the tier adds detail to the PICTURE and nothing else.
+export function nearTierSmoke() {
+  const out = [];
+  const m = TYPE_MODEL.shop;
+  if (!m) { out.push('TYPE_MODEL.shop is gone — the near tier has no arm to prove itself on'); return out; }
+  const count = (tier) => {
+    const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+    try {
+      FACE_SINK = []; ADORN_TIER = tier;
+      drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, 0, 1, 1000, [0, 1], '');
+      return FACE_SINK.length;
+    } finally {
+      ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+    }
+  };
+  let rich, near;
+  try { rich = count(ADORN_RICH); near = count(ADORN_NEAR); }
+  catch (e) { out.push(`near tier threw while counting faces: ${e.message}`); return out; }
+  if (!(near > rich)) out.push(`the near tier paints nothing: shop queued ${near} faces at ADORN_NEAR and ${rich} at ADORN_RICH. A near-tier helper guard is unreachable, or nothing on this arm opts into the tier.`);
+  return out;
+}
 export function shapeRenderSmoke() {
   const out = [];
   for (const { key, m } of shapeModelRegistry()) {
@@ -12124,6 +12163,40 @@ export function shapeRenderSmoke() {
       } finally {
         MASS_OFF = false; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
       }
+    }
+    // THE NEAR TIER, and the invariant that makes it safe.
+    //
+    // Two things are checked, and the second is the one that matters. First: an arm must not throw
+    // at ADORN_NEAR, the same reason the adornments-only pass above exists — it is a fourth way an
+    // arm can run and nothing else would ever execute it.
+    //
+    // ⚠ Second, and the real gate: A CAPTURE AT ADORN_NEAR MUST BE IDENTICAL TO ONE AT RICH.
+    // Near-tier detail is allowed to depend on where the camera is standing. Captured geometry is
+    // not — it must stay affine in (fh, h), because it drives CFIT collision, ground shadows,
+    // occlusion culling and the cold open skyline. A near-tier detail written with draw3DBoxAt
+    // instead of emitFlat would be recorded by SHAPE_SINK and silently move all four, and it would
+    // look completely correct on screen. This is what catches that, on the push gate, by value.
+    for (const night of [0, 0.9]) {
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+      try {
+        FACE_SINK = []; ADORN_TIER = ADORN_NEAR;
+        drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST', SMOKE_BOARD);
+        flushFaces();
+      } catch (e) {
+        out.push({ key, night, err: `near tier: ${e.message}` });
+      } finally {
+        ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+      }
+    }
+    try {
+      const rich = JSON.stringify(captureRawPass(m, 0.4, 1, 3, -8));
+      ADORN_TIER = ADORN_NEAR;
+      const near = JSON.stringify(captureRawPass(m, 0.4, 1, 3, -8));
+      ADORN_TIER = ADORN_RICH;
+      if (rich !== near) out.push({ key, err: 'near tier changed the CAPTURED geometry — a near-tier detail is being drawn as mass (draw3DBoxAt/drawFacetDrum/…) instead of as an adornment through emitFlat. It would move collision, shadows, culling and the cold open.' });
+    } catch (e) {
+      ADORN_TIER = ADORN_RICH;
+      out.push({ key, err: `near-tier capture: ${e.message}` });
     }
     // The LOD path is a second renderer for the same 83 models and needs the same coverage — it has
     // its own rotation, its own drum shading and its own roof approximations, any of which can throw
@@ -13156,6 +13229,138 @@ function awning(ctx, cam, dx, dy, E, half, lip, z0, z1, pal, seed, night, alpha,
   const [ax, ay] = facePt(dx, dy, 0, lip - depth * 0.5, E);
   draw3DBoxAt(ctx, cam, ax, ay, half, z0, z1, pal, seed, night, alpha, false, Math.atan2(-E[0], E[1]), depth * 0.5);
 }
+
+// A door you can tell is a door. NEAR TIER ONLY (ADORN_NEAR).
+//
+// A shopfront entrance is a rectangle in the wall texture, which is the right answer from a
+// cockpit and falls apart from a truck cab, where you are parked eight feet from it and the door
+// is plainly paint. This cuts a recess into the entrance face: a back panel set into the wall, two
+// jambs and a soffit turning into it, and a threshold step out onto the pavement. At night the
+// back panel carries a warm interior spill, so a shop reads as somewhere with an inside.
+//
+// ⚠ EVERY QUAD HERE IS ADORNMENT, PAINTED THROUGH emitFlat, AND NEVER draw3DBoxAt. That is the
+// whole contract of the near tier. A recess drawn as mass would be recorded by SHAPE_SINK, and the
+// captured geometry drives CFIT collision, ground shadows, occlusion culling and the cold open —
+// none of which may depend on where the camera happens to be standing. The SHAPE_SINK guard below
+// is the enforcement; shapes:smoke asserts a capture at ADORN_NEAR is identical to one at RICH.
+//
+// The wall plane is min(fh, 0.44) because that is draw3DBoxAt own clamp: read the raw fh and the
+// recess floats off a wide model wall, or sinks into it.
+// The shopfront glazing bays either side of the entrance, as local +x spans on the wall. Shared by
+// mullions() and glazeParallax() so the frame and the glass behind it are derived from ONE set of
+// numbers — two copies would drift and the glass would sit half a pane off its own frame.
+function frontBays(W, doorHalf, panes) {
+  const inner = Math.min(doorHalf * 1.30, W * 0.85), outer = W * 0.90;
+  if (outer - inner < 0.03) return [];   // a narrow model: door and nothing either side of it
+  const out = [];
+  for (const s of [-1, 1]) for (let i = 0; i < panes; i++) {
+    const t0 = inner + (outer - inner) * (i / panes), t1 = inner + (outer - inner) * ((i + 1) / panes);
+    out.push(s < 0 ? { a: -t1, b: -t0 } : { a: t0, b: t1 });
+  }
+  return out;
+}
+
+// Sills, head and mullion bars with real depth. NEAR TIER ONLY (ADORN_NEAR).
+//
+// wallTex paints a window grid onto a flat quad, which is the right answer at any distance a plane
+// ever sees a shop from. At cab range it reads as printed, because a real shopfront frame stands
+// PROUD of its glass and catches the light on its return — that edge is the whole tell. So each bar
+// is a front face plus one side return, and the sill is a tread plus a riser.
+//
+// ⚠ Adornment class: emitFlat only, never draw3DBoxAt. See the invariant on doorReveal.
+function mullions(ctx, cam, dx, dy, E, fh, doorHalf, z0, z1, seed, night, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;   // adornment — never geometry
+  const W = Math.min(fh, 0.44), px = E[1], py = -E[0];
+  if ((E[0] * (dx + E[0] * W) + E[1] * (dy + E[1] * W) - (E[0] * (cam.ex || 0) + E[1] * (cam.ey || 0))) >= 0) return;
+  const bays = frontBays(W, doorHalf, 2);
+  if (!bays.length) return;
+  const P = (lx, ly, z) => { const q = facePt(dx, dy, lx, ly, E); return [q[0], q[1], z]; };
+  const A = alpha == null ? 1 : alpha;
+  const frame = rgb(mix([86, 88, 93], [142, 146, 152], night ? 0.15 : 0.55));
+  const shade = rgb(mix([58, 60, 64], [96, 99, 104], night ? 0.12 : 0.45));
+  const yF = W + 0.007, tb = 0.007;   // the bar face stands proud of the wall by its own thickness
+  // Vertical bars on every pane boundary, de-duplicated: adjacent panes share an edge and drawing
+  // it twice is a double-thick bar in the middle of a run.
+  const edges = [];
+  for (const b of bays) for (const x of [b.a, b.b]) if (!edges.some(e => Math.abs(e - x) < 1e-4)) edges.push(x);
+  for (const x of edges) {
+    emitFlat(ctx, cam, [P(x - tb, yF, z1), P(x + tb, yF, z1), P(x + tb, yF, z0), P(x - tb, yF, z0)], frame, A, { cullN: [E[0], E[1]] });
+    const sx = x >= 0 ? 1 : -1;   // show the return on the side that can be seen from outside the run
+    emitFlat(ctx, cam, [P(x + sx * tb, yF, z1), P(x + sx * tb, W, z1), P(x + sx * tb, W, z0), P(x + sx * tb, yF, z0)], shade, A, { cullN: [sx * px, sx * py] });
+  }
+  // Sill and head, per side, spanning that side’s run of bays.
+  for (const s of [-1, 1]) {
+    const side = bays.filter(b => (b.a + b.b) / 2 * s > 0);
+    if (!side.length) continue;
+    const lo = Math.min(...side.map(b => b.a)) - tb, hi = Math.max(...side.map(b => b.b)) + tb;
+    const out = 0.026;
+    emitFlat(ctx, cam, [P(lo, W + out, z0), P(hi, W + out, z0), P(hi, W, z0), P(lo, W, z0)], frame, A);                                                    // sill tread
+    emitFlat(ctx, cam, [P(lo, W + out, z0), P(hi, W + out, z0), P(hi, W + out, z0 - 0.012), P(lo, W + out, z0 - 0.012)], shade, A, { cullN: [E[0], E[1]] }); // sill riser
+    emitFlat(ctx, cam, [P(lo, W + out, z1), P(hi, W + out, z1), P(hi, W, z1), P(lo, W, z1)], shade, A);                                                    // head soffit, seen from below
+    emitFlat(ctx, cam, [P(lo, W + out, z1 + 0.012), P(hi, W + out, z1 + 0.012), P(hi, W + out, z1), P(lo, W + out, z1)], frame, A, { cullN: [E[0], E[1]] }); // head face
+  }
+}
+
+// The glass, set BACK from the frame. NEAR TIER ONLY (ADORN_NEAR).
+//
+// The parallax is not simulated — the pane is genuinely recessed behind the mullions, so the camera
+// does the work and the frame slides across the lit pane as you drive past, exactly as it would.
+// An offset faked from the view angle would need to know the view angle, would be wrong the moment
+// two panes were at different depths, and would still be a sticker. This costs one quad per bay.
+//
+// ⚠ Adornment class: emitFlat only. The glass is not the building envelope — that box is already
+// drawn as mass by the arm, and this sits inside it.
+function glazeParallax(ctx, cam, dx, dy, E, fh, doorHalf, z0, z1, seed, night, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;   // adornment — never geometry
+  const W = Math.min(fh, 0.44);
+  if ((E[0] * (dx + E[0] * W) + E[1] * (dy + E[1] * W) - (E[0] * (cam.ex || 0) + E[1] * (cam.ey || 0))) >= 0) return;
+  const bays = frontBays(W, doorHalf, 2);
+  if (!bays.length) return;
+  const P = (lx, ly, z) => { const q = facePt(dx, dy, lx, ly, E); return [q[0], q[1], z]; };
+  const A = alpha == null ? 1 : alpha;
+  const yB = W - Math.min(0.05, W * 0.22);   // how far behind the frame the pane sits
+  bays.forEach((b, i) => {
+    // A shop is not uniformly lit and a row of identical panes reads as a texture again, so the
+    // interior tone walks per bay off the tile seed — deterministic, because two eyes on the same
+    // building must see the same shop.
+    const t = ((seed * 7 + i * 13) % 5) / 4;
+    const fill = night
+      ? rgb(mix([196, 150, 92], [255, 224, 176], t))
+      : rgb(mix([44, 56, 68], [86, 104, 122], t * 0.6 + 0.2));
+    emitFlat(ctx, cam, [P(b.a, yB, z1), P(b.b, yB, z1), P(b.b, yB, z0), P(b.a, yB, z0)], fill, A, { cullN: [E[0], E[1]] });
+  });
+}
+
+function doorReveal(ctx, cam, dx, dy, E, fh, half, z0, z1, seed, night, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;   // adornment — never geometry
+  const W = Math.min(fh, 0.44);                        // the wall plane, re-applying draw3DBoxAt clamp
+  const px = E[1], py = -E[0];                         // local +x = right of the door (facePt basis)
+  // Front-facing test, same form as drawTypeModel own frontVis: a recess in a wall turned away from
+  // the camera is four quads of nothing, and the jambs would paint through the building.
+  if ((E[0] * (dx + E[0] * W) + E[1] * (dy + E[1] * W) - (E[0] * (cam.ex || 0) + E[1] * (cam.ey || 0))) >= 0) return;
+  const P = (lx, ly, z) => { const q = facePt(dx, dy, lx, ly, E); return [q[0], q[1], z]; };
+  const hw = Math.max(0.02, half), IN = Math.min(0.06, W * 0.28);   // recess depth into the wall
+  const yF = W - 0.002, yB = W - IN;                   // front lip (just proud of the wall) → back panel
+  const A = alpha == null ? 1 : alpha;
+  // Back panel: the door leaf. Warm inside at night, plain dark by day.
+  const leaf = night ? rgb(mix([26, 24, 22], [255, 206, 138], 0.42)) : rgb([32, 34, 38]);
+  emitFlat(ctx, cam, [P(-hw, yB, z1), P(hw, yB, z1), P(hw, yB, z0), P(-hw, yB, z0)], leaf, A, { stroke: rgb([18, 19, 21]), lw: 1, cullN: [E[0], E[1]] });
+  // Jambs: the two returns into the recess. Each is culled by its own outward normal, so exactly
+  // one of them is visible from any oblique angle and neither paints when you are square on.
+  const jamb = rgb(mix([54, 56, 60], [96, 99, 104], night ? 0.18 : 0.55));
+  emitFlat(ctx, cam, [P(hw, yF, z1), P(hw, yB, z1), P(hw, yB, z0), P(hw, yF, z0)], jamb, A, { cullN: [px, py] });
+  emitFlat(ctx, cam, [P(-hw, yF, z1), P(-hw, yB, z1), P(-hw, yB, z0), P(-hw, yF, z0)], jamb, A, { cullN: [-px, -py] });
+  // Soffit: the head of the opening, seen from below by a camera at cab height. No cull — it faces
+  // down and a ground camera is always under it.
+  emitFlat(ctx, cam, [P(-hw, yF, z1), P(hw, yF, z1), P(hw, yB, z1), P(-hw, yB, z1)], rgb(mix([40, 42, 45], [70, 72, 76], night ? 0.1 : 0.4)), A);
+  // Threshold: a shallow step out onto the pavement. The tread reads as the horizontal that tells
+  // you the door sits above the street rather than flush with it.
+  const out = 0.035, tread = z0 + 0.006;
+  emitFlat(ctx, cam, [P(-hw * 1.08, W + out, tread), P(hw * 1.08, W + out, tread), P(hw * 1.08, yF, tread), P(-hw * 1.08, yF, tread)], rgb(mix([84, 86, 90], [122, 125, 130], night ? 0.12 : 0.5)), A);
+  emitFlat(ctx, cam, [P(-hw * 1.08, W + out, tread), P(hw * 1.08, W + out, tread), P(hw * 1.08, W + out, z0), P(-hw * 1.08, W + out, z0)], rgb([62, 64, 68]), A, { cullN: [E[0], E[1]] });
+  if (night) glowPool(ctx, cam, ...facePt(dx, dy, 0, W + 0.10, E), (z1 - z0) * 0.5, seed % 2 ? '255,206,138' : '190,214,255', 6, A * 0.20);   // spill onto the pavement
+}
+
 
 // A high-poly gothic GARGOYLE / grotesque perched on a cornice, craning outward over the drop.
 // Built in a LOCAL frame anchored at (wx,wy,wz): +f (forward) = the horizontal `outDir` it leans
@@ -17072,6 +17277,9 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.4, 'ty_office', seed, night, alpha, true);      // glazed ground-floor retail (glass tone)
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.4, h * 1.0, pal, seed + 2, night, alpha, true);    // residential floors above
       awning(ctx, cam, dx, dy, E, fh * 0.98, fh * 1.06, h * 0.32, h * 0.44, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // awning over the storefront
+      doorReveal(ctx, cam, dx, dy, E, fh, fh * 0.30, 0, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront door + threshold step (no-op past RENDER_TUNE.detailNear)
+      glazeParallax(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront glass — order matters, the glass sits behind the frame below
+      mullions(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);        // NEAR TIER: sills, head and mullion bars standing proud of it
       { const [nx, ny] = F(fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.44, h * 1.12, m.neon || '#5fd0ff', night, alpha); }   // projecting sign on the storefront corner (over the awning, cresting the roofline) — not a stub planted in the roof centre
       if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.2, '150,220,255', 10, alpha * 0.24); }   // lit storefront glow
       break;
@@ -18470,7 +18678,16 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         finally { MASS_OFF = false; ADORN_TIER = ADORN_RICH; }   // never leave either set — an arm that throws would blank every building behind it
       }
     }
-    else if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd);
+    else if (m) {
+      // Near-detail tier. Inside detailNear the arm runs at ADORN_NEAR, which unlocks the detail
+      // that only reads at arm's length. The try/finally mirrors the LOD branch above and exists
+      // for the same reason: an arm that throws must not leave the global raised, or every
+      // building drawn after it in this frame would silently paint near detail at any distance.
+      const near = (TUNE.detailNear || 0) > 0 && it.f < TUNE.detailNear;
+      if (near) ADORN_TIER = ADORN_NEAR;
+      try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd); }
+      finally { if (near) ADORN_TIER = ADORN_RICH; }
+    }
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
     // buildings at night — post-singularity advertising, half its pixels dead. Generic

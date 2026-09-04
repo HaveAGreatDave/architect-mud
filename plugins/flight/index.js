@@ -53,6 +53,7 @@ import { commands as contractCommands, checkContractDelivery, checkCargoDropDeli
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
+import './onboard.js';   // the once-ever "this is an airfield, and the licence is free" briefing
 import { prefersTextTravel, boardingLine, textTravelTick } from './textmode.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import {

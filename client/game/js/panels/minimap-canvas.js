@@ -21,7 +21,7 @@
 import { lookup as cacheLookup, ingest as cacheIngest } from './minimap-cache.js';
 import { iconFor, preloadIcons, monoFamily, themeColor, onAssetReady } from './minimap-assets.js';
 import {
-	zoomRadius, glyphPlan, titleFor, hexToRgb,
+	zoomRadius, glyphPlan, titleFor, hexToRgb, poiInk,
 	isWorldWaterVoid, WATER_VOID_FILL, effectiveTracePath, mapOverlayMode, sendGo,
 	updateZoomButtons,
 } from './minimap.js';
@@ -243,7 +243,11 @@ function drawTile(ctx, node, px, py, t, remembered) {
 	if (remembered) ctx.globalAlpha *= 0.55;
 
 	const fill = node.spec?.fill || null;
-	const ink = node.spec?.text || null;
+	// The landmark ink outranks the palette's text colour on a building tile, so the
+	// canvas and the DOM path agree about what colour a depot is (see poiInk).
+	const specInk = node.spec?.text || null;
+	const landmarkInk = poiInk(node);
+	const ink = landmarkInk || specInk;
 
 	// 1. Ground — a flat authored colour, and that's all it ever is. Terrain used to
 	// lay a stretched texture over this; see minimap-assets.js for why it doesn't.
@@ -254,7 +258,9 @@ function drawTile(ctx, node, px, py, t, remembered) {
 		const [r, g, b] = hexToRgb(node.district.color);
 		ctx.fillStyle = `rgba(${r},${g},${b},0.20)`;
 		ctx.fillRect(px, py, t, t);
-	} else if (!ink) {
+	} else if (!specInk) {
+		// The landmark ink is not a substitute here: it says what stands on the tile,
+		// not what the ground is, and a shop with no derived row still has no ground.
 		// Nothing derived ever coloured this tile, so danger is all it has to say.
 		const [bg, border] = DANGER[node.enterable ? 'safe' : (node.danger || 'safe')] || DANGER.safe;
 		ctx.fillStyle = bg;
@@ -265,7 +271,7 @@ function drawTile(ctx, node, px, py, t, remembered) {
 	}
 
 	// 2. Glyph layer — the same three-way decision symFor() makes for the DOM.
-	drawGlyph(ctx, node, px, py, t, ink);
+	drawGlyph(ctx, node, px, py, t, ink, landmarkInk);
 
 	// 3. Perimeter wall — one band per outward face, ON the tile's own edge, so a run
 	//    of tiles draws one continuous line and a corner draws an L. Same faces the DOM
@@ -321,7 +327,7 @@ function curtainFaces(ctx, px, py, t, faces, gate) {
 // Text is drawn at WHOLE DEVICE PIXELS (this ctx is untransformed, so `t` is already
 // device px). A glyph origin on a half pixel is antialiased across two columns, and
 // at a 12px label that reads as blur rather than as position.
-function drawGlyph(ctx, node, px, py, t, ink) {
+function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 	const plan = glyphPlan(node, scene.overlay);
 	const cx = Math.round(px + t / 2), cy = Math.round(py + t / 2);
 
@@ -361,6 +367,12 @@ function drawGlyph(ctx, node, px, py, t, ink) {
 	// stroke sat outside the glyph. That put a 2px black stroke on a 12px letterform,
 	// 3.4× what the CSS asks for; it closed up the counters and read as blur.
 	if (plan.label) {
+		// The landmark plate, under the letters — the same box .map-bld-label paints
+		// through --poi-ink, at the same full-tile extent, so the two renderers agree.
+		if (landmarkInk) {
+			ctx.fillStyle = landmarkInk;
+			ctx.fillRect(px, py, t, t);
+		}
 		const size = Math.max(8, Math.round(t * 0.7));
 		// Fractional letter spacing puts every glyph after the first on a subpixel
 		// origin, which undoes the rounding above. Whole pixels or nothing.
@@ -388,11 +400,18 @@ function drawGlyph(ctx, node, px, py, t, ink) {
 // A side a lock is holding shut (`locked_dirs`, always a subset of the open ones)
 // takes that same red at full strength. A wall and a locked door both mean no way
 // through, so they share the colour; the alpha is what separates them.
-const EDGE_OPEN = '#3fd07a', EDGE_SHUT = '#d0453f';
+//
+// `unlockable_dirs` is the fourth state and a subset of the locked ones: a lock you
+// hold the authority to undo. Orange, because it is neither of the other two answers
+// — you are not walking through it and you are not shut out either, you are stopping
+// to unlock your own door. The server only marks the sides it can prove cheaply, so
+// an unmarked red door may still open for you; orange never lies the other way.
+const EDGE_OPEN = '#3fd07a', EDGE_SHUT = '#d0453f', EDGE_MINE = '#e8912d';
 const CARDINALS = ['north', 'south', 'east', 'west'];
 function drawEdges(ctx, node, px, py, t) {
 	const open = Array.isArray(node.open_dirs) ? node.open_dirs : null;
 	const locked = Array.isArray(node.locked_dirs) ? node.locked_dirs : null;
+	const mine = Array.isArray(node.unlockable_dirs) ? node.unlockable_dirs : null;
 	const dirs = open ? CARDINALS : (CARDINALS.includes(node.entrance) ? [node.entrance] : []);
 	if (!dirs.length) return;
 	const w = Math.max(1, Math.round(t * 0.12));
@@ -400,8 +419,9 @@ function drawEdges(ctx, node, px, py, t) {
 	ctx.save();
 	for (const d of dirs) {
 		const isLocked = !!locked?.includes(d);
+		const isMine = isLocked && !!mine?.includes(d);
 		const isOpen = !isLocked && (open ? open.includes(d) : true);
-		ctx.fillStyle = isOpen ? EDGE_OPEN : EDGE_SHUT;
+		ctx.fillStyle = isMine ? EDGE_MINE : (isOpen ? EDGE_OPEN : EDGE_SHUT);
 		ctx.globalAlpha = isOpen || isLocked ? 1 : 0.55;
 		if (d === 'north') ctx.fillRect(px + pad, py, len, w);
 		else if (d === 'south') ctx.fillRect(px + pad, py + t - w, len, w);

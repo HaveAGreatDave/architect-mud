@@ -16,7 +16,7 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
+import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, poiInk, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
 import { state } from '../state.js';
 import { maybeTabletTour } from './tour.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS, A11Y_OPTIONS, effectiveOptionValue } from '/shared/settings.js';
@@ -2444,7 +2444,7 @@ function ensureStyles() {
        plate so it reads on any land-use colour. */
     #tablet-os-overlay .tos-map-tile .mt-code { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       font-size:0.8125rem; font-weight:700; letter-spacing:.5px; color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
-      background:radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15)); pointer-events:none; z-index:2; }
+      background:var(--poi-ink, radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15))); pointer-events:none; z-index:2; }
     /* An authored marker (spec.label.kind==='mark') — sewer corridor pieces, the ◍ on a
        tile with a way up, anything a human drew. Structure, not a code: the tile's own
        ink, no plate, and it never replaces the footprint. */
@@ -2553,6 +2553,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#3fd07a; }
     #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:#d0453f; opacity:0.55; }
     #tablet-os-overlay .tos-map-tile .tos-edge.locked { background:#d0453f; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.unlockable { background:#e8912d; }
     #tablet-os-overlay .tos-map-tile .tos-edge-north { top:0; left:20%; right:20%; height:2px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:20%; right:20%; height:2px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:20%; bottom:20%; width:2px; }
@@ -8097,17 +8098,26 @@ function renderMap(d) {
       const [rr, gg, bb] = _mapHexRgb(FUNC_LEGEND[t.func].color);
       style += `background:rgba(${rr},${gg},${bb},0.30);`;
     }
+    // Landmark ink — the same tint the sidebar minimap gives a building footprint, from
+    // the same poiInk(), so the two screens colour a depot the same colour.
+    const pInk = poiInk(t);
+    if (pInk) style += `color:${pInk};--poi-ink:${pInk};`; // the var is the Labels-mode half (see .mt-code)
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
     // Doors as edge lines: an interior room gets a hairline on all four sides — green
     // where it opens through, red where it's wall (server `open_dirs`), brighter red
-    // where a lock is holding a way through shut (`locked_dirs`); a facade out on the
+    // where a lock is holding a way through shut (`locked_dirs`), orange where that lock
+    // is one you can undo (`unlockable_dirs`); a facade out on the
     // street gets the green door edge alone, no red.
     let ent = '', exits = '';
     if (Array.isArray(t.open_dirs)) {
       const locked = Array.isArray(t.locked_dirs) ? t.locked_dirs : [];
-      exits = ['north', 'south', 'east', 'west'].map(dr =>
-        `<span class="tos-edge tos-edge-${dr} ${locked.includes(dr) ? 'locked' : (t.open_dirs.includes(dr) ? 'open' : 'shut')}"></span>`).join('');
+      const mine = Array.isArray(t.unlockable_dirs) ? t.unlockable_dirs : [];
+      exits = ['north', 'south', 'east', 'west'].map(dr => {
+        const st = locked.includes(dr) ? (mine.includes(dr) ? 'unlockable' : 'locked')
+          : (t.open_dirs.includes(dr) ? 'open' : 'shut');
+        return `<span class="tos-edge tos-edge-${dr} ${st}"></span>`;
+      }).join('');
     } else {
       // Out on the street: the door edge goes green and the other three stay bare. The
       // red "wall" half is a floorplan idea — outside it would just outline everything.
@@ -8237,6 +8247,15 @@ function renderMapBar(d) {
 // biggest presence first, so the district under your feet leads the key when you are in it.
 function renderMapLegend(d, mode) {
   let items = '<span>◉ you · ⚑ dest · ═ artery</span>';
+  // Landmarks in view, keyed by the colour their footprint is drawn in. Counted off the
+  // tiles rather than listed, for the same reason the district rows below are: a fixed
+  // list advertises what is nowhere near you and stays quiet about what is under your feet.
+  const poiN = new Map();
+  for (const t of d.tiles || []) { const k = poiInk(t) ? t.poi : null; if (k && POI_LEGEND[k]) poiN.set(k, (poiN.get(k) || 0) + 1); }
+  items += [...poiN.entries()]
+    .sort((a, b) => b[1] - a[1] || POI_LEGEND[a[0]].label.localeCompare(POI_LEGEND[b[0]].label))
+    .map(([k]) => `<span class="tos-cm-lg"><span class="sw" style="background:${POI_LEGEND[k].color}"></span>${esc(POI_LEGEND[k].label)}</span>`)
+    .join('');
   if (mode === 'regional') {
     const n = new Map();
     for (const t of d.tiles || []) if (t.func && FUNC_LEGEND[t.func]) n.set(t.func, (n.get(t.func) || 0) + 1);

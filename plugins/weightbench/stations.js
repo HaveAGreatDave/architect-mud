@@ -101,7 +101,7 @@ export const STATIONS = {
       'You work the angles — off the joist, off the wall, back to the chest.',
       'Two-handed, hard, flat. The foam thuds and comes home.',
       'You catch one blind and grin at nobody in particular.',
-      'The wall gives back exactly what you give it, which is the entire lesson.',
+      'The wall gives back exactly what you give it.',
       'Off the padding, off the floor, up into your hands. Clean.',
       'You snap one out sidearm and pick the rebound out of the air like fruit.',
     ],
@@ -120,7 +120,7 @@ export const STATIONS = {
       "Your arms are done. You're running on the memory of coordination.",
     ],
     gain: [
-      'Something in your hands gets quicker than your thinking, which is the point.',
+      'Something in your hands gets quicker than your thinking.',
       'The bounce stops surprising you. It just arrives, and you are already there.',
       'You catch one behind your own back, entirely by accident, entirely on purpose.',
       "Your eyes and your hands stop arguing about who saw it first.",

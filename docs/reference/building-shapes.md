@@ -42,6 +42,25 @@ byte-for-byte what they were. `drawWorldObjects` asserts it is null on entry and
 | `SHAPE_SINK` | capture only | mass primitives record and return; adornments no-op |
 | `MASS_OFF` | distance LOD | mass primitives no-op; the arm still paints its **lights** |
 | `ADORN_TIER` | distance LOD | `2` all adornments · `1` cheap only (beacons, masts, dishes) · `0` none |
+| `ADORN_TIER` | **near** tier | `3` (`ADORN_NEAR`) adds detail that only reads at arm’s length |
+
+`ADORN_NEAR` is the one tier that **adds**. Every guard in the file is written `ADORN_TIER <
+ADORN_RICH`, so a tier above `RICH` passes all of them unchanged — the near tier cannot be noticed
+by anything that already shipped. `drawWorldObjects` raises it for an arm running within
+`RENDER_TUNE.detailNear` tiles (default 3) and restores it in a `finally`. It is aimed at the truck
+cab, which looks at buildings from eye height 0; a cockpit almost never sees it.
+
+⚠ **Near-tier detail must never reach `SHAPE_SINK`.** It is allowed to depend on where the camera
+is standing; captured geometry is not, because it must stay affine in `(fh, h)` and it drives CFIT
+collision, ground shadows, occlusion culling and the cold open. So a near-tier helper paints flat
+quads through `emitFlat` and **never** `draw3DBoxAt`/`drawFacetDrum`, and opens with the house
+guard `if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;`. The failure this guards against looks
+entirely correct on screen, so it is checked by value rather than by convention: `shapes:smoke`
+captures every model at `ADORN_NEAR` and at `ADORN_RICH` and fails if the segment lists differ.
+`doorReveal`, `mullions` and `glazeParallax` (the recessed door, the proud frame and the glass set
+back behind it, all on the `shop`/`default` arm) are the worked examples. The glazing shows what the
+tier is for: the pane is GENUINELY recessed behind the frame, so the parallax as you drive past is
+done by the camera rather than faked from a view angle, and it costs one quad per bay.
 
 `MASS_OFF` is what makes the LOD nearly lossless, and it is only viable because of a measurement:
 **running an arm costs ~3.2 ms/frame while queueing its faces costs ~14.6 ms.** The arm's JS was

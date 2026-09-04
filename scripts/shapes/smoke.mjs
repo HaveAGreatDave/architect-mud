@@ -83,6 +83,11 @@ async function main() {
     problems.push(`paint  ${f.key} (night=${f.night}, ${f.front ? 'entrance toward camera' : 'entrance away'}) → ${f.err}`);
   }
 
+  // ── NEAR TIER ──
+  // Proves the near-detail tier adds to the picture. shapeRenderSmoke already proves it adds
+  // nothing to the captured geometry; this is the other half.
+  for (const f of ws.nearTierSmoke()) problems.push(`near   ${f}`);
+
   // ── INTERIOR ──
   // The canopy, the cowl, the passenger window frame and the truck cab. Same rationale as the
   // models above: the only thing that ever runs one of these is somebody sitting in that vehicle,

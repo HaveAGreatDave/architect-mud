@@ -146,8 +146,12 @@ export function getRegisteredShutProviders() { return [...shutProviders.keys()];
 // the same line, and you found out which by walking into it. Same failure the
 // shut seam fixed for a facade, one surface further in.
 //
-// provider(player, from, dir, to) → { locked: true } | null
+// provider(player, from, dir, to) → { locked: true, unlockable?: true } | null
 //   from/to — zone objects; dir — the cardinal being looked along.
+//   unlockable — this player can undo this lock, so a surface can draw it as a
+//           door of their own rather than as a wall. OPTIONAL and it fails to
+//           false: a provider that cannot answer cheaply must not guess, because
+//           the reassuring direction is the one that gets somebody killed.
 //
 // ⚠ SYNC BY CONTRACT, and no query. This is asked about every cardinal side of
 // every interior tile in an 81-tile window, on every move by every player.
@@ -168,7 +172,8 @@ export function lockedOnLink(player, from, dir, to) {
   if (!from || !dir) return null;
   for (const [owner, fn] of lockedProviders) {
     try {
-      if (fn(player, from, dir, to)?.locked) return { locked: true };
+      const r = fn(player, from, dir, to);
+      if (r?.locked) return { locked: true, unlockable: !!r.unlockable };
     } catch (e) {
       console.error(`[lockedProvider:${owner}] error: ${e.message}`);
     }

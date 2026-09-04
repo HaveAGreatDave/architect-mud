@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "amb_deadwater_old_flow_02",
   "loudness": 1,
-  "message": "The slabs ring differently where they are hollow underneath, and you find yourself testing them.",
+  "message": "The slabs ring differently where they are hollow underneath.",
   "theme": "deadwater_old_flow",
   "weight": 100
 }

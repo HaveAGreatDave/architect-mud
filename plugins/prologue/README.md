@@ -49,6 +49,24 @@ immersion break in the prologue.
 - The clock **stays, scrambled** (`∞ ?∅:8–`, re-rolled every tick). A missing clock reads as
   a broken HUD; a wrong one reads as a wrong world.
 
+## The prods
+
+A shimmering beacon says *this one*; it does not say anything to a player who has
+stopped looking. So each step also has three lines that arrive during silence, on a
+ladder of 70 s / 100 s / 150 s, and then stop. **Three, not forever** — a room that
+goes on talking stops being a hint and becomes a nag.
+
+- **Armed by `setBeacons`**, which is already the one funnel for "the thing to do
+  next", so a step gets its prods when it lights its beacon and loses them when it
+  puts it out. The two steps with nothing to shimmer at pass their name explicitly:
+  the holocaster (already in your pack) and the step out of the vat (`null`, which
+  is how the prologue stops steering).
+- **Any non-silent command resets the silence, and the line pointer does not reset.**
+  The prods escalate across the whole step; they just never land on somebody who is
+  busy typing. Silent commands are the client's own auto-sends and are not the
+  player doing anything.
+- **Re-arming the same step keeps its place**, so a bounced move gate re-lighting a
+  beacon does not start the ladder over and say the first thing twice.
 ## The two beats outside the corridor
 - **Post-vat onboarding:** after your first kill, Grady points you at his armchair — which is how you learn that sitting heals.
 - **Out-of-fiction:** on a first login it asks whether you have ever played a multiplayer text game. If not, the client runs a spotlight tour of the interface. `tutorial` replays it. Its **last step no longer opens the tablet** — it promises one, because you don't have one yet.

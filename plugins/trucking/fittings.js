@@ -164,7 +164,7 @@ export const FITTINGS = {
   doll:    { code: 'dh', slot: 'hood',  price: 300,  name: 'Doll Head',
              desc: 'A single doll\'s head, wired down through the bonnet. Nobody who has one will explain it.' },
   wheelidol:{ code: 'wi', slot: 'hood', price: 500,  name: 'Wheel Idol',
-             desc: 'A steering wheel off something older, chromed and stood upright on a plinth. It faces the road rather than the driver, which is the whole idea.' },
+             desc: 'A steering wheel off something older, chromed and stood upright on a plinth. It faces the road rather than the driver.' },
 };
 
 export const FIT_IDS = Object.keys(FITTINGS);

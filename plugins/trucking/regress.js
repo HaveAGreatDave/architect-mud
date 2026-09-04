@@ -45,6 +45,8 @@ import { tryDoorBoard, rigLocked, passHitcher } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
 import { resaleValue, TRUCK_TYPES, buyTruck, getTruck } from './fleet.js';
+import { roadTestTick, hasRoadTest, isLicensedDriver, unlicensedLine, _test as roadTest } from './roadtest.js';
+import { clearFlag, setFlag } from '../../server/engine/flags.js';
 
 const GATE = 'zone_regress_truckgate';
 const mkZone = (id, name, extra = {}) => ({
@@ -3259,7 +3261,15 @@ export default async function regress({ run, check, getPlayer }) {
       // so what a board is guaranteed to have is WORK, not a particular town.
       check('…listing somewhere to take it', /\d+ kg/i.test(board?.message || ''), board?.message?.slice(0, 80));
 
-      // ── Ownership is the gate ──
+      // ── Two gates, in order: the licence, then ownership ──
+      // ⚠ THE LICENCE IS FIRST, and it has to be — "you cannot drive" is a truer answer than "you
+      // own nothing" to somebody who has never driven — so an unlicensed fixture would never reach
+      // the ownership refusal below. The licence half is asserted in its own block at the end of
+      // this file; here the fixture holds one so the test can be about the DEALER.
+      const unrated = await run('drive');
+      check('the licence is the first gate on the wheel',
+        /roadtest/.test(unrated?.message || ''), unrated?.message?.slice(0, 45));
+      await setFlag('player', roadTest.LICENSE_FLAG, '1', player);
       const broke = await run('drive');
       check('you cannot drive without owning a truck',
         /don't own a truck/i.test(broke?.message || ''), broke?.message?.slice(0, 45));
@@ -4686,5 +4696,87 @@ export default async function regress({ run, check, getPlayer }) {
     const tractor = aircraftFaces('truck', 1, false, 'hauler').filter(f => f.deck).length;
     const rig = aircraftFaces('truck', 1, false, 'hauler+t').filter(f => f.deck).length;
     check('a bobtail has no trailer faces and a coupled rig does', tractor === 0 && rig > 20, `${tractor}/${rig}`);
+  }
+
+  // ── THE ROAD TEST ───────────────────────────────────────────────────────────
+  // The lesson's state machine, driven the way both rungs drive it: a fake rig walked away from a
+  // yard and back. No DB, no loaner and no mount — this is the half that has to be identical on the
+  // cab's telemetry path and on the text tick, and it is the half a rung could silently diverge on.
+  {
+    const { STAGE, rides, OUT_TILES, RUN_TILES, BACK_TILES } = roadTest;
+    rides.set(player.id, { pid: player.id, truckId: null, stage: STAGE.KEY, ox: 100, oy: 100, far: 0, hit: false });
+    const rig = { leg: 'city', x: 100, y: 100, engineOn: false };
+    const stage = () => rides.get(player.id).stage;
+
+    roadTestTick(player, rig);
+    check('road test: a cold engine holds at the key', stage() === STAGE.KEY);
+    rig.engineOn = true;
+    roadTestTick(player, rig);
+    check('road test: turning the key advances to pulling out', stage() === STAGE.OUT);
+
+    rig.x = 100 + OUT_TILES - 0.5;
+    roadTestTick(player, rig);
+    check('road test: still in the yard is still pulling out', stage() === STAGE.OUT);
+    rig.x = 100 + OUT_TILES + 0.5;
+    roadTestTick(player, rig);
+    check('road test: clear of the hardstand puts you on the road', stage() === STAGE.RUN);
+
+    rig.x = 100 + RUN_TILES + 1;
+    roadTestTick(player, rig);
+    check('road test: ten tiles out turns you round', stage() === STAGE.BACK);
+    // ⚠ THE CORRIDOR IS NOT PART OF THE LESSON, and the reason is arithmetic rather than taste:
+    // out there `x`/`y` are corridor coordinates, so a distance against a city yard is a number
+    // about two different grids. Driving off the rim must move nothing.
+    rig.leg = 'corridor'; rig.x = 100; rig.y = 100;
+    roadTestTick(player, rig);
+    check('road test: the void leg advances nothing', stage() === STAGE.BACK);
+    rig.leg = 'city';
+    roadTestTick(player, rig);
+    check('road test: back at the yard asks for the brakes', stage() === STAGE.PARK);
+    check('road test: coming back is measured from the yard, not from the far point',
+      BACK_TILES < RUN_TILES && OUT_TILES < RUN_TILES);
+    rides.delete(player.id);
+    check('road test: no ride left behind', !hasRoadTest(player.id));
+
+    // ── THE LICENCE, and the three ways you can hold one ──────────────────────
+    // The grandfather clause is the case that matters: a gate added to a verb that has been open
+    // for months must never confiscate a truck somebody already bought, so owning one IS the
+    // licence. Asserted with a FAKE fleetOf rather than a real purchase — the rule under test is
+    // "a non-empty fleet answers yes", not the dealer.
+    const wasRole = player.role;
+    player.role = 'player';
+    // ⚠ CLEARED FIRST. The fixture has bought and driven trucks by the time it reaches this block,
+    // so it has been grandfathered — testing the refusal against a player the system has already
+    // (correctly) licensed would assert nothing.
+    await clearFlag('player', roadTest.LICENSE_FLAG, player).catch(() => {});
+    const noFleet = async () => [];
+    const oneTruck = async () => [{ id: 'truck_regress_licence' }];
+    check('licence: a new driver with nothing is refused',
+      !await isLicensedDriver(player, { fleetOf: noFleet }));
+    check('licence: the refusal names the way through',
+      /roadtest/.test(unlicensedLine().message));
+    check('licence: owning a truck already IS the licence — nobody is confiscated',
+      await isLicensedDriver(player, { fleetOf: oneTruck }));
+    check('licence: …and that grandfathering is written down, so it costs one query once',
+      await isLicensedDriver(player, { fleetOf: noFleet }));
+    await clearFlag('player', roadTest.LICENSE_FLAG, player).catch(() => {});
+    // ⚠ AND THE SCHOOL RIG IS EXEMPT, because it mounts through the very verb the licence gates.
+    // Without this the door is locked from the inside and the lesson can never be taken.
+    rides.set(player.id, { pid: player.id, truckId: null, stage: STAGE.KEY, ox: 0, oy: 0, far: 0, hit: false });
+    check('licence: a road test in progress may drive the school rig unlicensed',
+      await isLicensedDriver(player, { fleetOf: noFleet }));
+    rides.delete(player.id);
+    player.role = 'admin';
+    check('licence: admins are rated, as they are for aircraft',
+      await isLicensedDriver(player, { fleetOf: noFleet }));
+    player.role = wasRole;
+    await clearFlag('player', roadTest.LICENSE_FLAG, player).catch(() => {});
+
+    // And the two verbs it hands over exist. A tutorial whose instructions name a verb nobody
+    // registered is worse than no tutorial — this is the same sweep the workspace HUD runs on its
+    // own command strings, for the same reason.
+    const verbs = JSON.parse(await import('fs/promises').then(fs => fs.readFile(new URL('./plugin.json', import.meta.url), 'utf8'))).commands;
+    check('road test: `roadtest` is declared in the manifest', verbs.includes('roadtest'));
+    check('road test: the verbs it teaches are real', ['park', 'yard', 'haul', 'market'].every(v => verbs.includes(v)));
   }
 }

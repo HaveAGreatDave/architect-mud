@@ -239,7 +239,7 @@ async function runAttempt(player, st, nowMs) {
   out(player.id, `${flavor} You come up empty.`);
   const streak = (st.streak || 0) + 1;
   if (streak === HINT_STREAK) {
-    out(player.id, 'You get the feeling there\'s something here, if you just search a little harder...');
+    out(player.id, 'There is more here than you have turned up. Keep at it.');
   }
   advanceState(player.id, { lastAttempt: nowMs, streak });
 }

@@ -3,7 +3,7 @@
 // through to us), the device gate, the anti-spoof resolve guard, and clean
 // self-gating when there's nothing to hack. The full launch→win→burglary path
 // needs a real hacking device + witnessed crime and is covered by manual QA.
-import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, world } from '../../server/engine/world.js';
+import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, interiorLockDirs, world } from '../../server/engine/world.js';
 import { getRegisteredLockedProviders } from '../../server/engine/movement-gates.js';
 import { on, off, emit } from '../../server/engine/events.js';
 import { lockTypePassesWhileLocked, resolveLockAuth, getLockType } from '../../server/engine/locks.js';
@@ -279,6 +279,18 @@ export default async function regress({ run, check, getPlayer }) {
         interiorLockedDirs(aptRoom, p) === null, painted(aptRoom));
       setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: 'regress_owner_' + p.id });
       check('...but the same lock on a rented one is', painted(aptRoom) === '["north"]', painted(aptRoom));
+      // The orange half: the same red line goes orange when the lock is one this
+      // player can undo. It is a SUBSET of locked, never a replacement for it —
+      // an unmarked red door may still open for you (a keycard is a query and the
+      // seam is sync), so the wrong direction to fail is the one being pinned.
+      const lockDirs = (z = aptRoom) => interiorLockDirs(z, p);
+      check("a stranger's locked door is red and not orange",
+        lockDirs().unlockable === null, JSON.stringify(lockDirs()));
+      setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: p.id });
+      check('...but the door of a unit you control is painted orange',
+        JSON.stringify(lockDirs().unlockable) === '["north"]', JSON.stringify(lockDirs()));
+      check('...and stays red as well — orange is a subset, not a swap',
+        JSON.stringify(lockDirs().locked) === '["north"]', JSON.stringify(lockDirs()));
       setApartmentCache(aptZone.id, prior || null);
     }
     deleteDoorCache(edgeDoor);

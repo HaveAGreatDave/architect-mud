@@ -81,7 +81,7 @@ export async function cmdPreserve(args, raw, player) {
   const many = (food.quantity ?? 1) > 1 ? ` <span class="text-dim">(all ${food.quantity} of them)</span>` : '';
   return {
     type: 'output',
-    message: sys(`You work the BHT through the ${food.name}${many}. It tastes of nothing, which is the entire idea.`)
+    message: sys(`You work the BHT through the ${food.name}${many}. It tastes of nothing.`)
       + `\n${dim('It will keep for a great deal longer now, wherever you put it.')}`,
   };
 }

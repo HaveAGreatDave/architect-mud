@@ -827,6 +827,44 @@ Three routes in, all asserted by the regress suite:
    `familiar`/`close` greeting ladder. She explains the two kinds of work (wages vs enterprise),
    where the road goes, and what it costs you to find out a wall is a wall at fifty.
 3. **The help book** gained a `HAULING` row.
+4. **The first yard you ever stand in briefs you** *(2026-09-04)* — one message in the log, once, on
+   `truck_depot_brief`: what the four tabs are, that a truck is bought rather than borrowed, and
+   that there is a free lesson in the shed. Prose in the log rather than a card, because that is the
+   one surface all three display rungs read; skipped for a driver rolling through, exactly as the
+   panel is. `plugins/trucking/onboard.js`.
+
+### The road test *(2026-09-04)*
+
+`roadtest`, at any depot: **flight's checkride, for trucks** — the same free loaner, the same staged
+instructions, the same forgiveness. It exists because the sim shipped with eight gears, an
+articulated trailer and brakes that fade, and nothing anywhere that ever taught a new driver one of
+them; the first lesson was a shopfront.
+
+A school Drayman is conjured as an **ordinary `trucks` row** stamped `custom_data.roadtest`, mounted
+through `drive` itself (`mountTruckById`), and deleted the moment the ride ends — plus a sweep at
+boot, so a server that dies mid-lesson leaves nobody owning a truck they never bought. Five stages:
+the key, out of the yard, ten tiles of road, back, and park.
+
+Three decisions worth knowing before you touch it:
+
+- **Every milestone is a distance from the yard**, which is the one measurement *both* rungs already
+  maintain — the cab reconciles it four times a second and the text tick walks it a tile at a time —
+  so one evaluator (`roadTestTick`, sync and query-free by contract) serves the cab, the text drive
+  and the log with no second law to drift. Compare flight, which needs `checkGateProximity` as a
+  second server-side observer because its rings are a client's job.
+- **The instructions go to the log**, not to a card over the windscreen — same reason.
+- ⚠ **It is the licence, and the licence had to be added without confiscating anything.** `drive`
+  is now gated on `truck_licensed` exactly as the pilot's seat is gated on `air_pilot_licensed` —
+  but flight *shipped* gated and this verb has been open for months, so the same gate bolted on flat
+  would meet every existing driver at their own yard and tell them to go and learn. The answer is in
+  `isLicensedDriver`: **owning a truck already IS the licence** — you demonstrably drive — and the
+  flag is written the first time anybody asks, so the fleet converges with no one-shot script.
+  Admins are rated, as they are for aircraft, and **a road test in progress is exempt**, because the
+  school rig mounts through the very verb the licence gates: without that the door is locked from
+  the inside.
+- Bending the school rig is remembered and never punished, and there is deliberately **no grade** —
+  flight can fail a landing because a bad one is a crater; the equivalent here is parking badly,
+  which every driver in the world does daily. Bringing it back is the pass.
 
 > **Author's note:** the dialogue tree is **flat and rooted at `root`** — `tree[nodeKey]`, options
 > carrying `next`, `label` for the choice text. Not `{ nodes, edges }`, despite the VINE editor's

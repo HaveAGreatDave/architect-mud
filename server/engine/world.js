@@ -161,6 +161,7 @@ async function loadDistrictRegistry() {
 // /map/derive) both refresh this.
 async function loadZoneRender() {
   world.render.clear();
+  POI_STATIC.clear(); // POI is flags + adjacency; a build changes both
 
   // The palette is the one input that isn't already in memory. A missing or
   // unreadable content/ tree is the ONLY reason to fall back to the table —
@@ -317,6 +318,100 @@ export function buildingTypeOf(zone) {
   return (zone.flags?.building_type || '').toLowerCase() || null;
 }
 
+// -- Map landmark category (POI) ---------------------------------------------
+// The single most salient landmark at a tile, as a category key. One derivation,
+// two consumers: the full map (movement.js, which hangs a glyph off it) and the
+// sidebar minimap (which tints a building footprint by it, so a player scanning
+// the map can find the airfield, the depot or a shop without reading a label).
+//
+// Priority is "what matters most here" order, and it is deliberately SPARSE - most
+// tiles return null.
+//
+// The chain is split in two because one clause in the middle of it is LIVE: a vendor
+// NPC can walk. Everything above and below that clause is a function of flags and
+// building types, which only a build changes, so it is memoized per zone and cleared
+// when the world reloads. The vendor scan is one zone's NPC list, and it only runs when
+// nothing static outranked it.
+const POI_STATIC = new Map(); // zone id -> { high, low }
+const POI_POWER_RE = /coolant|turbine|reactor|powerplant/i;
+// building_type -> POI class. The classes are deliberately COARSE: a legend is read at a
+// glance, and twenty rows of it is a document. Related things that a player is looking for
+// the same way share a colour, and the two pairs that are near-neighbours in kind (airfield
+// and freight depot, restaurant and grocery) are near-neighbours in hue.
+const POI_BY_BUILDING = {
+  // Somewhere people live. A hotel is in here because the Embassy is a place with rooms
+  // that happens to have a bar, not a bar that happens to have rooms.
+  apartment: 'residence', residential: 'residence', hotel: 'residence',
+  restaurant: 'restaurant', diner: 'restaurant', noodle_bar: 'restaurant',
+  // Food you carry out, one hue over from food you sit down to.
+  grocery: 'grocery', bodega: 'grocery', butcher: 'grocery',
+  // Everything else with a shelf and a till.
+  shop: 'shops', store: 'shops', dept_store: 'shops', hardware: 'shops',
+  outfitter: 'shops', mercantile: 'shops', gun_shop: 'shops', blade_shop: 'shops',
+  comic_shop: 'shops', boutique: 'shops', kitchenware: 'shops', chem_supply: 'shops',
+  fence: 'shops', bank: 'shops', assay: 'shops',
+  bar: 'nightlife', honkytonk: 'nightlife', club: 'nightlife', nightclub: 'nightlife',
+  casino: 'nightlife', bathhouse: 'nightlife',
+  clinic: 'medical', asc_clinic: 'medical', clone: 'medical',
+  civic: 'civic', church: 'civic', police: 'civic',
+  foundry: 'industry', fabrication: 'industry', industrial: 'industry',
+  junkyard: 'industry', greenhouse: 'industry', dynamo: 'industry',
+  truck_depot: 'depot', freight_office: 'depot', freight_forwarder: 'depot',
+  forwarder: 'depot', container_yard: 'depot', warehouse: 'depot',
+  cold_storage: 'depot', wharf: 'depot', fuel_yard: 'depot',
+  hangar: 'airfield',
+};
+// Ranked highest-first, and this only decides what a tile inherits from its NEIGHBOURS.
+// A tile's OWN type is not ranked at all — it wins outright (see poiStatic), which is the
+// whole of the mixed-use rule: the Solenne is flats with a bar in it, and no bar next door
+// can make it read as anything else.
+const POI_RANK_HIGH = ['civic', 'medical', 'airfield', 'depot', 'industry', 'nightlife',
+  'restaurant', 'grocery', 'shops'];
+function poiStatic(zone) {
+  const hit = POI_STATIC.get(zone.id);
+  if (hit) return hit;
+  // Flags first: an AA emplacement and an airfield are what the tile IS, whatever is
+  // built on it, and they outrank the stairs marker so a battery reads as a battery.
+  let high = zone.flags?.aa_site ? 'military' : (zone.flags?.airfield_id ? 'airfield' : null);
+  // Then the tile's own building. Mixed use is the norm in this city — the Embassy has a
+  // bar, the Solenne has one too — and the building's own type is the only statement of
+  // what it is FOR. Reading it off the neighbours instead is how a residential tower came
+  // to read as a nightclub.
+  const own = buildingTypeOf(zone);
+  if (!high && own && POI_BY_BUILDING[own]) high = POI_BY_BUILDING[own];
+  if (!high) {
+    // Nothing of its own, so inherit from what it opens onto — this is what makes a street
+    // corner say there is a clinic here without the clinic having to be underfoot.
+    const cats = new Set();
+    for (const { target } of allExits(zone)) {
+      const t = world.zones.get(target);
+      if (!t?.flags?.is_building) continue;
+      const bt = (t.flags.building_type || '').toLowerCase();
+      if (POI_BY_BUILDING[bt]) cats.add(POI_BY_BUILDING[bt]);
+      if (POI_POWER_RE.test(t.id || '') || POI_POWER_RE.test(t.name || '')) cats.add('industry');
+    }
+    if (POI_POWER_RE.test(zone.id || '') || POI_POWER_RE.test(zone.name || '')) cats.add('industry');
+    high = POI_RANK_HIGH.find(k => cats.has(k)) || null;
+  }
+  const low = zone.exits?.up || zone.exits?.down ? 'stairs' : null;
+  const out = { high, low };
+  POI_STATIC.set(zone.id, out);
+  return out;
+}
+function hasVendorNpc(zoneId) {
+  for (const npc of getZoneNpcs(zoneId) || [])
+    if (npc.npc_type === 'vendor' || npc.flags?.personality === 'vendor' || npc.vendor_inventory?.length) return true;
+  return false;
+}
+/** The tile's landmark category key, or null. Sync, cache-only. */
+export function poiOf(zone) {
+  if (!zone) return null;
+  const { high, low } = poiStatic(zone);
+  if (high) return high;
+  if (hasVendorNpc(zone.id)) return 'shops'; // a till with nobody's building around it
+  return low;
+}
+
 // Which side a building's entrance is on, for the map's entrance arrow. This is an
 // AUTHORED property (flags.entrance), baked once from the road graph by
 // scripts/bake-building-entrances.mjs and hand-corrected where inference can't
@@ -413,12 +508,26 @@ export function interiorOpenDirs(zone) {
 // about housing, keys or shopkeepers — it draws the answer the gate would give.
 //
 // ⚠ Sync and query-free, like the rest of this payload.
-export function interiorLockedDirs(zone, viewer = null) {
+// Both lists in ONE pass. The locked seam is asked about every cardinal side of
+// every interior tile in the window on every move, so asking it twice — once for
+// "is it locked" and again for "can I undo it" — would double the hottest read in
+// this payload for an answer the first pass already had in its hand.
+export function interiorLockDirs(zone, viewer = null) {
   const open = interiorOpenDirs(zone);
-  if (!open?.length) return null;
+  if (!open?.length) return { locked: null, unlockable: null };
   const exits = primaryExits(zone);
-  const dirs = open.filter(d => lockedOnLink(viewer, zone, d, world.zones.get(exits[d]))?.locked);
-  return dirs.length ? dirs : null;
+  const locked = [], unlockable = [];
+  for (const d of open) {
+    const r = lockedOnLink(viewer, zone, d, world.zones.get(exits[d]));
+    if (!r?.locked) continue;
+    locked.push(d);
+    if (r.unlockable) unlockable.push(d);
+  }
+  return { locked: locked.length ? locked : null, unlockable: unlockable.length ? unlockable : null };
+}
+
+export function interiorLockedDirs(zone, viewer = null) {
+  return interiorLockDirs(zone, viewer).locked;
 }
 
 // Terrain class for the map/minimap surfaces: 'road' | 'water' | 'grass' | null.
@@ -1473,11 +1582,13 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       // disagree about which tiles wear a label.
       spec: specOf(zone.id),
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
+      poi: poiOf(zone), // landmark category — the map tints a building footprint by it
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
       exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
       open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
-      locked_dirs: interiorLockedDirs(zone, viewer), // ...and which of those a lock holds shut — the same lines, drawn red
+      ...(() => { const l = interiorLockDirs(zone, viewer); // ...which of those a lock holds shut (drawn red),
+        return { locked_dirs: l.locked, unlockable_dirs: l.unlockable }; })(),   // ...and which of THOSE are yours to open (orange)
       terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),

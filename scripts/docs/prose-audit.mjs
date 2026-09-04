@@ -8,7 +8,17 @@
  *
  * WHAT IT READS. Player-facing strings only: quests, items, zones, NPC dialogue,
  * glossary, furniture, enemies, drugs, recipes, the four HTML guides, and the
- * comic books written for this game.
+ * comic books written for this game — plus, since 2026-09-04, the surfaces the
+ * first version never looked at: mutations, augments, ambient routines, global
+ * ambient events, banter threads, districts, regions, incidents, orgs, crimes,
+ * MIS fit lines, and the `code` surface below.
+ *
+ * ⚠ `code` is the one that mattered. A large share of what a player reads is not
+ * in content/ at all — hunger, thirst, exhaustion, injury, weather and status
+ * messages are string literals in server/ and plugins/, and nothing had ever
+ * read them. It strips comments first, then takes literals of >24 chars that
+ * start with a capital or a `You`, which is a rough filter for prose over ids,
+ * SQL and format fragments. Expect false positives; it is a reporter.
  *
  * WHAT IT DOES NOT READ, on purpose:
  *   - content/media_* and data/scripts/*.bsm — broadcast and TV, excluded by
@@ -30,6 +40,18 @@ const PUBLIC_DOMAIN = new Set([
   'book_modest_proposal', 'book_machine_stops', 'book_scarlet_plague', 'book_we',
   'book_moreau', 'book_iron_heel', 'book_candide', 'book_sleeper_awakes', 'book_opium_eater',
 ]);
+
+// Surfaces written as NARRATION — the game describing the world to the player,
+// with no character speaking. The narrator-authority rules below are scoped to
+// these. `code` belongs here: a hunger message is narration that happens to live
+// in a .js file. `npc_banter_threads` deliberately does not — it is all speech.
+const NARRATION = [
+  'zones', 'items', 'furniture', 'enemies', 'mutations', 'augments',
+  'ambient_routines', 'global_ambient_events', 'districts', 'regions',
+  'incidents', 'orgs', 'crimes', 'code',
+];
+// Surfaces written as SPEECH.
+const SPEECH = ['npcs', 'quests', 'npc_banter_threads', 'scripts'];
 
 const RULES = [
   {
@@ -85,7 +107,7 @@ const RULES = [
   {
     id: 'filter-word',
     why: 'A sensory verb between the reader and the scene. "The cat darted" beats "you saw the cat dart" — and the second person makes it always available here, so it needs watching.',
-    surfaces: ['zones', 'items', 'furniture', 'enemies'],
+    surfaces: NARRATION,
     re: /\bYou (?:can )?(?:see|saw|notice|noticed|hear|heard|feel|felt|smell|smelled|watch|watched|observe|observed)\b/g,
   },
   {
@@ -106,13 +128,13 @@ const RULES = [
     // narration legitimately has authority over the player's mind, because it
     // IS the player's mind, and unearned knowledge is the mechanic rather than
     // an overreach.
-    surfaces: ['zones', 'items', 'furniture', 'enemies'],
+    surfaces: NARRATION,
     re: /\bYou (?:know|knew|realise|realised|realize|realized|understand|understood|believe|believed|remember|remembered|want|wanted|think|thought|decide|decided)\b/g,
   },
   {
     id: 'speech-tag-adverb',
     why: 'Leonard rules 3 and 4: use said, and hang nothing off it.',
-    surfaces: ['npcs', 'quests'],
+    surfaces: SPEECH,
     re: /\b(?:said|says|asked|replied|answered|added|adds)\s+\w+ly\b/gi,
   },
   {
@@ -122,7 +144,7 @@ const RULES = [
     // everyone, repeatedly, in an order we do not control, so they report the
     // exterior and never reach inside the player. Emotes and dialogue may.
     why: 'Interiority in a surface written at exterior distance. Room and item descriptions are read cold and out of order, so they cannot presume a mood.',
-    surfaces: ['zones', 'items', 'furniture'],
+    surfaces: NARRATION.filter((x) => x !== 'enemies'),
     re: /\b(?:makes? you (?:feel|think|want)|you (?:cannot|can't) help|you are (?:suddenly )?aware|reminds? you of|you get the (?:sense|feeling)|something tells you|you find yourself)\b/gi,
   },
   {
@@ -154,7 +176,9 @@ function jsonStrings(obj, out = []) {
 
 const surfaces = [];
 
-for (const dir of ['quests', 'items', 'zones', 'npcs', 'glossary', 'furniture', 'enemies', 'drugs', 'recipes', 'books', 'dream_templates', 'dream_tethers', 'dream_presences', 'job_boards']) {
+for (const dir of ['quests', 'items', 'zones', 'npcs', 'glossary', 'furniture', 'enemies', 'drugs', 'recipes', 'books', 'dream_templates', 'dream_tethers', 'dream_presences', 'job_boards',
+  'mutations', 'augments', 'ambient_routines', 'global_ambient_events', 'npc_banter_threads',
+  'districts', 'regions', 'incidents', 'orgs', 'crimes', 'mis_fit_lines', 'scripts']) {
   const d = path.join(ROOT, 'content', dir);
   if (!fs.existsSync(d)) continue;
   for (const f of fs.readdirSync(d)) {
@@ -167,6 +191,43 @@ for (const dir of ['quests', 'items', 'zones', 'npcs', 'glossary', 'furniture', 
 for (const g of ['client/game/guide.html', 'client/game/guide-text.html', 'client/game/thomas-client-guide.html', 'docs/nine-orders-player-guide.html']) {
   const p = path.join(ROOT, g);
   if (fs.existsSync(p)) surfaces.push({ surface: 'guides', label: g, text: strip(fs.readFileSync(p, 'utf8')) });
+}
+
+// ─── the code surface ────────────────────────────────────────────────────────
+// Status messages, refusals and event lines live as string literals in server/
+// and plugins/, not in content/, so the first version of this audit could not
+// see a word of them. Comments go first — the house rule covers them too, but
+// they are technical prose with their own carve-outs and would drown the
+// player-facing signal.
+const codeText = (src) => {
+  const noComments = src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const out = [];
+  const lit = /'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g;
+  let m;
+  while ((m = lit.exec(noComments)) !== null) {
+    const s = (m[1] ?? m[2] ?? m[3] ?? '').replace(/\\n/g, ' ').replace(/\$\{[^}]*\}/g, ' ');
+    // Prose, not identifiers: long enough, has a space, starts like a sentence.
+    if (s.length > 24 && /\s/.test(s) && /^(?:[A-Z]|You\b)/.test(s.trim())) out.push(s);
+  }
+  return out.join('\n');
+};
+
+const walkJs = (dir, out = []) => {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'regress.js') continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walkJs(p, out);
+    else if (/\.m?js$/.test(e.name)) out.push(p);
+  }
+  return out;
+};
+
+for (const f of [...walkJs(path.join(ROOT, 'server')), ...walkJs(path.join(ROOT, 'plugins'))]) {
+  const text = codeText(fs.readFileSync(f, 'utf8'));
+  if (text) surfaces.push({ surface: 'code', label: path.relative(ROOT, f).replace(/\\/g, '/'), text });
 }
 
 // ─── run ─────────────────────────────────────────────────────────────────────

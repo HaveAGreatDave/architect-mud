@@ -1233,6 +1233,29 @@ onion smell into the street "which is the entire advertising budget"), **spoken
 dialogue** (people talk in this construction constantly, and several NPCs are
 characterised by it), and **clauses stating a cause** rather than a meaning.
 
+**Widened 2026-09-04, and the gap was the interesting part.** The first version
+read fifteen content surfaces. It never read mutations, augments, ambient
+routines, global ambient events, banter threads, districts, regions, incidents,
+orgs, crimes or MIS fit lines — and, far more importantly, it never read a line
+of **code**. Hunger, thirst, cold, exhaustion, injury, drug and refusal messages
+are string literals in `server/` and `plugins/`, not rows in `content/`, so the
+prose a player sees most often was the prose nothing had ever audited. The
+`code` surface strips comments, then takes literals over 24 characters that
+start a sentence. It covers 371 files and it is noisy on purpose: the audit is
+still a reporter.
+
+Two scoping decisions came out of that run. `code` is a **narration** surface —
+a hunger message is narration that happens to live in a `.js` file — but
+`server/engine/npc-personality.js` and `plugins/gossip/templates.js` are full of
+speech, so `player-mind` hits there are false positives and stay. And **a status
+message reporting the player's own body is not a filter word.** "You feel
+dangerously cold" is the whole content of the message; there is no scene for the
+verb to stand between the reader and. The same goes for a mutation describing a
+new sense ("You can see who is alive through a wall"), and for ambient sound
+cues, where `You hear` is what marks the line as something heard rather than
+seen. Those three families are the bulk of `filter-word` on the new surfaces and
+none of them is a defect.
+
 The first pass cut 44 distinct phrasings across 78 files and left 18 on purpose.
 [scripts/content/prose-trim-asides.mjs](../../scripts/content/prose-trim-asides.mjs)
 is the record of which was which, and is idempotent so it stays readable as one.

@@ -126,6 +126,12 @@ export { getLockTag as getLockTagPublic };
 // (lockTypePassesWhileLocked is a separate question, see the engine:door-lock gate),
 // which is what keeps a privacy latch meaningful. It means the resident can always
 // UNLOCK it — they can never be left with no way in.
+// Exported (as playerControlsDoor) for the minimap's third edge colour: this is the
+// one authorisation answer in the whole lock stack that is SYNC and world-Map-only,
+// which is what makes it safe to ask per side of every tile in the window. Every
+// other auth path is async (a keycard is an inventory read, the Watch's blast door a
+// reputation read), so the drawn hint is the housing rule alone — it falls back to
+// plain red, never to a door that turns out not to open for you.
 function controlsEitherSide(player, door) {
   if (!player || !door) return false;
   const sides = [door.zone_id, door.target_zone, ...exitTargets(door)].filter(Boolean);
@@ -138,6 +144,8 @@ function controlsEitherSide(player, door) {
 
 // Returns true if player is authorised to operate this lock.
 // Dispatches to the registered handler for lockTag.type (see locks.js).
+export { controlsEitherSide as playerControlsDoor };
+
 export async function checkLockAuth(lockTag, door, player) {
   if (controlsEitherSide(player, door)) return true;
   return resolveLockAuth(lockTag, door, player);

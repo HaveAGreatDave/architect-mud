@@ -363,7 +363,7 @@ const B_HOLOSIGN  = ['examine', 'floating holosign'];
 const B_CHAIR     = ['examine', 'metal chair'];
 const B_NORTH     = ['go', 'north'];
 
-function setBeacons(player, list) {
+function setBeacons(player, list, step) {
   if (!player?.id) return;
   const next = list || [];
   const key = ([a, t]) => `${a}|${t}`;
@@ -372,7 +372,128 @@ function setBeacons(player, list) {
   for (const b of prev) if (!keep.has(key(b))) beaconOff(player.id, b[0], b[1]);
   for (const b of next) beaconOn(player.id, b[0], b[1]);
   player._prologueBeacons = next;
+  armNudge(player, step === undefined ? stepOfBeacon(next[0]) : step);
 }
+
+// -- The nudge: what the room says when nobody does anything -----------------
+// A beacon shimmers whether or not you have noticed it, and a brand-new player who
+// has frozen has usually frozen because nothing on screen has changed in a while.
+// So the corridor speaks up: three escalating lines per step, on a ladder of
+// silences, and then it stops. Three, not forever - a room that goes on talking
+// stops being a hint and becomes a nag.
+//
+// This rides setBeacons, which is already the one funnel for "the thing to do
+// next", so a step gets its prods the moment it lights its beacon. The two steps
+// with nothing to shimmer at (the holocaster already in your own pack, the exit
+// out of the vat) pass their step name explicitly.
+//
+// Timer, not tick: a handful of one-shots per soul, the same shape as every other
+// sequence in this file. Keyed off the player id in a module Map so a logout can
+// clear timers held by a player object nobody has a reference to any more.
+const NUDGE_DELAYS = [70000, 100000, 150000];
+const NUDGE_TIMERS = new Map();   // playerId -> { step, line, timer }
+
+const STEP_OF_BEACON = {
+  'talk|chrome attendant': 'attendant',
+  'examine|MORPHEX 9000 BioSculpt terminal': 'terminal',
+  'examine|floating holosign': 'holosign',
+  'examine|metal chair': 'chair',
+  'go|north': 'north',
+};
+function stepOfBeacon(b) {
+  if (!b) return null;
+  if (b[0] === 'take') return 'kit';   // the dropped starter kit: one beacon per item
+  return STEP_OF_BEACON[`${b[0]}|${b[1]}`] || null;
+}
+
+const NUDGES = {
+  attendant: [
+    `The attendant waits. It is very good at waiting. It has never been asked to do anything else and does not intend to start now.`,
+    `The attendant's head tilts a fraction, the way a machine tilts its head when it is wondering whether you have loaded correctly.`,
+    `"You can speak to me," the attendant says, to the ceiling, to nobody in particular. "People do. Some of them."`,
+  ],
+  terminal: [
+    `The terminal's cursor blinks. And blinks. It can keep this up considerably longer than you can.`,
+    `MORPHEX 9000: STANDING BY. MORPHEX 9000: STILL STANDING BY. MORPHEX 9000: THIS IS FINE.`,
+    `The attendant looks at the terminal, then at you, then back at the terminal, in case the trouble is that nobody has pointed hard enough.`,
+  ],
+  holosign: [
+    `The holosign brightens hopefully, then dims again, in the manner of a sign that has been ignored before.`,
+    `The text crawls across the holosign at half speed, on the theory that the first speed was the problem.`,
+    `The holosign turns to face you wherever you stand. It has given up on being subtle.`,
+  ],
+  holocaster: [
+    `The X-90 gives a small expectant click somewhere in your gear. Machines do that when they want using.`,
+    `The holocaster is warm against you. It is a device for making doors, and there is a distinct shortage of doors.`,
+    `Nothing here changes until you use the thing they just handed you. The room is prepared to demonstrate that for as long as it takes.`,
+  ],
+  chair: [
+    `The chair sits there being a chair, aggressively. The entire room is one very large hint.`,
+    `You could go on standing. Nobody ever has.`,
+    `The chair has not moved. In its defence, it is a chair.`,
+  ],
+  north: [
+    `North is still north. It has not gone anywhere, and neither have you.`,
+    `The dark ahead does what dark does while it waits for you to walk into it, which is nothing, loudly.`,
+    `There is one way out of here. There has only ever been one way out of here.`,
+  ],
+  kit: [
+    `Your gear lies on the invisible floor, gathering no dust, there being none.`,
+    `The bat is not going to pick itself up, and it would be a great deal worse if it did.`,
+    `Take it or leave it, then go north. The between does not do refunds.`,
+  ],
+};
+
+function clearNudge(playerId) {
+  const st = NUDGE_TIMERS.get(playerId);
+  if (st?.timer) clearTimeout(st.timer);
+  NUDGE_TIMERS.delete(playerId);
+}
+
+// Arm (or re-arm) the ladder for a step. A new step starts at line 0; the same
+// step re-lit by a bounced move gate keeps its place, so a player who has already
+// been told twice is not told the first thing all over again.
+function armNudge(player, step) {
+  if (!player?.id) return;
+  const prev = NUDGE_TIMERS.get(player.id);
+  if (prev?.timer) clearTimeout(prev.timer);
+  if (!step || !NUDGES[step]) { NUDGE_TIMERS.delete(player.id); return; }
+  const line = prev?.step === step ? prev.line : 0;
+  NUDGE_TIMERS.set(player.id, { step, line, timer: null });
+  scheduleNudge(player);
+}
+
+function scheduleNudge(player) {
+  const st = NUDGE_TIMERS.get(player.id);
+  if (!st) return;
+  if (st.line >= NUDGES[st.step].length) { clearNudge(player.id); return; }
+  const step = st.step;
+  st.timer = setTimeout(() => {
+    const cur = NUDGE_TIMERS.get(player.id);
+    if (!cur || cur.step !== step) return;
+    // Still here, still stuck? The live player object is the check: a dead session,
+    // or a player the corridor no longer owns, gets nothing.
+    const live = getLivePlayer(player.id);
+    if (!live || !PROLOGUE_ZONES.has(live.current_zone)) { clearNudge(player.id); return; }
+    out(live, `<span class="ambient">${NUDGES[cur.step][cur.line]}</span>`);
+    cur.line += 1;
+    scheduleNudge(live);
+  }, NUDGE_DELAYS[Math.min(st.line, NUDGE_DELAYS.length - 1)]);
+}
+
+// Any real command resets the silence. The line pointer deliberately does NOT
+// reset: the prods escalate across the whole step, they just never land on
+// somebody who is busy typing. Silent commands are the client's own auto-sends
+// and are not the player doing anything.
+on('player.command', ({ player, silent }) => {
+  if (silent || !player?.id) return;
+  const st = NUDGE_TIMERS.get(player.id);
+  if (!st) return;
+  if (st.timer) clearTimeout(st.timer);
+  scheduleNudge(player);
+});
+
+on('player.logout', ({ id }) => clearNudge(id));
 
 // The dialogue seam. The attendant's tree drives the first two beacons itself:
 // `root` (landed on the moment you talk to him) puts HIS shimmer out, and the
@@ -467,7 +588,7 @@ async function useHolosign(args, raw, player) {
   await grantItem(player, ITEM_HOLOCASTER);
 
   // The holosign has nothing more to point at; the next object is in your hands.
-  setBeacons(player, []);
+  setBeacons(player, [], 'holocaster');
   playSoundscript(player, [{ at: 0, def: SFX.latticeTouch }, { at: 1500, def: SFX.grant, gain: 0.8 }]);
 
   out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute: brawn, reflexes, endurance, brains, cool, senses.</span> <span class="hint">(that's your six STATS — buy more later with XP and RAISE)</span>`);
@@ -785,7 +906,7 @@ on('zone.entered', async ({ actor, zone, from }) => {
   if (zone === Z_LATTICE) {
     out(actor, `<span class="ambient">The holosign turns to face you. It wants to be read.</span> <span class="hint">(try: ${teachVerb('examine', 'examine', 'floating holosign')} — it'll show you what you can do with it)</span>`);
     if (!(await isSet(actor, F_INTERFACED))) setBeacons(actor, [B_HOLOSIGN]);
-    else if (!(await isSet(actor, F_BROADCAST))) setBeacons(actor, []);
+    else if (!(await isSet(actor, F_BROADCAST))) setBeacons(actor, [], 'holocaster');
     else setBeacons(actor, [B_NORTH]);
   } else if (zone === Z_BROADCAST) {
     out(actor, `<span class="ambient">The chair is the only thing here.</span> <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>`);
@@ -794,7 +915,7 @@ on('zone.entered', async ({ actor, zone, from }) => {
     setBeacons(actor, [B_NORTH]);
   } else if (zone === Z_CLONEVAT && from === Z_COLLAPSE) {
     // Out the other side: the prologue stops steering. Everything it lit goes dark.
-    setBeacons(actor, []);
+    setBeacons(actor, [], null);
     beaconClear(actor.id);
     out(actor, `<span class="clone-vat-message">You wake. There is a floor now, cold and real, and a body on it that is yours, and it already aches. The vat behind you hisses shut. The between is gone as if it never was. Somewhere far above, an algorithm notes that its very large number is, once again, correct.</span>`);
     firstClothing(actor);
@@ -1317,6 +1438,7 @@ export const _test = {
   cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, LOG_TOUR, LOG_TABLET_TOUR,
   coldwaterSkyline, coldwaterShore, speakArrival, readTwocellAdvert, Z_CLONEVAT,
   cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ, F_TABLET,
+  NUDGES, NUDGE_DELAYS, NUDGE_TIMERS, armNudge, clearNudge, stepOfBeacon, setBeacons,
 };
 
 console.log('[prologue] Plugin loaded.');

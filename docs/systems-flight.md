@@ -27,6 +27,10 @@
 - **acquisition.js** — buy / rent / refuel.
 - **charter.js** — NPC-piloted charter flights (see §Charter below).
 - **checkride.js** — the guided-checkride tutorial (`checkride`).
+- **onboard.js** — the once-ever briefing on first walking onto any airfield or into a hangar
+  (`air_field_brief`): what `hangar`, `contracts` and `embark` are, and — for an unrated player —
+  that the seat is licence-gated and the licence is free. Prose in the log rather than a card, so
+  every display rung gets it; a licensed pilot is told the shop and not the school.
 - **companions.js** — NPCs that ride along with a *player* (see §NPC companions).
 - **hvac.js** — registers a running cockpit as a heated cabin (see §The cockpit is
   climate-controlled). Side-effect import; declares no verbs and no hooks.

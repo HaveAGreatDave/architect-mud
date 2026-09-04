@@ -3691,6 +3691,12 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	font-weight: 800;
 	line-height: 1;
 	letter-spacing: -1px;
+	/* --poi-ink is set inline on a tile whose building is a landmark (see poiInk in
+	   minimap.js). It paints the whole label BOX, and the letters stay white on top of it —
+	   a filled swatch reads as a colour at a glance where two coloured letterforms read as
+	   text you have to look at. Transparent without one, which is every tile that shipped
+	   before this, so their labels are unchanged. */
+	background: var(--poi-ink, transparent);
 	color: #fff;
 	-webkit-text-stroke: 0.8px #000;
 	paint-order: stroke fill;
@@ -3754,6 +3760,9 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 /* A way through that is locked: the wall's red at full strength. Faint red is a
    wall you were never getting through; solid red is a door that is shut now. */
 .mm-edge.locked, .map-edge.locked { background: #d0453f; }
+/* ...and a locked way through that YOU can open: orange. Not green — it still stops
+   you where you stand — and not red, because red is the answer "not this way". */
+.mm-edge.unlockable, .map-edge.unlockable { background: #e8912d; }
 .mm-edge-north, .map-edge-north { top: 0; left: 20%; right: 20%; height: 2px; }
 .mm-edge-south, .map-edge-south { bottom: 0; left: 20%; right: 20%; height: 2px; }
 .mm-edge-east, .map-edge-east { right: 0; top: 20%; bottom: 20%; width: 2px; }
@@ -6165,11 +6174,21 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	   every beat, and the browser helpfully preserved a scroll offset that no
 	   longer meant anything. */
 	overflow-anchor: none;
-	/* And if it does scroll, it comes to rest on a row boundary rather than
-	   halfway through a sentence. */
-	scroll-snap-type: y proximity;
+	/* NO SCROLL SNAPPING. It used to carry `scroll-snap-type: y proximity` with
+	   every option a `start` snap point, so a list that scrolled would come to
+	   rest on a row boundary rather than halfway through a sentence. That is a
+	   fine goal and a terrible fit for this container, because of how little it
+	   ever overflows: the box is a fixed height and the well pays for the options
+	   first, so on a short window the column ends up scrollable by ten or twenty
+	   pixels — less than one row. Snap points every ~47px inside a ~20px scroll
+	   range means every wheel tick is clamped to the end of the range and then
+	   dragged back toward a boundary it can never reach, which the browser
+	   animates. That fight is the stutter. Proximity does not save it either:
+	   with rows this tightly spaced the resting position is always "near" a snap
+	   point, so it behaves as mandatory. The row-boundary goal is already met
+	   where it matters — every rebuild resets to scrollTop 0 (above) and
+	   overflow-anchor is off, so a new list always starts aligned. */
 }
-#dialogue-options .dialogue-opt { scroll-snap-align: start; }
 /* On a short window the well gives up more of its floor so the option column can
    keep its own. Reading two lines of speech in a scrollable well is fine; picking
    from a half-visible list is not. */

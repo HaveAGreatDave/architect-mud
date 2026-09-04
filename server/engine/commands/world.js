@@ -288,7 +288,7 @@ const STAIN_DESCS = {
     ],
     other: [
       (item) => `Their ${item} is stained with blood. They've been busy.`,
-      (item) => `There's dried blood on their ${item}. You decide not to ask how it got there.`,
+      (item) => `There's dried blood on their ${item}. Nobody asks.`,
       (item) => `Their ${item} bears blood stains. Fresh enough to be interesting.`,
       (item) => `Blood has dried into their ${item}. It wasn't a clean job.`,
     ],

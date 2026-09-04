@@ -57,6 +57,8 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS,
   registerCrossingDistance, registerCrossingPoints, registerTrailCuts, beaconsNear } from '../voidwalking/index.js';
 import { pushRoadWindow } from './mmroad.js';
+import { cmdRoadTest, roadTestTick, roadTestPark, roadTestImpact, isLicensedDriver, unlicensedLine } from './roadtest.js';
+import { registerDepotBrief } from './onboard.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
 import { registerCellOverlay } from '../flight/state.js';
 import { worldRoadProvider } from './roadnet.js';
@@ -274,6 +276,15 @@ async function hydrateFromTruck(rig, owned) {
 async function cmdDrive(args, raw, player) {
   if (rigOf(player)) return say('You are already behind the wheel.');
 
+  // ── THE LICENCE ────────────────────────────────────────────────────────────
+  // Flight's `boardFound` gate, for trucks: no licence, no seat. It sits ABOVE the crossing branch
+  // deliberately — a rig at the roadhead is still a rig — and above the ownership check, because
+  // "you cannot drive" is a truer answer than "you own nothing" to somebody who has never driven.
+  // Everything that makes it safe to add to a verb that has been open for months lives in
+  // `isLicensedDriver`: owning a truck already IS the licence, and a road test is exempt because
+  // the school rig mounts through here.
+  if (!await isLicensedDriver(player, { fleetOf })) return unlicensedLine();
+
   // Already out in the waste on foot? Then there is a rig at the roadhead, as before — somebody
   // who walked out and thought better of it shouldn't have to walk back for a truck.
   if (player._crossing) return mountOnCrossing(player);
@@ -458,6 +469,12 @@ async function cmdDrive(args, raw, player) {
     + `
 <span class="text-dim">Turn the key — <b>K</b>, or the barrel on the shelf — and hold it until she catches.</span>`);
 }
+
+// MOUNT ONE PARTICULAR TRUCK. The whole of `drive` — the shed, the roller door, the cold engine,
+// the rung you drive on — reached by id rather than by whatever is standing in the yard. It exists
+// for the road test, which conjures a school rig and then has to get the player into THAT one and
+// no other; going through the ordinary verb is what stops the lesson teaching a special case.
+export const mountTruckById = (player, id) => cmdDrive([id], id, player);
 
 // Where a text run heads when the deck is empty: the nearest depot in ANOTHER region, which means
 // off the rim and across the waste. A driver with no load who wants to go somewhere is going to
@@ -2013,6 +2030,10 @@ async function parkRig(player, forced) {
   // instance tears down with a truck still parked in it, that truck goes to the recovery lot on
   // the same impound path a breakdown uses. Nothing is ever lost out there, it just gets expensive.
 
+  // ⚠ BEFORE THE DISMOUNT, because the lesson's last stage is judged on where the truck actually
+  // stopped, and `dismountRig` is what takes the rig away. It ends the ride either way — pass at
+  // the yard, over anywhere else — and sweeps the school rig behind it.
+  await roadTestPark(player, rig);
   rig.engineOn = false;   // the key, turned for you — the last step of the sequence, not a gate on it
   dismountRig(player.id);
   // The text tick self-heals (it drops any run whose rig has gone), but stopping it here means the
@@ -2164,6 +2185,9 @@ async function cmdTruckSync(args, raw, player) {
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">A light comes on that you have been waiting for. Low fuel.</span>' });
   }
   announceBreak(player, rig);
+  // THE LESSON, if there is one on. Sync and cheap by contract (a Map lookup, then two subtractions)
+  // — it is on the four-times-a-second path, so it may never await.
+  roadTestTick(player, rig);
   passSign(player, rig);
   // …and the person standing on it. Beside the boards rather than on the node crossing, because
   // that is the placement the warning needs: a call about somebody eighteen miles up is a fact
@@ -2613,6 +2637,8 @@ async function cmdTruckEvent(args, raw, player) {
   // the client could lie about — the speed it claims to have hit at.
   if (ev === 'bump' || ev === 'crash') {
     const mph = Math.max(0, Math.min(70, Number(args[1]) || 0));
+    // A school rig with a corner knocked off it. Remembered, never punished — see roadtest.js.
+    roadTestImpact(player.id);
     rig.speed = 0;
     // ONE INCIDENT, ONE LINE. The client rebounds off geometry and rate-limits its own reports, but
     // a driver working along a row of shopfronts can still land several inside a few seconds, and
@@ -3023,6 +3049,11 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
     if (leftDepot && !depotFrom(zoneId)) sendToPlayer(actor.id, { type: 'truck_depot_close' });
   } catch (e) { console.error('[trucking] depot auto-open:', e.message); }
 });
+
+// …and the first time you ever stand in one, somebody tells you what it is. Registered AFTER the
+// handler above so the panel opens first and the briefing lands under it, which is the order that
+// reads right. See onboard.js for why it is prose in the log rather than a fourth surface.
+registerDepotBrief({ depotFrom, isDriving: (id) => rigs.has(id) });
 
 // A driver who dies, logs out, or otherwise stops being a driver leaves no rig behind in RAM.
 // (The crossing itself is voidwalking's to clean up; this is only the steering wheel.)
@@ -3556,6 +3587,9 @@ async function cmdHop(args, raw, player) {
 
 export const commands = {
   drive: cmdDrive,
+  // THE LESSON. `deps` is handed in rather than imported by roadtest.js, so the school run reaches
+  // the depot and the drive through this file's own helpers and never imports back into it.
+  roadtest: (args, raw, player) => cmdRoadTest(args, raw, player, { depotHere, mount: mountTruckById, isDriving: (id) => rigs.has(id) }),
   ride: cmdRide,
   hop: cmdHop,
   revs: cmdTextDrive('gear'),
