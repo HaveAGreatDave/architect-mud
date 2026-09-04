@@ -155,6 +155,12 @@ const _tosMapAbs = new Map();
 const mapLabelsOn = () => {
   try { return (loadSettings().mapOverlay || 'labels') === 'labels'; } catch { return true; }
 };
+// Landmark colour, the same way: the shared `mapColor` setting is the state, so the Map
+// app's chip, the sidebar minimap and the Settings pill can never disagree. Off is the
+// default, which is the plain map.
+const mapColorOn = () => {
+  try { return (loadSettings().mapColor || 'off') === 'on'; } catch { return false; }
+};
 // Void survey zoom: the off-grid "journey" map has no server tile-window ladder (it's
 // drawn purely from the minimap nodes), so its −/+ is a client-only scale on the trail.
 // Default sits large per the brief ("show the route big, zoom out from there").
@@ -8196,6 +8202,7 @@ function renderMapCtl(d) {
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
     <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
     <span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels — also switches the sidebar minimap">🏷 Labels</span>
+    <span class="tos-map-mini${mapColorOn() ? ' active' : ''}" data-map-color title="Colour buildings by what they are — also switches the sidebar minimap">🎨 Colour</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -10919,6 +10926,13 @@ function wireMap() {
   _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => {
     const s = loadSettings();
     s.mapOverlay = mapLabelsOn() ? 'none' : 'labels';
+    saveSettings(s);
+    applySettings(s);
+    rebuildMap();
+  });
+  _overlay.querySelector('[data-map-color]')?.addEventListener('click', () => {
+    const s = loadSettings();
+    s.mapColor = mapColorOn() ? 'off' : 'on';
     saveSettings(s);
     applySettings(s);
     rebuildMap();
