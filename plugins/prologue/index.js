@@ -735,17 +735,39 @@ function speakArrival(player) {
   setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing. Not <i>where</i> I am. <i>How</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
   setTimeout(() => {
     out(player, `<span class="ambient">Then I notice I'm not alone.</span>`);
-  }, 8200);
-  setTimeout(() => {
-    out(player, `<span class="ambient">It's tall, and it's chrome. Warm chrome, seamless, shaped like a person the way a word is shaped like the thing it means. No face, just a smooth curve where one belongs, and I'd swear it's looking at me. When it shifts its weight the light follows a half-second late. One hand rests on a humming terminal. It doesn't hurry. It has the stillness of something that's been standing exactly there for a very long time, waiting for exactly me.</span>`);
-  }, 11400);
-  setTimeout(() => {
-    out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
+    // THE LIT OBJECT ARRIVES WITH THE SENTENCE THAT NOTICES IT. The verb line is
+    // still nine seconds out, and that whole gap used to have nothing marked in
+    // it — long enough for a fast reader to decide the game was still loading.
+    // Lighting him here spoils nothing: the attendant sits in this zone from his
+    // `home_zone` and is not hidden, so the room pane has listed him since the
+    // first look and the reveal this line performs already happened on screen.
     pointAt(player.id, 'talk', 'chrome attendant');
     // …and then HE keeps shimmering, alone, until you talk to him. Not the
     // terminal: he hasn't mentioned it yet, and a room with two glowing things
     // in it is a room with no answer in it.
     setBeacons(player, [B_ATTENDANT]);
+  }, 8200);
+  setTimeout(() => {
+    out(player, `<span class="ambient">It's tall, and it's chrome. Warm chrome, seamless, shaped like a person the way a word is shaped like the thing it means. No face, just a smooth curve where one belongs, and I'd swear it's looking at me. When it shifts its weight the light follows a half-second late. One hand rests on a humming terminal. It doesn't hurry. It has the stillness of something that's been standing exactly there for a very long time, waiting for exactly me.</span>`);
+  }, 11400);
+  setTimeout(() => {
+    // ⚠ SKIP THE WHOLE BEAT FOR ANYBODY WHO ALREADY TOOK THE HINT. He is lit from
+    // 8200 now, so talking to him before this fires is the ordinary path rather
+    // than a race, and his dialogue `root` puts his own shimmer out — that is the
+    // signal read here, since nothing persists "has talked". Without it the game
+    // tells a player to go and talk to someone they are already mid-conversation
+    // with. Read from the live object but fall back to the captured one: after a
+    // reconnect NEITHER holds a record, and there the beat must still fire, since
+    // the client reloaded and dropped every beacon it was drawing.
+    const rec = (getLivePlayer(player.id) || player)._prologueBeacons || player._prologueBeacons;
+    if (rec && !rec.some(([a, t]) => a === B_ATTENDANT[0] && t === B_ATTENDANT[1])) return;
+    out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
+    // Ripple again on the beat that finally NAMES the verb. The beacon has been
+    // up since 8200 and a sticky shimmer stops registering as an event within
+    // seconds; this is the one moment the prose and the pane say the same thing,
+    // so it gets said in both. Re-pointing at an already-pointed link is the
+    // supported case — pointAtRoomTarget restarts its own animation.
+    pointAt(player.id, 'talk', 'chrome attendant');
   }, 17600);
   // The interface tour's last step opens the tablet on finish ("Open the tablet");
   // without this signal the client would have to guess how long the monologue runs
