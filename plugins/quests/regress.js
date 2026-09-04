@@ -3,7 +3,7 @@
 // they're the one canonical mutation path dialogue/scripts/jobboard/flight all use.
 import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
-import { setFlag } from '../../server/engine/flags.js';
+import { setFlag, evalCondition } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
 import { clearEffect } from '../../server/engine/effects.js';
@@ -1033,6 +1033,76 @@ export default async function regress({ run, check, getPlayer }) {
     // The XP mirror is shared state for the whole suite — put it back.
     player.total_xp = before; player.xp = netBefore;
 
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await query('DELETE FROM quests WHERE id=$1', [QID]);
+    invalidateQuestCache(QID);
+  }
+
+  // ── Branching resolutions ──────────────────────────────────────────────────
+  //
+  // Order is the whole contract: FIRST match wins, the authored `rewards` is the
+  // fallback, and which ending was paid is RECORDED rather than re-derived — a
+  // later re-evaluation asks a different question, because the flag it read may
+  // have changed since.
+  {
+    const QID = 'quest_regress_endings';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,resolutions,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Endings','',$2,$3,$4,1,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, rewards=$3, resolutions=$4, repeatable=1`,
+      [QID,
+       JSON.stringify([{ id: 'go', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go' }]),
+       JSON.stringify({ xp: 1 }),                       // the fallback ending
+       JSON.stringify([
+         { id: 'told', when: { flag: 'regress_told_them', op: 'eq', value: 'true' }, rewards: { xp: 40 } },
+         { id: 'kept', when: { flag: 'regress_kept_quiet', op: 'eq', value: 'true' }, rewards: { xp: 20 } },
+       ])]
+    );
+    invalidateQuestCache(QID);
+    const reset = async () => {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+      await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+      await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 0 } });
+    };
+    const xpBefore = Number(player.total_xp) || 0;
+    const netBefore = Number(player.xp) || 0;
+
+    // No condition matches: the ordinary rewards are paid, and nothing is recorded.
+    await reset();
+    let mark = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('with no resolution matching, the quest pays its ordinary rewards',
+      (Number(player.total_xp) || 0) - mark === 1, `${mark} → ${player.total_xp}`);
+    let pq = await loadPlayerQuest(player.id, QID);
+    check('…and records no resolution', !pq?.resolution, String(pq?.resolution));
+
+    // The second condition alone: order is by match, not by position.
+    await setFlag('player', 'regress_kept_quiet', 'true', player);
+    await reset();
+    mark = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('a matching resolution is paid instead of the ordinary rewards',
+      (Number(player.total_xp) || 0) - mark === 20, `${mark} → ${player.total_xp}`);
+    pq = await loadPlayerQuest(player.id, QID);
+    check('the resolution that paid is recorded on the row', pq?.resolution === 'kept', String(pq?.resolution));
+
+    // Both match: the FIRST authored one wins, which is how an author states
+    // precedence between two endings a player has qualified for.
+    await setFlag('player', 'regress_told_them', 'true', player);
+    await reset();
+    mark = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('when two resolutions match, the first authored one wins',
+      (Number(player.total_xp) || 0) - mark === 40, `${mark} → ${player.total_xp}`);
+    pq = await loadPlayerQuest(player.id, QID);
+    check('…and it is the one recorded', pq?.resolution === 'told', String(pq?.resolution));
+
+    // The flag mirror is the authoring route: dialogue gates on which way you went
+    // through the ordinary Flag mechanism, with no new condition shape.
+    const viaFlag = await evalCondition({ flag: `${QID}_resolution`, op: 'eq', value: 'told' }, player);
+    check('the resolution is readable as a player flag for later dialogue', viaFlag === true, String(viaFlag));
+
+    player.total_xp = xpBefore; player.xp = netBefore;
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
     await query('DELETE FROM quests WHERE id=$1', [QID]);
     invalidateQuestCache(QID);

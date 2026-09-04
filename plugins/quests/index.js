@@ -74,7 +74,7 @@ import { spawnOnGround } from '../../server/engine/inventory.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { setFlag, clearFlag } from '../../server/engine/flags.js';
+import { setFlag, clearFlag, evalCondition } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { grantXp } from '../../server/engine/ip.js';
 import { adjustReputation } from '../../server/engine/ideologies.js';
@@ -837,6 +837,33 @@ async function grantRewards(actor, rewards, context, reason = 'quest:reward') {
     }
   }
   return gains;
+}
+
+/**
+ * Which ending is this player getting? `quests.resolutions` is a list of
+ * [{ id?, when, rewards }] and the first whose `when` passes is the one paid;
+ * `quests.rewards` is the fallback when none matches or none is authored.
+ *
+ * A quest could only ever end one way before this, so "you can finish this two
+ * ways" had to be built as two quests joined by hand-written flags — every author
+ * inventing their own naming, and the two halves free to drift.
+ *
+ * `when` goes through evalCondition, the same evaluator dialogue options and quest
+ * gating already use, so every condition shape in the game (flags, relations,
+ * ideology_rep, mastery) works here on day one and new ones arrive for free.
+ *
+ * Returns { id, rewards } — id is null for the fallback.
+ */
+async function pickResolution(actor, quest) {
+  const list = Array.isArray(quest?.resolutions) ? quest.resolutions : [];
+  for (const [i, res] of list.entries()) {
+    if (!res || typeof res !== 'object') continue;
+    // A resolution with no `when` is an unconditional catch-all, so an author can
+    // end the list with "and otherwise, this".
+    if (res.when && !(await evalCondition(res.when, actor))) continue;
+    return { id: String(res.id || `#${i}`), rewards: res.rewards || {}, spec: res };
+  }
+  return { id: null, rewards: quest?.rewards || {}, spec: null };
 }
 
 /**
@@ -1603,13 +1630,23 @@ registerAction({
     // point of an optional objective being that finishing one is worth something.
     // Both go through the same grantRewards path, in that order, so a bonus can
     // never pay by a route the quest's own reward does not.
-    const gains = await grantRewards(actor, quest.rewards, context);
+    const ending = await pickResolution(actor, quest);
+    const gains = await grantRewards(actor, ending.rewards, context);
     const finalProgress = Array.isArray(pq.progress) ? pq.progress : [];
     for (const [i, obj] of (quest.objectives || []).entries()) {
       if (!isOptional(obj) || !objectiveMet(obj, finalProgress[i]) || !obj.rewards) continue;
       gains.push(...await grantRewards(actor, obj.rewards, context, 'quest:bonus'));
     }
     await setQuestFlag(actor, quest_id, 'turned_in');   // status itself was claimed above
+    // Record WHICH ending was paid, both on the row and as a player flag named
+    // `<quest_id>_resolution`. The flag is the authoring route: later dialogue
+    // gates on which way you went through the ordinary Flag mechanism, with no new
+    // condition shape and nothing for an author to keep in sync.
+    if (ending.id) {
+      await query('UPDATE player_quests SET resolution=$1 WHERE player_id=$2 AND quest_id=$3',
+        [ending.id, actor.id, quest_id]);
+      await setFlag('player', `${quest_id}_resolution`, ending.id, actor);
+    }
     // Any spare copies the auto-spawn left unclaimed go with it — the quest is over,
     // and a second relic on the sewer floor helps nobody.
     await despawnQuestItems(actor.id, quest_id);
@@ -1617,8 +1654,9 @@ registerAction({
     msg(actor.id, `<span class="msg-system">Quest turned in: ${quest.name}.${creditLine}</span>`);
     emit('quest.turned_in', { actor, quest_id });
     // The sequel, if this quest names one. After the event, so anything listening
-    // for the hand-in has already seen it happen.
-    await startFollowUp(actor, quest, quest.on_turn_in);
+    // for the hand-in has already seen it happen. A resolution may name its own,
+    // which is what makes two endings two stories rather than two payouts.
+    await startFollowUp(actor, quest, ending.spec?.on_turn_in || quest.on_turn_in);
     // Clear/keep the "finished gig ready" flag now this one's handed back, so Marta's
     // conversational hand-in option disappears once the last completed gig is gone.
     await refreshGigReadyFlag(actor);
@@ -1948,14 +1986,15 @@ export const routeHandler = async (path, method, body, auth) => {
     if (path === '/quests' && method === 'POST') {
       const qid = body.id || `quest_${Date.now()}`;
       await query(
-        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()))`,
+        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,resolutions,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,EXTRACT(EPOCH FROM NOW()))`,
         [qid, body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
          JSON.stringify(body.penalties || {}),
          body.on_fail ? JSON.stringify(body.on_fail) : null,
-         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null]
+         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
+         JSON.stringify(body.resolutions || [])]
       );
       invalidateQuestCache(qid);
       return { status: 201, body: { id: qid } };
@@ -1963,13 +2002,15 @@ export const routeHandler = async (path, method, body, auth) => {
     if (id && method === 'PUT') {
       await query(
         `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,quest_type=$6,meta=$7,
-         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$12`,
+         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, resolutions=$12,
+         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$13`,
         [body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
          JSON.stringify(body.penalties || {}),
          body.on_fail ? JSON.stringify(body.on_fail) : null,
-         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null, id]
+         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
+         JSON.stringify(body.resolutions || []), id]
       );
       invalidateQuestCache(id);
       return { status: 200, body: { id } };

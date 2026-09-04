@@ -1570,6 +1570,14 @@ export const SCHEMA_SQL = `
   -- usually the cleanup job rather than a fine, and stating that here retires the
   -- hand-written flag chains that used to link a quest to its sequel. A follow-up
   -- already live on that player is refused, so a pair naming each other cannot spin.
+  -- Endings. 'resolutions' is a list of [{ id, when, rewards }]: TURN_IN pays the
+  -- first whose 'when' condition passes (the ordinary 'rewards' is the fallback),
+  -- so a quest can be finished more than one way — the crossover in the faction
+  -- arc ladder, where the order you were sent against makes you a counter-offer,
+  -- is exactly this and used to need two quests joined by hand-written flags.
+  -- 'when' is an ordinary condition object, evaluated by server/engine/flags.js
+  -- evalCondition, so every shape dialogue gating already understands works here.
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS resolutions JSONB NOT NULL DEFAULT '[]';
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_fail JSONB;
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_turn_in JSONB;
 
@@ -1603,6 +1611,11 @@ export const SCHEMA_SQL = `
   -- not byte-identical for every player and every rotation. Empty for the ordinary
   -- case, which is what keeps the read cost at zero for quests that roll nothing.
   ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS targets JSONB NOT NULL DEFAULT '[]';
+  -- Which of the quest's resolutions was paid, recorded rather than re-derived:
+  -- later content needs to ask which way this player went, and re-evaluating the
+  -- condition afterwards answers a different question, since the flag it read may
+  -- have changed since. NULL means the quest had one ending, like most of them.
+  ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS resolution TEXT;
 
   -- Job board: a devpanel-authored pool of repeatable "gig" quests surfaced in a
   -- zone as legal early-money work. The board row holds only config (which quests

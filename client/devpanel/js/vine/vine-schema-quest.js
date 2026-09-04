@@ -165,7 +165,7 @@ const _questNodeDefs = {
   quest: {
     label: 'Quest',
     color: '#a04488',
-    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, onFail: '', onTurnIn: '', ..._fmFromMeta({}) },
+    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, onFail: '', onTurnIn: '', resolutions: [], ..._fmFromMeta({}) },
     renderBody: (n) => `<div style="font-size:11px;color:var(--accent)">${_escQ(n.data.name || '(unnamed quest)')}</div>
       ${n.data.questType === 'flight_template' ? '<div style="font-size:10px;color:var(--text-dim)">✈ flight template</div>' : ''}
       ${n.data.repeatable ? '<div style="font-size:10px;color:var(--text-dim)">repeatable</div>' : ''}`,
@@ -179,6 +179,8 @@ const _questNodeDefs = {
       ${_qField('Description', _qTextarea('data.description', n.data.description, 3))}
       ${_qField('Repeatable?', _qSelect('data.repeatable', [[false, 'One-time'], [true, 'Repeatable']], !!n.data.repeatable))}
       ${_qField('Quest Type', _qSelect('data.questType', [['standard', 'Standard (incl. job board)'], ['flight_template', 'Flight Contract Template']], n.data.questType || 'standard'))}
+      ${_qField('Alternate endings (JSON) — [{ id, when, rewards, on_turn_in }]; the first whose "when" passes is paid, and the Reward node is the fallback. "when" is an ordinary condition, same as a dialogue option\'s.',
+        _qTextarea('data.resolutions', JSON.stringify(n.data.resolutions || [], null, 2), 5, true))}
       ${_qField('On turn-in, start quest (id — blank for none)', _qInput('data.onTurnIn', n.data.onTurnIn, 'quest_the_next_job'))}
       ${_qField('On failure, start quest (id — blank for none)', _qInput('data.onFail', n.data.onFail, 'quest_make_it_right'))}
       ${n.data.questType === 'flight_template'
@@ -416,7 +418,7 @@ window.VineQuestSchema = {
 
     // `_questId` is a non-persisted hint (toQuest ignores it) so the quest node can
     // reverse-scan NPC dialogue for "offered by" links. Absent for brand-new quests.
-    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, onFail: rec.on_fail?.start_quest || '', onTurnIn: rec.on_turn_in?.start_quest || '', _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
+    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, onFail: rec.on_fail?.start_quest || '', onTurnIn: rec.on_turn_in?.start_quest || '', resolutions: Array.isArray(rec.resolutions) ? rec.resolutions : [], _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
 
     // Objective nodes + gating edges.
     const dependedOn = new Set();
@@ -609,6 +611,10 @@ window.VineQuestSchema = {
       // A follow-up is a field on the quest rather than a node, because it names a
       // DIFFERENT graph — a wire to a quest this canvas does not contain would be
       // a wire to nothing.
+      // Alternate endings stay a JSON field rather than a node: a resolution is a
+      // condition plus a reward bundle, and drawing it as a second Reward box
+      // wired to nothing would suggest an ordering the runtime does not have.
+      resolutions: Array.isArray(questNode?.data.resolutions) ? questNode.data.resolutions : [],
       on_fail: questNode?.data.onFail ? { start_quest: String(questNode.data.onFail).trim() } : null,
       on_turn_in: questNode?.data.onTurnIn ? { start_quest: String(questNode.data.onTurnIn).trim() } : null,
     };

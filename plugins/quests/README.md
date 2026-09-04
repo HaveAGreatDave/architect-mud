@@ -77,6 +77,7 @@ None.
 
 - `quests` — `id, name, description, objectives JSONB, rewards JSONB, repeatable, updated_at`.
   - `objectives`: `[{ type, target?, item_id?, zone?, count?, desc, requires?[], emotes?[], taskSeconds?, optional?, rewards? }]`
+  - `resolutions`: alternate endings — see [Branching resolutions](#branching-resolutions)
   - `on_fail` / `on_turn_in`: `{ start_quest }` or null — see [What happens next](#what-happens-next--on_fail--on_turn_in)
   - `fail_on`: the same shapes, but each blows the quest — see [Failure](#failure)
   - `penalties`: what failing costs — `{ credits?, rep?:[{ideology,delta}], flags?:[…] }`
@@ -153,6 +154,36 @@ completion check ignores optional objectives, `requires` does not, so the mandat
 forever and the quest is unfinishable for anyone who skipped the bonus. `content:lint` refuses that
 shape; without the lint it is a defect that reads as the quest system being broken rather than as a
 content bug.
+
+## Branching resolutions
+
+`quests.resolutions` is a list of endings. `TURN_IN` pays the **first** whose `when` passes;
+`quests.rewards` is the fallback when none matches or none is authored, so an ordinary quest is
+unaffected.
+
+```jsonc
+resolutions: [
+  { id: 'told',  when: { flag: 'told_maresh', op: 'eq', value: 'true' }, rewards: { … },
+    on_turn_in: { start_quest: 'quest_the_spire_calls' } },
+  { id: 'kept',  when: { relation: 'trusted', target: 'npc_vale' },      rewards: { … } },
+  { id: 'plain', rewards: { … } },        // no `when` — an unconditional catch-all, last
+]
+```
+
+`when` goes through `evalCondition` ([server/engine/flags.js](../../server/engine/flags.js)) — the
+same evaluator dialogue options and quest gating use — so every condition shape in the game (flags,
+relations, `ideology_rep`, `mastery`) works here on day one and new ones arrive for free. A
+resolution may name its own `on_turn_in`, which is what makes two endings two stories rather than
+two payouts.
+
+Until this existed a quest could only end one way, so "you can finish this two ways" had to be built
+as two quests joined by hand-written flags — the crossover at slot 7 of
+[the faction arc ladder](../../docs/systems-faction-arcs.md) is exactly this shape.
+
+⚠ **Which ending paid is RECORDED, not re-derived**: on `player_quests.resolution`, and mirrored to
+the player flag `<quest_id>_resolution`. Later content gates on that flag through the ordinary Flag
+mechanism, with no new condition shape. Re-evaluating the `when` afterwards answers a different
+question — the flag it read may have changed since.
 
 ## Rolled targets
 
