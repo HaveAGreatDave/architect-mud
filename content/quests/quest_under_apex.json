@@ -22,6 +22,7 @@
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {
+    "advance": 60,
     "credits": 350,
     "flags": [
       {

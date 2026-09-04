@@ -856,6 +856,11 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       for (const f of questFiles) {
         for (const o of f.data.objectives || []) {
           if (!o?.zone) continue;
+          // A SELECTOR ('@any_of:[…]', '@zone_with:…') is resolved per player when
+          // the quest is taken, so there is no authored tile to check a desc
+          // against and no missing-zone to report. Both rules below are about a
+          // fixed target that names a place wrongly; a rolled one names none.
+          if (String(o.zone).startsWith('@')) continue;
           const label = `quests/${f.name} ${o.id || '?'}`;
           const real = zoneName.get(o.zone);
           if (real === undefined) {
@@ -916,7 +921,7 @@ export function warnQuestAmbiguousTargets() {
     for (const f of zoneFiles) nameCount.set(f.data.name, (nameCount.get(f.data.name) || 0) + 1);
     for (const f of questFiles) {
       for (const o of f.data.objectives || []) {
-        if (!o?.zone) continue;
+        if (!o?.zone || String(o.zone).startsWith('@')) continue;   // a rolled target names no tile
         const real = zoneName.get(o.zone);
         const n = nameCount.get(real) || 0;
         if (n > 1) warnings.push(`quests/${f.name} ${o.id || '?'}: target ${o.zone} is named "${real}", shared by ${n} tiles`);

@@ -1,4 +1,10 @@
 {
+  "available": {
+    "hours": [
+      6,
+      18
+    ]
+  },
   "category": null,
   "description": "The birds are eating the signage again and the ad revenue with it. Chase the pigeons off Foundry Way, Cinder Lane, and Marrow Street. Flap your arms. Lose your dignity. Keep the credits. 15₵.",
   "fail_on": [],
@@ -47,6 +53,21 @@
       "taskSeconds": 5,
       "type": "visit",
       "zone": "zone_district_914_909"
+    },
+    {
+      "desc": "Wherever the flock has got to today.",
+      "emotes": [
+        "{who} follows the noise two streets over and arrives to a wall of wings.",
+        "{who} runs at them with both arms out and achieves roughly four seconds of clear signage."
+      ],
+      "id": "o3",
+      "optional": true,
+      "rewards": {
+        "credits": 6
+      },
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "@any_of:[zone_district_907_910,zone_district_916_909,zone_district_902_908]"
     }
   ],
   "penalties": {},

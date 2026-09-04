@@ -1,4 +1,7 @@
 {
+  "blocks": [
+    "quest_lw_rite"
+  ],
   "category": null,
   "description": "Your backup is taken in the morning and is very boring. The Rite is in the evening and is not.\n\nYou go up to the Nave and somebody reads the words, and about two thirds of the way through he loses his place — properly loses it, shuffles the card, apologises, and finishes the last part from memory in the voice of a man saying a thing he means rather than a thing he has learned.\n\nThen you go to the Uplink and you die there, on purpose, on schedule, with the claim already filed. Somewhere below you a tank that has been quietly paid up since the day of the tour opens on a body with your face on it.\n\nThey will not do it while the police want you, and Vess is apologetic but immovable about that. A claimed death is an administrative act — and the law does not recognise administration.",
   "fail_on": [],

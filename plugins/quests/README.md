@@ -299,6 +299,21 @@ each naming the other on failure is an authoring mistake, and without the guard 
 runtime rather than a red in review. A follow-up that is *failed* or *abandoned* does restart —
 `START_QUEST`'s own retry rule, unchanged.
 
+## Where these are used
+
+The first quests authored against the fields above, as worked examples:
+
+| | quest |
+|---|---|
+| `resolutions` | `quest_asc_cross` — the Ascendant crossover, where lapsing at the press is one ending and carrying the address back is the other |
+| `blocks` | `quest_asc_rite` closes `quest_lw_rite`. Deliberately not the reverse: standing a vigil welds nothing shut, while the Rite is a fitting |
+| `available.hours` | `quest_fs_wake` (4–8), `quest_fs_seatfill` (19–2, wrapping), `quest_fs_pigeon` (6–18) |
+| `optional` + a rolled `zone` | `quest_fs_pigeon`'s fourth stop — a bonus street, somewhere different every time |
+| `rewards.advance` | `quest_hal_escort` (Halcyon pays retainers), `quest_under_apex` and `quest_under_salvage` (money to go in fed, lit and armed) |
+
+Three of eighteen board gigs carry an hour window on purpose. A board whose whole
+list is conditional is a board nobody can plan around.
+
 ## Extension points
 
 New objective types are added by subscribing to the relevant Event beside the others at the bottom

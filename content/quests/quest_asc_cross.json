@@ -65,6 +65,31 @@
   "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
+  "resolutions": [
+    {
+      "id": "lapsed",
+      "rewards": {
+        "flags": [
+          {
+            "flag": "asc_cross_done",
+            "scope": "player",
+            "value": "done"
+          }
+        ],
+        "rep": [
+          {
+            "delta": -40,
+            "ideology": "ideology_long_watch"
+          }
+        ],
+        "xp": 48
+      },
+      "when": {
+        "flag": "asc_lapsed",
+        "op": "set"
+      }
+    }
+  ],
   "rewards": {
     "credits": 260,
     "flags": [

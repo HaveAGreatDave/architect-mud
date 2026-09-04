@@ -1,4 +1,10 @@
 {
+  "available": {
+    "hours": [
+      4,
+      8
+    ]
+  },
   "category": null,
   "description": "The clocks are lies and the sirens stopped working, so the shift workers pay a human alarm. Bang on doors through Marrow Street, then rouse Voss Avenue before the whistle. Dodge what they throw. 10₵.",
   "fail_on": [],

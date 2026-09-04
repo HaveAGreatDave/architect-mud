@@ -1,4 +1,10 @@
 {
+  "available": {
+    "hours": [
+      9,
+      17
+    ]
+  },
   "category": "Halcyon",
   "description": "An assessor needs to look at something in a part of town where assessors get looked at back. Walk her there, stand near her while she works, walk her back. You are not being hired to fight anybody and Halcyon would rather you did not.",
   "fail_on": [],
@@ -7,40 +13,41 @@
   "name": "Site Visit",
   "objectives": [
     {
-      "id": "o0",
-      "type": "visit",
-      "zone": "zone_district_918_904",
-      "taskSeconds": 14,
       "desc": "Walk the assessor to the site and stand near her while she works.",
       "emotes": [
         "{who} stands where they can see both ends of the street, which the assessor notices and does not mention.",
         "{who} is asked to hold a tape measure, and holds it."
-      ]
+      ],
+      "id": "o0",
+      "taskSeconds": 14,
+      "type": "visit",
+      "zone": "zone_district_918_904"
     },
     {
+      "desc": "Walk her back to the lobby.",
       "id": "o1",
-      "type": "visit",
-      "zone": "zone_halcyon_lobby",
       "requires": [
         "o0"
       ],
       "taskSeconds": 6,
-      "desc": "Walk her back to the lobby."
+      "type": "visit",
+      "zone": "zone_halcyon_lobby"
     }
   ],
   "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
+    "advance": 20,
     "credits": 60,
-    "xp": 10,
     "flags": [
       {
         "flag": "hal_gig_done",
         "scope": "player",
         "value": "true"
       }
-    ]
+    ],
+    "xp": 10
   },
   "updated_at": "1788000000"
 }
