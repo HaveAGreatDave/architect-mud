@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -551,6 +551,11 @@ export function applySettings(settings) {
   // gate — panels/minimap.js registers it and re-renders in place, so the pill takes
   // effect without a move. Other clients have no minimap and skip it.
   window._applyMapOverlay?.(_mapOverlayMode(settings));
+
+  // Landmark colour. OFF by default, which is the plain map: no POI tint on a building
+  // footprint and a white plate under a tile’s two-letter code. On, a depot, a clinic and
+  // a shop are three colours you can find without reading anything. Same hook pattern.
+  window._applyMapColor?.((settings.mapColor || 'off') === 'on');
 
   // Minimap renderer (smooth = canvas + gliding camera, classic = the DOM grid).
   // A real setting rather than a hidden key because the fallback exists for people

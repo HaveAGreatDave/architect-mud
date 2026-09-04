@@ -3691,19 +3691,31 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	font-weight: 800;
 	line-height: 1;
 	letter-spacing: 0;
-	/* --poi-ink is set inline on a tile whose building is a landmark (see poiInk in
-	   minimap.js). It paints the whole label BOX, and the letters stay white on top of it —
-	   a filled swatch reads as a colour at a glance where two coloured letterforms read as
-	   text you have to look at. */
-	/* Without a landmark ink it is a dark scrim rather than nothing: white letters with a
-	   hairline stroke wash out over a bright footprint colour, and a scrim lifts every tile
-	   at once where a heavier stroke would just close the counters up. */
-	background: var(--poi-ink, rgba(0, 0, 0, 0.62));
-	color: #fff;
-	-webkit-text-stroke: 1px #000;
+	/* DEFAULT: a white plate with dark letters, which is the plain map. Landmark colour is
+	   a setting (Map Colour, off by default) and html.map-poi-color is what it sets, so a
+	   player who never opens Settings gets one high-contrast label style everywhere. The
+	   stroke takes the PLATE's colour rather than black, thickening the letterform against
+	   the plate instead of ringing it. */
+	--lbl-stroke: #f2f2f2;
+	background: #f2f2f2;
+	color: #14161a;
+	-webkit-text-stroke: 1px var(--lbl-stroke);
 	paint-order: stroke fill;
 }
-#map-grid .map-bld-label { font-size: 1.25rem; letter-spacing: 0; -webkit-text-stroke: 1.4px #000; }
+/* Colour on: --poi-ink is set inline on a tile whose building is a landmark (see poiInk
+   in minimap.js), and poiInk returns null with the setting off, so the var is simply
+   absent then. It paints the whole label BOX and the letters go white on top of it: a
+   filled swatch reads as a colour at a glance where two coloured letterforms read as text
+   you have to look at. Without a landmark ink it is a dark scrim rather than nothing,
+   because white letters wash out over a bright footprint colour and a scrim lifts every
+   tile at once where a heavier stroke would just close the counters up. */
+html.map-poi-color .map-bld-label {
+	--lbl-stroke: #000;
+	background: var(--poi-ink, rgba(0, 0, 0, 0.62));
+	color: #fff;
+	-webkit-text-stroke: 1px var(--lbl-stroke);
+}
+#map-grid .map-bld-label { font-size: 1.25rem; letter-spacing: 0; -webkit-text-stroke: 1.4px var(--lbl-stroke); }
 /* Sidebar/HUD/mobile minimaps: smaller tiles, so a smaller 2-letter label that still
    fills the square. */
 /* Sized off --mm-room (the zoom-driven tile size set by applyMinimapZoom) rather
@@ -3713,7 +3725,7 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 #minimap-grid-mob .map-bld-label {
 	font-size: calc(var(--mm-room) * 0.7);
 	letter-spacing: 0;
-	-webkit-text-stroke: calc(var(--mm-room) * 0.045) #000;
+	-webkit-text-stroke: calc(var(--mm-room) * 0.045) var(--lbl-stroke);
 }
 .map-bld-icon {
 	font-size: 0.625rem;

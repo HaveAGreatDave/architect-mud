@@ -22,7 +22,7 @@ import { lookup as cacheLookup, ingest as cacheIngest } from './minimap-cache.js
 import { iconFor, preloadIcons, monoFamily, themeColor, onAssetReady } from './minimap-assets.js';
 import {
 	zoomRadius, glyphPlan, titleFor, hexToRgb, poiInk,
-	isWorldWaterVoid, WATER_VOID_FILL, effectiveTracePath, mapOverlayMode, sendGo,
+	isWorldWaterVoid, WATER_VOID_FILL, effectiveTracePath, mapOverlayMode, poiColorOn, sendGo,
 	updateZoomButtons,
 } from './minimap.js';
 
@@ -369,9 +369,11 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 	if (plan.label) {
 		// The landmark plate, under the letters — the same box .map-bld-label paints
 		// through --poi-ink, at the same full-tile extent, so the two renderers agree.
-		// Without a landmark ink it is still a dark scrim, matching .map-bld-label — white
-		// letters with a hairline stroke wash out over a bright footprint colour.
-		ctx.fillStyle = landmarkInk || 'rgba(0, 0, 0, 0.62)';
+		// With colour off this is a white plate with dark letters — the plain map. With it
+		// on the letters go white over the landmark's own ink, or over a dark scrim where
+		// the tile has no landmark: white letters with a hairline stroke wash out over a
+		// bright footprint colour on their own.
+		ctx.fillStyle = scene.poiColor ? (landmarkInk || 'rgba(0, 0, 0, 0.62)') : PLATE_PLAIN;
 		ctx.fillRect(px, py, t, t);
 		const size = Math.max(8, Math.round(t * 0.7));
 		// Negative tracking closed the two letterforms up against each other; the scrim
@@ -385,9 +387,9 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 		ctx.lineJoin = 'round';
 		ctx.miterLimit = 2;
 		ctx.lineWidth = t * 0.045;
-		ctx.strokeStyle = '#000';
+		ctx.strokeStyle = scene.poiColor ? '#000' : PLATE_PLAIN;
 		ctx.strokeText(plan.label, cx, cy);
-		ctx.fillStyle = '#fff';
+		ctx.fillStyle = scene.poiColor ? '#fff' : INK_PLAIN;
 		ctx.fillText(plan.label, cx, cy);
 		ctx.restore();
 	}
@@ -407,6 +409,10 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 // to unlock your own door. The server only marks the sides it can prove cheaply, so
 // an unmarked red door may still open for you; orange never lies the other way.
 const EDGE_OPEN = '#4ff08c', EDGE_SHUT = '#e8514a', EDGE_MINE = '#ffa53a';
+// The plain (colour-off) label plate: dark letters on white, matching .map-bld-label's
+// own default. The stroke takes the plate colour there rather than black, so it thickens
+// the letterform against the plate instead of ringing it.
+const PLATE_PLAIN = '#f2f2f2', INK_PLAIN = '#14161a';
 const CARDINALS = ['north', 'south', 'east', 'west'];
 function drawEdges(ctx, node, px, py, t) {
 	const open = Array.isArray(node.open_dirs) ? node.open_dirs : null;
@@ -675,6 +681,7 @@ export function renderMinimapCanvas(nodes, current, direction) {
 	scene.space = space;
 	scene.R = R;
 	scene.overlay = mapOverlayMode();
+	scene.poiColor = poiColorOn();
 	scene.coordOf = coordOf;
 	scene.worldMap = current.map_id === 'map_world';
 	scene.liveIds = new Set(nodes.map(nd => nd.id));

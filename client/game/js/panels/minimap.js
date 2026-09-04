@@ -25,8 +25,16 @@ import { renderMinimapCanvas, hideCanvas } from './minimap-canvas.js';
 // script ran after DOMContentLoaded — a warm cache — which is why it passed
 // local testing and broke on a live load. `const` before use, not after.
 let _savedOverlay = 'labels';
-try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
-const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
+let _savedColor = false;
+try {
+  const _s = loadSettings();
+  _savedOverlay = _s.mapOverlay || 'labels';
+  _savedColor = (_s.mapColor || 'off') === 'on';
+} catch {}
+const mapState = { avenueOverlay: _savedOverlay, poiColor: _savedColor, tracePath: null, traceDirs: null };
+// Seeded here as well as in setMapColor, because the first paint happens before
+// applySettings runs its hook and the DOM half is a class on the root element.
+try { document.documentElement.classList.toggle('map-poi-color', _savedColor); } catch {}
 
 // (Avenue View — a toggle that stripped room symbols down to "does a named artery
 // run through here" — is gone, button and all. Its wiring outlived the button by
@@ -1142,6 +1150,7 @@ export const POI_LEGEND = {
 // gold, which is the one thing on this map that must stay legible as a road. So the
 // tint reaches a facade or an enterable door and nothing else.
 export function poiInk(node) {
+  if (!mapState.poiColor) return null;
   if (!node?.poi) return null;
   if (!node.enterable && !node.building_type) return null;
   return POI_LEGEND[node.poi]?.color || null;
@@ -1254,6 +1263,22 @@ export function setMapOverlay(mode) {
 }
 /** The active overlay mode, for the canvas renderer (which has no mapState access). */
 export function mapOverlayMode() { return mapState.avenueOverlay || 'labels'; }
+
+// Landmark colour (Tablet OS → Settings → Layout → "Map Colour"), off by default.
+//
+// It is gated in poiInk() and NOWHERE ELSE: that function is what both renderers and
+// the tablet's own map ask for a landmark's ink, so switching it off takes the tint off
+// a footprint and the coloured plate out from under a label in one move rather than in
+// four. The white-plate half is the CSS/canvas default that a null ink already falls to.
+export function setMapColor(on) {
+  const next = !!on;
+  if (next === mapState.poiColor) return;
+  mapState.poiColor = next;
+  document.documentElement.classList.toggle('map-poi-color', next);
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+}
+/** Whether landmark colour is on, for the canvas renderer. */
+export function poiColorOn() { return !!mapState.poiColor; }
 /** Enter a building from a minimap click. The DOM path routes the same command
  *  through main.js's delegated action-link handler; canvas has no elements to
  *  delegate on, so it sends directly. */
