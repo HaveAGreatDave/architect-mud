@@ -1115,14 +1115,15 @@ function streetColor(a, b, regional) {
 export const POI_LEGEND = {
   residence:  { icon: '⌂', label: 'Residence',      color: '#8fcf7a' },
   restaurant: { icon: '🍽', label: 'Restaurant',     color: '#f2913c' },
-  grocery:    { icon: '🛒', label: 'Grocery',        color: '#d8a93f' },
+  grocery:    { icon: '🛒', label: 'Grocery',        color: '#e8b91f' },
   shops:      { icon: '$', label: 'Shops & trade',  color: '#3fbfae' },
   nightlife:  { icon: '♥', label: 'Nightlife',      color: '#e0569a' },
   medical:    { icon: '⚕', label: 'Medical',        color: '#e8737f' },
   civic:      { icon: '🏛', label: 'Civic & law',    color: '#7f9cff' },
   industry:   { icon: '⚙', label: 'Industry',       color: '#a08a76' },
   airfield:   { icon: '✈', label: 'Airfield',       color: '#5ec8ff' },
-  depot:      { icon: '🚚', label: 'Freight depot',  color: '#3a86b8' },
+  depot:      { icon: '🚚', label: 'Freight depot',  color: '#6f74d6' },
+  fuel:       { icon: '⛽', label: 'Fuel & charging', color: '#9a6fe0' },
   military:   { icon: '⌖', label: 'Military',       color: '#e05a4c' },
   stairs:     { icon: '⇕', label: 'Stairs (up/down)', color: '#8f99a6' },
 };

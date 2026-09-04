@@ -369,14 +369,14 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 	if (plan.label) {
 		// The landmark plate, under the letters — the same box .map-bld-label paints
 		// through --poi-ink, at the same full-tile extent, so the two renderers agree.
-		if (landmarkInk) {
-			ctx.fillStyle = landmarkInk;
-			ctx.fillRect(px, py, t, t);
-		}
+		// Without a landmark ink it is still a dark scrim, matching .map-bld-label — white
+		// letters with a hairline stroke wash out over a bright footprint colour.
+		ctx.fillStyle = landmarkInk || 'rgba(0, 0, 0, 0.45)';
+		ctx.fillRect(px, py, t, t);
 		const size = Math.max(8, Math.round(t * 0.7));
-		// Fractional letter spacing puts every glyph after the first on a subpixel
-		// origin, which undoes the rounding above. Whole pixels or nothing.
-		const spacing = Math.round(t * -0.03);
+		// Negative tracking closed the two letterforms up against each other; the scrim
+		// below buys the contrast that crowding was trying to buy with size.
+		const spacing = 0;
 		ctx.save();
 		ctx.font = `800 ${size}px ${monoFamily()}`;
 		ctx.textAlign = 'center';
@@ -406,7 +406,7 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 // — you are not walking through it and you are not shut out either, you are stopping
 // to unlock your own door. The server only marks the sides it can prove cheaply, so
 // an unmarked red door may still open for you; orange never lies the other way.
-const EDGE_OPEN = '#3fd07a', EDGE_SHUT = '#d0453f', EDGE_MINE = '#e8912d';
+const EDGE_OPEN = '#4ff08c', EDGE_SHUT = '#e8514a', EDGE_MINE = '#ffa53a';
 const CARDINALS = ['north', 'south', 'east', 'west'];
 function drawEdges(ctx, node, px, py, t) {
 	const open = Array.isArray(node.open_dirs) ? node.open_dirs : null;
@@ -414,15 +414,15 @@ function drawEdges(ctx, node, px, py, t) {
 	const mine = Array.isArray(node.unlockable_dirs) ? node.unlockable_dirs : null;
 	const dirs = open ? CARDINALS : (CARDINALS.includes(node.entrance) ? [node.entrance] : []);
 	if (!dirs.length) return;
-	const w = Math.max(1, Math.round(t * 0.12));
-	const pad = t * 0.2, len = t - pad * 2;
+	const w = Math.max(2, Math.round(t * 0.16));
+	const pad = t * 0.14, len = t - pad * 2;
 	ctx.save();
 	for (const d of dirs) {
 		const isLocked = !!locked?.includes(d);
 		const isMine = isLocked && !!mine?.includes(d);
 		const isOpen = !isLocked && (open ? open.includes(d) : true);
 		ctx.fillStyle = isMine ? EDGE_MINE : (isOpen ? EDGE_OPEN : EDGE_SHUT);
-		ctx.globalAlpha = isOpen || isLocked ? 1 : 0.55;
+		ctx.globalAlpha = isOpen || isLocked ? 1 : 0.7;
 		if (d === 'north') ctx.fillRect(px + pad, py, len, w);
 		else if (d === 'south') ctx.fillRect(px + pad, py + t - w, len, w);
 		else if (d === 'west') ctx.fillRect(px, py + pad, w, len);

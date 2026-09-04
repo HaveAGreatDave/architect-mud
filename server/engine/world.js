@@ -358,14 +358,17 @@ const POI_BY_BUILDING = {
   junkyard: 'industry', greenhouse: 'industry', dynamo: 'industry',
   truck_depot: 'depot', freight_office: 'depot', freight_forwarder: 'depot',
   forwarder: 'depot', container_yard: 'depot', warehouse: 'depot',
-  cold_storage: 'depot', wharf: 'depot', fuel_yard: 'depot',
+  cold_storage: 'depot', wharf: 'depot',
+  // Fuel is its own class rather than a depot: a driver looking for a tank is not
+  // looking for a freight office, and on the map the two are one hue apart.
+  fuel_yard: 'fuel', gas_station: 'fuel', fuel_station: 'fuel', charging_station: 'fuel',
   hangar: 'airfield',
 };
 // Ranked highest-first, and this only decides what a tile inherits from its NEIGHBOURS.
 // A tile's OWN type is not ranked at all — it wins outright (see poiStatic), which is the
 // whole of the mixed-use rule: the Solenne is flats with a bar in it, and no bar next door
 // can make it read as anything else.
-const POI_RANK_HIGH = ['civic', 'medical', 'airfield', 'depot', 'industry', 'nightlife',
+const POI_RANK_HIGH = ['civic', 'medical', 'airfield', 'depot', 'fuel', 'industry', 'nightlife',
   'restaurant', 'grocery', 'shops'];
 function poiStatic(zone) {
   const hit = POI_STATIC.get(zone.id);

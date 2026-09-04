@@ -3690,18 +3690,20 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	font-size: 0.8125rem;
 	font-weight: 800;
 	line-height: 1;
-	letter-spacing: -1px;
+	letter-spacing: 0;
 	/* --poi-ink is set inline on a tile whose building is a landmark (see poiInk in
 	   minimap.js). It paints the whole label BOX, and the letters stay white on top of it —
 	   a filled swatch reads as a colour at a glance where two coloured letterforms read as
-	   text you have to look at. Transparent without one, which is every tile that shipped
-	   before this, so their labels are unchanged. */
-	background: var(--poi-ink, transparent);
+	   text you have to look at. */
+	/* Without a landmark ink it is a dark scrim rather than nothing: white letters with a
+	   hairline stroke wash out over a bright footprint colour, and a scrim lifts every tile
+	   at once where a heavier stroke would just close the counters up. */
+	background: var(--poi-ink, rgba(0, 0, 0, 0.45));
 	color: #fff;
 	-webkit-text-stroke: 0.8px #000;
 	paint-order: stroke fill;
 }
-#map-grid .map-bld-label { font-size: 1.25rem; letter-spacing: -1.5px; -webkit-text-stroke: 1px #000; }
+#map-grid .map-bld-label { font-size: 1.25rem; letter-spacing: 0; -webkit-text-stroke: 1px #000; }
 /* Sidebar/HUD/mobile minimaps: smaller tiles, so a smaller 2-letter label that still
    fills the square. */
 /* Sized off --mm-room (the zoom-driven tile size set by applyMinimapZoom) rather
@@ -3710,7 +3712,7 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 #minimap-grid-hud .map-bld-label,
 #minimap-grid-mob .map-bld-label {
 	font-size: calc(var(--mm-room) * 0.7);
-	letter-spacing: calc(var(--mm-room) * -0.03);
+	letter-spacing: 0;
 	-webkit-text-stroke: calc(var(--mm-room) * 0.035) #000;
 }
 .map-bld-icon {
@@ -3754,19 +3756,23 @@ html[data-dictation="off"] #dictate-btn { display: none; }
    where the room opens through, red where it's wall. Deliberately thin and inset a
    little from the corners so a block of rooms reads as a floorplan rather than a grid
    of boxes. Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
-.mm-edge, .map-edge { position: absolute; z-index: 3; pointer-events: none; border-radius: 1px; }
-.mm-edge.open, .map-edge.open { background: #3fd07a; }
-.mm-edge.shut, .map-edge.shut { background: #d0453f; opacity: 0.55; }
+/* A door mark has to read against whatever the tile is painted — a bright footprint,
+   a road, a landmark plate — so it carries its own dark rim rather than relying on
+   contrast with the ground it happens to land on. */
+.mm-edge, .map-edge { position: absolute; z-index: 3; pointer-events: none; border-radius: 1px;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65); }
+.mm-edge.open, .map-edge.open { background: #4ff08c; }
+.mm-edge.shut, .map-edge.shut { background: #e8514a; opacity: 0.7; }
 /* A way through that is locked: the wall's red at full strength. Faint red is a
    wall you were never getting through; solid red is a door that is shut now. */
-.mm-edge.locked, .map-edge.locked { background: #d0453f; }
+.mm-edge.locked, .map-edge.locked { background: #e8514a; }
 /* ...and a locked way through that YOU can open: orange. Not green — it still stops
    you where you stand — and not red, because red is the answer "not this way". */
-.mm-edge.unlockable, .map-edge.unlockable { background: #e8912d; }
-.mm-edge-north, .map-edge-north { top: 0; left: 20%; right: 20%; height: 2px; }
-.mm-edge-south, .map-edge-south { bottom: 0; left: 20%; right: 20%; height: 2px; }
-.mm-edge-east, .map-edge-east { right: 0; top: 20%; bottom: 20%; width: 2px; }
-.mm-edge-west, .map-edge-west { left: 0; top: 20%; bottom: 20%; width: 2px; }
+.mm-edge.unlockable, .map-edge.unlockable { background: #ffa53a; }
+.mm-edge-north, .map-edge-north { top: 0; left: 14%; right: 14%; height: 3px; }
+.mm-edge-south, .map-edge-south { bottom: 0; left: 14%; right: 14%; height: 3px; }
+.mm-edge-east, .map-edge-east { right: 0; top: 14%; bottom: 14%; width: 3px; }
+.mm-edge-west, .map-edge-west { left: 0; top: 14%; bottom: 14%; width: 3px; }
 
 /* (The None / Icons / Labels segmented slider that used to sit in the retired
    full-screen map header is gone with it — the mode is a Settings pill now, and

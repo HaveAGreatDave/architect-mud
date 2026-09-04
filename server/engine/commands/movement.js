@@ -934,7 +934,7 @@ function buildingsAt(zone) {
 
 // Map POI glyph — the single most salient landmark at a tile, for legibility.
 // Deliberately SPARSE: most tiles return null.
-const POI_ICON = { military: '⌖', airfield: '✈', depot: '🚚', civic: '🏛', medical: '⚕', industry: '⚙', nightlife: '♥', restaurant: '🍽', grocery: '🛒', shops: '$', residence: '⌂', stairs: '⇕' };
+const POI_ICON = { military: '⌖', airfield: '✈', depot: '🚚', fuel: '⛽', civic: '🏛', medical: '⚕', industry: '⚙', nightlife: '♥', restaurant: '🍽', grocery: '🛒', shops: '$', residence: '⌂', stairs: '⇕' };
 // The class itself is derived once, in world.js (poiOf), because the sidebar minimap needs
 // the same answer to tint the tile with. This end of it is only the glyph.
 function mapPoi(zone) {

@@ -2549,15 +2549,15 @@ function ensureStyles() {
        that also lived in styles.css and minimap-assets.js. All three are deleted. */
     #tablet-os-overlay .tos-map-tile.terr { border-radius:0; border-color:transparent; }
     /* Edge-line door style — hairline per side of an interior room: green open, red wall. */
-    #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; }
-    #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#3fd07a; }
-    #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:#d0453f; opacity:0.55; }
-    #tablet-os-overlay .tos-map-tile .tos-edge.locked { background:#d0453f; }
-    #tablet-os-overlay .tos-map-tile .tos-edge.unlockable { background:#e8912d; }
-    #tablet-os-overlay .tos-map-tile .tos-edge-north { top:0; left:20%; right:20%; height:2px; }
-    #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:20%; right:20%; height:2px; }
-    #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:20%; bottom:20%; width:2px; }
-    #tablet-os-overlay .tos-map-tile .tos-edge-west { left:0; top:20%; bottom:20%; width:2px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; box-shadow:0 0 0 1px rgba(0,0,0,.65); }
+    #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#4ff08c; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:#e8514a; opacity:0.7; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.locked { background:#e8514a; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.unlockable { background:#ffa53a; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-north { top:0; left:14%; right:14%; height:3px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:14%; right:14%; height:3px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:14%; bottom:14%; width:3px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-west { left:0; top:14%; bottom:14%; width:3px; }
     #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:0.75rem; line-height:1; pointer-events:none; }
     #tablet-os-overlay .tos-map-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
     #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:0.625rem; color:var(--tos-fg-dim); }
