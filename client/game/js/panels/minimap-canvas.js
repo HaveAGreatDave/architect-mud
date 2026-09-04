@@ -419,11 +419,16 @@ function drawEdges(ctx, node, px, py, t) {
 	const mine = Array.isArray(node.unlockable_dirs) ? node.unlockable_dirs : null;
 	const dirs = open ? CARDINALS : (CARDINALS.includes(node.entrance) ? [node.entrance] : []);
 	if (!dirs.length) return;
+	// A law holding the building shut (shop hours) reddens the facade's one line, for the
+	// reason in doorMarks: the green line is the invitation, and it must not sit beside
+	// the red inset saying the place is closed. Interiors are unaffected — `shut` is a
+	// facade fact, and out on the street open_dirs is null.
+	const lawShut = !open && !!node.shut;
 	const w = Math.max(2, Math.round(t * 0.16));
 	const pad = t * 0.14, len = t - pad * 2;
 	ctx.save();
 	for (const d of dirs) {
-		const isLocked = !!locked?.includes(d);
+		const isLocked = lawShut || !!locked?.includes(d);
 		const isMine = isLocked && !!mine?.includes(d);
 		const isOpen = !isLocked && (open ? open.includes(d) : true);
 		ctx.fillStyle = isMine ? EDGE_MINE : (isOpen ? EDGE_OPEN : EDGE_SHUT);

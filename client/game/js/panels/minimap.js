@@ -1243,7 +1243,11 @@ function doorMarks(node, pfx) {
   // does (facadeLockDirs, server/engine/world.js). It was hardcoded 'open', which is
   // why a bolted front door read green out on the street while the dpad reddened the
   // same direction from the same door.
-  const locked = Array.isArray(node?.locked_dirs) && node.locked_dirs.includes(node.entrance);
+  // ...and a LAW holding the building shut reddens it too. Shop hours have no door row
+  // to hang a lock off, so they arrive as the tile's own `shut` flag — the same flag
+  // that paints the red inset. A green door beside that inset says the opposite thing
+  // about the same building in the same square, which is what read as a bug.
+  const locked = node?.shut || (Array.isArray(node?.locked_dirs) && node.locked_dirs.includes(node.entrance));
   const mine = locked && Array.isArray(node?.unlockable_dirs) && node.unlockable_dirs.includes(node.entrance);
   const state = mine ? 'unlockable' : locked ? 'locked' : 'open';
   return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} ${state}"></span>`;

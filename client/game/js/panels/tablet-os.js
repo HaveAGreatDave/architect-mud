@@ -8142,7 +8142,10 @@ function renderMap(d) {
       // server/engine/world.js); it was hardcoded green, so a bolted front door read
       // open here while the dpad reddened the same direction from the same door.
       if (['north', 'south', 'east', 'west'].includes(t.entrance)) {
-        const lk = Array.isArray(t.locked_dirs) && t.locked_dirs.includes(t.entrance);
+        // A law holding the building shut (shop hours) reddens it too — no door row to
+        // hang a lock off, so it arrives as the tile's own `shut` flag. Same rule as the
+        // sidebar minimap's doorMarks.
+        const lk = t.shut || (Array.isArray(t.locked_dirs) && t.locked_dirs.includes(t.entrance));
         const mn = lk && Array.isArray(t.unlockable_dirs) && t.unlockable_dirs.includes(t.entrance);
         ent = `<span class="tos-edge tos-edge-${t.entrance} ${mn ? 'unlockable' : lk ? 'locked' : 'open'}"></span>`;
       }
