@@ -3,7 +3,7 @@
 // through to us), the device gate, the anti-spoof resolve guard, and clean
 // self-gating when there's nothing to hack. The full launch→win→burglary path
 // needs a real hacking device + witnessed crime and is covered by manual QA.
-import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, interiorLockDirs, isEnterableFacade, frontDoorOf, buildingEntranceDir, getMapByParentZone, world } from '../../server/engine/world.js';
+import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache, interiorLockedDirs, interiorLockDirs, isEnterableFacade, frontDoorOf, buildingEntranceDir, getMapByParentZone, getMinimapData, doorOnLink, world } from '../../server/engine/world.js';
 import { allExits } from '../../server/engine/exits.js';
 import { getRegisteredLockedProviders } from '../../server/engine/movement-gates.js';
 import { on, off, emit } from '../../server/engine/events.js';
@@ -292,6 +292,40 @@ export default async function regress({ run, check, getPlayer }) {
         JSON.stringify(lockDirs().unlockable) === '["north"]', JSON.stringify(lockDirs()));
       check('...and stays red as well — orange is a subset, not a swap',
         JSON.stringify(lockDirs().locked) === '["north"]', JSON.stringify(lockDirs()));
+
+      // The orange half over the WIRE, on real geometry. Everything above asks the seam
+      // directly, which is one function short of what a player sees: the renderers colour
+      // an edge from `locked_dirs`/`unlockable_dirs` on the minimap NODE, so a payload
+      // that dropped either key would leave every door in the city green with the seam
+      // green-lit.
+      //
+      // ⚠ It locks the link's REAL door row rather than fabricating one. doorOnLink asks
+      // the connection first, so a made-up row on a link that already has a door is never
+      // reached — a first cut did exactly that, and both checks failed with [null,null]
+      // while the payload was working correctly.
+      const corridor = [...world.zones.values()].find(z =>
+        z.id !== aptZone.id && z.flags?.is_interior &&
+        allExits(z).some(e => e.target === aptZone.id
+          && ['north', 'south', 'east', 'west'].includes(e.dir)
+          && doorOnLink(z.id, e.dir, aptZone.id)));
+      if (corridor) {
+        const cDir = allExits(corridor).find(e => e.target === aptZone.id
+          && doorOnLink(corridor.id, e.dir, aptZone.id)).dir;
+        const real = doorOnLink(corridor.id, cDir, aptZone.id);
+        const node = () => (getMinimapData(corridor.id, 1, p) || []).find(n => n.id === corridor.id);
+        setDoorCache(real.id, { ...real, lock_state: 'locked', is_locked: 1 });
+        setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: 'regress_stranger_' + p.id });
+        const sNode = node();
+        check("the minimap node of a stranger's locked unit is red and not orange",
+          (sNode?.locked_dirs || []).includes(cDir) && sNode?.unlockable_dirs === undefined,
+          JSON.stringify([sNode?.locked_dirs, sNode?.unlockable_dirs]));
+        setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: p.id });
+        const mNode = node();
+        check('...and the node of your own carries the orange edge as well as the red',
+          (mNode?.locked_dirs || []).includes(cDir) && (mNode?.unlockable_dirs || []).includes(cDir),
+          JSON.stringify([mNode?.locked_dirs, mNode?.unlockable_dirs]));
+        setDoorCache(real.id, real);
+      }
       setApartmentCache(aptZone.id, prior || null);
     }
 
@@ -336,6 +370,20 @@ export default async function regress({ run, check, getPlayer }) {
         putF({ tags: {} });
         check('...and the gate exemptions carry over: no lock installed is not painted',
           interiorLockedDirs(facade, p) === null);
+
+        // ...and it survives the WIRE. Everything above asks the seam directly, which
+        // is one function short of what a player sees: the renderers colour a facade
+        // edge from `locked_dirs` on the minimap node, so a payload that dropped the
+        // key would leave every front door in the city green with the seam green-lit.
+        putF();
+        const fNode = (getMinimapData(facade.id, 1, p) || []).find(n => n.id === facade.id);
+        check('the minimap node of a locked facade carries the locked edge',
+          JSON.stringify(fNode?.locked_dirs) === JSON.stringify([entrance]),
+          `${facade.id} → ${JSON.stringify(fNode?.locked_dirs)}`);
+        putF({ lock_state: 'unlocked' });
+        const oNode = (getMinimapData(facade.id, 1, p) || []).find(n => n.id === facade.id);
+        check('...and an unlocked one carries no locked edge at all',
+          oNode?.locked_dirs === undefined, JSON.stringify(oNode?.locked_dirs));
         deleteDoorCache(fDoor);
       }
     }
