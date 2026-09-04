@@ -407,6 +407,9 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 // — you are not walking through it and you are not shut out either, you are stopping
 // to unlock your own door. The server only marks the sides it can prove cheaply, so
 // an unmarked red door may still open for you; orange never lies the other way.
+// ⚠ These MUST track --lock-open / --lock-shut / --lock-mine in styles.css, which
+// is where every other surface reads them from. A canvas takes a colour string, not
+// a custom property, so this is the one copy that cannot be a var() — change both.
 const EDGE_OPEN = '#4ff08c', EDGE_SHUT = '#e8514a', EDGE_MINE = '#ffa53a';
 // The plain (colour-off) label plate: a grey the white lettering sits on, matching
 // .map-bld-label's own default. Only the PLATE changes with the setting — the letters are

@@ -30,6 +30,8 @@ import {
 	describeApartmentStatus,
 	describeRentStatus,
 	describeDoorForcefield,
+	doorGuardsOnlyUnownedApartment,
+	playerControlsDoorApartment,
 } from "../apartments.js";
 import { fireHook, gatherHook } from "../plugins.js";
 import { isStackable } from "../tags.js";
@@ -54,6 +56,16 @@ import { isVendorClosed } from "../ai-behaviour.js";
 async function doorLockAttr(door, player) {
 	const lockTag = getLockTagPublic(door);
 	if (!lockTag) return "";
+	// ⚠ The exemptions below are the MOVE GATE's, restated (movement.js,
+	// 'engine:door-lock'). This used to read door.lock_state directly, which made it
+	// a second lock law, and it disagreed with the first: an unrented Solenne unit
+	// drew green on the minimap, red here, and then opened when you walked into it.
+	// A direction the dpad reddens must be a direction that actually stops you.
+	if (doorGuardsOnlyUnownedApartment(door)) return ""; // unrented unit — vestigial
+	// Orange before red, and asked the way the MAP asks it (playerControlsDoorApartment),
+	// so a door of your own reads the same on both surfaces. checkLockAuth stays as the
+	// second question because it also covers a borrowed credential, which ownership does not.
+	if (playerControlsDoorApartment(player, door)) return ' data-lock="owned"';
 	if (player && (await checkLockAuth(lockTag, door, player))) return ' data-lock="owned"';
 	if (door.lock_state === "locked") return ' data-lock="locked"';
 	return "";

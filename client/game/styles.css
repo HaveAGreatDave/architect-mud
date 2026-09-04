@@ -11,6 +11,17 @@
 	--green: #39ff8f;
 	--red: #ff3b5c;
 	--orange: #ff9a3c;
+	/* ── The three answers a door gives, in one place ─────────────────────────
+	   Every surface that draws a way through (minimap edges, full map, tablet map,
+	   dpad) reads these, so the vocabulary cannot drift into a fourth answer:
+	     green  — open, walk through it
+	     orange — locked, and it is YOURS to open
+	     red    — locked, and it is not
+	   These are the map's own values rather than --green/--red, which are the
+	   louder UI pair and read as alert colours over a painted tile. */
+	--lock-open: #4ff08c;
+	--lock-mine: #ffa53a;
+	--lock-shut: #e8514a;
 	--yellow: #f5e642;
 	--cyan: #28e5ff;
 	--purple: #b86bff;
@@ -3700,6 +3711,17 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	color: #fff;
 	-webkit-text-stroke: 1px var(--lbl-stroke);
 	paint-order: stroke fill;
+	/* A halo BEHIND the fill, not more stroke. -webkit-text-stroke is centred on the
+	   glyph outline, so it eats inward: past about 1px at minimap sizes it closes the
+	   counters on 'e'/'o'/'a' and the code stops being readable as letters, which is
+	   the same reason the scrim exists below rather than a heavier stroke. text-shadow
+	   paints under the glyph, so it darkens the ground the letters sit on and costs the
+	   letterform nothing. Ring first for a hard edge on a bright plate, then a soft
+	   spread so the label still separates when the plate colour is close to white. */
+	text-shadow:
+		0 1px 0 var(--lbl-stroke), 0 -1px 0 var(--lbl-stroke),
+		1px 0 0 var(--lbl-stroke), -1px 0 0 var(--lbl-stroke),
+		0 0 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.65);
 }
 /* Colour on: --poi-ink is set inline on a tile whose building is a landmark (see poiInk
    in minimap.js), and poiInk returns null with the setting off, so the var is simply
@@ -3724,7 +3746,9 @@ html.map-poi-color .map-bld-label {
 #minimap-grid-mob .map-bld-label {
 	font-size: calc(var(--mm-room) * 0.7);
 	letter-spacing: 0;
-	-webkit-text-stroke: calc(var(--mm-room) * 0.045) var(--lbl-stroke);
+	/* Floored at 1px: --mm-room is zoom-driven, and at the low zooms 0.045 lands
+	   under a pixel, which is where the codes were washing out on a bright plate. */
+	-webkit-text-stroke: max(1px, calc(var(--mm-room) * 0.045)) var(--lbl-stroke);
 }
 .map-bld-icon {
 	font-size: 0.625rem;
@@ -3772,14 +3796,14 @@ html.map-poi-color .map-bld-label {
    contrast with the ground it happens to land on. */
 .mm-edge, .map-edge { position: absolute; z-index: 3; pointer-events: none; border-radius: 1px;
 	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65); }
-.mm-edge.open, .map-edge.open { background: #4ff08c; }
-.mm-edge.shut, .map-edge.shut { background: #e8514a; opacity: 0.7; }
+.mm-edge.open, .map-edge.open { background: var(--lock-open); }
+.mm-edge.shut, .map-edge.shut { background: var(--lock-shut); opacity: 0.7; }
 /* A way through that is locked: the wall's red at full strength. Faint red is a
    wall you were never getting through; solid red is a door that is shut now. */
-.mm-edge.locked, .map-edge.locked { background: #e8514a; }
+.mm-edge.locked, .map-edge.locked { background: var(--lock-shut); }
 /* ...and a locked way through that YOU can open: orange. Not green — it still stops
    you where you stand — and not red, because red is the answer "not this way". */
-.mm-edge.unlockable, .map-edge.unlockable { background: #ffa53a; }
+.mm-edge.unlockable, .map-edge.unlockable { background: var(--lock-mine); }
 .mm-edge-north, .map-edge-north { top: 0; left: 14%; right: 14%; height: 3px; }
 .mm-edge-south, .map-edge-south { bottom: 0; left: 14%; right: 14%; height: 3px; }
 .mm-edge-east, .map-edge-east { right: 0; top: 14%; bottom: 14%; width: 3px; }
@@ -7766,16 +7790,20 @@ body.ck-fullscreen #mob-hud-env {
 
 /* Locked exit we can't pass — red. Overrides plain available. */
 .dpad-btn.dpad-locked {
-	border-color: var(--red);
-	color: var(--red);
-	background: color-mix(in srgb, var(--red) 18%, transparent);
+	border-color: var(--lock-shut);
+	color: var(--lock-shut);
+	background: color-mix(in srgb, var(--lock-shut) 18%, transparent);
 }
 
-/* Locked exit whose lock we control — green. Highest priority. */
+/* Locked exit whose lock we control — ORANGE, and highest priority.
+   It was green, which collided with the map: green there means "open, walk
+   through", so one door read as open on the minimap and owned-green on the dpad
+   and a player had no way to tell the two states apart. Orange is the map's word
+   for "locked, but yours", and this is the same door. */
 .dpad-btn.dpad-owned {
-	border-color: var(--green);
-	color: var(--green);
-	background: color-mix(in srgb, var(--green) 18%, transparent);
+	border-color: var(--lock-mine);
+	color: var(--lock-mine);
+	background: color-mix(in srgb, var(--lock-mine) 18%, transparent);
 }
 
 .dpad-blank {

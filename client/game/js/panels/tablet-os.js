@@ -2561,10 +2561,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.terr { border-radius:0; border-color:transparent; }
     /* Edge-line door style — hairline per side of an interior room: green open, red wall. */
     #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; box-shadow:0 0 0 1px rgba(0,0,0,.65); }
-    #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#4ff08c; }
-    #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:#e8514a; opacity:0.7; }
-    #tablet-os-overlay .tos-map-tile .tos-edge.locked { background:#e8514a; }
-    #tablet-os-overlay .tos-map-tile .tos-edge.unlockable { background:#ffa53a; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.open { background:var(--lock-open); }
+    #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:var(--lock-shut); opacity:0.7; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.locked { background:var(--lock-shut); }
+    #tablet-os-overlay .tos-map-tile .tos-edge.unlockable { background:var(--lock-mine); }
     #tablet-os-overlay .tos-map-tile .tos-edge-north { top:0; left:14%; right:14%; height:3px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:14%; right:14%; height:3px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:14%; bottom:14%; width:3px; }
