@@ -1,0 +1,58 @@
+{
+  "category": null,
+  "description": "Pike has had the blast door for eleven years and has never once asked anybody to take it for an hour.\n\nHe is asking now, and the reason he gives is that his mug is empty, which is not the reason.\n\nThe job is the door. Nothing comes through it. Nothing has come through it in eleven years, which is the argument for sitting there and not the argument against.",
+  "fail_on": [],
+  "id": "quest_lw_11",
+  "meta": {},
+  "name": "The Door",
+  "objectives": [
+    {
+      "desc": "Take the stool at the blast door until Pike comes back.",
+      "emotes": [
+        "{who} sits down at a sealed door with their back to a wall for the first time in their life.",
+        "{who} learns that the door makes a noise about once an hour and that the noise is nothing.",
+        "{who} checks the seam at the hinge side twice, because Pike checks it twice.",
+        "{who} does not get up."
+      ],
+      "id": "o_sit",
+      "taskSeconds": 180,
+      "type": "visit",
+      "zone": "zone_lw_entry"
+    },
+    {
+      "desc": "Hand the door back to Pike.",
+      "id": "o_hand",
+      "requires": [
+        "o_sit"
+      ],
+      "target": "npc_lw_pike",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 180,
+    "flags": [
+      {
+        "flag": "lw_q11_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "11"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 40,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 70
+  },
+  "updated_at": "1788500000"
+}

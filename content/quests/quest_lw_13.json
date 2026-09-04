@@ -1,0 +1,62 @@
+{
+  "category": null,
+  "description": "There is a nineteen year old at the Threshold with a Spire haircut and two capped ports in his forearms, and he has been standing out there for two hours because Rennick will not turn him away and will not let him in.\n\nCyrelle wants somebody who has been up that Spire to sit with him and work out which of the three things he is: sent, running, or lost.\n\n\"Do not decide,\" she says. \"Listen, then tell me. I will decide, and it will be my fault.\"",
+  "fail_on": [
+    {
+      "desc": "Somebody was watching the Threshold while he stood at it.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_lw_13",
+  "meta": {},
+  "name": "Somebody's Boy",
+  "objectives": [
+    {
+      "desc": "Sit with the boy at the Threshold.",
+      "emotes": [
+        "{who} sits on the cold side of the blast door with a boy who has not eaten since yesterday.",
+        "{who} listens to an account of the Spire that is nine tenths accurate and one tenth what he was told to say.",
+        "{who} notices the ports are capped clean and recent, and does not mention them."
+      ],
+      "id": "o_sit",
+      "taskSeconds": 30,
+      "type": "visit",
+      "zone": "zone_lw_entry"
+    },
+    {
+      "desc": "Tell Cyrelle what you heard, and let her decide.",
+      "id": "o_tell",
+      "requires": [
+        "o_sit"
+      ],
+      "target": "npc_lw_cyrelle",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 260,
+    "flags": [
+      {
+        "flag": "lw_q13_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "13"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 50,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 90
+  },
+  "updated_at": "1788500000"
+}

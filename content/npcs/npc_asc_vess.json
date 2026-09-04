@@ -20,6 +20,221 @@
   ],
   "description": "A serene woman in circuit-blue-edged whites, a chromed half-collar rising behind her neck like a halo turned inward. She greets you with both hands and total certainty that you have come to be improved.",
   "dialogue_tree": {
+    "a12_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 1800
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_12"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 60,
+          "ideology_id": "ideology_ascendants",
+          "reason": "The Tour"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"He is coming back on Thursday.\" Vess is pleased and does not hide it, which is her whole method and works anyway. \"You said the thing about the tanks being warm. That is not in anything. That is yours.\"\n\nA small pause. \"You will use it four thousand times and it will stop being yours. I am telling you now so that it is not a surprise later.\""
+    },
+    "a12_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1800
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will walk him round.",
+          "next": "a12_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You do this several thousand times.",
+          "next": "a12_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Corin Halbrook.\" She says the name the way she said yours, which you notice, and which is the first genuinely cold thing that has ever happened to you in this building.\n\n\"He came through the Gate on Tuesday with that look. The Gallery first, because it is beautiful. Then the Vats, because that is the promise.\"\n\nShe is already turning away. \"Say it in your own words.\""
+    },
+    "a12_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 1800
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_12"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Gallery, Vats, and let him ask.\" A gesture at the Concourse and everything past it. \"He will ask what it costs. Tell him. They all work it out in the end and the ones who work it out standing next to somebody are the ones who come back.\""
+    },
+    "a12_why": {
+      "_vine": {
+        "x": 700,
+        "y": 1800
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will walk him round.",
+          "next": "a12_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I have done it four thousand and some, and I have not been believed once in the last two years.\" She adjusts nothing on a display that needs nothing adjusted. \"You have a restore behind you and a scar you have not stopped touching. He will believe you inside a minute.\"\n\n\"That is not flattery. It is the reason you are doing it and not me.\""
+    },
+    "a17_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 2100
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_17"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 90,
+          "ideology_id": "ideology_ascendants",
+          "reason": "Reading the Words"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 14,
+          "path": "machine"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "Vess is waiting at the end of the Concourse, which means she has been waiting for a while.\n\n\"You finished it from memory.\" She does not ask. \"Orrin says you shuffled the card first, which everybody does, and then put it down, which nobody does.\"\n\nShe takes both your hands, the way she did the first day, and it means something entirely different now and neither of you says so."
+    },
+    "a17_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 2100
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Friday, then.",
+          "next": "a17_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why me?",
+          "next": "a17_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Orrin has asked for you.\" Vess says it carefully, which she does not do. \"His hands have started doing a thing his hands did not used to do, and he is not going to read the Rite on Friday, and somebody has to.\"\n\n\"It is not a promotion. There is no ceremony attached to being the one who says the ceremony.\""
+    },
+    "a17_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 2100
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_17"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Friday, then.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Cold Aisle, Friday, and read it off the card.\" She looks at you for a moment longer than she needs to. \"Her name is Ait Semmery and she is fifty-one and she has been paid up since she was twenty-six. You do not have to say any of that. I am saying it to you so that somebody in the room knows it.\""
+    },
+    "a17_why": {
+      "_vine": {
+        "x": 700,
+        "y": 2100
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Friday, then.",
+          "next": "a17_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because it was read to you eleven weeks ago and you have not forgotten a word of it, and because you will lose your place.\" She holds a hand up before you can answer that. \"Everybody does. It is the only part of the whole thing that ever moves anybody, and it cannot be arranged, and it happens every single time.\""
+    },
     "accept": {
       "actions": [
         {
@@ -583,6 +798,95 @@
     },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "watch_kept",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "10"
+            },
+            {
+              "flag": "quest_asc_12",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q12_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Vess. Who is the boy at the Gate?",
+          "next": "a12_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_asc_12",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q12_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Halbrook is coming back on Thursday.",
+          "next": "a12_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "15"
+            },
+            {
+              "flag": "quest_asc_17",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q17_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Orrin asked for me.",
+          "next": "a17_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_asc_17",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q17_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "It is read.",
+          "next": "a17_done"
+        },
         {
           "conditions": [
             {

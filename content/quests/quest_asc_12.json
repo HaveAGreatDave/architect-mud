@@ -1,0 +1,70 @@
+{
+  "category": null,
+  "description": "Corin Halbrook has been through the Gate and has the same look on him you had, and Vess is busy.\n\n\"The Gallery first, because it is beautiful. Then the Vats, because that is the promise.\" She hands you nothing, because there is nothing to hand over. \"Say it in your own words. He will believe you and he will not believe me, and neither of those is anything to do with what is true.\"",
+  "fail_on": [],
+  "id": "quest_asc_12",
+  "meta": {},
+  "name": "The Tour",
+  "objectives": [
+    {
+      "desc": "Walk Halbrook through the Gallery.",
+      "emotes": [
+        "{who} gives the Gallery the pause it is built for, because it works and because they remember it working.",
+        "{who} hears themselves use a sentence of Vess word for word, and keeps going."
+      ],
+      "id": "o_gallery",
+      "taskSeconds": 20,
+      "type": "visit",
+      "zone": "zone_asc_spire_gallery"
+    },
+    {
+      "desc": "Then the Vats, because that is the promise.",
+      "emotes": [
+        "{who} watches a man look at a tank with his own face in it for the first time.",
+        "{who} is asked how much it costs, and answers, and watches the arithmetic happen behind his eyes."
+      ],
+      "id": "o_vats",
+      "requires": [
+        "o_gallery"
+      ],
+      "taskSeconds": 20,
+      "type": "visit",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "desc": "Let Halbrook ask you the question everybody asks.",
+      "id": "o_ask",
+      "requires": [
+        "o_vats"
+      ],
+      "target": "npc_asc_prospect",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 300,
+    "flags": [
+      {
+        "flag": "asc_q12_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "12"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 40,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 70
+  },
+  "updated_at": "1788500000"
+}

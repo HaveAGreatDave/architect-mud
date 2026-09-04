@@ -20,6 +20,111 @@
   ],
   "description": "A composed woman in a bandage-pale smock, chromed gloves that never quite come off, one magnifying ocular clipped over an eye that is already better than yours. She prices you the way a mechanic prices a trade-in: not unkindly, just accurately.",
   "dialogue_tree": {
+    "a14_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_14"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 65,
+          "ideology_id": "ideology_ascendants",
+          "reason": "Repossession"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "She is sitting down, which you have not seen.\n\n\"He thanked you on the way out.\" Kesh says it flatly, and then, after a moment: \"They usually thank me. It is because you stood where he could see you.\"\n\nShe looks at the capped ports on the tray. \"Four years of a better life and an afternoon of getting it back off him, and the arithmetic is genuinely fine, and I would still rather somebody else did the arithmetic.\""
+    },
+    "a14_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "This afternoon.",
+          "next": "a14_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then what am I there for?",
+          "next": "a14_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Somebody lapsed on Monday and the schedule says this afternoon.\" Kesh is washing her hands and keeps washing them. \"I do not do these alone. Not because I need help. Because a room with one person in it doing this to another person is a different room.\"\n\n\"You are not there to hold anybody down. Nobody is held down.\""
+    },
+    "a14_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_14"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Theatre, two o clock, and eat something first.\" She is already laying out the tray. \"He signed the schedule four years ago and he has read it more recently than you have. Do not apologise to him. He will hate it.\""
+    },
+    "a14_why": {
+      "_vine": {
+        "x": 700,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "This afternoon.",
+          "next": "a14_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Stand where he can see you.\" She dries her hands one finger at a time. \"People do better with a witness than with a wall, and I am not a witness, I am the pair of hands. Somebody has to be in the room who is not doing it.\""
+    },
     "account": {
       "options": [
         {
@@ -188,6 +293,48 @@
     },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "12"
+            },
+            {
+              "flag": "quest_asc_14",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q14_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Ives said you wanted a second pair of hands.",
+          "next": "a14_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_asc_14",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q14_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "About this afternoon.",
+          "next": "a14_done"
+        },
         {
           "actions": [],
           "conditions": [

@@ -1,0 +1,66 @@
+{
+  "category": null,
+  "description": "Somebody in the Watch has been taking money, and Cyrelle has known for eleven days, and has not said a name to anybody including Halloran.\n\nThe drop is behind the tap. She does not want the person and she does not want a confrontation. She wants the money in her hand, tonight, so that whoever it is finds an empty gap and understands that it is over and that nobody is coming.\n\n\"They will stop,\" she says. \"People do, when the money stops and nothing else happens. It is the nothing else that does it.\"",
+  "fail_on": [
+    {
+      "desc": "You sold what was in the gap.",
+      "type": "sell"
+    }
+  ],
+  "id": "quest_lw_15",
+  "meta": {},
+  "name": "Nothing Bought, Again",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Lift the drop from behind the tap.",
+      "id": "o_lift",
+      "item_id": "item_credit_chip",
+      "type": "retrieve",
+      "zone": "zone_lw_tap"
+    },
+    {
+      "desc": "Put it in Cyrelle hand and say no name.",
+      "id": "o_hand",
+      "requires": [
+        "o_lift"
+      ],
+      "target": "npc_lw_cyrelle",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 300,
+    "rep": [
+      {
+        "delta": -120,
+        "ideology": "ideology_long_watch"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 300,
+    "flags": [
+      {
+        "flag": "lw_q15_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "15"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 60,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 110
+  },
+  "updated_at": "1788500000"
+}

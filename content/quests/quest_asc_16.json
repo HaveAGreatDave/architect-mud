@@ -1,0 +1,79 @@
+{
+  "category": null,
+  "description": "The press is still under the dye works east of the wash, because an address is a thing you can decide about later, and later has arrived.\n\nIves is sending you back to it. Not to burn it. To stand in the room and count what is on the floor, so that the number in the file is a real number.\n\n\"The man on the crate will be there,\" she says. \"He is not to be touched, and if you think that is me being sentimental you have not understood a single thing this firm does.\"",
+  "fail_on": [
+    {
+      "desc": "Wessel Ardy died in that room.",
+      "target": "npc_asc_lapsed",
+      "type": "assassinate"
+    },
+    {
+      "desc": "It reached a camera.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_asc_16",
+  "meta": {},
+  "name": "The Address",
+  "objectives": [
+    {
+      "desc": "Get back down to the press and count what is on the floor.",
+      "emotes": [
+        "{who} comes down into a room that is warm for no reason a room should be warm, for the second time.",
+        "{who} counts reams, counts plates, and writes both down without touching either.",
+        "{who} finds Wessel Ardy sitting on the same crate, and neither of them says anything about it."
+      ],
+      "id": "o_room",
+      "taskSeconds": 20,
+      "type": "visit",
+      "zone": "zone_lw_press"
+    },
+    {
+      "desc": "Take the count back to Ives.",
+      "id": "o_file",
+      "requires": [
+        "o_room"
+      ],
+      "target": "npc_asc_ives",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 0,
+    "rep": [
+      {
+        "delta": -80,
+        "ideology": "ideology_ascendants"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 500,
+    "flags": [
+      {
+        "flag": "asc_q16_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "16"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 60,
+        "ideology": "ideology_ascendants"
+      },
+      {
+        "delta": -60,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 110
+  },
+  "updated_at": "1788500000"
+}

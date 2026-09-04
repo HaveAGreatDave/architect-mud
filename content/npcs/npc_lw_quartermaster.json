@@ -377,6 +377,111 @@
       ],
       "text": "\"By who needs it in the morning.\"\n\nShe turns a page.\n\n\"A camera on the approach is theirs and nobody else's, so it goes. The pumps under the Row are ours as much as theirs, so they stay, and I have sat through four hours of argument about a substation that turned out to be both.\"\n\n\"We are taking this city. Not the ashes of it.\""
     },
+    "l12_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 1200
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_12"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 55,
+          "ideology_id": "ideology_long_watch",
+          "reason": "What We Have"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "She rules a line under the last column and sits looking at it for a while.\n\n\"Formula is out of date by nine years.\" The Quartermaster says it evenly. \"The seed is not. That is the whole of what we are: a room of things that went off and a room of things that cannot, and we keep both, because the day we throw the first room out is the day we have decided how long this lasts.\"\n\nShe closes the slate. \"You did not ask what the genvault was for. Halloran asked. Twice.\""
+    },
+    "l12_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Cache first.",
+          "next": "l12_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You will not check my numbers?",
+          "next": "l12_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Twice a year I count everything the Watch has.\" She has the slate already, which means she decided this before you came in. \"I have never let anybody help and I am not going to explain why I am now.\"\n\n\"You read, I write. Cache first, then the genvault.\""
+    },
+    "l12_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 1200
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_12"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Shelf by shelf, left to right, and say the number even when it is nothing.\" She is already walking. \"Especially when it is nothing. Nothing is a count too.\""
+    },
+    "l12_why": {
+      "_vine": {
+        "x": 700,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Cache first.",
+          "next": "l12_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" She says it like a door closing. \"If I am going to check them I may as well read them, and then I have not let anybody help, I have had somebody stand next to me.\""
+    },
     "loyalty_accept": {
       "actions": [
         {
@@ -422,6 +527,48 @@
     },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "10"
+            },
+            {
+              "flag": "quest_lw_12",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q12_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You are counting this week.",
+          "next": "l12_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_12",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q12_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "That is the count.",
+          "next": "l12_done"
+        },
         {
           "label": "What is the philosophy of the shelf?",
           "next": "creed"

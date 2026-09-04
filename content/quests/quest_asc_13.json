@@ -1,0 +1,63 @@
+{
+  "category": null,
+  "description": "Ives has a household in the Yards whose figures have gone the wrong way for three quarters, and a quarter that closes on Friday.\n\nThe work is arithmetic. The arithmetic ends a policy.\n\n\"You will want to know whether I have looked at them,\" she says. \"I have not, and I am not going to, and neither are you. That is not squeamishness. A number you have put a face on is a number you will get wrong.\"",
+  "fail_on": [
+    {
+      "count": 3600,
+      "desc": "The quarter closed without it.",
+      "type": "timeout"
+    }
+  ],
+  "id": "quest_asc_13",
+  "meta": {},
+  "name": "A Number That Means a Person",
+  "objectives": [
+    {
+      "desc": "Run the household figures at the Gate before the quarter closes.",
+      "emotes": [
+        "{who} works down a column of a stranger four quarters at a time.",
+        "{who} finds the quarter where it went wrong, and it is a hospital, and it is not interesting.",
+        "{who} does not turn the sheet over to see the name, which is on the back, where it always is."
+      ],
+      "id": "o_work",
+      "taskSeconds": 25,
+      "type": "visit",
+      "zone": "zone_district_893_906"
+    },
+    {
+      "desc": "File it with Ives.",
+      "id": "o_file",
+      "requires": [
+        "o_work"
+      ],
+      "target": "npc_asc_ives",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 340,
+    "flags": [
+      {
+        "flag": "asc_q13_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "13"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 45,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 76
+  },
+  "updated_at": "1788500000"
+}

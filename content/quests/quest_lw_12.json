@@ -1,0 +1,70 @@
+{
+  "category": null,
+  "description": "The Quartermaster counts everything the Watch owns twice a year and has never let anybody help.\n\nThis year you are helping, which means walking the cache and the genvault with a slate and reading numbers aloud while she writes them down and does not check them.\n\nIt takes an afternoon and it is the most anybody down here has ever told you about what the Watch actually is.",
+  "fail_on": [],
+  "id": "quest_lw_12",
+  "meta": {},
+  "name": "What We Have",
+  "objectives": [
+    {
+      "desc": "Count the cache.",
+      "emotes": [
+        "{who} reads off shelf after shelf of things kept against a year nobody has named.",
+        "{who} finds four crates of infant formula with a date on them from before the war."
+      ],
+      "id": "o_cache",
+      "taskSeconds": 25,
+      "type": "visit",
+      "zone": "zone_lw_cache"
+    },
+    {
+      "desc": "Then the genvault.",
+      "emotes": [
+        "{who} reads seed lot numbers off a rack in a cold room and stops talking halfway down it.",
+        "{who} works out what the genvault is for without being told, which takes about ninety seconds."
+      ],
+      "id": "o_vault",
+      "requires": [
+        "o_cache"
+      ],
+      "taskSeconds": 25,
+      "type": "visit",
+      "zone": "zone_lw_genvault"
+    },
+    {
+      "desc": "Give the Quartermaster the count.",
+      "id": "o_count",
+      "requires": [
+        "o_vault"
+      ],
+      "target": "npc_lw_quartermaster",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 220,
+    "flags": [
+      {
+        "flag": "lw_q12_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "12"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 45,
+        "ideology": "ideology_long_watch"
+      }
+    ],
+    "xp": 80
+  },
+  "updated_at": "1788500000"
+}

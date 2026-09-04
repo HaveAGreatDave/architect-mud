@@ -1,0 +1,58 @@
+{
+  "category": null,
+  "description": "Somebody has lapsed, and what they were fitted with is going to come back out of them this afternoon, and Dr Kesh does not do these alone.\n\nYou are not there to hold anybody down. Nobody is held down. The client signed the schedule four years ago and has read it more recently than you have.\n\n\"Stand where he can see you,\" Kesh says. \"People do better with a witness than with a wall.\"",
+  "fail_on": [],
+  "id": "quest_asc_14",
+  "meta": {},
+  "name": "Repossession",
+  "objectives": [
+    {
+      "desc": "Stand the theatre while Kesh takes it back.",
+      "emotes": [
+        "{who} watches a man be entirely reasonable about the worst hour of his life.",
+        "{who} is asked to hold a tray, and holds it.",
+        "{who} sees the ports capped, cleaned, and closed, and the caps are the part that stays with them.",
+        "{who} is thanked, on the way out, by the man on the table."
+      ],
+      "id": "o_stand",
+      "taskSeconds": 40,
+      "type": "visit",
+      "zone": "zone_asc_clinic_theatre"
+    },
+    {
+      "desc": "Sit with Kesh afterwards.",
+      "id": "o_after",
+      "requires": [
+        "o_stand"
+      ],
+      "target": "npc_asc_kesh",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 380,
+    "flags": [
+      {
+        "flag": "asc_q14_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "14"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 50,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 84
+  },
+  "updated_at": "1788500000"
+}

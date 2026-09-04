@@ -43,6 +43,221 @@
       ],
       "text": "Pike nods at the stool as you pass. He did not use to."
     },
+    "l11_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_11"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 50,
+          "ideology_id": "ideology_long_watch",
+          "reason": "The Door"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "He comes back with two mugs and hands you one, which is the entire ceremony.\n\n\"You checked the seam.\" He settles onto the stool the way a building settles. \"Twice. I watched you do it the second time on the way back down the spine, and then I stood in the dark for a bit rather than come round the corner, which is a stupid thing for a grown man to do.\""
+    },
+    "l11_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Go and fill your mug.",
+          "next": "l11_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have never asked anybody that.",
+          "next": "l11_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "He lifts the mug, finds it empty, and looks at it as though it has done something.\n\n\"Take the door for an hour.\" He says it like it is about the mug. \"Nothing comes through it. Nothing has come through it in eleven years.\""
+    },
+    "l11_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_11"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Seam at the hinge side, twice an hour, and it makes a noise about as often and the noise is nothing.\" He is up, and he is bigger standing. \"Do not get up.\""
+    },
+    "l11_why": {
+      "_vine": {
+        "x": 700,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Go and fill your mug.",
+          "next": "l11_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "He puts the mug down.\n\n\"No.\" A long pause, and he does not fill it with anything. \"It is a stool and a door and it is not difficult, and the reason I have never asked is that I could not think of anybody I wanted to be sitting there while I was not.\""
+    },
+    "l16_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 1200
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_16"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 110,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Eleven Years"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 14,
+          "path": "flesh"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "He is in the commons, at a table, with a mug and nothing to do, and it is the strangest thing you have ever seen down here.\n\n\"Second hour.\" Pike does not look up. \"That is when it gets you. First hour you are proud of yourself. Second hour you work out that nothing is going to happen, and that nothing is going to happen tomorrow, and that this is the job.\"\n\nHe pushes the second mug across. \"Everybody who has ever sat that door has worked that out in the second hour. There have been two of us.\""
+    },
+    "l16_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will take it.",
+          "next": "l16_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are not ill.",
+          "next": "l16_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "He is standing up when you come round the corner, and he stays standing, and the stool is behind him and empty.\n\n\"Eleven years.\" Pike says it like a weight he is putting down deliberately rather than dropping. \"A door one man has sat at for eleven years is a door with one man between it and everybody. That is not a watch. That is a habit with a beard on it.\"\n\n\"It goes to somebody who has sat it once and did not find it interesting.\""
+    },
+    "l16_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 1200
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_16"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(take the other stool)",
+          "next": "bye"
+        }
+      ],
+      "text": "He does not hand you anything, because there is nothing to hand over, which by now you know is the point.\n\n\"I will stand behind you for the first hour and it will be worse than sitting it alone.\" He almost smiles. \"Then I will go, and you will not hear me go, and that is the bit I have been looking forward to.\""
+    },
+    "l16_why": {
+      "_vine": {
+        "x": 700,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will take it.",
+          "next": "l16_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I am not ill and I am not leaving and I will be down the spine every day of my life.\" He is very calm about it. \"I am seventy-one. The Watch has one door and one man who knows it, and if the man goes down the stairs wrong on a Tuesday the Watch has one door and nobody.\"\n\n\"I should have done this four years ago. I did not, because I liked it.\""
+    },
     "rite_accept": {
       "actions": [
         {
@@ -110,6 +325,89 @@
     },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "watch_kept",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_lw_11",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q11_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Your mug is empty.",
+          "next": "l11_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_11",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q11_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The door is yours again.",
+          "next": "l11_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "14"
+            },
+            {
+              "flag": "quest_lw_16",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q16_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You are standing up.",
+          "next": "l16_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_16",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q16_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I sat it.",
+          "next": "l16_done"
+        },
         {
           "label": "How safe is safe?",
           "next": "door"

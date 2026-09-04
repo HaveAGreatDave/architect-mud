@@ -20,6 +20,47 @@
   ],
   "description": "A gaunt, radiant man in black weave threaded with fibre-optic light, tending the server-racks the way a priest tends an altar, because to him there is no difference. He is, as far as anyone can tell, the only person in the Basin who loves the Architect.",
   "dialogue_tree": {
+    "a17_after": {
+      "_vine": {
+        "x": 700,
+        "y": 400
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You will read the next one.",
+          "next": "a17_next"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(sit with him a while)",
+          "next": "bye"
+        }
+      ],
+      "text": "Orrin has his hands in his lap and is not looking at them, which takes an effort you can see.\n\n\"You lost your place.\" He is not asking either. \"Two thirds through, at the continuity paragraph, which is where it goes because it is the part that is furthest from meaning anything.\"\n\n\"And then you said the last of it to her instead of at her. That is the whole job. Eleven hundred times and that is the only part of it I ever learned.\""
+    },
+    "a17_next": {
+      "_vine": {
+        "x": 1040,
+        "y": 400
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(sit with him a while)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I will read the next one.\" He accepts it without any weight, which is how you know it is not true. \"And you will read the one after that, and at some point there will be a Friday where nobody asks me, and I will find out about it afterwards, and that will be correct.\""
+    },
     "bye": {
       "options": [],
       "text": "He turns back to the humming racks, and the Curtain's white fire beyond."
@@ -64,6 +105,19 @@
     },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "asc_celebrant",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "About Friday.",
+          "next": "a17_after"
+        },
         {
           "label": "Why worship the machine?",
           "next": "faith"

@@ -1,0 +1,67 @@
+{
+  "category": null,
+  "description": "A client died on Tuesday and came out of the tank on Wednesday, and something in the print is not what went in.\n\nNobody at the Registry will say the word wrong. The word they use is variance.\n\nIves wants the file pulled and the Sub-Registrar asked, in that order, by somebody whose own restore is recent enough to make the asking uncomfortable.",
+  "fail_on": [],
+  "id": "quest_asc_15",
+  "meta": {},
+  "name": "Fidelity",
+  "objectives": [
+    {
+      "desc": "Go down to the hall and look at the tank it came out of.",
+      "emotes": [
+        "{who} counts the tanks along the row and gets a different number than the plate says, twice.",
+        "{who} stands in front of one with a recent date on it and does not enjoy the arithmetic."
+      ],
+      "id": "o_floor",
+      "taskSeconds": 25,
+      "type": "visit",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "count": 1,
+      "desc": "Pull the file from the Registry.",
+      "id": "o_file",
+      "item_id": "item_asc_claim_file",
+      "requires": [
+        "o_floor"
+      ],
+      "type": "retrieve",
+      "zone": "zone_asc_vats_registry"
+    },
+    {
+      "desc": "Ask Sub-Registrar Nine what variance means.",
+      "id": "o_ask",
+      "requires": [
+        "o_file"
+      ],
+      "target": "npc_asc_nine",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 420,
+    "flags": [
+      {
+        "flag": "asc_q15_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "15"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 55,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 96
+  },
+  "updated_at": "1788500000"
+}

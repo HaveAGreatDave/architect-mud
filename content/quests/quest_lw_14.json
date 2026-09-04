@@ -1,0 +1,89 @@
+{
+  "category": null,
+  "description": "The vats are the promise. Not the Spire, not the man at the top, not the money.\n\nThe Watch has been arguing for nine years about how many tanks are actually down there and how many of them hold anything, and the argument is nine years old because nobody has ever counted them.\n\nCyrelle wants a count and a file, and she wants you back out of the building before anybody has a reason to look at you twice.",
+  "fail_on": [
+    {
+      "desc": "Somebody in the hall saw you counting.",
+      "type": "spotted"
+    },
+    {
+      "desc": "It reached a camera.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_lw_14",
+  "meta": {},
+  "name": "The Promise",
+  "objectives": [
+    {
+      "desc": "Count the tanks in the hall.",
+      "emotes": [
+        "{who} walks a row of tanks counting under their breath like somebody doing a rosary.",
+        "{who} gets a different number than the plate on the wall says, and then gets it again.",
+        "{who} finds a whole bank of them dark, dry, and racked with nothing in them at all."
+      ],
+      "id": "o_hall",
+      "taskSeconds": 30,
+      "type": "visit",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "count": 1,
+      "desc": "Take a file out of the Registry that says so.",
+      "id": "o_file",
+      "item_id": "item_asc_claim_file",
+      "requires": [
+        "o_hall"
+      ],
+      "type": "retrieve",
+      "zone": "zone_asc_vats_registry"
+    },
+    {
+      "desc": "Get back down and put it in front of Cyrelle.",
+      "id": "o_back",
+      "requires": [
+        "o_file"
+      ],
+      "target": "npc_lw_cyrelle",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 0,
+    "rep": [
+      {
+        "delta": -40,
+        "ideology": "ideology_long_watch"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 420,
+    "flags": [
+      {
+        "flag": "lw_q14_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_arc",
+        "scope": "player",
+        "value": "14"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 70,
+        "ideology": "ideology_long_watch"
+      },
+      {
+        "delta": -50,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 120
+  },
+  "updated_at": "1788500000"
+}

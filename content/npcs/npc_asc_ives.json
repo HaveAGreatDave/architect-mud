@@ -8,6 +8,325 @@
   ],
   "description": "A trim, unhurried woman in a pale grey coat that has never been rained on, standing at the gate the way an auditor stands at a doorway — not blocking it, simply present, and counting. She holds a slate she does not look at. When she looks at you she does it once, all the way down, and then stops, as though she has finished the sum and is being polite about the answer.",
   "dialogue_tree": {
+    "a13_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 1800
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_13"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 60,
+          "ideology_id": "ideology_ascendants",
+          "reason": "A Number That Means a Person"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Filed.\" Ives reads your column once, quickly, the way somebody reads a thing they already know is right. \"Two hundred and forty a quarter, which they were not going to be able to pay in any case, and now they are not going to be asked to.\"\n\nShe looks up. \"You turned the sheet over.\"\n\nIt is not a question and she does not appear to mind. \"Everybody does it once.\""
+    },
+    "a13_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1800
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Give me the sheet.",
+          "next": "a13_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You never look?",
+          "next": "a13_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A household in the Yards, three quarters the wrong way, and a quarter that closes on Friday.\" Ives puts the sheet down square with the edge of the desk. \"The work is arithmetic. The arithmetic ends a policy.\"\n\n\"You will want to know whether I have looked at them. I have not.\""
+    },
+    "a13_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 1800
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_13"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Four quarters, then the projection, then file it.\" She is already on the next thing. \"Before Friday. A quarter that closes without it closes in their favour and then I have to explain why, and I would rather not.\""
+    },
+    "a13_why": {
+      "_vine": {
+        "x": 700,
+        "y": 1800
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Give me the sheet.",
+          "next": "a13_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A number you have put a face on is a number you will get wrong, in one direction, every time, and the direction is the one that ends the firm.\" She says it without any defensiveness at all, which is worse. \"The name is on the back of the sheet. It is on the back for a reason and the reason is not cowardice.\""
+    },
+    "a15_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 2100
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_15"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 70,
+          "ideology_id": "ideology_ascendants",
+          "reason": "Fidelity"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Variance.\" Ives turns the file over once and does not open it. \"Nine gave you the number, which I did not expect, and the number is worse than the one in the file, which I did.\"\n\nShe sets it down. \"This is the part of the work nobody is walked round on a tour. You will find it does not make the tour untrue. That is the difficulty with it.\""
+    },
+    "a15_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 2100
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The hall first.",
+          "next": "a15_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why me for this?",
+          "next": "a15_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A client died on Tuesday and came out on Wednesday, and what came out is not entirely what went in.\" Ives does not use the word wrong. \"The Registry calls it variance. I would like to know what the Registry means by it.\"\n\n\"Pull the file. Ask Nine. In that order.\""
+    },
+    "a15_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 2100
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_15"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The hall, then the Registry, then Nine.\" She squares the desk again. \"Count the tanks while you are down there. Not because I need it. Because you will want to know, afterwards, that you counted them yourself.\""
+    },
+    "a15_why": {
+      "_vine": {
+        "x": 700,
+        "y": 2100
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The hall first.",
+          "next": "a15_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because your own restore is eleven weeks old.\" She says it as a fact about a resource. \"Nine will find being asked by you uncomfortable, and uncomfortable is the only condition under which a sub-registrar has ever said anything useful.\"\n\nA beat. \"You will also find it uncomfortable. I am aware of that and I am asking anyway.\""
+    },
+    "a16_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 2400
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_16"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 80,
+          "ideology_id": "ideology_ascendants",
+          "reason": "The Address"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": 8
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "She reads the count twice, which she did not do with the household.\n\n\"Four presses worth of paper and one press.\" Ives sets it down. \"They have been printing for somebody else for a year, and everybody in this building has spent that year assuming it was for themselves.\"\n\nShe looks at you properly for the first time in a while. \"He was still on the crate.\""
+    },
+    "a16_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 2400
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "A count, then.",
+          "next": "a16_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The man on the crate.",
+          "next": "a16_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The press is still there.\" Ives has the address in front of her, in your handwriting, from a year ago. \"An address is a thing you can decide about later, and later is a Tuesday, and it is this one.\"\n\n\"Not to burn it. To count what is on the floor, so that the number in the file is a real number.\""
+    },
+    "a16_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 2400
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_16"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Reams and plates. Write both down. Touch neither.\" She holds the sheet out. \"And if he says anything to you, listen to it, and then come back and tell me you did not.\""
+    },
+    "a16_why": {
+      "_vine": {
+        "x": 700,
+        "y": 2400
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "A count, then.",
+          "next": "a16_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Wessel Ardy.\" She does not pretend not to know. \"He is not to be touched. If you think that is me being sentimental you have not understood a single thing this firm does — he is a lapsed client with a full file and an account we closed politely, and a lapsed client who turns up dead in a Watch basement is the one thing that would make any of this a matter for somebody else.\""
+    },
     "bye": {
       "_vine": {
         "x": 900,
@@ -527,6 +846,132 @@
       },
       "actions": [],
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "11"
+            },
+            {
+              "flag": "quest_asc_13",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q13_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You have arithmetic for me.",
+          "next": "a13_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_asc_13",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q13_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The household is filed.",
+          "next": "a13_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "13"
+            },
+            {
+              "flag": "quest_asc_15",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q15_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "What does the Registry mean by variance?",
+          "next": "a15_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_asc_15",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q15_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Nine gave me a number.",
+          "next": "a15_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "asc_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "14"
+            },
+            {
+              "flag": "quest_asc_16",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q16_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You still have the address.",
+          "next": "a16_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_asc_16",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q16_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I counted the floor.",
+          "next": "a16_done"
+        },
         {
           "conditions": [
             {

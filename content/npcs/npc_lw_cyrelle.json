@@ -205,6 +205,330 @@
       ],
       "text": "She takes it better than you were braced for, which is worse.\n\n\"All right.\"\n\nShe moves off the stool to let you past the type cases, and she is careful not to touch you doing it, and that is the part you will remember.\n\n\"For what it is worth, and it is worth nothing: I do not think you are a coward and I do not think you were bought. I think you did the arithmetic and got the right answer.\"\n\nShe sits back down in the dark.\n\n\"I have done it too. I just could not make myself live in it.\""
     },
+    "l13_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_13"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 60,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Somebody's Boy"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "She hears the whole of it without interrupting once, which she does not do.\n\n\"Running.\" Cyrelle says it before you have finished. \"The ports are capped clean and recent and he has not asked us for a single thing. Somebody sent would have asked for something by now, because that is what they are sent to do.\"\n\nShe turns back to the map. \"He comes in. He sleeps in the commons for a month and does not go past the spine, and in a month I will still be the one who decided it.\""
+    },
+    "l13_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will sit with him.",
+          "next": "l13_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And if I cannot tell which?",
+          "next": "l13_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is a boy at the Threshold.\" Cyrelle does not leave the map. \"Nineteen, Spire haircut, two capped ports in his forearms, and Rennick will not turn him away and will not let him in, which is exactly the right answer and is also not an answer.\"\n\n\"Sit with him. He is one of three things: sent, running, or lost.\""
+    },
+    "l13_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_13"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take him something to eat. He has not asked for anything, which is the part I do not like.\" Back to the map. \"And do not tell him you have been up there. Let him say it all first.\""
+    },
+    "l13_why": {
+      "_vine": {
+        "x": 700,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will sit with him.",
+          "next": "l13_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then you tell me that.\" She looks up. \"Do not decide. Listen, then tell me. I will decide, and if it is wrong it will be my fault, and I want it to be my fault. That is what this chair is.\""
+    },
+    "l14_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 1200
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_14"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 90,
+          "ideology_id": "ideology_long_watch",
+          "reason": "The Promise"
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "lw_knows_vats",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "She reads the file, then the count, then the file again.\n\n\"A whole bank of them dry.\" Cyrelle sits down, which is new. \"Nine years of arguing about whether they would ever open the vats to everybody, and it turns out they could not, and have not been able to for some time, and are still selling it every Tuesday to somebody like Halbrook.\"\n\nA long pause. \"This does not go in the room yet. I need to know what to do with it before forty people know I have it.\""
+    },
+    "l14_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will count them.",
+          "next": "l14_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The vats are the promise.",
+          "next": "l14_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nine years this room has argued about how many tanks are down there.\" Cyrelle puts one finger on the Spire and leaves it. \"Nine years, because nobody has ever counted them. Everything we know about the vats we know from people who were being shown round.\"\n\n\"Count them. Bring a file that says so.\""
+    },
+    "l14_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 1200
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_14"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hall first, Registry after, and out of the building before anybody has a reason to look at you twice.\" She is already back on the map. \"You have a face they let in. It is the only thing about your last year I am glad of.\""
+    },
+    "l14_why": {
+      "_vine": {
+        "x": 700,
+        "y": 1200
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will count them.",
+          "next": "l14_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They are.\" She does not soften it. \"That is exactly why I want the number. A promise you have not counted is a poster.\"\n\nShe takes the finger off the map. \"And if the number is good, I want to know that too, and I will say so in this room, and half of them will not forgive me for it.\""
+    },
+    "l15_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 1500
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_15"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 80,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Nothing Bought, Again"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -8
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "She takes the chip, looks at it once, and puts it in her coat.\n\n\"No name.\" Cyrelle nods slowly. \"Good. You will work out whose it is inside a fortnight, if you have not already, because it is not difficult and there are only forty of us.\"\n\nShe holds your eye for a moment. \"And then you will be the second person carrying it. I am sorry about that. It is the actual price and nobody warns anybody about it.\""
+    },
+    "l15_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 1500
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Tonight, then.",
+          "next": "l15_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You do not want the person.",
+          "next": "l15_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "She takes you out of the ops room to say it, which she has never done.\n\n\"Somebody here has been taking money. Eleven days I have known and I have not said a name to anybody, including Halloran, including you.\" Cyrelle keeps her voice at the level of a conversation about rations. \"The drop is behind the tap. I want the money. Tonight.\""
+    },
+    "l15_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 1500
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_15"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Behind the tap, low on the left, and do not look round while you are doing it.\" She is already going back in. \"Bring it to me and say no name. Not even if you know it. Especially not then.\""
+    },
+    "l15_why": {
+      "_vine": {
+        "x": 700,
+        "y": 1500
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Tonight, then.",
+          "next": "l15_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I want the person to find an empty gap and understand that it is over and that nobody is coming.\" She folds her arms. \"They will stop. People do, when the money stops and nothing else happens. It is the nothing else that does it.\"\n\n\"If I take them out of the bunkroom at three in the morning I have forty people who sleep worse for a year and one person who is gone. I have done that. It is not better.\""
+    },
     "map": {
       "options": [
         {
@@ -325,6 +649,132 @@
     },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "11"
+            },
+            {
+              "flag": "quest_lw_13",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q13_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "There is a boy at the Threshold.",
+          "next": "l13_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_13",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q13_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I sat with him.",
+          "next": "l13_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "12"
+            },
+            {
+              "flag": "quest_lw_14",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q14_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Nobody has ever counted the tanks.",
+          "next": "l14_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_14",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q14_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I counted them.",
+          "next": "l14_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "lw_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "13"
+            },
+            {
+              "flag": "quest_lw_15",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q15_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You wanted to talk outside.",
+          "next": "l15_offer"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_lw_15",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q15_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "It was behind the tap.",
+          "next": "l15_done"
+        },
         {
           "conditions": [
             {

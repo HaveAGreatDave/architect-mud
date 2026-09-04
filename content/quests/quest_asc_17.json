@@ -1,0 +1,64 @@
+{
+  "category": null,
+  "description": "Celebrant Orrin has read the Rite eleven hundred times and is going to miss this one, because his hands have started doing a thing his hands did not used to do.\n\nSomebody has to read the words. It is not a promotion and there is no ceremony attached to being the one who says the ceremony.\n\n\"Read it off the card,\" Orrin says. \"Everybody does. And when you lose your place, and you will, finish the last part from memory, because you know it, because it was said to you.\"",
+  "fail_on": [],
+  "id": "quest_asc_17",
+  "meta": {},
+  "name": "Reading the Words",
+  "objectives": [
+    {
+      "desc": "Read the Rite for somebody else in the Cold Aisle.",
+      "emotes": [
+        "{who} finds the card is smaller than it looked from the other side of it.",
+        "{who} reads a paragraph about continuity to a woman who is going to die on schedule this evening.",
+        "{who} loses their place two thirds of the way through, properly loses it, and shuffles the card.",
+        "{who} finishes the last part from memory, in the voice of somebody saying a thing they mean.",
+        "{who} understands, about four seconds too late, that this is what the man who read it to them was doing."
+      ],
+      "id": "o_read",
+      "taskSeconds": 120,
+      "type": "visit",
+      "zone": "zone_asc_shrine_nave"
+    },
+    {
+      "desc": "Find Orrin afterwards.",
+      "id": "o_after",
+      "requires": [
+        "o_read"
+      ],
+      "target": "npc_asc_orrin",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 260,
+    "flags": [
+      {
+        "flag": "asc_q17_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "asc_arc",
+        "scope": "player",
+        "value": "17"
+      },
+      {
+        "flag": "asc_celebrant",
+        "scope": "player",
+        "value": "true"
+      }
+    ],
+    "rep": [
+      {
+        "delta": 90,
+        "ideology": "ideology_ascendants"
+      }
+    ],
+    "xp": 140
+  },
+  "updated_at": "1788500000"
+}
