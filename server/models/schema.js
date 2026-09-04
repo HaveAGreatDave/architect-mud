@@ -1580,6 +1580,12 @@ export const SCHEMA_SQL = `
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS resolutions JSONB NOT NULL DEFAULT '[]';
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_fail JSONB;
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_turn_in JSONB;
+  -- Quests this one permanently closes when it is TAKEN: taking the Null contract
+  -- shuts the Watch's. Applied as a player flag per blocked id (quest_blocked_<id>),
+  -- so dialogue can gate on it through the ordinary Flag mechanism and no new
+  -- player_quests status was needed. Empty for almost every quest, deliberately —
+  -- blocking is permanent by construction and must be asked for.
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS blocks JSONB NOT NULL DEFAULT '[]';
 
   -- Per-player quest state. 'progress' is an integer array index-aligned to the
   -- quest's objectives. status: active → completed (all objectives met) → turned_in

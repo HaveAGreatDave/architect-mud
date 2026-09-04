@@ -165,7 +165,7 @@ const _questNodeDefs = {
   quest: {
     label: 'Quest',
     color: '#a04488',
-    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, onFail: '', onTurnIn: '', resolutions: [], ..._fmFromMeta({}) },
+    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, onFail: '', onTurnIn: '', resolutions: [], blocks: [], ..._fmFromMeta({}) },
     renderBody: (n) => `<div style="font-size:11px;color:var(--accent)">${_escQ(n.data.name || '(unnamed quest)')}</div>
       ${n.data.questType === 'flight_template' ? '<div style="font-size:10px;color:var(--text-dim)">✈ flight template</div>' : ''}
       ${n.data.repeatable ? '<div style="font-size:10px;color:var(--text-dim)">repeatable</div>' : ''}`,
@@ -183,6 +183,8 @@ const _questNodeDefs = {
         _qTextarea('data.resolutions', JSON.stringify(n.data.resolutions || [], null, 2), 5, true))}
       ${_qField('On turn-in, start quest (id — blank for none)', _qInput('data.onTurnIn', n.data.onTurnIn, 'quest_the_next_job'))}
       ${_qField('On failure, start quest (id — blank for none)', _qInput('data.onFail', n.data.onFail, 'quest_make_it_right'))}
+      ${_qField('Closes these quests for good when taken (ids, comma-separated) — permanent, so leave blank unless you mean it',
+        _qInput('data.blocks', (n.data.blocks || []).join(', '), 'quest_the_watch_offer'))}
       ${n.data.questType === 'flight_template'
         ? _qFlightMetaFields(n.data)
         : _qField('Advanced meta (JSON)', _qTextarea('data.meta', JSON.stringify(n.data.meta || {}, null, 2), 4, true))}
@@ -319,7 +321,7 @@ const _questNodeDefs = {
   reward: {
     label: 'Reward',
     color: '#b8912b',
-    defaultData: { credits: 0, xp: 0, items: [], flags: [], rep: [] },
+    defaultData: { credits: 0, xp: 0, advance: 0, items: [], flags: [], rep: [] },
     renderBody: (n) => {
       const items = Array.isArray(n.data.items) ? n.data.items.length : 0;
       const reps = Array.isArray(n.data.rep) ? n.data.rep.length : 0;
@@ -337,6 +339,7 @@ const _questNodeDefs = {
         'credits: 250\nxp: 50\nitems: [{"item_id":"pistol","quantity":1}]\nrep: [{"ideology":"ideology_ascendants","delta":40}]\nflags: [{"scope":"player","flag":"super_trusts_me","value":"true"}]'
       )}
       ${_qField('Credits', _qInput('data.credits', n.data.credits ?? 0, '0', 'number'))}
+      ${_qField('Advance — paid when the quest is TAKEN, and kept if it is failed (0 = none)', _qInput('data.advance', n.data.advance ?? 0, '0', 'number'))}
       ${_qField('XP', _qInput('data.xp', n.data.xp ?? 0, '0', 'number'))}
       ${_qField('Items (JSON)', _qTextarea('data.items', JSON.stringify(n.data.items || [], null, 2), 3, true))}
       ${_qField('Reputation (JSON)', _qTextarea('data.rep', JSON.stringify(n.data.rep || [], null, 2), 3, true))}
@@ -418,7 +421,7 @@ window.VineQuestSchema = {
 
     // `_questId` is a non-persisted hint (toQuest ignores it) so the quest node can
     // reverse-scan NPC dialogue for "offered by" links. Absent for brand-new quests.
-    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, onFail: rec.on_fail?.start_quest || '', onTurnIn: rec.on_turn_in?.start_quest || '', resolutions: Array.isArray(rec.resolutions) ? rec.resolutions : [], _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
+    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, onFail: rec.on_fail?.start_quest || '', onTurnIn: rec.on_turn_in?.start_quest || '', resolutions: Array.isArray(rec.resolutions) ? rec.resolutions : [], blocks: Array.isArray(rec.blocks) ? rec.blocks : [], _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
 
     // Objective nodes + gating edges.
     const dependedOn = new Set();
@@ -464,7 +467,7 @@ window.VineQuestSchema = {
     // Reward node, fed by terminal objectives (or the quest itself if no objectives).
     const rewards = rec.rewards && typeof rec.rewards === 'object' ? rec.rewards : {};
     const rewardPos = rewards._vine || { x: rewardCol * 300 + 40, y: 60 };
-    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, xp: rewards.xp || 0, items: rewards.items || [], rep: rewards.rep || [], flags: rewards.flags || [] } };
+    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, xp: rewards.xp || 0, advance: rewards.advance || 0, items: rewards.items || [], rep: rewards.rep || [], flags: rewards.flags || [] } };
     const terminals = objs.filter(o => !dependedOn.has(o.id));
     if (terminals.length) terminals.forEach(o => edges.push({ fromNode: o.id, fromPort: 'unlocks', toNode: 'reward' }));
     else edges.push({ fromNode: 'quest', fromPort: 'start', toNode: 'reward' });
@@ -570,6 +573,7 @@ window.VineQuestSchema = {
     const rewards = rewardNode ? {
       credits: Number(rewardNode[1].data.credits) || 0,
       xp: Number(rewardNode[1].data.xp) || 0,
+      advance: Number(rewardNode[1].data.advance) || 0,
       items: Array.isArray(rewardNode[1].data.items) ? rewardNode[1].data.items : [],
       rep: Array.isArray(rewardNode[1].data.rep) ? rewardNode[1].data.rep : [],
       flags: Array.isArray(rewardNode[1].data.flags) ? rewardNode[1].data.flags : [],
@@ -615,6 +619,10 @@ window.VineQuestSchema = {
       // condition plus a reward bundle, and drawing it as a second Reward box
       // wired to nothing would suggest an ordering the runtime does not have.
       resolutions: Array.isArray(questNode?.data.resolutions) ? questNode.data.resolutions : [],
+      // Authored as a comma-separated line rather than JSON: it is a list of ids
+      // and nothing else, and a JSON box for that invites a syntax error instead
+      // of a quest id.
+      blocks: String(questNode?.data.blocks || '').split(',').map(s => s.trim()).filter(Boolean),
       on_fail: questNode?.data.onFail ? { start_quest: String(questNode.data.onFail).trim() } : null,
       on_turn_in: questNode?.data.onTurnIn ? { start_quest: String(questNode.data.onTurnIn).trim() } : null,
     };

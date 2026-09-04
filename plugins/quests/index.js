@@ -74,7 +74,7 @@ import { spawnOnGround } from '../../server/engine/inventory.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { setFlag, clearFlag, evalCondition } from '../../server/engine/flags.js';
+import { setFlag, clearFlag, getFlag, evalCondition } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { grantXp } from '../../server/engine/ip.js';
 import { adjustReputation } from '../../server/engine/ideologies.js';
@@ -273,6 +273,24 @@ async function realign(quest, pq) {
 
 function freshProgress(quest) {
   return (quest.objectives || []).map(() => 0);
+}
+
+/**
+ * How much this player is paid UP FRONT for taking the quest — `rewards.advance`,
+ * money that moves when the job is taken rather than when it is finished. Without
+ * it, taking a job cost nothing and failing one lost nothing you were holding,
+ * which is why `penalties` had to invent a debt out of nothing. The advance is
+ * KEPT on failure; that is the whole point of it.
+ *
+ * ⚠ Nothing is paid when a failed or abandoned attempt is retaken, or
+ * take-fail-repeat is a faucet. A repeatable quest taken again after being turned
+ * in IS a new job and pays again.
+ *
+ * A pure function so the rule can be tested without a bank account.
+ */
+export function advanceFor(quest, existingStatus) {
+  if (existingStatus === 'failed' || existingStatus === 'abandoned') return 0;
+  return Math.max(0, Number(quest?.rewards?.advance) || 0);
 }
 
 // ── Rolled targets ──────────────────────────────────────────────────────────
@@ -908,7 +926,11 @@ async function failQuest(actor, quest, cond) {
   await despawnQuestItems(actor.id, quest.id);   // don't leave its props on the floor
   const cost = await applyPenalties(actor, quest);
   const why = failReasonLine(quest, cond);
-  msg(actor.id, `<span class="msg-system">Quest failed: ${quest.name}. ${why}${cost}</span>`);
+  // The advance is stated separately from the penalty, never netted against it:
+  // an advance of 200 and a fine of 200 reported as one number reads to a player
+  // as nothing having happened.
+  const kept = Number(quest.rewards?.advance) > 0 ? ' You keep the advance.' : '';
+  msg(actor.id, `<span class="msg-system">Quest failed: ${quest.name}. ${why}${cost}${kept}</span>`);
   questLogLine(actor, quest.id, 'failed', `${quest.name} — ${why}`);
   emit('quest.failed', { actor, quest_id: quest.id, reason: cond?.type || 'unknown' });
   // "You told them, didn't you" is more interesting as the next job than as a fine.
@@ -1454,6 +1476,14 @@ registerAction({
     const quest = await loadQuest(quest_id);
     if (!quest) return { type: 'error', message: `Unknown quest: ${quest_id}` };
 
+    // Closed for good by a rival quest? Checked before anything else, because a
+    // block is the one refusal that is permanent and the player should not see a
+    // quest half-start.
+    if (await getFlag('player', `quest_blocked_${quest_id}`, actor) !== undefined) {
+      msg(actor.id, `<span class="msg-system">That door closed a while ago.</span>`);
+      return { type: 'quest', quest_id, started: false, blocked: true };
+    }
+
     // Roll any selectors BEFORE touching the row — an unresolvable one refuses the
     // quest, and refusing after the INSERT would leave a started quest nobody can
     // finish. The refusal names the selector, because the author is the only one
@@ -1507,6 +1537,25 @@ registerAction({
       );
     }
     await setQuestFlag(actor, quest_id, 'active');
+
+    // Doors this one shuts. Permanent, and only ever what an author asked for:
+    // "taking the Null contract closes the Watch's" was expressible before this
+    // only as a web of flags maintained by hand across two quests.
+    for (const blockedId of (Array.isArray(quest.blocks) ? quest.blocks : [])) {
+      if (!blockedId || blockedId === quest_id) continue;
+      await setFlag('player', `quest_blocked_${blockedId}`, quest_id, actor);
+    }
+
+    // The advance: money that moves when the job is TAKEN. Without it, taking a
+    // job cost nothing and failing one lost nothing you were holding, which is why
+    // penalties had to invent a debt out of thin air. Kept on failure — that is
+    // the whole point of it, and what gives `penalties` something real to charge.
+    const advance = advanceFor(quest, existing?.status);
+    if (advance > 0) {
+      await adjustCredits(actor, advance, undefined, 'quest:advance');
+      msg(actor.id, `<span class="msg-system">Paid up front: +${advance}₵.</span>`);
+    }
+
     // Everything from here on sees the ROLLED quest: the item that gets spawned and
     // the zone the GPS plots to must be the ones this player was actually given.
     const rolledQuest = withRolled(quest, { targets });
@@ -1986,15 +2035,15 @@ export const routeHandler = async (path, method, body, auth) => {
     if (path === '/quests' && method === 'POST') {
       const qid = body.id || `quest_${Date.now()}`;
       await query(
-        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,resolutions,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,EXTRACT(EPOCH FROM NOW()))`,
+        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,resolutions,blocks,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,EXTRACT(EPOCH FROM NOW()))`,
         [qid, body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
          JSON.stringify(body.penalties || {}),
          body.on_fail ? JSON.stringify(body.on_fail) : null,
          body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
-         JSON.stringify(body.resolutions || [])]
+         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || [])]
       );
       invalidateQuestCache(qid);
       return { status: 201, body: { id: qid } };
@@ -2002,15 +2051,15 @@ export const routeHandler = async (path, method, body, auth) => {
     if (id && method === 'PUT') {
       await query(
         `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,quest_type=$6,meta=$7,
-         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, resolutions=$12,
-         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$13`,
+         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, resolutions=$12, blocks=$13,
+         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$14`,
         [body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
          JSON.stringify(body.penalties || {}),
          body.on_fail ? JSON.stringify(body.on_fail) : null,
          body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
-         JSON.stringify(body.resolutions || []), id]
+         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || []), id]
       );
       invalidateQuestCache(id);
       return { status: 200, body: { id } };

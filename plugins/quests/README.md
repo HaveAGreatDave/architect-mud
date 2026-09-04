@@ -77,6 +77,7 @@ None.
 
 - `quests` — `id, name, description, objectives JSONB, rewards JSONB, repeatable, updated_at`.
   - `objectives`: `[{ type, target?, item_id?, zone?, count?, desc, requires?[], emotes?[], taskSeconds?, optional?, rewards? }]`
+  - `blocks`: quest ids this one closes for good when taken — see [Exclusivity](#exclusivity--blocks)
   - `resolutions`: alternate endings — see [Branching resolutions](#branching-resolutions)
   - `on_fail` / `on_turn_in`: `{ start_quest }` or null — see [What happens next](#what-happens-next--on_fail--on_turn_in)
   - `fail_on`: the same shapes, but each blows the quest — see [Failure](#failure)
@@ -85,7 +86,7 @@ None.
   quest can be edited without corrupting live progress), `spawned` (row ids of auto-spawned
   `retrieve` items, so they can be taken back out of the world) and `targets`
   ([rolled targets](#rolled-targets), frozen at start).
-  - `rewards`: `{ credits?, xp?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}], rep?:[{ideology,delta}] }`
+  - `rewards`: `{ credits?, xp?, advance?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}], rep?:[{ideology,delta}] }`
 - `player_quests` — `player_id, quest_id, status ('active'|'completed'|'turned_in'|'abandoned'|'failed'), progress JSONB (index-aligned counters), started_at, updated_at`.
 
 Dev CRUD lives under `/api/quests` (GET/POST, PUT/DELETE by id) for devpanel authoring.
@@ -221,6 +222,33 @@ vague on purpose; the reason (naming the selector) goes to the console, because 
 only one who can act on it.
 
 ⚠ **Retaking a quest re-rolls it.** A second attempt at a rolling gig is a new gig.
+
+## The advance — `rewards.advance`
+
+Money that moves when the job is **taken** rather than when it is finished, and **kept when the
+quest is failed**. Before it, taking a job cost nothing and failing one lost nothing you were
+holding, which is why `penalties` had to invent a debt out of nothing; with it, failing a job you
+took an advance on is theft and `penalties` has something real to charge for.
+
+⚠ **A retake of a FAILED or ABANDONED attempt pays nothing.** Paying it again makes take-fail-repeat
+a faucet. A repeatable quest taken again after being turned in *is* a new job and pays. The rule is
+`advanceFor(quest, existingStatus)`, a pure function, so it can be tested without a bank account.
+
+⚠ **The advance and the penalty are stated separately, never netted.** An advance of 200 and a fine
+of 200 reported as one number reads to a player as nothing having happened.
+
+## Exclusivity — `blocks`
+
+`blocks: [quest_id…]` on a quest permanently closes the named quests for that player the moment this
+one is **taken**: the Null contract shuts the Watch's. Applied as a player flag per blocked id
+(`quest_blocked_<id>`), so dialogue can gate on it through the ordinary Flag mechanism and no new
+`player_quests` status was needed. `START_QUEST` refuses a blocked quest before writing anything.
+
+⚠ **A closed quest stays closed even if the quest that closed it is failed.** A door that reopens
+when you fumble the thing that shut it is not a decision.
+
+⚠ **Blocking is permanent by construction and must be authored deliberately** — the same argument
+`meta.failPermanent` already makes. Default to blocking nothing.
 
 ## What happens next — `on_fail` / `on_turn_in`
 

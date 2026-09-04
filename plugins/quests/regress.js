@@ -8,7 +8,7 @@ import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
 import { clearEffect } from '../../server/engine/effects.js';
 import { world } from '../../server/engine/world.js';
-import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled } from './index.js';
+import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled, advanceFor } from './index.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -1036,6 +1036,76 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
     await query('DELETE FROM quests WHERE id=$1', [QID]);
     invalidateQuestCache(QID);
+  }
+
+  // ── The advance, and exclusivity ───────────────────────────────────────────
+  //
+  // The advance is money that moves when the job is TAKEN and is kept when it is
+  // failed. The case that matters is the retake: paying it again on a retry makes
+  // take-fail-repeat a faucet, which is the exploit this feature would otherwise
+  // have shipped with.
+  {
+    const PAID = 'quest_regress_advance';
+    const CLOSED = 'quest_regress_closed';
+    const obj = JSON.stringify([{ id: 'go', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go' }]);
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,blocks,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Advance','',$2,$3,$4,0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, rewards=$3, blocks=$4`,
+      [PAID, obj, JSON.stringify({ advance: 25, xp: 3 }), JSON.stringify([CLOSED])]
+    );
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Closed','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+      [CLOSED, obj]
+    );
+    invalidateQuestCache(PAID); invalidateQuestCache(CLOSED);
+    for (const id of [PAID, CLOSED]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [player.id, `quest_blocked_${id}`]);
+    }
+
+    // The rule itself is a pure function, so it is tested as one — the harness
+    // player has no players row and cannot bank credits.
+    const withAdvance = { rewards: { advance: 25 } };
+    check('a fresh take is paid the advance', advanceFor(withAdvance, undefined) === 25, String(advanceFor(withAdvance, undefined)));
+    check('retaking a FAILED attempt pays no second advance',
+      advanceFor(withAdvance, 'failed') === 0, String(advanceFor(withAdvance, 'failed')));
+    check('retaking an ABANDONED attempt pays no second advance',
+      advanceFor(withAdvance, 'abandoned') === 0, String(advanceFor(withAdvance, 'abandoned')));
+    check('a repeatable taken again after turn-in is a new job, and pays',
+      advanceFor(withAdvance, 'turned_in') === 25, String(advanceFor(withAdvance, 'turned_in')));
+    check('a quest with no advance authored pays nothing',
+      advanceFor({ rewards: { credits: 100 } }, undefined) === 0, 'paid something');
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: PAID } });
+    const pq = await loadPlayerQuest(player.id, PAID);
+    check('a quest with an advance still starts', pq?.status === 'active', String(pq?.status));
+
+    // Exclusivity: taking it closed the rival, permanently.
+    const blocked = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: CLOSED } });
+    check('a quest closed by another cannot be started', blocked?.blocked === true, JSON.stringify(blocked));
+    check('…and no row is written for it', !(await loadPlayerQuest(player.id, CLOSED)), 'row exists');
+
+    // …and it stays closed after the quest that closed it is failed. A door that
+    // reopens when you fumble the thing that shut it is not a decision.
+    await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: PAID, reason: 'testing' } });
+    const stillBlocked = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: CLOSED } });
+    check('a closed quest stays closed even after the quest that closed it fails',
+      stillBlocked?.blocked === true, JSON.stringify(stillBlocked));
+
+    // The retake pays no second advance.
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: PAID } });
+    const retaken = await loadPlayerQuest(player.id, PAID);
+    check('a failed quest with an advance can still be retaken', retaken?.status === 'active', String(retaken?.status));
+
+    for (const id of [PAID, CLOSED]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [player.id, `quest_blocked_${id}`]);
+      await query('DELETE FROM quests WHERE id=$1', [id]);
+      invalidateQuestCache(id);
+    }
   }
 
   // ── Branching resolutions ──────────────────────────────────────────────────

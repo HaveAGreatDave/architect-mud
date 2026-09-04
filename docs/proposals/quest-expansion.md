@@ -1,6 +1,6 @@
 # Quest system expansion — seven additions
 
-**Status: items 1, 2, 3 and 5 are BUILT (2026-09-04); the other three are design.** The as-built system is
+**Status: items 1, 2, 3, 4, 5 and 7 are BUILT (2026-09-04); only item 6 is design.** The as-built system is
 [plugins/quests/README.md](../../plugins/quests/README.md), which stays the authority on
 everything that already ships.
 
@@ -82,7 +82,7 @@ across an edit; frozen targets are the same idea pointed at authoring-time varia
 an unfinishable quest is the failure mode this feature is most likely to ship with, and it looks
 like a content bug for weeks.
 
-## 4. Payment structure
+## 4. Payment structure — BUILT
 
 **The gap.** Money moves once, at turn-in. So taking a job costs nothing and failing one loses
 nothing you were holding — which is why `penalties` had to invent a debt out of nothing.
@@ -124,7 +124,7 @@ gate, so a posting can lapse.
 ⚠ **`state` needs a floor on how it is checked.** A condition polled per event on a busy bus is a
 hot path; it belongs behind the same funnel as the timeout check, never in a subscriber of its own.
 
-## 7. Exclusivity
+## 7. Exclusivity — BUILT
 
 **The gap.** "Taking the Null contract closes the Watch's" is expressible today only as a web of
 flags maintained by hand across two quests written by two people.
@@ -158,7 +158,10 @@ Cheapest first, since none blocks another:
    two stories rather than two payouts. Recorded as an `id` on `player_quests.resolution` and
    mirrored to the flag `<quest_id>_resolution`, so later dialogue gates on it with no new condition
    shape.
-4. **Payment structure** (4) and **exclusivity** (7).
+4. ~~**Payment structure** (4) and **exclusivity** (7)~~ — built 2026-09-04. The advance needed one
+   guard the design did not name: a retake of a FAILED or ABANDONED attempt pays nothing, or
+   take-fail-repeat is a faucet. Exclusivity needed no new player_quests status — a
+   `quest_blocked_<id>` flag per closed quest, which dialogue can already gate on.
 5. **World-state objectives and offer windows** (6) — last, because it is the only one that touches
    systems outside this plugin.
 
