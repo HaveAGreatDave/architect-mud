@@ -873,6 +873,28 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       }
     }
   }
+
+  // An OPTIONAL objective named in a MANDATORY objective's `requires` makes the
+  // quest unfinishable for any player who skips the bonus — the completion check
+  // ignores optional objectives, but `requires` does not, so the mandatory one
+  // stays locked forever. It reads as a quest that simply stopped working, which
+  // is why this is an error at authoring time rather than a discovery in prod.
+  {
+    const questFiles = entries.find(e => e.entry.table === 'quests')?.files || [];
+    for (const f of questFiles) {
+      const objectives = f.data.objectives || [];
+      const optional = new Set(objectives.filter(o => o?.optional === true && o?.id).map(o => o.id));
+      if (!optional.size) continue;
+      for (const o of objectives) {
+        if (o?.optional === true) continue;   // optional gating optional is fine
+        for (const rid of (Array.isArray(o?.requires) ? o.requires : [])) {
+          if (!optional.has(rid)) continue;
+          errors.push(`quests/${f.name} ${o.id || '?'}: requires "${rid}", which is OPTIONAL — a player who skips it can never finish this quest`);
+        }
+      }
+    }
+  }
+
   return { errors, warnings };
 }
 

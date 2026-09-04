@@ -76,7 +76,8 @@ None.
 ## Data schema
 
 - `quests` — `id, name, description, objectives JSONB, rewards JSONB, repeatable, updated_at`.
-  - `objectives`: `[{ type, target?, item_id?, zone?, count?, desc, requires?[], emotes?[], taskSeconds? }]`
+  - `objectives`: `[{ type, target?, item_id?, zone?, count?, desc, requires?[], emotes?[], taskSeconds?, optional?, rewards? }]`
+  - `on_fail` / `on_turn_in`: `{ start_quest }` or null — see [What happens next](#what-happens-next--on_fail--on_turn_in)
   - `fail_on`: the same shapes, but each blows the quest — see [Failure](#failure)
   - `penalties`: what failing costs — `{ credits?, rep?:[{ideology,delta}], flags?:[…] }`
 - `player_quests` also carries `progress_keys` (the objective ids `progress` was built against, so a
@@ -131,6 +132,38 @@ four constraint conditions below cost a predicate each and no change to the syst
 a **number**, which is the amount to add. That is what makes an objective measured in credits
 (`spend`) or in output quantity (`craft`) expressible at all, rather than only ones measured in
 repetitions.
+
+## Optional objectives
+
+`optional: true` on an objective takes it out of the finish line. It is still tracked, still listed
+(marked `(optional)`), still gateable with `requires` — but `isComplete` ignores it, so the quest can
+be handed in without it. That is the whole difference between a quest being done and being done
+well, which is most of what makes a repeatable worth doing properly the fifth time.
+
+An optional objective may carry `rewards` of its own, in the quest's `rewards` shape. Each one that
+was actually met is paid at turn-in, after the quest's own rewards and through the same
+`grantRewards` path (ledger reason `quest:bonus`, so a bonus is distinguishable from the fee).
+
+Mandatory work is offered before optional work in every "Next:" hint — a bonus suggested ahead of
+the thing that finishes the quest reads as the game misdirecting you.
+
+⚠ **An optional objective must never be named in a MANDATORY objective's `requires`.** The
+completion check ignores optional objectives, `requires` does not, so the mandatory one stays locked
+forever and the quest is unfinishable for anyone who skipped the bonus. `content:lint` refuses that
+shape; without the lint it is a defect that reads as the quest system being broken rather than as a
+content bug.
+
+## What happens next — `on_fail` / `on_turn_in`
+
+Two nullable columns, both `{ start_quest: <quest_id> }`, dispatched through the ordinary
+`START_QUEST` action once the ending's own event has fired. The interesting answer to a failure is
+rarely a fine — it is the cleanup job, or the person who now wants a word — and stating that as a
+field retires the hand-written flag chains that used to link a quest to its sequel.
+
+⚠ **A follow-up already live on that player is refused**, as is a quest naming itself. Two quests
+each naming the other on failure is an authoring mistake, and without the guard it costs a loop at
+runtime rather than a red in review. A follow-up that is *failed* or *abandoned* does restart —
+`START_QUEST`'s own retry rule, unchanged.
 
 ## Extension points
 

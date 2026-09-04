@@ -1564,6 +1564,14 @@ export const SCHEMA_SQL = `
   -- Deliberately no item confiscation: the package being gone is usually WHY the
   -- quest failed, so taking it is a no-op that reads like a bug.
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS penalties JSONB NOT NULL DEFAULT '{}';
+  -- What happens NEXT. Both are { start_quest: <quest_id> } or NULL, dispatched
+  -- through the ordinary START_QUEST action: 'on_fail' when the quest blows,
+  -- 'on_turn_in' when it is handed in. The interesting answer to a failure is
+  -- usually the cleanup job rather than a fine, and stating that here retires the
+  -- hand-written flag chains that used to link a quest to its sequel. A follow-up
+  -- already live on that player is refused, so a pair naming each other cannot spin.
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_fail JSONB;
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_turn_in JSONB;
 
   -- Per-player quest state. 'progress' is an integer array index-aligned to the
   -- quest's objectives. status: active → completed (all objectives met) → turned_in

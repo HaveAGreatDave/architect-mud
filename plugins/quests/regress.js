@@ -981,4 +981,112 @@ export default async function regress({ run, check, getPlayer }) {
     check('the engine drop verb is untouched by quest abandon',
       !/abandon/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 120));
   }
+
+  // ── Optional objectives ────────────────────────────────────────────────────
+  //
+  // The property that matters is the finish line: an optional objective is
+  // tracked and paid, but a quest whose only outstanding work is optional must be
+  // turn-in-able. Getting that backwards yields a quest nobody can hand in, which
+  // in play reads as the quest system being broken rather than as a content bug.
+  {
+    const QID = 'quest_regress_optional';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Optional','',$2,$3,0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, rewards=$3`,
+      [QID, JSON.stringify([
+        { id: 'main', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'The job' },
+        { id: 'bonus', type: 'visit', zone: 'zone_nowhere_else', count: 1, desc: 'The favour', optional: true, rewards: { xp: 11 } },
+      ]), JSON.stringify({ xp: 5 })]
+    );
+    invalidateQuestCache(QID);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 0 } });
+    let pq = await loadPlayerQuest(player.id, QID);
+    check('a quest completes with an optional objective outstanding',
+      pq?.status === 'completed', JSON.stringify(pq?.status));
+
+    // Paid in XP rather than credits on purpose: the harness player is in-memory
+    // and has no players row, so adjustCredits legitimately writes nothing, while
+    // the XP mirror on the live object moves. Same payment path either way.
+    const before = Number(player.total_xp) || 0;
+    const netBefore = Number(player.xp) || 0;
+    let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('TURN_IN pays out with the optional objective skipped', r?.turned_in === true, JSON.stringify(r));
+    check('a SKIPPED optional objective pays no bonus',
+      (Number(player.total_xp) || 0) - before === 5, `${before} → ${player.total_xp}`);
+
+    // And the other way round: the bonus is paid when the optional work was done.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 1 } });
+    pq = await loadPlayerQuest(player.id, QID);
+    check('an optional objective alone does NOT complete the quest',
+      pq?.status === 'active', JSON.stringify(pq?.status));
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: QID, index: 0 } });
+    const before2 = Number(player.total_xp) || 0;
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('a MET optional objective pays its own bonus on top',
+      (Number(player.total_xp) || 0) - before2 === 16, `${before2} → ${player.total_xp}`);
+    // The XP mirror is shared state for the whole suite — put it back.
+    player.total_xp = before; player.xp = netBefore;
+
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await query('DELETE FROM quests WHERE id=$1', [QID]);
+    invalidateQuestCache(QID);
+  }
+
+  // ── on_fail / on_turn_in — a quest hands you the next one ──────────────────
+  //
+  // Both go through the ordinary START_QUEST action, so what is tested here is
+  // the wiring and the loop guard, not the starting. The guard is the part that
+  // matters: a pair of quests each naming the other would otherwise spin.
+  {
+    const A = 'quest_regress_chain_a';
+    const B = 'quest_regress_chain_b';
+    const mk = (id, name, objectives, extra = {}) => query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,on_fail,on_turn_in,updated_at)
+       VALUES ($1,$2,'',$3,'{}',0,'standard','{}',$4,$5,$6,EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$3, fail_on=$4, on_fail=$5, on_turn_in=$6`,
+      [id, name, JSON.stringify(objectives), JSON.stringify(extra.fail_on || []),
+       JSON.stringify(extra.on_fail || null), JSON.stringify(extra.on_turn_in || null)]
+    );
+    const obj = [{ id: 'go', type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go' }];
+
+    await mk(A, 'Regress Chain A', obj, { on_turn_in: { start_quest: B }, on_fail: { start_quest: B } });
+    await mk(B, 'Regress Chain B', obj, { on_fail: { start_quest: A } });
+    invalidateQuestCache(A); invalidateQuestCache(B);
+    for (const id of [A, B]) await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: A } });
+    await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: A, index: 0 } });
+    await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: A } });
+    let pqB = await loadPlayerQuest(player.id, B);
+    check('on_turn_in starts the follow-up quest', pqB?.status === 'active', JSON.stringify(pqB?.status));
+
+    // B is live and names A on failure; A is turned_in and not repeatable, so the
+    // follow-up must be refused rather than resurrecting a finished quest.
+    await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: B, reason: 'testing' } });
+    const pqA = await loadPlayerQuest(player.id, A);
+    check('a follow-up never re-opens a quest that is already finished',
+      pqA?.status === 'turned_in', JSON.stringify(pqA?.status));
+
+    // And the live-quest guard: failing A again would try to start B, which is
+    // itself failed and therefore retryable — the guard only blocks LIVE ones, so
+    // this asserts the shape rather than a blanket refusal.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, A]);
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: A } });
+    await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: A, reason: 'testing' } });
+    pqB = await loadPlayerQuest(player.id, B);
+    check('on_fail restarts a follow-up that is not currently live',
+      pqB?.status === 'active', JSON.stringify(pqB?.status));
+
+    for (const id of [A, B]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM quests WHERE id=$1', [id]);
+      invalidateQuestCache(id);
+    }
+  }
 }

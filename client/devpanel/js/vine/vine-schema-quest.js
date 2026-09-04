@@ -165,7 +165,7 @@ const _questNodeDefs = {
   quest: {
     label: 'Quest',
     color: '#a04488',
-    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, ..._fmFromMeta({}) },
+    defaultData: { name: '', description: '', repeatable: false, questType: 'standard', meta: {}, onFail: '', onTurnIn: '', ..._fmFromMeta({}) },
     renderBody: (n) => `<div style="font-size:11px;color:var(--accent)">${_escQ(n.data.name || '(unnamed quest)')}</div>
       ${n.data.questType === 'flight_template' ? '<div style="font-size:10px;color:var(--text-dim)">✈ flight template</div>' : ''}
       ${n.data.repeatable ? '<div style="font-size:10px;color:var(--text-dim)">repeatable</div>' : ''}`,
@@ -179,6 +179,8 @@ const _questNodeDefs = {
       ${_qField('Description', _qTextarea('data.description', n.data.description, 3))}
       ${_qField('Repeatable?', _qSelect('data.repeatable', [[false, 'One-time'], [true, 'Repeatable']], !!n.data.repeatable))}
       ${_qField('Quest Type', _qSelect('data.questType', [['standard', 'Standard (incl. job board)'], ['flight_template', 'Flight Contract Template']], n.data.questType || 'standard'))}
+      ${_qField('On turn-in, start quest (id — blank for none)', _qInput('data.onTurnIn', n.data.onTurnIn, 'quest_the_next_job'))}
+      ${_qField('On failure, start quest (id — blank for none)', _qInput('data.onFail', n.data.onFail, 'quest_make_it_right'))}
       ${n.data.questType === 'flight_template'
         ? _qFlightMetaFields(n.data)
         : _qField('Advanced meta (JSON)', _qTextarea('data.meta', JSON.stringify(n.data.meta || {}, null, 2), 4, true))}
@@ -235,6 +237,11 @@ const _questNodeDefs = {
       ${n.data.kind === 'escort' ? _qField('Deliver them to (zone)', _qInput('data.spawnZone', n.data.spawnZone, 'zone_clinic')) : ''}
       ${_qField(_qCountLabel(n.data.kind), _qInput('data.count', n.data.count ?? 1, n.data.kind === 'spend' ? '5000' : '1', 'number'))}
       ${_qField('Description', _qTextarea('data.desc', n.data.desc, 2))}
+      ${_qField('Required to finish?', _qSelect('data.optional', [['no', 'Yes — the quest is not done without it'], ['yes', 'No — optional bonus objective']], n.data.optional || 'no'))}
+      ${n.data.optional === 'yes' ? `
+      ${_qField('Bonus credits (paid at turn-in if this was done)', _qInput('data.bonusCredits', n.data.bonusCredits ?? '', '100', 'number'))}
+      ${_qField('Bonus XP', _qInput('data.bonusXp', n.data.bonusXp ?? '', '5', 'number'))}
+      ` : ''}
       ${_qField('Action lines — flavour shown to the room each tick (one per line, {who} = player; blank = none)',
         _qTextarea('data.emotes', n.data.emotes, 3))}
       ${n.data.kind === 'visit' ? _qField('Task time (seconds) — how long standing here takes; a random Action line fires every couple seconds (blank/0 = completes instantly)',
@@ -385,6 +392,19 @@ window.VineQuestSchema = {
         emotes: Array.isArray(o.emotes) ? o.emotes.join('\n') : (o.emote ? String(o.emote) : ''),
         taskSeconds: o.taskSeconds != null ? o.taskSeconds : '',
         requires: Array.isArray(o.requires) ? o.requires : [],
+        // Optional objectives are tracked and paid like any other, but sit outside
+        // the finish line. Their own `rewards` are the bonus for having bothered;
+        // only credits and XP are editable here, the rest is data-only.
+        optional: o.optional === true ? 'yes' : 'no',
+        bonusCredits: o.rewards?.credits ?? '',
+        bonusXp: o.rewards?.xp ?? '',
+        // Everything in the bundle this panel does not edit, carried through the
+        // round trip so opening a quest in the editor cannot silently drop it.
+        _bonusRest: (() => {
+          if (!o.rewards || typeof o.rewards !== 'object') return null;
+          const { credits, xp, ...rest } = o.rewards;
+          return Object.keys(rest).length ? rest : null;
+        })(),
         _vine: o._vine,
       };
     });
@@ -396,7 +416,7 @@ window.VineQuestSchema = {
 
     // `_questId` is a non-persisted hint (toQuest ignores it) so the quest node can
     // reverse-scan NPC dialogue for "offered by" links. Absent for brand-new quests.
-    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
+    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, questType: rec.quest_type || 'standard', meta: (rec.meta && typeof rec.meta === 'object') ? rec.meta : {}, onFail: rec.on_fail?.start_quest || '', onTurnIn: rec.on_turn_in?.start_quest || '', _questId: rec.id || '', ..._fmFromMeta(rec.meta) } };
 
     // Objective nodes + gating edges.
     const dependedOn = new Set();
@@ -495,6 +515,18 @@ window.VineQuestSchema = {
       const ts = Number(node.data.taskSeconds);
       if (kind === 'visit' && ts > 0) obj.taskSeconds = ts;
       if (requires.length) obj.requires = requires;
+      if (node.data.optional === 'yes') {
+        obj.optional = true;
+        const bc = Number(node.data.bonusCredits) || 0;
+        const bx = Number(node.data.bonusXp) || 0;
+        // Preserve any richer reward bundle authored outside the editor (items,
+        // flags, rep) — this panel edits two fields of it, it does not own it.
+        if (bc || bx || node.data._bonusRest) {
+          obj.rewards = { ...(node.data._bonusRest || {}) };
+          if (bc) obj.rewards.credits = bc;
+          if (bx) obj.rewards.xp = bx;
+        }
+      }
       objectives.push(obj);
     }
 
@@ -574,6 +606,11 @@ window.VineQuestSchema = {
       rewards,
       fail_on,
       penalties,
+      // A follow-up is a field on the quest rather than a node, because it names a
+      // DIFFERENT graph — a wire to a quest this canvas does not contain would be
+      // a wire to nothing.
+      on_fail: questNode?.data.onFail ? { start_quest: String(questNode.data.onFail).trim() } : null,
+      on_turn_in: questNode?.data.onTurnIn ? { start_quest: String(questNode.data.onTurnIn).trim() } : null,
     };
   },
 };

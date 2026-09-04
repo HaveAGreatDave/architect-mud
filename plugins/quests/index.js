@@ -321,8 +321,29 @@ async function despawnQuestItems(playerId, questId) {
   return del.rowCount || 0;
 }
 
+// An objective marked `optional: true` is tracked, shown and paid like any other,
+// but it is not part of the finish line — which is what lets a quest distinguish
+// "done" from "done well" instead of being binary. Everything else about it is
+// unchanged, `requires` included.
+//
+// ⚠ An optional objective must never be named in a MANDATORY objective's
+// `requires`, or the quest cannot be finished by a player who skipped it.
+// content:lint refuses that shape rather than leaving it to be found live.
+function isOptional(obj) { return obj?.optional === true; }
+
+function objectiveMet(obj, have) { return (have || 0) >= (obj.count || 1); }
+
 function isComplete(quest, progress) {
-  return (quest.objectives || []).every((obj, i) => (progress[i] || 0) >= (obj.count || 1));
+  return (quest.objectives || []).every((obj, i) => isOptional(obj) || objectiveMet(obj, progress[i]));
+}
+
+// The objective to point the player at next. Mandatory work is offered before
+// optional work — a bonus objective suggested ahead of the thing that actually
+// finishes the quest reads as the game misdirecting you.
+function nextObjective(objectives, progress) {
+  const open = (obj, i) => !objectiveMet(obj, progress[i]) && requiresMet(objectives, obj, progress);
+  return objectives.find((o, i) => open(o, i) && !isOptional(o))
+      || objectives.find((o, i) => open(o, i));
 }
 
 // Gating: an objective is unlocked only once every objective it `requires` (by id)
@@ -425,8 +446,9 @@ function objectiveLine(obj, done, locked) {
   const label = obj.desc || `${obj.type} ${obj.target || obj.item_id || obj.zone || ''}`.trim();
   const need = obj.count || 1;
   const have = Math.min(done, need);
-  if (locked) return `  [-] ${label} (locked)`;
-  return `  [${have >= need ? 'X' : ' '}] ${label}${need > 1 ? ` (${have}/${need})` : ''}`;
+  const bonus = isOptional(obj) ? ' <span class="text-dim">(optional)</span>' : '';
+  if (locked) return `  [-] ${label}${bonus} (locked)`;
+  return `  [${have >= need ? 'X' : ' '}] ${label}${need > 1 ? ` (${have}/${need})` : ''}${bonus}`;
 }
 
 function objectiveDesc(obj) {
@@ -637,6 +659,101 @@ async function applyPenalties(actor, quest) {
 }
 
 /**
+ * Grant one reward bundle through the canonical Action/service paths, and return
+ * the short strings the caller shows the player (" (+200₵, +5 XP)").
+ *
+ * The mirror of applyPenalties, and extracted from TURN_IN's body because it is no
+ * longer paid in one place: an OPTIONAL objective may carry `rewards` of its own,
+ * and each met one is paid alongside the quest's at hand-in. Two copies of the
+ * grant order would be two chances for a bonus to pay XP the wrong way.
+ *
+ * `reason` reaches the credit ledger, so a bonus is distinguishable from the fee.
+ */
+async function grantRewards(actor, rewards, context, reason = 'quest:reward') {
+  const r = (rewards && typeof rewards === 'object') ? rewards : {};
+  const gains = [];
+
+  if (r.credits) {
+    await adjustCredits(actor, r.credits, undefined, reason);
+    gains.push(`+${r.credits}₵`);
+  }
+  // XP. Until 2026-07-21 quests awarded none at all — `grantXp` existed with zero
+  // callers, so lifetime XP came only from probabilistic per-use skill rolls and
+  // the entire quest economy fed no progression whatsoever. A stat point is a flat
+  // 100 XP (statCost), so these numbers are deliberately small.
+  if (r.xp) {
+    await grantXp(actor.id, r.xp);
+    // total_xp/xp aren't columns — they're computed (skill_ip + bonus_xp) and
+    // mirrored onto the live player at login only (server/index.js). Bump the
+    // mirror so anything reading them mid-session sees the grant.
+    actor.total_xp = (Number(actor.total_xp) || 0) + r.xp;
+    actor.xp = (Number(actor.xp) || 0) + r.xp;
+    gains.push(`+${r.xp} XP`);
+  }
+  for (const it of (r.items || [])) {
+    await dispatchAction({
+      type: 'GRANT_ITEM',
+      actor,
+      params: { item_id: it.item_id, quantity: it.quantity || 1, once: false },
+      context,
+    });
+  }
+  for (const f of (r.flags || [])) {
+    await dispatchAction({
+      type: 'SET_FLAG',
+      actor,
+      params: { scope: f.scope || 'player', flag: f.flag, value: f.value },
+    });
+  }
+
+  // Standing. The exact mirror of `penalties.rep`, down to the guard and the
+  // swallowed failure, and deliberately a DIRECT call rather than a dispatched
+  // ADJUST_REPUTATION: the "canonical Action paths" rule is about not
+  // re-implementing a service, and this is the same service the ideologies
+  // plugin's Action calls. Dispatching would make the quests plugin refuse to pay
+  // standing whenever that plugin is absent, for no behaviour the direct call does
+  // not already have.
+  for (const rep of (Array.isArray(r.rep) ? r.rep : [])) {
+    const delta = Number(rep?.delta) || 0;
+    if (!rep?.ideology || !delta) continue;
+    try {
+      const res = await adjustReputation(actor.id, rep.ideology, delta, reason);
+      // A CROSSING is worth saying; a number is not. Raw standing is shown by
+      // `rep`/`ideologies` and deliberately nowhere else, so a reward that moves
+      // you within a tier passes without comment — which is also what keeps a
+      // repeatable from printing a line every single hand-in.
+      if (res?.tiered_up) gains.push(res.new_tier_label);
+    } catch (e) {
+      // A reward naming an ideology that no longer exists must not swallow the
+      // turn-in — the objectives were met and the player is owed the rest.
+      console.error('[quests] reward rep adjust failed:', rep.ideology, e.message);
+    }
+  }
+  return gains;
+}
+
+/**
+ * A quest ending may hand the player the next one. `on_fail.start_quest` and
+ * `on_turn_in.start_quest` are both dispatched through the ordinary START_QUEST
+ * action, which is why this is ten lines rather than a mechanism: the interesting
+ * answer to a failure is rarely a fine, it is the cleanup job — and stating that
+ * as a field retires the hand-written flag chains that used to link a quest to its
+ * sequel.
+ *
+ * ⚠ The follow-up is refused when it is already live on this player. A quest whose
+ * on_fail starts a quest whose on_fail starts the first is an authoring mistake,
+ * and without this guard it costs a loop at runtime rather than a red in review.
+ */
+async function startFollowUp(actor, quest, spec) {
+  const nextId = spec?.start_quest;
+  if (!nextId || nextId === quest.id) return false;
+  const live = await loadPlayerQuest(actor.id, nextId);
+  if (live && ['active', 'completed'].includes(live.status)) return false;
+  const res = await dispatchAction({ type: 'START_QUEST', actor, params: { quest_id: nextId } });
+  return res?.started === true;
+}
+
+/**
  * Flip an active quest to 'failed'. Single writer for the status, the flag, the
  * message and the event — every failure path (predicate match, timeout sweep, the
  * FAIL_QUEST action) comes through here so none of them can half-fail a quest.
@@ -660,6 +777,8 @@ async function failQuest(actor, quest, cond) {
   msg(actor.id, `<span class="msg-system">Quest failed: ${quest.name}. ${why}${cost}</span>`);
   questLogLine(actor, quest.id, 'failed', `${quest.name} — ${why}`);
   emit('quest.failed', { actor, quest_id: quest.id, reason: cond?.type || 'unknown' });
+  // "You told them, didn't you" is more interesting as the next job than as a fine.
+  await startFollowUp(actor, quest, quest.on_fail);
   return true;
 }
 
@@ -720,7 +839,7 @@ async function finishObjectiveTick(actor, quest, objIndex) {
     await routeToTurnIn(actor, quest.id);
     emit('quest.completed', { actor, quest_id: quest.id });
   } else {
-    const next = objectives.find((o, i) => (progress[i] || 0) < (o.count || 1) && requiresMet(objectives, o, progress));
+    const next = nextObjective(objectives, progress);
     taskMsg(actor.id, `✔ Finished: ${objectiveDesc(obj)}.${next ? ` Next: ${objectiveDesc(next)}.` : ` Quest updated: ${quest.name}.`}`);
     routeToObjective(actor, quest, progress);
   }
@@ -859,7 +978,7 @@ async function trackEventLocked(actor, predicate) {
       // Names the objective(s) that just finished and reads out whatever's next,
       // instead of a bare "quest updated" — the bottom-pane progress line the
       // player actually wants mid-quest.
-      const next = objectives.find((obj, i) => (progress[i] || 0) < (obj.count || 1) && requiresMet(objectives, obj, progress));
+      const next = nextObjective(objectives, progress);
       const parts = [];
       if (justFinished.length) parts.push(`Done: ${justFinished.map(objectiveDesc).join(', ')}.`);
       parts.push(next ? `Next: ${objectiveDesc(next)}.` : `Quest updated: ${quest.name}.`);
@@ -1347,70 +1466,26 @@ registerAction({
       return { type: 'error', message: 'Already turned in.' };
     }
 
-    // Grant rewards through the canonical Action/service paths.
-    const rewards = quest.rewards || {};
-    if (rewards.credits) await adjustCredits(actor, rewards.credits, undefined, 'quest:reward');
-    // XP. Until 2026-07-21 quests awarded none at all — `grantXp` existed with zero
-    // callers, so lifetime XP came only from probabilistic per-use skill rolls and
-    // the entire quest economy fed no progression whatsoever. A stat point is a flat
-    // 100 XP (statCost), so these numbers are deliberately small.
-    if (rewards.xp) {
-      await grantXp(actor.id, rewards.xp);
-      // total_xp/xp aren't columns — they're computed (skill_ip + bonus_xp) and
-      // mirrored onto the live player at login only (server/index.js). Bump the
-      // mirror so anything reading them mid-session sees the grant.
-      actor.total_xp = (Number(actor.total_xp) || 0) + rewards.xp;
-      actor.xp = (Number(actor.xp) || 0) + rewards.xp;
+    // Rewards, plus a bonus for each OPTIONAL objective actually met — the whole
+    // point of an optional objective being that finishing one is worth something.
+    // Both go through the same grantRewards path, in that order, so a bonus can
+    // never pay by a route the quest's own reward does not.
+    const gains = await grantRewards(actor, quest.rewards, context);
+    const finalProgress = Array.isArray(pq.progress) ? pq.progress : [];
+    for (const [i, obj] of (quest.objectives || []).entries()) {
+      if (!isOptional(obj) || !objectiveMet(obj, finalProgress[i]) || !obj.rewards) continue;
+      gains.push(...await grantRewards(actor, obj.rewards, context, 'quest:bonus'));
     }
-    for (const it of (rewards.items || [])) {
-      await dispatchAction({
-        type: 'GRANT_ITEM',
-        actor,
-        params: { item_id: it.item_id, quantity: it.quantity || 1, once: false },
-        context,
-      });
-    }
-    for (const f of (rewards.flags || [])) {
-      await dispatchAction({
-        type: 'SET_FLAG',
-        actor,
-        params: { scope: f.scope || 'player', flag: f.flag, value: f.value },
-      });
-    }
-
-    // Standing. The exact mirror of `penalties.rep` below, down to the guard and
-    // the swallowed failure, and deliberately a DIRECT call rather than a
-    // dispatched ADJUST_REPUTATION: the surrounding block's "canonical Action
-    // paths" rule is about not re-implementing a service, and this is the same
-    // service the ideologies plugin's Action calls. Dispatching would make the
-    // quests plugin refuse to pay standing whenever that plugin is absent, for no
-    // behaviour the direct call does not already have.
-    const tiered = [];
-    for (const r of (Array.isArray(rewards.rep) ? rewards.rep : [])) {
-      const delta = Number(r?.delta) || 0;
-      if (!r?.ideology || !delta) continue;
-      try {
-        const res = await adjustReputation(actor.id, r.ideology, delta, 'quest:reward');
-        // A CROSSING is worth saying; a number is not. Raw standing is shown by
-        // `rep`/`ideologies` and deliberately nowhere else, so a reward that moves
-        // you within a tier passes without comment — which is also what keeps a
-        // repeatable from printing a line every single hand-in.
-        if (res?.tiered_up) tiered.push(res.new_tier_label);
-      } catch (e) {
-        // A reward naming an ideology that no longer exists must not swallow the
-        // turn-in — the objectives were met and the player is owed the rest.
-        console.error('[quests] reward rep adjust failed:', r.ideology, e.message);
-      }
-    }
-
     await setQuestFlag(actor, quest_id, 'turned_in');   // status itself was claimed above
     // Any spare copies the auto-spawn left unclaimed go with it — the quest is over,
     // and a second relic on the sewer floor helps nobody.
     await despawnQuestItems(actor.id, quest_id);
-    const gains = [rewards.credits ? `+${rewards.credits}₵` : null, rewards.xp ? `+${rewards.xp} XP` : null, ...tiered].filter(Boolean);
     const creditLine = gains.length ? ` (${gains.join(', ')})` : '';
     msg(actor.id, `<span class="msg-system">Quest turned in: ${quest.name}.${creditLine}</span>`);
     emit('quest.turned_in', { actor, quest_id });
+    // The sequel, if this quest names one. After the event, so anything listening
+    // for the hand-in has already seen it happen.
+    await startFollowUp(actor, quest, quest.on_turn_in);
     // Clear/keep the "finished gig ready" flag now this one's handed back, so Marta's
     // conversational hand-in option disappears once the last completed gig is gone.
     await refreshGigReadyFlag(actor);
@@ -1739,12 +1814,14 @@ export const routeHandler = async (path, method, body, auth) => {
     if (path === '/quests' && method === 'POST') {
       const qid = body.id || `quest_${Date.now()}`;
       await query(
-        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,EXTRACT(EPOCH FROM NOW()))`,
+        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()))`,
         [qid, body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
-         JSON.stringify(body.penalties || {})]
+         JSON.stringify(body.penalties || {}),
+         body.on_fail ? JSON.stringify(body.on_fail) : null,
+         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null]
       );
       invalidateQuestCache(qid);
       return { status: 201, body: { id: qid } };
@@ -1752,11 +1829,13 @@ export const routeHandler = async (path, method, body, auth) => {
     if (id && method === 'PUT') {
       await query(
         `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,quest_type=$6,meta=$7,
-         fail_on=$8, penalties=$9, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$10`,
+         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$12`,
         [body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
-         JSON.stringify(body.penalties || {}), id]
+         JSON.stringify(body.penalties || {}),
+         body.on_fail ? JSON.stringify(body.on_fail) : null,
+         body.on_turn_in ? JSON.stringify(body.on_turn_in) : null, id]
       );
       invalidateQuestCache(id);
       return { status: 200, body: { id } };
