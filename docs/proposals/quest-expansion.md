@@ -1,6 +1,6 @@
 # Quest system expansion — seven additions
 
-**Status: items 1, 2, 3, 4, 5 and 7 are BUILT (2026-09-04); only item 6 is design.** The as-built system is
+**Status: all seven are BUILT (2026-09-04).** The as-built system is
 [plugins/quests/README.md](../../plugins/quests/README.md), which stays the authority on
 everything that already ships.
 
@@ -107,7 +107,7 @@ the hand-written flag chains that currently link a quest to its sequel.
 authoring mistake that costs a loop at runtime; refuse a chain that reaches back to a quest already
 active on that player.
 
-## 6. World-state objectives and offer windows
+## 6. World-state objectives and offer windows — BUILT
 
 **The gap.** Every objective is driven by a player act. The simulation the game spends its tick
 budget on — [unrest](../systems-unrest.md) bands, [weather](../systems-weather-extreme.md), power,
@@ -162,8 +162,11 @@ Cheapest first, since none blocks another:
    guard the design did not name: a retake of a FAILED or ABANDONED attempt pays nothing, or
    take-fail-repeat is a faucet. Exclusivity needed no new player_quests status — a
    `quest_blocked_<id>` flag per closed quest, which dialogue can already gate on.
-5. **World-state objectives and offer windows** (6) — last, because it is the only one that touches
-   systems outside this plugin.
+5. ~~**World-state objectives and offer windows** (6)~~ — built 2026-09-04. `state`/`avert` take a
+   `when` condition rather than a target, so a world flag needs nothing built. The design's
+   `expires` was dropped on purpose: the job board already rotates postings on a clock, and a second
+   expiry beside it would be two answers to the same question. What replaced it is `hours`, an
+   in-world window that may wrap midnight.
 
 Each lands with cases in [plugins/quests/regress.js](../../plugins/quests/regress.js) and, where it
 is authorable, an entry in `_Q_KINDS` in

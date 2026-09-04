@@ -3,12 +3,12 @@
 // they're the one canonical mutation path dialogue/scripts/jobboard/flight all use.
 import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
-import { setFlag, evalCondition } from '../../server/engine/flags.js';
+import { setFlag, clearFlag, evalCondition } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
 import { clearEffect } from '../../server/engine/effects.js';
 import { world } from '../../server/engine/world.js';
-import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled, advanceFor } from './index.js';
+import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled, advanceFor, withinHours, isQuestAvailable } from './index.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -1036,6 +1036,67 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
     await query('DELETE FROM quests WHERE id=$1', [QID]);
     invalidateQuestCache(QID);
+  }
+
+  // ── World-state objectives, and offer windows ──────────────────────────────
+  //
+  // A `state` objective is met by the WORLD rather than by the player, and there
+  // is no event to subscribe to — so what is asserted is that the poll happens at
+  // the moments a quest is looked at, and above all that TURN_IN polls BEFORE it
+  // decides whether the quest is finished.
+  {
+    const QID = 'quest_regress_worldstate';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,fail_on,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress World State','',$2,'{}',$3,1,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2, fail_on=$3, repeatable=1`,
+      [QID,
+       JSON.stringify([{ id: 'wait', type: 'state', when: { scope: 'world', flag: 'regress_grid_up', op: 'eq', value: 'true' }, count: 1, desc: 'The grid comes back' }]),
+       JSON.stringify([{ type: 'avert', when: { scope: 'world', flag: 'regress_block_burned', op: 'eq', value: 'true' }, desc: 'The block burned.' }])]
+    );
+    invalidateQuestCache(QID);
+    for (const f of ['regress_grid_up', 'regress_block_burned']) await clearFlag('world', f);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('a state objective whose condition does not hold is not met', r?.turned_in !== true, JSON.stringify(r));
+
+    // The world changes with the player standing still — no event, no command.
+    await setFlag('world', 'regress_grid_up', 'true');
+    r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('TURN_IN polls the world before deciding, so a met state objective pays',
+      r?.turned_in === true, JSON.stringify(r));
+
+    // The mirror: an `avert` condition blows the quest at the same poll points.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await clearFlag('world', 'regress_grid_up');
+    await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    await setFlag('world', 'regress_block_burned', 'true');
+    r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
+    check('an avert condition fails the quest at the same poll point', r?.type === 'error', JSON.stringify(r));
+    const pq = await loadPlayerQuest(player.id, QID);
+    check('…and the quest is really failed, not merely refused', pq?.status === 'failed', String(pq?.status));
+
+    for (const f of ['regress_grid_up', 'regress_block_burned']) await clearFlag('world', f);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    await query('DELETE FROM quests WHERE id=$1', [QID]);
+    invalidateQuestCache(QID);
+  }
+
+  // Offer windows. The hour arithmetic is a pure function because the wrapping
+  // case is the one that is wrong in every naive version, and because regress
+  // never boots the environment, so there is no in-world clock to lean on.
+  {
+    check('an hour inside a plain window is on offer', withinHours([9, 17], 12) === true, 'no');
+    check('an hour outside a plain window is not', withinHours([9, 17], 3) === false, 'yes');
+    check('the closing hour is exclusive', withinHours([9, 17], 17) === false, 'yes');
+    check('a window that WRAPS MIDNIGHT holds after midnight', withinHours([22, 4], 2) === true, 'no');
+    check('…and before it', withinHours([22, 4], 23) === true, 'no');
+    check('…and not in the afternoon', withinHours([22, 4], 15) === false, 'yes');
+    check('a quest with no window is always on offer', await isQuestAvailable({}, player) === true, 'no');
+    check('a condition that fails takes the quest off offer',
+      await isQuestAvailable({ available: { when: { flag: 'regress_never_set', op: 'set' } } }, player) === false, 'yes');
   }
 
   // ── The advance, and exclusivity ───────────────────────────────────────────

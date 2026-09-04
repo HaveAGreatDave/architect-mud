@@ -77,6 +77,7 @@ None.
 
 - `quests` — `id, name, description, objectives JSONB, rewards JSONB, repeatable, updated_at`.
   - `objectives`: `[{ type, target?, item_id?, zone?, count?, desc, requires?[], emotes?[], taskSeconds?, optional?, rewards? }]`
+  - `available`: when the quest is on offer — see [Offer windows](#offer-windows--available)
   - `blocks`: quest ids this one closes for good when taken — see [Exclusivity](#exclusivity--blocks)
   - `resolutions`: alternate endings — see [Branching resolutions](#branching-resolutions)
   - `on_fail` / `on_turn_in`: `{ start_quest }` or null — see [What happens next](#what-happens-next--on_fail--on_turn_in)
@@ -116,6 +117,7 @@ whose predicate matches it. The systems that fire those events do not know quest
 | `install` | `augment.installed` | `target` (augment id, optional) | chrome fitted in a theatre. **The one Event this plugin caused to exist** |
 | `mutate` | `mutation.gained` | `target` (mutation id, optional) | one Event covers every grant path — radiation, flask, authored `GRANT_MUTATION` |
 | `subdue` | `knockout.landed` | `target` (npc id, or name substring) | names a **person**, like `assassinate`. ⚠ Credits the hand that swung, never the body on the floor |
+| `state` | — (polled) | `when` (a condition) | met by the WORLD, not by you — see [World-state objectives](#world-state-objectives--state--avert) |
 | `restore` | `player.death` (`claimed`) | — | a death somebody arranged for in advance: the only kind that skips augment corruption |
 
 `buy`/`sell`/`craft`/`hack`/`spend`/`survive`/`install`/`mutate` treat a blank target as "anything
@@ -222,6 +224,41 @@ vague on purpose; the reason (naming the selector) goes to the console, because 
 only one who can act on it.
 
 ⚠ **Retaking a quest re-rolls it.** A second attempt at a rolling gig is a new gig.
+
+## World-state objectives — `state` / `avert`
+
+Every other objective type is driven by something the **player** did. `state` is the one driven by
+the world: met when a condition holds. Its `fail_on` mirror `avert` blows the quest when one becomes
+true. That is what lets a quest be about the city — the power staying on, a storm passing — rather
+than only about you.
+
+```jsonc
+objectives: [{ type: 'state', when: { scope: 'world', flag: 'grid_stable', op: 'eq', value: 'true' },
+               desc: 'The grid comes back' }]
+fail_on:    [{ type: 'avert', when: { scope: 'world', flag: 'block_burned' }, desc: 'The block burned.' }]
+```
+
+`when` is an ordinary condition object, so a **world flag** needs nothing built — world flags are
+already a cached in-memory map, which is what makes polling them affordable. Any registered
+condition shape works too.
+
+⚠ **These are POLLED, never subscribed.** There is no event to hang them on, so they settle at the
+three points a quest is already being looked at: an event that touched this player, opening the
+quest log, and hand-in. Same argument as [the lazy clock](#the-clock-is-lazy-and-thats-the-safe-choice),
+and the same guarantee — a condition can be *noticed* late, but `TURN_IN` polls **before** it decides
+whether the quest is finished, so it can never be missed at the moment it matters. A quest carrying
+neither kind returns on the first line of the poll without evaluating anything.
+
+## Offer windows — `available`
+
+`available: { when, hours }` decides whether a quest is on offer at all. `hours` is an in-world
+window and **may wrap midnight** (`[22, 4]`), which is the case a naive `from <= h <= to` gets wrong;
+`withinHours` is a pure function for exactly that reason. `START_QUEST` refuses a closed window in
+the world's voice, and [the job board](../jobboard/README.md) filters at the **roll**, so a lapsed
+quest never takes one of the board's few slots and sits there unclickable.
+
+A per-posting expiry is deliberately **not** built here: the board already rotates its postings on a
+clock, and a second expiry beside it would be two answers to when a job stops being offered.
 
 ## The advance — `rewards.advance`
 

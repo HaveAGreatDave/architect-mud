@@ -1586,6 +1586,11 @@ export const SCHEMA_SQL = `
   -- player_quests status was needed. Empty for almost every quest, deliberately —
   -- blocking is permanent by construction and must be asked for.
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS blocks JSONB NOT NULL DEFAULT '[]';
+  -- When this quest is on offer at all: { when: <condition>, hours: [from, to] }.
+  -- 'hours' is an in-world window and may wrap midnight. NULL means always, which
+  -- is every quest that shipped before this and most that will after — a board
+  -- whose whole list is conditional is a board nobody can plan around.
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS available JSONB;
 
   -- Per-player quest state. 'progress' is an integer array index-aligned to the
   -- quest's objectives. status: active → completed (all objectives met) → turned_in

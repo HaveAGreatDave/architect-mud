@@ -81,7 +81,7 @@ import { adjustReputation } from '../../server/engine/ideologies.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { world } from '../../server/engine/world.js';
 import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
-import { isIndoorZone } from '../../server/engine/environment.js';
+import { isIndoorZone, getEnvironmentState } from '../../server/engine/environment.js';
 
 // Mirror a quest's status into a player Flag so Dialogue/Script Conditions can gate
 // options on quest state through the existing Flag mechanism — e.g. hide "Accept"
@@ -958,6 +958,86 @@ async function expireIfTimedOut(actor, quest, pq) {
   return failQuest(actor, quest, failConditions(quest).find((c) => c.type === 'timeout'));
 }
 
+// ── World-state objectives, and offer windows ───────────────────────────────
+//
+// Every other objective type is driven by something the PLAYER did. `state` is
+// the one driven by the world: it is met when a condition holds, and its fail_on
+// mirror `avert` blows the quest when one becomes true. That is what lets a quest
+// be about the city — the power staying on, a storm passing, a block going quiet
+// — rather than only about you.
+//
+// ⚠ There is no event to subscribe to, so these are POLLED, at the points a quest
+// is already being looked at (an event that touched this player, opening the log,
+// handing in) and never on a tick or a subscriber of their own. Same argument as
+// the lazy timeout, and the same guarantee: a condition can be noticed late, but
+// `TURN_IN` polls before it pays, so it can never be missed at the moment it
+// matters.
+//
+// The condition is an ordinary condition object, so a WORLD flag
+// (`{ scope:'world', flag:'weather_current', op:'eq', value:'acid_rain' }`) needs
+// nothing built — world flags are already a cached in-memory map, which is what
+// makes polling them affordable.
+
+function hasWorldConditions(quest) {
+  return (quest?.objectives || []).some((o) => o?.type === 'state')
+      || failConditions(quest).some((c) => c?.type === 'avert');
+}
+
+/**
+ * Settle any world-driven condition on this quest. Returns true if the quest was
+ * FAILED, so callers can stop exactly as they do for a timeout.
+ *
+ * Cheap by construction: a quest carrying neither kind — which is nearly all of
+ * them — returns on the first line without evaluating anything.
+ */
+async function pollWorldState(actor, quest, pq) {
+  if (!hasWorldConditions(quest)) return false;
+
+  // Failure first, both ways round, for the same reason the event path judges
+  // fail_on before progress: one poll must not both blow a quest and advance it.
+  for (const cond of failConditions(quest)) {
+    if (cond?.type !== 'avert' || !cond.when) continue;
+    if (await evalCondition(cond.when, actor)) return failQuest(actor, quest, cond);
+  }
+
+  const objectives = quest.objectives || [];
+  const progress = Array.isArray(pq?.progress) ? pq.progress : [];
+  for (const [i, obj] of objectives.entries()) {
+    if (obj?.type !== 'state' || !obj.when) continue;
+    if (objectiveMet(obj, progress[i])) continue;
+    if (!requiresMet(objectives, obj, progress)) continue;
+    if (!(await evalCondition(obj.when, actor))) continue;
+    // Through the ordinary tick, so completion, messaging, the log line and the
+    // GPS route are the same ones every other objective type gets.
+    await finishObjectiveTick(actor, quest, i);
+  }
+  return false;
+}
+
+/**
+ * Is this quest on offer at all? `available.when` is an ordinary condition, and
+ * `available.hours` is an in-world window — [22, 4] wraps midnight, which is the
+ * case that makes a naive from<=h<=to comparison wrong.
+ *
+ * A board posting that LAPSES is deliberately not built here: the job board
+ * already rotates its own postings on a clock, and a second expiry beside it
+ * would be two answers to when a job stops being offered.
+ */
+export function withinHours(window, hour) {
+  if (!Array.isArray(window) || window.length !== 2) return true;
+  const [from, to] = window.map((n) => Number(n));
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return true;
+  return from <= to ? (hour >= from && hour < to) : (hour >= from || hour < to);
+}
+
+export async function isQuestAvailable(quest, player) {
+  const av = quest?.available;
+  if (!av || typeof av !== 'object') return true;
+  if (av.hours && !withinHours(av.hours, getEnvironmentState().hour)) return false;
+  if (av.when && !(await evalCondition(av.when, player))) return false;
+  return true;
+}
+
 // Advances exactly ONE objective and runs the completion messaging — reloads
 // player_quests fresh so a task finishing seconds later never clobbers progress
 // made elsewhere meanwhile (or fires against a quest since abandoned/turned in).
@@ -1068,6 +1148,9 @@ async function trackEventLocked(actor, predicate) {
     // predicate the objectives are about to be judged by — one event cannot both
     // blow a quest and advance it.
     if (await expireIfTimedOut(actor, quest, pq)) continue;
+    // The world's own conditions, settled at the same moment the clock is — this
+    // is the "something happened to this player" poll point.
+    if (await pollWorldState(actor, quest, pq)) continue;
     const tripped = failConditions(quest).find((c) => c && c.type !== 'timeout' && predicate(c));
     if (tripped) { await failQuest(actor, quest, tripped); continue; }
 
@@ -1476,6 +1559,13 @@ registerAction({
     const quest = await loadQuest(quest_id);
     if (!quest) return { type: 'error', message: `Unknown quest: ${quest_id}` };
 
+    // Not on offer right now? A window that has closed reads as the world having
+    // moved on, so it is refused in the world's voice rather than as an error.
+    if (!(await isQuestAvailable(quest, actor))) {
+      msg(actor.id, `<span class="msg-system">Nobody is asking for that right now.</span>`);
+      return { type: 'quest', quest_id, started: false, unavailable: true };
+    }
+
     // Closed for good by a rival quest? Checked before anything else, because a
     // block is the one refusal that is permanent and the player should not see a
     // quest half-start.
@@ -1648,7 +1738,14 @@ registerAction({
     if (await expireIfTimedOut(actor, quest, pq)) {
       return { type: 'error', message: 'That quest has run out of time.' };
     }
-    if (pq.status !== 'completed' && !isComplete(quest, pq.progress || [])) {
+    // Poll BEFORE the completeness check, never after: a `state` objective met
+    // while the player walked back to the counter must count, and an `avert`
+    // tripped on the way must not pay.
+    if (await pollWorldState(actor, quest, pq)) {
+      return { type: 'error', message: `You failed ${quest.name}.` };
+    }
+    const settled = await loadPlayerQuest(actor.id, quest_id) || pq;
+    if (settled.status !== 'completed' && !isComplete(quest, settled.progress || [])) {
       msg(actor.id, `<span class="msg-system">You have not finished ${quest.name} yet.</span>`);
       return { type: 'error', message: 'You have not finished that quest yet.' };
     }
@@ -1681,7 +1778,7 @@ registerAction({
     // never pay by a route the quest's own reward does not.
     const ending = await pickResolution(actor, quest);
     const gains = await grantRewards(actor, ending.rewards, context);
-    const finalProgress = Array.isArray(pq.progress) ? pq.progress : [];
+    const finalProgress = Array.isArray(settled.progress) ? settled.progress : [];
     for (const [i, obj] of (quest.objectives || []).entries()) {
       if (!isOptional(obj) || !objectiveMet(obj, finalProgress[i]) || !obj.rewards) continue;
       gains.push(...await grantRewards(actor, obj.rewards, context, 'quest:bonus'));
@@ -1879,7 +1976,13 @@ async function questLog(args, raw, player) {
   // is still live. Failures drop out of the listing below.
   for (const pq of rows) {
     if (pq.status !== 'active') continue;
-    if (await expireIfTimedOut(player, { id: pq.quest_id, name: pq.name, fail_on: pq.fail_on }, pq)) pq.status = 'failed';
+    // The world's conditions settle here too — reading the log is one of the
+    // three moments a quest is looked at, and a `state` objective the world met
+    // an hour ago should be ticked when the player next looks rather than when
+    // they next walk. The full row is needed for that, not the log's own columns.
+    const quest = await loadQuest(pq.quest_id);
+    if (await expireIfTimedOut(player, quest || { id: pq.quest_id, name: pq.name, fail_on: pq.fail_on }, pq)) { pq.status = 'failed'; continue; }
+    if (quest && await pollWorldState(player, withRolled(quest, pq), pq)) pq.status = 'failed';
   }
   const live = rows.filter((pq) => pq.status !== 'failed');
   if (!live.length) return { type: 'output', message: 'You have no active quests.' };
@@ -2035,15 +2138,16 @@ export const routeHandler = async (path, method, body, auth) => {
     if (path === '/quests' && method === 'POST') {
       const qid = body.id || `quest_${Date.now()}`;
       await query(
-        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,resolutions,blocks,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,EXTRACT(EPOCH FROM NOW()))`,
+        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,on_fail,on_turn_in,resolutions,blocks,available,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,EXTRACT(EPOCH FROM NOW()))`,
         [qid, body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
          JSON.stringify(body.penalties || {}),
          body.on_fail ? JSON.stringify(body.on_fail) : null,
          body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
-         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || [])]
+         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || []),
+         body.available ? JSON.stringify(body.available) : null]
       );
       invalidateQuestCache(qid);
       return { status: 201, body: { id: qid } };
@@ -2051,15 +2155,16 @@ export const routeHandler = async (path, method, body, auth) => {
     if (id && method === 'PUT') {
       await query(
         `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,quest_type=$6,meta=$7,
-         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, resolutions=$12, blocks=$13,
-         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$14`,
+         fail_on=$8, penalties=$9, on_fail=$10, on_turn_in=$11, resolutions=$12, blocks=$13, available=$14,
+         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$15`,
         [body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
          JSON.stringify(body.penalties || {}),
          body.on_fail ? JSON.stringify(body.on_fail) : null,
          body.on_turn_in ? JSON.stringify(body.on_turn_in) : null,
-         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || []), id]
+         JSON.stringify(body.resolutions || []), JSON.stringify(body.blocks || []),
+         body.available ? JSON.stringify(body.available) : null, id]
       );
       invalidateQuestCache(id);
       return { status: 200, body: { id } };
