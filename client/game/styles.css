@@ -3698,12 +3698,12 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	/* Without a landmark ink it is a dark scrim rather than nothing: white letters with a
 	   hairline stroke wash out over a bright footprint colour, and a scrim lifts every tile
 	   at once where a heavier stroke would just close the counters up. */
-	background: var(--poi-ink, rgba(0, 0, 0, 0.45));
+	background: var(--poi-ink, rgba(0, 0, 0, 0.62));
 	color: #fff;
-	-webkit-text-stroke: 0.8px #000;
+	-webkit-text-stroke: 1px #000;
 	paint-order: stroke fill;
 }
-#map-grid .map-bld-label { font-size: 1.25rem; letter-spacing: 0; -webkit-text-stroke: 1px #000; }
+#map-grid .map-bld-label { font-size: 1.25rem; letter-spacing: 0; -webkit-text-stroke: 1.4px #000; }
 /* Sidebar/HUD/mobile minimaps: smaller tiles, so a smaller 2-letter label that still
    fills the square. */
 /* Sized off --mm-room (the zoom-driven tile size set by applyMinimapZoom) rather
@@ -3713,7 +3713,7 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 #minimap-grid-mob .map-bld-label {
 	font-size: calc(var(--mm-room) * 0.7);
 	letter-spacing: 0;
-	-webkit-text-stroke: calc(var(--mm-room) * 0.035) #000;
+	-webkit-text-stroke: calc(var(--mm-room) * 0.045) #000;
 }
 .map-bld-icon {
 	font-size: 0.625rem;

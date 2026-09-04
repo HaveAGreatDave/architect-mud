@@ -1122,16 +1122,18 @@ export const POI_LEGEND = {
   civic:      { icon: '🏛', label: 'Civic & law',    color: '#7f9cff' },
   industry:   { icon: '⚙', label: 'Industry',       color: '#a08a76' },
   airfield:   { icon: '✈', label: 'Airfield',       color: '#5ec8ff' },
-  depot:      { icon: '🚚', label: 'Freight depot',  color: '#6f74d6' },
-  fuel:       { icon: '⛽', label: 'Fuel & charging', color: '#9a6fe0' },
+  depot:      { icon: '🚚', label: 'Freight depot',  color: '#8b46c7' },
+  fuel:       { icon: '⛽', label: 'Fuel & charging', color: '#b478e8' },
   military:   { icon: '⌖', label: 'Military',       color: '#e05a4c' },
   stairs:     { icon: '⇕', label: 'Stairs (up/down)', color: '#8f99a6' },
 };
 
 // Every ink here also has to work as a PLATE in Labels mode — the box takes the colour and
 // the two-letter code stays white on top of it — so these are chosen to hold white text,
-// not to be light. Grocery and restaurant are one hue apart on purpose, as are airfield and
-// freight depot: near in kind, near in colour, still tellable apart at a 12px tile.
+// not to be light. Grocery and restaurant are one hue apart on purpose, as are the freight
+// depot and the fuel stop: near in kind, near in colour, still tellable apart at a 12px
+// tile. Ground freight is deliberately NOT a blue — the map already spends blue on the
+// airfield and on civic, and a third one made a depot read as one of those at a glance.
 // The landmark ink for a tile, or null to leave it on the palette's own colour.
 //
 // Only a BUILDING takes it. The server derives a tile's POI from its neighbours too

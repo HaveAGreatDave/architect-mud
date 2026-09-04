@@ -336,8 +336,8 @@ const POI_STATIC = new Map(); // zone id -> { high, low }
 const POI_POWER_RE = /coolant|turbine|reactor|powerplant/i;
 // building_type -> POI class. The classes are deliberately COARSE: a legend is read at a
 // glance, and twenty rows of it is a document. Related things that a player is looking for
-// the same way share a colour, and the two pairs that are near-neighbours in kind (airfield
-// and freight depot, restaurant and grocery) are near-neighbours in hue.
+// the same way share a colour, and the two pairs that are near-neighbours in kind (freight
+// depot and fuel stop, restaurant and grocery) are near-neighbours in hue.
 const POI_BY_BUILDING = {
   // Somewhere people live. A hotel is in here because the Embassy is a place with rooms
   // that happens to have a bar, not a bar that happens to have rooms.

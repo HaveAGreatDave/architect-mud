@@ -371,7 +371,7 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 		// through --poi-ink, at the same full-tile extent, so the two renderers agree.
 		// Without a landmark ink it is still a dark scrim, matching .map-bld-label — white
 		// letters with a hairline stroke wash out over a bright footprint colour.
-		ctx.fillStyle = landmarkInk || 'rgba(0, 0, 0, 0.45)';
+		ctx.fillStyle = landmarkInk || 'rgba(0, 0, 0, 0.62)';
 		ctx.fillRect(px, py, t, t);
 		const size = Math.max(8, Math.round(t * 0.7));
 		// Negative tracking closed the two letterforms up against each other; the scrim
@@ -384,7 +384,7 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 		try { ctx.letterSpacing = `${spacing}px`; } catch {}
 		ctx.lineJoin = 'round';
 		ctx.miterLimit = 2;
-		ctx.lineWidth = t * 0.035;
+		ctx.lineWidth = t * 0.045;
 		ctx.strokeStyle = '#000';
 		ctx.strokeText(plan.label, cx, cy);
 		ctx.fillStyle = '#fff';
