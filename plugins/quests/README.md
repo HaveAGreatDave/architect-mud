@@ -306,7 +306,7 @@ The first quests authored against the fields above, as worked examples:
 | | quest |
 |---|---|
 | `resolutions` | `quest_asc_cross` — the Ascendant crossover, where lapsing at the press is one ending and carrying the address back is the other |
-| `blocks` | `quest_asc_rite` closes `quest_lw_rite`. Deliberately not the reverse: standing a vigil welds nothing shut, while the Rite is a fitting |
+| `blocks` | `quest_asc_rite` and `quest_lw_rite` close each other. The Rite is a fitting and `chromed_ever` burns the flesh path on its own; the vigil needs the field to say the same thing back, because nothing in the engine stops a man who kept nothing back from going and buying a spine |
 | `available.hours` | `quest_fs_wake` (4–8), `quest_fs_seatfill` (19–2, wrapping), `quest_fs_pigeon` (6–18) |
 | `optional` + a rolled `zone` | `quest_fs_pigeon`'s fourth stop — a bonus street, somewhere different every time |
 | `rewards.advance` | `quest_hal_escort` (Halcyon pays retainers), `quest_under_apex` and `quest_under_salvage` (money to go in fed, lit and armed) |
