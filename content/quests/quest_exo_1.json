@@ -38,6 +38,11 @@
         "flag": "exo_q1_done",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "exo_arc",
+        "scope": "player",
+        "value": "1"
       }
     ],
     "items": [],

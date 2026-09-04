@@ -1,0 +1,51 @@
+{
+  "category": null,
+  "description": "Oracle-9 describes an object to you for a minute and a half. Its weight, the crack across the housing, the way somebody has wrapped the split end with tape that has gone hard.\n\nThen she tells you which sump it is in.\n\n\"It has been down there since before the water came up, so nobody has told me anything about it, and I would like you to bring it here and put it on the table.\"",
+  "fail_on": [],
+  "id": "quest_exo_4",
+  "meta": {},
+  "name": "A Description of a Thing",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Find the thing she described, in the sump.",
+      "emotes": [
+        "{who} works along the sump wall with one hand in water that is colder than the air.",
+        "{who} finds it exactly where she said, and exactly as she said, including the tape."
+      ],
+      "id": "o_find",
+      "item_id": "item_relay_node",
+      "type": "retrieve",
+      "zone": "zone_under_894_904"
+    },
+    {
+      "desc": "Take it back and put it on her table.",
+      "id": "o_table",
+      "requires": [
+        "o_find"
+      ],
+      "target": "npc_glitch_oracle",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 210,
+    "flags": [
+      {
+        "flag": "exo_q4_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "exo_arc",
+        "scope": "player",
+        "value": "4"
+      }
+    ],
+    "xp": 52
+  },
+  "updated_at": "1788400000"
+}

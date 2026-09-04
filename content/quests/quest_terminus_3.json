@@ -1,0 +1,50 @@
+{
+  "category": null,
+  "description": "Another box, the same as the first, except that the seal on this one is already broken when Stannard hands it to you. He does not mention it. He watches you not mention it.\n\n\"Same gate. Same as before. Bring the empty back.\"\n\nThe box does not rattle. That is worse.",
+  "fail_on": [],
+  "id": "quest_terminus_3",
+  "meta": {},
+  "name": "The Second Box",
+  "objectives": [
+    {
+      "desc": "Take the box up the road and leave it at the gate.",
+      "emotes": [
+        "{who} walks the last of the road with a broken seal an inch under their thumb.",
+        "{who} sets the box down inside the gate line and steps back off it."
+      ],
+      "id": "o_carry",
+      "taskSeconds": 10,
+      "type": "visit",
+      "zone": "zone_terminus_1210_940"
+    },
+    {
+      "desc": "Bring the empty back to Ivo Stannard.",
+      "id": "o_back",
+      "requires": [
+        "o_carry"
+      ],
+      "target": "npc_terminus_quartermaster",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 140,
+    "flags": [
+      {
+        "flag": "terminus_q3_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "term_arc",
+        "scope": "player",
+        "value": "3"
+      }
+    ],
+    "xp": 30
+  },
+  "updated_at": "1788400000"
+}

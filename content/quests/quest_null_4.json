@@ -1,0 +1,65 @@
+{
+  "category": null,
+  "description": "The city bolted a meter to the standpipe in the spring, without asking, and it has been sitting there ticking ever since. Threlfall wants the number off it, written down, in your hand.\n\n\"Not the box. The number.\" She says it the way she says everything, which is once. \"Cobbald will want it before supper and he will want it right.\"\n\nIt is a twenty minute walk and a four second job.",
+  "fail_on": [
+    {
+      "desc": "Something stopped working while you were standing next to it.",
+      "type": "hack"
+    }
+  ],
+  "id": "quest_null_4",
+  "meta": {},
+  "name": "A Number and Nothing Else",
+  "objectives": [
+    {
+      "desc": "Read the city meter on the standpipe and copy the number down.",
+      "emotes": [
+        "{who} crouches under the standpipe and finds the window on the meter greasy enough to need a thumb.",
+        "{who} copies the figure out twice, because a number carried home wrong is worse than no number.",
+        "{who} notices the seal on the housing is Halcyon and is not even slightly hidden."
+      ],
+      "id": "o_read",
+      "taskSeconds": 12,
+      "type": "visit",
+      "zone": "zone_dw_769_977"
+    },
+    {
+      "desc": "Take the figure to Cobbald at the Reckoning.",
+      "id": "o_check",
+      "requires": [
+        "o_read"
+      ],
+      "target": "npc_dw_cobbald",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "null_touched_it",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 120,
+    "flags": [
+      {
+        "flag": "null_q4_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "null_arc",
+        "scope": "player",
+        "value": "4"
+      }
+    ],
+    "xp": 26
+  },
+  "updated_at": "1788400000"
+}

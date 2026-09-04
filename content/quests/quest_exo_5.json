@@ -1,0 +1,57 @@
+{
+  "category": null,
+  "description": "The junction floods when the eastern line backs up, and it backs up on no schedule anybody has ever written down.\n\nOracle-9 says it will back up this evening. She says you have about twenty minutes to be standing at the junction, and that you should be gone from it before the water is.\n\n\"I am not asking you to stop it. I am asking you to see it start.\"",
+  "fail_on": [
+    {
+      "count": 1200,
+      "desc": "You got there after the water did.",
+      "type": "timeout"
+    }
+  ],
+  "id": "quest_exo_5",
+  "meta": {},
+  "name": "Two Minutes",
+  "objectives": [
+    {
+      "desc": "Get down to the junction and wait for it.",
+      "emotes": [
+        "{who} stands in the junction listening to a pipe that is doing nothing at all.",
+        "{who} feels the floor go cold about four seconds before there is anything to see.",
+        "{who} watches the eastern line let go, on time, and gets out of the way of it."
+      ],
+      "id": "o_there",
+      "taskSeconds": 14,
+      "type": "visit",
+      "zone": "zone_under_902_909"
+    },
+    {
+      "desc": "Go back and tell her what you saw.",
+      "id": "o_tell",
+      "requires": [
+        "o_there"
+      ],
+      "target": "npc_glitch_oracle",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 240,
+    "flags": [
+      {
+        "flag": "exo_q5_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "exo_arc",
+        "scope": "player",
+        "value": "5"
+      }
+    ],
+    "xp": 58
+  },
+  "updated_at": "1788400000"
+}

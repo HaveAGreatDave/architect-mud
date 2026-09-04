@@ -1,0 +1,52 @@
+{
+  "category": null,
+  "description": "Tace Ambler sits in the middle of the road facing west for eleven hours a day and has done for four years. She is going to sleep for three of those hours, on a Tuesday, in the shed, and somebody has to be sitting in the road while she does.\n\nThe job is to sit. It is not to talk to anybody, and it is not to stop anybody, and she is very clear that there is nothing you could stop.\n\n\"Face west. If somebody comes, you say no. If they keep coming, you say no again.\"",
+  "fail_on": [],
+  "id": "quest_terminus_4",
+  "meta": {},
+  "name": "Her Stool",
+  "objectives": [
+    {
+      "desc": "Sit the picket in the middle of the road, facing west, until she comes back.",
+      "emotes": [
+        "{who} sits down on a folding stool in the middle of a road and faces the whole of the rest of the world.",
+        "{who} watches the west for a long time and finds there is a great deal of it.",
+        "{who} understands, about an hour in, that the job is not watching. The job is being visible.",
+        "{who} does not get up."
+      ],
+      "id": "o_sit",
+      "taskSeconds": 180,
+      "type": "visit",
+      "zone": "zone_terminus_1207_940"
+    },
+    {
+      "desc": "Hand the road back to Tace Ambler.",
+      "id": "o_hand",
+      "requires": [
+        "o_sit"
+      ],
+      "target": "npc_terminus_picket",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 180,
+    "flags": [
+      {
+        "flag": "terminus_q4_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "term_arc",
+        "scope": "player",
+        "value": "4"
+      }
+    ],
+    "xp": 40
+  },
+  "updated_at": "1788400000"
+}

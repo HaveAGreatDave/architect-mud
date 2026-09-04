@@ -1,0 +1,46 @@
+{
+  "category": null,
+  "description": "Bracken Hale walks the road twice a week and this week the hounds would not go past the third bend.\n\nWhatever is out there has been eating what comes off the poles, which means it has been out there a while, and which means it has stopped being frightened of the road.\n\nHe is going out at first light with the dogs. He would like company that can hold a line.",
+  "fail_on": [],
+  "id": "quest_wild_teeth",
+  "meta": {},
+  "name": "What the Dogs Found",
+  "objectives": [
+    {
+      "count": 2,
+      "desc": "Put down what the dogs found past the third bend.",
+      "id": "o_hunt",
+      "target": "hound",
+      "type": "kill"
+    },
+    {
+      "desc": "Walk back in with Bracken and the pack.",
+      "id": "o_home",
+      "requires": [
+        "o_hunt"
+      ],
+      "target": "npc_thorn_bracken",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 220,
+    "flags": [
+      {
+        "flag": "wild_teeth_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "wildblood_trust",
+        "scope": "player",
+        "value": "6"
+      }
+    ],
+    "xp": 90
+  },
+  "updated_at": "1788400000"
+}

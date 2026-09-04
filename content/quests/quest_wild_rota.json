@@ -1,0 +1,52 @@
+{
+  "category": null,
+  "description": "The Chorus put you on the rota before you could stand up unassisted, which is either an honour or an oversight and nobody will say which.\n\nYou are on the north gate on Tuesday. The mask they have cut for you fits the shape you are now. Ossa Vurn will show you where to stand and will not explain any of it twice.",
+  "fail_on": [],
+  "id": "quest_wild_rota",
+  "meta": {},
+  "name": "Tuesdays",
+  "objectives": [
+    {
+      "desc": "Stand your shift on the north gate.",
+      "emotes": [
+        "{who} finds the quilted lining of the new mask has been cut wide at the jaw, for the shape of the jaw.",
+        "{who} stands a gate for two hours and is passed by four people carrying vegetables.",
+        "{who} is asked twice by children whether the mask is heavy, and answers honestly both times.",
+        "{who} watches a trader come up the trophy road with his eyes fixed on the ground the whole way."
+      ],
+      "id": "o_shift",
+      "taskSeconds": 120,
+      "type": "visit",
+      "zone": "zone_scw_1046_968"
+    },
+    {
+      "desc": "Come off shift and find the Chorus.",
+      "id": "o_off",
+      "requires": [
+        "o_shift"
+      ],
+      "target": "npc_thorn_chorus",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 90,
+    "flags": [
+      {
+        "flag": "wild_rota_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "wildblood_trust",
+        "scope": "player",
+        "value": "4"
+      }
+    ],
+    "xp": 40
+  },
+  "updated_at": "1788400000"
+}

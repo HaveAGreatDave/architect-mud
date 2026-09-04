@@ -57,6 +57,11 @@
         "flag": "terminus_q2_done",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "term_arc",
+        "scope": "player",
+        "value": "2"
       }
     ],
     "items": [],

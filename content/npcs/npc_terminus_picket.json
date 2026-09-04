@@ -110,6 +110,48 @@
       "options": [
         {
           "actions": [],
+          "conditions": [
+            {
+              "flag": "term_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "2"
+            },
+            {
+              "flag": "quest_terminus_4",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "terminus_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You said you sleep on Tuesdays.",
+          "next": "stool"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_terminus_4",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "terminus_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The road is yours again.",
+          "next": "stool_done"
+        },
+        {
+          "actions": [],
           "conditions": [],
           "enabled": true,
           "label": "What is in there?",
@@ -176,6 +218,139 @@
         "familiar": "\"You.\" She nods at the rock beside the stool. \"Still no.\"",
         "known": "\"Back again.\" She does not sound surprised, or bothered. \"Still no.\""
       }
+    },
+    "stool": {
+      "_vine": {
+        "x": 360,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will sit.",
+          "next": "stool_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I stopping?",
+          "next": "stool_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not this week.",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks at you for a while, then at the stool, then west again.\n\n\"I sleep on Tuesdays. Three hours, in the shed, and for three hours there is nobody in this road.\" A pause. \"There has been nobody in this road on a Tuesday for four years and nothing has happened, and I would still rather there was somebody in it.\""
+    },
+    "stool_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 700
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_terminus_4"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 140,
+          "ideology_id": "ideology_terminus",
+          "reason": "Her Stool"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -6
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing came.",
+          "next": "stool_nothing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Same time next week?",
+          "next": "bye"
+        }
+      ],
+      "text": "She comes back down the road at the hour she said, sits, and takes the west off you without any ceremony about it.\n\n\"You did not get up.\" She settles her hands on her knees. \"Two of the last four did. One of them went and looked at the wall, which is the one thing out here that will still be there in an hour.\""
+    },
+    "stool_nothing": {
+      "_vine": {
+        "x": 1720,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave her to it)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nothing came.\" She faces west. \"That is the result. It is the result every time and it is still the result because somebody was sitting here.\""
+    },
+    "stool_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 700
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_terminus_4"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "She stands, folds nothing, and hands you nothing, because there is nothing to hand over.\n\n\"Face west. If somebody comes, say no. If they keep coming, say no again.\" She is already walking. \"Do not get up.\""
+    },
+    "stool_what": {
+      "_vine": {
+        "x": 700,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will sit.",
+          "next": "stool_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not this week.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nothing.\" She says it without any weight at all. \"You could not stop a determined child. That is not what the stool is for.\"\n\n\"The stool is so that anybody coming up that road sees somebody sitting in it. That is the whole of the work and it is harder than it sounds, because there is nothing to do and you have to keep doing it.\""
     },
     "work": {
       "actions": [],

@@ -103,6 +103,72 @@
       ],
       "text": "\"Take as long as you like. Nobody is waiting.\"\n\nShe watches you the whole way to the tunnel mouth, which she has never done before either."
     },
+    "exo_accept_4": {
+      "_vine": {
+        "x": 1040,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_exo_4"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Low end, the wall on your right as you come in, about as deep as your elbow.\" Her eyes stay shut. \"Mind the cold. It is worse than it looks and it looks quite bad.\""
+    },
+    "exo_accept_5": {
+      "_vine": {
+        "x": 1040,
+        "y": 1160
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_exo_5"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Go down the long way, it is drier.\" Her eyes close again. \"Do not run in the last stretch. If you are running you are late, and if you are late there is nothing to see and a good deal to drown in.\""
+    },
+    "exo_accept_6": {
+      "_vine": {
+        "x": 1040,
+        "y": 1420
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_exo_6"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "She slides a coil of dead cable across the table without looking for it.\n\n\"Silt in the cuts afterwards. Not water, silt.\" Her eyes close. \"And if he is down there when you are, you go home and we try on Thursday. There is no version of this where he sees you and it is still fine.\""
+    },
     "exo_after": {
       "actions": [],
       "options": [
@@ -162,6 +228,23 @@
       ],
       "text": "\"All of it. The steel and the changes both, and it does not give any of it back.\" Perfectly level, no persuasion in it anywhere. \"Nobody here will pretend that is a small thing or talk you round. Most people go back up the stairs at this point and I have never once thought less of them.\"\n\nA pause.\n\n\"It is over there. It is not going anywhere.\""
     },
+    "exo_draught": {
+      "_vine": {
+        "x": 1720,
+        "y": 1280
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(let it go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That is what it is.\" She agrees with it completely and immediately. \"A draught off the line, four seconds ahead of eleven tonnes of water, through a wall.\"\n\nShe leaves it exactly there."
+    },
     "exo_how": {
       "actions": [],
       "options": [
@@ -182,6 +265,47 @@
       ],
       "text": "\"I have lived under this city for eleven years and I can hear every relay in it from this chair.\" Flat, reasonable, faintly bored. \"Water in a storm line makes a noise. The noise goes somewhere. I am the somewhere.\"\n\nA pause.\n\n\"You were hoping for a better answer. Everyone is. There is not one, and you should be suspicious of anybody who offers you one.\""
     },
+    "exo_ifnot": {
+      "_vine": {
+        "x": 700,
+        "y": 1160
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am going now.",
+          "next": "exo_accept_5"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not tonight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then I was wrong, and you had a cold walk, and I will say so.\" She settles back. \"I have been wrong. Not lately.\""
+    },
+    "exo_knew": {
+      "_vine": {
+        "x": 1720,
+        "y": 1160
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am fine.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I knew somebody would.\" She lets that stand for slightly too long. \"Sit down. You have been standing in cold water and you are about to tell me you are fine.\""
+    },
     "exo_member": {
       "actions": [],
       "options": [
@@ -195,6 +319,40 @@
       ],
       "text": "She does not look up. \"You are still counting something. Stop it, or count it quietly.\""
     },
+    "exo_notask": {
+      "_vine": {
+        "x": 1720,
+        "y": 1020
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(sit for a while)",
+          "next": "bye"
+        }
+      ],
+      "text": "The corner of her mouth moves about a millimetre.\n\n\"Good. Neither am I.\""
+    },
+    "exo_nothing": {
+      "_vine": {
+        "x": 1720,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(sit for a while)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nothing happens to him.\" She says it back to you exactly, the way you would repeat a number you were checking. \"That is the whole of what we are, and it takes people about four jobs to notice that it is not a smaller thing than the alternative.\""
+    },
     "exo_noticed": {
       "actions": [],
       "options": [
@@ -207,6 +365,30 @@
         }
       ],
       "text": "\"I have no idea.\" She closes her eyes. \"That is the honest answer and it is the one nobody wants. Possibly nothing. Possibly you sat in a dark room twice and walked home. Ask me again in a year and I will give you the same answer with more confidence.\""
+    },
+    "exo_notroom": {
+      "_vine": {
+        "x": 700,
+        "y": 1560
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will do it tonight.",
+          "next": "exo_accept_6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then no.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" Her eyes are open, which is worse than the alternative. \"You have done three quiet things and one cold one, and this is the one where you find out whether being left alone is something you would do anything for.\"\n\n\"You can say no. I will still be here on Thursday, whatever you decide, and so will he.\""
     },
     "exo_offer_1": {
       "actions": [],
@@ -281,6 +463,99 @@
         }
       ],
       "text": "\"The same room.\" Her eyes are open, which you realise you have never seen. \"The same stair, the same dark, the same nothing. I want you to go and sit in it again.\"\n\nShe waits.\n\n\"Nothing is going to happen. Nothing happened last time. This is not a test and there is no second half and I am not going to be doing anything clever at this end while you sit there.\"\n\nA beat.\n\n\"I have now said that three times. Go on.\""
+    },
+    "exo_offer_4": {
+      "_vine": {
+        "x": 360,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who told you it was there?",
+          "next": "exo_told"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go and look.",
+          "next": "exo_accept_4"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "She describes an object to you for a minute and a half without opening her eyes: the weight of it, a crack across the housing, a split end wrapped in tape that has gone hard and grey.\n\n\"It is in the sump at the low end. I would like it on the table.\""
+    },
+    "exo_offer_5": {
+      "_vine": {
+        "x": 360,
+        "y": 1160
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am going now.",
+          "next": "exo_accept_5"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And if it does not go?",
+          "next": "exo_ifnot"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not tonight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The eastern line backs up into the junction when it has had enough, and nobody has ever managed to put that on a timetable.\" She sits forward, which she does not do. \"It will go this evening. You have twenty minutes to be standing in it, and you want to be out of it before the water is in it.\"\n\n\"I am not asking you to stop it. I am asking you to see it start.\""
+    },
+    "exo_offer_6": {
+      "_vine": {
+        "x": 360,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will do it tonight.",
+          "next": "exo_accept_6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why not just move?",
+          "next": "exo_whymove"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not sitting in a room.",
+          "next": "exo_notroom"
+        }
+      ],
+      "text": "She does not mention the water at all, which is how you know.\n\n\"There is a man walking the Under with a survey lamp and a paper map, and he has been down three times, and he is thorough.\" Her hands are flat on the table. \"He is not going to hurt anybody. He is going to write down where we are. Then he goes home, and the writing is what ends this.\"\n\n\"There is a junction box on the way he comes. I want the good cable out of it and a rotten one in, and I want the box to look like it has been that way for years.\""
     },
     "exo_report_1": {
       "actions": [
@@ -379,6 +654,143 @@
       ],
       "text": "\"You came down the last stretch without counting the turnings,\" she says. \"You have counted them every other time. I could hear you doing it.\"\n\nShe lets that sit exactly as long as it needs to.\n\n\"I told you nothing would happen and nothing did. I want you to hold on to that, because in about a week you are going to start telling yourself a much more interesting story about tonight, and it will be wrong, and it will make you stupid.\"\n\nThe fan of fibre at the base of her skull is completely still.\n\n\"Go up. Sleep somewhere warm. And when you notice something you should not have noticed, do not say it out loud in front of anybody. Not because it is dangerous.\" A pause. \"Because you will sound like me, and people do not sit down when I ask them to. They just do.\""
     },
+    "exo_report_4": {
+      "_vine": {
+        "x": 1380,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_exo_4"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 120,
+          "ideology_id": "ideology_exodus",
+          "reason": "A Description of a Thing"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The tape. You said the tape.",
+          "next": "exo_tape"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I am not going to ask.",
+          "next": "exo_notask"
+        }
+      ],
+      "text": "She puts one finger on it, finds the tape, and stops.\n\n\"There.\" She takes the finger back. \"You are going to sit there and want to ask me something, and I am going to let you, and then I am going to tell you about the relays again.\""
+    },
+    "exo_report_5": {
+      "_vine": {
+        "x": 1380,
+        "y": 1160
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_exo_5"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 150,
+          "ideology_id": "ideology_exodus",
+          "reason": "Two Minutes"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 8,
+          "path": "flesh"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You knew I would say it.",
+          "next": "exo_knew"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It is a draught off the line.",
+          "next": "exo_draught"
+        }
+      ],
+      "text": "You get about four words in before she nods, and the four words you got in were about the floor going cold.\n\n\"Everybody says the floor.\" She is quiet for a moment. \"Nobody says the water. It is always the floor, four seconds early, and there is no reason at all for a floor to do that.\""
+    },
+    "exo_report_6": {
+      "_vine": {
+        "x": 1380,
+        "y": 1420
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_exo_6"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 220,
+          "ideology_id": "ideology_exodus",
+          "reason": "Nobody Comes Down Here"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 12,
+          "path": "flesh"
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "exo_initiated",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing happens to him.",
+          "next": "exo_nothing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Anything for me?",
+          "next": "exo_member"
+        }
+      ],
+      "text": "\"He came down on Thursday and got as far as the junction and turned round.\" She has her eyes shut and her hands flat. \"He will write that the section is derelict, because it is, and the section will stay derelict, because we will not put a light in it.\"\n\n\"You did not ask what happens to him. Most people ask, so that somebody says the word out loud and it is not them.\""
+    },
+    "exo_tape": {
+      "_vine": {
+        "x": 1720,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "For now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I did.\" She turns it over once. \"Somebody will have mentioned it on a line somewhere, years ago, and I will have kept it, because I keep everything and most of it is useless.\"\n\nShe sets it down. \"That is the explanation. You are welcome to it for as long as it is any use to you.\""
+    },
     "exo_thenwhat": {
       "actions": [],
       "options": [
@@ -412,6 +824,30 @@
       ],
       "text": "\"I have.\" She does not elaborate. \"Go and sit in the room.\""
     },
+    "exo_told": {
+      "_vine": {
+        "x": 700,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go and look.",
+          "next": "exo_accept_4"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The relays talk all day and I am the only one down here rude enough to listen.\" She says it easily, the way you say a thing you have said many times. \"Somebody dropped it, somebody complained, the complaint went past me.\"\n\nA pause of about a second. \"It went into the water before the water came up. You could point that out, if you wanted to.\""
+    },
     "exo_why": {
       "actions": [],
       "options": [
@@ -424,6 +860,30 @@
         }
       ],
       "text": "\"Because the room is not for you to do something in.\" She still has not opened her eyes. \"It is for you to find out what is left when there is nothing coming in. Most people find out there is nothing there. That is a real answer and it is not a shameful one.\"\n\nA pause, and the fibre goes still.\n\n\"Come back tomorrow. I want you to do it again.\""
+    },
+    "exo_whymove": {
+      "_vine": {
+        "x": 700,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will do it tonight.",
+          "next": "exo_accept_6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not tonight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because there are nine of us and two of them cannot walk, and because the next place is somebody else water.\" She says it flatly. \"We moved twice. The second time we lost Bel.\""
     },
     "root": {
       "options": [
@@ -577,6 +1037,131 @@
           "enabled": true,
           "label": "I sat in it again.",
           "next": "exo_report_3"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "exo_q3_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_exo_4",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You said there was something in the sump.",
+          "next": "exo_offer_4"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_exo_4",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "It is on your table.",
+          "next": "exo_report_4"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "exo_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "3"
+            },
+            {
+              "flag": "quest_exo_5",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q5_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Is there anything else?",
+          "next": "exo_offer_5"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_exo_5",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q5_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I saw it start.",
+          "next": "exo_report_5"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "exo_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "4"
+            },
+            {
+              "flag": "quest_exo_6",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q6_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You have stopped talking about the water.",
+          "next": "exo_offer_6"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_exo_6",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q6_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The box has been like that for years.",
+          "next": "exo_report_6"
         },
         {
           "actions": [],

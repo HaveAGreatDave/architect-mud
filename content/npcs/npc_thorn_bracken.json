@@ -84,6 +84,48 @@
         },
         {
           "actions": [],
+          "conditions": [
+            {
+              "flag": "wildblood_trust",
+              "op": "gt",
+              "scope": "player",
+              "value": "4"
+            },
+            {
+              "flag": "quest_wild_teeth",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "wild_teeth_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The dogs would not go past the bend.",
+          "next": "wild_offer6"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_wild_teeth",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "wild_teeth_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "It is done, past the third bend.",
+          "next": "wild_done6"
+        },
+        {
+          "actions": [],
           "conditions": [],
           "enabled": true,
           "label": "They shadowed me the whole way in.",
@@ -131,6 +173,28 @@
       ],
       "text": "\"They did. From the cairn.\" He wrings the rag out. \"That is the job. They walk you in, off the road, in sight, and they do not close.\n\nIf you had gone off the track toward the beds they would have turned you back. If you had come at the gate at a run they would have had you down and held you there until somebody came. They have not bitten anybody in four years and I would rather like to keep the number.\""
     },
+    "wild_accept6": {
+      "_vine": {
+        "x": 1040,
+        "y": 700
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_wild_teeth"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Past the third bend, off the north side, where the ground drops.\" He is already looking at the door. \"Stay behind the dogs until they stop. When they stop, get in front of them.\""
+    },
     "wild_after2": {
       "actions": [],
       "options": [
@@ -143,6 +207,23 @@
         }
       ],
       "text": "\"They did.\"\n\nShe whistles the dogs in past her.\n\n\"Go and see the Chorus. She has been waiting to say something to you and she will not say it until I tell her you can walk eleven miles.\""
+    },
+    "wild_dogs_did": {
+      "_vine": {
+        "x": 1720,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave him to the pack)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They did.\" He does not argue with it. \"And you walked in with them, which is the whole of what anybody here means by one of us.\""
     },
     "wild_done2": {
       "actions": [],
@@ -173,6 +254,51 @@
         }
       ],
       "text": "She counts the dogs before she looks at you, which is correct.\n\n\"All four. And the far poles are straight, I can see them from here.\"\n\nShe takes the tool roll back and puts it on the hook, and then does not go inside.\n\n\"You did not ask me about the road. Everyone asks me about the road.\""
+    },
+    "wild_done6": {
+      "_vine": {
+        "x": 1380,
+        "y": 700
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_wild_teeth"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 240,
+          "ideology_id": "ideology_wildblood",
+          "reason": "What the Dogs Found"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 14,
+          "path": "flesh"
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "wild_walks_the_road",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The dogs did the work.",
+          "next": "wild_dogs_did"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave him to the pack)",
+          "next": "bye"
+        }
+      ],
+      "text": "He goes down the line with his hands in each of them in turn before he says anything to you, and that is the right order and you know it is.\n\n\"They will go past the bend tomorrow.\" He straightens up. \"You got in front of them when they stopped. Most people find out about themselves at that exact moment and most of what they find out is disappointing.\""
     },
     "wild_offer2": {
       "actions": [],
@@ -205,6 +331,37 @@
       ],
       "text": "\"You are the one who did the mask.\"\n\nShe does not look up from the leads she is untangling.\n\n\"Thursday. The road, out to the far poles and back, checking fixings. It is eleven miles of bad ground and the dogs will not wait for you. Bring water.\""
     },
+    "wild_offer6": {
+      "_vine": {
+        "x": 360,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "First light.",
+          "next": "wild_accept6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why not just move the poles?",
+          "next": "wild_teeth_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not this one.",
+          "next": "bye"
+        }
+      ],
+      "text": "He has a hand flat on the neck of the big grey one, and the big grey one is not settling.\n\n\"They would not go past the third bend on Thursday.\" He says it like a fact about the weather. \"Whatever is out there has been eating what comes off the poles. That means it has been there a while and it means it has stopped minding the road.\"\n\n\"First light. Bring something you can hold a line with.\""
+    },
     "wild_road_what": {
       "actions": [],
       "options": [
@@ -235,6 +392,30 @@
         }
       ],
       "text": "\"Fixings. Wind gets under them and they go crooked, and a crooked one looks like nobody is keeping it.\"\n\nShe hands you a leather roll of tools without being asked whether you are coming.\n\n\"Straighten what is crooked. Replace what is gone. It is not complicated work and it wants doing every week for the rest of your life.\""
+    },
+    "wild_teeth_why": {
+      "_vine": {
+        "x": 700,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "First light.",
+          "next": "wild_accept6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not this one.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because then it eats something that is walking.\" He scratches the grey one under the jaw. \"It is not a monster and I am not going to make a speech about it. It is hungry and it has found somewhere easy, and easy is the part we take away.\""
     }
   },
   "faction": "ideology_wildblood",

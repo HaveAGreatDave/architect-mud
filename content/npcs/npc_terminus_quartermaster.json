@@ -62,6 +62,104 @@
       ],
       "text": "He puts the pencil behind his ear, which for him is sitting down.\n\n\"I owe them for a thing. Eleven years ago, and it is not money, and I have tried to make it money eleven times because money is a thing I understand.\" He taps a flat sealed box on the counter. \"They will not take it off me. Off me specifically. I walk it up there and it comes back down.\"\n\n\"So take it up and leave it at the gate and bring the empty back. And do not open it, and I am going to say that twice, and then I am going to apologise for saying it twice, because you have not given me any reason.\"\n\nHe does. Both."
     },
+    "box2": {
+      "_vine": {
+        "x": 360,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The seal is broken.",
+          "next": "box2_seal"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Same as before, then.",
+          "next": "box2_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "He puts a second box on the trestle. The seal across the lid has been cut and pressed back down, and he does not look at it, and he does not look away from you either.\n\n\"Same gate. Bring the empty back.\""
+    },
+    "box2_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 700
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_terminus_3"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 90,
+          "ideology_id": "ideology_terminus",
+          "reason": "The Second Box"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It did.",
+          "next": "bye"
+        }
+      ],
+      "text": "He takes the empty and does not ask, and you work out on the walk back to the shed that not asking is a thing he does to you as well.\n\n\"Twelfth time,\" he says, to the list. \"It went up shut.\""
+    },
+    "box2_seal": {
+      "_vine": {
+        "x": 700,
+        "y": 700
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Same as before, then.",
+          "next": "box2_take"
+        }
+      ],
+      "text": "\"It is.\" He runs the pencil down the list and does not stop anywhere on it. \"You could look. It would take you four seconds and I would not know, and neither would they, and that is the entire arrangement in one sentence.\""
+    },
+    "box2_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 700
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_terminus_3"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Up the road, inside the line, back with the empty.\" He turns the page. \"Take your time. Nobody up there is in a hurry and it is catching.\""
+    },
     "box_done": {
       "actions": [
         {
@@ -199,6 +297,120 @@
       ],
       "text": "\"Not by asking me, and not by paying. That's most of the ways off the table already.\n\nThey watch what people do. Not here, particularly. Everywhere. If you ever find yourself doing the sort of work they'd approve of, you'll know, because you'll have chosen it for your own reasons and not for theirs. That's the whole of it. That's the only door.\""
     },
+    "offer3": {
+      "_vine": {
+        "x": 360,
+        "y": 1000
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will be there.",
+          "next": "offer3_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why me?",
+          "next": "offer3_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not this.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is a man on the road with a folder.\" The pencil stops. \"Two days of being pleasant to Tace, and this morning he asked her what she wanted, which is the question they ask when they have already worked out the answer.\"\n\n\"Stand beside her tomorrow. Hold nothing. Say nothing.\""
+    },
+    "offer3_done": {
+      "_vine": {
+        "x": 1380,
+        "y": 1000
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_terminus_5"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 200,
+          "ideology_id": "ideology_terminus",
+          "reason": "A Very Good Offer"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -10
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "terminus_stood",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It was a morning.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"He went back down at four.\" Stannard closes the list, which he does not do. \"He will come again in the spring with a better figure, and Tace will say no in exactly the same voice, and that is the job. It is not a war and nobody wins it.\"\n\n\"You stood in a road for a morning and said nothing. There is not a person here who does not know that by now.\""
+    },
+    "offer3_take": {
+      "_vine": {
+        "x": 1040,
+        "y": 1000
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_terminus_5"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Morning, on the road.\" He goes back to the list. \"If he offers you something personally, and he will, the answer is the same as hers and it is shorter than you think.\""
+    },
+    "offer3_why": {
+      "_vine": {
+        "x": 700,
+        "y": 1000
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will be there.",
+          "next": "offer3_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not this.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because you have been up that road twice with a box you could have opened.\" He does look up for this one. \"And because he will count you. One more of us standing in the road is worth more than anything either of us could say to him.\""
+    },
     "root": {
       "actions": [],
       "first": "He looks up, takes you in, and goes back to the list. \"You'll be after the gate. Everyone's after the gate. I'm Stannard, I do the buying, and the buying is out here.\"",
@@ -231,6 +443,89 @@
           "enabled": true,
           "label": "I brought the empty back.",
           "next": "box_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q2_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_terminus_3",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "terminus_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You have another box.",
+          "next": "box2"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_terminus_3",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "terminus_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I brought the second empty back.",
+          "next": "box2_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "term_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "3"
+            },
+            {
+              "flag": "quest_terminus_5",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "terminus_q5_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The man on the road.",
+          "next": "offer3"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_terminus_5",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "terminus_q5_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "He went back down.",
+          "next": "offer3_done"
         },
         {
           "actions": [],

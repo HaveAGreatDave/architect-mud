@@ -38,6 +38,11 @@
         "flag": "null_q3_done",
         "scope": "player",
         "value": "done"
+      },
+      {
+        "flag": "null_arc",
+        "scope": "player",
+        "value": "3"
       }
     ],
     "items": [],

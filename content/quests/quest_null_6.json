@@ -1,0 +1,79 @@
+{
+  "category": null,
+  "description": "There is a survey crew working the valley above the breach with a repeater on a mast, and it has been there nine days, and everything it hears goes east.\n\nThe Winding Shop has made a spike for it. It is not a bomb and it will not burn the mast down. It will make the repeater deaf and it will make the deafness look like weather.\n\nThrelfall walks you to the door for this one, which she has not done before, and what she says on the step is: \"If somebody sees you do it, it did not work.\"",
+  "fail_on": [
+    {
+      "desc": "Somebody saw you at the mast.",
+      "type": "spotted"
+    },
+    {
+      "desc": "It reached a camera.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_null_6",
+  "meta": {},
+  "name": "Somebody Else's Water",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Collect the spike from the Winding Shop.",
+      "id": "o_take",
+      "item_id": "item_null_signal_spike",
+      "type": "retrieve",
+      "zone": "zone_dw_769_975"
+    },
+    {
+      "desc": "Get up to the breach and put it on the mast.",
+      "emotes": [
+        "{who} goes up the tailrace with the water on their left and their hands empty-looking.",
+        "{who} waits out a long minute under the mast for a man with a clipboard to walk to the other end of his own survey.",
+        "{who} clips the spike into the housing, closes it, and leaves the housing exactly as filthy as it was."
+      ],
+      "id": "o_plant",
+      "requires": [
+        "o_take"
+      ],
+      "taskSeconds": 16,
+      "type": "visit",
+      "zone": "zone_dw_778_982"
+    },
+    {
+      "desc": "Walk back down to the Tally.",
+      "id": "o_back",
+      "requires": [
+        "o_plant"
+      ],
+      "target": "npc_dw_threlfall",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 0,
+    "rep": [
+      {
+        "delta": -40,
+        "ideology": "ideology_null"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 260,
+    "flags": [
+      {
+        "flag": "null_q6_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "null_arc",
+        "scope": "player",
+        "value": "6"
+      }
+    ],
+    "xp": 60
+  },
+  "updated_at": "1788400000"
+}

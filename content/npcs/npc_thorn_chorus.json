@@ -223,6 +223,90 @@
         },
         {
           "actions": [],
+          "conditions": [
+            {
+              "flag": "wildblood_trust",
+              "op": "gt",
+              "scope": "player",
+              "value": "2"
+            },
+            {
+              "flag": "quest_wild_rota",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "wild_rota_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You put me on the rota.",
+          "next": "wild_offer4"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_wild_rota",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "wild_rota_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I stood the gate.",
+          "next": "wild_done4"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "wildblood_trust",
+              "op": "gt",
+              "scope": "player",
+              "value": "3"
+            },
+            {
+              "flag": "quest_wild_poles",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "wild_poles_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The road wants doing.",
+          "next": "wild_offer5"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_wild_poles",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "wild_poles_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The poles are done.",
+          "next": "wild_done5"
+        },
+        {
+          "actions": [],
           "conditions": [],
           "enabled": true,
           "label": "The road in. The skulls.",
@@ -276,6 +360,50 @@
         }
       ],
       "text": "\"They call me the Chorus. They have called me it since before it was funny, and it was never funny.\" The doubling in her voice settles for a moment into something almost single. \"I keep the rota. That is the whole of the office. Everything else people have decided to hang off it is theirs, not mine.\""
+    },
+    "wild_accept4": {
+      "_vine": {
+        "x": 1040,
+        "y": 1000
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_wild_rota"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Vurn has your mask.\" Back to the rota. \"Eat first. It is a long stand and there is nothing at the gate but weather.\""
+    },
+    "wild_accept5": {
+      "_vine": {
+        "x": 1040,
+        "y": 1260
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_wild_poles"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Second bend, first light if you have any sense, midday if you have not.\" A page turns. \"It will rain. It does not matter.\""
     },
     "wild_after1": {
       "actions": [],
@@ -354,6 +482,98 @@
       ],
       "text": "You do not remember coming back. Gristle Thole says it was six days and that you talked for most of them.\n\nThe Chorus comes in on the seventh, looks at whatever you have become in the meantime, and does not comment on it.\n\n\"You are on the rota,\" she says. \"Tuesdays. The mask will not fit you now, so we will cut you a different one.\""
     },
+    "wild_done4": {
+      "_vine": {
+        "x": 1380,
+        "y": 1000
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_wild_rota"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 120,
+          "ideology_id": "ideology_wildblood",
+          "reason": "Tuesdays"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will do it.",
+          "next": "bye"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What else is there?",
+          "next": "wild_offer5"
+        }
+      ],
+      "text": "\"Vurn says you stood it out and did not fidget.\" She writes you into the following week without asking. \"The lining wanted taking in at the left. I have told him. He will not do it.\""
+    },
+    "wild_done5": {
+      "_vine": {
+        "x": 1380,
+        "y": 1260
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_wild_poles"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 160,
+          "ideology_id": "ideology_wildblood",
+          "reason": "Four Hours in the Wet"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 10,
+          "path": "flesh"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "(leave her to the rota)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hale says the fourth pole wants replacing and that you said so before he did.\" The nearest thing to approval that has happened in this room. \"It will be done in the spring.\""
+    },
+    "wild_gate_what": {
+      "_vine": {
+        "x": 700,
+        "y": 1000
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Tuesday, then.",
+          "next": "wild_accept4"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Traders, mostly. Somebody lost. Twice a year, somebody who has come to see it for themselves and has not thought past the seeing.\" She turns a page. \"You let the first two in and you send the third one home before dark. Nobody has ever needed telling twice.\""
+    },
     "wild_offer1": {
       "actions": [],
       "options": [
@@ -422,6 +642,85 @@
         }
       ],
       "text": "\"There is a pool east of the wall.\"\n\nShe says it the way she says the rota.\n\n\"We do not drink from it and we do not fence it off, and both of those are on purpose. It sits at seventy. You will be sick for a week and you may be sick for longer, and some of what it does to you does not come off afterwards, and there is no version of this where I tell you it is safe.\"\n\nA pause, and she does the thing she does, which is the arithmetic out loud.\n\n\"Four hours a week for the masks. A week in bed for the pool. I have done this sum too. You are not obliged to reach the same answer I did.\""
+    },
+    "wild_offer4": {
+      "_vine": {
+        "x": 360,
+        "y": 1000
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Tuesday, then.",
+          "next": "wild_accept4"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I watching for?",
+          "next": "wild_gate_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Tuesdays. North gate.\" She does not look up from the rota. \"Vurn will show you where to stand. The mask is cut for you and the lining is quilted, because eleven hours in a hard mask takes the skin off a jaw and we are not stupid.\""
+    },
+    "wild_offer5": {
+      "_vine": {
+        "x": 360,
+        "y": 1260
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will take the wire.",
+          "next": "wild_accept5"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody ever mentions what is on them.",
+          "next": "wild_poles_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The road wants doing.\" She says it exactly the way she said the mask. \"Poles rot at the base, wire goes, what is on them comes down in the wind. Four hours in the wet.\"\n\n\"Wire is in the den. Ladder is by the door. Hale will meet you at the second bend.\""
+    },
+    "wild_poles_what": {
+      "_vine": {
+        "x": 700,
+        "y": 1260
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will take the wire.",
+          "next": "wild_accept5"
+        }
+      ],
+      "text": "\"What about them.\"\n\nShe waits, and does not help you, and after a moment goes back to the rota.\n\n\"Take the small pliers. The big ones are no good on the crossbars.\""
     },
     "wild_pool_after": {
       "actions": [],

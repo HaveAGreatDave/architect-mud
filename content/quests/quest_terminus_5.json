@@ -1,0 +1,65 @@
+{
+  "category": null,
+  "description": "A man has come up the road from the east with a folder and a per-head figure, and he has been polite to Ambler for two days, and on the third day he asked her what she wanted.\n\nStannard would like you to be standing beside her when she answers, and he would like you to be holding nothing at all.\n\n\"He is not going to be difficult,\" Stannard says. \"He is going to be extremely reasonable, which is the difficult part.\"",
+  "fail_on": [
+    {
+      "desc": "Somebody gave him something to write down.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_terminus_5",
+  "meta": {},
+  "name": "A Very Good Offer",
+  "objectives": [
+    {
+      "desc": "Stand with Ambler on the road while he makes his offer.",
+      "emotes": [
+        "{who} stands at the edge of the road with their hands where everybody can see them.",
+        "{who} listens to a very reasonable man explain what everybody here could have.",
+        "{who} watches Tace Ambler say no, once, without any decoration on it at all."
+      ],
+      "id": "o_stand",
+      "taskSeconds": 30,
+      "type": "visit",
+      "zone": "zone_terminus_1207_940"
+    },
+    {
+      "desc": "Tell Stannard how it went.",
+      "id": "o_report",
+      "requires": [
+        "o_stand"
+      ],
+      "target": "npc_terminus_quartermaster",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "terminus_spoiled",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 260,
+    "flags": [
+      {
+        "flag": "terminus_q5_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "term_arc",
+        "scope": "player",
+        "value": "5"
+      }
+    ],
+    "xp": 60
+  },
+  "updated_at": "1788400000"
+}

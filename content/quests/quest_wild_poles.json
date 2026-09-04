@@ -1,0 +1,63 @@
+{
+  "category": null,
+  "description": "The road in wants doing. The poles rot at the base, the wire goes, and what is on them comes down in the wind and has to go back up.\n\nIt is four hours in the wet and eight in the dry, and it is a rotten job, and it is done because it works.\n\nTake the wire. Take the ladder. Bracken Hale will meet you at the second bend.",
+  "fail_on": [],
+  "id": "quest_wild_poles",
+  "meta": {},
+  "name": "Four Hours in the Wet",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Draw wire from the den.",
+      "id": "o_wire",
+      "item_id": "item_salvaged_wiring",
+      "type": "retrieve",
+      "zone": "zone_scw_1045_977"
+    },
+    {
+      "desc": "Work the poles along the road in.",
+      "emotes": [
+        "{who} digs out a pole base that has gone to black porridge and packs it with stone.",
+        "{who} rewires a crossbar in the rain and drops the pliers twice.",
+        "{who} takes down what the wind brought down, and puts it back up, and straightens it.",
+        "{who} works four hours on the road and nobody who passes says one word about what is on the poles."
+      ],
+      "id": "o_road",
+      "requires": [
+        "o_wire"
+      ],
+      "taskSeconds": 90,
+      "type": "visit",
+      "zone": "zone_scw_1044_986"
+    },
+    {
+      "desc": "Walk back in with Bracken.",
+      "id": "o_in",
+      "requires": [
+        "o_road"
+      ],
+      "target": "npc_thorn_bracken",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 130,
+    "flags": [
+      {
+        "flag": "wild_poles_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "wildblood_trust",
+        "scope": "player",
+        "value": "5"
+      }
+    ],
+    "xp": 55
+  },
+  "updated_at": "1788400000"
+}

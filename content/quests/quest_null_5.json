@@ -1,0 +1,75 @@
+{
+  "category": null,
+  "description": "A crate came down the road to the Stores with a Halcyon stencil on the side of it, and Padgett has not opened it, because Padgett opens nothing that has not been counted first.\n\nStrip it. Count what is in it. The stencil goes in the forge.\n\n\"The parts are ours now and they were somebody's before, and both of those are true and only one of them is any use,\" Threlfall says. \"Burn the half that is no use.\"",
+  "fail_on": [
+    {
+      "desc": "You sold what came out of the crate.",
+      "type": "sell"
+    }
+  ],
+  "id": "quest_null_5",
+  "meta": {},
+  "name": "Stencil",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Strip the crate at the Stores and take out what is in it.",
+      "id": "o_strip",
+      "item_id": "item_relay_node",
+      "type": "retrieve",
+      "zone": "zone_dw_770_976"
+    },
+    {
+      "desc": "Put the stencilled panel in the forge.",
+      "emotes": [
+        "{who} feeds the stencilled board in edge-first and watches the name go before the wood does.",
+        "{who} waits by the forge door until there is nothing left worth reading."
+      ],
+      "id": "o_burn",
+      "requires": [
+        "o_strip"
+      ],
+      "taskSeconds": 10,
+      "type": "visit",
+      "zone": "zone_dw_768_976"
+    },
+    {
+      "desc": "Give Padgett the count.",
+      "id": "o_count",
+      "requires": [
+        "o_burn"
+      ],
+      "target": "npc_dw_padgett",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 80,
+    "flags": [
+      {
+        "flag": "null_sold_it",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 160,
+    "flags": [
+      {
+        "flag": "null_q5_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "null_arc",
+        "scope": "player",
+        "value": "5"
+      }
+    ],
+    "xp": 34
+  },
+  "updated_at": "1788400000"
+}

@@ -1,0 +1,80 @@
+{
+  "category": null,
+  "description": "Somebody has been walking the Under with a survey lamp and a paper map, and Oracle-9 has stopped talking about the water.\n\nShe wants a cable pulled out of a junction box on the way he comes, and she wants it to look like the junction box has been like that for years.\n\n\"He is not going to hurt anybody. He is going to write down where we are, and then he is going to go home, and the writing down is the part that ends this.\"",
+  "fail_on": [
+    {
+      "desc": "The man with the lamp saw somebody down there.",
+      "type": "spotted"
+    },
+    {
+      "desc": "It reached a camera.",
+      "type": "witnessed"
+    }
+  ],
+  "id": "quest_exo_6",
+  "meta": {},
+  "name": "Nobody Comes Down Here",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Take the length of old cable off her table.",
+      "id": "o_kit",
+      "item_id": "item_salvaged_wiring",
+      "type": "retrieve",
+      "zone": "zone_yards_tenement_u3_6"
+    },
+    {
+      "desc": "Pull the good cable out of the box on his route and leave the rotten one in it.",
+      "emotes": [
+        "{who} listens for a full minute at the junction mouth before touching anything.",
+        "{who} swaps the cable and then spends longer than the swap took making the box look untouched.",
+        "{who} rubs sump silt into the new cuts until they are the same colour as everything else down here."
+      ],
+      "id": "o_swap",
+      "requires": [
+        "o_kit"
+      ],
+      "taskSeconds": 18,
+      "type": "visit",
+      "zone": "zone_under_902_909"
+    },
+    {
+      "desc": "Go back to Unit 306.",
+      "id": "o_home",
+      "requires": [
+        "o_swap"
+      ],
+      "target": "npc_glitch_oracle",
+      "type": "talk"
+    }
+  ],
+  "penalties": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "exo_seen",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 320,
+    "flags": [
+      {
+        "flag": "exo_q6_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "exo_arc",
+        "scope": "player",
+        "value": "6"
+      }
+    ],
+    "xp": 74
+  },
+  "updated_at": "1788400000"
+}

@@ -167,6 +167,106 @@
       ],
       "text": "\"Follow the tailrace up and keep the water on your left.\" She lets you get to the door. \"It is not a shrine and nobody has put anything on it. That is deliberate.\""
     },
+    "nl_accept_4": {
+      "_vine": {
+        "x": 1040,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_null_4"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Standpipe, north end, under the collar. Cobbald before supper.\" Back to the column. \"Take a pencil. Do not take anything else.\""
+    },
+    "nl_accept_5": {
+      "_vine": {
+        "x": 1040,
+        "y": 1160
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_null_5"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Stores, then the forge, then Padgett with the count.\" She is already back on the column. \"All of it goes on the shelf. That includes the piece you were going to keep.\""
+    },
+    "nl_accept_6": {
+      "_vine": {
+        "x": 1040,
+        "y": 1420
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_null_6"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "She walks you to the door, which she has not done before, and stops on the step with her hands in her sleeves.\n\n\"Winding Shop first. Water on your left going up.\" A breath of night air comes off the tailrace. \"If somebody sees you do it, it did not work.\""
+    },
+    "nl_and_then": {
+      "_vine": {
+        "x": 1720,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "All right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"And then nothing, for a while, which is what winning looks like here.\" She turns a page. \"There is a thing after this one that I am not going to describe to you tonight. Come back when you have slept.\""
+    },
+    "nl_counted": {
+      "_vine": {
+        "x": 1720,
+        "y": 1160
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Good.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It was.\" She lets that sit. \"That is the whole of it, and it is not a small thing, and I am not going to make a speech about it.\""
+    },
     "nl_member": {
       "actions": [],
       "options": [
@@ -179,6 +279,30 @@
         }
       ],
       "text": "\"You are on the rota now, which is the only membership anybody here has got.\" She hands you the straight edge without looking. \"Hold that a moment.\""
+    },
+    "nl_not_meter": {
+      "_vine": {
+        "x": 700,
+        "y": 1560
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go up tonight.",
+          "next": "nl_accept_6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then no.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" She does not soften it. \"It is not, and you have done three things for me that were, and this is the one where I find out whether that was the whole of you.\"\n\n\"You can say no. Nobody here will mention it and I will not think less of you. But I will not ask you again.\""
     },
     "nl_offer_1": {
       "actions": [],
@@ -260,6 +384,99 @@
         }
       ],
       "text": "She is not at the board. That is the first thing you notice, and it is genuinely alarming.\n\n\"There is a cut upstream where the grid used to come into this valley.\" She has her hands in her coat pockets. \"Poles, a conduit, a road they made to build it. It has been dead since before I was born and there is nothing up there worth carrying home.\"\n\nShe nods, roughly northeast, through two walls.\n\n\"Go and look at it. Take as long as you like. Then come back here and do not tell me what you thought, because I will already know.\""
+    },
+    "nl_offer_4": {
+      "_vine": {
+        "x": 360,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will get it.",
+          "next": "nl_accept_4"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why not take the box off?",
+          "next": "nl_why_meter"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is a meter on the standpipe that is not ours.\" She does not look up. \"It went on in the spring while four of us stood and watched, and it has been counting our water ever since, and once a month a man drives out to read it and drives away again.\"\n\n\"I want the number he is reading. Not the box. The number.\""
+    },
+    "nl_offer_5": {
+      "_vine": {
+        "x": 360,
+        "y": 1160
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Straightforward enough.",
+          "next": "nl_accept_5"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why burn a stencil?",
+          "next": "nl_why_stencil"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Crate at the Stores, came down the road on Tuesday, still shut.\" She sets the pencil down, which is her way of saying this one has a second half. \"Padgett will not open it until it is counted and I will not count it until it is stripped.\"\n\n\"There is a name stencilled on the side. That goes in the forge.\""
+    },
+    "nl_offer_6": {
+      "_vine": {
+        "x": 360,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go up tonight.",
+          "next": "nl_accept_6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens if it does not look like weather?",
+          "next": "nl_why_spike"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "This is not reading a meter.",
+          "next": "nl_not_meter"
+        }
+      ],
+      "text": "\"There is a survey crew above the breach with a repeater on a mast.\" She closes the column, which you have not seen her do. \"Nine days. Everything it hears goes east, and in a month somebody east of here will know how many of us there are, what we run, and when we sleep.\"\n\n\"The Winding Shop has made a spike for it. It is not a bomb. It makes the thing deaf, and it makes the deafness look like weather.\""
     },
     "nl_report_1": {
       "actions": [
@@ -376,6 +593,150 @@
       ],
       "text": "\"Right.\" She waits until you have stopped in front of her. \"The valley below that cut had power for sixty years and then it did not, and nobody up there died of it. That is what is up there. It is not a warning and it is not a monument. It is just the thing being true.\"\n\nShe sits down, which she does not do.\n\n\"Everybody outside this works believes the machine took something from them. It did not take anything. They handed it over, one convenience at a time, and each one was reasonable on the day.\"\n\nA long pause. She is choosing.\n\n\"We can make a machine stop. Not a bomb, not a fire. Properly, quietly, in front of its owner, without touching it. You will have guessed that already or you would not have come back three times.\""
     },
+    "nl_report_4": {
+      "_vine": {
+        "x": 1380,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_null_4"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 100,
+          "ideology_id": "ideology_null",
+          "reason": "A Number and Nothing Else"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -6
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You could have said.",
+          "next": "nl_said"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Anything else needs doing?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Cobbald has it.\" She writes something small in the margin that is not the number. \"You will want to know what the test was. It was whether the box came back with you.\"\n\n\"Half the people who walk in here would have had it off the wall inside a minute and thought they were helping. Then a man comes out to see why his meter stopped, and he brings the second man, and we lose the whole valley for a piece of tin.\""
+    },
+    "nl_report_5": {
+      "_vine": {
+        "x": 1380,
+        "y": 1160
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_null_5"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 130,
+          "ideology_id": "ideology_null",
+          "reason": "Stencil"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -7
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 8,
+          "path": "machine"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It was counted.",
+          "next": "nl_counted"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Anything else needs doing?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Padgett count and mine agree.\" A pause that is not quite hesitation. \"They have not always.\"\n\nShe looks at the shelf rather than at you. \"There is a relay in that crate worth more than you have made here since you arrived, and you put it on the shelf, and nobody was standing behind you when you did it.\""
+    },
+    "nl_report_6": {
+      "_vine": {
+        "x": 1380,
+        "y": 1420
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_null_6"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 200,
+          "ideology_id": "ideology_null",
+          "reason": "Somebody Else Water"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -10
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 12,
+          "path": "machine"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And then?",
+          "next": "nl_and_then"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Anything else needs doing?",
+          "next": "bye"
+        }
+      ],
+      "text": "She has the column open again by the time you are through the door, and she does not ask how it went, and you work out somewhere in the next few seconds that this is because she can hear that it did.\n\n\"They will send a man out on Thursday. He will find a repeater that has been rained on.\" She writes a line. \"He will file it as weather, and the file will be true, which is the part most people never manage.\""
+    },
+    "nl_said": {
+      "_vine": {
+        "x": 1720,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Fair.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I could.\" She finally looks up, and it lasts about as long as the meter takes to read. \"Then I would know what you do when you are told. This way I know what you do when you are not.\""
+    },
     "nl_school_what": {
       "actions": [],
       "options": [
@@ -461,6 +822,78 @@
         }
       ],
       "text": "\"Because everyone who stays here goes up there once.\" She does not elaborate and does not look away either. \"You can go now or you can go in a year. Nobody has ever gone twice.\""
+    },
+    "nl_why_meter": {
+      "_vine": {
+        "x": 700,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will get it.",
+          "next": "nl_accept_4"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because then they send two men and a form, and the second man has a camera.\" She turns a page. \"The box tells them what we use. The number tells us what they think we use. Those are different, and only one of them is worth the walk.\""
+    },
+    "nl_why_spike": {
+      "_vine": {
+        "x": 700,
+        "y": 1420
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go up tonight.",
+          "next": "nl_accept_6"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not tonight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then it looks like us.\" She says it without heat. \"A repeater that fails is a repair job. A repeater that is attacked is a report, and a report is a reason, and a reason brings people up the valley with the paperwork already filled in.\""
+    },
+    "nl_why_stencil": {
+      "_vine": {
+        "x": 700,
+        "y": 1160
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Straightforward enough.",
+          "next": "nl_accept_5"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because a board with a name on it is somebody else property lying in our yard, and a board with no name on it is firewood.\" She picks the pencil back up. \"The parts are ours now. The name never was, and I do not want it in the building.\""
     },
     "nl_whyme": {
       "actions": [],
@@ -678,6 +1111,131 @@
           "enabled": true,
           "label": "I went up to the cut.",
           "next": "nl_report_3"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "null_q3_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_null_4",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You said there was a meter.",
+          "next": "nl_offer_4"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_null_4",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I have your number.",
+          "next": "nl_report_4"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "null_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "3"
+            },
+            {
+              "flag": "quest_null_5",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q5_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Anything on the board?",
+          "next": "nl_offer_5"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_null_5",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q5_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The crate is counted.",
+          "next": "nl_report_5"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "null_arc",
+              "op": "gt",
+              "scope": "player",
+              "value": "4"
+            },
+            {
+              "flag": "quest_null_6",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q6_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You had something else.",
+          "next": "nl_offer_6"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_null_6",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q6_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "It is on the mast.",
+          "next": "nl_report_6"
         },
         {
           "actions": [],
