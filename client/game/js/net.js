@@ -66,7 +66,7 @@ export function initNet(messageHandler) {
         }
         const errEl = document.getElementById('auth-error');
         if (errEl) {
-          errEl.textContent = 'Connection lost during login. Reconnecting...';
+          errEl.textContent = 'Connection lost. Reconnecting.';
           errEl.style.color = 'var(--red)';
         }
       }
@@ -116,7 +116,7 @@ function noticeDropped() {
   const now = Date.now();
   if (now - _dropNoticeAt < DROP_NOTICE_MS) return;
   _dropNoticeAt = now;
-  appendMsg('Not connected — that did nothing. Reconnecting… (if it sticks, reload the page.)', 'system');
+  appendMsg('Not connected — that did nothing. Reconnecting. If it keeps up, reload the page.', 'system');
 }
 
 export function sendCmd(cmd, displayText) {
@@ -324,7 +324,7 @@ export function doAuth() {
     return;
   }
   if (!_connection?.isOpen()) {
-    errEl.textContent = 'Not connected. The server may still be waking up (up to a minute) — reconnecting automatically.';
+    errEl.textContent = 'Not connected. The server may take up to a minute to wake up. Reconnecting.';
     errEl.style.color = 'var(--red)';
     return;
   }
@@ -523,21 +523,22 @@ export function setConnStatus(stateStr) {
 // the copy never names the hosting tier — the wait is in-fiction or it's
 // nothing.
 const COLD_START_LINES = [
-  'Locating your body. It was where you left it.',
-  'Thawing the city. This takes a moment — it always has.',
-  'Waking the night shift. They are not pleased.',
-  'Counting the dead. The number is stable. That is unusual.',
-  'Recovering your file. Somebody had it open.',
-  'Checking the weather. You will not enjoy the weather.',
-  'Restoring the streetlights, in the order they were extinguished.',
-  'Your seat is still warm. We have been keeping it warm. Ask no further.',
-  'Paperwork. There is always paperwork.',
-  'Confirming you are not already inside. You are not. Probably.',
-  'Rebuilding the rooms you were not in. They notice.',
-  'Consulting the record — the record is long, and mostly about you.',
-  'Reticulating the Basin. The Basin does not require reticulating.',
-  'The lights are coming up. Try to look like you belong here.',
+  'Finding your body.',
+  'Thawing the city.',
+  'Waking the night shift.',
+  'Counting the dead.',
+  'Pulling your file.',
+  'Checking the weather. You will not like it.',
+  'Turning the streetlights back on.',
+  'Your seat is still warm.',
+  'Paperwork.',
+  'Making sure you are not already inside.',
+  'Putting the rooms back.',
+  'Reading the record. It is long.',
+  'Warming up the Basin.',
+  'Lights coming up.',
 ];
+
 
 let _coldTimer = null;
 let _coldBag = [];
@@ -585,11 +586,11 @@ function showColdStart(opts = {}) {
   // not something a player can act on. Only the LONG one gets the flavour
   // rotation; three seconds of paperwork jokes is just noise.
   const body = opts.db
-    ? '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Waking the world.<br><span style="color:var(--text);font-size:0.6875rem">Just a moment...</span></div>'
+    ? '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Waking the world.<br><span style="color:var(--text);font-size:0.6875rem">Just a moment.</span></div>'
     : '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Connecting to the world.<br>This can take up to a minute.'
       + '<div class="cold-start-bar" aria-hidden="true"><span></span></div>'
       + '<div id="cold-start-flavour" style="color:var(--text);font-size:0.6875rem;min-height:2.6em;display:flex;align-items:center;justify-content:center"></div>'
-      + '<span style="color:var(--text-dim);font-size:0.625rem">Reconnecting automatically...</span></div>';
+      + '<span style="color:var(--text-dim);font-size:0.625rem">Reconnecting.</span></div>';
   let el = document.getElementById('cold-start-notice');
   if (!el) {
     el = document.createElement('div');
