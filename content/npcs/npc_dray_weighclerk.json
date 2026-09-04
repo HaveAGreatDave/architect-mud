@@ -1,0 +1,223 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "chalks a box number onto the tally board, considers it, and rubs it out again.",
+    "\"Four thousand cans out there. I have numbers for maybe nine hundred.\"",
+    "\"Some of them are welded shut. Those ones I do not chase.\""
+  ],
+  "description": "The weighbridge clerk, folded into an office the size of a phone box with a flask, a tally board and a view of exactly one gate. He has been reconciling that board for six years and is, by his own estimate, gaining.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Fair enough.\" The window slides shut."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Neither.",
+          "next": "bye"
+        }
+      ],
+      "text": "Beddoe slides the little window across and looks up at you from a chair he clearly never leaves. \"In, or out? If it is neither, I cannot help you, and I mean that in the widest possible sense.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a padded gatehouse jacket with the zip long gone",
+      "a jumper worn through at both elbows",
+      "a vest, shorts, and a second pair of socks"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u7_1",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_dray_weighclerk",
+  "name": "Micah Beddoe",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 16
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dray_container"
+}

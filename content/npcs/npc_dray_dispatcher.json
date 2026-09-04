@@ -1,0 +1,223 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "holds up one finger without looking, still talking into the headset.",
+    "\"Say again? Say again. Kessler, or Kessler South? Because one of those burned down.\"",
+    "\"I can book you anywhere. I cannot promise it is still there.\""
+  ],
+  "description": "A dispatcher wearing a headset she has stopped taking off, booking loads into a network that keeps quietly losing destinations. There is a mug from the tar machine at her elbow at all times and it is never the same mug.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right you are.\" The headset is live again before you reach the door."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Nothing yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "Loach mutes the headset with her chin and gives you nine tenths of her attention. \"Loads booked, no cash on site, and the sign outside means it. What are you moving?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a fleece with the depot logo half unravelled",
+      "a shirt with the headset cable threaded up the inside",
+      "sensible trousers and honest, unglamorous underwear"
+    ],
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u7_1",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_dray_dispatcher",
+  "name": "Sanna Loach",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dray_freightoffice"
+}

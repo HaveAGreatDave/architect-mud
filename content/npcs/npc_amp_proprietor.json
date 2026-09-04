@@ -1,0 +1,305 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "holds a board up under the magnifier lamp and breathes solder smoke out of the side of his mouth.",
+    "\"Everything on that wall works. Define works.\"",
+    "\"No refunds, no exceptions. The third one is not a joke and I will not be taking questions.\"",
+    "\"You want it cheaper, argue. That is the price mechanism in here.\"",
+    "\"I can fix that. I said fix, not restore. Different words, different money.\""
+  ],
+  "description": "A narrow, patient man welded to a stool behind the bench, working under a magnifier lamp with a soldering iron he never quite sets down. He prices by argument and wins most of them, and there is a sign behind his head that he will point at rather than repeat.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mm. Mind the cable on the floor, it is live more often than it should be.\""
+    },
+    "exorcism": {
+      "options": [
+        {
+          "label": "You are not going to tell me, are you.",
+          "next": "bye"
+        }
+      ],
+      "text": "Skene does not look up from the board. \"A woman brought a slate in. It was doing a thing. I fixed the thing.\" <span class=\"text-dim\">He sets the iron down, which he does not do.</span> \"Then it did the thing again, in my shop, at two in the morning, with me in it. The sign went up the following week and the sign is the whole of what I have to say about it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is with the exorcisms line on the sign?",
+          "next": "exorcism"
+        },
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "The magnifier lamp swings your way before he does. \"Everything on the wall is salvage and everything on the wall is priced by argument, so open with a number and we will find out how far apart we are.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a shopcoat pocked with solder burns, pens and probes in every pocket",
+      "a collarless shirt with the cuffs rolled past the elbow",
+      "a vest and boxers that have never once been considered"
+    ],
+    "mis_willing": false,
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u7_2",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_amp_proprietor",
+  "name": "Teodor Skene",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_tangled_wire",
+      "min_trust": 0,
+      "price": 7
+    },
+    {
+      "item_id": "item_cracked_capacitor",
+      "min_trust": 0,
+      "price": 9
+    },
+    {
+      "item_id": "item_loyalty_chip",
+      "min_trust": 0,
+      "price": 12
+    },
+    {
+      "item_id": "item_battery",
+      "min_trust": 0,
+      "price": 14
+    },
+    {
+      "item_id": "item_glowing_scrap",
+      "min_trust": 0,
+      "price": 15
+    },
+    {
+      "item_id": "item_cracked_circuit",
+      "min_trust": 0,
+      "price": 18
+    },
+    {
+      "item_id": "item_depleted_battery",
+      "min_trust": 0,
+      "price": 20
+    },
+    {
+      "item_id": "item_flashlight",
+      "min_trust": 0,
+      "price": 34
+    },
+    {
+      "item_id": "item_scrap_copper_coil",
+      "min_trust": 0,
+      "price": 55
+    },
+    {
+      "item_id": "item_signal_board",
+      "min_trust": 0,
+      "price": 62
+    },
+    {
+      "item_id": "item_mystery_component",
+      "min_trust": 0,
+      "price": 88
+    },
+    {
+      "item_id": "item_junk_battery",
+      "min_trust": 0,
+      "price": 95
+    },
+    {
+      "item_id": "item_drone_core",
+      "min_trust": 0,
+      "price": 170
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_shop_name": "Ohm Sweet Ohm",
+  "vendor_stock_size": 24,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_mq_amp_shop"
+}

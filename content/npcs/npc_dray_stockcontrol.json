@@ -1,0 +1,223 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "writes a short line on the clipboard, then a shorter one under it.",
+    "\"Everything in here has a tag. Not everything has a name.\"",
+    "\"Don't go near the hooks. I am not being mysterious. It is just heavy.\""
+  ],
+  "description": "The stock controller, a small woman in a coat three sizes too big, working down a clipboard in the one corner where her breath does not fog. She marks the far hooks with a dash rather than a number and has never been asked to explain the dash.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mm.\" She is already back on the clipboard."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "Skerrit looks up from the clipboard and her pen does not stop. \"Collections at the front, deliveries at the front, questions at the front. There is a theme.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a borrowed freezer coat three sizes too big",
+      "a moth-holed cardigan buttoned wrong",
+      "a plain bra and long thermal knickers"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u6_4",
+  "hp": 16,
+  "hp_max": 16,
+  "id": "npc_dray_stockcontrol",
+  "name": "Billie Skerrit",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dray_coldstore"
+}
