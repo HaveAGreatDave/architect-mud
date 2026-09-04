@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Ansel Rooke works the Guardian battery north of the vats, and his radar keeps painting ground returns nobody is assigned to deal with: scavengers coming in past the gate and stripping the facility while the gun points at the sky. Thin them out.",
+  "description": "The scavengers working the freight lane are not organised, not dangerous in a group, and not, strictly, anybody's responsibility. That is precisely why the job pays fifty and comes with a packet of rad pills.\n\nNobody makes a speech about this one. Somebody points at the freight lane, says a number, and goes back to what they were doing.",
   "fail_on": [],
   "id": "quest_pest_control",
   "meta": {},
@@ -9,6 +9,10 @@
     {
       "count": 2,
       "desc": "Cull 2 Desperate Scavengers: the freight lane past the yards, or the red flats further out",
+      "emotes": [
+        "{who} clears the freight lane the way you clear a gutter, without ceremony.",
+        "{who} puts down a scavenger who was probably three weeks out of a vat."
+      ],
       "target": "Scavenger",
       "type": "kill"
     }
@@ -26,5 +30,5 @@
     ],
     "xp": 10
   },
-  "updated_at": "1782472672"
+  "updated_at": "1788400000"
 }

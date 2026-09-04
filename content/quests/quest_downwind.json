@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Slag wights have moved into the wasteland the diplomatic quarter dumps downwind of itself, and an accord signing is days away. Consul Alcaraz needs the problem to not exist, discreetly.",
+  "description": "The diplomatic quarter has to put its waste somewhere, and where it puts it is downwind, and downwind is where the slag wights now live. Consul Alcaraz would like these two facts to stop being connected in time for the signing.\n\nHe is a career diplomat. He has negotiated three ceasefires. He does not once say kill.\n\n\"There is a condition on the western approach that would be difficult to explain to a delegation,\" he says. \"I would like the condition to have resolved itself by Thursday.\"\n\nThe money is on the table before you agree, which is how you know how badly Thursday matters.",
   "fail_on": [],
   "id": "quest_downwind",
   "meta": {},
@@ -9,6 +9,11 @@
     {
       "count": 2,
       "desc": "Clear 2 slag wights from Oxide Flats and the Downwind",
+      "emotes": [
+        "{who} goes out into what the quarter has been quietly pouring downwind of itself for years.",
+        "{who} kills a slag wight in a wasteland that exists because somebody upwind signed something.",
+        "{who} resolves a condition on the western approach, diplomatically."
+      ],
       "id": "o1",
       "target": "slag wight",
       "type": "kill"
@@ -34,5 +39,5 @@
     ],
     "xp": 40
   },
-  "updated_at": "1783120109"
+  "updated_at": "1788400000"
 }

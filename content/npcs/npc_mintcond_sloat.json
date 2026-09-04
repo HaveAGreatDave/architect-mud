@@ -166,6 +166,89 @@
       "options": [],
       "text": "\"Mm.\" The stool creaks and he is already reading again before the bell over the door has finished."
     },
+    "dq_seal_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_sloat_sealed"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Sealed. Understood.\"",
+          "text": "\"Sealed. Understood.\""
+        }
+      ],
+      "text": "\"Do not sell one on to see what happens,\" he says, as you turn. \"People do. They think I will not know which sleeve. I always know which sleeve.\""
+    },
+    "dq_seal_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_sloat_sealed"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Keep it shut, Sloat.\"",
+          "text": "\"Keep it shut, Sloat.\""
+        }
+      ],
+      "text": "He takes them one at a time, holds each one up, tilts it until the holographics change their mind about the colour, and puts it in a case with a great many others.\n\nHe pays you an amount that makes no commercial sense whatsoever.\n\n\"People ask me what I think is in them,\" he says, closing the case. \"I do not think anything is in them. That is the point. It is the last place left in this town where nothing has happened yet.\""
+    },
+    "dq_seal_offer": {
+      "options": [
+        {
+          "label": "\"You've never opened one?\"",
+          "next": "dq_seal_once",
+          "text": "\"You've never opened one?\""
+        },
+        {
+          "label": "\"Three sleeves, sealed. Fine.\"",
+          "next": "dq_seal_accept",
+          "text": "\"Three sleeves, sealed. Fine.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"That's not how value works.\"",
+          "text": "\"That's not how value works.\""
+        }
+      ],
+      "text": "Sloat does not get off the stool. He has not got off the stool in your presence and you are beginning to suspect the stool is structural.\n\n\"I will pay you well above machine price for three Architect Draft sleeves,\" he says. \"One condition, and I am going to say it three ways, because people only hear one.\"\n\nHe holds up a finger for each.\n\n\"They stay shut. They arrive sealed. You do not look.\"\n\nHis hands go back on his knees.\n\n\"The moment you look, it becomes a card. A card has a value and I can look a value up. Sealed, it is every card at once. Sealed, it is the good one.\""
+    },
+    "dq_seal_once": {
+      "options": [
+        {
+          "label": "\"Three. Sealed.\"",
+          "next": "dq_seal_accept",
+          "text": "\"Three. Sealed.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I need to think.\"",
+          "text": "\"I need to think.\""
+        }
+      ],
+      "text": "The shop is quiet in a way that suggests the shop is usually quiet and this is a different quiet.\n\n\"Once,\" Sloat says. \"I was nineteen.\"\n\nHe adjusts something on the counter that did not need adjusting.\n\n\"I do not discuss it. I will tell you the only part that matters, which is that I was right about what was in it, and being right cost me more than being wrong would have, and I have never worked out how to explain that to anybody who has not done it.\"\n\nHe looks at you for the first time.\n\n\"Three. Sealed.\""
+    },
     "gossip": {
       "actions": [
         {
@@ -297,6 +380,36 @@
         {
           "label": "Nothing. Just looking.",
           "next": "looking"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_sloat_sealed",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_blocked_quest_sloat_sealed",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "\"Do you buy sealed?\"",
+          "next": "dq_seal_offer",
+          "text": "\"Do you buy sealed?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_sloat_sealed",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"Three sleeves. Shut.\"",
+          "next": "dq_seal_done",
+          "text": "\"Three sleeves. Shut.\""
         },
         {
           "actions": [],

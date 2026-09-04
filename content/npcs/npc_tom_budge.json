@@ -30,6 +30,89 @@
       "options": [],
       "text": "\"Go on, then. Keep your light on it.\""
     },
+    "dq_grub_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_budge_subsection_grub"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Full kit.\"",
+          "text": "\"Full kit.\""
+        }
+      ],
+      "text": "\"Full kit,\" he says again, and writes your name in a box on a form that has eleven other boxes, all empty, all mandatory. \"There's a weather rider on it if you're out there when it turns. Nobody ever claims the weather rider. It's a good rider.\""
+    },
+    "dq_grub_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_budge_subsection_grub"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Congratulations to the clause.\"",
+          "text": "\"Congratulations to the clause.\""
+        }
+      ],
+      "text": "He goes through the count twice against the clipboard and initials each line, and only then does he pay you. \"Four,\" he says, with real feeling. \"Signed off under subsection grub. Do you know how long that clause has sat there doing nothing?\" He locks the clipboard into a case. \"Nineteen years, Reg. Nineteen years and today it EARNED.\""
+    },
+    "dq_grub_offer": {
+      "options": [
+        {
+          "label": "\"Nuisance character. Right.\"",
+          "next": "dq_grub_accept",
+          "text": "\"Nuisance character. Right.\""
+        },
+        {
+          "label": "\"What is it actually?\"",
+          "next": "dq_grub_what",
+          "text": "\"What is it actually?\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll pass.\"",
+          "text": "\"I'll pass.\""
+        }
+      ],
+      "text": "He taps the schedule on his clipboard, which is laminated, and which he clearly laminated himself. \"Vermin is a defined term. That is the trouble with this job and it is also the whole of the job. The thing in the culvert is not on the schedule. It is not on ANY schedule. I have looked.\"\n\nHe turns the clipboard around so you can see it, which does not help.\n\n\"Section four. Subsection grub. Catch-all clause. Covers, and I quote, other organisms of a nuisance character.\" He taps it. \"It is of a nuisance character. It has been of a nuisance character since Tuesday.\"\n\nHe hands you a hood.\n\n\"Full kit or the certification is void, and I have not voided one in nineteen years.\""
+    },
+    "dq_grub_what": {
+      "options": [
+        {
+          "label": "\"Give me the hood.\"",
+          "next": "dq_grub_accept",
+          "text": "\"Give me the hood.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll pass.\"",
+          "text": "\"I'll pass.\""
+        }
+      ],
+      "text": "There is a pause inside the suit. It goes on slightly too long.\n\n\"Other,\" he says, \"organisms. Of a nuisance. Character.\" He does not blink, although in fairness you cannot see whether he blinks. \"That is what it is. That is the classification and the classification is the answer to that question. If I go looking for a better answer than the classification, Reg, then I am not a pest control operative any more. I am a man in a culvert with a torch.\"\n\nHis voice does not rise.\n\n\"I have been a man in a culvert with a torch. It is worse.\""
+    },
     "gear": {
       "options": [
         {
@@ -249,6 +332,32 @@
           ],
           "label": "Stand down for now.",
           "next": "standdown"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_budge_subsection_grub",
+              "op": "neq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "\"Anything in the culvert need reclassifying?\"",
+          "next": "dq_grub_offer",
+          "text": "\"Anything in the culvert need reclassifying?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_budge_subsection_grub",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"Four, under subsection grub.\"",
+          "next": "dq_grub_done",
+          "text": "\"Four, under subsection grub.\""
         },
         {
           "conditions": [

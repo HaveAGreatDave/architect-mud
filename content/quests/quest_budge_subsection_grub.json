@@ -1,0 +1,65 @@
+{
+  "category": null,
+  "description": "Tom Budge has a schedule. The schedule lists what is vermin. The thing currently working the culvert is not on the schedule, is roughly the size of a filing cabinet, and has opinions.\n\nBudge has solved this by reclassifying it. Section four, subsection grub, catch-all clause, which he reads aloud twice in a voice of enormous satisfaction.\n\n\"Reclassified is not the same as wrong,\" he says, through the suit. \"Reclassified is what the clause is FOR.\"\n\nThe hood is mandatory. Not for your lungs. For the certification, which is void if the operative is not in full kit, and Budge has never voided a certification in nineteen years and does not intend to start over somebody else's face.",
+  "fail_on": [],
+  "id": "quest_budge_subsection_grub",
+  "meta": {},
+  "name": "Section Four, Subsection Grub",
+  "objectives": [
+    {
+      "desc": "Wear the fumigator's hood. The certification requires it.",
+      "emotes": [
+        "{who} pulls the hood down and the world goes quiet and slightly yellow."
+      ],
+      "id": "o0",
+      "item_id": "item_pest_mask",
+      "type": "equip"
+    },
+    {
+      "count": 4,
+      "desc": "Clear four of whatever the clause says they are.",
+      "emotes": [
+        "{who} applies section four, subsection grub, with a length of pipe.",
+        "{who} makes a note of the kill for the paperwork, because Budge will ask."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "target": "@enemy_in:map_world",
+      "type": "kill"
+    },
+    {
+      "desc": "Ride out a storm outdoors in full kit. Budge calls this the weather rider.",
+      "emotes": [
+        "{who} stands out in it in a sealed hood, breathing their own breath, waiting for the all-clear."
+      ],
+      "id": "o2",
+      "optional": true,
+      "requires": [
+        "o0"
+      ],
+      "rewards": {
+        "credits": 180,
+        "xp": 14
+      },
+      "type": "survive"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "advance": 60,
+    "credits": 240,
+    "flags": [
+      {
+        "flag": "budge_certified_hand",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "xp": 30
+  },
+  "updated_at": "1788400000"
+}

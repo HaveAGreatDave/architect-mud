@@ -1,0 +1,105 @@
+{
+  "category": null,
+  "description": "Denny Corliss has a quota. He will not use the word quota. He will use the word opportunity, and he will use it eleven times before you have finished agreeing to anything.\n\nThe pitch, as far as anyone can follow it: Franchise onboarding does not want your money. Franchise onboarding wants to see the model work. So Denny fronts you a hundred out of his own float, you go and be an economy for an afternoon, and the numbers go up on a card table on Ironside.\n\n\"Buy something. Sell three somethings. Move eight hundred through the town.\" He fans a brochure he does not hand over. \"That's not work. That's proof of concept. Work is what happens after.\"\n\nHe is not lying to you. That is the unsettling part. He has simply been lied to first, very thoroughly, and has decided to be cheerful about it.",
+  "fail_on": [],
+  "id": "quest_denny_ground_floor",
+  "meta": {},
+  "name": "Ground Floor Opportunity",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Acquire inventory. Anything counts as inventory.",
+      "emotes": [
+        "{who} buys a thing off a shelf with the grim air of somebody starting a business."
+      ],
+      "id": "o0",
+      "type": "buy"
+    },
+    {
+      "count": 3,
+      "desc": "Move three units. Any three. Denny is not precious about it.",
+      "emotes": [
+        "{who} sells a stranger something they will regret by Thursday.",
+        "{who} closes a sale and feels a small green blazer growing somewhere inside them."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "type": "sell"
+    },
+    {
+      "count": 800,
+      "desc": "Demonstrate velocity: put ₵800 through Coldwater.",
+      "emotes": [
+        "{who} moves money the way Denny said to move it, which is quickly and without thinking about it."
+      ],
+      "id": "o2",
+      "requires": [
+        "o0"
+      ],
+      "type": "spend"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "resolutions": [
+    {
+      "id": "bought_in",
+      "on_turn_in": {
+        "start_quest": "quest_denny_downline"
+      },
+      "rewards": {
+        "credits": 340,
+        "flags": [
+          {
+            "flag": "denny_onboarded",
+            "scope": "player",
+            "value": "believer"
+          }
+        ],
+        "items": [
+          {
+            "item_id": "item_cap_trucker_slogan",
+            "quantity": 1
+          }
+        ],
+        "xp": 34
+      },
+      "when": {
+        "flag": "denny_bought_in",
+        "op": "eq",
+        "scope": "player",
+        "value": "true"
+      }
+    },
+    {
+      "id": "cash",
+      "rewards": {
+        "credits": 260,
+        "flags": [
+          {
+            "flag": "denny_onboarded",
+            "scope": "player",
+            "value": "done"
+          }
+        ],
+        "xp": 26
+      }
+    }
+  ],
+  "rewards": {
+    "advance": 100,
+    "credits": 260,
+    "flags": [
+      {
+        "flag": "denny_onboarded",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "xp": 26
+  },
+  "updated_at": "1788400000"
+}

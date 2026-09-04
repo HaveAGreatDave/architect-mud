@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Scavengers have been stripping cargo off the parked flatcars in the sidings faster than the Yards can move it. Voss the yardmaster wants the sidings cleared and isn't fussy how.",
+  "description": "The Yards are being stripped faster than the Yards can move freight, which the yardmaster explains is not theft but arithmetic, and which he explains for some time.\n\n\"Flatcar comes in loaded. Sits four days because there's no crew. Goes out light.\" He counts it on thick fingers. \"That's not a crime, that's an EQUATION, and I am the only man in this yard trying to solve it.\"\n\nHe is not asking you to arrest anybody. There is nobody to arrest anybody. He is asking you to change one of the numbers.",
   "fail_on": [],
   "id": "quest_sidings_cleared",
   "meta": {},
@@ -9,6 +9,11 @@
     {
       "count": 3,
       "desc": "Clear 3 Desperate Scavengers from the Yards (Skid Row, the Bulk Yard, the bonded store)",
+      "emotes": [
+        "{who} comes down the siding between two flatcars, where there is nowhere for anybody to go.",
+        "{who} puts a scavenger down on the ballast and does not enjoy it as much as expected.",
+        "{who} notes that the dead one was carrying nothing worth the walk out here."
+      ],
       "id": "o1",
       "target": "scavenger",
       "type": "kill"
@@ -34,5 +39,5 @@
     ],
     "xp": 32
   },
-  "updated_at": "1783118241"
+  "updated_at": "1788400000"
 }

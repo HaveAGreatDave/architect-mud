@@ -153,6 +153,89 @@
       "options": [],
       "text": "\"Mind the grille.\" His eye is already back on the loupe, and on you."
     },
+    "dq_crack_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_hock_cracked"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Fair enough.\"",
+          "text": "\"Fair enough.\""
+        }
+      ],
+      "text": "\"Three,\" Hock says. \"Open them where you like. Do not open them in here, I am not watching that.\""
+    },
+    "dq_crack_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_hock_cracked"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"It's not disappointing.\"",
+          "text": "\"It's not disappointing.\""
+        }
+      ],
+      "text": "He goes over what you brought under the loupe, one at a time, unhurried, and pays each one at what it is. Nothing is worth a fortune. Everything is worth something.\n\n\"There,\" he says, and pushes the notes through the mesh. \"Now you know. That is the entire service I provide and people find it disappointing every single time.\""
+    },
+    "dq_crack_offer": {
+      "options": [
+        {
+          "label": "\"Three sleeves, opened. Done.\"",
+          "next": "dq_crack_accept",
+          "text": "\"Three sleeves, opened. Done.\""
+        },
+        {
+          "label": "\"Sloat pays more, though.\"",
+          "next": "dq_crack_sloat",
+          "text": "\"Sloat pays more, though.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll think about it.\"",
+          "text": "\"I'll think about it.\""
+        }
+      ],
+      "text": "The loupe comes up. He does not answer for long enough that you check whether he heard.\n\n\"Sealed,\" he says at last. \"A sealed thing is a rumour. I do not buy rumours. I buy objects, and an object has to have been LOOKED at before it is one.\"\n\nHe puts a small stack of notes on the mesh shelf and does not push it through.\n\n\"Three sleeves. Crack them. Bring me what is actually in your hand and I will pay you for that, and it will be a fair price, and you will know exactly what you sold.\"\n\nHe returns to the loupe.\n\n\"Sloat will pay you more. Sloat is paying for a feeling. I am not in that trade and I would not know how to price it.\""
+    },
+    "dq_crack_sloat": {
+      "options": [
+        {
+          "label": "\"I'll open them.\"",
+          "next": "dq_crack_accept",
+          "text": "\"I'll open them.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll go and see Sloat.\"",
+          "text": "\"I'll go and see Sloat.\""
+        }
+      ],
+      "text": "\"He does.\" No heat in it at all. \"He also has a back room with eleven hundred sealed sleeves in it that he cannot spend, cannot insure, and cannot open, because the moment he opens one it becomes worth what it is worth.\"\n\nThe loupe does not move.\n\n\"He is not a collector. He is a man holding his breath. It has been nine years.\"\n\nHe finally looks up.\n\n\"You can take his money. I will not think less of you and I will not do this deal afterwards. One or the other. That is not me being difficult, that is just what happens to the sleeves.\""
+    },
     "gossip": {
       "actions": [
         {
@@ -184,6 +267,36 @@
         {
           "label": "Just browsing.",
           "next": "bye"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_hock_cracked",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_blocked_quest_hock_cracked",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "\"What do you make of the sealed card trade?\"",
+          "next": "dq_crack_offer",
+          "text": "\"What do you make of the sealed card trade?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_hock_cracked",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"Opened. Here's what was in them.\"",
+          "next": "dq_crack_done",
+          "text": "\"Opened. Here's what was in them.\""
         },
         {
           "label": "You must hear things, back here.",

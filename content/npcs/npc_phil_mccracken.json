@@ -75,6 +75,20 @@
       ],
       "text": "\"I could.\" He goes back to the clipboard. \"Ask me again after a good one.\""
     },
+    "dq_recruited": {
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll tell him.\"",
+          "text": "\"I'll tell him.\""
+        }
+      ],
+      "text": "He reads the brochure. Then he reads it again, slower, the way you read something that has your own name in it.\n\n\"I've had this lanyard eleven years,\" he says. \"Nobody has ever asked to see it. Not once. Not security, not the desk, nobody.\" He touches it. \"I kept turning up because I couldn't work out how to stop turning up.\"\n\nHe folds the brochure into a pocket that already has a pen in it.\n\n\"Tell Corliss yes. Tell him I said yes properly, out loud, with a witness, because I want it to have happened.\""
+    },
     "else": {
       "options": [
         {
@@ -171,6 +185,19 @@
         {
           "label": "Is he always like that?",
           "next": "neil"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_denny_downline",
+              "op": "eq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "\"Phil. Have you ever thought about ownership?\"",
+          "next": "dq_recruited",
+          "text": "\"Phil. Have you ever thought about ownership?\""
         },
         {
           "label": "(leave him to it)",

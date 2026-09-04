@@ -1,0 +1,65 @@
+{
+  "category": null,
+  "description": "You signed. There was a form. The form had a cartoon of a ladder on it and every rung was smiling.\n\nDenny explains the structure with genuine tenderness. Above him is a regional. Above the regional is a name nobody has met. Above that, he gestures vaguely north, is the part that pays. Below him, as of this morning, is you. Below you there is nothing at all, and that is the problem he needs solving.\n\nThe uniform is not negotiable. It is a cap. It says HANG IN THERE and it has a kitten on it and it is, Denny insists, the single most recognisable piece of corporate identity in the Basin.\n\n\"Move five. Wear the cap while you do it. And go and see McCracken in the Meridian, because that man has a lanyard and no employer, and I have been thinking about him for a year.\"",
+  "fail_on": [
+    {
+      "desc": "Denny is dead. You cannot be paid by an upline. That is the entire architecture of the thing.",
+      "target": "npc_corp_recruiter",
+      "type": "assassinate"
+    }
+  ],
+  "id": "quest_denny_downline",
+  "meta": {},
+  "name": "Downline",
+  "objectives": [
+    {
+      "desc": "Put the cap on. Denny will know.",
+      "emotes": [
+        "{who} puts on the HANG IN THERE cap and feels the last of something leave them."
+      ],
+      "id": "o0",
+      "item_id": "item_cap_trucker_slogan",
+      "type": "equip"
+    },
+    {
+      "count": 5,
+      "desc": "Move five units in the cap.",
+      "emotes": [
+        "{who} makes a sale in a kitten cap, which somehow helps."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "type": "sell"
+    },
+    {
+      "desc": "Recruit Phil McCracken, who has a lanyard and no employer.",
+      "emotes": [
+        "{who} explains the ladder to a man who has been waiting years for somebody to explain a ladder to him.",
+        "{who} watches Phil McCracken read a brochure twice, slowly, and not say no."
+      ],
+      "id": "o2",
+      "requires": [
+        "o0"
+      ],
+      "target": "npc_phil_mccracken",
+      "type": "talk"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 400,
+    "flags": [
+      {
+        "flag": "denny_downline",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "xp": 40
+  },
+  "updated_at": "1788400000"
+}

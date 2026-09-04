@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Slake has watched people walk west into the Redline for years and watched none of them walk back. She doesn't want the core cleared, which can't be done. She wants proof it can be touched: the ticking heart of the thing that rules the killing floor, cut out and carried home.",
+  "description": "The Killing Floor was called something else before, on a sign that is still up, and the sign is the funniest and worst thing about the place.\n\nThe Redline let the horror stay because it kept everybody else out, which worked exactly as well as that plan has ever worked for anybody. It is now the largest single reason nobody goes into the Redline, including the Redline.\n\nFour hundred credits, a rad band and three courses of pills, and the number is that high for one honest reason: everybody who set it expects to keep the money.",
   "fail_on": [],
   "id": "quest_redline_core",
   "meta": {},
@@ -9,6 +9,11 @@
     {
       "count": 1,
       "desc": "Kill the Redline horror on the Killing Floor",
+      "emotes": [
+        "{who} comes onto the Killing Floor under a sign advertising a business that closed before the Handoff.",
+        "{who} learns what the Redline learned about keeping a thing around because it frightens other people.",
+        "{who} puts the Redline horror down on its own floor, which nobody has managed before."
+      ],
       "id": "o1",
       "target": "Redline horror",
       "type": "kill"
@@ -38,5 +43,5 @@
     ],
     "xp": 60
   },
-  "updated_at": "1783121478"
+  "updated_at": "1788400000"
 }

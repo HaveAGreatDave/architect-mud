@@ -1,0 +1,49 @@
+{
+  "category": null,
+  "description": "Halcyon Assurance does not dispute that the weather happened. Halcyon Assurance disputes that the weather has been adequately evidenced, which is a different sentence and a much cheaper one.\n\nCamille Roux has a stack of claims she cannot pay out and cannot refuse. What she needs is an independent witness. Not a meteorologist. Not a reading. A person, outdoors, from the peak through to the all-clear, who will afterwards sign a line saying so.\n\n\"You will be paid a retainer,\" she says, sliding it across before you have agreed. \"The retainer is not conditional on your survival. I want to be clear about that, because people find it comforting and it isn't.\"\n\nThere is a second line on the form, greyed out, for phenomena of an extraordinary character. She taps it once and does not explain it, and the rate beside it is four times the first.",
+  "fail_on": [],
+  "id": "quest_roux_act_of_god",
+  "meta": {},
+  "name": "An Act of God, Witnessed",
+  "objectives": [
+    {
+      "desc": "Be outdoors from the peak of a storm through to the all-clear.",
+      "emotes": [
+        "{who} stands in the open and lets the weather be evidenced upon them.",
+        "{who} counts the all-clear in and realises they are being paid for this."
+      ],
+      "id": "o0",
+      "type": "survive"
+    },
+    {
+      "desc": "Witness a phenomenon of an extraordinary character. Roux will not say what.",
+      "emotes": [
+        "{who} looks up at three of them at once and, for a moment, files no claim about it."
+      ],
+      "id": "o1",
+      "optional": true,
+      "rewards": {
+        "credits": 1200,
+        "xp": 60
+      },
+      "target": "triple_rainbow",
+      "type": "survive"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "advance": 150,
+    "credits": 300,
+    "flags": [
+      {
+        "flag": "halcyon_witness",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "xp": 32
+  },
+  "updated_at": "1788400000"
+}

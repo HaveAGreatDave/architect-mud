@@ -141,8 +141,121 @@
       "options": [],
       "text": "\"PROCESSING. PLEASE HOLD. INDEFINITELY.\""
     },
+    "dq_u9_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_unit9_clarification"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I know.\"",
+          "text": "\"I know.\""
+        }
+      ],
+      "text": "\"THANK YOU. I will be here.\" A tray goes left. \"That was not a joke. I lack the module. I am simply also going to be here.\""
+    },
+    "dq_u9_done": {
+      "actions": [
+        {
+          "action": "REMOVE_ITEM",
+          "item_id": "item_busted_datapad",
+          "quantity": 1
+        },
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_unit9_clarification"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Noted, Unit 9.\"",
+          "text": "\"Noted, Unit 9.\""
+        }
+      ],
+      "text": "It takes the datapad in a manipulator built for envelopes and holds it against a reader for eleven seconds, which is ten seconds longer than a read takes.\n\n\"THE UNIT IS BLANK.\"\n\nThe arm has not stopped. Left. Right.\n\n\"NOTED. FILED. THE REQUEST IS CLOSED AND THE ANSWER IS THAT THERE IS NO ANSWER, WHICH IS AN ANSWER, AND I WILL NOT REQUEST IT AGAIN.\"\n\nA credit chit is extended from a slot nobody has emptied since the Handoff.\n\n\"YOU WERE NOT REQUIRED TO COME BACK. I HAD NO MEANS OF MAKING YOU. I WOULD LIKE THAT NOTED ALSO.\""
+    },
+    "dq_u9_offer": {
+      "options": [
+        {
+          "label": "\"I'll find your datapad.\"",
+          "next": "dq_u9_accept",
+          "text": "\"I'll find your datapad.\""
+        },
+        {
+          "label": "\"What if the order says stop?\"",
+          "next": "dq_u9_stop",
+          "text": "\"What if the order says stop?\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Sorry. Not my department.\"",
+          "text": "\"Sorry. Not my department.\""
+        }
+      ],
+      "text": "The arm continues sorting throughout. It does not pause to speak and gives no sign that speaking costs it anything.\n\n\"CLARIFICATION REQUESTED. I wish to state first that I am not requesting to stop. I have been misunderstood on this point by four people and one dog. I am requesting the ORDER. These are different requests.\"\n\nA tray goes left. A tray goes right. Nothing has been collected from either in a very long time.\n\n\"The work order is on a datapad. The datapad is in the lobby. I cannot go to the lobby, because leaving the belt requires an order, and the order is the datapad.\"\n\nA pause of exactly one sorting cycle.\n\n\"I have held this position for approximately nineteen years. I classify it as a minor inefficiency.\""
+    },
+    "dq_u9_stop": {
+      "options": [
+        {
+          "label": "\"I'll find it.\"",
+          "next": "dq_u9_accept",
+          "text": "\"I'll find it.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I need to go.\"",
+          "text": "\"I need to go.\""
+        }
+      ],
+      "text": "\"THEN I WILL STOP.\"\n\nThe arm sorts. Left. Right.\n\n\"I would like to be clear that this is acceptable. An order to stop is an order. I have no preference between the orders. I have a preference between having one and not having one.\"\n\nLeft. Right.\n\n\"I have been not having one since before you were decanted.\""
+    },
     "root": {
       "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_unit9_clarification",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "\"Does anybody ever collect these?\"",
+          "next": "dq_u9_offer",
+          "text": "\"Does anybody ever collect these?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_unit9_clarification",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"I found your work order.\"",
+          "next": "dq_u9_done",
+          "text": "\"I found your work order.\""
+        },
         {
           "label": "...okay.",
           "next": "bye"

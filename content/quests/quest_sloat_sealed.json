@@ -1,0 +1,45 @@
+{
+  "blocks": [
+    "quest_hock_cracked"
+  ],
+  "category": null,
+  "description": "Emmett Sloat will pay you well above the machine price for three Architect Draft sleeves, on one condition, which he states three times using slightly different words each time in case one of them takes.\n\nThey stay shut.\n\n\"The moment you look,\" he says, entirely still, \"it becomes a card. Cards have a value. I can look a card's value up. Sealed, it is every card. Sealed, it is the good one.\" He lets that sit on the counter between you. \"I have opened one. Once. I was nineteen. I do not discuss it.\"\n\nHock will offer you less and let you look. Sloat knows this and considers it a moral failing rather than a business one.",
+  "fail_on": [
+    {
+      "desc": "You sold a sleeve on. Sloat does not want the money back and will not take your calls.",
+      "target": "card_foil_sleeve",
+      "type": "sell"
+    }
+  ],
+  "id": "quest_sloat_sealed",
+  "meta": {},
+  "name": "Sealed, Graded, Perfect",
+  "objectives": [
+    {
+      "count": 3,
+      "desc": "Buy three sleeves. Do not open them.",
+      "emotes": [
+        "{who} squeezes a foil sleeve, feels the cards shift inside it, and puts it in a pocket.",
+        "{who} carries three sealed sleeves and thinks about them the entire way."
+      ],
+      "id": "o0",
+      "target": "card_foil_sleeve",
+      "type": "buy"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 900,
+    "flags": [
+      {
+        "flag": "sloat_sealed",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "xp": 34
+  },
+  "updated_at": "1788400000"
+}

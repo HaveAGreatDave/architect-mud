@@ -92,11 +92,120 @@
       "options": [],
       "text": "\"Do try to bring the next one back in one piece. For both our sakes.\""
     },
+    "dq_god_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_roux_act_of_god"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Peak through to all-clear.\"",
+          "text": "\"Peak through to all-clear.\""
+        }
+      ],
+      "text": "She stamps something and does not look up. \"Peak through to all-clear. Indoors at any point voids it, and I will know, because the instruments do work. They simply are not a person.\""
+    },
+    "dq_god_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_roux_act_of_god"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Said what?\"",
+          "text": "\"Said what?\""
+        }
+      ],
+      "text": "She reads the line you signed, checks it against something that is definitely an instrument, and pays without argument, which from a claims adjuster has the quality of a small miracle.\n\n\"Eleven files closed on one signature,\" she says. \"Eleven households paid because a person stood outside in the rain and was prepared to say so.\" She squares the stack. \"Do not tell anyone in this building that I said that in that order.\""
+    },
+    "dq_god_grey": {
+      "options": [
+        {
+          "label": "\"Fine. Where do I sign?\"",
+          "next": "dq_god_accept",
+          "text": "\"Fine. Where do I sign?\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Not for that money.\"",
+          "text": "\"Not for that money.\""
+        }
+      ],
+      "text": "She looks at it for slightly too long.\n\n\"Phenomena of an extraordinary character,\" she reads. \"It is greyed out because it has been claimed once, in sixty years of this company, by a man in the Yards, and the file is sealed, and the payout closed a department.\"\n\nShe turns the form back.\n\n\"I am not going to describe it to you. If I describe it, you will go looking, and then you will report seeing it, and then I have a fraudulent claim and a dead witness. Stand outside. Look up sometimes.\""
+    },
+    "dq_god_offer": {
+      "options": [
+        {
+          "label": "\"What's the greyed-out line?\"",
+          "next": "dq_god_grey",
+          "text": "\"What's the greyed-out line?\""
+        },
+        {
+          "label": "\"I'll stand in your weather.\"",
+          "next": "dq_god_accept",
+          "text": "\"I'll stand in your weather.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Keep your retainer.\"",
+          "text": "\"Keep your retainer.\""
+        }
+      ],
+      "text": "\"Halcyon does not dispute that the weather happened,\" she says, in the voice of somebody who has said it four hundred times and has stopped hearing it. \"Halcyon disputes that the weather has been adequately evidenced. Those are different sentences. One of them is very expensive and one of them is not.\"\n\nShe turns a form around.\n\n\"What closes a file is a witness. Not an instrument. A person, outdoors, from the peak through to the all-clear, who afterwards signs a line saying they were.\"\n\nShe slides a retainer across before you have said anything.\n\n\"That is not conditional on your survival. I want to be clear, because people find that comforting and it is not.\""
+    },
     "root": {
       "options": [
         {
           "label": "Why so little?",
           "next": "why"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_roux_act_of_god",
+              "op": "neq",
+              "scope": "player",
+              "value": "active"
+            }
+          ],
+          "label": "\"What actually closes a weather claim?\"",
+          "next": "dq_god_offer",
+          "text": "\"What actually closes a weather claim?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_roux_act_of_god",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"I stood in it. Peak to all-clear.\"",
+          "next": "dq_god_done",
+          "text": "\"I stood in it. Peak to all-clear.\""
         },
         {
           "label": "Thank you.",

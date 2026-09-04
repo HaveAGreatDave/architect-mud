@@ -90,6 +90,157 @@
       ],
       "text": "For just a beat the smile hangs on nothing, like a coat on a hook. \"Catch. Sure. Everybody wants the catch.\" He straightens a brochure that was already straight. \"There's no catch you can *see*, and that's the honest answer. The license is real. The city's really up for grabs. It's just...\" He glances up, briefly, at nothing, at everything. \"They only let the good ground go where the work gets *noticed*. Push hard enough, get big enough, and you'll feel something up north start paying attention. Most folks never get far enough to find out what.\" The switch flips back on. \"But you're not most folks, are you. So. Where do we start?\""
     },
+    "dq_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_denny_ground_floor"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"We'll see.\"",
+          "text": "\"We'll see.\""
+        }
+      ],
+      "text": "He shakes your hand with both of his, which takes longer than a handshake should. \"Welcome to the ground floor. It's the best floor. Every floor above this one is just people who miss it.\""
+    },
+    "dq_cash": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_denny_ground_floor"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Take care, Denny.\"",
+          "text": "\"Take care, Denny.\""
+        }
+      ],
+      "text": "He pays you out of the float, all of it, and the float is now nothing. \"Smart,\" he says, and means it, and it costs him something to mean it. \"Genuinely. Smart.\" He fans the brochures back out for a street with nobody on it. \"Come see me if you get bored of being smart.\""
+    },
+    "dq_down_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_denny_downline"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"You did warn me.\"",
+          "text": "\"You did warn me.\""
+        }
+      ],
+      "text": "\"McCracken said yes,\" Denny says. He says it twice more, to himself, in different tones, testing whether it is still true each time. \"Nineteen months I have walked past that man.\" He pays you properly, from a tin, and the tin has more in it than the float ever did. \"You're above somebody now. That's the part they don't warn you about. It's worse.\""
+    },
+    "dq_offer": {
+      "options": [
+        {
+          "label": "\"Fine. Give me the hundred.\"",
+          "next": "dq_accept",
+          "text": "\"Fine. Give me the hundred.\""
+        },
+        {
+          "label": "\"This is a pyramid scheme, Denny.\"",
+          "next": "dq_pyramid",
+          "text": "\"This is a pyramid scheme, Denny.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Not today.\"",
+          "text": "\"Not today.\""
+        }
+      ],
+      "text": "The smile does not change but something behind it leans forward. \"Okay. Okay okay okay. You're asking, which means you're already halfway.\" He counts a hundred out of a float that is visibly most of what he has and puts it in front of you without letting go of it yet. \"Buy something. Sell three somethings. Push eight hundred through this town in an afternoon. That's it. That's the whole ask. Franchise doesn't want proof you're good, they want proof the MODEL is good, and the model is good, kid, the model is beautiful.\" He lets go of the money. \"Bring me the numbers.\""
+    },
+    "dq_pyramid": {
+      "options": [
+        {
+          "label": "\"Hundred.\"",
+          "next": "dq_accept",
+          "text": "\"Hundred.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"No hundred.\"",
+          "text": "\"No hundred.\""
+        }
+      ],
+      "text": "\"It's a STRUCTURE,\" he says, delighted, like you have finally said something interesting. \"Everything's a structure. The Watch is a structure. The vats are a structure. You know what the difference is between a pyramid scheme and an economy?\" He waits exactly long enough. \"Scale. That's it. That's the only difference and everybody in a nice coat knows it.\" The smile comes back up like a shutter. \"So. Hundred, or no hundred?\""
+    },
+    "dq_report": {
+      "options": [
+        {
+          "label": "\"Sign me up.\"",
+          "next": "dq_signed",
+          "text": "\"Sign me up.\""
+        },
+        {
+          "label": "\"Just pay me, Denny.\"",
+          "next": "dq_cash",
+          "text": "\"Just pay me, Denny.\""
+        }
+      ],
+      "text": "He reads the numbers off you like a man reading a letter from home, lips moving, twice. Then he sits down on the folding chair for the first time all week.\n\n\"That works,\" he says quietly. \"That actually works.\" He looks up, and the sales voice is not in it. \"So here's where I have to be honest with you, and I don't get to do this much. You can take the money and walk, and it's good money, and I'll still wave at you on the street. Or you can sign, and you go on the ladder under me, and then it's not an afternoon any more.\""
+    },
+    "dq_signed": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "denny_bought_in",
+          "scope": "player",
+          "value": "true"
+        },
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_denny_ground_floor"
+        },
+        {
+          "action": "RELATION_ADJUST",
+          "familiarity": 2,
+          "npc_id": "npc_corp_recruiter",
+          "reason": "denny:signed",
+          "warmth": 3
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"HANG IN THERE.\"",
+          "text": "\"HANG IN THERE.\""
+        }
+      ],
+      "text": "He produces a form from somewhere in the blazer. There is a cartoon of a ladder on it and every rung is smiling. He watches you sign it with an expression that is not triumph and is not quite guilt, and hands you a cap. \"Corporate identity,\" he says. \"Don't look at me like that. Nobody picks their own.\""
+    },
     "found": {
       "options": [
         {
@@ -212,6 +363,44 @@
           "label": "\"What's the catch, Denny?\"",
           "next": "catch",
           "text": "\"What's the catch, Denny?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_denny_ground_floor",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "\"What would it take to actually make money at this?\"",
+          "next": "dq_offer",
+          "text": "\"What would it take to actually make money at this?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_denny_ground_floor",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"I've got your numbers.\"",
+          "next": "dq_report",
+          "text": "\"I've got your numbers.\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_denny_downline",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"McCracken's in.\"",
+          "next": "dq_down_done",
+          "text": "\"McCracken's in.\""
         },
         {
           "actions": [

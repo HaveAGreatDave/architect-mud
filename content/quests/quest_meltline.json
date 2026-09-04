@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The rad mutants denning past the Meltline have started pushing east into Slake's patch, and a fringe outfitter with a shop full of people to protect can't have that. Two of them, dropped, buys her breathing room and buys you a fistful of RadAway.",
+  "description": "The Meltline is where the ground stopped being ground and nobody has agreed on a new word for it. Things that used to be people live out there and are working their way back in.\n\nThe job is unsentimental and the pay reflects it. You are not being hired to solve the Meltline. Nobody is solving the Meltline. You are being hired to move it back two hundred metres for a while, which is what everybody out here means by progress.\n\nTake the pills. Take them before, not after. After is a superstition people out here practise instead of the other thing.",
   "fail_on": [],
   "id": "quest_meltline",
   "meta": {},
@@ -9,6 +9,11 @@
     {
       "count": 2,
       "desc": "Kill 2 rad mutants at the Meltline or Vex Hollow",
+      "emotes": [
+        "{who} goes past the last standing marker into ground the maps have given up on.",
+        "{who} kills something that had a name eleven years ago and does not think about that until later.",
+        "{who} checks the dosimeter, decides the number is fine, and is lying to themselves about it."
+      ],
       "id": "o1",
       "target": "rad mutant",
       "type": "kill"
@@ -34,5 +39,5 @@
     ],
     "xp": 36
   },
-  "updated_at": "1783120813"
+  "updated_at": "1788400000"
 }

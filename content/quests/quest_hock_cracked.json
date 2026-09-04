@@ -1,0 +1,50 @@
+{
+  "blocks": [
+    "quest_sloat_sealed"
+  ],
+  "category": null,
+  "description": "Hock deals in objects. Sloat, four streets over, deals in the idea of objects. Hock has views about this and expresses them by not expressing them, which takes him about four minutes.\n\n\"Sealed,\" he says eventually. \"A sealed thing is a rumour. I do not buy rumours. Bring me three, crack them, and I will pay you for what is actually in your hand.\"\n\nHe knows Sloat wants the same three sleeves intact. He knows you cannot serve both. He does not make anything of it, and the not making anything of it is the most pointed thing in the shop.",
+  "fail_on": [],
+  "id": "quest_hock_cracked",
+  "meta": {},
+  "name": "What's Inside",
+  "objectives": [
+    {
+      "count": 3,
+      "desc": "Buy three Architect Draft sleeves.",
+      "emotes": [
+        "{who} feeds a machine enough money to make it think about it."
+      ],
+      "id": "o0",
+      "target": "card_foil_sleeve",
+      "type": "buy"
+    },
+    {
+      "count": 1,
+      "desc": "Open them, then sell Hock something that is now a fact rather than a rumour.",
+      "emotes": [
+        "{who} puts a card on the mesh and watches a loupe come down on it."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "type": "sell"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 520,
+    "flags": [
+      {
+        "flag": "hock_opened",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "xp": 34
+  },
+  "updated_at": "1788400000"
+}

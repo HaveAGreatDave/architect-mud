@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Wire-jackal packs have been crossing the buffer wastes and getting into the Registry's overflow archives at the quarter's western edge. Assemblyman Croll wants them culled, quietly.",
+  "description": "Assemblyman Croll is a back-bench politician with a florid manner, an unfashionable conscience, and a problem he would like handled before it is a matter of record.\n\nWire jackals are getting into the Registry overflow. That is the problem he will say out loud.\n\nThe problem he will not say out loud is that the overflow archives were supposed to have been moved eight years ago, that he signed the paper saying they had been, and that he genuinely believed it at the time, which he has discovered is not a defence anybody accepts.\n\n\"Quietly,\" he says. \"Not because it is shameful. Because it is BORING, and boring things become scandals purely by being written down.\"",
   "fail_on": [],
   "id": "quest_prefects_problem",
   "meta": {},
@@ -9,6 +9,11 @@
     {
       "count": 4,
       "desc": "Cull 4 wire jackals in the buffer wastes west of the quarter",
+      "emotes": [
+        "{who} works the buffer wastes where the archive boxes have gone soft in the weather.",
+        "{who} puts down a wire jackal that was dragging a box of somebody's tax history.",
+        "{who} kills quietly, which the Assemblyman will later describe as discretion and mean as deniability."
+      ],
       "id": "o1",
       "target": "wire jackal",
       "type": "kill"
@@ -34,5 +39,5 @@
     ],
     "xp": 28
   },
-  "updated_at": "1783108275"
+  "updated_at": "1788400000"
 }

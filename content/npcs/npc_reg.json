@@ -13,6 +13,89 @@
   ],
   "description": "A heavyset person behind a scratched counter. Apron: CERTIFIED SURVIVOR.",
   "dialogue_tree": {
+    "dq_cert_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_reg_certified"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Understood.\"",
+          "text": "\"Understood.\""
+        }
+      ],
+      "text": "\"Nine to eleven when THEY say,\" he says. \"Not when you get there. There's a difference and the difference is a morning.\""
+    },
+    "dq_cert_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_reg_certified"
+        }
+      ],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Certified.\"",
+          "text": "\"Certified.\""
+        }
+      ],
+      "text": "He turns the card over twice under the light and says nothing at all for long enough that it stops being comfortable. Then he puts it back in your hand and pays you out of the till, which is not his till.\n\n\"Two,\" he says. \"That's a category.\" He goes back to the counter. \"Don't let anybody tell you what it's for. Soon as somebody says what it's for, it's for that, and it stops being for anything else.\""
+    },
+    "dq_cert_offer": {
+      "options": [
+        {
+          "label": "\"Why do you want me to have one?\"",
+          "next": "dq_cert_why",
+          "text": "\"Why do you want me to have one?\""
+        },
+        {
+          "label": "\"Nine to eleven. Got it.\"",
+          "next": "dq_cert_accept",
+          "text": "\"Nine to eleven. Got it.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"I'll live without it.\"",
+          "text": "\"I'll live without it.\""
+        }
+      ],
+      "text": "He looks down at the apron like he has not thought about it in a while, and then like he has thought about nothing else for eleven years.\n\n\"Nobody's ever asked,\" he says. \"That's the thing. Eleven years, nobody's asked who certified me.\" He picks at the lettering. \"Ward Nine. Office of Permitted Suffering. It's a real certificate. It's got a stamp. Cost me a week's food and it certifies, as far as I can work out, that I filled in a form saying I was alive, on a day when I was.\"\n\nHe leans on the counter.\n\n\"Go and get one. Nine to eleven, and take money, and take more than you think, because they've moved the fee twice and they don't put the new one up.\""
+    },
+    "dq_cert_why": {
+      "options": [
+        {
+          "label": "\"Alright. Nine to eleven.\"",
+          "next": "dq_cert_accept",
+          "text": "\"Alright. Nine to eleven.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "END_CONVERSATION"
+            }
+          ],
+          "label": "\"Sorry, Reg.\"",
+          "text": "\"Sorry, Reg.\""
+        }
+      ],
+      "text": "\"Because one of anything is a joke,\" Reg says, and does not smile. \"One certified survivor in the Yards is a bloke in a funny apron. Two is a category.\"\n\nHe straightens up.\n\n\"I have been a bloke in a funny apron for a very long time.\""
+    },
     "factions": {
       "options": [
         {
@@ -31,6 +114,31 @@
         {
           "label": "What are the factions?",
           "next": "factions"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_reg_certified",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "\"Who certified you, Reg?\"",
+          "next": "dq_cert_offer",
+          "text": "\"Who certified you, Reg?\""
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_reg_certified",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "\"Got the card.\"",
+          "next": "dq_cert_done",
+          "text": "\"Got the card.\""
         },
         {
           "label": "Never mind.",

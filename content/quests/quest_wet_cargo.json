@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Harbour lurkers have been taking dockhands and gnawing hulls in Coldwater Bay. The Harbourmaster wants them thinned out.",
+  "description": "The Harbourmaster wears a peaked cap for an authority that dissolved before the Handoff, and she runs the bay on nothing but the fact that nobody has told her to stop.\n\n\"Two dockhands in a fortnight,\" she says, not looking up from a ledger that is a real ledger with real names in it. \"And they're chewing the hulls. I can lose men. I have a form for men. I cannot lose hulls.\"\n\nShe notices what she has said and does not take it back, and that is the harbour in one sentence.",
   "fail_on": [],
   "id": "quest_wet_cargo",
   "meta": {},
@@ -9,6 +9,11 @@
     {
       "count": 3,
       "desc": "Clear 3 harbour lurkers from Coldwater Bay",
+      "emotes": [
+        "{who} works the waterline, where the footing is bad and the thing underneath knows it.",
+        "{who} puts one down in the shallows and the bay goes quiet in a wide circle.",
+        "{who} counts hull damage on the way past and understands the Harbourmaster's priorities slightly better."
+      ],
       "id": "o1",
       "target": "harbour lurker",
       "type": "kill"
@@ -34,5 +39,5 @@
     ],
     "xp": 30
   },
-  "updated_at": "1783102160"
+  "updated_at": "1788400000"
 }
