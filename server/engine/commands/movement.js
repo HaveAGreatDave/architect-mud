@@ -18,7 +18,7 @@ import { forceStand } from '../posture.js';
 import { isSneaking } from '../stealth.js';
 import { isDreamZone, pushDreamFx } from '../dreamscape.js';
 import { registerMoveGate, runMoveGates, climbCheck, registerLockedProvider } from '../movement-gates.js';
-import { doorGuardsOnlyUnownedApartment, isResidentOf, getBuildingName } from '../apartments.js';
+import { doorGuardsOnlyUnownedApartment, isResidentOf, getBuildingName, playerControlsDoorApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
@@ -107,16 +107,21 @@ registerMoveGate(async ({ player, direction, door, to, from }) => {
 // It is deliberately NOT the whole gate. Lock AUTH is async (resolveLockAuth reads
 // a player's keys), and this is called per side of every tile in the minimap
 // window, so the question it answers is "is this door locked", which is true for
-// everyone standing there, rather than "would it open for you". A resident sees
-// their own front door red and unlocks it, which is what the room description has
-// always told them too.
+// everyone standing there, rather than "would it open for you".
+//
+// `unlockable` is the one thing it will say about the viewer, and only where the
+// answer needs no keyring: a unit they own. So a resident sees their own front
+// door drawn as theirs, and everyone else sees the same door shut.
 registerLockedProvider((player, from, dir, to) => {
   const door = doorOnLink(from.id, dir, to?.id);
   if (!door || door.hp <= 0 || door.lock_state !== 'locked') return null;
   if (doorGuardsOnlyUnownedApartment(door)) return null;       // unrented unit — vestigial
   if (door._autoLockedInside && autoLockLetsThrough(player, door, from)) return null;
   if (!getLockTagPublic(door)) return null;                    // locked with no lock installed
-  return { locked: true };
+  // ...and the orange half: a lock on a unit this player controls is a door of
+  // their own. A SUBSET of locked, never a swap — the red line stays, because the
+  // seam still cannot promise a keycard will work.
+  return { locked: true, unlockable: playerControlsDoorApartment(player, door) };
 }, 'engine:door-lock');
 
 // Encumbrance blocks the move — the law lives at movement, not acquisition

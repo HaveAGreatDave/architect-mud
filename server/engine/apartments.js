@@ -496,6 +496,24 @@ export function playerControlsApt(player, apt) {
 	return apt.owner_id === player.id;
 }
 
+// The orange half of the drawn lock (movement.js's registerLockedProvider). A
+// locked apartment door THIS player may undo is their own door rather than a
+// wall, and a surface that draws the sides of a room can say so.
+//
+// It answers about the UNIT, never about keys: sync by contract and no query,
+// because it is asked per side of every interior tile in the minimap window on
+// every move. Real lock auth (a keycard, a borrowed credential) stays async in
+// checkLockAuth, so this fails to FALSE — an unmarked red door may still open
+// for you, which is the safe direction to be wrong in.
+export function playerControlsDoorApartment(player, door) {
+	if (!player || !door) return false;
+	for (const zid of [door.zone_id, ...doorFarIds(door)]) {
+		if (!isApartmentZone(getZone(zid))) continue;
+		if (playerControlsApt(player, getApartment(zid))) return true;
+	}
+	return false;
+}
+
 export async function cmdRent(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
