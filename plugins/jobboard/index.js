@@ -24,6 +24,9 @@ import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { getZone } from '../../server/engine/world.js';
 import { on } from '../../server/engine/events.js';
+// The one definition of a quest finish line — a local copy said NOT finished for a
+// quest whose only outstanding objective was optional.
+import { isComplete } from '../quests/index.js';
 
 const DEFAULT_PERIOD = 21600; // 6h
 
@@ -132,9 +135,6 @@ export async function isJobBoardQuest(questId) {
 }
 function invalidateBoardQuestCache() { _boardQuestIds = null; }
 
-function isComplete(quest, progress) {
-  return (quest.objectives || []).every((o, i) => (progress[i] || 0) >= (o.count || 1));
-}
 
 // Shuffle a copy (Fisher–Yates) and take up to n — the rotation's random subset.
 function sample(pool, n) {

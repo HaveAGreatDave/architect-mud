@@ -81,8 +81,9 @@ None.
   - `fail_on`: the same shapes, but each blows the quest — see [Failure](#failure)
   - `penalties`: what failing costs — `{ credits?, rep?:[{ideology,delta}], flags?:[…] }`
 - `player_quests` also carries `progress_keys` (the objective ids `progress` was built against, so a
-  quest can be edited without corrupting live progress) and `spawned` (row ids of auto-spawned
-  `retrieve` items, so they can be taken back out of the world).
+  quest can be edited without corrupting live progress), `spawned` (row ids of auto-spawned
+  `retrieve` items, so they can be taken back out of the world) and `targets`
+  ([rolled targets](#rolled-targets), frozen at start).
   - `rewards`: `{ credits?, xp?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}], rep?:[{ideology,delta}] }`
 - `player_quests` — `player_id, quest_id, status ('active'|'completed'|'turned_in'|'abandoned'|'failed'), progress JSONB (index-aligned counters), started_at, updated_at`.
 
@@ -152,6 +153,43 @@ completion check ignores optional objectives, `requires` does not, so the mandat
 forever and the quest is unfinishable for anyone who skipped the bonus. `content:lint` refuses that
 shape; without the lint it is a defect that reads as the quest system being broken rather than as a
 content bug.
+
+## Rolled targets
+
+Any of an objective's three target fields — `target`, `item_id`, `zone` — may hold a **selector**
+instead of a fixed id. It is resolved once, when the quest is taken, and the answer is frozen onto
+`player_quests.targets` (index-aligned to the objectives, `[{}, {target:'…'}]`).
+
+```jsonc
+{ type: 'kill',     target: '@enemy_in:coldwater', count: 3 }
+{ type: 'retrieve', item_id: '@any_of:[item_a,item_b]', zone: '@zone_with:flags.terrain=marsh' }
+```
+
+| selector | resolves to |
+|---|---|
+| `@any_of:[a,b,c]` | one of the listed ids |
+| `@zone_with:<key>=<value>` | a zone id — `key` is a column (`map_id`, `marker`) or `flags.<x>`. Reads the live world Maps, so it costs nothing and cannot disagree with what the player walks into |
+| `@enemy_in:<map_id>` | the NAME of a species that actually spawns somewhere on that map, which is what a `kill` objective matches on |
+
+`registerQuestSelector(name, fn)` adds more; `fn` may be async and may query, because resolution
+happens once per quest taken and never on an event path. A plugin that owns a domain can teach
+quests to roll over it without this file importing that domain.
+
+Everything downstream reads the frozen value through `applyRolled`, so predicates, GPS routing,
+`retrieve` auto-spawning, the quest log and the tablet needed no change. A quest that rolls nothing
+stores `[]` and `applyRolled` returns the authored array unchanged, which is why this is free on
+every read path.
+
+This is what [the job board](../jobboard/README.md) had been waiting for: it rolls *which* quest is
+posted and has never rolled anything inside one, so the same gig was byte-identical every rotation.
+
+⚠ **A selector that matches nothing REFUSES the quest**, at `START_QUEST`, before the row is
+written. Starting it anyway gives the player an objective nothing can satisfy — which presents as a
+content bug for weeks rather than as the missing spawn table it is. The refusal to the player is
+vague on purpose; the reason (naming the selector) goes to the console, because the author is the
+only one who can act on it.
+
+⚠ **Retaking a quest re-rolls it.** A second attempt at a rolling gig is a new gig.
 
 ## What happens next — `on_fail` / `on_turn_in`
 

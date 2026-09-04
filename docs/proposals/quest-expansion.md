@@ -1,6 +1,6 @@
 # Quest system expansion — seven additions
 
-**Status: items 2 and 5 are BUILT (2026-09-04); the other five are design.** The as-built system is
+**Status: items 2, 3 and 5 are BUILT (2026-09-04); the other four are design.** The as-built system is
 [plugins/quests/README.md](../../plugins/quests/README.md), which stays the authority on
 everything that already ships.
 
@@ -60,7 +60,7 @@ the quest's. It composes with `requires` unchanged.
 unfinishable by a player who ignored it. `content:lint` should refuse that rather than leaving it to
 be discovered live.
 
-## 3. Rolled targets
+## 3. Rolled targets — BUILT
 
 **The gap.** [plugins/jobboard](../../plugins/jobboard/README.md) rolls *which* quest is posted; it
 has never rolled anything *inside* one. The same gig is byte-identical every rotation, which is what
@@ -147,7 +147,11 @@ Cheapest first, since none blocks another:
    `on_turn_in`, not `on_complete`: it fires at hand-in, and a quest can sit `completed` for a long
    walk before that. Naming it after the status it does not fire on would have been the first thing
    an author got wrong.
-2. **Rolled targets** (3) — the largest gain per line of code, and the one the job board has been waiting for.
+2. ~~**Rolled targets** (3)~~ — built 2026-09-04, as a selector registry
+   (`registerQuestSelector`) rather than a fixed grammar. Building it turned up a defect from the
+   previous item: the tablet's Quests app and the job board each carried their own copy of the
+   completion check, and both said NOT finished for a quest whose only outstanding objective was
+   optional. Both now import `isComplete` from the plugin.
 3. **Branching resolutions** (1) — the richest, and the one the faction-arc doc is already written as if it had.
 4. **Payment structure** (4) and **exclusivity** (7).
 5. **World-state objectives and offer windows** (6) — last, because it is the only one that touches

@@ -19,7 +19,7 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { getZone, world } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp, normScreen } from './registry.js';
-import { findTurnInNpc } from '../quests/index.js';
+import { findTurnInNpc, isComplete, applyRolled } from '../quests/index.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { courierBoard, takeJob, activeRun } from '../work/courier.js';
 
@@ -35,9 +35,6 @@ function defaultCategory(quest) {
   return 'Quests';
 }
 
-function isComplete(quest, progress) {
-  return (quest.objectives || []).every((o, i) => (progress[i] || 0) >= (o.count || 1));
-}
 
 async function myQuestRows(playerId) {
   const { rows } = await query(
@@ -51,13 +48,15 @@ async function myQuestRows(playerId) {
 }
 
 function objectivePayload(quest, progress) {
-  const objectives = quest.objectives || [];
+  // pq.targets rides in on the joined row: what this player was actually sent to
+  // do, which for a quest with a rolled target is not what the author wrote.
+  const objectives = applyRolled(quest.objectives, quest.targets);
   return objectives.map((obj, i) => {
     const need = obj.count || 1;
     const have = Math.min(progress[i] || 0, need);
     return {
       desc: obj.desc || `${obj.type} ${obj.target || obj.item_id || obj.zone || ''}`.trim(),
-      have, need, done: have >= need,
+      have, need, done: have >= need, optional: obj.optional === true,
     };
   });
 }

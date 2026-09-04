@@ -275,6 +275,108 @@ function freshProgress(quest) {
   return (quest.objectives || []).map(() => 0);
 }
 
+// ── Rolled targets ──────────────────────────────────────────────────────────
+//
+// An objective may author a SELECTOR — '@any_of:[item_a,item_b]' — where it would
+// otherwise author a fixed id. Selectors are resolved ONCE, when the quest is
+// taken, and the answers are frozen onto player_quests.targets. Everything
+// downstream reads the frozen value, so predicates, GPS routing, retrieve
+// auto-spawning and the log needed no change at all.
+//
+// This is what the job board has been waiting for: it rolls WHICH quest is posted
+// and has never rolled anything inside one, so the same gig is byte-identical
+// every rotation.
+//
+// Resolution is a cold path (once per quest taken), which is why a selector may
+// run a query while a predicate never could.
+
+const SELECTOR_RE = /^@([a-z_]+):(.+)$/i;
+const questSelectors = new Map();
+
+/**
+ * Register a selector. `fn(arg, { quest, actor })` returns the resolved id, or
+ * null/undefined when nothing matches — which REFUSES the quest rather than
+ * starting an unfinishable one. Exposed so a plugin that owns a domain can teach
+ * quests to roll over it without this file importing that domain.
+ */
+export function registerQuestSelector(name, fn) { questSelectors.set(name, fn); }
+
+registerQuestSelector('any_of', (arg) => {
+  const list = String(arg).replace(/^\[|\]$/g, '').split(',').map((s) => s.trim()).filter(Boolean);
+  return list.length ? list[Math.floor(Math.random() * list.length)] : null;
+});
+
+// '@zone_with:map_id=coldwater' / '@zone_with:flags.terrain=marsh'. Reads the live
+// world Maps rather than the DB — zones are boot-loaded, so this costs nothing and
+// cannot disagree with what the player will actually walk into.
+registerQuestSelector('zone_with', (arg) => {
+  const [key, want] = String(arg).split('=').map((s) => s?.trim());
+  if (!key || want === undefined) return null;
+  const read = (z) => (key.startsWith('flags.') ? z?.flags?.[key.slice(6)] : z?.[key]);
+  const hits = [...world.zones.values()].filter((z) => String(read(z) ?? '') === want);
+  return hits.length ? hits[Math.floor(Math.random() * hits.length)].id : null;
+});
+
+// '@enemy_in:coldwater' — a species that actually spawns somewhere on that map.
+// Named by NAME, because that is what a `kill` objective matches on.
+registerQuestSelector('enemy_in', async (arg) => {
+  const { rows } = await query(
+    `SELECT DISTINCT e.name FROM zone_spawns zs
+       JOIN enemies e ON e.id = zs.enemy_id
+       JOIN zones z ON z.id = zs.zone_id
+      WHERE z.map_id = $1`,
+    [String(arg).trim()]
+  );
+  return rows.length ? rows[Math.floor(Math.random() * rows.length)].name : null;
+});
+
+const TARGET_FIELDS = ['target', 'item_id', 'zone'];
+
+/**
+ * Resolve every selector on a quest's objectives. Returns an index-aligned array
+ * of overrides ([{}, { target: 'rat' }]), or throws with the selector that could
+ * not be resolved.
+ *
+ * ⚠ An unresolvable selector must REFUSE the quest, loudly. Starting one anyway
+ * gives the player an objective nothing can ever satisfy, and it presents as a
+ * content bug for weeks rather than as the missing spawn table it is.
+ */
+async function rollTargets(quest, actor) {
+  const objectives = quest.objectives || [];
+  const out = objectives.map(() => ({}));
+  let rolled = false;
+  for (const [i, obj] of objectives.entries()) {
+    for (const field of TARGET_FIELDS) {
+      const m = SELECTOR_RE.exec(String(obj?.[field] || ''));
+      if (!m) continue;
+      const fn = questSelectors.get(m[1].toLowerCase());
+      if (!fn) throw new Error(`unknown selector "@${m[1]}"`);
+      const value = await fn(m[2], { quest, actor });
+      if (!value) throw new Error(`"${obj[field]}" matched nothing`);
+      out[i][field] = value;
+      rolled = true;
+    }
+  }
+  return rolled ? out : [];
+}
+
+// Fold frozen targets back over the authored objectives. Returns the SAME array
+// when a quest rolled nothing, which is the overwhelmingly common case and the
+// reason this is free to call on every read path.
+export function applyRolled(objectives, targets) {
+  const objs = Array.isArray(objectives) ? objectives : [];
+  if (!Array.isArray(targets) || !targets.length) return objs;
+  return objs.map((o, i) => (targets[i] && Object.keys(targets[i]).length ? { ...o, ...targets[i] } : o));
+}
+
+// A quest definition seen through one player's rolls. Never mutates the cached
+// row — loadQuest hands out one shared object per quest id, and writing a
+// player's rolled target onto it would hand that target to everybody.
+function withRolled(quest, pq) {
+  if (!quest || !Array.isArray(pq?.targets) || !pq.targets.length) return quest;
+  return { ...quest, objectives: applyRolled(quest.objectives, pq.targets) };
+}
+
 // Auto-spawn: drop a fresh copy of each 'retrieve' objective's item onto its zone's
 // ground when the quest starts, unless the objective opts out (spawn===false, i.e.
 // the item is already placed in the world). A bad item_id/zone is logged, never
@@ -333,7 +435,12 @@ function isOptional(obj) { return obj?.optional === true; }
 
 function objectiveMet(obj, have) { return (have || 0) >= (obj.count || 1); }
 
-function isComplete(quest, progress) {
+// Exported because two other plugins used to carry their own copy of this line —
+// the tablet's Quests app and the job board both answered "is it finished" for
+// themselves, and both said NO for a quest whose only outstanding work was
+// optional. One definition of the finish line, or the surfaces disagree with the
+// hand-in they are offering a button for.
+export function isComplete(quest, progress) {
   return (quest.objectives || []).every((obj, i) => isOptional(obj) || objectiveMet(obj, progress[i]));
 }
 
@@ -805,9 +912,13 @@ async function expireIfTimedOut(actor, quest, pq) {
 // Advances exactly ONE objective and runs the completion messaging — reloads
 // player_quests fresh so a task finishing seconds later never clobbers progress
 // made elsewhere meanwhile (or fires against a quest since abandoned/turned in).
-async function finishObjectiveTick(actor, quest, objIndex) {
-  const pq = await loadPlayerQuest(actor.id, quest.id);
+async function finishObjectiveTick(actor, questIn, objIndex) {
+  const pq = await loadPlayerQuest(actor.id, questIn.id);
   if (!pq || pq.status !== 'active') return;
+  // Re-fold this player's rolled targets over the fresh row: the caller's copy was
+  // rolled too, but a task that has been sitting on a timer is the one place the
+  // two could have been taken from different reads.
+  const quest = withRolled(questIn, pq);
   // A timed task can outlive the quest's own clock — the 15s of tile work you
   // started with 5s left must not land.
   if (await expireIfTimedOut(actor, quest, pq)) return;
@@ -899,7 +1010,7 @@ async function trackEventLocked(actor, predicate) {
   // direct DB write, a plugin bypassing the Actions) converges on the next event.
   actor._activeQuests = new Set(rows.map((r) => r.quest_id));
   for (const pq of rows) {
-    const quest = await loadQuest(pq.quest_id);
+    const quest = withRolled(await loadQuest(pq.quest_id), pq);
     if (!quest) continue;
 
     // Failure is judged BEFORE progress, both ways round, and the order matters.
@@ -1316,6 +1427,18 @@ registerAction({
     const quest = await loadQuest(quest_id);
     if (!quest) return { type: 'error', message: `Unknown quest: ${quest_id}` };
 
+    // Roll any selectors BEFORE touching the row — an unresolvable one refuses the
+    // quest, and refusing after the INSERT would leave a started quest nobody can
+    // finish. The refusal names the selector, because the author is the only one
+    // who can fix it.
+    let targets = [];
+    try {
+      targets = await rollTargets(quest, actor);
+    } catch (e) {
+      console.error('[quests] selector failed for', quest_id, '—', e.message);
+      return { type: 'error', message: `${quest.name} cannot be offered right now.` };
+    }
+
     const existing = await loadPlayerQuest(actor.id, quest_id);
     if (existing) {
       // A failed or ABANDONED quest can be taken again, and the counters (and the
@@ -1339,25 +1462,32 @@ registerAction({
         await despawnQuestItems(actor.id, quest_id);
         await query(
           `UPDATE player_quests SET status='active', progress=$1, progress_keys=$2, spawned='[]',
-           started_at=EXTRACT(EPOCH FROM NOW()), updated_at=EXTRACT(EPOCH FROM NOW())
-           WHERE player_id=$3 AND quest_id=$4`,
-          [JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest)), actor.id, quest_id]
+           targets=$3, started_at=EXTRACT(EPOCH FROM NOW()), updated_at=EXTRACT(EPOCH FROM NOW())
+           WHERE player_id=$4 AND quest_id=$5`,
+          // Re-rolled on a retake, deliberately: a second attempt at a rolling gig
+          // is a new gig, not the same one again.
+          [JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest)),
+           JSON.stringify(targets), actor.id, quest_id]
         );
       } else {
         return { type: 'quest', quest_id, started: false };
       }
     } else {
       await query(
-        'INSERT INTO player_quests (player_id,quest_id,status,progress,progress_keys) VALUES ($1,$2,$3,$4,$5)',
-        [actor.id, quest_id, 'active', JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest))]
+        'INSERT INTO player_quests (player_id,quest_id,status,progress,progress_keys,targets) VALUES ($1,$2,$3,$4,$5,$6)',
+        [actor.id, quest_id, 'active', JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest)),
+         JSON.stringify(targets)]
       );
     }
     await setQuestFlag(actor, quest_id, 'active');
-    await spawnRetrieveItems(actor, quest);
+    // Everything from here on sees the ROLLED quest: the item that gets spawned and
+    // the zone the GPS plots to must be the ones this player was actually given.
+    const rolledQuest = withRolled(quest, { targets });
+    await spawnRetrieveItems(actor, rolledQuest);
     msg(actor.id, `<span class="msg-system">New quest: ${quest.name}.</span>\n${quest.description || ''}`);
     questLogLine(actor, quest_id, 'start', quest.name);
     emit('quest.started', { actor, quest_id });
-    routeToObjective(actor, quest, freshProgress(quest));
+    routeToObjective(actor, rolledQuest, freshProgress(quest));
     return { type: 'quest', quest_id, started: true, name: quest.name };
   },
 });
@@ -1368,8 +1498,9 @@ registerAction({
   handler: async ({ actor, params }) => {
     const { quest_id, index = 0, amount = 1 } = params;
     if (!quest_id) return { type: 'error', message: 'ADVANCE requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
     if (!pq || pq.status !== 'active') return { type: 'error', message: 'No active quest to advance.' };
     if (await expireIfTimedOut(actor, quest, pq)) return { type: 'error', message: 'That quest has run out of time.' };
 
@@ -1399,8 +1530,9 @@ registerAction({
   handler: async ({ actor, params }) => {
     const { quest_id } = params;
     if (!quest_id) return { type: 'error', message: 'COMPLETE requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
     if (!pq) return { type: 'error', message: 'Quest not started.' };
     if (pq.status === 'failed') return { type: 'error', message: 'That quest was failed.' };
     if (await expireIfTimedOut(actor, quest, pq)) return { type: 'error', message: 'That quest has run out of time.' };
@@ -1423,8 +1555,9 @@ registerAction({
     // Tablet OS's turn-in routing). Per-quest TURN_IN nodes still pass it in params.
     const quest_id = params.quest_id || context?.quest_id || await completedJobBoardQuest(actor.id);
     if (!quest_id) return { type: 'error', message: 'TURN_IN requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
     if (!pq) return { type: 'error', message: 'You have not started that quest.' };
     if (pq.status === 'turned_in') {
       msg(actor.id, `<span class="msg-system">You have already turned in ${quest.name}.</span>`);
@@ -1506,8 +1639,9 @@ registerAction({
   handler: async ({ actor, params }) => {
     const { quest_id, reason } = params;
     if (!quest_id) return { type: 'error', message: 'FAIL_QUEST requires quest_id.' };
-    const quest = await loadQuest(quest_id);
-    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    const base = await loadQuest(quest_id);
+    const pq = base && await loadPlayerQuest(actor.id, quest_id);
+    const quest = withRolled(base, pq);   // this player's rolled targets, if any
     if (!pq || !['active', 'completed'].includes(pq.status)) {
       return { type: 'error', message: 'No live quest to fail.' };
     }
@@ -1551,14 +1685,14 @@ registerAction({
   type: 'QUEST_OBJECTIVE_ZONES',
   handler: async ({ actor }) => {
     const { rows } = await query(
-      `SELECT q.id, q.name, q.objectives, pq.progress
+      `SELECT q.id, q.name, q.objectives, pq.progress, pq.targets
          FROM player_quests pq JOIN quests q ON q.id = pq.quest_id
         WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in','abandoned')`,
       [actor.id]
     );
     const out = [];
     for (const r of rows) {
-      const objectives = Array.isArray(r.objectives) ? r.objectives : [];
+      const objectives = applyRolled(r.objectives, r.targets);
       const progress = Array.isArray(r.progress) ? r.progress : [];
       objectives.forEach((o, i) => {
         if (!o?.zone) return;
@@ -1665,7 +1799,7 @@ async function questLog(args, raw, player) {
 
   const lines = ['<span class="msg-system">— Quests —</span>'];
   for (const pq of live) {
-    const objectives = pq.objectives || [];
+    const objectives = applyRolled(pq.objectives, pq.targets);
     const progress = Array.isArray(pq.progress) ? pq.progress : [];
     const tag = pq.status === 'completed' ? ' (ready to turn in)' : timeLeftTag(pq);
     // The tracked one is called out here because this log is the only place a
@@ -1705,7 +1839,7 @@ function matchQuest(rows, raw) {
 
 async function openQuests(playerId) {
   const { rows } = await query(
-    `SELECT pq.quest_id, pq.status, pq.progress, q.name, q.objectives FROM player_quests pq
+    `SELECT pq.quest_id, pq.status, pq.progress, pq.targets, q.name, q.objectives FROM player_quests pq
      JOIN quests q ON q.id = pq.quest_id
      WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in', 'abandoned', 'failed')
      ORDER BY pq.started_at`,
@@ -1736,7 +1870,7 @@ async function questTrack(rest, player) {
 
   // Plot the route to the next unmet objective with a zone, same as the app.
   const progress = Array.isArray(m.row.progress) ? m.row.progress : [];
-  const next = (m.row.objectives || []).find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
+  const next = applyRolled(m.row.objectives, m.row.targets).find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
   if (next && next.zone !== player.current_zone) {
     const destZone = getZone(next.zone);
     const path = destZone ? findPath(player.current_zone, next.zone) : null;

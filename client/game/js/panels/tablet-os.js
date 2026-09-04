@@ -1450,6 +1450,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-obj .tos-check { color:#7bffb0; }
     #tablet-os-overlay .tos-obj.pending .tos-check { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-obj.pending { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-obj .tos-dim { color:var(--tos-fg-dim2); }
 
     /* Action buttons — solid accent fill, raised bevel, so they read as the
        brightest / most "pressable" thing on the screen. Text color is computed
@@ -9665,7 +9666,7 @@ function renderStandingsWidget(teams) {
 function renderObjectives(objectives) {
   if (!objectives || !objectives.length) return '';
   return `<div style="margin:10px 0">${objectives.map(o =>
-    `<div class="tos-obj${o.done ? '' : ' pending'}"><span class="tos-check">${o.done ? '☑' : '☐'}</span><span>${esc(o.desc)}${o.need > 1 ? ` (${o.have}/${o.need})` : ''}</span></div>`
+    `<div class="tos-obj${o.done ? '' : ' pending'}"><span class="tos-check">${o.done ? '☑' : '☐'}</span><span>${esc(o.desc)}${o.need > 1 ? ` (${o.have}/${o.need})` : ''}${o.optional ? ' <span class="tos-dim">(optional)</span>' : ''}</span></div>`
   ).join('')}</div>`;
 }
 

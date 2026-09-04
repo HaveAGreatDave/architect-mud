@@ -8,7 +8,7 @@ import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
 import { clearEffect } from '../../server/engine/effects.js';
 import { world } from '../../server/engine/world.js';
-import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest } from './index.js';
+import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled } from './index.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -1036,6 +1036,66 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
     await query('DELETE FROM quests WHERE id=$1', [QID]);
     invalidateQuestCache(QID);
+  }
+
+  // ── Rolled targets ─────────────────────────────────────────────────────────
+  //
+  // What is asserted is the FREEZING, not the randomness: a selector resolved
+  // once at START and read back identically thereafter. A target re-rolled on
+  // every read would send the player somewhere new each time they opened the log.
+  {
+    const QID = 'quest_regress_rolled';
+    const CHOICES = ['item_scrap_metal', 'item_ration_bar', 'item_water'];
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Rolled','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+      [QID, JSON.stringify([
+        { id: 'fetch', type: 'give', item_id: `@any_of:[${CHOICES.join(',')}]`, count: 1, desc: 'Hand it over' },
+      ])]
+    );
+    invalidateQuestCache(QID);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+
+    const r = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
+    check('a quest with a selector still starts', r?.started === true, JSON.stringify(r));
+
+    const { rows } = await query('SELECT targets FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, QID]);
+    const rolled = rows[0]?.targets?.[0]?.item_id;
+    check('the selector resolved to one of its choices', CHOICES.includes(rolled), String(rolled));
+
+    // Frozen, not re-rolled: the same answer through the player-facing read path.
+    const pq = await loadPlayerQuest(player.id, QID);
+    check('the rolled target is frozen on the row, not re-derived',
+      pq?.targets?.[0]?.item_id === rolled, `${rolled} vs ${pq?.targets?.[0]?.item_id}`);
+
+    // …and the objective the rest of the game sees carries it, rather than the
+    // selector string an author wrote.
+    const seen = applyRolled([{ id: 'fetch', type: 'give', item_id: '@any_of:[a,b]' }], pq.targets);
+    check('applyRolled folds the frozen target over the authored objective',
+      seen[0].item_id === rolled, JSON.stringify(seen[0]));
+
+    // An unresolvable selector REFUSES the quest. Starting one anyway hands the
+    // player an objective nothing can satisfy, which reads as a broken quest.
+    const BAD = 'quest_regress_rolled_bad';
+    await query(
+      `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
+       VALUES ($1,'Regress Rolled Bad','',$2,'{}',0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
+       ON CONFLICT (id) DO UPDATE SET objectives=$2`,
+      [BAD, JSON.stringify([{ id: 'x', type: 'visit', zone: '@zone_with:map_id=no_such_map', count: 1, desc: 'Nowhere' }])]
+    );
+    invalidateQuestCache(BAD);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, BAD]);
+    const bad = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: BAD } });
+    check('a selector that matches nothing refuses the quest', bad?.type === 'error', JSON.stringify(bad));
+    const after = await loadPlayerQuest(player.id, BAD);
+    check('…and leaves no started row behind', !after, JSON.stringify(after?.status));
+
+    for (const id of [QID, BAD]) {
+      await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, id]);
+      await query('DELETE FROM quests WHERE id=$1', [id]);
+      invalidateQuestCache(id);
+    }
   }
 
   // ── on_fail / on_turn_in — a quest hands you the next one ──────────────────

@@ -1597,6 +1597,12 @@ export const SCHEMA_SQL = `
   -- so abandoning or failing the quest can take them back out of the world. Without
   -- it, taking and dropping a retrieve quest repeatedly litters the zone forever.
   ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS spawned JSONB NOT NULL DEFAULT '[]';
+  -- Rolled targets, index-aligned to the quest's objectives: [{}, {target}, {zone}].
+  -- An objective may author a SELECTOR ('@any_of:[a,b]') instead of a fixed target;
+  -- it is resolved once when the quest is taken and frozen here, so the same gig is
+  -- not byte-identical for every player and every rotation. Empty for the ordinary
+  -- case, which is what keeps the read cost at zero for quests that roll nothing.
+  ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS targets JSONB NOT NULL DEFAULT '[]';
 
   -- Job board: a devpanel-authored pool of repeatable "gig" quests surfaced in a
   -- zone as legal early-money work. The board row holds only config (which quests
