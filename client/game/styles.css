@@ -3691,14 +3691,13 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	font-weight: 800;
 	line-height: 1;
 	letter-spacing: 0;
-	/* DEFAULT: a white plate with dark letters, which is the plain map. Landmark colour is
-	   a setting (Map Colour, off by default) and html.map-poi-color is what it sets, so a
-	   player who never opens Settings gets one high-contrast label style everywhere. The
-	   stroke takes the PLATE's colour rather than black, thickening the letterform against
-	   the plate instead of ringing it. */
-	--lbl-stroke: #f2f2f2;
-	background: #f2f2f2;
-	color: #14161a;
+	/* DEFAULT: white letters, black outline, grey plate — the plain map, and what the
+	   labels looked like before there was a colour layer. Landmark colour is a setting
+	   (Map Colour, off by default) and html.map-poi-color is what it sets, so a player who
+	   never opens Settings gets one label style everywhere. */
+	--lbl-stroke: #000;
+	background: #3c4148;
+	color: #fff;
 	-webkit-text-stroke: 1px var(--lbl-stroke);
 	paint-order: stroke fill;
 }

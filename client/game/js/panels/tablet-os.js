@@ -2447,14 +2447,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .mt-svg { width:82%; height:82%; background:currentColor;
       -webkit-mask:var(--zi) center/contain no-repeat; mask:var(--zi) center/contain no-repeat; }
     /* Label mode — a two-letter building code centred on its tile, over a plate so it
-       reads on any land-use colour. Plain by default (dark on white); with Map Colour on
-       the plate takes the landmark's own ink and the letters go white over it, matching
-       .map-bld-label on the sidebar. --poi-ink is absent with the setting off, because
-       poiInk() returns null there. */
+       reads on any land-use colour. Only the PLATE changes with Map Colour: grey by
+       default, the landmark's own ink with colour on. --poi-ink is absent with the
+       setting off, because poiInk() returns null there. Matches .map-bld-label on the
+       sidebar. */
     #tablet-os-overlay .tos-map-tile .mt-code { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      font-size:0.8125rem; font-weight:700; letter-spacing:.5px; color:#14161a; background:#f2f2f2;
-      pointer-events:none; z-index:2; }
-    html.map-poi-color #tablet-os-overlay .tos-map-tile .mt-code { color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
+      font-size:0.8125rem; font-weight:700; letter-spacing:.5px; color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
+      background:#3c4148; pointer-events:none; z-index:2; }
+    html.map-poi-color #tablet-os-overlay .tos-map-tile .mt-code {
       background:var(--poi-ink, radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15))); }
     /* An authored marker (spec.label.kind==='mark') — sewer corridor pieces, the ◍ on a
        tile with a way up, anything a human drew. Structure, not a code: the tile's own
