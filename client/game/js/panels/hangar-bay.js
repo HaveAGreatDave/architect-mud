@@ -458,7 +458,48 @@ function hullTabHtml(c) {
         <button class="hb-btn" data-act="repair">DIY repair · ~${c.diyCost}₵</button>
         <button class="hb-btn hb-accent" data-act="repair-pro">Shop repair · ${c.shopCost}₵ (guaranteed)</button>
       </div>`;
-  return gauge + acts;
+  return gauge + acts + hopperStripHtml(c);
+}
+
+// Loading the hopper, offered from the MAINTENANCE tab as well as its own.
+//
+// Topping her up is something you do in the same visit as the repair and the
+// walk-round, and making it a separate tab meant leaving the bench you were
+// already standing at. So the strip appears under Hull for anything that has a
+// hopper, and the full tab stays for when the chemical is the reason you came.
+//
+// Both surfaces render the SAME buttons out of hopperCansHtml, so there is one
+// definition of what a can button is and what disables it. A second copy here
+// would be the place the clash rule quietly stopped matching.
+function hopperStripHtml(c) {
+  if (!(c.hopperCap > 0) || c.wreck) return '';
+  const cap = c.hopperCap, amt = Math.max(0, Math.min(cap, c.hopperAmount || 0));
+  const pct = Math.round(amt / cap * 100);
+  const line = pct === 0 ? 'Hopper dry.'
+    : pct >= 98 ? `Hopper brimmed with ${esc(c.hopperFluid || 'fluid')}.`
+    : `Hopper at ${pct}% — ${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')}.`;
+  const body = pct >= 98
+    ? `<div class="hb-note">Full. Fly a few passes before you top her up again.</div>`
+    : hopperCansHtml(c, amt);
+  return `<div class="hb-hop-strip"><div class="hb-card-head"><span class="hb-card-dot"></span>HOPPER</div>
+    <div class="hb-hull-verdict">${line}</div>${body}</div>`;
+}
+
+// The can buttons. Every one is `loadhopper <craftId> <that can's name>` — a command
+// the player could have typed, so the panel proposes and the verb decides.
+function hopperCansHtml(c, amt) {
+  const cans = B.data.chemCans || [];
+  if (!cans.length)
+    return `<div class="hb-note">You've nothing holding liquid. Fill a container at a tap or a water source, then come back.</div>`;
+  // A hopper holds ONE fluid at a time, so anything that isn't what's already in there is shown
+  // greyed with the reason — hiding it would read as "you're not carrying anything".
+  const rows = cans.map(k => {
+    const clash = amt > 0 && c.hopperFluid && k.fluid !== c.hopperFluid;
+    return `<button class="hb-btn hb-hop-can${clash ? ' hb-hop-clash' : ''}" data-act="loadhopper" data-can="${esc(k.name)}"${clash ? ' disabled' : ''}>
+      <b>${esc(k.name)}</b>${k.count > 1 ? ` <em>×${k.count}</em>` : ''}
+      <span>${clash ? `holds ${esc(k.fluid)} — she's loaded with ${esc(c.hopperFluid)}` : `${k.amount} units of ${esc(k.fluid)}`}</span></button>`;
+  }).join('');
+  return `<div class="hb-note">Pour from what you're carrying. The container comes back empty.</div><div class="hb-hop-cans">${rows}</div>`;
 }
 
 // Hopper — the ag-plane's chemical tank, read the same way Hull is: a gauge, a verdict, then
@@ -482,18 +523,7 @@ function hopperTabHtml(c) {
       <div class="hb-hull-verdict">${verdict}</div>
     </div>`;
   if (pct >= 98) return gauge + `<div class="hb-note">Full. Fly a few passes before you top her up again.</div>`;
-  const cans = B.data.chemCans || [];
-  // A hopper holds ONE fluid at a time, so anything that isn't what's already in there is shown
-  // greyed with the reason — hiding it would read as "you're not carrying anything".
-  const rows = cans.map(k => {
-    const clash = amt > 0 && c.hopperFluid && k.fluid !== c.hopperFluid;
-    return `<button class="hb-btn hb-hop-can${clash ? ' hb-hop-clash' : ''}" data-act="loadhopper" data-can="${esc(k.name)}"${clash ? ' disabled' : ''}>
-      <b>${esc(k.name)}</b>${k.count > 1 ? ` <em>×${k.count}</em>` : ''}
-      <span>${clash ? `holds ${esc(k.fluid)} — she's loaded with ${esc(c.hopperFluid)}` : `${k.amount} units of ${esc(k.fluid)}`}</span></button>`;
-  }).join('');
-  return gauge + (cans.length
-    ? `<div class="hb-note">Pour from what you're carrying. The container comes back empty.</div><div class="hb-hop-cans">${rows}</div>`
-    : `<div class="hb-note">You've nothing holding liquid. Fill a container at a tap or a water source, then come back.</div>`);
+  return gauge + hopperCansHtml(c, amt);
 }
 
 // ── Tuning: continuous dials + a live performance graph ───────────────────────
@@ -1528,6 +1558,11 @@ function ensureStyles() {
   /* Hopper — the pour list. Each can is a wide two-line button (name + what's in it), so a
      row reads as a container on the shelf rather than a menu entry. */
   #hb-root .hb-hop-cans { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  /* The same list, folded into the Hull tab under a rule — it is a second job on the
+     same visit, not a second panel, so it sits below the repair row rather than
+     competing with it for the top of the card. */
+  #hb-root .hb-hop-strip { margin-top:14px; padding-top:10px; border-top:1px solid var(--hb-line, rgba(255,255,255,.12)); }
+  #hb-root .hb-hop-strip .hb-card-head { margin-bottom:6px; }
   #hb-root .hb-hop-can { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; width:100%; text-align:left; justify-content:flex-start; }
   #hb-root .hb-hop-can em { font-style:normal; opacity:.6; }
   #hb-root .hb-hop-can span { margin-left:auto; font-size:11px; opacity:.66; }
