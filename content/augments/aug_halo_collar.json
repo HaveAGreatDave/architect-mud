@@ -5,7 +5,7 @@
     "burnout": "The collar browns out and the room goes flat and simultaneous, every sound arriving at once with equal weight.",
     "dead": "The halo collar dulls, goes grey, and becomes a heavy ring of scrap you're wearing on your spine.",
     "fault": "The collar drops half a second behind and hands you a room you were standing in a moment ago.",
-    "strain": "The collar runs hot against the back of your neck and the room arrives a half-second LATE, which is worse than not having it at all."
+    "strain": "The collar runs hot against the back of your neck and the room arrives a half-second LATE. You would see more with the collar off."
   },
   "heat_rate": 0.45,
   "id": "aug_halo_collar",

@@ -6871,7 +6871,7 @@
         },
         "next": "bsm_707",
         "style": "narration",
-        "text": "Gondolli puts the chip down on the desk and slides it back across, which is worse than keeping it.",
+        "text": "Gondolli puts the chip down on the desk and slides it back across without hurrying.",
         "type": "say"
       },
       "bsm_707": {

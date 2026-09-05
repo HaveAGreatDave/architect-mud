@@ -64,7 +64,7 @@ const UNCOMFORTABLE = [
 const BACK_AWAY = [
   (n) => `${n} takes a step back and makes it look like they meant to.`,
   (n) => `${n} moves so that there's furniture between you.`,
-  (n) => `${n} crosses to the far side of the room without hurrying, which is worse than hurrying.`,
+  (n) => `${n} crosses to the far side of the room without hurrying, and stays there.`,
 ];
 
 const COMMENT = [

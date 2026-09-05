@@ -15,7 +15,7 @@
   "fx_intensity": 0.5,
   "id": "dxp_blotter_behind",
   "looks": [
-    "The lag is about a second and is extremely consistent, which is worse than if it wandered.",
+    "The lag is about a second and never varies by so much as a blink.",
     "Their mouth finishes a word some time after you have heard it.",
     "When they stand still the two of them agree, and it's nearly restful."
   ],

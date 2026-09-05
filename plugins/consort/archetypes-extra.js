@@ -432,7 +432,7 @@ export const EXTRA = {
       `answers with a sound rather than a word and doesn't offer a second one.`,
       `moves to put furniture between you and {them} and stops there.`,
       `"Not yours to talk to."`,
-      `shows no reaction at all, which is worse than any of the reactions.`,
+      `shows no reaction at all, and holds it.`,
     ],
     entrances: {
       arriveWardrobe: [

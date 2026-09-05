@@ -321,7 +321,7 @@ const GREETINGS = {
     ],
     plain: [
       `${'{n}'} snorts. "Walkaway." They let it sit there. "Your lot left. We're still here. Hands up."`,
-      `"Mind powers," ${'{n}'} says, and doesn't bother to make it a sneer, which is worse. "Right. Let's see what your ARMS can do."`,
+      `"Mind powers," ${'{n}'} says, and doesn't bother to make it a sneer. "Right. Let's see what your ARMS can do."`,
     ],
   },
   [REGARD.AUGMENTED]: {

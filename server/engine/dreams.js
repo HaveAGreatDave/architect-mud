@@ -115,7 +115,7 @@ function tetherSubject(tether = {}) {
   if (tether.zone)   options.push(`${tether.zone}, rebuilt slightly wrong`);
   if (tether.npc)    options.push(`${tether.npc}, who shouldn't be here`);
   if (tether.item)   options.push(`your ${tether.item}, much heavier than it is`);
-  if (tether.killed) options.push(`${tether.killed}, who isn't angry about it, which is worse`);
+  if (tether.killed) options.push(`${tether.killed}, who isn't angry about it`);
   return options.length ? pick(options) : null;
 }
 

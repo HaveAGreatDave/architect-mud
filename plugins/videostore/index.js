@@ -286,7 +286,7 @@ async function cmdSettle(args, raw, player) {
   const debt = await debtOf(player.id);
   if (!debt) return { type: 'output', message: `You're square. He checks anyway.` };
   if ((player.credits || 0) < debt) {
-    return { type: 'error', message: `You owe ₵${debt} and you have ₵${player.credits || 0}. He waits, which is worse than being shouted at.` };
+    return { type: 'error', message: `You owe ₵${debt} and you have ₵${player.credits || 0}. He waits, and keeps waiting.` };
   }
 
   player.credits -= debt;

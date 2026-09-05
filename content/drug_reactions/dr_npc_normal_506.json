@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": "known",
   "room_line": "{npc} asks {player} what they have taken. It isn't an accusation.",
-  "self_line": "{npc} asks what you have taken. It isn't an accusation, which is worse.",
+  "self_line": "{npc} asks what you have taken. It isn't an accusation, and they wait for the answer.",
   "source": "npc",
   "tone": "normal"
 }

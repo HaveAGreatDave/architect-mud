@@ -111,7 +111,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A number you have put a face on is a number you will get wrong, in one direction, every time, and the direction is the one that ends the firm.\" She says it without any defensiveness at all, which is worse. \"The name is on the back of the sheet. It is on the back for a reason and the reason is not cowardice.\""
+      "text": "\"A number you have put a face on is a number you will get wrong, in one direction, every time, and the direction is the one that ends the firm.\" She says it without any defensiveness at all. \"The name is on the back of the sheet. It is on the back for a reason and the reason is not cowardice.\""
     },
     "a15_done": {
       "_vine": {
@@ -192,7 +192,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The hall, then the Registry, then Nine.\" She squares the desk again. \"Count the tanks while you are down there. Not because I need it. Because you will want to know, afterwards, that you counted them yourself.\""
+      "text": "\"The hall, then the Registry, then Nine.\" She squares the desk again. \"Count the tanks while you are down there. You will want to know, afterwards, that you counted them yourself.\""
     },
     "a15_why": {
       "_vine": {
@@ -1240,7 +1240,7 @@
           "next": "bye"
         }
       ],
-      "text": "You take the slip. It is warm from the printer and it weighs nothing.\n\nIves does not go back to the ledger.\n\n\"You did not say.\"\n\nIt is not an accusation. It is the tone she would use to point out that a form was not signed.\n\n\"Everyone says something. The ones who agree say so, and the ones who do not say that instead, and either way I know where to put them.\""
+      "text": "You take the slip. It is warm from the printer and it weighs nothing.\n\nIves does not go back to the ledger.\n\n\"You did not say.\"\n\nIt is the tone she would use to point out that a form was not signed.\n\n\"Everyone says something. The ones who agree say so, and the ones who do not say that instead, and either way I know where to put them.\""
     },
     "stance_quiet_go": {
       "_vine": {
@@ -1335,7 +1335,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"That is a class of its own and I do not have a column for it.\"\n\nShe sets the pen down, which is worse than her picking it up.\n\n\"I am going to ask you plainly, because it saves us both a fortnight. The man who was here. Should he have a policy?\""
+      "text": "\"That is a class of its own and I do not have a column for it.\"\n\nShe sets the pen down.\n\n\"I am going to ask you plainly, because it saves us both a fortnight. The man who was here. Should he have a policy?\""
     },
     "stance_recover": {
       "_vine": {

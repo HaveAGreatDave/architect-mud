@@ -772,6 +772,43 @@ walking in for the third time in a minute.
 [scripts/content/prose-audit-pass.mjs](../../scripts/content/prose-audit-pass.mjs)
 holds the twelve that went and the reasons the rest stayed.
 
+### Three more: the negation-contrast, the emphatic tautology, the appended verdict
+
+Flagged 2026-09-05. All three get past the five moves above, and all three go on
+sight.
+
+**"Not because X. Because Y."** The speaker heads off a reading nobody offered,
+then supplies the right one. It's the antithesis with a full stop in the middle,
+and it had become the house accent by sheer weight: ten speakers had it across
+every order — Ives, Kesh, Teague, Rennick, the Terminus warden, the Exodus elder,
+the Oracle twice, a prefect, and a chat-show guest. Give the reason once.
+
+> "Quietly," he says. "Not because it's shameful. Because it's BORING, and
+> boring things become scandals purely by being written down."
+
+> "Quietly," he says. "It's boring, and boring things become scandals purely by
+> being written down."
+
+**The emphatic tautology.** "a ledger that's a real ledger with real names in
+it." Insisting a thing is what it is, which is the writer nudging the reader
+rather than the thing being described. Say what's in the ledger, or let it be a
+ledger.
+
+**"which is worse."** The narrator marks its own picture out of ten — the same
+fault as "which is how you know it had landed", and it carries its own tell: the
+sentence has finished, and the clause is the writer worrying that the reader
+missed the point. 43 across the tree, 39 of them outside the public-domain
+books, and one of those copied across fifteen Reach tiles.
+
+> ...the one that came back has stopped talking about it, which is worse than if
+> he hadn't.
+
+> ...the one that came back hasn't said a word about it since.
+
+Unlike the five closing moves, the character's-mouth exemption doesn't rescue
+these. Ma Cinder said hers out loud and it still reads as authored, because the
+judgement is the writer's and she's only holding it.
+
 ### NPCs ask things
 
 59 of the 140 NPCs with a real speaking part have never asked the player a

@@ -632,7 +632,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There's a man on Foundry Way counting doorways.\" Teague says it flatly. \"Municipal. Damp. Harmless as a person and not harmless as a ledger, because in six weeks somebody upstairs will have a list of every door in the quarter that opens.\"\n\n\"Stop the counting. Leave the counter.\"\n\nHer eyes come up.\n\n\"I want to be understood on the second half. We don't leave bodies. Not because we're gentle. Because a body is a reason for somebody to come and look, and looking is the only thing that has ever hurt us.\""
+      "text": "\"There's a man on Foundry Way counting doorways.\" Teague says it flatly. \"Municipal. Damp. Harmless as a person and not harmless as a ledger, because in six weeks somebody upstairs will have a list of every door in the quarter that opens.\"\n\n\"Stop the counting. Leave the counter.\"\n\nHer eyes come up.\n\n\"I want to be understood on the second half. We don't leave bodies. A body is a reason for somebody to come and look, and looking is the only thing that has ever hurt us.\""
     },
     "quiet_report": {
       "actions": [
@@ -968,7 +968,7 @@
           "next": "bye"
         }
       ],
-      "text": "It's easier to say than you expected, and she takes it at face value, which is worse.\n\n\"Good. That's all I needed.\"\n\nShe adjusts the sling and carries on up the tunnel.\n\n\"Come down on a Thursday. I'll show you the stretch properly and you'll see why it's worth keeping.\""
+      "text": "It's easier to say than you expected, and she takes it at face value.\n\n\"Good. That's all I needed.\"\n\nShe adjusts the sling and carries on up the tunnel.\n\n\"Come down on a Thursday. I'll show you the stretch properly and you'll see why it's worth keeping.\""
     },
     "teach": {
       "options": [

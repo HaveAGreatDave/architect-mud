@@ -325,7 +325,7 @@ export const DYNAMIC_QUESTIONS = [
       ],
       done: [`"Then it's finished." {They} {breathe} out. "Sit down anyway."`],
       nobody: [`"Nobody." {They} {do} not believe you and {do} not push. "Sit down."`],
-      dodge: [`{They} {stop} asking and {start} looking instead, which is worse and {they} {know} it.`],
+      dodge: [`{They} {stop} asking and {start} looking instead, and {they} {know} what that does.`],
       timeout: [`says nothing more about it, and quietly moves the good chair nearer.`],
     },
   },

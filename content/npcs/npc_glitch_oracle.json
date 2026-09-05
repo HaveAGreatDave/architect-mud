@@ -388,7 +388,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" Her eyes are open, which is worse than the alternative. \"You have done three quiet things and one cold one, and this is the one where you find out whether being left alone is something you would do anything for.\"\n\n\"You can say no. I'll still be here on Thursday, whatever you decide, and so will he.\""
+      "text": "\"No.\" Her eyes are open. \"You have done three quiet things and one cold one, and this is the one where you find out whether being left alone is something you would do anything for.\"\n\n\"You can say no. I'll still be here on Thursday, whatever you decide, and so will he.\""
     },
     "exo_offer_1": {
       "actions": [],
@@ -617,7 +617,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing,\" she agrees, before you have said it. \"Yes. You sat in a room and nothing happened and you have walked all the way back down here to tell me so, and you're annoyed about it, and you came anyway.\"\n\nShe is quiet for long enough that you think she has gone to sleep.\n\n\"Most people don't come back after that one. Not because it's hard. Because there's no reason to.\""
+      "text": "\"Nothing,\" she agrees, before you have said it. \"Yes. You sat in a room and nothing happened and you have walked all the way back down here to tell me so, and you're annoyed about it, and you came anyway.\"\n\nShe is quiet for long enough that you think she has gone to sleep.\n\n\"Most people don't come back after that one. There's no reason to.\""
     },
     "exo_report_3": {
       "actions": [
@@ -652,7 +652,7 @@
           "next": "exo_after"
         }
       ],
-      "text": "\"You came down the last stretch without counting the turnings,\" she says. \"You have counted them every other time. I could hear you doing it.\"\n\nShe lets that sit exactly as long as it needs to.\n\n\"I told you nothing would happen and nothing did. I want you to hold on to that, because in about a week you're going to start telling yourself a much more interesting story about tonight, and it'll be wrong, and it'll make you stupid.\"\n\nThe fan of fibre at the base of her skull is completely still.\n\n\"Go up. Sleep somewhere warm. And when you notice something you shouldn't have noticed, don't say it out loud in front of anybody. Not because it's dangerous.\" A pause. \"Because you'll sound like me, and people don't sit down when I ask them to. They just do.\""
+      "text": "\"You came down the last stretch without counting the turnings,\" she says. \"You have counted them every other time. I could hear you doing it.\"\n\nShe lets that sit exactly as long as it needs to.\n\n\"I told you nothing would happen and nothing did. I want you to hold on to that, because in about a week you're going to start telling yourself a much more interesting story about tonight, and it'll be wrong, and it'll make you stupid.\"\n\nThe fan of fibre at the base of her skull is completely still.\n\n\"Go up. Sleep somewhere warm. And when you notice something you shouldn't have noticed, don't say it out loud in front of anybody.\" A pause. \"You'll sound like me, and people don't sit down when I ask them to. They just do.\""
     },
     "exo_report_4": {
       "_vine": {
