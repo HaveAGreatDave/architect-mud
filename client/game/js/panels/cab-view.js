@@ -273,6 +273,12 @@ const CAB_GATE = [
   { x: 0.38, y: 0.50, gear: 0, label: 'N' },      // neutral — the crossgate everything passes through
 ];
 
+// The gearbox switch, remembered across mounts. Default ON — see setAuto for why.
+const AUTO_KEY = 'truckAutoShift';
+function autoPref() {
+  try { return localStorage.getItem(AUTO_KEY) !== '0'; } catch { return true; }
+}
+
 let st = null;
 // ONE CAMERA, MODULE-SCOPED, because there is exactly one cab — `st` above is a singleton for the
 // same reason. It deliberately outlives a single `openCab`: nothing here is worth persisting across
@@ -742,7 +748,7 @@ export function openCab(ctx = {}) {
     id, container, sim,
     input: { throttle: 0, brake: 0, steer: 0, clutch: 0, jake: 0, surface: ctx.surface || 'road' },
     steerKey: 0,
-    auto: false,        // automatic shifting — a hand on the lever, never a different gearbox
+    auto: autoPref(),   // automatic shifting — a hand on the lever, never a different gearbox
     shiftSeq: null,     // the beat of a shift in progress (autoShift)
     shiftCool: 0,
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
@@ -1959,7 +1965,16 @@ export function openCab(ctx = {}) {
   // your hands are busy, and a switch that skipped it would be teaching the box is optional. So it
   // takes the time a shift takes, in the order a shift happens — dip, out through neutral, into the
   // slot, let it up — and the stick on the dash does it in front of you.
-  function setAuto(on) {
+  // WHAT THE DRIVER LEFT IT ON, and it defaults to ON. A first-time driver climbing into an
+  // eight-speed crash box with a range collar and a splitter is not being given a gearbox, they
+  // are being given a reason to get out — so the automatic hand is on the lever until somebody
+  // takes it off, and once they have, it stays off. Per browser rather than per account: it is a
+  // control preference like the pane heights beside it, not world state.
+  //
+  // ⚠ THE STORED VALUE IS ONLY EVER WRITTEN BY THE DRIVER. `setAuto` persists, the compact-cab
+  // force-on below does not — a phone cannot switch it off (see the guard in setAuto), so
+  // recording that as a choice would carry a decision nobody made onto their desktop.
+  function setAuto(on, remember = true) {
     // ⚠ ON A PHONE IT DOES NOT SWITCH OFF. The gate, the range collar and the splitter are not on
     // the shelf there (see THE COMPACT CAB), so a driver who turned this off would have no way
     // into a gear at all — the M key that did it is on a keyboard they do not have. This is the
@@ -1972,11 +1987,15 @@ export function openCab(ctx = {}) {
     if (!on && st.shiftSeq) { st.shiftSeq = null; if (!st.heldBy?.clutch && !st.clutchLatched) st.input.clutch = 0; }
     const el = container.querySelector('.cab-auto');
     if (el) { el.classList.toggle('on', st.auto); el.setAttribute('aria-pressed', st.auto ? 'true' : 'false'); }
+    if (remember) { try { localStorage.setItem(AUTO_KEY, st.auto ? '1' : '0'); } catch {} }
   }
   st.setAuto = setAuto;
   // And it starts on there, because a driver who climbs in and finds neutral with no lever has
-  // been handed a truck with no way to move it.
-  if (cabCompact()) setAuto(true);
+  // been handed a truck with no way to move it. On every other cab the stored preference has
+  // already put the switch where the driver left it — this only has to paint the button, since
+  // `st.auto` was set from it when the state was built.
+  if (cabCompact()) setAuto(true, false);
+  else setAuto(st.auto, false);
   // ── THE PARK BRAKE ──────────────────────────────────────────────────────────
   //
   // ⚠ IT IS THE BRAKE PEDAL, NOT A NEW FORCE. Same rule as cruise and the automatic: it writes

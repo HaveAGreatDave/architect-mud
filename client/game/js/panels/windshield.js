@@ -1785,7 +1785,7 @@ export function paintWindshield(id, view) {
   // the same WX_HAZE scalar that decides how far you can see decides whether you're driving lit.
   const gloom = Math.max(sky.night, wxGloom(wx));
   if (v.landingLight && !framed && !ext && worldBlend > 0.05 && gloom > 0.2)
-    drawLandingBeam(ctx, W, H, horizonY, vx, gloom, speed, now);
+    drawLandingBeam(ctx, W, H, horizonY, vx, gloom, speed, now, v.cls === 'truck');
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
   if (speed > 0.12 && !framed && worldBlend > 0.02) {
@@ -2495,6 +2495,29 @@ function drawCabInterior(ctx, W, H, v) {
     ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
     ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
   };
+  // THE CAB, MINUS THE GLASS. Every interior lamp in here is a lamp INSIDE a box, and the one
+  // surface it must never reach is the windscreen: light painted over the aperture does not read
+  // as a lit cab, it reads as the night outside getting brighter when you flick the dome on. The
+  // road is lit by the headlights and by nothing else, so the shell washes are clipped to the
+  // shell — the whole frame with the screen punched out of it, filled 'evenodd'.
+  //
+  // The aperture is the same geometry the header, the pillars and the dash lip already describe,
+  // read back rather than re-guessed: top at the header line, sides down the raked pillars, and
+  // the bottom on the dash lip curve (traced right-to-left with the SAME control point, so it
+  // bulges up into the glass and leaves the whole board lit rather than shaving the lip).
+  const glassPath = () => {
+    ctx.moveTo(pillar, hdr);
+    ctx.lineTo(W - pillar, hdr);
+    ctx.lineTo(W - pillar * 0.55, dash + H * 0.02);
+    ctx.quadraticCurveTo(W / 2, dash - H * 0.035, pillar * 0.55, dash + H * 0.02);
+    ctx.closePath();
+  };
+  const clipInterior = () => {
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    glassPath();
+    ctx.clip('evenodd');
+  };
   const tex = cabDashTex(T.mat);
   if (tex) {
     const pat = ctx.createPattern(tex, 'repeat');
@@ -2581,28 +2604,39 @@ function drawCabInterior(ctx, W, H, v) {
     // ⚠ AND THE LAMP IS NEARLY THE WHOLE OF IT AFTER DARK. At 0.78 the difference between the dome
     // being on and off at midnight was a shade; a driver flicking it could not tell they had. It is
     // now most of the interior light, which is what a single bulb in a small box actually is.
-    const k = (0.55 + 2.35 * litK) * (domeOn ? 1 : 1 - 0.93 * litK);
+    // ⚠ AND THE BOARD IS LIT LIKE A ROOM, NOT LIKE A HINT. The flood is what the driver reads
+    // the panel by, and it could not be wound up while the shell wash it belongs to was reaching
+    // the glass — a brighter cab meant a brighter road. It is clipped to the shell now (see
+    // clipInterior), so the ceiling that held this number down is gone.
+    const k = (0.75 + 3.6 * litK) * (domeOn ? 1 : 1 - 0.93 * litK);
     const eyebrow = ctx.createRadialGradient(G.x, dash, 0, G.x, dash, Math.max(W * 0.42, H * 0.30));
-    eyebrow.addColorStop(0, hexA(T.glow, 0.20 * k));
-    eyebrow.addColorStop(0.45, hexA(T.glow, 0.075 * k));
+    eyebrow.addColorStop(0, hexA(T.glow, 0.30 * k));
+    eyebrow.addColorStop(0.45, hexA(T.glow, 0.115 * k));
     eyebrow.addColorStop(1, hexA(T.glow, 0));
     ctx.fillStyle = eyebrow; ctx.fillRect(0, dash - H * 0.05, W, H);
     const column = ctx.createRadialGradient(G.x, G.top, 0, G.x, G.top, Math.max(W * 0.18, H * 0.16));
-    column.addColorStop(0, hexA(T.glow, 0.14 * k));
+    column.addColorStop(0, hexA(T.glow, 0.22 * k));
     column.addColorStop(1, hexA(T.glow, 0));
     ctx.fillStyle = column; ctx.fillRect(0, dash - H * 0.05, W, H);
     // AND THE SHELL, NOT ONLY THE DASH. The two washes above are clipped to `dashPath` — the board
     // itself — so at night everything ABOVE the dash (the header, the pillars, the door cards) was
     // still sitting at its unlit gradient with a glowing board beneath it. A dome lamp and the
     // spill off the panel reach the whole cab, so this is the same trim colour lifted over the
-    // interior at large, unclipped and much weaker. Only worth drawing once it is genuinely dark.
+    // interior at large, and weaker than the flood on the board it has already lit. Only worth
+    // drawing once it is genuinely dark.
+    //
+    // ⚠ IT WAS UNCLIPPED, AND THAT IS WHAT LIT THE ROAD. The gradient covered the whole frame,
+    // so the one lamp whose entire job is the inside of the box was painting the night outside as
+    // well: flicking the dome on brightened the street. Clipped to the shell, it can be as bright
+    // as a bulb in a small cab actually is.
     ctx.restore();
     if (domeOn && litK > 0.04) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
+      clipInterior();
       const dome = ctx.createRadialGradient(W * 0.5, dash * 0.92, 0, W * 0.5, dash * 0.92, Math.max(W * 0.62, H * 0.55));
-      dome.addColorStop(0, hexA(T.glow, 0.085 * litK));
-      dome.addColorStop(0.6, hexA(T.glow, 0.030 * litK));
+      dome.addColorStop(0, hexA(T.glow, 0.20 * litK));
+      dome.addColorStop(0.6, hexA(T.glow, 0.085 * litK));
       dome.addColorStop(1, hexA(T.glow, 0));
       ctx.fillStyle = dome; ctx.fillRect(0, 0, W, H);
       ctx.restore();
@@ -3760,30 +3794,36 @@ function drawInstrumentReflection(ctx, W, H, glow, bank, panel) {
 // feathered vertical beams (twin lamps) reaching toward the horizon. Called inside the banked
 // world block so the throw rolls with the aircraft; strength ramps up the darker it gets, and a
 // faint filament shimmer keeps it alive. Additive, so it lifts whatever ground/buildings it lands on.
-function drawLandingBeam(ctx, W, H, horizonY, vx, night, speed, now) {
+// ⚠ A TRUCK'S LAMPS ARE NARROWER THAN AN AEROPLANE'S, and `road` is the whole of that. A landing
+// lamp on short finals floods the field because the field is what the pilot is looking for; a pair
+// of headlights picks out the lane ahead and leaves the verges dark, which is the difference
+// between driving at night and driving with the whole street switched on. Same lamp, tighter cone.
+function drawLandingBeam(ctx, W, H, horizonY, vx, night, speed, now, road = false) {
   const str = clamp((night - 0.2) / 0.8, 0, 1);
   if (str < 0.02) return;
   const flick = 0.9 + 0.1 * Math.sin(now * 0.02) * Math.sin(now * 0.031);   // filament shimmer
   const warm = [255, 244, 214];
+  const spread = road ? 0.60 : 1;      // how far off the nose the throw reaches
+  const lift = road ? 0.72 : 1;        // and how hard it lands on anything it is not pointed at
   const depth = Math.max(1, H - horizonY);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   // 1) Twin feathered beams — two tall, narrow light columns off the nose lamps.
   for (const off of [-0.55, 0.55]) {
-    const bx = vx + off * W * 0.11, by = horizonY + depth * 0.52, br = depth * 0.66;
+    const bx = vx + off * W * 0.11 * spread, by = horizonY + depth * 0.52, br = depth * 0.66 * (road ? 0.82 : 1);
     ctx.save();
     ctx.translate(bx, by); ctx.scale(0.34, 1);
     const bg = ctx.createRadialGradient(0, 0, 0, 0, 0, br);
-    bg.addColorStop(0, rgb(warm, 0.16 * str * flick)); bg.addColorStop(1, rgb(warm, 0));
+    bg.addColorStop(0, rgb(warm, 0.16 * lift * str * flick)); bg.addColorStop(1, rgb(warm, 0));
     ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, br, 0, 7); ctx.fill();
     ctx.restore();
   }
   // 2) The pool on the ground ahead — a wide, soft ellipse the beams converge onto.
-  const poolY = horizonY + depth * 0.64, poolR = W * 0.44;
+  const poolY = horizonY + depth * 0.64, poolR = W * 0.44 * (road ? 0.62 : 1);
   ctx.save();
   ctx.translate(vx, poolY); ctx.scale(1, (depth * 0.5) / poolR);
   const pg = ctx.createRadialGradient(0, 0, 0, 0, 0, poolR);
-  pg.addColorStop(0, rgb(warm, 0.28 * str * flick)); pg.addColorStop(0.5, rgb(warm, 0.11 * str * flick)); pg.addColorStop(1, rgb(warm, 0));
+  pg.addColorStop(0, rgb(warm, 0.28 * lift * str * flick)); pg.addColorStop(0.5, rgb(warm, 0.11 * lift * str * flick)); pg.addColorStop(1, rgb(warm, 0));
   ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(0, 0, poolR, 0, 7); ctx.fill();
   ctx.restore();
   ctx.restore();
@@ -3818,7 +3858,7 @@ function drawLandingBeam(ctx, W, H, horizonY, vx, night, speed, now) {
 const HL_NEAR = 0.9;          // tiles ahead of the eye the pool starts — just past the bumper
 const HL_FAR = 34;            // tiles the beam reaches; past this the falloff has it at nothing
 const HL_SEG = 16;            // strip segments — enough that the banding reads as a gradient
-const HL_W0 = 1.25, HL_W1 = 6.4;   // half-width in tiles, at the near and far ends
+const HL_W0 = 1.05, HL_W1 = 4.0;   // half-width in tiles, at the near and far ends
 function drawHeadlightBeam(ctx, cam, gloom, now) {
   const str = clamp((gloom - 0.18) / 0.82, 0, 1);
   if (str < 0.03) return;
@@ -3863,13 +3903,17 @@ function headlightWash(ctx, cam, dx, dy, h, str) {
   // Into the camera's own forward/lateral frame — the same arithmetic `proj` does internally.
   const f = dx * cam.sinh - dy * cam.cosh, l = dx * cam.cosh + dy * cam.sinh;
   if (f <= 0.4 || f > HL_FAR) return;                       // behind, or past the beam's reach
-  const spread = HL_W0 + (HL_W1 - HL_W0) * (f / HL_FAR) + 1.6;   // a little wider than the tarmac pool
+  const spread = HL_W0 + (HL_W1 - HL_W0) * (f / HL_FAR) + 0.9;   // a little wider than the tarmac pool
   const off = Math.abs(l) / spread;
-  if (off > 1.9) return;
+  // ⚠ AND THE CUTOFF IS TIGHT, because the failure it prevents is the one that reads as 'the
+  // headlights light everything': at 1.9 the frontage you have already drawn level with is still
+  // inside the cone, so a street lit either side of you looked like ambient light with a switch on
+  // it rather than like a beam. What is in front of the bumper is lit; what is beside it is not.
+  if (off > 1.15) return;
   const c = cam.proj(dx, dy, h * 0.45);
   if (c.f <= 0.2) return;
   const dist = 1 - f / HL_FAR;
-  const a = clamp(str * 0.52 * dist * dist * clamp(1.9 - off, 0, 1.35) / 1.35, 0, 0.62);
+  const a = clamp(str * 0.52 * dist * dist * clamp(1.15 - off, 0, 1) , 0, 0.62);
   if (a < 0.006) return;
   const r = clamp(120 / c.f, 10, 90);
   emitFace(decoDepth(c.f), () => {
@@ -7017,27 +7061,142 @@ function drawTexQuad(ctx, img, P0, P1, P2, P3, smooth) {
   texTri(ctx, img, [0, 0], [W, 0], [W, H], P0, P1, P2, smooth);
   texTri(ctx, img, [0, 0], [W, H], [0, H], P0, P2, P3, smooth);
 }
-// Perspective-correct textured wall quad. The affine texTri above interpolates texture coords
-// linearly in SCREEN space, so a windowed wall viewed at a steep angle (near edge far closer than
-// the far edge) kinks along the two-triangle diagonal — the window grid warps. Fix: split the quad
-// into vertical columns and put each seam at its perspective-correct u (1/w is linear in screen
-// space, so u = (s/fR)/((1-s)/fL + s/fR) for screen-linear s). A building wall is vertical ⇒ each
-// vertical edge has constant depth (fL top==bottom, fR top==bottom), so no vertical correction is
-// needed — columns alone straighten the windows. fL/fR are the camera depths of the left/right edges.
-function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR, smooth) {
-  fL = Math.max(fL, 1e-3); fR = Math.max(fR, 1e-3);
-  const ratio = Math.max(fL, fR) / Math.min(fL, fR);
-  if (ratio < 1.15) { drawTexQuad(ctx, img, P0, P1, P2, P3, smooth); return; }   // near flat-on: one affine quad is fine (and cheap)
-  const W = img.width, H = img.height, K = Math.min(12, Math.max(2, Math.ceil(ratio * 1.5)));
-  const lerp = (A, B, t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
-  let tL = P0, bL = P3, uL = 0;   // P0 top-left, P1 top-right, P2 bottom-right, P3 bottom-left
-  for (let k = 1; k <= K; k++) {
-    const s = k / K, u = (s / fR) / ((1 - s) / fL + s / fR);
-    const tR = lerp(P0, P1, s), bR = lerp(P3, P2, s);
-    texTri(ctx, img, [uL * W, 0], [u * W, 0], [u * W, H], tL, tR, bR, smooth);
-    texTri(ctx, img, [uL * W, 0], [u * W, H], [uL * W, H], tL, bR, bL, smooth);
-    tL = tR; bL = bR; uL = u;
+// ── PERSPECTIVE-CORRECT TEXTURED QUAD ────────────────────────────────────────
+// texTri interpolates texture coords linearly in SCREEN space, so a textured quad seen at an angle
+// kinks: the window grid on a wall bows, and a roof creases along the two-triangle diagonal. The fix
+// is to subdivide into cells small enough that affine is right within one — the questions are only
+// WHERE the seams go and HOW MANY there are.
+//
+// ── ⚠ WHERE: UNIFORM IN SCREEN SPACE, AND WHY THE OBVIOUS "IMPROVEMENT" LOSES ──
+// Stepping s = k/K across the screen and solving for the correct u at each seam looks like it
+// starves the end that is bowing, and by one measure it does. On a wall running 2 to 80 deep,
+// screen-midpoint s = 0.5 is u = 0.024 — half the screen width carries 2.4% of the facade and the
+// other half crams in the remaining 97.6%, so measured as TEXTURE displacement the far end sits 27%
+// of the wall out of place, and re-spacing the seams to equal depth ratio cuts that to 2%.
+//
+// That measurement is the wrong yardstick and the re-spacing makes the picture WORSE. Texture
+// displacement is only visible in proportion to how many screen pixels the texture is stretched
+// across, and the far end where u is crammed is precisely the end that is compressed on screen —
+// the two cancel. Measuring actual screen error instead, over a family of seam spacings running
+// from uniform-screen through equal-depth-ratio to uniform-texture (worst error in px, K = 12):
+//
+//     wall          uniform-s     equal depth ratio    uniform-u
+//     3 → 40          12.9              28.6              85.1
+//     2 → 80          27.5              73.0             259.0
+//     8 → 30           3.1               4.9               9.5
+//
+// Uniform in screen space wins everywhere and by a wide margin. Left as it was, deliberately.
+//
+// ── HOW MANY: A PIXEL BUDGET, BECAUSE K WAS DEPTH-ONLY AND THAT IS HALF THE QUESTION ─────────
+// K was min(12, ceil(ratio * 1.5)) — a 40px sliver and a 1400px cab-view facade both got twelve,
+// and warp is only ever visible in pixels. Measured error falls as 1/K (not 1/K²: the near-edge
+// cell dominates, so this is a boundary effect rather than a smooth quadrature one), and fitting
+// err·K over eight wall poses gives err·K ≈ 0.3 · extentPx · (1 − 1/ratio) to within about ±40%,
+// erring high. Solving for a target leaves
+//
+//     K = 0.3 · extentPx · (1 − 1/ratio) / TEXQ_TARGET_PX
+//
+// ⚠ EXTENT IS THE LARGER OF THE TWO AXES, NOT THE ONE BEING SUBDIVIDED. A tall near wall is the
+// case that catches this: screen y is (linear in v) / f(u), so an error in u is AMPLIFIED by the
+// on-screen HEIGHT before anybody sees it. Sizing the column count off the wall's width alone
+// under-subdivides exactly the near facades that need it most.
+//
+// A small or far face now takes fewer cells than the old ratio-only rule and a near facade takes
+// more, up to the cap. The defaults below were picked off a street-shaped mix — a few near
+// facades, more mid, most of it far skyline, plus their roofs — counting triangles emitted and
+// worst screen error over the whole batch:
+//
+//     setting               wall tri / worst    roof tri / worst    total tri
+//     shipped                    884 / 14.0px        110 / 200px          994
+//     target 8px  cap 12         760 / 12.8px        576 /  13px        1,336
+//     target 6px  cap 16   ←     904 /  9.2px        764 /  11px        1,668
+//     target 4px  cap 20       1,324 /  7.2px      1,392 /   6px        2,716
+//     target 3px  cap 24       1,656 /  5.9px      1,726 /   6px        3,382
+//
+// 6px/16 is where the walls come out cost-NEUTRAL against what shipped (904 against 884) while
+// still taking a third off their warp, and the extra spend is almost all roofs — the right place
+// for it, because 200px of crease is the defect you can actually see. Past that the curve turns:
+// 3px buys another 4px of wall for 3.4× the triangles. TEXQ_TARGET_PX then TEXQ_MAX_K are the knob.
+//
+// ── IT IS THE SAME FUNCTION FOR WALLS AND ROOFS, AND THAT IS THE POINT ───────
+// A wall is a special case: it is vertical, so both of its vertical edges have constant depth, the
+// v-axis ratio is 1, K_v solves to 1 and the grid degenerates to columns — the wall path is exactly
+// what it always was, with a better-sized K. A roof is not vertical and every one of its four
+// corners sits at a different depth, which is why the old code did not even try and blitted it as
+// two raw affine triangles — 245px of crease on a low pass, 380px on a grazing one. Interpolating
+// over the corner depths is perspective-correct for any planar quad, needs no camera, and covers
+// both cases from one place.
+const TEXQ_TARGET_PX = 6;     // worst residual warp we are willing to leave on screen, in pixels
+const TEXQ_MAX_K = 16;        // per-axis cell cap — past this the clip/transform/drawImage storm costs more than the bow does
+const TEXQ_MAX_CELLS = 32;    // total cells for a two-axis (roof) quad; an unbudgeted 16×16 grid is 512 triangles for one soffit
+// Screen point at texture coordinate (u,v) over a planar quad, perspective-correct. P are the four
+// screen corners in texture order (0,0) (1,0) (1,1) (0,1); Fd are their camera depths.
+//
+// ⚠ IT WEIGHTS BY DEPTH, NOT BY ITS RECIPROCAL, AND THE REFLEX IS THE WRONG ONE. Every rasteriser
+// note ever written says "interpolate 1/w" — and that is for a SCREEN-space parameter, where 1/w is
+// the thing that varies linearly. (u,v) here is an OBJECT-space parameter, and depth itself is what
+// is linear in it. Screen x is focal·X/f and the world point is bilinear in (u,v), so the
+// projection of it is bilinear(P·f) / bilinear(f). Dividing instead of multiplying still reproduces
+// all four corners exactly and is wildly wrong everywhere between them — the failure mode that
+// looks like it works.
+function perspPt(P, Fd, u, v) {
+  const r0 = (1 - u) * (1 - v) * Fd[0], r1 = u * (1 - v) * Fd[1], r2 = u * v * Fd[2], r3 = (1 - u) * v * Fd[3];
+  const sw = r0 + r1 + r2 + r3;
+  return [(r0 * P[0][0] + r1 * P[1][0] + r2 * P[2][0] + r3 * P[3][0]) / sw,
+          (r0 * P[0][1] + r1 * P[1][1] + r2 * P[2][1] + r3 * P[3][1]) / sw];
+}
+// Cells along one axis, per the K derivation above. 'px' is the quad's LARGER screen extent, not
+// this axis's own — see the amplification note. ratio ≤ 1 falls out as one cell with no special case.
+function texqK(fA, fB, px) {
+  const r = Math.max(fA, fB) / Math.max(1e-3, Math.min(fA, fB));
+  if (!(r > 1.0001) || !(px > 0)) return 1;
+  return Math.min(TEXQ_MAX_K, Math.max(1, Math.ceil(0.3 * px * (1 - 1 / r) / TEXQ_TARGET_PX)));
+}
+// Seam positions in TEXTURE space, spaced uniformly in SCREEN space (see above). 1/f is what is
+// linear across the screen, so step that, then invert each depth back to a texture coordinate —
+// depth is linear in texture space, which is what makes the last step a subtraction.
+function texqSeams(fA, fB, K) {
+  const out = [0];
+  if (K <= 1 || Math.abs(fB - fA) < 1e-6) { out.push(1); return out; }
+  for (let k = 1; k < K; k++) {
+    const t = k / K, f = 1 / ((1 - t) / fA + t / fB);
+    out.push((f - fA) / (fB - fA));
   }
+  out.push(1);
+  return out;
+}
+// The general case. P0..P3 in texture order, Fd their four camera depths.
+function drawTexQuadPersp(ctx, img, P0, P1, P2, P3, Fd, smooth) {
+  const P = [P0, P1, P2, P3];
+  const F = [Math.max(Fd[0], 1e-3), Math.max(Fd[1], 1e-3), Math.max(Fd[2], 1e-3), Math.max(Fd[3], 1e-3)];
+  const uA = (F[0] + F[3]) / 2, uB = (F[1] + F[2]) / 2;   // depth at the left / right edges
+  const vA = (F[0] + F[1]) / 2, vB = (F[3] + F[2]) / 2;   // depth at the top / bottom edges
+  const uPx = Math.max(Math.hypot(P1[0] - P0[0], P1[1] - P0[1]), Math.hypot(P2[0] - P3[0], P2[1] - P3[1]));
+  const vPx = Math.max(Math.hypot(P3[0] - P0[0], P3[1] - P0[1]), Math.hypot(P2[0] - P1[0], P2[1] - P1[1]));
+  const ext = Math.max(uPx, vPx);
+  let Ku = texqK(uA, uB, ext), Kv = texqK(vA, vB, ext);
+  if (Ku <= 1 && Kv <= 1) { drawTexQuad(ctx, img, P0, P1, P2, P3, smooth); return; }   // flat-on: one affine quad is fine (and cheap)
+  // Two-axis budget. Shrink the grid along its diagonal so a steeply foreshortened roof cannot turn
+  // one soffit into a thousand clipped blits; the axis that wants it most keeps the larger share.
+  while (Ku * Kv > TEXQ_MAX_CELLS && (Ku > 1 || Kv > 1)) { if (Ku >= Kv) Ku--; else Kv--; }
+  const W = img.width, H = img.height;
+  const us = texqSeams(uA, uB, Ku), vs = texqSeams(vA, vB, Kv);
+  // One row of grid points is carried into the next, so each interior point is solved once.
+  let rowT = us.map((u) => perspPt(P, F, u, vs[0]));
+  for (let j = 1; j <= Kv; j++) {
+    const v1 = vs[j], rowB = us.map((u) => perspPt(P, F, u, v1));
+    const tv0 = vs[j - 1] * H, tv1 = v1 * H;
+    for (let i = 1; i <= Ku; i++) {
+      const u0 = us[i - 1] * W, u1 = us[i] * W;
+      texTri(ctx, img, [u0, tv0], [u1, tv0], [u1, tv1], rowT[i - 1], rowT[i], rowB[i], smooth);
+      texTri(ctx, img, [u0, tv0], [u1, tv1], [u0, tv1], rowT[i - 1], rowB[i], rowB[i - 1], smooth);
+    }
+    rowT = rowB;
+  }
+}
+// A building wall: vertical, so each vertical edge holds one depth and the v axis collapses to one.
+function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR, smooth) {
+  drawTexQuadPersp(ctx, img, P0, P1, P2, P3, [fL, fR, fR, fL], smooth);
 }
 
 // The Mode-7 camera: world tile-offset (dx,dy from the craft) + height wz → screen. When
@@ -7553,7 +7712,15 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
         const path = () => { ctx.beginPath(); ctx.moveTo(rp[0][0], rp[0][1]); for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0], rp[i][1]); ctx.closePath(); };
         const rOverlay = rfog > 0.004;
         if (flat) { ctx.fillStyle = flat; path(); ctx.fill(); }
-        else { drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); if (rOverlay) path(); }
+        // ⚠ A ROOF IS THE ONE FACE THAT NEEDS BOTH AXES CORRECTED. This blitted two raw affine
+        // triangles until now — no perspective correction at all — on the reasoning that the column
+        // split was a wall thing. It is not: a wall gets away with columns only because it is
+        // VERTICAL, so its two vertical edges each hold one depth. A roof is horizontal, all four
+        // corners sit at four different depths, and from a cockpit it is the most foreshortened
+        // surface in the frame — roofTex's own note calls it the face a flight sim actually shows
+        // you. drawTexQuadPersp takes the four corner depths and grids both axes; a roof seen flat
+        // from above has ratio ~1 on both and still costs the same two triangles it always did.
+        else { drawTexQuadPersp(ctx, rtex, rp[0], rp[1], rp[2], rp[3], [t[0].f, t[1].f, t[2].f, t[3].f]); if (rOverlay) path(); }
         if (rOverlay) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); }
         ctx.globalAlpha = 1;
       });
