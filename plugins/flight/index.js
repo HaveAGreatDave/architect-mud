@@ -741,6 +741,12 @@ schedule('1s', () => runupTick().catch(e => console.error('[flight] runup error:
 
 async function cmdShutdown(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
+  // Mirror of cmdStartup's refusal, and it's here for the same reason: in the 3D cockpit the
+  // ENGINE switch IS the master, and `updateCockpit` returns early while the continuous sim owns
+  // the pane — so a pushed HUD never reaches it. Without this guard the verb wrote engine_on=0 on
+  // a craft whose sim was still running: the prop kept turning and the lights stayed lit, and the
+  // row disagreed with the aeroplane until the panel sent its next flightevent.
+  if (isContinuous(live) && !live.textPilot) return { type: 'emote', message: 'Flip the <b>ENGINE</b> switch on the cockpit panel.' };
   if (live.row.airborne) return { type: 'emote', message: "You're NOT shutting the engine down up here." };
   if (!live.row.engine_on) return { type: 'emote', message: "The engine's already cold." };
   live.row.engine_on = 0; live.row.throttle = 0;

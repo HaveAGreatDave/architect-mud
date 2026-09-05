@@ -235,6 +235,15 @@ function setupMobilePane() {
 	// Start collapsed
 	_setAreaPane(false);
 
+	// An app that MOUNTS INTO THE PANE opens it. The pane starts collapsed and, before this,
+	// only a tap ever opened it — so a player who arrived already inside one of these (logging
+	// in aboard an aircraft is how this was found) got the app rendered into a pane they could
+	// not see: no cockpit, no controls, just the log pane and a d-pad offering directions.
+	// The apps announce themselves rather than being listed here, so a new one is covered by
+	// dispatching the same event.
+	window.addEventListener("pane:claimed", () => _setAreaPane(true));
+	window.addEventListener("pane:released", () => _setAreaPane(false));
+
 	// Clicking anywhere on the handle bar toggles the pane.
 	// Guard: ignore if the touch/click was part of a drag (moved more than 4px).
 	let _handleDragged = false;

@@ -174,7 +174,7 @@ async function buildCards(player, field) {
 // Everything in the player's hands holding liquid — the pour list for the Hopper tab. The
 // SAME predicate cmdLoadHopper matches on (a fillable container with fluid_amount > 0), because
 // a button offering a can the verb would then refuse is worse than no button.
-async function carriedFluids(player) {
+export async function carriedFluids(player) {
   const { rows } = await query(
     `SELECT i.name, COALESCE(pi.custom_data->>'fluid_type','water') fluid,
             SUM(COALESCE((pi.custom_data->>'fluid_amount')::numeric,0)) amount, COUNT(*) n

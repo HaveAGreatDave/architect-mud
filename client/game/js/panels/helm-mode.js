@@ -322,6 +322,7 @@ export function openHelm(opts = {}) {
   if (!mount) return null;
   closeHelm();
   ensureHelmStyles();
+  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   // Accent — follows the player's global theme (the wheel LEDs, needle, radar rings/sweep/blip and
   // charted course all take this), so the helm reads in the same colour family as the rest of the UI.
   // The theme vars live on <html>; read the effective --accent/--green (both #rrggbb in themes.css).
@@ -843,6 +844,7 @@ export function openHelm(opts = {}) {
 export function closeHelm() {
   if (!_helm) return;
   const h = _helm; _helm = null;
+  window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   clearInterval(h.poll);
   removeEventListener('pointerup', h.upH);
   removeEventListener('keydown', h.keyH);

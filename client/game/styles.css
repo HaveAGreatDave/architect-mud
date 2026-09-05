@@ -7640,6 +7640,10 @@ body.asleep.dreaming-line #output {
    walking compass hangs over the cockpit while you are flying — where the
    directions do not even mean anything. Keep this list in step with the
    `#bottom-input-wrap { display:none }` rules further up. */
+/* …and the flight sim folds it away whether or not it is fullscreen: the cockpit owns the
+   pane in every mode, and a walking compass over it is the state a player reads as "broken". */
+body.fsim-active #mob-dpad,
+body.fsim-active #mob-hud-env,
 body.fsim-fullscreen #mob-dpad,
 body.helm-fullscreen #mob-dpad,
 body.hb-fullscreen #mob-dpad,

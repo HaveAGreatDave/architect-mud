@@ -15,6 +15,8 @@ import { on } from '../../server/engine/events.js';
 import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
 import { applyTopical } from '../../server/engine/topical.js';
 import { getZonePlayers } from '../../server/engine/world.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
+import { carriedFluids } from './hangars.js';
 
 // The ion storm's peak, mirrored locally off the weather-event signal so the
 // hazard roll never has to reach into the weather plugin. `weather.event` fires
@@ -425,6 +427,27 @@ async function pourIntoHopper(player, args, craftName, cap, cd, save) {
   return { type: 'use', message: `You pour ${fluidType} from the ${can.name} into the ${craftName}'s hopper. <span class="text-dim">(hopper ${Math.round(hop.amount / cap * 100)}%)</span>` };
 }
 
+// The cockpit's HOPPER button, answered as data. A silent client resolve: it mutates nothing and
+// returns `noop`, so it can be re-asked after every pour without printing a line into the log.
+//
+// It hands over the SAME can list the hangar bench's Hopper tab is built from (`carriedFluids`),
+// which is the same predicate `pourIntoHopper` matches on — a button offering a can the verb
+// would then refuse is worse than no button. The panel decides nothing: it draws these rows and
+// sends `loadhopper with <name>`, an ordinary command a player could have typed.
+async function cmdHopperBay(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  const cap = hopperCap(live);
+  if (cap <= 0 || !(live.type.data && live.type.data.spray))
+    return { type: 'emote', message: `The ${live.type.name} has no chemical hopper.` };
+  const hop = (live.row.custom_data && live.row.custom_data.hopper) || {};
+  sendToPlayer(player.id, {
+    type: 'flight_hopper', craft: live.type.name,
+    cap, amount: Math.round(hop.amount || 0), fluid: hop.fluid_type || null,
+    airborne: !!live.row.airborne, cans: await carriedFluids(player),
+  });
+  return { type: 'noop' };
+}
+
 function bearing(from, to) {
   const dx = to.grid_x - from.grid_x, dy = to.grid_y - from.grid_y;
   const ns = dy < 0 ? 'N' : dy > 0 ? 'S' : '';
@@ -491,6 +514,7 @@ export const commands = {
   scan: cmdScanVerb,
   spray: cmdSpray,
   loadhopper: cmdLoadHopper,
+  hopperbay: cmdHopperBay,
   chart: cmdChart,
   squawk: cmdSquawk,
 };

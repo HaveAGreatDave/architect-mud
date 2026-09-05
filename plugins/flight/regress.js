@@ -555,6 +555,7 @@ export default async function regress({ run, check, getPlayer }) {
   // NOT fall into the aboard path — off a field it has to fail on the field, not on the seat.
   r = await run('loadhopper aircraft_nope with can');
   check('loadhopper <craftId> takes the parked route (not the aboard one)', !/not aboard/i.test(r?.message || '') && /airfield/i.test(r?.message || ''), r?.message);
+  r = await run('hopperbay'); check('hopperbay not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
 
   // ── Acquisition / contracts / hangars gate off an airfield ──────────────────
   r = await run('charter'); check('charter off-field reports no desk', /no .*(charter|dealer)/i.test(r?.message || ''), r?.message);
@@ -1169,6 +1170,25 @@ export default async function regress({ run, check, getPlayer }) {
       const onStrip = cmdTextLand([], p);
       check('...but takes it with a runway under her', /final/i.test(onStrip?.message || ''), onStrip?.message);
     } finally { tpLive.type = stolType; }
+
+    // The ENGINE-master pair. A text pilot has no panel, so the verbs ARE their switch; a 3D
+    // cockpit pilot has one, and the verb must send them to it. `shutdown` had only half of
+    // that: it wrote engine_on=0 on a craft whose client sim was still flying, so the prop
+    // kept turning and the row disagreed with the aeroplane.
+    p.aircraftId = tpId; p.seat = 'pilot';
+    tpLive.row.airborne = 0; tpLive.row.engine_on = 1;
+    let sd = await run('shutdown');
+    check('a text pilot can shut down with the verb', /kill the engine/i.test(sd?.message || ''), sd?.message);
+    tpLive.row.engine_on = 1; tpLive.textPilot = false;
+    sd = await run('shutdown');
+    check('a 3D-cockpit pilot is sent to the ENGINE switch, not silently desynced',
+      /ENGINE<\/b> switch/i.test(sd?.message || '') && tpLive.row.engine_on === 1, sd?.message);
+    tpLive.textPilot = true; tpLive.row.engine_on = 0;
+
+    // The cockpit HOPPER button's data route. A Mayfly has no spray gear, so the answer is the
+    // refusal — the button is only mounted on a sprayer, and the verb agrees without being told.
+    const hb = await run('hopperbay');
+    check('hopperbay refuses a craft with no chemical hopper', /no chemical hopper/i.test(hb?.message || ''), hb?.message);
 
     stopTextPilot(tpLive);
     check('stopTextPilot tears the sim down', !tpLive.textPilot && !tpLive.fmState);

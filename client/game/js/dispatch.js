@@ -59,7 +59,7 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightBurst, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightBurst, flightSimContacts, flightSimAASites, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/cab-view.js';
@@ -1471,6 +1471,7 @@ const handlers = {
   flight_burst: (msg) => { flightBurst(msg); },        // a bomb going off — world-anchored fireball in the windshield
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models
+  flight_hopper: (msg) => { flightSimHopper(msg); },       // ag-plane hopper: the pour dialog behind the cockpit's HOPPER button
   air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)
   flight_kill: (msg) => { flightSimKill(msg); },           // confirmed kill → big top-of-glass banner
   air_threat: (msg) => { flightSimAirThreat(msg); },       // RWR: missile lock/launch warnings + flare confirm (Phase C)

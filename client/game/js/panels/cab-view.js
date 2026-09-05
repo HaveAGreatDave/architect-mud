@@ -2286,6 +2286,7 @@ export function openCab(ctx = {}) {
   // they climb down. Shared with the other five panels that take over the pane; the rules are in
   // compact-view.js, including why it is a default and never a lock.
   compactHidePanel('cab-hidepanel', hideBtn);
+  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   // THE EXTERNAL VIEW. The renderer has had a real chase camera the whole time — the cab's own
   // header note lists `external` among the things it deliberately did not pass — so this is not a
   // new camera, it is the existing one turned on, model and all. The rig is NOT a world object and
@@ -5300,6 +5301,7 @@ export function closeCab() {
   // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
   // driver who parked in fullscreen would be left with no log and no command box.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');
+  window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   // The camera goes back on its mount with the cab. Not merely tidiness: it holds a key set, and a
   // dismount while a movement key is down would leave that key latched for the next drive.
   freeCam.close();

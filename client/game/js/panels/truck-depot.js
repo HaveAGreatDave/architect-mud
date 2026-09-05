@@ -95,6 +95,7 @@ export function openTruckDepot(msg) {
   // And the log folds away on a phone, on a FIRST open only — same rule and same reason as the
   // hangar next door, which this function already mirrors line for line.
   if (first) compactHidePanel('td-hidepanel');
+  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   const keepSel = B?.selId || null;
   // What the deck held BEFORE this push, so the panel can say out loud what the server just did to
   // it. Read before B is replaced, used after.
@@ -163,6 +164,7 @@ function showToast(text, kind = '') {
 
 export function closeTruckDepot() {
   suppressWeatherFx(false, 'depot');
+  window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   if (raf) cancelAnimationFrame(raf);
   if (toastT) clearTimeout(toastT);
   raf = null; sceneHits = []; toastT = null; walkKeys.clear();

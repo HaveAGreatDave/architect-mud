@@ -50,6 +50,7 @@ export function openHangarBay(data) {
   // background refresh (a remote tablet sale) re-asserting it over a player who reopened the log.
   // The buttons light themselves off the body class at render, so there is nothing to pass here.
   if (freshOpen) compactHidePanel('hb-hidepanel');
+  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
   B = B || { screen: 'floor', selId: null, work: null };
   B.data = data || {};
   const craft = B.data.craft || [];
@@ -76,6 +77,7 @@ export function closeHangarBay() {
   closeColorPicker({ silent: true });
   stopHangarAmbience();   // the render loop drove the weather bed; it stops now, so silence it
   document.body.classList.remove('hb-fullscreen', 'hb-hidepanel');   // drop the immersive layout so the room look isn't left with the log/command box hidden
+  window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
   if (raf) { cancelAnimationFrame(raf); raf = null; }
   B = null; charterData = null;
   // Tear the panel out of the pane immediately rather than leaving it (with its
