@@ -2,11 +2,11 @@
   "enabled": true,
   "id": "bt_amb_lowlife_010",
   "lines": [
-    "\"You did not see me last night.\"",
-    "\"I did not see you last night.\"",
+    "\"You didn't see me last night.\"",
+    "\"I didn't see you last night.\"",
     "\"Good.\"",
     "\"I did see the other one though.\"",
-    "\"That is fine. He owes me too.\""
+    "\"That's fine. He owes me too.\""
   ],
   "personality": "lowlife",
   "sort_order": 409

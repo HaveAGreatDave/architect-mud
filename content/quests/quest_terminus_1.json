@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Ivo Stannard has a debt he cannot settle. He has tried to pay it eleven times and they will not take money from him, and he will not say why. He wants somebody who is not him to carry a sealed box up the road, leave it at the gate, and bring the empty back. He was very clear that the box is not to be opened, and then he was clear about it again, and then he apologised for being clear about it twice.",
+  "description": "Ivo Stannard has a debt he can't settle. He has tried to pay it eleven times and they won't take money from him, and he won't say why. He wants somebody who isn't him to carry a sealed box up the road, leave it at the gate, and bring the empty back. He was very clear that the box isn't to be opened, and then he was clear about it again, and then he apologised for being clear about it twice.",
   "fail_on": [],
   "id": "quest_terminus_1",
   "meta": {},
@@ -11,7 +11,7 @@
       "emotes": [
         "{who} sets the box down in front of the gate and steps back off it.",
         "{who} walks the box up a road with nobody on it and a wall at the end of it.",
-        "{who} does not open the box, and is aware for the whole walk of not opening it."
+        "{who} doesn't open the box, and is aware for the whole walk of not opening it."
       ],
       "id": "o_gate",
       "type": "visit",

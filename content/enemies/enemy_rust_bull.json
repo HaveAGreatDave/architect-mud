@@ -139,7 +139,7 @@
     "attacks_npcs": true,
     "battle_cries": [
       "$enemy scrapes a foreleg through the hardpan and throws up a rooster-tail of grit.",
-      "$enemy lowers its head. That is the entire warning you are getting.",
+      "$enemy lowers its head. That's the entire warning you're getting.",
       "$enemy bellows, and somewhere behind you a rock gives up and falls over."
     ],
     "first_strike_delay_ms": 1500,

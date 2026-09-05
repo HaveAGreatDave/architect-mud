@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#7fa86b",
-  "description": "A single-storey unit sharing a wall with the clone facility, which the frontage does not mention and the queue does not discuss. SECOND HELPINGS runs across the fascia in cheerful municipal green, and under it, in the small honest lettering of something that had to be legally true: NUTRITION AT NO COST. THIS IS NOT A SHOP. Through the glass, a wall of dispensers glows in a row, and there is always somebody in there, and they are always new.",
+  "description": "A single-storey unit sharing a wall with the clone facility, which the frontage doesn't mention and the queue doesn't discuss. SECOND HELPINGS runs across the fascia in cheerful municipal green, and under it, in the small honest lettering of something that had to be legally true: NUTRITION AT NO COST. THIS IS NOT A SHOP. Through the glass, a wall of dispensers glows in a row, and there's always somebody in there, and they're always new.",
   "exits": {
     "east": "zone_district_919_902",
     "west": "zone_helpings_shop"

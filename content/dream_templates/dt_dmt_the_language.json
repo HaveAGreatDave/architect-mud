@@ -5,7 +5,7 @@
     "The grammar folds over and shows you its other face."
   ],
   "cause": "drug",
-  "description": "Everything here is a sentence and you are reading all of it at once, perfectly, for the first time in your life. It is spoken in shape, it is about you and about the arrangement of everything, and you can already feel the understanding declining to come back with you.",
+  "description": "Everything here is a sentence and you're reading all of it at once, perfectly, for the first time in your life. It's spoken in shape, it's about you and about the arrangement of everything, and you can already feel the understanding declining to come back with you.",
   "drug_id": "drug_dmt",
   "fx": "bloom",
   "fx_intensity": 0.85,
@@ -14,9 +14,9 @@
   "objects": [
     {
       "looks": [
-        "It is enormous and it parses. That is the astonishing part.",
+        "It's enormous and it parses. That's the astonishing part.",
         "It has been going since before you got here and you have come in mid-clause.",
-        "You could repeat it. You are not going to be able to repeat it."
+        "You could repeat it. You aren't going to be able to repeat it."
       ],
       "name": "the sentence"
     },
@@ -24,7 +24,7 @@
       "looks": [
         "Total, effortless, and visibly temporary.",
         "You can feel where the edges of it are going to be later.",
-        "It is not yours. It has been lent to you and there is a schedule."
+        "It isn't yours. It has been lent to you and there's a schedule."
       ],
       "name": "your own understanding"
     }

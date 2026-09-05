@@ -69,7 +69,7 @@
         },
         "next": "bsm_15",
         "style": "narration",
-        "text": "The Foreman does not answer. He signs something and walks out of frame, and the camera stays on the doorway he left through for eleven full seconds.",
+        "text": "The Foreman doesn't answer. He signs something and walks out of frame, and the camera stays on the doorway he left through for eleven full seconds.",
         "type": "say"
       },
       "bsm_15": {
@@ -79,7 +79,7 @@
         },
         "next": "bsm_16",
         "style": "ambient",
-        "text": "♪ The organ note has not stopped. It has not stopped since the titles. ♪",
+        "text": "♪ The organ note hasn't stopped. It hasn't stopped since the titles. ♪",
         "type": "say"
       },
       "bsm_16": {
@@ -124,7 +124,7 @@
         },
         "next": "bsm_20",
         "style": "narration",
-        "text": "There is a thing every foundry hand knows and no foundry will write down: the pour makes a sound, and the sound is different on a night when the count is wrong.",
+        "text": "There's a thing every foundry hand knows and no foundry will write down: the pour makes a sound, and the sound is different on a night when the count is wrong.",
         "type": "say"
       },
       "bsm_2": {
@@ -183,7 +183,7 @@
         },
         "next": "bsm_25",
         "style": "narration",
-        "text": "Close on the mould. The metal, settling. And in the settling — for two frames, and only two, and they are two of the most argued-about frames in Coldwater cinema — something that is not a defect in the casting.",
+        "text": "Close on the mould. The metal, settling. And in the settling — for two frames, and only two, and they're two of the most argued-about frames in Coldwater cinema — something that isn't a defect in the casting.",
         "type": "say"
       },
       "bsm_25": {
@@ -202,7 +202,7 @@
         },
         "next": "bsm_27",
         "style": "narration",
-        "text": "The tape you are watching has been copied at least four times and the two frames are gone. They are gone from almost every copy. Ask the man who rented it to you; he will tell you, at length, which prints still have them.",
+        "text": "The tape you're watching has been copied at least four times and the two frames are gone. They're gone from almost every copy. Ask the man who rented it to you; he'll tell you, at length, which prints still have them.",
         "type": "say"
       },
       "bsm_27": {
@@ -309,7 +309,7 @@
         },
         "next": "bsm_36",
         "style": "narration",
-        "text": "She looks at him for a long time. He does not look away, and Prine holds it until it stops being a stand-off and becomes something sadder.",
+        "text": "She looks at him for a long time. He doesn't look away, and Prine holds it until it stops being a stand-off and becomes something sadder.",
         "type": "say"
       },
       "bsm_36": {
@@ -362,7 +362,7 @@
         },
         "next": "bsm_5",
         "style": "narration",
-        "text": "An unofficial sequel to a picture the studio did not own, shot in eleven nights in a foundry that was still working days. Everything you see is real and nothing you hear is.",
+        "text": "An unofficial sequel to a picture the studio didn't own, shot in eleven nights in a foundry that was still working days. Everything you see is real and nothing you hear is.",
         "type": "say"
       },
       "bsm_40": {
@@ -394,7 +394,7 @@
         },
         "next": "bsm_43",
         "style": "narration",
-        "text": "The gate. The book. The lamp. The moths. A new hand signing in, whose face we do not see.",
+        "text": "The gate. The book. The lamp. The moths. A new hand signing in, whose face we don't see.",
         "type": "say"
       },
       "bsm_43": {
@@ -460,7 +460,7 @@
         },
         "next": "bsm_8",
         "style": "narration",
-        "text": "They were forty hands short that winter and they were not fussy about it.",
+        "text": "They were forty hands short that winter and they weren't fussy about it.",
         "type": "say"
       },
       "bsm_8": {

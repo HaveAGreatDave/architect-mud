@@ -60,6 +60,30 @@ const RULES = [
     re: /,\s*(and|which)\s+(that\s+)?is\s+(the\s+)?(whole|entire|only|real|point|thing|skill|job|worst part|best part|difference|trick|test|way|reason)\b[^.]*\./gi,
   },
   {
+    id: 'aphoristic-closer',
+    // The sibling of `explaining-aside`, and the one it could not see: the same
+    // move written as its OWN SENTENCE rather than as a trailing clause. That
+    // regex needs a comma and an "and"/"which", so "That is the whole argument
+    // for it." standing after a full stop went unread for as long as it existed.
+    // 134 strings across 96 files on the first sweep, 2026-09-04.
+    why: 'A closing sentence that tells the reader what the paragraph was for. Stop at the last concrete thing.',
+    re: /\b(that|this|which)('s| is| was)\s+(the\s+)?(whole|entire|only|real)\s+(point|argument|trick|joke|idea|reason|thing)\b|\bis (the point|the whole of it|all there is to it|the joke)\b|\band that('s| is| was) that\b/gi,
+  },
+  {
+    id: 'stock-simile',
+    // Not wrong once. Wrong the eleventh time: "the way you look at a clock",
+    // "the way you say a war", "the way you read something with your own name in
+    // it". One writer's reflex, visible only across the whole corpus, which is
+    // why it is a grep rather than a note in a review.
+    why: 'The house simile, used often enough to read as a tic. Vary the construction or cut it.',
+    re: /\bthe way you (?:know|read|look at|say|talk about|watch)\b|\band it shows\b/gi,
+  },
+  {
+    id: 'absence-list',
+    why: 'A run of absences standing in for a description. Say what IS there.',
+    re: /\b(?:No \w+,\s*){2,}(?:just|only)\b/gi,
+  },
+  {
     id: 'explaining-aside-small',
     why: 'The "which is not a small thing" family. Delete the clause and add nothing.',
     re: /,?\s*which\s+is\s+(not\s+a\s+small\s+thing|somehow\s+the\s+worst|a\s+whole\s+performance|the\s+point)\b/gi,
@@ -178,7 +202,11 @@ const surfaces = [];
 
 for (const dir of ['quests', 'items', 'zones', 'npcs', 'glossary', 'furniture', 'enemies', 'drugs', 'recipes', 'books', 'dream_templates', 'dream_tethers', 'dream_presences', 'job_boards',
   'mutations', 'augments', 'ambient_routines', 'global_ambient_events', 'npc_banter_threads',
-  'districts', 'regions', 'incidents', 'orgs', 'crimes', 'mis_fit_lines', 'scripts']) {
+  'districts', 'regions', 'incidents', 'orgs', 'crimes', 'mis_fit_lines', 'scripts',
+  // Added 2026-09-04. These were never scanned, and a corpus-wide sweep found the
+  // aphoristic closer most heavily in exactly the two of them nobody was reading:
+  // broadcast scripts and the drug voice lines.
+  'media_broadcasts', 'drug_transforms', 'drug_reactions', 'aircraft_types']) {
   const d = path.join(ROOT, 'content', dir);
   if (!fs.existsSync(d)) continue;
   for (const f of fs.readdirSync(d)) {

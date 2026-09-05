@@ -51,7 +51,7 @@ const activeHome = new Set();     // zoneId mid-routine
 
 const MEAL = [
   [`{npc} starts pulling things out of the cupboard with the air of someone who has already decided.`,
-   `Something is frying. {npc} is not watching it as closely as they should be.`,
+   `Something is frying. {npc} isn't watching it as closely as they should be.`,
    `{npc} sits down to {thing} and eats the first three mouthfuls far too fast.`,
    `{npc} washes up, badly, and leaves one pan to soak.`],
   [`{npc} reads the back of a packet for a while, then puts it down and does it their own way.`,
@@ -69,7 +69,7 @@ const DRINK = [
   [`{npc} makes {thing} with the unthinking economy of someone who has made a thousand of them.`,
    `{npc} drinks it too hot, winces, and drinks it too hot again.`],
   [`{npc} pours {thing}, considers it, and tops it up.`,
-   `{npc} drinks without hurrying. Whatever the day was, it is over now.`],
+   `{npc} drinks without hurrying. Whatever the day was, it's over now.`],
 ];
 
 const TIDY = [
@@ -93,7 +93,7 @@ const BATHROOM_GOING = [
   `{npc} gets up without a word and heads for the bathroom.`,
   `{npc} says "give me a minute" to nobody in particular and goes through.`,
   `{npc} pauses mid-thought, makes a face, and goes to the bathroom.`,
-  `{npc} disappears into the bathroom. The door does not quite latch.`,
+  `{npc} disappears into the bathroom. The door doesn't quite latch.`,
 ];
 const BATHROOM_BACK = [
   `{npc} comes back drying their hands on their trousers.`,

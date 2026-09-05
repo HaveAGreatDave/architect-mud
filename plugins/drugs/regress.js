@@ -44,7 +44,7 @@ export default async function regress({ run, check }) {
     share(4, CEIL.alcohol) + share(1, CEIL.lull) + share(1, CEIL.grey) >= 1);
   check('an unclassed drug contributes nothing to anyone', T.classBurden(
     [{ drug_id: 'drug_psilocybin', doses_in_system: 5, tolerance: 0 }], 'x', 'depressant') === 0);
-  check('a different class does not cross-load',
+  check("a different class doesn't cross-load",
     T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 6, tolerance: 0 }], 'x', 'stimulant') === 0);
   check('the same class does cross-load',
     T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'x', 'depressant') === 0.5);
@@ -53,7 +53,7 @@ export default async function regress({ run, check }) {
   check('tolerance in the other drug lightens its contribution',
     T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance_lethal: 1 }], 'x', 'depressant')
       < T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance_lethal: 0 }], 'x', 'depressant'));
-  check('...and it is the LETHAL tolerance that lightens it, not the felt one',
+  check("...and it's the LETHAL tolerance that lightens it, not the felt one",
     T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 1 }], 'x', 'depressant')
       === T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'x', 'depressant'));
 
@@ -62,7 +62,7 @@ export default async function regress({ run, check }) {
   const vet = [{ drug_id: 'drug_blacktar', tolerance: 1, last_used_at: NOW, doses_in_system: 0 }];
   check('a same-class veteran carries half their tolerance across',
     T.crossTolerance(vet, 'drug_grey', 'depressant', NOW) === T.CROSS_TOLERANCE);
-  check('cross-tolerance does not leak between classes',
+  check("cross-tolerance doesn't leak between classes",
     T.crossTolerance(vet, 'drug_grey', 'stimulant', NOW) === 0);
   check('cross-tolerance excludes the drug being taken',
     T.crossTolerance(vet, 'drug_blacktar', 'depressant', NOW) === 0);
@@ -75,9 +75,9 @@ export default async function regress({ run, check }) {
     T.substitutionRelief(freshCousin, 'drug_blacktar', 'depressant', NOW) === T.SUBSTITUTION_FLOOR);
   check('a worn-off cousin holds none of it off',
     T.substitutionRelief(goneCousin, 'drug_blacktar', 'depressant', NOW) === 1);
-  check('substitution does not cross classes',
+  check("substitution doesn't cross classes",
     T.substitutionRelief(freshCousin, 'drug_blacktar', 'stimulant', NOW) === 1);
-  check('substitution is never total — a cousin is not the drug you want',
+  check("substitution is never total — a cousin isn't the drug you want",
     T.SUBSTITUTION_FLOOR > 0 && T.SUBSTITUTION_FLOOR < 1);
   check('a deep habit bites harder than a shallow one',
     T.WD_DEPTH_FLOOR > 0 && T.WD_DEPTH_FLOOR < 1);
@@ -91,7 +91,7 @@ export default async function regress({ run, check }) {
     stimulantPotency(onStim(1)) === 1);
   check('...and a saturated habit barely holds your eyes open',
     stimulantPotency(onStim(0.3)) === 0.3);
-  check('a depressant does not read as wired',
+  check("a depressant doesn't read as wired",
     stimulantPotency({ activeDrugs: [{ drugId: 'drug_alcohol', potency: 1 }] }) === 0);
   check('isWired still answers the sleep command as a yes/no',
     isWired(onStim(0.3)) === true && isWired({ activeDrugs: [] }) === false);
@@ -103,7 +103,7 @@ export default async function regress({ run, check }) {
   const stimTol = ['drug_redline', 'drug_coldfire', 'drug_overclock', 'drug_buzz']
     .map(id => getDrugCache()[id]?.effects?.tolerance)
     .filter(Boolean);
-  check('every upper has a tolerance block — one without it is a free bender',
+  check("every upper has a tolerance block — one without it's a free bender",
     stimTol.length === 4, `${stimTol.length}/4`);
   check('...and sheds it over days, not the hour it used to take',
     stimTol.every(t => t.recovery_per_sec && t.recovery_per_sec * 3600 < 0.05),
@@ -122,7 +122,7 @@ export default async function regress({ run, check }) {
   const habit = { tolerance: 0.8, tolerance_lethal: 0.8 };
   check('lethal tolerance builds slower than the high fades',
     T.LETHAL_TOLERANCE_GAIN_RATIO < 1 && T.LETHAL_TOLERANCE_GAIN_RATIO > 0);
-  check('...and fades slower too, so quitting does not instantly strip your ceiling',
+  check("...and fades slower too, so quitting doesn't instantly strip your ceiling",
     T.LETHAL_TOLERANCE_RECOVERY_RATIO < 1 && T.LETHAL_TOLERANCE_RECOVERY_RATIO > 0);
   check('a clean stretch burns the felt tolerance faster than the lethal one', (() => {
     const d = T.decayTolerances(habit, TOL, 1800);
@@ -164,7 +164,7 @@ export default async function regress({ run, check }) {
   // Back-compat: every pre-existing caller passed no route at all.
   check('an absent route is neutral', T.resolveRoute(undefined, injectable).intensity === 1);
   check('an unknown route is neutral', T.resolveRoute('snort', injectable).onset === 1);
-  check('a drug with no flags bag does not throw', T.resolveRoute('inject', {}).onset === 1);
+  check("a drug with no flags bag doesn't throw", T.resolveRoute('inject', {}).onset === 1);
 
   // --- relapse: the overdose ceiling rides on tolerance ---------------------
   // The whole point: a habit dose survivable at peak tolerance kills once clean.
@@ -191,7 +191,7 @@ export default async function regress({ run, check }) {
   // --- addiction hysteresis -------------------------------------------------
   const stillAddicted = (a, wasAddicted) => a >= (wasAddicted ? T.ADDICT_RELEASE : T.ADDICT_LATCH);
   check('latch sits above release', T.ADDICT_LATCH > T.ADDICT_RELEASE);
-  check('0.40 does not hook a clean player', stillAddicted(0.4, false) === false);
+  check("0.40 doesn't hook a clean player", stillAddicted(0.4, false) === false);
   check('0.40 keeps an addicted player hooked', stillAddicted(0.4, true) === true);
   check('0.29 finally releases', stillAddicted(0.29, true) === false);
 
@@ -226,7 +226,7 @@ export default async function regress({ run, check }) {
     check('every drug with an item_id is reachable by it',
       withItem.every(x => drugForItem(x.item_id)?.id === x.id));
   }
-  check('an item nothing was authored on is not a drug', isDrugItem('item_not_a_drug_at_all') === false);
-  check('a missing item id is not a drug, and does not throw',
+  check("an item nothing was authored on isn't a drug", isDrugItem('item_not_a_drug_at_all') === false);
+  check("a missing item id isn't a drug, and doesn't throw",
     isDrugItem(null) === false && isDrugItem(undefined) === false);
 }

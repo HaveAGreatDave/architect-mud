@@ -6,7 +6,7 @@
     "A cracked piece is broken up and the pieces go back into the slip bin."
   ],
   "ambient_theme": "indoors",
-  "description": "The mouth of the kiln, a wheel, and a wall of boards with green ware drying on them, hundreds of pieces, none of them quite like any other.\n\nThe potter has hands with too many joints in them and works faster than seems reasonable. Every bowl in the Thornwarren came off this wheel, and every one of them has a thumbprint pressed into the foot ring, and they are all his thumbprint, and nobody has ever mentioned it to him.\n\nStacked separately by the door, glazed a deep red and much better work than the rest, a run of small sealed jars. They are not for the table.",
+  "description": "The mouth of the kiln, a wheel, and a wall of boards with green ware drying on them, hundreds of pieces, none of them quite like any other.\n\nThe potter has hands with too many joints in them and works faster than seems reasonable. Every bowl in the Thornwarren came off this wheel, and every one of them has a thumbprint pressed into the foot ring, and they're all his thumbprint, and nobody has ever mentioned it to him.\n\nStacked separately by the door, glazed a deep red and much better work than the rest, a run of small sealed jars. They aren't for the table.",
   "exits": {
     "down": "zone_util_zone_thorn_kiln",
     "north": "zone_scw_1047_977"

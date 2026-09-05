@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "They are armoured. Segmented black plate from throat to hip and out along the limbs, matte and slightly iridescent, with the seams flexing as they breathe.",
+    "extreme": "They're armoured. Segmented black plate from throat to hip and out along the limbs, matte and slightly iridescent, with the seams flexing as they breathe.",
     "obvious": "Overlapping plates of dark chitin cover their chest and run down over the shoulders, clicking faintly when they move.",
     "subtle": "Hard ridges show through their shirt across the shoulders."
   },
@@ -16,7 +16,7 @@
   ],
   "description": "Plates of dark chitin have grown up through your skin, overlapping like roof tiles. Nothing gets through them easily. Nothing fits over them either.",
   "drawbacks": [
-    "Conventional torso armour will not close over it"
+    "Conventional torso armour won't close over it"
   ],
   "effects": {
     "soak_acid": 4,

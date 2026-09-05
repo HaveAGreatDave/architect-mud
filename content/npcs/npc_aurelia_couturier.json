@@ -135,7 +135,7 @@
     "\"Anyone can be dressed. Almost no one consents to be *designed*.\"",
     "She adjusts a garment on its rail by two millimetres and steps back, satisfied."
   ],
-  "description": "Ondine Sarraf dresses the people who own the towers you can see from the boulevard. She is tall, narrow, and dressed entirely in one unbroken column of matte black, the only ornament a pair of measuring calipers worn like a necklace. She looks at you the way an architect looks at a demolition site: not unkindly, but with plans. Her voice is low and unhurried. She has never once had to raise it.",
+  "description": "Ondine Sarraf dresses the people who own the towers you can see from the boulevard. She's tall, narrow, and dressed entirely in one unbroken column of matte black, the only ornament a pair of measuring calipers worn like a necklace. She looks at you the way an architect looks at a demolition site: not unkindly, but with plans. Her voice is low and unhurried. She has never once had to raise it.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -152,7 +152,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Everything on the floor is one of one. The gown turns under the pin-spot because it deserves to. The opera coat will outlive you and it knows it.\" A flicker of a smile. \"None of it will keep you warm. All of it will keep you *seen*.\""
+      "text": "\"Everything on the floor is one of one. The gown turns under the pin-spot because it deserves to. The opera coat will outlive you and it knows it.\" A flicker of a smile. \"None of it'll keep you warm. All of it'll keep you *seen*.\""
     },
     "philosophy": {
       "options": [
@@ -165,12 +165,12 @@
           "next": "root"
         }
       ],
-      "text": "\"Down here everyone armours up: soak values, bulk ratings, a coat that stops a knife. Fine. Necessary.\" She lets a beat pass. \"But armour tells the street you're afraid of it. What I make tells the street the street should be afraid of *you*. That is a different kind of protection, and it costs more.\""
+      "text": "\"Down here everyone armours up: soak values, bulk ratings, a coat that stops a knife. Fine. Necessary.\" She lets a beat pass. \"But armour tells the street you're afraid of it. What I make tells the street the street should be afraid of *you*. That's a different kind of protection, and it costs more.\""
     },
     "root": {
       "options": [
         {
-          "label": "What is this place?",
+          "label": "What's this place?",
           "next": "philosophy"
         },
         {

@@ -133,13 +133,13 @@
   "chitchat": [
     "drops the hood and lays down a bead without hurrying.",
     "\"We make it, we mend it, we don't ask. That last one is the popular bit.\"",
-    "\"Don't watch the arc. You will be seeing it again at three in the morning.\""
+    "\"Don't watch the arc. You'll be seeing it again at three in the morning.\""
   ],
   "description": "A short, wide welder with forearms like plumbing and a hood he flips up rather than takes off, so he mostly sees the world through a slot. Every visible inch of him is dotted with old spark burns and he treats them as punctuation.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Right. Mind the offcuts. They are sharper than they look and so am I.\""
+      "text": "\"Right. Mind the offcuts. They're sharper than they look and so am I.\""
     },
     "root": {
       "options": [
@@ -148,7 +148,7 @@
           "next": "bye"
         }
       ],
-      "text": "Doughty flips the hood up and squints at you through the after-image. \"If it is bent, leave it on the bench. If it is a person, leave it outside.\""
+      "text": "Doughty flips the hood up and squints at you through the after-image. \"If it's bent, leave it on the bench. If it's a person, leave it outside.\""
     }
   },
   "faction": null,

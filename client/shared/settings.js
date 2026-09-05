@@ -69,13 +69,13 @@ export const A11Y_OPTIONS = [
   },
   {
     key: 'dictation', label: 'Voice Input', verb: 'voice',
-    why: 'Adds a microphone button beside the command box, so you can speak a command instead of typing it. Off by default. Review puts what you said in the box and waits for you to press Enter; Auto-send runs it straight away — except for commands that cost you something (drop, give, attack, buy), which always wait. Needs Chrome, Edge, or Safari; Firefox has no speech recognition and the button will not appear.',
+    why: "Adds a microphone button beside the command box, so you can speak a command instead of typing it. Off by default. Review puts what you said in the box and waits for you to press Enter; Auto-send runs it straight away — except for commands that cost you something (drop, give, attack, buy), which always wait. Needs Chrome, Edge, or Safari; Firefox has no speech recognition and the button won't appear.",
     opts: [{ v: 'off', t: 'Off' }, { v: 'review', t: 'Review' }, { v: 'send', t: 'Auto-send' }],
   },
 
   {
     key: 'monoAudio', label: 'Mono Audio', verb: 'mono',
-    why: 'Sums both channels to one, so nothing is only in the ear you are not using.',
+    why: "Sums both channels to one, so nothing is only in the ear you aren't using.",
     opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
   },
   {
@@ -100,7 +100,7 @@ export const A11Y_OPTIONS = [
     // rather than reading the raw key, so neither has to know that "unset" is a
     // real state here — and neither ends up printing "currently undefined".
     resolve: (settings, ctx) => sfxDetail(settings, ctx?.displayRung),
-    why: 'How much of the world you hear. Limited is the game\'s usual soundset — sound when something happens. Full adds continuous world sound: a footstep on whatever you are standing on as you enter each tile, doors opening and closing. It is meant to tell you where you are without reading. Full is the default if you play in log mode. Off silences both tiers, and changes nothing about volume — the sliders under Sound are still where you set how loud things are.',
+    why: 'How much of the world you hear. Limited is the game\'s usual soundset — sound when something happens. Full adds continuous world sound: a footstep on whatever you\'re standing on as you enter each tile, doors opening and closing. It\'s meant to tell you where you\'re without reading. Full is the default if you play in log mode. Off silences both tiers, and changes nothing about volume — the sliders under Sound are still where you set how loud things are.',
     opts: [{ v: 'off', t: 'Off' }, { v: 'limited', t: 'Limited' }, { v: 'full', t: 'Full' }],
   },
 ];

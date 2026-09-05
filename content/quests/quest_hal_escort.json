@@ -6,7 +6,7 @@
     ]
   },
   "category": "Halcyon",
-  "description": "An assessor needs to look at something in a part of town where assessors get looked at back. Walk her there, stand near her while she works, walk her back. You are not being hired to fight anybody and Halcyon would rather you did not.",
+  "description": "An assessor needs to look at something in a part of town where assessors get looked at back. Walk her there, stand near her while she works, walk her back. You aren't being hired to fight anybody and Halcyon would rather you did not.",
   "fail_on": [],
   "id": "quest_hal_escort",
   "meta": {},
@@ -15,7 +15,7 @@
     {
       "desc": "Walk the assessor to the site and stand near her while she works.",
       "emotes": [
-        "{who} stands where they can see both ends of the street, which the assessor notices and does not mention.",
+        "{who} stands where they can see both ends of the street, which the assessor notices and doesn't mention.",
         "{who} is asked to hold a tape measure, and holds it."
       ],
       "id": "o0",

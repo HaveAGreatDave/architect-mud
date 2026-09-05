@@ -12,7 +12,7 @@
   ],
   "behaviour_graph": {},
   "chitchat": [],
-  "description": "Orrin Peake keeps the only shop in the Reach that sells things instead of favours, and he is quietly, ferociously proud of it. He is a soft-bodied, tidy man with a pencil behind his ear and an apron that stays clean, and he knows the stock level of every shelf in the building without looking. He extends credit to people the rest of town would not lend a match to, and he has never yet been wrong about which ones.",
+  "description": "Orrin Peake keeps the only shop in the Reach that sells things instead of favours, and he's quietly, ferociously proud of it. He's a soft-bodied, tidy man with a pencil behind his ear and an apron that stays clean, and he knows the stock level of every shelf in the building without looking. He extends credit to people the rest of town wouldn't lend a match to, and he has never yet been wrong about which ones.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -70,7 +70,7 @@
       ],
       "text_by_relation": {
         "first": [
-          "A tidy man in a clean apron comes down the ladder rather faster than looks safe. \"Orrin Peake. This is the Dry Goods, and it is the only place on this street where the price is written down before you ask it.\" He looks pleased about that. \"So. What are you short of?\""
+          "A tidy man in a clean apron comes down the ladder rather faster than looks safe. \"Orrin Peake. This is the Dry Goods, and it's the only place on this street where the price is written down before you ask it.\" He looks pleased about that. \"So. What are you short of?\""
         ],
         "known": [
           "\"There he is,\" says Orrin, or something close enough to it. \"Usual, or are we being adventurous?\""
@@ -94,7 +94,7 @@
         }
       ],
       "text": [
-        "\"Take your time. It's all there is for two hundred miles, so it may as well be a browse.\""
+        "\"Take your time. It's all there's for two hundred miles, so it may as well be a browse.\""
       ]
     },
     "supply": {

@@ -90,7 +90,7 @@
   "butcher_difficulty": 4,
   "butcher_table": [],
   "death_message": "The tunnel horror comes apart at last in a heap of limbs that were never meant to share a body.",
-  "description": "The deepest reaches breed things that don't have a name because nobody who found one came back to give it one. This is knuckled, many-jointed, and wrong in the way it folds itself along the ceiling: fast for its size and armoured in a hide gone hard as horn. It is the reason the Watch keep a hard line at their door.",
+  "description": "The deepest reaches breed things that don't have a name because nobody who found one came back to give it one. This is knuckled, many-jointed, and wrong in the way it folds itself along the ceiling: fast for its size and armoured in a hide gone hard as horn. It's the reason the Watch keep a hard line at their door.",
   "dodge": 2,
   "faction": null,
   "flags": {

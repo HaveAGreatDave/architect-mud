@@ -1,11 +1,11 @@
 {
-  "description": "A tight brick of curled wheat noodle, alkaline-yellow, pressed and dried in a plant that has not changed its process in ninety years. Three minutes in stock and it comes back to life.",
+  "description": "A tight brick of curled wheat noodle, alkaline-yellow, pressed and dried in a plant that hasn't changed its process in ninety years. Three minutes in stock and it comes back to life.",
   "flags": {},
   "id": "item_ramen_noodles",
   "name": "ramen noodles",
   "tags": {
     "consumable": true,
-    "description": "A tight brick of curled wheat noodle, alkaline-yellow, pressed and dried in a plant that has not changed its process in ninety years. Three minutes in stock and it comes back to life.",
+    "description": "A tight brick of curled wheat noodle, alkaline-yellow, pressed and dried in a plant that hasn't changed its process in ninety years. Three minutes in stock and it comes back to life.",
     "food_also": "starchy_vegetable",
     "food_noun": "ramen",
     "food_profile": "dry_starch",

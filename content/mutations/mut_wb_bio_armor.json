@@ -2,7 +2,7 @@
   "appearance": {
     "extreme": "Their whole body is sheathed in a dense grey membrane, hardened into visible plates over the heart and the belly and the throat.",
     "obvious": "A grey membrane shows at their collar and cuffs, sitting under the skin like a second garment.",
-    "subtle": "They feel solid in a way that does not match their build."
+    "subtle": "They feel solid in a way that doesn't match their build."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -14,7 +14,7 @@
   ],
   "description": "A dense flexible membrane has grown between your skin and everything under it. It moves like you do and it stops most of what reaches you.",
   "drawbacks": [
-    "You are heavier than you look"
+    "You're heavier than you look"
   ],
   "effects": {
     "soak_edged": 4,

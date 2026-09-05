@@ -135,7 +135,7 @@
     "\"Aisle four. Whatever it is, try aisle four first.\"",
     "The tannoy announces a sale in Menswear. Bettine mouths along with it, word for word."
   ],
-  "description": "The floor manager, in a store tabard she has clearly tailored herself, with a price gun holstered at her hip like she might need it in a hurry. She has worked every department in the building and can tell you which aisle a thing is in without looking up. Nothing she sells is good and she will not pretend otherwise; what she will tell you is exactly how long it will last.",
+  "description": "The floor manager, in a store tabard she has clearly tailored herself, with a price gun holstered at her hip like she might need it in a hurry. She has worked every department in the building and can tell you which aisle a thing is in without looking up. Nothing she sells is good and she won't pretend otherwise; what she'll tell you is exactly how long it'll last.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -200,7 +200,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Morning.\" Bettine doesn't stop repricing. \"Everything in here is cheap and most of it is honest about that. You want good, you want the Marquee. You want to be dressed and fed by tonight, you want me.\" She finally looks up. \"So. Dressed, or fed?\""
+      "text": "\"Morning.\" Bettine doesn't stop repricing. \"Everything in here is cheap and most of it's honest about that. You want good, you want the Marquee. You want to be dressed and fed by tonight, you want me.\" She finally looks up. \"So. Dressed, or fed?\""
     }
   },
   "faction": null,

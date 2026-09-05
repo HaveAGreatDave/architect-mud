@@ -736,7 +736,7 @@ const CO_PRESENCE = {
      `"You get talked about, you know." § holds §other's eye, and the smile arrives slowly. "In detail. I asked."`],
     [`§ works out which of them is going to be the sensible one and concedes it to §other.`,
      `§ decides §other can be the sensible one tonight, and stops holding her own robe closed.`],
-    [`"Have you eaten?" § asks §other, which is not affection but is the nearest thing on offer.`,
+    [`"Have you eaten?" § asks §other, which isn't affection but is the nearest thing on offer.`,
      `"Have you eaten?" § asks it while running a thumb along §other's jaw, which rather changes the question.`],
     [`§ notices §other doing something exactly the way she does it, and says nothing about it.`,
      `§ catches §other mirroring her and holds the look until §other goes pink about it.`],
@@ -795,7 +795,7 @@ const CO_PRESENCE = {
     [`§ works out the pecking order with §other in about four seconds and abides by it.`,
      `§ decides the pecking order with §other in about four seconds, and looks quietly pleased with the result.`],
     [`§ and §other fall into the easy silence of two people doing the same job.`,
-     `§ leans into §other in the easy way of two people who've already worked out what they are to each other.`],
+     `§ leans into §other in the easy way of two people who've already worked out what they're to each other.`],
   ],
 };
 
@@ -942,7 +942,7 @@ const PAIR_WITH_KEEPER = [
   ],
   [
     ['B', `"§other learned your coffee. The real way, not the way the galley does it."`],
-    ['A', `"It took me a week and I will not be humble about it. Sit. Let me ruin every other cup you'll ever have."`],
+    ['A', `"It took me a week and I won't be humble about it. Sit. Let me ruin every other cup you'll ever have."`],
   ],
 ];
 
@@ -1062,7 +1062,7 @@ const SETTLE_REACT = {
     ['B', `"He can't choose because he's SMART. Take notes, §other." She's delighted either way.`],
   ],
   dodge: [
-    ['B', `pouts to her full capacity. "That is not a name. That is a dodge. I know a dodge — I invented the dodge."`],
+    ['B', `pouts to her full capacity. "That isn't a name. That's a dodge. I know a dodge — I invented the dodge."`],
     ['A', `"Leave him be. The non-answer IS the answer, and it's the kind one." She doesn't look entirely certain she believes that.`],
   ],
   timeout: [
@@ -1619,7 +1619,7 @@ const AREA_BANTER = {
     ],
     [
       ['A', `flicks a little water at §other across the froth. "You're hogging the good jet again."`],
-      ['B', `"I found it first. Possession is nine tenths." She does not move. "You can share it. If you're nice."`],
+      ['B', `"I found it first. Possession is nine tenths." She doesn't move. "You can share it. If you're nice."`],
       ['A', `raises an eyebrow, and slides over. "...I can be nice."`],
     ],
     [

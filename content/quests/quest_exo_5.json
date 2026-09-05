@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The junction floods when the eastern line backs up, and it backs up on no schedule anybody has ever written down.\n\nOracle-9 says it will back up this evening. She says you have about twenty minutes to be standing at the junction, and that you should be gone from it before the water is.\n\n\"I am not asking you to stop it. I am asking you to see it start.\"",
+  "description": "The junction floods when the eastern line backs up, and it backs up on no schedule anybody has ever written down.\n\nOracle-9 says it'll back up this evening. She says you have about twenty minutes to be standing at the junction, and that you should be gone from it before the water is.\n\n\"I'm not asking you to stop it. I'm asking you to see it start.\"",
   "fail_on": [
     {
       "count": 1200,
@@ -15,8 +15,8 @@
     {
       "desc": "Get down to the junction and wait for it.",
       "emotes": [
-        "{who} stands in the junction listening to a pipe that is doing nothing at all.",
-        "{who} feels the floor go cold about four seconds before there is anything to see.",
+        "{who} stands in the junction listening to a pipe that's doing nothing at all.",
+        "{who} feels the floor go cold about four seconds before there's anything to see.",
         "{who} watches the eastern line let go, on time, and gets out of the way of it."
       ],
       "id": "o_there",

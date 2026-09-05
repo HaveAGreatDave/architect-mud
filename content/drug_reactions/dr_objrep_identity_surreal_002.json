@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "I do not remember before. I remember AFTER quite well, which is the wrong way round and I know it.",
+  "self_line": "I don't remember before. I remember AFTER quite well, which is the wrong way round and I know it.",
   "source": "object_reply_identity",
   "tone": "surreal"
 }

@@ -1,11 +1,11 @@
 {
-  "description": "A thick glass flask of something dark that moves when the flask does not. The Wildblood make it and will not say how.",
+  "description": "A thick glass flask of something dark that moves when the flask does not. The Wildblood make it and won't say how.",
   "flags": {},
   "id": "item_wb_mutagen",
   "name": "flask of mutagen",
   "tags": {
     "consumable": true,
-    "description": "A thick glass flask of something dark that moves when the flask does not. Warm to hold. It is not still.",
+    "description": "A thick glass flask of something dark that moves when the flask does not. Warm to hold. It isn't still.",
     "mutagen": true
   },
   "type": "consumable",

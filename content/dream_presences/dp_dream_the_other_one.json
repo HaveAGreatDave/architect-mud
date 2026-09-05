@@ -1,22 +1,22 @@
 {
   "arrivals": [
-    "Somebody comes in behind you and does not go out again.",
-    "You are not alone in here, and you have not been for a moment or two.",
-    "There is somebody here now. They came in the way people come into a room they know."
+    "Somebody comes in behind you and doesn't go out again.",
+    "You aren't alone in here, and you haven't been for a moment or two.",
+    "There's somebody here now. They came in the way people come into a room they know."
   ],
   "cause": "dream",
   "departures": [
-    "Whoever it was is not here now. You did not see them leave.",
-    "The room is yours again, and it is worse.",
+    "Whoever it was isn't here now. You didn't see them leave.",
+    "The room is yours again, and it's worse.",
     "They have gone through to the next one, ahead of you."
   ],
   "drug_id": null,
   "id": "dp_dream_the_other_one",
   "looks": [
-    "Somebody you know. You will have the name in a moment.",
-    "They are facing slightly away and are about to turn round.",
-    "They are doing something ordinary with enormous care and will not be interrupted.",
-    "It is you, from behind, and neither of you is going to mention it."
+    "Somebody you know. You'll have the name in a moment.",
+    "They're facing slightly away and are about to turn round.",
+    "They're doing something ordinary with enormous care and won't be interrupted.",
+    "It's you, from behind, and neither of you is going to mention it."
   ],
   "name": "someone else"
 }

@@ -61,7 +61,7 @@ export default async function regress({ check }) {
     world.players.set(third.id, third);
     r = await run(commands.hookah, 'hookah', third);
     check('a full hookah refuses a third hose', r?.type === 'error', JSON.stringify(r));
-    check('...and does not seat them', !hoses.has(third.id));
+    check("...and doesn't seat them", !hoses.has(third.id));
     world.players.delete(third.id);
 
     // Puffing an empty bowl is refused, not silently free.
@@ -92,10 +92,10 @@ export default async function regress({ check }) {
     }
     const injectOnly = Object.values(cache).find(d => d.item_id && !d.flags?.smokeable && !d.flags?.cannabis);
     if (injectOnly) {
-      check('a non-smokeable drug row is not packable',
+      check("a non-smokeable drug row isn't packable",
         smokeableDrugFor({ item_id: injectOnly.item_id }) === null, injectOnly.id);
     }
-    check('a non-drug row is not packable', smokeableDrugFor({ item_id: 'item_rusty_pipe' }) === null);
+    check("a non-drug row isn't packable", smokeableDrugFor({ item_id: 'item_rusty_pipe' }) === null);
 
     // Opium itself must be authored so the smoke route actually applies. The
     // route requires the flag, so an opium row without it degrades to neutral

@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "amb_urban_05",
   "loudness": 1.5,
-  "message": "A vehicle passes one street over, slowly, and does not turn in.",
+  "message": "A vehicle passes one street over, slowly, and doesn't turn in.",
   "theme": "urban",
   "weight": 60
 }

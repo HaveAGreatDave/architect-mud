@@ -340,14 +340,14 @@ export function abilityRefusal(player, abilityId, targetKind = null) {
 
   // Below here the ability exists for you and can say why it will not work.
   if (targetKind && !abilityApplies(abilityId, targetKind)) {
-    return `That is not a thing you can ${ability.label.toLowerCase()}.`;
+    return `That isn't a thing you can ${ability.label.toLowerCase()}.`;
   }
 
   const mult = focusMultiplier(player, ability.discipline);
   const cost = ability.resonance * mult.resonance;
   const state = psiState(player);
   if (state.resonance < cost) {
-    return 'There is nothing left to reach with. You need to rest.';
+    return "There's nothing left to reach with. You need to rest.";
   }
 
   // The high band is where abilities start failing on their own; critical is where
@@ -355,7 +355,7 @@ export function abilityRefusal(player, abilityId, targetKind = null) {
   // player push is deliberate — a seizure should be the price of a CHOICE to keep
   // going, not something that happens because they did not know the number.
   if (strainBand(state.strain) === 'critical' || strainBand(state.strain) === 'overload') {
-    return 'You are shaking too hard to hold anything steady.';
+    return "You're shaking too hard to hold anything steady.";
   }
 
   return null;

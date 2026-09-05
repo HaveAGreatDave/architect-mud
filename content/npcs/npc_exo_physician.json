@@ -3,12 +3,12 @@
   "behaviour_graph": {},
   "chitchat": [
     "Sit on the bed, not the table.",
-    "Show me. Do not tell me, show me.",
-    "It will scar. Everything scars. Scars are fine.",
+    "Show me. Don't tell me, show me.",
+    "It'll scar. Everything scars. Scars are fine.",
     "I have got one of everything and two of nothing.",
-    "If it is the teeth, I am sorry in advance."
+    "If it's the teeth, I'm sorry in advance."
   ],
-  "description": "A tall woman with her sleeves cut off at the elbow, writing in a book with the stub of a pencil. Every surface in the room has been scrubbed within an hour. She finishes the sentence before she looks up, and looks up at the part of you that is wrong before she looks at your face.",
+  "description": "A tall woman with her sleeves cut off at the elbow, writing in a book with the stub of a pencil. Every surface in the room has been scrubbed within an hour. She finishes the sentence before she looks up, and looks up at the part of you that's wrong before she looks at your face.",
   "dialogue_tree": {
     "alone": {
       "actions": [],
@@ -28,12 +28,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"For everything, yes.\"\n\nShe closes the book.\n\n\"Two hundred and eleven people. Babies, backs, burns, teeth, the ones that are going to die and the ones that only think they are. There is a girl of nineteen who is learning it and she is quick and she is four years off, and I am fifty-eight.\"\n\n\"That is the only sum in this place that frightens anybody. Nobody talks about it. I am telling you because you are not from here, so it costs me nothing.\""
+      "text": "\"For everything, yes.\"\n\nShe closes the book.\n\n\"Two hundred and eleven people. Babies, backs, burns, teeth, the ones that are going to die and the ones that only think they are. There's a girl of nineteen who's learning it and she's quick and she's four years off, and I'm fifty-eight.\"\n\n\"That's the only sum in this place that frightens anybody. Nobody talks about it. I'm telling you because you aren't from here, so it costs me nothing.\""
     },
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+      "text": "\"Mind how you go.\"\n\nShe is already writing the next line in the book."
     },
     "chrome": {
       "actions": [],
@@ -53,11 +53,11 @@
           "next": "bye"
         }
       ],
-      "text": "She looks at you for slightly too long.\n\n\"I could.\" A beat. \"Do not say that at the table.\"\n\nAnd she opens the book again, and writes the sentence she was going to write, and does not say another word about it."
+      "text": "She looks at you for slightly too long.\n\n\"I could.\" A beat. \"Don't say that at the table.\"\n\nAnd she opens the book again, and writes the sentence she was going to write, and doesn't say another word about it."
     },
     "root": {
       "actions": [],
-      "first": "\"Are you bleeding?\" It is the first thing she says and it is not rhetorical. \"No. Right. Then sit down and do not touch anything.\"",
+      "first": "\"Are you bleeding?\" It's the first thing she says and it isn't rhetorical. \"No. Right. Then sit down and don't touch anything.\"",
       "options": [
         {
           "actions": [],
@@ -84,7 +84,7 @@
       "text": "\"Are you bleeding?\"",
       "text_by_relation": {
         "close": "\"Ah.\" She puts the pencil down, which for her is dropping everything.",
-        "familiar": "\"Sit down. How is the thing.\" She does not say which thing and does not need to.",
+        "familiar": "\"Sit down. How is the thing.\" She doesn't say which thing and doesn't need to.",
         "known": "\"You. Still upright.\" She goes back to the book."
       }
     }

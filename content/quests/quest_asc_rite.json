@@ -3,7 +3,7 @@
     "quest_lw_rite"
   ],
   "category": null,
-  "description": "Your backup is taken in the morning and is very boring. The Rite is in the evening and is not.\n\nYou go up to the Nave and somebody reads the words, and about two thirds of the way through he loses his place — properly loses it, shuffles the card, apologises, and finishes the last part from memory in the voice of a man saying a thing he means rather than a thing he has learned.\n\nThen you go to the Uplink and you die there, on purpose, on schedule, with the claim already filed. Somewhere below you a tank that has been quietly paid up since the day of the tour opens on a body with your face on it.\n\nThey will not do it while the police want you, and Vess is apologetic but immovable about that. A claimed death is an administrative act — and the law does not recognise administration.",
+  "description": "Your backup is taken in the morning and is very boring. The Rite is in the evening and is not.\n\nYou go up to the Nave and somebody reads the words, and about two thirds of the way through he loses his place — properly loses it, shuffles the card, apologises, and finishes the last part from memory in the voice of a man saying a thing he means rather than a thing he has learned.\n\nThen you go to the Uplink and you die there, on purpose, on schedule, with the claim already filed. Somewhere below you a tank that has been quietly paid up since the day of the tour opens on a body with your face on it.\n\nThey won't do it while the police want you, and Vess is apologetic but immovable about that. A claimed death is an administrative act — and the law doesn't recognise administration.",
   "fail_on": [],
   "id": "quest_asc_rite",
   "meta": {},
@@ -14,7 +14,7 @@
       "emotes": [
         "{who} sits in the second row because the first row is for people with families here.",
         "{who} listens to a man lose his place in the most important thing he says all year.",
-        "{who} hears the last part done from memory, and finds it is better that way, and cannot say why."
+        "{who} hears the last part done from memory, and finds it's better that way, and can't say why."
       ],
       "id": "o_nave",
       "taskSeconds": 10,
@@ -24,8 +24,8 @@
     {
       "desc": "Go to the Uplink.",
       "emotes": [
-        "{who} walks up a corridor that is carpeted the whole way, which somebody thought about.",
-        "{who} is asked to confirm their name, and confirms it. That is the whole ceremony."
+        "{who} walks up a corridor that's carpeted the whole way, which somebody thought about.",
+        "{who} is asked to confirm their name, and confirms it. That's the whole ceremony."
       ],
       "id": "o_uplink",
       "requires": [
@@ -39,7 +39,7 @@
       "count": 1,
       "desc": "Die at the Uplink, and be printed.",
       "emotes": [
-        "{who} finds it is quick, and that being ready for it does not make it quick enough.",
+        "{who} finds it's quick, and that being ready for it doesn't make it quick enough.",
         "{who} opens their eyes in a warm room with the drain still running.",
         "{who} is handed a towel, and then a form, and the form is the part that means it worked."
       ],

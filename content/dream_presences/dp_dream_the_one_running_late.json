@@ -1,22 +1,22 @@
 {
   "arrivals": [
     "Somebody comes in fast, apologising, and is already talking.",
-    "A door goes somewhere behind you and then they are here.",
+    "A door goes somewhere behind you and then they're here.",
     "They arrive out of breath, from a long way, on your account."
   ],
   "cause": "dream",
   "departures": [
     "They go, still apologising, to the next thing.",
     "They check the time, and the time decides it, and they leave.",
-    "They are called from another room and answer on the way out."
+    "They're called from another room and answer on the way out."
   ],
   "drug_id": null,
   "id": "dp_dream_the_one_running_late",
   "looks": [
     "Coat still on. They have come straight from something.",
-    "They are sorry about the delay and have not said what they are delayed for.",
+    "They're sorry about the delay and haven't said what they're delayed for.",
     "They keep beginning the sentence and being interrupted by their own hurry.",
     "You have been waiting for them. That was what the waiting was."
   ],
-  "name": "somebody who is late"
+  "name": "somebody who's late"
 }

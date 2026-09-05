@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "A kiosk-sized unit set into the parade at the quiet end of Voss, barely wider than its own door and set back behind a strip of dead planting. The security grille is intact and the glass behind it is not. The notice says LET AS SEEN, which is the landlord being honest for once.",
+  "description": "A kiosk-sized unit set into the parade at the quiet end of Voss, barely wider than its own door and set back behind a strip of dead planting. The security grille is intact and the glass behind it's not. The notice says LET AS SEEN, which is the landlord being honest for once.",
   "exits": {
     "north": "zone_district_904_909",
     "south": "zone_sf_voss7"

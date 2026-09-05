@@ -165,7 +165,7 @@ async function fill(args, raw, player) {
   const flavour = fluidType === 'fuel'
     ? `Fuel sloshes to the brim, reeking of hydrocarbons.${charged > 0 ? ` <span class="text-dim">(${charged}₵)</span>` : ''}`
     : contaminated
-    ? `<span style="color:var(--red)">It fills with cloudy, foul-smelling water. You should not drink this.</span>`
+    ? `<span style="color:var(--red)">It fills with cloudy, foul-smelling water. You shouldn't drink this.</span>`
     : `It's full of water.`;
   return {
     type: 'use',

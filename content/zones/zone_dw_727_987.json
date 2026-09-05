@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A break in the flow front, and the only one for a long way: a slope of fallen black rock wedged into the gap, steep and loose, going up onto the level. Everything that crosses this ground crosses it here and the ground says so, because the ash on the approach is beaten flat and it is not beaten flat anywhere else.",
+  "description": "A break in the flow front, and the only one for a long way: a slope of fallen black rock wedged into the gap, steep and loose, going up onto the level. Everything that crosses this ground crosses it here and the ground says so, because the ash on the approach is beaten flat and it isn't beaten flat anywhere else.",
   "exits": {
     "east": "zone_dw_728_987",
     "north": "zone_dw_727_986",

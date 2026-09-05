@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A short raw-cut passage ending at a barred drain hatch, with a charge and a keyed collapse rigged into the roof beams above the halfway point. If the Watch are ever found, this corridor becomes forty tonnes of fill and the base becomes a hole in somebody's map. It is swept weekly and walked daily. The people who use it call the walk-through 'reading the ceiling'.",
+  "description": "A short raw-cut passage ending at a barred drain hatch, with a charge and a keyed collapse rigged into the roof beams above the halfway point. If the Watch are ever found, this corridor becomes forty tonnes of fill and the base becomes a hole in somebody's map. It's swept weekly and walked daily. The people who use it call the walk-through 'reading the ceiling'.",
   "exits": {
     "down": "zone_under_924_916",
     "north": "zone_lw_cache",

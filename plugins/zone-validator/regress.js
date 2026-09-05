@@ -38,7 +38,7 @@ export default async ({ check }) => {
 
   // Baseline: the neighbour is in the Map, so nothing is dangling.
   const before = await runZone(subject.id, { autoRepair: false });
-  check('a resolvable exit is not reported dangling', !missing(before).includes(target));
+  check("a resolvable exit isn't reported dangling", !missing(before).includes(target));
 
   // THE CASE. The row is still in the DB; only the Map has lost it. Read as an
   // answer that would be a `missing_dest`, and with autoRepair on, a deletion.

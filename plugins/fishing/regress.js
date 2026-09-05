@@ -42,14 +42,14 @@ export default async function regress({ run, check, getPlayer }) {
     check('a tile bordering water fishes the default table',
       _test.fishingTableFor(world.zones.get(BANK)) === _test.DEFAULT_FISHING_TABLE,
       `${_test.fishingTableFor(world.zones.get(BANK))}`);
-    check('an inland tile cannot be fished',
+    check("an inland tile can't be fished",
       _test.fishingTableFor(world.zones.get(INLAND)) === null, `${_test.fishingTableFor(world.zones.get(INLAND))}`);
     check('an authored fishing_table_id WINS over the default',
       _test.fishingTableFor(world.zones.get(SPECIAL)) === 'fish_echelon_basin',
       `${_test.fishingTableFor(world.zones.get(SPECIAL))}`);
-    check('you cannot fish while standing in the water itself',
+    check("you can't fish while standing in the water itself",
       _test.fishingTableFor(world.zones.get(W)) === null, `${_test.fishingTableFor(world.zones.get(W))}`);
-    check('a coordless interior without a table cannot be fished',
+    check("a coordless interior without a table can't be fished",
       _test.fishingTableFor({ id: 'x', flags: {} }) === null);
     check('bordersWater is orthogonal only', _test.bordersWater(world.zones.get(BANK)) === true
       && _test.bordersWater(world.zones.get(INLAND)) === false);

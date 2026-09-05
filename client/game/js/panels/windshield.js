@@ -7182,7 +7182,7 @@ function resolveTune(t) {
   const out = { ...RENDER_TUNE };
   for (const k in t) {
     if (VIEW_TUNABLE.has(k)) out[k] = t[k];
-    else if (!resolveTune._warned) { resolveTune._warned = true; console.error(`[windshield] view tune key '${k}' is not view-tunable and was ignored -- see VIEW_TUNABLE`); }
+    else if (!resolveTune._warned) { resolveTune._warned = true; console.error(`[windshield] view tune key '${k}' isn't view-tunable and was ignored -- see VIEW_TUNABLE`); }
   }
   return out;
 }
@@ -9074,15 +9074,15 @@ export function signalGeomSmoke() {
     return Math.hypot(b[0] - a[0], b[1] - a[1]);
   };
   const on = lensWidth(0), oblique = lensWidth(45), edge = lensWidth(90);
-  if (!(on > 0.5)) out.push(`a signal head square-on measures ${on.toFixed(2)}px across — it is not drawing at all`);
-  if (!(edge < on * 0.15)) out.push(`a signal head seen from the side measures ${edge.toFixed(2)}px against ${on.toFixed(2)}px square-on: it is still facing the camera, not the road`);
-  if (!(oblique > on * 0.5 && oblique < on * 0.85)) out.push(`a signal head at 45° measures ${(oblique / on).toFixed(2)} of its square-on width — expected about cos 45°, so the frame is not foreshortening`);
+  if (!(on > 0.5)) out.push(`a signal head square-on measures ${on.toFixed(2)}px across — it isn't drawing at all`);
+  if (!(edge < on * 0.15)) out.push(`a signal head seen from the side measures ${edge.toFixed(2)}px against ${on.toFixed(2)}px square-on: it's still facing the camera, not the road`);
+  if (!(oblique > on * 0.5 && oblique < on * 0.85)) out.push(`a signal head at 45° measures ${(oblique / on).toFixed(2)} of its square-on width — expected about cos 45°, so the frame isn't foreshortening`);
   // The steel: half-width at a given world radius must halve as the distance doubles.
   const cam = makeCam(W, horizonY, focal, { heading: 0 });
   const wAt = (f) => Math.max(0.5, POLE_R0 * cam.FL / f);
   const near = wAt(3), far = wAt(6);
   if (!(near > 1.0)) out.push(`a mast pole three tiles out is ${(near * 2).toFixed(2)}px of steel — back to a hairline`);
-  if (Math.abs(near / far - 2) > 0.05) out.push(`a mast pole does not thin with distance (${near.toFixed(2)}px at 3 tiles, ${far.toFixed(2)}px at 6) — the width is back on a clamp, not on the world`);
+  if (Math.abs(near / far - 2) > 0.05) out.push(`a mast pole doesn't thin with distance (${near.toFixed(2)}px at 3 tiles, ${far.toFixed(2)}px at 6) — the width is back on a clamp, not on the world`);
   return out;
 }
 
@@ -12451,12 +12451,12 @@ export function bayMassSmoke() {
     out.push(`BAY_FLOORS is ${BAY_FLOORS} but RIDGE ${BAY.RIDGE} is worth ${worth.toFixed(2)} storeys — raise them together`);
   }
   // The eaves must clear the cab camera's eye, or the driver is looking over his own roof again.
-  if (!(BAY.WALL > 0.17 * 1.4)) out.push(`eaves ${BAY.WALL} do not clear the cab eye height (0.17) by enough`);
+  if (!(BAY.WALL > 0.17 * 1.4)) out.push(`eaves ${BAY.WALL} don't clear the cab eye height (0.17) by enough`);
   if (!(BAY.DOOR_H > 0.17)) out.push(`the door head ${BAY.DOOR_H} is below the driver's eye — the way out is a letterbox`);
-  near(floorHeight(cell, 1), BAY.RIDGE, 1e-9, 'floorHeight is not the drawn ridge');
-  near(buildingHeightZ(wx, wy, cell), BAY.RIDGE, 1e-9, 'buildingHeightZ is not the drawn ridge');
-  near(modelTopZAt(wx, wy, cell, wx, wy), BAY.RIDGE, 1e-9, 'the probe over the ridge is not the ridge');
-  near(modelTopZAt(wx, wy, cell, wx + BAY.HW - 0.005, wy), BAY.WALL, 0.005, 'the probe at the eaves is not the eaves');
+  near(floorHeight(cell, 1), BAY.RIDGE, 1e-9, "floorHeight isn't the drawn ridge");
+  near(buildingHeightZ(wx, wy, cell), BAY.RIDGE, 1e-9, "buildingHeightZ isn't the drawn ridge");
+  near(modelTopZAt(wx, wy, cell, wx, wy), BAY.RIDGE, 1e-9, "the probe over the ridge isn't the ridge");
+  near(modelTopZAt(wx, wy, cell, wx + BAY.HW - 0.005, wy), BAY.WALL, 0.005, "the probe at the eaves isn't the eaves");
   near(buildingRoofFtAt(wx, wy, cell, wx, wy), BAY_FLOORS * FT_PER_FLOOR, 1e-6, 'the ridge in feet');
   if (modelTopZAt(wx, wy, cell, wx + 0.49, wy + 0.49) !== 0) out.push('the probe found mass outside the shed footprint');
   if (groundObstructionAt(wx, wy, cell, wx, wy, 0.01) !== 0) out.push('a truck can no longer drive into the bay — the one hole in the collision model closed');
@@ -12490,7 +12490,7 @@ export function bayMassSmoke() {
     // a rig at the threshold lifts the door, one across the yard does not.
     _bayVehicles.length = 0;
     _bayVehicles.push([thrX + Math.sin(th2) * 0.5, thrY + Math.cos(th2) * 0.5]);
-    if (bayDoorOpen(wx, wy, cell) <= 0.5) out.push('a truck at the threshold does not open the door');
+    if (bayDoorOpen(wx, wy, cell) <= 0.5) out.push("a truck at the threshold doesn't open the door");
     _bayVehicles.length = 0;
     _bayVehicles.push([wx + 6, wy + 6]);
     if (bayDoorOpen(wx, wy, cell) !== 0) out.push('a truck across the yard opens the door');
@@ -12540,7 +12540,7 @@ export function forecourtDriveSmoke() {
       for (let t = -0.52; t <= 0.95; t += 0.05) {
         const [qx, qy] = L(lane * fh, t * fh);
         if (groundObstructionAt(wx, wy, cell, qx, qy, 0.01, TRUCK_STEP_Z) !== 0) {
-          out.push(`forecourt (${ent}) → the ${lane === 0 ? 'centre' : lane < 0 ? 'left' : 'right'} lane is blocked ${t.toFixed(2)} into the lot; a truck cannot pull in to refuel`);
+          out.push(`forecourt (${ent}) → the ${lane === 0 ? 'centre' : lane < 0 ? 'left' : 'right'} lane is blocked ${t.toFixed(2)} into the lot; a truck can't pull in to refuel`);
           break;
         }
       }
@@ -12615,12 +12615,12 @@ export function wallTexSmoke() {
   // back to the window grid the family was written to get it out of, and looks merely wrong.
   for (const [name, set] of Object.entries(FAMILIES)) {
     const live = [...set].filter((k) => WALL_COL[k]);
-    if (!live.length) out.push(`${name} matches no palette in WALL_COL — every key in it is a typo or has been deleted, and its surfaces are silently back on the window grid`);
+    if (!live.length) out.push(`${name} matches no palette in WALL_COL — every key in it's a typo or has been deleted, and its surfaces are silently back on the window grid`);
   }
   // …and the same mistake one key at a time: a member with no palette behind it is dead weight and
   // is usually the half of a rename that did not happen.
   for (const [name, set] of Object.entries(FAMILIES)) for (const k of set) {
-    if (!WALL_COL[k]) out.push(`${name} names '${k}', which is not a key in WALL_COL`);
+    if (!WALL_COL[k]) out.push(`${name} names '${k}', which isn't a key in WALL_COL`);
   }
   // ── AND THE FACADE TABLE, WHICH FAILS THE SAME WAY AND IS EASIER TO GET WRONG ──
   // FACADE_MAT only ever reaches a palette that lands in the DEFAULT branch, so an entry naming a
@@ -12628,7 +12628,7 @@ export function wallTexSmoke() {
   // key that is not in WALL_COL is a typo. Both leave the building looking like the plain tinted
   // panel it looked like before the table existed, which is a failure with no symptom.
   for (const k of Object.keys(FACADE_MAT)) {
-    if (!WALL_COL[k]) out.push(`FACADE_MAT names '${k}', which is not a key in WALL_COL`);
+    if (!WALL_COL[k]) out.push(`FACADE_MAT names '${k}', which isn't a key in WALL_COL`);
     else if (owner.has(k)) out.push(`FACADE_MAT names '${k}', but ${owner.get(k)} already owns it — a family branch returns before the facade path is reached, so the entry does nothing`);
     else if (typeof FACADE_MAT[k].paint !== 'function') out.push(`FACADE_MAT['${k}'] has no painter`);
   }
@@ -12817,7 +12817,7 @@ export function bayOccluderSmoke(ID) {
     // astern, so gating this on where the EYE is puts your rig inside and the camera out, and the
     // shed masks its own contents. This assertion was briefly inverted to match that mistake.
     const own = plain(); own[R][R] = bay('OWN DEPOT');
-    if (covered(own) > 0) out.push('the shed the rig is standing IN is masking it — a building must not hide the room you are in');
+    if (covered(own) > 0) out.push("the shed the rig is standing IN is masking it — a building must not hide the room you're in");
     // …and the one exemption, which is not about the picture at all: a wall you are STANDING
     // INSIDE cannot come between you and something in the room with you. From the cab — eye at the
     // truck, inside the footprint — the shed must mask nothing, or every contact in the yard is
@@ -12827,7 +12827,7 @@ export function bayOccluderSmoke(ID) {
       const F = OCC_FIELD;
       let n = 0;
       if (F) for (let i = 0; i < F.gh; i++) { const row = i * F.stride; for (let c = 0; c < F.gw; c++) if (F.d[row + c] < Infinity) n++; }
-      if (n > 0) out.push('from inside the shed, the shed is masking the room — a wall you are within cannot occlude what is in there with you');
+      if (n > 0) out.push("from inside the shed, the shed is masking the room — a wall you're within can't occlude what's in there with you");
     }
     // ── …AND A SHED YOU ARE NOT IN STILL MASKS, FROM DOWN ON THE ROAD ───────
     // The exemption above is about the building you are standing in. Every other one is a building,
@@ -17989,7 +17989,7 @@ function shapeLinearityError(m, seed) {
   for (let i = 0; i < segs.length; i++) {
     for (const f of SHAPE_NUM_FIELDS[segs[i].kind]) {
       const off = f === 'dy' ? -8 : 0;
-      if (Math.abs(shapeVal(segs[i][f], fh, h) - (raw[i][f] - off)) > 1e-9) return `segment ${i} (${segs[i].kind}).${f} is not affine in fh/h`;
+      if (Math.abs(shapeVal(segs[i][f], fh, h) - (raw[i][f] - off)) > 1e-9) return `segment ${i} (${segs[i].kind}).${f} isn't affine in fh/h`;
     }
   }
   return null;
@@ -18727,7 +18727,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // The pixel-identity guarantee, asserted rather than assumed: no paint path may ever leave a
   // shape sink installed. If this fires, a capture leaked (it failed to restore in a finally) and
   // the frame is about to render buildings as nothing at all.
-  if (SHAPE_SINK) { SHAPE_SINK = null; console.error('[windshield] SHAPE_SINK leaked into a render pass — capture did not restore'); }
+  if (SHAPE_SINK) { SHAPE_SINK = null; console.error("[windshield] SHAPE_SINK leaked into a render pass — capture didn't restore"); }
   pBegin('world:build');
   const map = v.map; if (!map || !map.length) { pEnd(); return; } const R = cam.R, night = sky.night;
   // ── THE DRAW DISTANCE IS THE DATA YOU HAVE, NOT A CONSTANT THAT HOPES ──────

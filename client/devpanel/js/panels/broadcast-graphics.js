@@ -542,7 +542,7 @@ function _grLoadSvgFile(input) {
   const reader = new FileReader();
   reader.onload = (e) => {
     const svg = e.target.result?.trim();
-    if (!svg?.startsWith('<')) { toast('File does not look like an SVG.', true); return; }
+    if (!svg?.startsWith('<')) { toast("File doesn't look like an SVG.", true); return; }
     // Always put the raw SVG into the text tab textarea so it's preserved
     const ta = document.getElementById('gr-content');
     if (ta) ta.value = svg;

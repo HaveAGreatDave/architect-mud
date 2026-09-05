@@ -2,10 +2,10 @@
   "enabled": true,
   "id": "bt_amb_quiet_047",
   "lines": [
-    "\"You do not talk much.\"",
+    "\"You don't talk much.\"",
     "\"No.\"",
     "\"Neither do I, with most people.\"",
-    "\"I know. That is why I sat here.\""
+    "\"I know. That's why I sat here.\""
   ],
   "personality": "quiet",
   "sort_order": 446

@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The press is still under the dye works east of the wash, because an address is a thing you can decide about later, and later has arrived.\n\nIves is sending you back to it. Not to burn it. To stand in the room and count what is on the floor, so that the number in the file is a real number.\n\n\"The man on the crate will be there,\" she says. \"He is not to be touched, and if you think that is me being sentimental you have not understood a single thing this firm does.\"",
+  "description": "The press is still under the dye works east of the wash, because an address is a thing you can decide about later, and later has arrived.\n\nIves is sending you back to it. Not to burn it. To stand in the room and count what's on the floor, so that the number in the file is a real number.\n\n\"The man on the crate will be there,\" she says. \"He isn't to be touched, and if you think that's me being sentimental you haven't understood a single thing this firm does.\"",
   "fail_on": [
     {
       "desc": "Wessel Ardy died in that room.",
@@ -17,9 +17,9 @@
   "name": "The Address",
   "objectives": [
     {
-      "desc": "Get back down to the press and count what is on the floor.",
+      "desc": "Get back down to the press and count what's on the floor.",
       "emotes": [
-        "{who} comes down into a room that is warm for no reason a room should be warm, for the second time.",
+        "{who} comes down into a room that's warm for no reason a room should be warm, for the second time.",
         "{who} counts reams, counts plates, and writes both down without touching either.",
         "{who} finds Wessel Ardy sitting on the same crate, and neither of them says anything about it."
       ],

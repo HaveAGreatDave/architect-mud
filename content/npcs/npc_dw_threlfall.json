@@ -2,10 +2,10 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Gauge duty is short this week. It is always short.",
-    "If that is about the rota it goes on the board, not to me.",
+    "Gauge duty is short this week. It's always short.",
+    "If that's about the rota it goes on the board, not to me.",
     "Mind the belting where it crosses the yard.",
-    "There is tea in the hall and it is nobody's in particular."
+    "There's tea in the hall and it's nobody's in particular."
   ],
   "description": "A broad woman in her sixties standing at the tally board with a piece of chalk and a straight edge, ruling off a column. Her hands are a machinist's hands and one of her thumbnails has grown back wrong. She rules the line, checks it against the board, and only then looks at you, and she does it without any of the hurry you were expecting.",
   "dialogue_tree": {
@@ -20,7 +20,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then we would mend it.\" A pause, and something that is very nearly humour. \"It's the only option we've arranged for ourselves.\""
+      "text": "\"Then we would mend it.\" A pause, and something that's very nearly humour. \"It's the only option we've arranged for ourselves.\""
     },
     "bye": {
       "actions": [],
@@ -45,7 +45,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Everybody is. It is the grey.\" She is not offended in the least. \"Grey reads as poor. It is only what colour gravel is.\""
+      "text": "\"Everybody is. It's the grey.\" She isn't offended in the least. \"Grey reads as poor. It's only what colour gravel is.\""
     },
     "dark": {
       "actions": [],
@@ -65,7 +65,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is dark. There is no grid in it, there never was, and we did not take one out.\" She says this as though you had asked about the weather. \"The wheels give us shaft power and the shaft power turns things. Light is lamps, and lamps are oil, and oil is a job somebody does on Tuesdays.\"\n\nShe taps the board where it says gauge.\n\n\"The chart on the gauge house wall is drawn by a pen on an arm off a float on a wire, and the drum it draws on is turned by a weight on a cord, and the cord is wound by whoever has gauge duty. That is the most complicated thing in this region. You could take all of it apart on that bench with a screwdriver and put it back before dinner.\""
+      "text": "\"It's dark. There's no grid in it, there never was, and we didn't take one out.\" She says this as though you had asked about the weather. \"The wheels give us shaft power and the shaft power turns things. Light is lamps, and lamps are oil, and oil is a job somebody does on Tuesdays.\"\n\nShe taps the board where it says gauge.\n\n\"The chart on the gauge house wall is drawn by a pen on an arm off a float on a wire, and the drum it draws on is turned by a weight on a cord, and the cord is wound by whoever has gauge duty. That's the most complicated thing in this region. You could take all of it apart on that bench with a screwdriver and put it back before dinner.\""
     },
     "lights": {
       "actions": [],
@@ -85,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nobody. It is water.\" She points, roughly north, through two walls. \"Eighty feet of poured stone holding back a lake, and the lake goes through four wheels on its way out, and the wheels turn a shaft, and the shaft goes everywhere. It has done it since before anybody here was born and it will do it after.\"\n\nShe picks the chalk back up.\n\n\"It does not need us. We check it twice a day anyway. Twice a day is the rent.\""
+      "text": "\"Nobody. It's water.\" She points, roughly north, through two walls. \"Eighty feet of poured stone holding back a lake, and the lake goes through four wheels on its way out, and the wheels turn a shaft, and the shaft goes everywhere. It has done it since before anybody here was born and it'll do it after.\"\n\nShe picks the chalk back up.\n\n\"It doesn't need us. We check it twice a day anyway. Twice a day is the rent.\""
     },
     "louder": {
       "actions": [],
@@ -98,7 +98,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Loud is for people who are not sure.\" She goes back to the board. \"Ask Imre why. He will tell you at length and you will not enjoy it. Ask Selke why and she will tell you in a sentence.\""
+      "text": "\"Loud is for people who aren't sure.\" She goes back to the board. \"Ask Imre why. He'll tell you at length and you won't enjoy it. Ask Selke why and she'll tell you in a sentence.\""
     },
     "nl_about": {
       "actions": [],
@@ -111,7 +111,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Later.\" Flat, unhurried, entirely without ceremony. \"Come and find me when you have slept. There is a walk I want you to do and I would rather you were not tired for it.\""
+      "text": "\"Later.\" Flat, unhurried, entirely without ceremony. \"Come and find me when you have slept. There's a walk I want you to do and I would rather you weren't tired for it.\""
     },
     "nl_accept_1": {
       "actions": [
@@ -129,7 +129,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Northeast track, along the shoulder, you will see it.\" She is already back on the column. \"Wind the drum until it stops taking cord. Read the pen against the chart and remember the number. Do not write it on your hand.\""
+      "text": "\"Northeast track, along the shoulder, you'll see it.\" She's already back on the column. \"Wind the drum until it stops taking cord. Read the pen against the chart and remember the number. Don't write it on your hand.\""
     },
     "nl_accept_2": {
       "actions": [
@@ -147,7 +147,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Up the row, the door with the light in it.\" Back to the column. \"Lay the parts out in the order they come off. That is not advice, it is the lesson, and she will not say it to you.\""
+      "text": "\"Up the row, the door with the light in it.\" Back to the column. \"Lay the parts out in the order they come off. That isn't advice, it's the lesson, and she won't say it to you.\""
     },
     "nl_accept_3": {
       "actions": [
@@ -165,7 +165,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Follow the tailrace up and keep the water on your left.\" She lets you get to the door. \"It is not a shrine and nobody has put anything on it. That is deliberate.\""
+      "text": "\"Follow the tailrace up and keep the water on your left.\" She lets you get to the door. \"It isn't a shrine and nobody has put anything on it. That's deliberate.\""
     },
     "nl_accept_4": {
       "_vine": {
@@ -187,7 +187,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Standpipe, north end, under the collar. Cobbald before supper.\" Back to the column. \"Take a pencil. Do not take anything else.\""
+      "text": "\"Standpipe, north end, under the collar. Cobbald before supper.\" Back to the column. \"Take a pencil. Don't take anything else.\""
     },
     "nl_accept_5": {
       "_vine": {
@@ -209,7 +209,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Stores, then the forge, then Padgett with the count.\" She is already back on the column. \"All of it goes on the shelf. That includes the piece you were going to keep.\""
+      "text": "\"Stores, then the forge, then Padgett with the count.\" She's already back on the column. \"All of it goes on the shelf. That includes the piece you were going to keep.\""
     },
     "nl_accept_6": {
       "_vine": {
@@ -231,7 +231,7 @@
           "next": "bye"
         }
       ],
-      "text": "She walks you to the door, which she has not done before, and stops on the step with her hands in her sleeves.\n\n\"Winding Shop first. Water on your left going up.\" A breath of night air comes off the tailrace. \"If somebody sees you do it, it did not work.\""
+      "text": "She walks you to the door, which she hasn't done before, and stops on the step with her hands in her sleeves.\n\n\"Winding Shop first. Water on your left going up.\" A breath of night air comes off the tailrace. \"If somebody sees you do it, it didn't work.\""
     },
     "nl_and_then": {
       "_vine": {
@@ -248,7 +248,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"And then nothing, for a while, which is what winning looks like here.\" She turns a page. \"There is a thing after this one that I am not going to describe to you tonight. Come back when you have slept.\""
+      "text": "\"And then nothing, for a while, which is what winning looks like here.\" She turns a page. \"There's a thing after this one that I'm not going to describe to you tonight. Come back when you have slept.\""
     },
     "nl_counted": {
       "_vine": {
@@ -265,7 +265,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It was.\" She lets that sit. \"That is the whole of it, and it is not a small thing, and I am not going to make a speech about it.\""
+      "text": "\"It was.\" She lets that sit. \"There's no more to it than that, and it isn't a small thing, and I'm not going to make a speech about it.\""
     },
     "nl_member": {
       "actions": [],
@@ -278,7 +278,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You are on the rota now, which is the only membership anybody here has got.\" She hands you the straight edge without looking. \"Hold that a moment.\""
+      "text": "\"You're on the rota now. Nobody here has any other kind of membership.\" She hands you the straight edge without looking. \"Hold that a moment.\""
     },
     "nl_not_meter": {
       "_vine": {
@@ -291,7 +291,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go up tonight.",
+          "label": "I'll go up tonight.",
           "next": "nl_accept_6"
         },
         {
@@ -302,7 +302,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" She does not soften it. \"It is not, and you have done three things for me that were, and this is the one where I find out whether that was the whole of you.\"\n\n\"You can say no. Nobody here will mention it and I will not think less of you. But I will not ask you again.\""
+      "text": "\"No.\" She doesn't soften it. \"It's not, and you have done three things for me that were, and this is the one where I find out whether that was the whole of you.\"\n\n\"You can say no. Nobody here will mention it and I won't think less of you. But I won't ask you again.\""
     },
     "nl_offer_1": {
       "actions": [],
@@ -311,7 +311,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will do it.",
+          "label": "I'll do it.",
           "next": "nl_accept_1"
         },
         {
@@ -329,7 +329,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Gauge duty.\" She does not make it sound like an offer, because it is not one. \"The chart in the gauge house is drawn by a pen on an arm off a float, and the drum it draws on is wound by whoever has the duty. Nobody has it today.\"\n\nShe rules a line and does not look up.\n\n\"It is an hour there and an hour back and there is nothing at the other end but a shed. I am not going to pretend it is interesting.\""
+      "text": "\"Gauge duty.\" She doesn't make it sound like an offer, because it isn't one. \"The chart in the gauge house is drawn by a pen on an arm off a float, and the drum it draws on is wound by whoever has the duty. Nobody has it today.\"\n\nShe rules a line and doesn't look up.\n\n\"It's an hour there and an hour back and there's nothing at the other end but a shed. I'm not going to pretend it's interesting.\""
     },
     "nl_offer_2": {
       "actions": [],
@@ -345,7 +345,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go up.",
+          "label": "I'll go up.",
           "next": "nl_accept_2"
         },
         {
@@ -356,7 +356,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Wenna keeps a room up the row with a bench in it and no children.\" She says this as though it followed from something. \"There is a rule in this works and it is not on the board because nobody would need reminding. Nobody here owns a thing they cannot take apart.\"\n\nShe finally looks at you.\n\n\"You are carrying several. So am I. The difference is I have had mine to bits.\""
+      "text": "\"Wenna keeps a room up the row with a bench in it and no children.\" She says this as though it followed from something. \"There's a rule in this works and it isn't on the board because nobody would need reminding. Nobody here owns a thing they can't take apart.\"\n\nShe finally looks at you.\n\n\"You're carrying several. So am I. The difference is I have had mine to bits.\""
     },
     "nl_offer_3": {
       "actions": [],
@@ -372,7 +372,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go.",
+          "label": "I'll go.",
           "next": "nl_accept_3"
         },
         {
@@ -383,7 +383,7 @@
           "next": "bye"
         }
       ],
-      "text": "She is not at the board. That is the first thing you notice, and it is genuinely alarming.\n\n\"There is a cut upstream where the grid used to come into this valley.\" She has her hands in her coat pockets. \"Poles, a conduit, a road they made to build it. It has been dead since before I was born and there is nothing up there worth carrying home.\"\n\nShe nods, roughly northeast, through two walls.\n\n\"Go and look at it. Take as long as you like. Then come back here and do not tell me what you thought, because I will already know.\""
+      "text": "She isn't at the board. That's the first thing you notice, and it's genuinely alarming.\n\n\"There's a cut upstream where the grid used to come into this valley.\" She has her hands in her coat pockets. \"Poles, a conduit, a road they made to build it. It has been dead since before I was born and there's nothing up there worth carrying home.\"\n\nShe nods, roughly northeast, through two walls.\n\n\"Go and look at it. Take as long as you like. Then come back here and don't tell me what you thought, because I'll already know.\""
     },
     "nl_offer_4": {
       "_vine": {
@@ -396,7 +396,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will get it.",
+          "label": "I'll get it.",
           "next": "nl_accept_4"
         },
         {
@@ -414,7 +414,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a meter on the standpipe that is not ours.\" She does not look up. \"It went on in the spring while four of us stood and watched, and it has been counting our water ever since, and once a month a man drives out to read it and drives away again.\"\n\n\"I want the number he is reading. Not the box. The number.\""
+      "text": "\"There's a meter on the standpipe that isn't ours.\" She doesn't look up. \"It went on in the spring while four of us stood and watched, and it has been counting our water ever since, and once a month a man drives out to read it and drives away again.\"\n\n\"I want the number he's reading. Not the box. The number.\""
     },
     "nl_offer_5": {
       "_vine": {
@@ -445,7 +445,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Crate at the Stores, came down the road on Tuesday, still shut.\" She sets the pencil down, which is her way of saying this one has a second half. \"Padgett will not open it until it is counted and I will not count it until it is stripped.\"\n\n\"There is a name stencilled on the side. That goes in the forge.\""
+      "text": "\"Crate at the Stores, came down the road on Tuesday, still shut.\" She sets the pencil down, which is her way of saying this one has a second half. \"Padgett won't open it until it's counted and I won't count it until it's stripped.\"\n\n\"There's a name stencilled on the side. That goes in the forge.\""
     },
     "nl_offer_6": {
       "_vine": {
@@ -458,25 +458,25 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go up tonight.",
+          "label": "I'll go up tonight.",
           "next": "nl_accept_6"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What happens if it does not look like weather?",
+          "label": "What happens if it doesn't look like weather?",
           "next": "nl_why_spike"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "This is not reading a meter.",
+          "label": "This isn't reading a meter.",
           "next": "nl_not_meter"
         }
       ],
-      "text": "\"There is a survey crew above the breach with a repeater on a mast.\" She closes the column, which you have not seen her do. \"Nine days. Everything it hears goes east, and in a month somebody east of here will know how many of us there are, what we run, and when we sleep.\"\n\n\"The Winding Shop has made a spike for it. It is not a bomb. It makes the thing deaf, and it makes the deafness look like weather.\""
+      "text": "\"There's a survey crew above the breach with a repeater on a mast.\" She closes the column, which you haven't seen her do. \"Nine days. Everything it hears goes east, and in a month somebody east of here will know how many of us there are, what we run, and when we sleep.\"\n\n\"The Winding Shop has made a spike for it. It isn't a bomb. It makes the thing deaf, and it makes the deafness look like weather.\""
     },
     "nl_report_1": {
       "actions": [
@@ -511,7 +511,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"That is the number.\" She writes it in the column without checking it, which you understand later is the entire compliment. \"You went, you wound it, you came back, and you did not embellish.\"\n\nShe rules the line off.\n\n\"Most people who come through here tell me the walk was long. You have not mentioned the walk.\""
+      "text": "\"That's the number.\" She writes it in the column without checking it, which you understand later is the entire compliment. \"You went, you wound it, you came back, and you didn't embellish.\"\n\nShe rules the line off.\n\n\"Most people who come through here tell me the walk was long. You haven't mentioned the walk.\""
     },
     "nl_report_2": {
       "actions": [
@@ -523,7 +523,7 @@
           "action": "ADJUST_REPUTATION",
           "delta": 80,
           "ideology_id": "ideology_null",
-          "reason": "Nothing You Cannot Mend"
+          "reason": "Nothing You Can't Mend"
         },
         {
           "action": "ADJUST_STANCE",
@@ -535,7 +535,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is it about?",
+          "label": "What's it about?",
           "next": "nl_about"
         },
         {
@@ -546,7 +546,7 @@
           "next": "nl_about"
         }
       ],
-      "text": "\"Selke says it went back together and that you did not ask her anything until you had finished.\" Threlfall writes nothing down about this. \"She does not say that about many people. She did not say it about me.\"\n\nShe straightens the edge on the board.\n\n\"You will have worked out by now that none of this is about the tray.\""
+      "text": "\"Selke says it went back together and that you didn't ask her anything until you had finished.\" Threlfall writes nothing down about this. \"She doesn't say that about many people. She didn't say it about me.\"\n\nShe straightens the edge on the board.\n\n\"You'll have worked out by now that none of this is about the tray.\""
     },
     "nl_report_3": {
       "actions": [
@@ -591,7 +591,7 @@
           "next": "nl_whyme"
         }
       ],
-      "text": "\"Right.\" She waits until you have stopped in front of her. \"The valley below that cut had power for sixty years and then it did not, and nobody up there died of it. That is what is up there. It is not a warning and it is not a monument. It is just the thing being true.\"\n\nShe sits down, which she does not do.\n\n\"Everybody outside this works believes the machine took something from them. It did not take anything. They handed it over, one convenience at a time, and each one was reasonable on the day.\"\n\nA long pause. She is choosing.\n\n\"We can make a machine stop. Not a bomb, not a fire. Properly, quietly, in front of its owner, without touching it. You will have guessed that already or you would not have come back three times.\""
+      "text": "\"Right.\" She waits until you have stopped in front of her. \"The valley below that cut had power for sixty years and then it did not, and nobody up there died of it. That's what's up there. It isn't a warning and it isn't a monument. It's just the thing being true.\"\n\nShe sits down, which she doesn't do.\n\n\"Everybody outside this works believes the machine took something from them. It didn't take anything. They handed it over, one convenience at a time, and each one was reasonable on the day.\"\n\nA long pause. She's choosing.\n\n\"We can make a machine stop. Not a bomb, not a fire. Properly, quietly, in front of its owner, without touching it. You'll have guessed that already or you wouldn't have come back three times.\""
     },
     "nl_report_4": {
       "_vine": {
@@ -630,7 +630,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Cobbald has it.\" She writes something small in the margin that is not the number. \"You will want to know what the test was. It was whether the box came back with you.\"\n\n\"Half the people who walk in here would have had it off the wall inside a minute and thought they were helping. Then a man comes out to see why his meter stopped, and he brings the second man, and we lose the whole valley for a piece of tin.\""
+      "text": "\"Cobbald has it.\" She writes something small in the margin that isn't the number. \"You'll want to know what the test was. It was whether the box came back with you.\"\n\n\"Half the people who walk in here would have had it off the wall inside a minute and thought they were helping. Then a man comes out to see why his meter stopped, and he brings the second man, and we lose the whole valley for a piece of tin.\""
     },
     "nl_report_5": {
       "_vine": {
@@ -674,7 +674,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Padgett count and mine agree.\" A pause that is not quite hesitation. \"They have not always.\"\n\nShe looks at the shelf rather than at you. \"There is a relay in that crate worth more than you have made here since you arrived, and you put it on the shelf, and nobody was standing behind you when you did it.\""
+      "text": "\"Padgett count and mine agree.\" A pause that isn't quite hesitation. \"They haven't always.\"\n\nShe looks at the shelf rather than at you. \"There's a relay in that crate worth more than you have made here since you arrived, and you put it on the shelf, and nobody was standing behind you when you did it.\""
     },
     "nl_report_6": {
       "_vine": {
@@ -718,7 +718,7 @@
           "next": "bye"
         }
       ],
-      "text": "She has the column open again by the time you are through the door, and she does not ask how it went, and you work out somewhere in the next few seconds that this is because she can hear that it did.\n\n\"They will send a man out on Thursday. He will find a repeater that has been rained on.\" She writes a line. \"He will file it as weather, and the file will be true, which is the part most people never manage.\""
+      "text": "She has the column open again by the time you're through the door, and she doesn't ask how it went, and you work out somewhere in the next few seconds that this is because she can hear that it did.\n\n\"They'll send a man out on Thursday. He'll find a repeater that has been rained on.\" She writes a line. \"He'll file it as weather, and the file will be true, which is the part most people never manage.\""
     },
     "nl_said": {
       "_vine": {
@@ -735,7 +735,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I could.\" She finally looks up, and it lasts about as long as the meter takes to read. \"Then I would know what you do when you are told. This way I know what you do when you are not.\""
+      "text": "\"I could.\" She finally looks up, and it lasts about as long as the meter takes to read. \"Then I would know what you do when you're told. This way I know what you do when you're not.\""
     },
     "nl_school_what": {
       "actions": [],
@@ -744,7 +744,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go up.",
+          "label": "I'll go up.",
           "next": "nl_accept_2"
         },
         {
@@ -755,7 +755,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Whatever is in the tray.\" A shrug that closes the subject without any rudeness in it. \"She does not tell you beforehand and she does not help. If you get it back together, Selke looks at it. If you do not, you sit there until you do.\"\n\nShe picks the chalk back up.\n\n\"There is no failing it. There is only how long it takes, and nobody writes that down either.\""
+      "text": "\"Whatever is in the tray.\" A shrug that closes the subject without any rudeness in it. \"She doesn't tell you beforehand and she doesn't help. If you get it back together, Selke looks at it. If you do not, you sit there until you do.\"\n\nShe picks the chalk back up.\n\n\"There's no failing it. There's only how long it takes, and nobody writes that down either.\""
     },
     "nl_shed": {
       "actions": [],
@@ -768,7 +768,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is a shed.\" Something that is very nearly humour, again. \"Come back tomorrow. There will be something on the board.\""
+      "text": "\"It's a shed.\" Something that's very nearly humour, again. \"Come back tomorrow. There will be something on the board.\""
     },
     "nl_taught": {
       "actions": [],
@@ -781,7 +781,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is not one thing, it is a habit.\" She is back on her feet and back at the board inside a sentence, which is a relief to both of you. \"You listen to a room until you know what is powered in it. Then you find out what it is made of. Then, if there is a reason, you make one part of it stop being true.\n\n\"Go and listen to a room. That is all of it, and it is most of it.\"\n\nShe rules a line, and the subject is closed in the way only she can close one."
+      "text": "\"It isn't one thing, it's a habit.\" She's back on her feet and back at the board inside a sentence, which is a relief to both of you. \"You listen to a room until you know what's powered in it. Then you find out what it's made of. Then, if there's a reason, you make one part of it stop being true.\n\n\"Go and listen to a room. That's all of it, and it's most of it.\"\n\nShe rules a line, and the subject is closed in the way only she can close one."
     },
     "nl_wage": {
       "actions": [],
@@ -790,7 +790,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Fine. I will do it.",
+          "label": "Fine. I'll do it.",
           "next": "nl_accept_1"
         },
         {
@@ -801,7 +801,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sixty and a meal you would have got anyway.\" She sets the chalk in its groove. \"If you were hoping for the other kind of answer, the one about what we stand for, you have come to the wrong person and I would say so to anybody.\"\n\nA pause, exactly as long as it needs to be.\n\n\"Do the duty and come back. That is the entire arrangement and I am not going to dress it up.\""
+      "text": "\"Sixty and a meal you would have got anyway.\" She sets the chalk in its groove. \"If you were hoping for the other kind of answer, the one about what we stand for, you have come to the wrong person and I would say so to anybody.\"\n\nA pause, exactly as long as it needs to be.\n\n\"Do the duty and come back. That's the entire arrangement and I'm not going to dress it up.\""
     },
     "nl_why_breach": {
       "actions": [],
@@ -810,7 +810,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go.",
+          "label": "I'll go.",
           "next": "nl_accept_3"
         },
         {
@@ -821,7 +821,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because everyone who stays here goes up there once.\" She does not elaborate and does not look away either. \"You can go now or you can go in a year. Nobody has ever gone twice.\""
+      "text": "\"Because everyone who stays here goes up there once.\" She doesn't elaborate and doesn't look away either. \"You can go now or you can go in a year. Nobody has ever gone twice.\""
     },
     "nl_why_meter": {
       "_vine": {
@@ -834,7 +834,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will get it.",
+          "label": "I'll get it.",
           "next": "nl_accept_4"
         },
         {
@@ -858,7 +858,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go up tonight.",
+          "label": "I'll go up tonight.",
           "next": "nl_accept_6"
         },
         {
@@ -869,7 +869,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then it looks like us.\" She says it without heat. \"A repeater that fails is a repair job. A repeater that is attacked is a report, and a report is a reason, and a reason brings people up the valley with the paperwork already filled in.\""
+      "text": "\"Then it looks like us.\" She says it without heat. \"A repeater that fails is a repair job. A repeater that's attacked is a report, and a report is a reason, and a reason brings people up the valley with the paperwork already filled in.\""
     },
     "nl_why_stencil": {
       "_vine": {
@@ -893,7 +893,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because a board with a name on it is somebody else property lying in our yard, and a board with no name on it is firewood.\" She picks the pencil back up. \"The parts are ours now. The name never was, and I do not want it in the building.\""
+      "text": "\"Because a board with a name on it's somebody else property lying in our yard, and a board with no name on it's firewood.\" She picks the pencil back up. \"The parts are ours now. The name never was, and I don't want it in the building.\""
     },
     "nl_whyme": {
       "actions": [],
@@ -906,7 +906,7 @@
           "next": "nl_taught"
         }
       ],
-      "text": "\"Because you wound a drum in a shed for sixty credits and did not mention the walk.\" She says it as though it settles the matter, and it does. \"Everything after that was checking.\""
+      "text": "\"Because you wound a drum in a shed for sixty credits and didn't mention the walk.\" She says it as though it settles the matter, and it does. \"Everything after that was checking.\""
     },
     "notanswer": {
       "actions": [],
@@ -919,7 +919,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" She rules the line. \"It is a job description.\""
+      "text": "\"No.\" She rules the line. \"It's a job description.\""
     },
     "place": {
       "actions": [],
@@ -946,7 +946,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A works. Two hundred and ten people, four wheels turning off the dam, and a stores you can find anything in inside a minute.\" She nods at the board. \"That is the whole of it. We machine, we strip, we mend, and we eat together on the days somebody organises it.\"\n\nShe considers you.\n\n\"You were expecting a camp.\""
+      "text": "\"A works. Two hundred and ten people, four wheels turning off the dam, and a stores you can find anything in inside a minute.\" She nods at the board. \"That's the works, top to bottom. We machine, we strip, we mend, and we eat together on the days somebody organises it.\"\n\nShe considers you.\n\n\"You were expecting a camp.\""
     },
     "reckoning": {
       "actions": [],
@@ -973,11 +973,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Imre's room.\" She does not look up. \"Fuel, loads, distances, and how many go. It is a long way east and it is a bad road the whole distance, and the number at the bottom is how many of us it takes to get there with enough left to do anything when we arrive.\"\n\nShe rules another line.\n\n\"He has had it down to forty and back up to sixty-one twice this year. It is currently fifty-three.\""
+      "text": "\"Imre's room.\" She doesn't look up. \"Fuel, loads, distances, and how many go. It's a long way east and it's a bad road the whole distance, and the number at the bottom is how many of us it takes to get there with enough left to do anything when we arrive.\"\n\nShe rules another line.\n\n\"He has had it down to forty and back up to sixty-one twice this year. It's currently fifty-three.\""
     },
     "root": {
       "actions": [],
-      "first": "She finishes her line before she speaks. \"You came in off the northeast track, so you have walked past the fuel tank and the water can and you did not help yourself to either, which is more than most.\" She sets the chalk down in its groove. \"Maud Threlfall. I keep the board. What do you want?\"",
+      "first": "She finishes her line before she speaks. \"You came in off the northeast track, so you have walked past the fuel tank and the water can and you didn't help yourself to either, which is more than most.\" She sets the chalk down in its groove. \"Maud Threlfall. I keep the board. What do you want?\"",
       "options": [
         {
           "actions": [],
@@ -999,7 +999,7 @@
             }
           ],
           "enabled": true,
-          "label": "I am looking for work.",
+          "label": "I'm looking for work.",
           "next": "nl_offer_1"
         },
         {
@@ -1234,7 +1234,7 @@
             }
           ],
           "enabled": true,
-          "label": "It is on the mast.",
+          "label": "It's on the mast.",
           "next": "nl_report_6"
         },
         {
@@ -1254,7 +1254,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is this place?",
+          "label": "What's this place?",
           "next": "place"
         },
         {
@@ -1279,9 +1279,9 @@
           "next": "bye"
         }
       ],
-      "text": "\"You are back. Board is over there if you are looking for work.\"",
+      "text": "\"You're back. Board is over there if you're looking for work.\"",
       "text_by_relation": {
-        "close": "\"Good.\" She puts the chalk down properly, which from her is an event. \"Sit down and tell me something that is not a number.\"",
+        "close": "\"Good.\" She puts the chalk down properly, which from her is an event. \"Sit down and tell me something that isn't a number.\"",
         "familiar": "She hands you the straight edge without looking, the way you hand a thing to somebody who will hand it back. \"Hold that a moment.\"",
         "known": "\"There you are. Shut the door on the belting, it whines.\""
       }
@@ -1304,7 +1304,7 @@
           "next": "why"
         }
       ],
-      "text": "\"It is a shutdown.\" She finally looks at you properly, and her expression is patient rather than fierce. \"What did you want it to be?\""
+      "text": "\"It's a shutdown.\" She finally looks at you properly, and her expression is patient rather than fierce. \"What did you want it to be?\""
     },
     "where": {
       "actions": [],
@@ -1313,7 +1313,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You say that like it is a shutdown.",
+          "label": "You say that like it's a shutdown.",
           "next": "shutdown"
         },
         {
@@ -1331,7 +1331,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The far side of the world, where the thing that runs everything keeps itself.\" Flat, unhurried, entirely without ceremony. \"We are going to go and switch it off.\"\n\nShe checks the column against the board.\n\n\"Not this year. The rig fleet will not carry fifty-three that far and the fuel maths does not close. So we machine, and we sell parts east, and Imre does the sums again in the spring.\""
+      "text": "\"The far side of the world, where the thing that runs everything keeps itself.\" Flat, unhurried, entirely without ceremony. \"We're going to go and switch it off.\"\n\nShe checks the column against the board.\n\n\"Not this year. The rig fleet won't carry fifty-three that far and the fuel maths doesn't close. So we machine, and we sell parts east, and Imre does the sums again in the spring.\""
     },
     "why": {
       "actions": [],
@@ -1340,7 +1340,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That is not an answer.",
+          "label": "That isn't an answer.",
           "next": "notanswer"
         },
         {
@@ -1351,7 +1351,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I keep the board.\" A shrug that closes the subject without any rudeness in it at all. \"Reasons are not on the board. Hours are on the board.\""
+      "text": "\"I keep the board.\" A shrug that closes the subject without any rudeness in it at all. \"Reasons aren't on the board. Hours are on the board.\""
     }
   },
   "faction": "ideology_null",

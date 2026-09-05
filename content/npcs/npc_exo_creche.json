@@ -2,18 +2,18 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "They are working. Sit if you like.",
+    "They're working. Sit if you like.",
     "That one is Hopestill. You have met her, I think.",
-    "They are good. They are frighteningly good.",
-    "No, I do not have to keep order. I never have.",
+    "They're good. They're frighteningly good.",
+    "No, I don't have to keep order. I never have.",
     "Mind the tin. The chalk is counted."
   ],
-  "description": "A young woman sitting on a bench that is too low for her, surrounded by eleven children who are all drawing, and none of whom are talking, and none of whom seem to need to. She has chalk on her face and has not noticed.\n\nShe smiles at you and puts a finger to her lips, and the room is already silent.",
+  "description": "A young woman sitting on a bench that's too low for her, surrounded by eleven children who are all drawing, and none of whom are talking, and none of whom seem to need to. She has chalk on her face and hasn't noticed.\n\nShe smiles at you and puts a finger to her lips, and the room is already silent.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+      "text": "\"Mind how you go.\"\n\nThey are already turning back to the children."
     },
     "drawing": {
       "actions": [],
@@ -22,7 +22,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "It is very quiet in here.",
+          "label": "It's very quiet in here.",
           "next": "quiet"
         },
         {
@@ -33,7 +33,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The same thing.\" She is amused about it. \"They always do, for about a fortnight, and then it is something else for a fortnight.\"\n\nYou look. Eleven sheets of paper. Eleven versions of a shape with a great many straight lines going up out of it, and none of them can see each other's work from where they are sitting, and the lines are in the same order on all eleven.\n\n\"It is a nice one, this one,\" she says. \"Last month it was a horse.\""
+      "text": "\"The same thing.\" She's amused about it. \"They always do, for about a fortnight, and then it's something else for a fortnight.\"\n\nYou look. Eleven sheets of paper. Eleven versions of a shape with a great many straight lines going up out of it, and none of them can see each other's work from where they're sitting, and the lines are in the same order on all eleven.\n\n\"It's a nice one, this one,\" she says. \"Last month it was a horse.\""
     },
     "quiet": {
       "actions": [],
@@ -53,17 +53,17 @@
           "next": "bye"
         }
       ],
-      "text": "\"They are working.\"\n\nShe says it as though that settles it, and for her it does.\n\n\"They talk at supper. It is deafening. My ears go for an hour.\" She looks fondly round the room. \"In here they have got something to do, so they do it.\"\n\nOne of them, without looking up, pushes the chalk tin six inches to the left, and about a second later a child on the other side of the room reaches out and takes a piece from it without looking either."
+      "text": "\"They're working.\"\n\nShe says it as though that settles it, and for her it does.\n\n\"They talk at supper. It's deafening. My ears go for an hour.\" She looks fondly round the room. \"In here they have got something to do, so they do it.\"\n\nOne of them, without looking up, pushes the chalk tin six inches to the left, and about a second later a child on the other side of the room reaches out and takes a piece from it without looking either."
     },
     "root": {
       "actions": [],
-      "first": "\"Oh, hello.\" She stands, and eleven heads do not come up. \"You are the one from outside. Come in, they will not mind.\"",
+      "first": "\"Oh, hello.\" She stands, and eleven heads don't come up. \"You're the one from outside. Come in, they won't mind.\"",
       "options": [
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "It is very quiet in here.",
+          "label": "It's very quiet in here.",
           "next": "quiet"
         },
         {
@@ -81,11 +81,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Come in. They will not mind.\"",
+      "text": "\"Come in. They won't mind.\"",
       "text_by_relation": {
-        "close": "\"They have drawn you. Do not look, it is not finished.\"",
-        "familiar": "\"They asked whether you would come today,\" she says, and does not say who asked.",
-        "known": "\"Back again.\" Eleven heads do not come up."
+        "close": "\"They have drawn you. Don't look, it isn't finished.\"",
+        "familiar": "\"They asked whether you would come today,\" she says, and doesn't say who asked.",
+        "known": "\"Back again.\" Eleven heads don't come up."
       }
     }
   },

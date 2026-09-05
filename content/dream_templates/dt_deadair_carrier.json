@@ -5,7 +5,7 @@
     "The tone gets a fraction closer to a voice, and corrects itself."
   ],
   "cause": "drug",
-  "description": "There is nothing here and it is arriving steadily. Not darkness, but an even, unbroken tone of absolutely no information, filling everything at a comfortable volume. You have the strong impression that this is being transmitted deliberately, and well, by someone conscientious.",
+  "description": "There's nothing here and it's arriving steadily. Not darkness, but an even, unbroken tone of absolutely no information, filling everything at a comfortable volume. You have the strong impression that this is being transmitted deliberately, and well, by someone conscientious.",
   "drug_id": "drug_deadair",
   "fx": "static",
   "fx_intensity": 0.7,
@@ -15,14 +15,14 @@
     {
       "looks": [
         "Perfectly flat. Enormously well engineered.",
-        "There is something under it, at the very bottom, keeping time.",
+        "There's something under it, at the very bottom, keeping time.",
         "It stops. The stopping is much louder."
       ],
       "name": "the tone"
     },
     {
       "looks": [
-        "All of them, evenly, which is how you know it is being done properly.",
+        "All of them, evenly, which is how you know it's being done properly.",
         "Slightly more from behind, now.",
         "It has a source. The source is patient and has been at this a long time."
       ],

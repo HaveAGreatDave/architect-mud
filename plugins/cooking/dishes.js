@@ -112,7 +112,7 @@ export const DISHES = {
     optional: ['fat_or_oil', 'aromatic'],
     nameSlots: ['starchy_vegetable'],
     ceiling: 'excellent', difficulty: 4,
-    blurb: 'Boiled soft and beaten smooth. Fat is not optional, whatever the tag says.',
+    blurb: "Boiled soft and beaten smooth. Fat isn't optional, whatever the tag says.",
   },
   porridge: {
     noun: 'porridge', vessel: 'pot',
@@ -162,7 +162,7 @@ export const DISHES = {
     optional: [],
     nameSlots: ['soft_vegetable', 'aromatic'],
     ceiling: 'excellent', difficulty: 6,
-    blurb: 'Taken deliberately past brown. A hair further and it is bin food.',
+    blurb: "Taken deliberately past brown. A hair further and it's bin food.",
   },
   glazed_root: {
     noun: 'glaze', vessel: 'pan',
@@ -481,12 +481,12 @@ export const DISHES = {
     // to reward — the balance is the recipe.
     seasoning: 0,
     notes: {
-      aromatic: 'salt and pepper, garlic, brown sugar, paprika, cayenne — and the salt is not the flavour, it is the vehicle',
+      aromatic: "salt and pepper, garlic, brown sugar, paprika, cayenne — and the salt isn't the flavour, it's the vehicle",
     },
     steps: [
       'Everything dry and everything ground. A lump of anything in a rub is a lump of that thing in your dinner.',
-      'Salt first and by weight, because it is the only one you cannot walk back.',
-      'Sugar next. It is not there to sweeten it, it is there to burn — that is where the bark comes from.',
+      "Salt first and by weight, because it's the only one you can't walk back.",
+      "Sugar next. It isn't there to sweeten it, it's there to burn — that's where the bark comes from.",
       'Paprika for colour, cayenne for the argument, garlic for the rest of it.',
       'Mix until the colour is one colour. If you can still see the salt, keep going.',
     ],
@@ -598,14 +598,14 @@ export const DISHES = {
     nameFormat: '{0} chop',
     seasoning: 3,
     notes: {
-      preserved: 'a slab an inch and a half thick, smoked first — that is not optional',
+      preserved: "a slab an inch and a half thick, smoked first — that isn't optional",
       fruit: 'the sauce, and Malcolm will tell you which one',
     },
     steps: [
-      'Score the fat cap in a diamond, a quarter inch deep and no more. You are opening it up, not carving it.',
-      'Mustard all over it. You will not taste the mustard. That is not what the mustard is for.',
+      "Score the fat cap in a diamond, a quarter inch deep and no more. You're opening it up, not carving it.",
+      "Mustard all over it. You won't taste the mustard. That isn't what the mustard is for.",
       'Rub on heavy. Heavier than that.',
-      'Into the smoke, low, for an hour and a half. Go and do something else. Do not open the lid to look at it.',
+      "Into the smoke, low, for an hour and a half. Go and do something else. Don't open the lid to look at it.",
       'Grates as hot as they go, sauce on, and down until the fat cap chars and crisps.',
       'Off at a hundred and fifty and not a degree over. Past that you have made a shoe.',
     ],
@@ -636,8 +636,8 @@ export const DISHES = {
     },
     steps: [
       'Score the fat cap. Mustard, then rub, and far more rub than looks reasonable.',
-      'Two twenty-five, and then ten to fourteen hours. That is not a range you get to choose from — it is done when it is done.',
-      'It will stop climbing in temperature partway through and sit there for hours, sulking. This is normal. Do not turn the heat up. Do not.',
+      "Two twenty-five, and then ten to fourteen hours. That isn't a range you get to choose from — it's done when it's done.",
+      "It'll stop climbing in temperature partway through and sit there for hours, sulking. This is normal. Don't turn the heat up. Do not.",
       'Take it off when the bone comes away from it without an argument.',
       'Rest it, then pull it apart with two forks and your hands, and put the bark back through the middle so everybody gets some.',
     ],
@@ -742,15 +742,15 @@ export const DISHES = {
     // actually cooks this, and every verb in it is one the game already has:
     // `fill pot`, `cook pot`, `drain pot`, `stow penne in pan`, `plate pan`.
     steps: [
-      'Fill a pot at the tap and get it on the heat. Salt the water heavily, then the penne in. Do not stir it about.',
+      "Fill a pot at the tap and get it on the heat. Salt the water heavily, then the penne in. Don't stir it about.",
       'Butter or oil into the pan while that goes, and let it get properly hot.',
       'Tomato in and cook it down hard, until it darkens and stops being a sauce made of water.',
-      'Off the heat — genuinely off it — in with the gin. It will hiss and try to catch. That is why it is off the heat.',
+      "Off the heat — genuinely off it — in with the gin. It'll hiss and try to catch. That's why it's off the heat.",
       'Back on low. Cream in last, and only once the alcohol has gone.',
       'Drain the penne short of done and tip it into the pan, so the sauce catches in the ridges.',
     ],
     ceiling: 'masterful', difficulty: 9,
-    blurb: 'Tomato cooked down hard, a slug of gin off the heat, cream in last. The alcohol goes, the juniper stays, and the sauce clings to the ridges the way it is supposed to.',
+    blurb: "Tomato cooked down hard, a slug of gin off the heat, cream in last. The alcohol goes, the juniper stays, and the sauce clings to the ridges the way it's supposed to.",
   },
   // Baked macaroni and cheese, the way the soup kitchen under St Garneau's makes
   // it: three cheeses if three can be got, a milk custard poured down through it,
@@ -790,10 +790,10 @@ export const DISHES = {
     notes: {
       dry_starch: 'a whole box for a tray, boiled short and drained, since it has forty minutes in the oven still to go',
       dairy: 'three kinds if three can be got: one sharp, one that pulls, one that melts smooth',
-      liquid: 'milk, out of the cold a while before it meets the eggs, and a spoon of cream with it if there is any',
+      liquid: "milk, out of the cold a while before it meets the eggs, and a spoon of cream with it if there's any",
       egg: 'beaten into the milk, and the reason the tray cuts into squares',
       fat_or_oil: 'butter, melted into the custard, and more of it for the tray',
-      aromatic: 'mustard powder and salt, which you will not taste and are not meant to',
+      aromatic: "mustard powder and salt, which you won't taste and aren't meant to",
     },
     // TWO VESSELS, and the method says so, same as penne alla gin. The macaroni
     // boils in a POT and the dish is built in the TRAY, and the two only meet
@@ -801,17 +801,17 @@ export const DISHES = {
     // has: `fill pot`, `cook pot`, `drain pot`, `stow macaroni in tray`,
     // `cook tray`, `plate tray`.
     steps: [
-      'Butter the tray first, corners and all. That is the difference between serving it and chiselling it out.',
+      "Butter the tray first, corners and all. That's the difference between serving it and chiselling it out.",
       'Fill a pot at the tap and get it on the heat. Salt the water heavily, a slug of oil in, then the macaroni.',
       'Boil it short and drain it while it still has some fight in it. It has most of an hour in the oven ahead of it, and soft macaroni is a thing you did rather than a thing that happened to you.',
-      'Beat the eggs into the milk, mustard powder and salt through it, and the butter melted in last. That is the custard, and it is what makes the tray cut into squares instead of running off the spoon.',
+      "Beat the eggs into the milk, mustard powder and salt through it, and the butter melted in last. That's the custard, and it's what makes the tray cut into squares instead of running off the spoon.",
       'All the cheese into one bowl and mixed together before any of it goes near the tray, so no square comes out being only the cheap one.',
-      'Half the macaroni into the tray, half the cheese over that, then the rest of the macaroni. Do not stir it into one thing. The layers are the entire argument.',
+      "Half the macaroni into the tray, half the cheese over that, then the rest of the macaroni. Don't stir it into one thing. The layers are the entire argument.",
       'Custard over the lot, slowly, until it comes up level through the macaroni. The last of the cheese on top.',
       'In until the top browns and the middle has stopped wobbling. Then leave it standing ten minutes, which is the hardest step in it.',
     ],
     ceiling: 'masterful', difficulty: 6,
-    blurb: 'Three cheeses, a milk custard poured down through it, and most of an hour in the oven. It comes out of the tray in squares, and that is the whole case for making it this way.',
+    blurb: 'Three cheeses, a milk custard poured down through it, and most of an hour in the oven. It comes out of the tray in squares instead of running off the spoon.',
   },
   ramen: {
     noun: 'ramen', vessel: 'pot',
@@ -825,11 +825,11 @@ export const DISHES = {
     // slot and stays variable; the broth never was.
     nouns: { dry_starch: 'ramen noodles', liquid: 'stock' },
     notes: {
-      liquid: 'stock, and it is the whole dish, so make it properly',
+      liquid: "stock, and it's the whole dish, so make it properly",
       dry_starch: 'in last, and barely cooked',
     },
     steps: [
-      'Get the stock hot and hold it at a whisper. Boiling it is how you get cloudy, bitter stock.',
+      "Get the stock hot and hold it at a whisper. Boiling it's how you get cloudy, bitter stock.",
       'Everything that needs cooking goes in the stock, not the bowl.',
       'Noodles in for three minutes. Three. They keep cooking in the bowl.',
       'Arrange the toppings on top rather than stirring them through. It matters, and you know it matters.',
@@ -912,7 +912,7 @@ export const UNKNOWN_DISH = {
   nameSlots: [],
   ceiling: SLOP_CEILING,
   difficulty: 3,
-  blurb: 'Edible. That is the whole of the praise available.',
+  blurb: "Edible. That's the whole of the praise available.",
 };
 
 // ---------------------------------------------------------------------------
@@ -1476,7 +1476,7 @@ export function describeDish(key, template, secondsPerKg = 360, itemInfo = null)
   // just withholding, and a real cookbook names the bottle.
   if (t.keyItems?.length) {
     const named = t.keyItems.map(id => (itemInfo?.(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' ')));
-    lines.push(`<span class="text-dim">Will not work without:</span> ${named.join(' and ')} — no substitutions, that is what makes it this dish`);
+    lines.push(`<span class="text-dim">Won't work without:</span> ${named.join(' and ')} — no substitutions, that's what makes it this dish`);
   }
   lines.push(`<span class="text-dim">Difficulty:</span> ${t.difficulty}/10 · <span class="text-dim">best possible:</span> ${bestPossibleBand(t, KNOWN_RECIPE_BONUS) || '—'}`);
   return lines.join('\n');
@@ -1511,14 +1511,14 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
 
     if (typeof t.noun !== 'string' || !t.noun.trim()) errors.push(`${at('noun')} must be a non-empty string`);
     if (t.vessel !== null && !VESSEL_KINDS.includes(t.vessel)) errors.push(`${at('vessel')} must be null or one of ${VESSEL_KINDS.join('/')} — got ${t.vessel}`);
-    if (!QUALITY_BANDS.includes(t.ceiling)) errors.push(`${at('ceiling')} is not a quality band — got ${t.ceiling}`);
+    if (!QUALITY_BANDS.includes(t.ceiling)) errors.push(`${at('ceiling')} isn't a quality band — got ${t.ceiling}`);
     if (!Number.isFinite(t.difficulty) || t.difficulty < 1) errors.push(`${at('difficulty')} must be >= 1 — got ${t.difficulty}`);
 
     const needs = t.needs || {};
     if (!Object.keys(needs).length) errors.push(`${at('needs')} is empty — a dish that requires nothing matches everything`);
 
     for (const [profile, need] of Object.entries(needs)) {
-      if (!PROFILES[profile]) errors.push(`${at(`needs.${profile}`)} is not a known food profile`);
+      if (!PROFILES[profile]) errors.push(`${at(`needs.${profile}`)} isn't a known food profile`);
       const [min, max] = range(need);
       // Whole numbers WERE the rule, back when one ingredient was one unit. A
       // unit is a mass now, so "half a unit" is a thing an author can mean and a
@@ -1541,7 +1541,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     // the dish doesn't mention at all is a rule with nothing behind it.
     for (const [profile, want] of Object.entries(t.requires || {})) {
       if (!PROFILES[profile]) errors.push(`${at('requires')} names unknown profile "${profile}"`);
-      else if (!needs[profile]) errors.push(`${at('requires')} narrows "${profile}", which this dish does not require`);
+      else if (!needs[profile]) errors.push(`${at('requires')} narrows "${profile}", which this dish doesn't require`);
       if (typeof want !== 'string' || !want.trim()) errors.push(`${at(`requires.${profile}`)} must be a non-empty noun`);
       // Say it once. `nouns` is the display half of the same statement and the
       // two disagreeing means the card names one thing and the matcher demands
@@ -1580,7 +1580,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
         // whole catalog already uses for ids. The order of this list is the
         // order the thing is made in, which is why it can't be two arrays.
         if (String(m).startsWith('item_')) {
-          if (!(t.keyItems || []).includes(m)) errors.push(`${where} composes "${m}", which is not one of this dish's keyItems`);
+          if (!(t.keyItems || []).includes(m)) errors.push(`${where} composes "${m}", which isn't one of this dish's keyItems`);
         } else if (!needs[m]) {
           errors.push(`${where} composes "${m}", which this dish doesn't require`);
         }
@@ -1595,7 +1595,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
       // index can't drift from the method, and a copy always does.
       for (const i of part.steps || []) {
         if (!Number.isInteger(i) || i < 0 || i >= (t.steps || []).length) {
-          errors.push(`${where}.steps[${i}] is not an index into this dish's ${(t.steps || []).length} steps`);
+          errors.push(`${where}.steps[${i}] isn't an index into this dish's ${(t.steps || []).length} steps`);
         }
       }
       // A part's steps are ALSO how the runbook labels each load step, pairing
@@ -1619,7 +1619,7 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     if (t.keyItems !== undefined) {
       if (!Array.isArray(t.keyItems) || !t.keyItems.length) errors.push(`${at('keyItems')} must be a non-empty array of item ids when present`);
       else for (const id of t.keyItems) {
-        if (typeof id !== 'string' || !id.startsWith('item_')) errors.push(`${at('keyItems')} entry "${id}" is not an item id`);
+        if (typeof id !== 'string' || !id.startsWith('item_')) errors.push(`${at('keyItems')} entry "${id}" isn't an item id`);
       }
     }
     if (t.nameFormat !== undefined && typeof t.nameFormat !== 'string') errors.push(`${at('nameFormat')} must be a string`);

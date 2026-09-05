@@ -101,7 +101,7 @@
     "battle_cries": [
       "$enemy breaks the surface and is already attached.",
       "$enemy grinds its rings of teeth in a slow, wet rotation.",
-      "$enemy does not let go of $player. It has never let go of anything."
+      "$enemy doesn't let go of $player. It has never let go of anything."
     ],
     "first_strike_delay_ms": 400
   },

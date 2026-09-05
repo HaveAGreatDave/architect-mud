@@ -1,7 +1,7 @@
 {
   "channel_type": "playlist",
   "commercial_pool": [],
-  "description": "Not a station. The input on the back of the set that whatever is under it is plugged into.",
+  "description": "Not a station. The input on the back of the set that whatever is under it's plugged into.",
   "enabled": 1,
   "id": "ch_0_vcr",
   "idle_broadcast_id": null,

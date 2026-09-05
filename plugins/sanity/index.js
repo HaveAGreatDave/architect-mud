@@ -96,8 +96,8 @@ const VOICE_CHANCE = { 1: 0.18, 2: 0.35, 3: 0.6 };
 const ROOM_WARPS = [
   'The proportions are wrong. The far wall is further than the room is deep, and you can see both facts at once.',
   'Everything here is very slightly too clean, as though it was assembled recently and quickly, for you.',
-  'You have the strong sense the room is only rendered where you are looking, and is not bothering elsewhere.',
-  'The room is the right room. It is simply not where it was, and it is being patient about that.',
+  "You have the strong sense the room is only rendered where you're looking, and isn't bothering elsewhere.",
+  "The room is the right room. It's simply not where it was, and it's being patient about that.",
   'Every surface has the faint give of something breathing very slowly.',
   'You have been here before. You have been here for some time. You may not have left.',
 ];
@@ -123,12 +123,12 @@ const CREEP_WHISPERS = [
   'You could swear someone just said your name. Nobody did.',
   'The shadows in the corner sit wrong, as if something is folded into them.',
   'For a heartbeat the walls seem to breathe, slow and wet.',
-  'A cold certainty settles over you: you are being watched.',
-  'The light flickers in a way the light should not flicker.',
+  "A cold certainty settles over you: you're being watched.",
+  "The light flickers in a way the light shouldn't flicker.",
   'You hear footsteps behind you, matched exactly to your own.',
 ];
 const HALLUC_WHISPERS = [
-  'It is standing right behind you. You feel its breath on your neck.',
+  "It's standing right behind you. You feel its breath on your neck.",
   'The faces in the room turn to look at you all at once, then look away.',
   'Something whispers, close and clear: "Almost. Almost time."',
   'Your own hands look like they belong to someone else.',
@@ -137,11 +137,11 @@ const HALLUC_WHISPERS = [
   'Every reflection is a half-second late, and smiling.',
 ];
 const INSANE_WHISPERS = [
-  'THEY ARE ALL HERE THEY HAVE ALWAYS BEEN HERE they are laughing they are —',
-  'The room turns inside out. You are outside your own skin, watching.',
-  'A thousand voices agree, in perfect unison, that you should not exist.',
-  'You cannot remember your name. Something else is wearing it now.',
-  'The screaming is coming from your own mouth and you cannot make it stop.',
+  "THEY ARE ALL HERE THEY HAVE ALWAYS BEEN HERE they're laughing they are —",
+  "The room turns inside out. You're outside your own skin, watching.",
+  "A thousand voices agree, in perfect unison, that you shouldn't exist.",
+  "You can't remember your name. Something else is wearing it now.",
+  "The screaming is coming from your own mouth and you can't make it stop.",
 ];
 
 // ── Phantom roster for the hallucination band. Distinct from the wraithdust
@@ -152,28 +152,28 @@ const DREAD_PHANTOMS = [
   {
     name: 'a figure made of static', kind: 'person', hp: 8,
     arrive: 'A figure of grey static resolves out of the far wall and stands watching you.',
-    look: 'It is roughly a person, but it will not hold a shape — features boiling, hands too long. Where its eyes should be there is only more static.',
-    talk: 'The static figure does not answer. The hiss just gets louder.',
+    look: "It's roughly a person, but it won't hold a shape — features boiling, hands too long. Where its eyes should be there's only more static.",
+    talk: "The static figure doesn't answer. The hiss just gets louder.",
     depart: 'You blink, and the static figure is gone, leaving a ringing in your ears.',
   },
   {
     name: 'a woman with no face', kind: 'person', hp: 10,
-    arrive: 'A woman steps in from a doorway that was not there and stops, very close.',
-    look: 'She is dressed for somewhere ordinary. Above her collar there is smooth blank skin where a face should be, and it is tilted toward you as if listening.',
+    arrive: "A woman steps in from a doorway that wasn't there and stops, very close.",
+    look: "She is dressed for somewhere ordinary. Above her collar there's smooth blank skin where a face should be, and it's tilted toward you as if listening.",
     talk: 'She has no mouth to answer with. She only leans a little closer.',
-    depart: 'The faceless woman steps back through the doorway that is no longer there.',
+    depart: "The faceless woman steps back through the doorway that's no longer there.",
   },
   {
     name: 'something on all fours', kind: 'beast', hp: 14,
     arrive: 'Something the size of a large dog scuttles in low along the wall, joints bending the wrong way.',
-    look: 'It is pale and hairless and moves like an insect wearing a dog. It watches you sidelong, and its ribs work like a bellows.',
+    look: "It's pale and hairless and moves like an insect wearing a dog. It watches you sidelong, and its ribs work like a bellows.",
     depart: 'The thing on all fours pours itself into a gap too thin to hold it and is gone.',
   },
   {
     name: 'a crowd of silent onlookers', kind: 'person', hp: 12,
     arrive: 'The room fills, silently, with people standing shoulder to shoulder, all facing you.',
     look: 'Dozens of them, grey and still, packed impossibly into the space. Not one of them blinks. Not one of them breathes.',
-    talk: 'The crowd does not answer. As one, they take a single step closer.',
+    talk: "The crowd doesn't answer. As one, they take a single step closer.",
     depart: 'You look away for an instant, and when you look back the crowd has simply never been there.',
   },
 ];
@@ -235,7 +235,7 @@ function conjurePhantom(player, st) {
   const spec = {
     id, name: tpl.name, kind: tpl.kind === 'beast' ? 'beast' : 'person',
     hp: tpl.hp ?? 8, hp_max: tpl.hp ?? 8,
-    look: tpl.look || "It does not look quite right, though you couldn't say how.",
+    look: tpl.look || "It doesn't look quite right, though you couldn't say how.",
     talk: tpl.talk, depart: tpl.depart,
     zone: player.current_zone,
   };

@@ -1,10 +1,10 @@
 {
   "asks": [
     "When were you last outside?",
-    "Do you know what time it is really?",
+    "Do you know what time it's really?",
     "Can you feel the heat of it?"
   ],
-  "description": "A hole punched clean through the roof onto an enormous open sky, and the light coming down through it is daylight, whatever the hour is where you are standing.",
+  "description": "A hole punched clean through the roof onto an enormous open sky, and the light coming down through it's daylight, whatever the hour is where you're standing.",
   "drug_id": "drug_mescaline",
   "emotes": [
     "{it} throws the beam a hand further across the floor.",
@@ -22,8 +22,8 @@
   "matches": "light",
   "name": "a hole through to the sky",
   "says": [
-    "It is the afternoon up there. It usually is.",
-    "Stand in it if you want. That is what it is for.",
+    "It's the afternoon up there. It usually is.",
+    "Stand in it if you want. It won't mind either way.",
     "The building is the temporary part."
   ],
   "scope": "object"

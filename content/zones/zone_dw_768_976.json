@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "An open-fronted smithy with a hand-cranked blower on the hearth and a drop hammer worked off the overhead line shaft. Tongs on the wall in order of jaw. A quench trough with a skin on it. What comes out of here is made to be taken apart again: everything on the finished rack is pinned or bolted, and there is not one weld on any of it that could not be cut with a hacksaw by somebody standing where you are.",
+  "description": "An open-fronted smithy with a hand-cranked blower on the hearth and a drop hammer worked off the overhead line shaft. Tongs on the wall in order of jaw. A quench trough with a skin on it. What comes out of here is made to be taken apart again: everything on the finished rack is pinned or bolted, and there isn't one weld on any of it that couldn't be cut with a hacksaw by somebody standing where you are.",
   "exits": {
     "east": "zone_dw_769_976",
     "north": "zone_dw_768_975",

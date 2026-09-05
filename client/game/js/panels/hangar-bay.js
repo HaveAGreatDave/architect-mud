@@ -953,12 +953,12 @@ function wire() {
     if (act === 'tune-reset') { B.tune = { mixture: 0, pitch: 0, boost: 0, cg: 0 }; paintTuning(); return; }
     if (act === 'sell') {
       const c = (B.data.craft || []).find(x => x.id === B.selId);
-      if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her — cannot be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
+      if (c) showConfirmDialog({ title: 'Sell Aircraft', prompt: `Sell the ${c.tail} outright? This deletes her — can't be undone.`, command: `sell ${c.id}`, confirmLabel: 'Sell' });
       return;
     }
     if (act === 'cancel_rental') {
       const c = (B.data.craft || []).find(x => x.id === B.selId);
-      if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental — cannot be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
+      if (c) showConfirmDialog({ title: 'Cancel Rental', prompt: `Hand back the ${c.tail}? This deletes the rental — can't be undone.`, command: `cancelrental ${c.id}`, confirmLabel: 'Return' });
       return;
     }
     if (act === 'paint-apply') { const c = (B.data.craft || []).find(x => x.id === B.selId); if (c) sendCmdSilent(`paintset ${c.id} ${B.work.base} ${B.work.trim} ${B.work.pattern} ${B.work.finish} ${B.work.cabin} ${B.work.uphol} ${B.work.decal || 'none'} ${B.work.accent || '#c22b8c'} ${B.work.ground || '#eee7d6'}`); return; }
@@ -1431,7 +1431,7 @@ function ensureStyles() {
     box-shadow:inset 0 1px 2px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); overflow:hidden; }
   #hb-root .hb-hullbar em { display:block; height:100%; border-radius:3px; box-shadow:0 0 7px currentColor; transition:width .25s ease-out; }
   /* Segmented nav — a joined pill bar; the active tab lifts out of the recessed track
-     and lights a hairline bar along its bottom edge (the "you are here" cue). */
+     and lights a hairline bar along its bottom edge (the "you're here" cue). */
   #hb-root .hb-bench-tabs { display:flex; gap:4px; flex-wrap:wrap; padding:4px; border-radius:9px;
     background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
   #hb-root .hb-tab { position:relative; flex:1 1 auto; display:flex; align-items:center; justify-content:center; gap:6px;

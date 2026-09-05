@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A client died on Tuesday and came out of the tank on Wednesday, and something in the print is not what went in.\n\nNobody at the Registry will say the word wrong. The word they use is variance.\n\nIves wants the file pulled and the Sub-Registrar asked, in that order, by somebody whose own restore is recent enough to make the asking uncomfortable.",
+  "description": "A client died on Tuesday and came out of the tank on Wednesday, and something in the print isn't what went in.\n\nNobody at the Registry will say the word wrong. The word they use is variance.\n\nIves wants the file pulled and the Sub-Registrar asked, in that order, by somebody whose own restore is recent enough to make the asking uncomfortable.",
   "fail_on": [],
   "id": "quest_asc_15",
   "meta": {},
@@ -10,7 +10,7 @@
       "desc": "Go down to the hall and look at the tank it came out of.",
       "emotes": [
         "{who} counts the tanks along the row and gets a different number than the plate says, twice.",
-        "{who} stands in front of one with a recent date on it and does not enjoy the arithmetic."
+        "{who} stands in front of one with a recent date on it and doesn't enjoy the arithmetic."
       ],
       "id": "o_floor",
       "taskSeconds": 25,

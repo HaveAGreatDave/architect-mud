@@ -212,7 +212,7 @@ async function cmdBorrow(args, raw, player) {
     refresh: true,
     message: `You slide <b>${titleOf(id)}</b> out of its pigeonhole. A card goes in where it was, your name on it and a date under it.\n`
       + `<span class="success">Due back in ${LOAN_DAYS} days.</span> <span class="text-dim">₵${RENTAL_FEE} gone, ₵${player.credits} left. `
-      + `After that it's ₵${LATE_FEE_PER_DAY} a day, and he does not forget.</span>`,
+      + `After that it's ₵${LATE_FEE_PER_DAY} a day, and he doesn't forget.</span>`,
   };
 }
 
@@ -264,7 +264,7 @@ async function cmdReturn(args, raw, player) {
 
   let msg = `You put <b>${titleOf(row.item_id)}</b> back in its hole and the card comes out.`;
   if (!over) {
-    msg += `\n<span class="success">On time. He checks the date, says nothing, and that is as close to praise as this gets.</span>`;
+    msg += `\n<span class="success">On time. He checks the date, says nothing, and that's as close to praise as this gets.</span>`;
   } else if (writtenOff) {
     msg += `\n<span class="warning">${over} days.</span> "I had written that off," he says, not unkindly, and charges you for the print anyway. <b>₵${fee}</b>.`;
   } else {

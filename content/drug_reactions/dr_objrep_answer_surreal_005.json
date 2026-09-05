@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Yes. That is the part I could not get at from here.",
+  "self_line": "Yes. That's the part I couldn't get at from here.",
   "source": "object_reply_answer",
   "tone": "surreal"
 }

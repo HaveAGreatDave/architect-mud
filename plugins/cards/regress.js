@@ -28,7 +28,7 @@ export default async function regress({ run, check, getPlayer }) {
       ladder(['short one.', long], 40) === 'short one.',
       JSON.stringify(ladder(['short one.', long], 40)));
 
-    check('ladder returns null when a REQUIRED clause cannot fit',
+    check("ladder returns null when a REQUIRED clause can't fit",
       ladder([long], 40, 1) === null, 'expected null');
 
     const built = ladder(['aaa.', 'bbb.', 'ccc.'], 9);
@@ -119,7 +119,7 @@ export default async function regress({ run, check, getPlayer }) {
       JSON.stringify(thinNpc.text_blocks));
     // ⚠ TWO PROSE REGIONS AND ONE SPOKEN ONE, AND THE SPOKEN ONE IS ALLOWED TO BE
     // EMPTY. Nothing on a card is ever set as speech unless somebody said it.
-    check('an NPC with nothing to say prints no quote region at all, and does not crash',
+    check("an NPC with nothing to say prints no quote region at all, and doesn't crash",
       thinNpc.text_blocks.quote === '' && thinNpc.text_blocks.origin === '',
       JSON.stringify({ q: thinNpc.text_blocks.quote, o: thinNpc.text_blocks.origin }));
     // The draw. Struck enough times, a talker with several lines must produce more
@@ -129,7 +129,7 @@ export default async function regress({ run, check, getPlayer }) {
       chitchat: ['Door holds.', 'Long shift.', 'Mind the step.', 'You again.'] };
     const drawn = new Set();
     for (let i = 0; i < 60; i++) drawn.add(buildNpcCard(talker).text_blocks.quote);
-    check('⚠ an NPC with several lines does not print the same one on every card', drawn.size > 1,
+    check("⚠ an NPC with several lines doesn't print the same one on every card", drawn.size > 1,
       [...drawn].join(' | ').slice(0, 120));
     check('…and every draw is one of the lines they actually have',
       [...drawn].every(d => talker.chitchat.includes(d)), [...drawn].join(' | ').slice(0, 120));
@@ -145,7 +145,7 @@ export default async function regress({ run, check, getPlayer }) {
       mixed.speech.length === 2 && mixed.stage.length === 2
       && mixed.speech.includes('Keep walking.') && mixed.stage.includes('wipes down a coolant line'),
       JSON.stringify(mixed));
-    check('⚠ a line that is BOTH gives up both halves rather than losing one',
+    check("⚠ a line that's BOTH gives up both halves rather than losing one",
       mixed.stage.includes('thumbs the radio.') && mixed.speech.some(s => /Weather/.test(s)),
       JSON.stringify(mixed));
     const doer = buildNpcCard({ id: 'npc_d', name: 'Vesper Kade', description: 'A person.', flags: {}, sex: 'female',
@@ -157,7 +157,7 @@ export default async function regress({ run, check, getPlayer }) {
       /Nuts to That/.test(doer.text_blocks.origin), doer.text_blocks.origin);
     // ⚠ THE REGION IS SET AT RENDER, NOT AT STRIKE, so every card ever minted gets
     // the rule — including the ones in binders. narration() is that one place.
-    check('⚠ narration never returns a quoted string, whatever it is handed',
+    check("⚠ narration never returns a quoted string, whatever it's handed",
       !/^["\u201C]/.test(narration('Vesper Kade', 'A tall woman in a wet coat.'))
       && !/^["\u201C]/.test(narration('Vesper Kade', '"A tall woman in a wet coat."')),
       narration('Vesper Kade', '"A tall woman in a wet coat."'));
@@ -184,7 +184,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('⚠ quoteOrNothing keeps the silence copy off a card', quoteOrNothing([]) === '',
       JSON.stringify(quoteOrNothing([])));
 
-    const enemyCard = buildEnemyCard({ id: 'en_x', name: 'Thing', description: 'It is a thing.', hp_max: 40, hit: 3, dodge: 2, weapon: [{ min: 1, max: 5 }] }, { spawn_weight: 100, max_count: 4, zones: 3 });
+    const enemyCard = buildEnemyCard({ id: 'en_x', name: 'Thing', description: "It's a thing.", hp_max: 40, hit: 3, dodge: 2, weapon: [{ min: 1, max: 5 }] }, { spawn_weight: 100, max_count: 4, zones: 3 });
     // ⚠ `body` is VESTIGIAL — it selected a silhouette for the portrait face, which
     // was deleted on 2026-09-02. The column and this check stay because the value is
     // still written at mint and a NULL for enemies is still the honest answer; if you
@@ -198,7 +198,7 @@ export default async function regress({ run, check, getPlayer }) {
     const winged = buildEnemyCard({ id: 'en_w', name: 'Drifter', description: 'It circles.', hp_max: 30, hit: 2, dodge: 2,
       body_parts: [{ part: 'head', weight: 10 }, { part: 'left_wing', weight: 20 }, { part: 'right_wing', weight: 20 },
         { part: 'talons', weight: 16 }, { part: 'breast', soak: { energy: 2 }, weight: 26 }] }, { spawn_weight: 100 });
-    check('…and says what it is made of instead', /wing/.test(winged.text_blocks.anatomy || ''), winged.text_blocks.anatomy);
+    check("…and says what it's made of instead", /wing/.test(winged.text_blocks.anatomy || ''), winged.text_blocks.anatomy);
     check('⚠ a matched pair is one plural, not "a left wing and a right wing"',
       /wings/.test(winged.text_blocks.anatomy || '') && !/left wing/.test(winged.text_blocks.anatomy || ''),
       winged.text_blocks.anatomy);
@@ -264,7 +264,7 @@ export default async function regress({ run, check, getPlayer }) {
       fieldMarks('He is waiting for someone.') === '', fieldMarks('He is waiting for someone.'));
     // "a piercing shriek" / "piercing eyes" are everywhere in the roster. A mark
     // table that fires on them invents a nose ring for half the world.
-    check('common prose does not trip a false mark',
+    check("common prose doesn't trip a false mark",
       fieldMarks('Her piercing gaze follows you across the room.') === '',
       fieldMarks('Her piercing gaze follows you across the room.'));
     check('marks never exceed their budget, and never cut one in half',
@@ -311,7 +311,7 @@ export default async function regress({ run, check, getPlayer }) {
     // because the click handler bails on an empty data-target and the BUY button
     // silently did nothing for as long as it was one.
     const look = await run('look');
-    check('the machine does not paint a panel into the room description',
+    check("the machine doesn't paint a panel into the room description",
       !/cardmach/.test(look?.message || ''), (look?.message || '').slice(0, 160));
     // The click is the way in: every shipped machine carries
     // `flags.click_cmd: buypack`, so its room-list entry opens the machine's
@@ -369,7 +369,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('⚠ a lowercase written line is accepted by the press', r?.type === 'output' && /will read/.test(r.message || ''),
       JSON.stringify(r)?.slice(0, 160));
     r = await run('mint');
-    check('…and it is the line on the card', /sometimes the machine is right/.test(r?.face || ''),
+    check("…and it's the line on the card", /sometimes the machine is right/.test(r?.face || ''),
       (r?.face || '').slice(0, 200));
     r = await run('mintquote clear');
     check('a quote can be cleared', r?.type === 'output' && /cleared/i.test(r.message || ''),
@@ -490,7 +490,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('hotness is fixed by the seed', isHotSeed(seedA) === isHotSeed(seedA), 'a sleeve changed its mind');
     const beforeAsk = rollSleeve(mulberry32(seedA));
     isHotSeed(seedA); isHotSeed(seedA);
-    check('asking whether a sleeve is hot does not change the sleeve',
+    check("asking whether a sleeve is hot doesn't change the sleeve",
       JSON.stringify(rollSleeve(mulberry32(seedA))) === JSON.stringify(beforeAsk), 'the question moved the answer');
 
     let hotCount = 0;

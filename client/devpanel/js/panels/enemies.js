@@ -138,7 +138,7 @@ async function respawnAllZoneEnemies(zoneId) {
   await refreshEnemiesSection(zoneId);
 }
 async function deleteAllZoneSpawns(zoneId) {
-  if (!(await dpConfirm('Delete all enemy spawns from this zone? This cannot be undone.', { danger: true }))) return;
+  if (!(await dpConfirm("Delete all enemy spawns from this zone? This can't be undone.", { danger: true }))) return;
   const [spawnsData, liveData] = await Promise.all([
     directAPI(`/zones/${encodeURIComponent(zoneId)}/spawns`),
     directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`),

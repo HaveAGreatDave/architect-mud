@@ -2,7 +2,7 @@
   "appearance": {
     "extreme": "Both hands are double-thumbed and long-fingered, and they handle small objects the way most people handle a fork.",
     "obvious": "A second thumb sits opposite the first on each hand, shorter but working.",
-    "subtle": "There is an extra knuckle on the outside of their palm."
+    "subtle": "There's an extra knuckle on the outside of their palm."
   },
   "blocks_slots": [
     "hands"

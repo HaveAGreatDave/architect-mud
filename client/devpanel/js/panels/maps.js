@@ -350,7 +350,7 @@ async function openBigMap(mode = 'zones') {
     calls.push(API('/environment/power/generators').catch(() => []));
   }
   const [mapData, powerMap, generators] = await Promise.all(calls);
-  if (!mapData || mapData.error) { toast('Could not load map data', true); return; }
+  if (!mapData || mapData.error) { toast("Couldn't load map data", true); return; }
   bigMapOverlayData = {
     map: mapData.map,
     zones: new Map((mapData.zones || []).map(z => [z.id, { ...z, exits: z.exits || {}, grid_z: z.grid_z ?? 0 }])),
@@ -1247,8 +1247,8 @@ function _terrainBrush(zoneId, erase) {
 const TERRAIN_TILE_DEFAULTS = {
   dirt_road: { color: '#c9a86a', bg: '#241d13', ambient: 'outdoors', name: 'Dirt Track', desc: 'A graded dirt lane, packed hard by tyres and scored with old ruts. No kerb, no paint — just where the driving wears the ground down.' },
   redrock: { color: '#b5744a', bg: '#2a1c16', ambient: 'wasteland', name: 'The Rust Flats', wild: true, rad: 30, desc: 'Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.' },
-  scrub:   { color: '#8f9256', bg: '#242a1c', ambient: 'wasteland', name: 'Dead Scrub',      wild: true, rad: 25, desc: 'Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there is no wind behind it.' },
-  ash:     { color: '#8a857f', bg: '#211f1d', ambient: 'wasteland', name: 'The Ash Barrens', wild: true, rad: 35, desc: 'A grey waste of settled ash, soft and deep, printed with the tracks of things that passed and did not come back.' },
+  scrub:   { color: '#8f9256', bg: '#242a1c', ambient: 'wasteland', name: 'Dead Scrub',      wild: true, rad: 25, desc: "Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there's no wind behind it." },
+  ash:     { color: '#8a857f', bg: '#211f1d', ambient: 'wasteland', name: 'The Ash Barrens', wild: true, rad: 35, desc: "A grey waste of settled ash, soft and deep, printed with the tracks of things that passed and didn't come back." },
   marsh:   { color: '#5f7a4a', bg: '#1c241a', ambient: 'wasteland', name: 'The Toxic Marsh', wild: true, rad: 30, desc: 'Murky water pools between hummocks of sick green weed, slicked with a chemical sheen that never quite settles.' },
 };
 function _newTerrainTile(id, x, y, z, terr, mapId) {
@@ -2246,7 +2246,7 @@ function renderMapOverview() {
   // The Studio (npm run studio) is the file-authoring map tool — it edits
   // content/ directly, so what it draws is what ships. This panel edits the LIVE
   // DATABASE and the save-hook mirrors each edit into a file afterwards. Both
-  // work; what does not work is assuming they see each other. Say so, because
+  // work; what doesn't work is assuming they see each other. Say so, because
   // "I painted in the Studio and this map is stale" is the predictable failure
   // (map-pipeline-spec §10).
   let html = `<div style="margin:0 0 8px;padding:6px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:3px;color:var(--text-dim);font-size:11px;line-height:1.5">

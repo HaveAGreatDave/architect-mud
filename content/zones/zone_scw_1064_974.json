@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The floor of a lake that stopped being a lake a long time ago: pale silt baked into plates and curled at every edge, going away flat for a quarter of a mile. Your boots leave the first marks in it since the last rain. There is a crust of something white along the low side and it is not salt.",
+  "description": "The floor of a lake that stopped being a lake a long time ago: pale silt baked into plates and curled at every edge, going away flat for a quarter of a mile. Your boots leave the first marks in it since the last rain. There's a crust of something white along the low side and it isn't salt.",
   "exits": {
     "east": "zone_scw_1065_974",
     "north": "zone_scw_1064_973",

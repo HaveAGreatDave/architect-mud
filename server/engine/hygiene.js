@@ -29,7 +29,7 @@ import { emit } from './events.js';
 // `misOnly` entries are withheld from a viewer who hasn't opted into MIS — the
 // smell would otherwise be the tell that the whole surface exists.
 export const CONTAMINANT_SMELLS = {
-  feces:     { text: 'shit, and it is on somebody in this room',            strength: 9, source: 'feces' },
+  feces:     { text: "shit, and it's on somebody in this room",            strength: 9, source: 'feces' },
   urine:     { text: 'piss, soaked into cloth and going stale',             strength: 7, source: 'urine' },
   vomit:     { text: 'vomit dried into somebody\'s clothes',                strength: 7, source: 'vomit' },
   blood:     { text: 'blood, and not from a scratch',                       strength: 6, source: 'blood' },
@@ -41,7 +41,7 @@ export const CONTAMINANT_SMELLS = {
   // Wearing a drink somebody threw at you. Weaker than solvent and stronger
   // than grease, because everyone in the room knows exactly what it means.
   booze:     { text: 'spilled liquor, gone warm and sweet in the cloth',     strength: 5, source: 'chem' },
-  fuel:      { text: 'raw fuel, and it is on somebody\'s clothes',           strength: 8, source: 'chem' },
+  fuel:      { text: 'raw fuel, and it\'s on somebody\'s clothes',           strength: 8, source: 'chem' },
 };
 
 // ── Sweat ────────────────────────────────────────────────────────────────────
@@ -319,7 +319,7 @@ export function creatureFilthSmells(creatures, viewer, acuity = 0) {
       const prev = best.get('_laundry');
       const strength = Math.min(6, 2 + Math.round(laundry * 4));
       if (!prev || strength > prev.strength) {
-        best.set('_laundry', { text: 'clothes that have not been off somebody in weeks', strength, source: 'bodies' });
+        best.set('_laundry', { text: "clothes that haven't been off somebody in weeks", strength, source: 'bodies' });
       }
     }
     for (const s of sources) {
@@ -349,7 +349,7 @@ export function creatureFilthSmells(creatures, viewer, acuity = 0) {
       if (!prev || strength > prev.strength) {
         best.set('_grime', {
           text: grime > 0.8
-            ? 'somebody in here has not washed in a long time, and it has stopped being their own business'
+            ? "somebody in here hasn't washed in a long time, and it has stopped being their own business"
             : 'unwashed skin and old clothes',
           strength,
           source: 'bodies',

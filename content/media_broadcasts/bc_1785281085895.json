@@ -26,7 +26,7 @@
         },
         "next": "bsm_11",
         "style": "narration",
-        "text": "A hand presses to the glass from the inside. It is a very good hand. It has never held anything, yet.",
+        "text": "A hand presses to the glass from the inside. It's a very good hand. It has never held anything, yet.",
         "type": "say"
       },
       "bsm_11": {
@@ -105,7 +105,7 @@
         },
         "next": "bsm_19",
         "style": "raw",
-        "text": "Nothing in between. No tunnel, no light, no relatives. Just a bit of a gap, like nodding off on a tram.",
+        "text": "Nothing in between. I was waiting on a tunnel and a light and a couple of dead relatives. What I got was a gap, like nodding off on a tram.",
         "type": "say"
       },
       "bsm_19": {
@@ -163,7 +163,7 @@
         },
         "next": "bsm_24",
         "style": "raw",
-        "text": "The lads had a bet on how I'd go. Nobody had \"vending machine.\" I came back four hours later and settled it myself, which they did not enjoy.",
+        "text": "The lads had a bet on how I'd go. Nobody had \"vending machine.\" I came back four hours later and settled it myself, which they didn't enjoy.",
         "type": "say"
       },
       "bsm_24": {
@@ -494,7 +494,7 @@
           "y": 1680
         },
         "next": "bsm_55",
-        "text": "Halcyon Re-You™ activates on confirmed cessation only; deliberately triggering coverage is fraud, and is also, statistically, extremely popular · You return with your body, your memories and your debts, in that order of reliability · Impressions older than six months may omit recent relationships, grudges, PIN numbers and children · Halcyon returns the person, never the possessions; the city keeps whatever you were carrying and the city has always kept it · Personality drift of up to 11% falls within Halcyon's published tolerance and is not grounds for refund · In the unlikely event the original is recovered alive, Halcyon will contact both parties and requests that neither of you does anything hasty before we arrive · Halcyon has been watching you sleep for eleven years and has notes",
+        "text": "Halcyon Re-You™ activates on confirmed cessation only; deliberately triggering coverage is fraud, and is also, statistically, extremely popular · You return with your body, your memories and your debts, in that order of reliability · Impressions older than six months may omit recent relationships, grudges, PIN numbers and children · Halcyon returns the person, never the possessions; the city keeps whatever you were carrying and the city has always kept it · Personality drift of up to 11% falls within Halcyon's published tolerance and isn't grounds for refund · In the unlikely event the original is recovered alive, Halcyon will contact both parties and requests that neither of you does anything hasty before we arrive · Halcyon has been watching you sleep for eleven years and has notes",
         "type": "ticker"
       },
       "bsm_55": {
@@ -514,7 +514,7 @@
         },
         "next": "bsm_57",
         "style": "narration",
-        "text": "The seal closes over the skyline like an eyelid, and holds, and does not blink.",
+        "text": "The seal closes over the skyline like an eyelid, and holds, and doesn't blink.",
         "type": "say"
       },
       "bsm_57": {
@@ -532,7 +532,7 @@
         },
         "next": "bsm_7",
         "style": "narration",
-        "text": "A white room with no corners. A row of tanks, softly lit, each one holding a person who is not currently needed.",
+        "text": "A white room with no corners. A row of tanks, softly lit, each one holding a person who isn't currently needed.",
         "type": "say"
       },
       "bsm_7": {
@@ -580,7 +580,7 @@
   "message_interval": 5,
   "messages": [
     {
-      "text": "A white room with no corners. A row of tanks, softly lit, each one holding a person who is not currently needed."
+      "text": "A white room with no corners. A row of tanks, softly lit, each one holding a person who isn't currently needed."
     },
     {
       "text": "Everybody gets one life. That was the arrangement. Nobody was asked, and nobody has ever been happy with theirs."
@@ -589,7 +589,7 @@
       "text": "So Halcyon changed the arrangement."
     },
     {
-      "text": "A hand presses to the glass from the inside. It is a very good hand. It has never held anything, yet."
+      "text": "A hand presses to the glass from the inside. It's a very good hand. It has never held anything, yet."
     },
     {
       "text": "Halcyon Re-You™. We take your impression now, while you're standing there breathing and signing things."
@@ -607,7 +607,7 @@
       "text": "I remember getting caught out in the rain without a hood, and I remember thinking, well, that was stupid. And then I remember the ceiling here."
     },
     {
-      "text": "Nothing in between. No tunnel, no light, no relatives. Just a bit of a gap, like nodding off on a tram."
+      "text": "Nothing in between. I was waiting on a tunnel and a light and a couple of dead relatives. What I got was a gap, like nodding off on a tram."
     },
     {
       "text": "Best thing about it? I got my whole twenties back and I already know how they end."
@@ -616,7 +616,7 @@
       "text": "A man in a work jacket, hands folded, both of them noticeably newer than his face."
     },
     {
-      "text": "The lads had a bet on how I'd go. Nobody had \"vending machine.\" I came back four hours later and settled it myself, which they did not enjoy."
+      "text": "The lads had a bet on how I'd go. Nobody had \"vending machine.\" I came back four hours later and settled it myself, which they didn't enjoy."
     },
     {
       "text": "Walking home with no boots and no coat, that's the humbling part. Halcyon gives you your life back. Your trousers are between you and the city."
@@ -673,13 +673,13 @@
       "text": "Halcyon Re-You™. Coverage begins the moment you stop, and so, thankfully, do you."
     },
     {
-      "text": "Halcyon Re-You™ activates on confirmed cessation only; deliberately triggering coverage is fraud, and is also, statistically, extremely popular · You return with your body, your memories and your debts, in that order of reliability · Impressions older than six months may omit recent relationships, grudges, PIN numbers and children · Halcyon returns the person, never the possessions; the city keeps whatever you were carrying and the city has always kept it · Personality drift of up to 11% falls within Halcyon's published tolerance and is not grounds for refund · In the unlikely event the original is recovered alive, Halcyon will contact both parties and requests that neither of you does anything hasty before we arrive · Halcyon has been watching you sleep for eleven years and has notes"
+      "text": "Halcyon Re-You™ activates on confirmed cessation only; deliberately triggering coverage is fraud, and is also, statistically, extremely popular · You return with your body, your memories and your debts, in that order of reliability · Impressions older than six months may omit recent relationships, grudges, PIN numbers and children · Halcyon returns the person, never the possessions; the city keeps whatever you were carrying and the city has always kept it · Personality drift of up to 11% falls within Halcyon's published tolerance and isn't grounds for refund · In the unlikely event the original is recovered alive, Halcyon will contact both parties and requests that neither of you does anything hasty before we arrive · Halcyon has been watching you sleep for eleven years and has notes"
     },
     {
       "text": "Halcyon Re-You™. When the first time wasn't good enough."
     },
     {
-      "text": "The seal closes over the skyline like an eyelid, and holds, and does not blink."
+      "text": "The seal closes over the skyline like an eyelid, and holds, and doesn't blink."
     }
   ],
   "morning_pools": null,

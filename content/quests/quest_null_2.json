@@ -1,10 +1,10 @@
 {
   "category": null,
-  "description": "Denholm keeps a schoolroom with no children in it. What is in it is a bench, a tray of parts, and a rule: nobody here owns a thing they cannot take apart. Threlfall wants you to sit down at it. She has not said what you are stripping and she has not said what happens if you cannot put it back.",
+  "description": "Denholm keeps a schoolroom with no children in it. What's in it's a bench, a tray of parts, and a rule: nobody here owns a thing they can't take apart. Threlfall wants you to sit down at it. She hasn't said what you're stripping and she hasn't said what happens if you can't put it back.",
   "fail_on": [],
   "id": "quest_null_2",
   "meta": {},
-  "name": "Nothing You Cannot Mend",
+  "name": "Nothing You Can't Mend",
   "objectives": [
     {
       "desc": "Sit down at the bench in the schoolroom and let Denholm hand you the tray.",

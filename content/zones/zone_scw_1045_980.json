@@ -5,7 +5,7 @@
     "She lays both hands flat on a rack and holds them there a while."
   ],
   "ambient_theme": "wasteland",
-  "description": "Half sunk into the ground with a turf roof and a heavy door set into the slope, and a padlock on it that is the only padlock in the Thornwarren. A thermometer on the frame and a log on a string, read four times a day, and the log is signed.",
+  "description": "Half sunk into the ground with a turf roof and a heavy door set into the slope, and a padlock on it that's the only padlock in the Thornwarren. A thermometer on the frame and a log on a string, read four times a day, and the log is signed.",
   "exits": {
     "east": "zone_scw_1046_980",
     "west": "zone_thorn_milkhouse"

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#272420",
-  "description": "A back room that is nine-tenths stock and one-tenth life: crates to the ceiling, a kettle, a chair, and a radio permanently tuned to whatever is being broadcast rather than whatever anyone wants. A ledger sits open on a crate, and the handwriting in it goes back further than the shop's paint.",
+  "description": "A back room that's nine-tenths stock and one-tenth life: crates to the ceiling, a kettle, a chair, and a radio permanently tuned to whatever is being broadcast rather than whatever anyone wants. A ledger sits open on a crate, and the handwriting in it goes back further than the shop's paint.",
   "exits": {
     "east": "zone_kessel_shop"
   },

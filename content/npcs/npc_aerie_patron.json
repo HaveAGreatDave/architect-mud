@@ -3,9 +3,9 @@
   "behaviour_graph": {},
   "chitchat": [
     "swirls something amber and watches the deep water with mild appetite.",
-    "\"Everything down there is inventory. It simply doesn't know it yet.\""
+    "\"Everything down there's inventory. It simply doesn't know it yet.\""
   ],
-  "description": "A platinum-tier shareholder in a suit that costs more than the building you were born in. He looks at the bay the way a cat looks at a fishbowl, and at you not at all. The building's staff call him Mr Brandt; he has never once asked what they are called.",
+  "description": "A platinum-tier shareholder in a suit that costs more than the building you were born in. He looks at the bay the way a cat looks at a fishbowl, and at you not at all. The building's staff call him Mr Brandt; he has never once asked what they're called.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -18,7 +18,7 @@
           "next": "bye"
         }
       ],
-      "text": "The shareholder does not lower his glass. \"If you have to be up here, do try to be interesting. The last one wasn't.\" A pause, magnanimous. \"Brandt. Sinclair Brandt. You won't need it, but people find it settles them.\""
+      "text": "The shareholder doesn't lower his glass. \"If you have to be up here, do try to be interesting. The last one wasn't.\" A pause, magnanimous. \"Brandt. Sinclair Brandt. You won't need it, but people find it settles them.\""
     }
   },
   "faction": null,

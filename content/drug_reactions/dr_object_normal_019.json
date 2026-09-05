@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "It is colder than it looks out. Take a coat.",
+  "self_line": "It's colder than it looks out. Take a coat.",
   "source": "object",
   "tone": "normal"
 }

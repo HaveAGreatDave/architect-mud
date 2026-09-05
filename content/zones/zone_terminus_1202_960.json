@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A break in the rim where the face has come down at some point and left a slope of rubble at an angle a person can just about take. It is the way up, and everybody who has been here knows it.",
+  "description": "A break in the rim where the face has come down at some point and left a slope of rubble at an angle a person can just about take. It's the way up, and everybody who has been here knows it.",
   "exits": {
     "east": "zone_terminus_1203_960",
     "north": "zone_terminus_1202_959",

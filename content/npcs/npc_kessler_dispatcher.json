@@ -8,7 +8,7 @@
     "Water goes south, alloy comes north. Been true since before I sat down here.",
     "Fuel up before the gate, not after. There's one pump between here and the far side and it knows it."
   ],
-  "description": "A wide, unhurried woman in a quilted work coat gone shiny at the elbows, sitting in a plastic chair she has clearly owned longer than the chair was designed to last. A clipboard rests on one knee; she does not look at it. One boot is propped on a crate stencilled with a company that stopped existing some time ago, and she taps it, slowly, at whatever tempo the yard is running at today.",
+  "description": "A wide, unhurried woman in a quilted work coat gone shiny at the elbows, sitting in a plastic chair she has clearly owned longer than the chair was designed to last. A clipboard rests on one knee; she doesn't look at it. One boot is propped on a crate stencilled with a company that stopped existing some time ago, and she taps it, slowly, at whatever tempo the yard is running at today.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -57,7 +57,7 @@
           "next": "bye"
         }
       ],
-      "text": "She takes it out of your hand, unwraps one corner, and puts it in the coat rather than on the clipboard.\n\n\"Right.\" A driver is waiting and she lets him wait. \"Tell him the gate'll be seeing again by Friday, and that I know what it cost him to have one spare.\"\n\nShe looks at you the way she looks at a truck she has not weighed yet.\n\n\"You walked it up in daylight. Good. People who sneak get remembered.\""
+      "text": "She takes it out of your hand, unwraps one corner, and puts it in the coat rather than on the clipboard.\n\n\"Right.\" A driver is waiting and she lets him wait. \"Tell him the gate'll be seeing again by Friday, and that I know what it cost him to have one spare.\"\n\nShe looks at you the way she looks at a truck she hasn't weighed yet.\n\n\"You walked it up in daylight. Good. People who sneak get remembered.\""
     },
     "road": {
       "actions": [],
@@ -88,7 +88,7 @@
     },
     "root": {
       "actions": [],
-      "first": "You're standing in front of my board, which means you either want work or you're lost. I'm Rennie. I keep the yard and the yard keeps the road. Work's there for anybody with a truck to put it in, and if you haven't got one, well. That's what the fence is for.\n\nYou driven anything big before, or are we starting from the beginning?",
+      "first": "You're standing in front of my board, which means you either want work or you're lost. I'm Rennie. I keep the yard and the yard keeps the road. Work's there for anybody with a truck to put it in, and if you haven't got one, well. The fence out back sells them.\n\nYou driven anything big before, or are we starting from the beginning?",
       "options": [
         {
           "actions": [],
@@ -172,7 +172,7 @@
           "next": "bye"
         }
       ],
-      "text": "Then buy one. Four along the fence, and they are honestly priced, which out here means nobody has bothered to lie.\n\nThe Krell's thirteen hundred and it is exactly what thirteen hundred buys. It'll get you there and it will not get you there and back on one tank, so plan for that. The Ostrek is quick and small. The Drayman is what most people end up on and there's a reason. And the Orlov will swallow a whole market, if you have thirty grand and a reason.\n\nBuy small. Run it into the ground. Buy better. That's the job."
+      "text": "Then buy one. Four along the fence, and they're honestly priced, which out here means nobody has bothered to lie.\n\nThe Krell's thirteen hundred and it's exactly what thirteen hundred buys. It'll get you there and it won't get you there and back on one tank, so plan for that. The Ostrek is quick and small. The Drayman is what most people end up on and there's a reason. And the Orlov will swallow a whole market, if you have thirty grand and a reason.\n\nBuy small. Run it into the ground. Buy better. That's the job."
     },
     "work": {
       "actions": [],

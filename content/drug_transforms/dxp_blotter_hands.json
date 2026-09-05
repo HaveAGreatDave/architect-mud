@@ -4,7 +4,7 @@
     "How many, do you think?",
     "Would you like to shake one?"
   ],
-  "description": "A person built entirely from hands, fitted edge to edge with no gaps at all, each one a slightly different size so the tiling closes perfectly. They are folded into the shape of somebody standing politely.",
+  "description": "A person built entirely from hands, fitted edge to edge with no gaps at all, each one a slightly different size so the tiling closes perfectly. They're folded into the shape of somebody standing politely.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} ripples from the ankle upward as the tiling redistributes.",
@@ -22,8 +22,8 @@
   "matches": null,
   "name": "a figure tiled out of hands",
   "says": [
-    "It fits. That is the entire point of it.",
-    "There is no leftover. Look as long as you like.",
+    "It fits. It has always fitted.",
+    "There's no leftover. Look as long as you like.",
     "Every one of these is doing its share."
   ],
   "scope": "person"

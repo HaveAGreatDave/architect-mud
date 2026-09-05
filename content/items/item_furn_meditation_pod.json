@@ -1,5 +1,5 @@
 {
-  "description": "A curved half-shell of acoustic foam and matte black composite. Inside it is almost silent. The seat surface conforms to your body.",
+  "description": "A curved half-shell of acoustic foam and matte black composite. Inside it's almost silent. The seat surface conforms to your body.",
   "flags": {
     "interactions": [
       "sit"
@@ -8,7 +8,7 @@
   "id": "item_furn_meditation_pod",
   "name": "sensory pod seat",
   "tags": {
-    "description": "A curved half-shell of acoustic foam and matte black composite. Inside it is almost silent. The seat surface conforms to your body."
+    "description": "A curved half-shell of acoustic foam and matte black composite. Inside it's almost silent. The seat surface conforms to your body."
   },
   "type": "furniture",
   "value": 890,

@@ -2,12 +2,12 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "It is not my week on the standpipe and I can prove it.",
+    "It isn't my week on the standpipe and I can prove it.",
     "Pass me the fine file. No, the fine one.",
-    "Do not touch that, it is in order.",
+    "Don't touch that, it's in order.",
     "Whoever ground this drill ground it by eye and I know who."
   ],
-  "description": "A woman at the long bench with her sleeve rolled to the shoulder and her forearm out of its socket and up in the vice, cleaning a track in it with a bristle brush. She is not looking at her hands. She is looking at you, and she is talking, and the brush goes on doing what it does. The arm is plain steel and leather with the cover plate off, and there is nothing about it that could not be undone with the screwdriver lying next to it.",
+  "description": "A woman at the long bench with her sleeve rolled to the shoulder and her forearm out of its socket and up in the vice, cleaning a track in it with a bristle brush. She isn't looking at her hands. She's looking at you, and she's talking, and the brush goes on doing what it does. The arm is plain steel and leather with the cover plate off, and there's nothing about it that couldn't be undone with the screwdriver lying next to it.",
   "dialogue_tree": {
     "arm": {
       "actions": [],
@@ -34,7 +34,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"What about it.\" She turns it in the vice to get at the other track. \"It wants doing every eight days out here because the grit gets into everything, and if you leave it a fortnight the elbow starts to notch and then you are filing, and nobody wants to be filing.\"\n\nShe holds it up briefly, not to show you, just to look along it.\n\n\"Ockley made it. There is a card on it with the interval and the sizes, and when I am dead somebody will take it off me and put it on the shelf and it will fit the next person with a bit of packing.\""
+      "text": "\"What about it.\" She turns it in the vice to get at the other track. \"It wants doing every eight days out here because the grit gets into everything, and if you leave it a fortnight the elbow starts to notch and then you're filing, and nobody wants to be filing.\"\n\nShe holds it up briefly, not to show you, just to look along it.\n\n\"Ockley made it. There's a card on it with the interval and the sizes, and when I'm dead somebody will take it off me and put it on the shelf and it'll fit the next person with a bit of packing.\""
     },
     "before": {
       "actions": [],
@@ -68,7 +68,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That is not much of a plan.",
+          "label": "That isn't much of a plan.",
           "next": "plan"
         },
         {
@@ -79,7 +79,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Yes.\" No hesitation at all, and no ceremony either.\n\n\"And not for his reason. I have never needed his reason.\" She picks the fine file up and looks along the edge of it. \"There is a thing on the far side of the world that decided how much water comes down this valley, and it has never once been asked, and it does not know my name, and it will still be deciding it when my arm is on that shelf.\n\n\"I do not care whether it is real. I care that nobody chose it.\"\n\nShe puts the file back in its place in the rack, third from the left, where it lives.\n\n\"Imre wants to stop existing. I want to stop asking. We are going the same way, so we are going together, and on the road we will argue about the rota.\""
+      "text": "\"Yes.\" No hesitation at all, and no ceremony either.\n\n\"And not for his reason. I have never needed his reason.\" She picks the fine file up and looks along the edge of it. \"There's a thing on the far side of the world that decided how much water comes down this valley, and it has never once been asked, and it doesn't know my name, and it'll still be deciding it when my arm is on that shelf.\n\n\"I don't care whether it's real. I care that nobody chose it.\"\n\nShe puts the file back in its place in the rack, third from the left, where it lives.\n\n\"Imre wants to stop existing. I want to stop asking. We're going the same way, so we're going together, and on the road we'll argue about the rota.\""
     },
     "imre": {
       "actions": [],
@@ -106,7 +106,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Imre thinks a great many things and does the fuel better than anybody alive, so we let him have it.\" She says it with real affection and no agreement whatsoever.\n\n\"He is wrong. Here is how I know he is wrong, and I have told him this and he did not mind. If somebody built this, they built the queue for the standpipe, and the eight days of grit, and my elbow notching, and a man in a chalk room doing the same column four times because he does not trust himself. Nobody builds that. You would skip it. This place does not skip anything.\n\n\"It grinds. Things that grind are real.\""
+      "text": "\"Imre thinks a great many things and does the fuel better than anybody alive, so we let him have it.\" She says it with real affection and no agreement whatsoever.\n\n\"He's wrong. Here is how I know he's wrong, and I have told him this and he didn't mind. If somebody built this, they built the queue for the standpipe, and the eight days of grit, and my elbow notching, and a man in a chalk room doing the same column four times because he doesn't trust himself. Nobody builds that. You would skip it. This place doesn't skip anything.\n\n\"It grinds. Things that grind are real.\""
     },
     "noevidence": {
       "actions": [],
@@ -119,7 +119,7 @@
           "next": "going"
         }
       ],
-      "text": "\"I know. He says it before you can.\" She wipes her hands. \"He is the most honest wrong man I have met.\""
+      "text": "\"I know. He says it before you can.\" She wipes her hands. \"He's the most honest wrong man I have met.\""
     },
     "plan": {
       "actions": [],
@@ -132,11 +132,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is fifty-three people and a fuel column.\" She almost laughs. \"It is the best-costed bad idea in the world. Go and look at his wall, he will show you twice.\""
+      "text": "\"It's fifty-three people and a fuel column.\" She almost laughs. \"It's the best-costed bad idea in the world. Go and look at his wall, he'll show you twice.\""
     },
     "root": {
       "actions": [],
-      "first": "She looks up but her hands do not stop. \"You are the one off the track.\" The brush works a bit of grit out of the elbow track and she blows it clear. \"Selke Machin. While you are standing there, settle something: if a person is on gauge duty two weeks running, does that person also go on the standpipe? No it does not. Thank you.\"",
+      "first": "She looks up but her hands don't stop. \"You're the one off the track.\" The brush works a bit of grit out of the elbow track and she blows it clear. \"Selke Machin. While you're standing there, settle something: if a person is on gauge duty two weeks running, does that person also go on the standpipe? No it does not. Thank you.\"",
       "options": [
         {
           "actions": [],
@@ -149,7 +149,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Imre says the world is not real.",
+          "label": "Imre says the world isn't real.",
           "next": "imre"
         },
         {
@@ -169,7 +169,7 @@
       ],
       "text": "\"You again. Hold this.\"",
       "text_by_relation": {
-        "close": "\"There you are.\" She sets the brush down, which she does for almost nobody. \"Go on then. What is bothering you.\"",
+        "close": "\"There you are.\" She sets the brush down, which she does for almost nobody. \"Go on then. What's bothering you.\"",
         "familiar": "She nods at the stool without stopping. \"Sit. You can pass me things and be agreed with.\"",
         "known": "\"Good, a witness. The rota is still wrong.\""
       }
@@ -181,7 +181,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Imre says the world is not real.",
+          "label": "Imre says the world isn't real.",
           "next": "imre"
         },
         {
@@ -192,7 +192,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" She gets the last screw down and tests the elbow through its travel, listening. \"Cable, spring and linkage. It does what my shoulder tells it and nothing else has an opinion about it.\"\n\nShe seats the arm back into the socket with a knock of the heel of her hand and rolls the sleeve down over it.\n\n\"There is nothing in it to talk to. That is not a philosophy, before you say it is. It is why it works in the wet.\""
+      "text": "\"No.\" She gets the last screw down and tests the elbow through its travel, listening. \"Cable, spring and linkage. It does what my shoulder tells it and nothing else has an opinion about it.\"\n\nShe seats the arm back into the socket with a knock of the heel of her hand and rolls the sleeve down over it.\n\n\"There's nothing in it to talk to. That isn't a philosophy, before you say it is. It's why it works in the wet.\""
     }
   },
   "faction": "ideology_null",

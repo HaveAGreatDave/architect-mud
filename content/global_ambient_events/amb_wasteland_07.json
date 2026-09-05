@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "amb_wasteland_07",
   "loudness": 0.3,
-  "message": "Tyre tracks cross here and do not come back.",
+  "message": "Tyre tracks cross here and don't come back.",
   "theme": "wasteland",
   "weight": 60
 }

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Where the machines come to be taken apart properly: hulls opened along their seams and laid out flat, casings stacked by alloy, the frames dragged off in rows once they are empty. It is done methodically and it is done from one end. What is not in any of the stacks is the part that used to do the thinking, and there is a separate shelf for those, indoors, under a cloth.",
+  "description": "Where the machines come to be taken apart properly: hulls opened along their seams and laid out flat, casings stacked by alloy, the frames dragged off in rows once they're empty. It's done methodically and it's done from one end. What isn't in any of the stacks is the part that used to do the thinking, and there's a separate shelf for those, indoors, under a cloth.",
   "exits": {
     "east": "zone_dw_777_980",
     "north": "zone_dw_776_979",

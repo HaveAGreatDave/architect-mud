@@ -17,15 +17,15 @@
   "id": "dx_blotter_chair_lattice",
   "looks": [
     "Every part of it contains a smaller whole one. You follow it in about four levels and have to stop.",
-    "It is keeping time with your pulse and improving on it.",
+    "It's keeping time with your pulse and improving on it.",
     "The armrest ends in a scroll, and the scroll ends in an armrest, and so on, politely, forever."
   ],
   "matches": "chair",
   "name": "a throne of folding brass",
   "says": [
     "Sit down. Or do not. Both are already happening.",
-    "I am the same shape all the way in.",
-    "The ornament is not decoration. The ornament is the load path."
+    "I'm the same shape all the way in.",
+    "The ornament isn't decoration. The ornament is the load path."
   ],
   "scope": "object"
 }

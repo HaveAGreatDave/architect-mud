@@ -1135,12 +1135,12 @@ function loginBodyTempMessage(tempC) {
 	if (tempC === null || tempC === undefined) return null;
 	if (tempC >= 36 && tempC <= 38) return null;
 	// Cold side
-	if (tempC < 30)  return 'You are in the grip of hypothermia. Your body is shutting down.';
+	if (tempC < 30)  return "You're in the grip of hypothermia. Your body is shutting down.";
 	if (tempC < 32)  return 'Your core is dangerously cold. Find warmth immediately.';
 	if (tempC < 34)  return 'You\'re shivering. You need to warm up.';
 	if (tempC < 36)  return 'You feel a little chilly.';
 	// Hot side
-	if (tempC > 42)  return 'You are in the grip of heat stroke. You are dying.';
+	if (tempC > 42)  return "You're in the grip of heat stroke. You're dying.";
 	if (tempC > 41)  return 'Your body is overheating badly.';
 	if (tempC > 39)  return 'The heat is getting to you. Find shade and water.';
 	return 'You feel uncomfortably warm.';
@@ -1902,7 +1902,7 @@ async function boot() {
 	// A verification gate with no working mailer locks every new account out, so
 	// say so at boot rather than letting registrations quietly strand.
 	if (isEmailVerificationEnabled() && mailerConfigProblem()) {
-		console.error(`[boot] WARNING: email verification is ON but the mailer is ${mailerConfigProblem()} — new accounts cannot receive verification links.`);
+		console.error(`[boot] WARNING: email verification is ON but the mailer is ${mailerConfigProblem()} — new accounts can't receive verification links.`);
 	} else if (isEmailVerificationEnabled()) {
 		// Print the sender this process actually resolved. Without it, a dashboard
 		// env edit that landed on the wrong service (or never restarted anything)

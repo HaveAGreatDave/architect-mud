@@ -4,8 +4,8 @@
   "failure_messages": {
     "burnout": "Something tears deep in the bundle and your grip goes to nothing.",
     "dead": "The myomer stops answering. Your arm is just an arm again, and a tired one.",
-    "fault": "The actuator locks halfway through the movement. Your arm stops where it is and will not be argued with.",
-    "strain": "The bundles along your arms are running hot enough to feel through the skin, and the tremor in your hands is not yours."
+    "fault": "The actuator locks halfway through the movement. Your arm stops where it is and won't be argued with.",
+    "strain": "The bundles along your arms are running hot enough to feel through the skin, and the tremor in your hands isn't yours."
   },
   "heat_rate": 1,
   "id": "aug_myomer_bundles",

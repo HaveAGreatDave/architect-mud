@@ -5,7 +5,7 @@
     "The light on this landing is the light from the last one."
   ],
   "cause": "dream",
-  "description": "Stairs going up, in a stairwell that smells like a school. You have been climbing a while and you are not tired, which is how you know. The landings have doors, the doors have wired glass, and behind the glass it is always the same afternoon.",
+  "description": "Stairs going up, in a stairwell that smells like a school. You have been climbing a while and you aren't tired, which is how you know. The landings have doors, the doors have wired glass, and behind the glass it's always the same afternoon.",
   "drug_id": null,
   "fx": "ash",
   "fx_intensity": 0.3,
@@ -29,5 +29,5 @@
       "name": "the handrail"
     }
   ],
-  "weather": "A cold draught comes down the stairwell from a floor that is above every floor."
+  "weather": "A cold draught comes down the stairwell from a floor that's above every floor."
 }

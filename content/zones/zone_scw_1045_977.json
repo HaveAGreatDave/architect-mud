@@ -1,11 +1,11 @@
 {
   "ambient_events": [
-    "Somebody comes in, sits down on a cushion, says nothing, and is not asked.",
+    "Somebody comes in, sits down on a cushion, says nothing, and isn't asked.",
     "The rota is amended. Two names swap. Neither of them was here.",
     "A dog comes in, walks the whole room, and goes out again."
   ],
   "ambient_theme": "wasteland",
-  "description": "The biggest single room in the Thornwarren, under a roof of layered plate that somebody has spent thirty years making watertight. There is no door, only a hanging, and the hanging is pinned back in the day. Everyone comes here eventually and nobody is summoned.",
+  "description": "The biggest single room in the Thornwarren, under a roof of layered plate that somebody has spent thirty years making watertight. There's no door, only a hanging, and the hanging is pinned back in the day. Everyone comes here eventually and nobody is summoned.",
   "exits": {
     "north": "zone_scw_1045_976",
     "south": "zone_thorn_den"

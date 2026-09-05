@@ -1,5 +1,5 @@
 {
-  "description": "A foil pouch in a colour the others don't come in, a deep and slightly iridescent bronze, with no cartoon on it and no exclamation marks. MANY HAPPY RETURNS is printed small and centred, and under it, smaller still: ISSUED ONCE ANNUALLY PER REGISTERED INSTANCE. The straw is the good kind, the rigid kind, and it has been taped on straight.",
+  "description": "A foil pouch in a colour the others don't come in, a deep iridescent bronze, with no cartoon and no exclamation marks. MANY HAPPY RETURNS is printed small and centred, and under it, smaller: ISSUED ONCE ANNUALLY PER REGISTERED INSTANCE. The straw is the rigid kind, taped on straight.",
   "flags": {},
   "id": "item_soylent_manyhappy",
   "name": "soylent pouch (many happy returns)",
@@ -10,7 +10,7 @@
     "restore_sanity": 5,
     "restore_thirst": 15,
     "stackable": true,
-    "use_message": "It is cold, and it is good, and it tastes of nothing you can name and everything you can almost remember. Somewhere behind it there is butter, and somewhere behind that there is a room with people in it. You get to the bottom of the pouch and the straw pulls air and you sit there for a moment holding an empty piece of foil, on the anniversary of the day somebody wrote your name down for the first time, feeling unaccountably fine about all of it."
+    "use_message": "It's cold, and it's good, and it tastes of nothing you can name and everything you can almost remember. Somewhere behind it there's butter, and somewhere behind that there's a room with people in it. You get to the bottom of the pouch and the straw pulls air and you sit there for a moment holding an empty piece of foil, on the anniversary of the day somebody wrote your name down for the first time, feeling unaccountably fine about all of it."
   },
   "type": "consumable",
   "value": 1,

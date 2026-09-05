@@ -41,7 +41,7 @@ export default async ({ run, check, getPlayer }) => {
   const stray = consumables.filter(i => !['eat', 'drink', 'use'].includes(consumeVerb(i)));
   check('every consumable lands on one of eat/drink/use', stray.length === 0, stray.map(i => i.id).join(', '));
   const unoffered = consumables.filter(i => !itemVerbs(i).includes(consumeVerb(i)));
-  check('…and every one advertises the verb it is taken by', unoffered.length === 0,
+  check("…and every one advertises the verb it's taken by", unoffered.length === 0,
     unoffered.map(i => i.id).join(', '));
 
   // Food is still food — the failure mode of over-tightening this would be a
@@ -75,7 +75,7 @@ export default async ({ run, check, getPlayer }) => {
 
     // The bandage is still there — a refusal must not spend the item.
     const { rows } = await query(`SELECT id FROM player_inventory WHERE id=$1`, [bandId]);
-    check('…and the refused bandage is not consumed', rows.length === 1, `${rows.length} row(s)`);
+    check("…and the refused bandage isn't consumed", rows.length === 1, `${rows.length} row(s)`);
 
     // `use` is the generic route and is never refused.
     r = await run('use bandage');

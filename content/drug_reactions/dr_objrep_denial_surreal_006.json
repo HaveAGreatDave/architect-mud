@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "I did not say I was. You have been extremely generous about that on your own.",
+  "self_line": "I didn't say I was. You have been extremely generous about that on your own.",
   "source": "object_reply_denial",
   "tone": "surreal"
 }

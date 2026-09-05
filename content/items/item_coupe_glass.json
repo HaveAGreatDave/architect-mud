@@ -1,10 +1,10 @@
 {
-  "description": "A shallow bowl on a stem. Spills if you walk with it. You are meant to be sitting down.",
+  "description": "A shallow bowl on a stem. Spills if you walk with it. You're meant to be sitting down.",
   "flags": {},
   "id": "item_coupe_glass",
   "name": "coupe",
   "tags": {
-    "description": "A shallow bowl on a stem. Spills if you walk with it. You are meant to be sitting down.",
+    "description": "A shallow bowl on a stem. Spills if you walk with it. You're meant to be sitting down.",
     "drinkware": true,
     "drinkware_kind": "coupe",
     "fillable": 2,

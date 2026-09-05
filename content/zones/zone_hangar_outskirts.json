@@ -14,7 +14,7 @@
     "intro_lore": "Coldwater Regional keeps its runway going for the same stubborn reason the whole city does anything: because stopping is worse. The tool racks, the ops desk, the coffee nobody remembers brewing: all of it holds the shape of a working airfield long after the airline it served stopped existing. Somebody still tops off the avgas. Nobody's asked who pays for it.",
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

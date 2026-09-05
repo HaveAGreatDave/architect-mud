@@ -3,8 +3,8 @@
   "description": "A lattice of impact-diffusing mesh threaded just beneath the skin of the torso. Invisible under clothes, it turns a killing blow into a bad bruise: armor you never take off.",
   "failure_messages": {
     "burnout": "Threads part somewhere under the skin, one after another, like a seam giving.",
-    "dead": "The weave is dead mesh now. It is still in you; it just is not doing anything.",
-    "fault": "The lattice seizes and locks across your ribs. For a moment you cannot get a full breath in.",
+    "dead": "The weave is dead mesh now. It's still in you; it just isn't doing anything.",
+    "fault": "The lattice seizes and locks across your ribs. For a moment you can't get a full breath in.",
     "strain": "The weave under your skin tightens across the chest, and breathing gets a size smaller."
   },
   "heat_rate": 0.4,

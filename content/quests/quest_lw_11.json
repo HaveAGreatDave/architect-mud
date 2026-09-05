@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Pike has had the blast door for eleven years and has never once asked anybody to take it for an hour.\n\nHe is asking now, and the reason he gives is that his mug is empty, which is not the reason.\n\nThe job is the door. Nothing comes through it. Nothing has come through it in eleven years, which is the argument for sitting there and not the argument against.",
+  "description": "Pike has had the blast door for eleven years and has never once asked anybody to take it for an hour.\n\nHe is asking now, and the reason he gives is that his mug is empty, which isn't the reason.\n\nThe job is the door. Nothing comes through it. Nothing has come through it in eleven years, which is the argument for sitting there and not the argument against.",
   "fail_on": [],
   "id": "quest_lw_11",
   "meta": {},
@@ -12,7 +12,7 @@
         "{who} sits down at a sealed door with their back to a wall for the first time in their life.",
         "{who} learns that the door makes a noise about once an hour and that the noise is nothing.",
         "{who} checks the seam at the hinge side twice, because Pike checks it twice.",
-        "{who} does not get up."
+        "{who} doesn't get up."
       ],
       "id": "o_sit",
       "taskSeconds": 180,

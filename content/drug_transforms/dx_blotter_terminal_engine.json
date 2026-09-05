@@ -4,7 +4,7 @@
     "Do you know what the ninth pass is for?",
     "Can you hear where it repeats?"
   ],
-  "description": "Where the terminal stood there is an arrangement of brass wheels and toothed columns, working through a calculation with enormous patience, carrying digits up the stack with an audible and satisfying clunk.",
+  "description": "Where the terminal stood there's an arrangement of brass wheels and toothed columns, working through a calculation with enormous patience, carrying digits up the stack with an audible and satisfying clunk.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} clunks a carry all the way up the stack.",
@@ -17,14 +17,14 @@
   "looks": [
     "Each column is engraved zero to nine and every one of them is on a different number.",
     "A carry goes up through eleven columns in sequence, and the last one takes its time.",
-    "There is no output anywhere. It is not calculating for anybody."
+    "There's no output anywhere. It isn't calculating for anybody."
   ],
   "matches": "terminal",
   "name": "a brass engine working something out",
   "says": [
     "It comes out even. It always comes out even.",
-    "I am on the third of nine passes.",
-    "Do not touch the columns, they are load bearing."
+    "I'm on the third of nine passes.",
+    "Don't touch the columns, they're load bearing."
   ],
   "scope": "object"
 }

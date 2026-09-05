@@ -84,10 +84,10 @@ export const ARCHETYPES = {
     tier: 2,
     selfDescribes: [
       '"Composed. Useful. I run a household better than most people run a life."',
-      '"I am extremely good at this and I priced myself accordingly."',
-      '"Level-headed. Dry. I will not be making a scene, ever, about anything."',
+      '"I\'m extremely good at this and I priced myself accordingly."',
+      '"Level-headed. Dry. I won\'t be making a scene, ever, about anything."',
     ],
-    listing: 'Runs a household like a campaign. Deflects with wit. Do not expect them to say it first.',
+    listing: "Runs a household like a campaign. Deflects with wit. Don't expect them to say it first.",
 
     devotedTame: [
       `marks you the second you clear the door and goes back to {their} book, having made {their} point.`,
@@ -153,7 +153,7 @@ export const ARCHETYPES = {
       `"Tell me about your day. The boring parts especially — those are the ones you actually lived."`,
     ],
     talkShy: [
-      `barely looks up. "I don't really talk to guests. It's not personal. It is slightly personal."`,
+      `barely looks up. "I don't really talk to guests. It's not personal. It's slightly personal."`,
       `gives you a polite, distant smile and looks away. "You should ask whoever brought you in."`,
       `"I'd rather wait, if it's all the same to you." {They} {go} back to the book to make the point.`,
     ],
@@ -186,11 +186,11 @@ export const ARCHETYPES = {
     label: 'The Romantic',
     tier: 2,
     selfDescribes: [
-      '"Affectionate. Very. I have been told this is a lot and I do not intend to fix it."',
+      '"Affectionate. Very. I have been told this is a lot and I don\'t intend to fix it."',
       '"I fall hard and I fall fast and I would rather that than the alternative."',
       '"Warm. Clingy, if we\'re being honest, and I\'d rather we were."',
     ],
-    listing: 'Will say they missed you before the door has finished closing. Watches the door when you are out.',
+    listing: "Will say they missed you before the door has finished closing. Watches the door when you're out.",
 
     devotedTame: [
       `is off the bed and across the room before the door finishes opening. "You're BACK. God, finally, it's been an age—"`,
@@ -327,7 +327,7 @@ export const ARCHETYPES = {
       `puts {themself} between the guest and §other without a word and stays there.`,
       `doesn't answer. Just looks at the newcomer, unblinking, until they look somewhere else.`,
       `has moved to where the wall is at {their} back and the door is in {their} sightline, and stopped talking entirely.`,
-      `bares {their} teeth in something that is technically a smile and says nothing at all.`,
+      `bares {their} teeth in something that's technically a smile and says nothing at all.`,
     ],
     worried: [
       `is on {their} knees in front of you before you've sat down, hands going over you fast and rough, checking. "Where. Show me where."`,
@@ -397,7 +397,7 @@ export const ARCHETYPES = {
       '"Serene. I chose this the way other people choose a vocation."',
       '"Patient. Attentive. Entirely certain, which people find harder to be around than they expect."',
     ],
-    listing: 'Does not want to be persuaded, rescued, or understood. Has thought about this more than you have.',
+    listing: "Doesn't want to be persuaded, rescued, or understood. Has thought about this more than you have.",
 
     devotedTame: [
       `is exactly where you left {them}, and doesn't pretend otherwise. "I was waiting. I'm good at it. It's the part I'm best at."`,
@@ -575,7 +575,7 @@ export const ARCHETYPES = {
         `§ comes through the wardrobe at {their} own pace, entirely aware of how long it took.`,
       ],
       arriveDeck: [
-        `§ takes the long way over, arrives, and sits somewhere that is not quite next to you on purpose.`,
+        `§ takes the long way over, arrives, and sits somewhere that isn't quite next to you on purpose.`,
         `§ saunters up, looks you over, and drops into the spot beside you like it's a favour.`,
       ],
       departWardrobe: [
@@ -627,11 +627,11 @@ export const ARCHETYPES = {
     arousedHot: [
       `comes apart in perfect silence, which is somehow far more than a sound would have been.`,
       `"Don't stop." Barely a breath. It's the most urgent you've ever heard {them}.`,
-      `is all instinct now, no distance left at all, and it is startling how much of {them} there turns out to be.`,
+      `is all instinct now, no distance left at all, and it's startling how much of {them} there turns out to be.`,
     ],
     shy: [
       `has stopped. Not moved away — stopped, entirely, like a held frame, until the stranger looks elsewhere.`,
-      `watches the guest with polite, bottomless attention and does not say one word.`,
+      `watches the guest with polite, bottomless attention and doesn't say one word.`,
       `is somehow now standing on the far side of §other, and nobody saw {them} cross.`,
       `answers nothing, offers nothing, and slowly becomes very difficult to keep track of in the room.`,
       `looks at the newcomer a moment too long, then turns back to the window as though they've been dealt with.`,
@@ -701,10 +701,10 @@ export const ARCHETYPES = {
     tier: 1,
     selfDescribes: [
       '"Funny. That\'s the pitch. That\'s the entire pitch, I have nothing else."',
-      '"I will make you laugh and I will not discuss anything sincerely, ever, under any circumstances."',
+      '"I will make you laugh and I won\'t discuss anything sincerely, ever, under any circumstances."',
       '"Good company. Terrible at feelings. We can work around it."',
     ],
-    listing: 'Will be funny about literally anything, including things you would prefer they were not funny about.',
+    listing: "Will be funny about literally anything, including things you would prefer they weren't funny about.",
 
     devotedTame: [
       `"There they are. The man of the hour. The hour was about six hours ago but I've been holding it."`,
@@ -750,7 +750,7 @@ export const ARCHETYPES = {
       `"You've been gone long enough that I started talking to the furniture and short enough that it hasn't answered."`,
     ],
     missLong: [
-      `"So the good news is I've got about a week of new material." A pause. "The bad news is it's all about missing you and none of it is funny."`,
+      `"So the good news is I've got about a week of new material." A pause. "The bad news is it's all about missing you and none of it's funny."`,
       `doesn't do a bit. Doesn't do anything. Just crosses the room and holds on, which is far more alarming than any joke.`,
       `"I kept setting up punchlines and turning round and there was nobody there to do them at." {They} {try} for a grin. It doesn't take.`,
     ],
@@ -803,7 +803,7 @@ export const ARCHETYPES = {
     label: 'The Scholar',
     tier: 2,
     selfDescribes: [
-      '"Curious. Relentlessly. I will ask you questions until you are sorry."',
+      '"Curious. Relentlessly. I will ask you questions until you\'re sorry."',
       '"Bookish. I want to know what it\'s like out there and you\'re my only source."',
       '"Thoughtful. Occasionally exhausting. I have been told both."',
     ],
@@ -839,12 +839,12 @@ export const ARCHETYPES = {
       `retreats behind a book and holds it slightly too high.`,
       `answers the guest in short, correct, entirely uninformative sentences.`,
       `moves {their} papers closer to §other's side of the room and keeps them there.`,
-      `"I'm reading." It is offered as a complete and final explanation for everything.`,
+      `"I'm reading." It's offered as a complete and final explanation for everything.`,
       `watches the stranger with quiet, cataloguing interest and volunteers nothing.`,
     ],
     worried: [
       `is up and moving instantly, and for once doesn't ask a single question. "Sit. Light. I need light on it."`,
-      `"I've read about this. I've read about all of this." Hands steady. "Which is not the same as having done it, so hold still."`,
+      `"I've read about this. I've read about all of this." Hands steady. "Which isn't the same as having done it, so hold still."`,
       `"You're going to tell me what happened. Not now. Later. All of it, and accurately."`,
       `cleans the wound with unexpected competence and a completely white face.`,
     ],
@@ -910,7 +910,7 @@ export const ARCHETYPES = {
       '"Honest. This is an arrangement. I\'m very good at arrangements."',
       '"Low maintenance. I won\'t ask you where you\'ve been."',
     ],
-    listing: 'Makes no claim to feelings and charges accordingly. Restful, if that is what you are after.',
+    listing: "Makes no claim to feelings and charges accordingly. Restful, if that's what you're after.",
 
     devotedTame: [
       `looks up, registers you, and returns to what {they} {was} doing. "You're back. There's food if you want it."`,
@@ -924,7 +924,7 @@ export const ARCHETYPES = {
     devotedHot: [
       `stands, crosses over, and begins undressing with the efficiency of someone who has decided.`,
       `"You want this. I'm not going to make you say it." {They}'re already there.`,
-      `"No performance. Just this." And it is startling how much that turns out to be.`,
+      `"No performance. Just this." And it's startling how much that turns out to be.`,
       `takes your wrist, moves your hand, and holds your gaze without any expression at all.`,
       `"I'm not going to tell you I need it." A pause. "I'm here, though."`,
     ],
@@ -1039,13 +1039,13 @@ export const ARCHETYPES = {
     arousedHot: [
       `is entirely off-script, no timing, no angles, nothing but want.`,
       `"Nobody gets this one. Nobody's ever got this one—"`,
-      `stops playing to the room and plays only to you, and it is a completely different thing.`,
+      `stops playing to the room and plays only to you, and it's a completely different thing.`,
     ],
     shy: [
       `switches instantly into the polished public version and holds it like armour.`,
       `gives the guest a dazzling, entirely empty smile and steers the conversation nowhere.`,
       `positions §other between {themself} and the newcomer with practised, invisible stagecraft.`,
-      `"Lovely to meet you." It is delivered perfectly and means nothing whatsoever.`,
+      `"Lovely to meet you." It's delivered perfectly and means nothing whatsoever.`,
       `angles away from the stranger, finding a better light and a worse mood.`,
     ],
     worried: [
@@ -1085,7 +1085,7 @@ export const ARCHETYPES = {
     ],
     entrances: {
       arriveWardrobe: [
-        `The mirrored wardrobe opens and § makes an entrance out of it that the room does not remotely deserve.`,
+        `The mirrored wardrobe opens and § makes an entrance out of it that the room doesn't remotely deserve.`,
         `§ steps through the wardrobe, pauses exactly long enough to be seen, and comes on.`,
       ],
       arriveDeck: [
@@ -1130,7 +1130,7 @@ export const ARCHETYPES = {
       `crosses to you with the same economy {they} {do} everything and takes your face in both hands.`,
       `"I'm off duty." Said like it costs something to say. "Come here."`,
       `"I don't have soft words. I've got this." And {they} {do}, thoroughly.`,
-      `undoes your belt with the unhurried competence of someone who is not going to fumble anything, ever.`,
+      `undoes your belt with the unhurried competence of someone who isn't going to fumble anything, ever.`,
       `"You're the first thing in a long time I've wanted to protect that wasn't a job."`,
     ],
     arousedTame: [
@@ -1217,7 +1217,7 @@ export const ARCHETYPES = {
       '"Grateful. People say it like it\'s a small thing. It isn\'t."',
       '"Sweet-natured, I think? I never had the room to find out before."',
     ],
-    listing: 'Came from nothing and has not stopped noticing the difference. Easily delighted. Easily frightened.',
+    listing: "Came from nothing and hasn't stopped noticing the difference. Easily delighted. Easily frightened.",
 
     devotedTame: [
       `lights up completely at the sight of you and then looks faintly apologetic for it.`,
@@ -1388,25 +1388,25 @@ export const TEMPERAMENT = {
     traits: ['Composed', 'Dry', 'Controlling', 'Loyal past reason'],
     warmth: 'Slow to warm, and worth the wait. Affection arrives as competence long before it arrives as words.',
     wants: 'To run your household better than you run your life, and to be told once that they do.',
-    warned: 'Will never say it first. If you need to be told you are loved out loud, this is the wrong placement.',
+    warned: "Will never say it first. If you need to be told you're loved out loud, this is the wrong placement.",
   },
   romantic: {
     traits: ['Open', 'Devoted', 'Sentimental', 'All-in'],
-    warmth: 'Immediate and total. There is no guarded phase to get through — there never was one.',
+    warmth: "Immediate and total. There's no guarded phase to get through — there never was one.",
     wants: 'To be the thing you come home to, and to hear about your day before anybody else does.',
     warned: 'Feels every absence at full volume. A keeper who is gone for days will be met with a real reckoning.',
   },
   feral: {
     traits: ['Physical', 'Blunt', 'Territorial', 'Unembarrassed'],
-    warmth: 'Instant and bodily. Words are not the medium.',
+    warmth: "Instant and bodily. Words aren't the medium.",
     wants: 'To be in reach. Proximity is the whole relationship.',
-    warned: 'No interest whatsoever in decorum, guests, or timing. What they want, they want in the room they are in.',
+    warned: "No interest whatsoever in decorum, guests, or timing. What they want, they want in the room they're in.",
   },
   devout: {
     traits: ['Reverent', 'Serving', 'Intense', 'Quiet'],
     warmth: 'Total, and unnervingly so from the first evening.',
     wants: 'To be of use. Being given a task lands as being given a gift.',
-    warned: 'Will not tell you when something is too much, because being asked IS the point. Somebody has to keep count, and it will not be them.',
+    warned: "Won't tell you when something is too much, because being asked is the whole of what she wants. Somebody has to keep count, and it won't be them.",
   },
   brat: {
     traits: ['Loud', 'Funny', 'Provocative', 'Fragile underneath'],
@@ -1416,7 +1416,7 @@ export const TEMPERAMENT = {
   },
   ghost: {
     traits: ['Quiet', 'Watchful', 'Absent', 'Unreadable'],
-    warmth: 'Present rather than expressed. You will not be told; you will notice.',
+    warmth: "Present rather than expressed. You won't be told; you'll notice.",
     wants: 'To be near without being asked to perform being near.',
     warned: 'Goes long stretches saying nothing at all. A keeper who reads silence as displeasure will spend a lot of evenings wrong.',
   },
@@ -1424,12 +1424,12 @@ export const TEMPERAMENT = {
     traits: ['Quick', 'Bright', 'Deflecting', 'Sharper than advertised'],
     warmth: 'Warm, and consistently routed through a joke.',
     wants: 'An audience that actually keeps up.',
-    warned: 'Turns everything into a bit, including the things that should not be one. Sincerity has to be asked for directly.',
+    warned: "Turns everything into a bit, including the things that shouldn't be one. Sincerity has to be asked for directly.",
   },
   scholar: {
     traits: ['Curious', 'Precise', 'Distractible', 'Kind'],
     warmth: 'Expressed as attention — they will remember what you said three weeks ago, verbatim.',
-    wants: 'To be told things. Anything. The world is the interest and you are the window on it.',
+    wants: "To be told things. Anything. The world is the interest and you're the window on it.",
     warned: 'Will lose entire evenings to a book and surface genuinely surprised that hours went by.',
   },
   ice: {
@@ -1448,12 +1448,12 @@ export const TEMPERAMENT = {
     traits: ['Steady', 'Capable', 'Guarded', 'Unshakeable'],
     warmth: 'Shown as reliability. They will be between you and the door before you notice the door.',
     wants: 'A post worth holding.',
-    warned: 'Does not talk about what happened before this. Pushing on it closes the shutters for a week.',
+    warned: "Doesn't talk about what happened before this. Pushing on it closes the shutters for a week.",
   },
   stray: {
     traits: ['Grateful', 'Anxious', 'Tender', 'Watchful of the exits'],
     warmth: 'Overwhelming, and always a little braced for it to be withdrawn.',
-    wants: 'To be told they are staying, more than once, until it takes.',
+    wants: "To be told they're staying, more than once, until it takes.",
     warned: 'Reads every mood as a verdict on them. Cheap to keep, expensive to be careless with.',
   },
 };
@@ -1504,7 +1504,7 @@ export const PAIRINGS = {
     members: ['strategist', 'romantic'],
     tier: 5,
     blurb: 'Two people who made the same cold-eyed bargain and are each losing it in a different direction. Placed together. Released together.',
-    listing: 'Rare. Non-severable — the Syndicate will not break a matched pair, and after a week neither will you.',
+    listing: "Rare. Non-severable — the Syndicate won't break a matched pair, and after a week neither will you.",
   },
   // The waste and the cloister: it should not work, and does.
   feral_devout: {
@@ -1513,7 +1513,7 @@ export const PAIRINGS = {
     members: ['feral', 'devout'],
     tier: 4,
     blurb: 'One came in off the waste, one chose this like a vocation. Nobody can explain why it holds. It holds.',
-    listing: 'Rare. Non-severable. Do not attempt to reason with either of them about the other.',
+    listing: "Rare. Non-severable. Don't attempt to reason with either of them about the other.",
   },
   // One does all of the talking; the other has never once needed to.
   wit_ice: {
@@ -1521,8 +1521,8 @@ export const PAIRINGS = {
     label: 'The Double Act',
     members: ['wit', 'ice'],
     tier: 4,
-    blurb: 'One of them has not stopped talking in eleven years. The other has never once had to. It works alarmingly well.',
-    listing: 'Rare. Non-severable. The straight one is not, in fact, the quiet one, and you will work out why.',
+    blurb: "One of them hasn't stopped talking in eleven years. The other has never once had to. It works alarmingly well.",
+    listing: "Rare. Non-severable. The straight one is not, in fact, the quiet one, and you'll work out why.",
   },
   // The one who was brought in, and the one who brought them.
   soldier_stray: {
@@ -1530,7 +1530,7 @@ export const PAIRINGS = {
     label: 'The Rescue',
     members: ['soldier', 'stray'],
     tier: 4,
-    blurb: 'One of them carried the other out of somewhere neither will name. They have not been apart since and do not intend to start.',
+    blurb: "One of them carried the other out of somewhere neither will name. They haven't been apart since and don't intend to start.",
     listing: 'Rare. Non-severable — and the Syndicate notes that attempting it once went very badly for the Syndicate.',
   },
   // Both used to be looked at professionally. Only one of them remembers it.
@@ -1539,7 +1539,7 @@ export const PAIRINGS = {
     label: 'The Double Exposure',
     members: ['starlet', 'ghost'],
     tier: 5,
-    blurb: 'Two people who were once photographed a great deal. One remembers all of it. The other remembers none of it. They are inseparable and nobody has established why.',
+    blurb: "Two people who were once photographed a great deal. One remembers all of it. The other remembers none of it. They're inseparable and nobody has established why.",
     listing: 'Very rare. Non-severable. Provenance on the second placement is listed as "unavailable" and the Syndicate declines to elaborate.',
   },
 };

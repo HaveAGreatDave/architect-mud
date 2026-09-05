@@ -16,7 +16,7 @@
       "canHack": true,
       "difficulty": 10,
       "messages": {
-        "denied": "The vault does not answer you. Nine tonnes of steel has nothing to prove.",
+        "denied": "The vault doesn't answer you. Nine tonnes of steel has nothing to prove.",
         "hackFail": "The vault lock swallows your sequence, times you out, and resets. Somewhere a log grows one line.",
         "hackSuccess": "Something enormous lets go inside the door, and nine tonnes of steel swings like a cupboard.",
         "lock": "The vault door closes, and the bolts go home one after another for a long time.",

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A run of hardpan somebody once flattened and nobody since has maintained, marked out with painted drums at intervals and a windsock on a pole that has been repaired with a shirt. It is long enough. It is not much more than long enough. Off at the far end sits the burnt-out frame of something that found that out.",
+  "description": "A run of hardpan somebody once flattened and nobody since has maintained, marked out with painted drums at intervals and a windsock on a pole that has been repaired with a shirt. It's long enough. It isn't much more than long enough. Off at the far end sits the burnt-out frame of something that found that out.",
   "exits": {
     "east": "zone_scw_1031_960",
     "north": "zone_scw_1030_959",

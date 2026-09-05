@@ -2,18 +2,18 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Shut it behind you. The cold is the point.",
+    "Shut it behind you. The cold in here is doing a job.",
     "Four hundred and six. It was four hundred and eleven.",
-    "Do not breathe on an open drawer.",
-    "Some of these have not been grown in ninety years.",
-    "They are not ours. We are just where they are."
+    "Don't breathe on an open drawer.",
+    "Some of these haven't been grown in ninety years.",
+    "They aren't ours. We're just where they are."
   ],
-  "description": "A small precise man in a coat and fingerless gloves, working along a bank of drawers with a slate and a stub of chalk, counting under his breath in tens. He is very cold and does not appear to have thought about it in years.",
+  "description": "A small precise man in a coat and fingerless gloves, working along a bank of drawers with a slate and a stub of chalk, counting under his breath in tens. He's very cold and doesn't appear to have thought about it in years.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+      "text": "\"Mind how you go.\"\n\nHe goes back to the drawers."
     },
     "lock": {
       "actions": [],
@@ -43,7 +43,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "There is no lock on the door.",
+          "label": "There's no lock on the door.",
           "next": "lock"
         },
         {
@@ -63,7 +63,7 @@
       ],
       "text": "\"Shut the door behind you.\"",
       "text_by_relation": {
-        "close": "He hands you the slate without looking up, and carries on counting, and you find you are keeping the tally.",
+        "close": "He hands you the slate without looking up, and carries on counting, and you find you're keeping the tally.",
         "familiar": "\"Come and hold this.\"",
         "known": "\"You shut it.\" He sounds pleased. \"Good.\""
       }
@@ -75,7 +75,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "There is no lock on the door.",
+          "label": "There's no lock on the door.",
           "next": "lock"
         },
         {
@@ -86,7 +86,7 @@
           "next": "bye"
         }
       ],
-      "text": "He stops.\n\nIt is the first time he has stopped.\n\n\"Yes,\" he says, and there is a very long pause, and then he goes back to the drawers and says, in a completely ordinary voice, \"That is what it is for. That is what it has always been for.\"\n\nSomewhere above you, out in the compound, a great many people stop doing something at the same moment."
+      "text": "He stops.\n\nIt is the first time he has stopped.\n\n\"Yes,\" he says, and there's a very long pause, and then he goes back to the drawers and says, in a completely ordinary voice, \"That's what it was always for.\"\n\nSomewhere above you, out in the compound, a great many people stop doing something at the same moment."
     }
   },
   "faction": "ideology_exodus",

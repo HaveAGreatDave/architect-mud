@@ -1,13 +1,13 @@
 {
   "ambient_events": [
-    "The bar on the outside of the door is oiled and moves silently. That is somehow worse.",
+    "The bar on the outside of the door is oiled and moves silently. That's somehow worse.",
     "Somebody has left a full mug on the floor by the cot, gone cold.",
-    "The tally scratched into the plaster stops at nineteen and is not continued."
+    "The tally scratched into the plaster stops at nineteen and isn't continued."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A bare cell with a chair, a cot, a jug, and a door that bars from the outside. When somebody comes back from a run and cannot account for the missing hours, this is where they wait while the Watch work out whether the machine got to them. Nobody pretends it is anything else. There is a shelf of paperbacks, softened by handling, and a scratched tally on the wall that stops at nineteen.",
+  "description": "A bare cell with a chair, a cot, a jug, and a door that bars from the outside. When somebody comes back from a run and can't account for the missing hours, this is where they wait while the Watch work out whether the machine got to them. Nobody pretends it's anything else. There's a shelf of paperbacks, softened by handling, and a scratched tally on the wall that stops at nineteen.",
   "exits": {
     "west": "zone_lw_bunk"
   },

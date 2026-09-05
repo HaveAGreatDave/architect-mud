@@ -1,7 +1,7 @@
 {
   "ambient": [
     "The pen stops. Then starts.",
-    "A curtain is drawn round a bed by nobody, briskly, the way it is done.",
+    "A curtain is drawn round a bed by nobody, briskly, the way it's done.",
     "Far off, a trolley goes over a join in the floor. Twice."
   ],
   "cause": "dream",
@@ -16,18 +16,18 @@
       "looks": [
         "Made so tightly the sheet has stopped being cloth.",
         "Slept in recently, and remade around the shape.",
-        "There is a chart at the foot of it. It is your chart. The dates are all today."
+        "There's a chart at the foot of it. It's your chart. The dates are all today."
       ],
       "name": "a bed"
     },
     {
       "looks": [
-        "You are not in it. The ceiling is, correctly, and the beds are.",
+        "You aren't in it. The ceiling is, correctly, and the beds are.",
         "You catch yourself in it half a second after you move.",
-        "Something walks across it that is not walking across the room."
+        "Something walks across it that isn't walking across the room."
       ],
       "name": "the shine on the floor"
     }
   ],
-  "weather": "The air is the exact temperature of skin, and it is not moving at all."
+  "weather": "The air is the exact temperature of skin, and it isn't moving at all."
 }

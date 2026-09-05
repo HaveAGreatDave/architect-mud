@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#221d15",
-  "description": "Behind a curtain, a bench where the day's weighing gets broken down into what it actually is: copper here, ferrous there, the interesting third pile that does not get a label. Trays of unsorted grit wait their turn. A cot in the corner explains why the gate has never once found him closed.",
+  "description": "Behind a curtain, a bench where the day's weighing gets broken down into what it actually is: copper here, ferrous there, the interesting third pile that doesn't get a label. Trays of unsorted grit wait their turn. A cot in the corner explains why the gate has never once found him closed.",
   "exits": {
     "west": "zone_thumb_shop"
   },

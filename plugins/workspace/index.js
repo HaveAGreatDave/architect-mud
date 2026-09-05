@@ -334,7 +334,7 @@ async function runPlan(plan, player, broadcast) {
     lines.push(`  <span class="text-bright">✗ ${stopped.step}</span> <span class="text-dim">— ${stopped.why}</span>`);
     lines.push(`<span class="text-dim">Stopped after ${done.length} of ${plan.steps.length}.</span>`);
   } else {
-    lines.push(`<span class="text-dim">Ready${plan.vessel ? ` — it's all in the ${plan.vessel}` : ''}. Cooking it is yours.</span>`);
+    lines.push(`<span class="text-dim">Ready${plan.vessel ? ` — it's all in the ${plan.vessel}` : ''}. Cooking it's yours.</span>`);
   }
   return { type: 'output', message: lines.join('\n') };
 }

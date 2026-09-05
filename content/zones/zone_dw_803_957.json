@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A stand of trees that died where they stood and never fell: bark long gone, trunks silver-grey and sanded smooth on the windward side, every branch bare and none of them broken off. There is no undergrowth at all. They are not close enough together to be a wood and there are far too many of them to be anything else.",
+  "description": "A stand of trees that died where they stood and never fell: bark long gone, trunks silver-grey and sanded smooth on the windward side, every branch bare and none of them broken off. There's no undergrowth at all. They aren't close enough together to be a wood and there are far too many of them to be anything else.",
   "exits": {
     "east": "zone_dw_804_957",
     "north": "zone_dw_803_956",

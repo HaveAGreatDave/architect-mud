@@ -7,7 +7,7 @@
       "Somewhere far off the water changes note. Kettle stops mid-sentence, listens, and carries on."
     ],
     [
-      "\"Half past,\" Kettle says, without a clock, without looking up. He is not wrong."
+      "\"Half past,\" Kettle says, without a clock, without looking up. He isn't wrong."
     ],
     [
       "Kettle tops up a hurricane lamp from a jar, trims the wick with his thumbnail, and blows the match out slowly."
@@ -28,7 +28,7 @@
   ],
   "behaviour_graph": {},
   "chitchat": [],
-  "description": "A big, slow, immaculately shaved man sitting on an upturned crate under the weeping concrete, in the only dry yard of the sump, which he has swept. He wears a municipal coverall with the pump-authority flash still on the shoulder, laundered pale and patched at both knees. A hurricane lamp burns beside him at an economical setting. He does not look like a man who has ended up here. He looks like a man at work, and mildly surprised that you are not.",
+  "description": "A big, slow, immaculately shaved man sitting on an upturned crate under the weeping concrete, in the only dry yard of the sump, which he has swept. He wears a municipal coverall with the pump-authority flash still on the shoulder, laundered pale and patched at both knees. A hurricane lamp burns beside him at an economical setting. He doesn't look like a man who has ended up here. He looks like a man at work, and mildly surprised that you're not.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -91,7 +91,7 @@
           "next": "bye"
         }
       ],
-      "text": "Kettle looks at you with great patience, the way you look at somebody who has asked why you bother locking the door. \"Every one of them up there thinks the floor holds because floors hold,\" he says. \"It holds because it's checked. That's the whole trick. Somebody has to be the somebody.\" <span class=\"text-dim\">He puts his palm on the wall again.</span> \"I'm not stuck down here, friend. I'm posted.\""
+      "text": "Kettle looks at you with the great patience of a man who has just been asked why he bothers locking the door. \"Every one of them up there thinks the floor holds because floors hold,\" he says. \"It holds because it's checked. Somebody has to be the somebody.\" <span class=\"text-dim\">He puts his palm on the wall again.</span> \"I'm not stuck down here, friend. I'm posted.\""
     },
     "listen": {
       "_vine": {
@@ -129,7 +129,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Not the water. The pipe.\" He raps a knuckle on it, and the note goes off down the dark for a surprisingly long time. \"Nineteen years is a lot of Tuesdays. You'd learn it too.\" <span class=\"text-dim\">He settles back on the crate.</span> \"I know which buildings are lying about how many people live in them. I know it the way you know your own stairs.\""
+      "text": "\"Not the water. The pipe.\" He raps a knuckle on it, and the note goes off down the dark for a surprisingly long time. \"Nineteen years is a lot of Tuesdays. You'd learn it too.\" <span class=\"text-dim\">He settles back on the crate.</span> \"I know which buildings are lying about how many people live in them. I know it like my own stairs.\""
     },
     "root": {
       "_vine": {
@@ -138,7 +138,7 @@
       },
       "options": [
         {
-          "label": "What is it you do down here?",
+          "label": "What's it you do down here?",
           "next": "job"
         },
         {

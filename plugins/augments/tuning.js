@@ -62,7 +62,7 @@ export async function cmdCalibrate(args, raw, player) {
   const rec = recordOf(player, aug.id);
   if (!rec) return { type: 'error', message: `You don't have ${aug.name} installed.` };
   if (Number(rec.condition ?? 1) <= 0) {
-    return { type: 'error', message: `${aug.name} is dead. There is nothing in there to tune yet — get it repaired first.` };
+    return { type: 'error', message: `${aug.name} is dead. There's nothing in there to tune yet — get it repaired first.` };
   }
 
   const ceiling = rec.install_quality === 'botched' ? BOTCHED_CALIBRATION_CAP : 100;
@@ -146,8 +146,8 @@ export async function cmdCalibrateResolve(args, raw, player) {
     : 'transformed';
 
   const capNote = after >= ceiling && ceiling < 100
-    ? `\n<span style="opacity:.7">That is the ceiling a botched fitting left you.</span>`
-    : after >= 100 ? `\n<span style="opacity:.7">Spec. It will not go higher — but it can be pushed past it.</span>` : '';
+    ? `\n<span style="opacity:.7">That's the ceiling a botched fitting left you.</span>`
+    : after >= 100 ? `\n<span style="opacity:.7">Spec. It won't go higher — but it can be pushed past it.</span>` : '';
 
   return { type: 'output', message:
     `<span class="zone-name">${aug.name}</span> — calibration ${before}% → <b>${after}%</b> (${verdict}).${capNote}` };

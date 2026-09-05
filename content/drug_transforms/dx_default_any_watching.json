@@ -4,7 +4,7 @@
     "Do you remember taking anything? Genuinely, do you?",
     "Would you rather I waited outside?"
   ],
-  "description": "A figure stands against the wall, built out of hanging coats and nothing else, no face, no hands, the shoulders far too high, and it is unmistakably paying attention to you.",
+  "description": "A figure stands against the wall, built out of hanging coats and nothing else, no face, no hands, the shoulders far too high, and it's unmistakably paying attention to you.",
   "drug_id": null,
   "emotes": [
     "{it} settles half an inch, the way hanging cloth settles, and is somehow closer.",
@@ -15,16 +15,16 @@
   "fx_intensity": 0.5,
   "id": "dx_default_any_watching",
   "looks": [
-    "The coats hang perfectly still. There is no draught in here and there would need to be.",
-    "It has no obvious front. It is looking at you.",
+    "The coats hang perfectly still. There's no draught in here and there would need to be.",
+    "It has no obvious front. It's looking at you.",
     "It has moved. You would swear to it and you would be wrong."
   ],
   "matches": null,
   "name": "a tall thin figure made of coats",
   "says": [
-    "Do not mind me.",
-    "You are doing fine.",
-    "I will be here when it wears off."
+    "Don't mind me.",
+    "You're doing fine.",
+    "I'll be here when it wears off."
   ],
   "scope": "object"
 }

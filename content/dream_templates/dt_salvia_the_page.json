@@ -5,7 +5,7 @@
     "The light on you changes, because a lamp was adjusted."
   ],
   "cause": "drug",
-  "description": "You are a page a long way into a book, and somebody is reading you, and you have been the same eleven words for a very long time. The reading is unhurried. When the page turns you will go with it and stop being a page, and you have no view about that.",
+  "description": "You're a page a long way into a book, and somebody is reading you, and you have been the same eleven words for a very long time. The reading is unhurried. When the page turns you'll go with it and stop being a page, and you have no view about that.",
   "drug_id": "drug_salvia",
   "fx": "crawl",
   "fx_intensity": 0.7,
@@ -15,7 +15,7 @@
     {
       "looks": [
         "Eleven of them. You have been them for the whole afternoon.",
-        "They are about something else entirely, which does not matter.",
+        "They're about something else entirely, which doesn't matter.",
         "One of them is doing most of the work."
       ],
       "name": "the words on you"
@@ -23,11 +23,11 @@
     {
       "looks": [
         "Not visible. Present at the edge, the way weather is present.",
-        "They are near the bottom of you, and slowing.",
-        "They have been at this all day and they are enjoying it."
+        "They're near the bottom of you, and slowing.",
+        "They have been at this all day and they're enjoying it."
       ],
       "name": "the reader"
     }
   ],
-  "weather": "There is a lamp on, and it is raining somewhere well outside the book."
+  "weather": "There's a lamp on, and it's raining somewhere well outside the book."
 }

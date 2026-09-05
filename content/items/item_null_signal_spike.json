@@ -1,10 +1,10 @@
 {
-  "description": "A finger-length sliver of black ceramic with a bead of solder at one end. You press it against a housing and it does exactly one thing, once, and then it is a piece of ceramic. The Null hand these out like cigarettes.",
+  "description": "A finger-length sliver of black ceramic with a bead of solder at one end. You press it against a housing and it does exactly one thing, once, and then it's a piece of ceramic. The Null hand these out like cigarettes.",
   "flags": {},
   "id": "item_null_signal_spike",
   "name": "signal spike",
   "tags": {
-    "description": "A finger-length sliver of black ceramic with a bead of solder at one end. You press it against a housing and it does exactly one thing, once, and then it is a piece of ceramic. The Null hand these out like cigarettes.",
+    "description": "A finger-length sliver of black ceramic with a bead of solder at one end. You press it against a housing and it does exactly one thing, once, and then it's a piece of ceramic. The Null hand these out like cigarettes.",
     "electronic": true,
     "misc": true,
     "null_device": true,

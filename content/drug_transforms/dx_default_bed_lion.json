@@ -22,9 +22,9 @@
   "matches": "bed",
   "name": "a sleeping lion",
   "says": [
-    "Lie down if you are going to.",
-    "I am not going to be up for hours.",
-    "You are letting the heat out, standing there."
+    "Lie down if you're going to.",
+    "I'm not going to be up for hours.",
+    "You're letting the heat out, standing there."
   ],
   "scope": "object"
 }

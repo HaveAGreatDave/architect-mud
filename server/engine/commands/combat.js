@@ -74,7 +74,7 @@ function renderLootText(view) {
 	lines.push(`<b>${view.corpseName}</b> — what's on the body:`);
 	if (!view.items.length) {
 		lines.push(view.butcherable
-			? '  Nothing left to take, but there is still meat on it. <span class="action-link" data-action="cmd" data-cmd="butcher">butcher</span>'
+			? '  Nothing left to take, but there\'s still meat on it. <span class="action-link" data-action="cmd" data-cmd="butcher">butcher</span>'
 			: '  Nothing.');
 		return lines.join('\n');
 	}

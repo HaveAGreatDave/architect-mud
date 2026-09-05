@@ -129,7 +129,7 @@ export default async function regress({ check }) {
     const t2 = await tabletCmds.tabletnav(['codex'], 'codex', inCorridor);
     check('tabletnav refused in the prologue corridor too', t2?.type === 'system' && /no tablet/i.test(t2.message || ''), JSON.stringify(t2)?.slice(0, 80));
     const t3 = await tabletCmds.tablet([], 'tablet', { ...p, current_zone: Z_CLONEVAT });
-    check('…and opens normally the moment you are out of it', t3?.type === 'tablet_panel', JSON.stringify(t3)?.slice(0, 60));
+    check("…and opens normally the moment you're out of it", t3?.type === 'tablet_panel', JSON.stringify(t3)?.slice(0, 60));
   }
 
   // ── Gate 1: north out of The Inbetween (→ The Lattice) needs alignment ──────
@@ -150,12 +150,12 @@ export default async function regress({ check }) {
   const readIt = await readHolosign(['holosign'], 'read holosign', { ...p, current_zone: Z_LATTICE });
   check('read holosign answers like examine', readIt !== undefined && readIt?.type !== 'error', readIt?.type);
   const readCaster = await readHolosign(['holocaster'], 'read holocaster', { ...p, current_zone: Z_LATTICE });
-  check('read holocaster is not swallowed by the holosign', readCaster === undefined);
+  check("read holocaster isn't swallowed by the holosign", readCaster === undefined);
   // …but it must NOT advertise itself. `read` is registered ungated precisely so
   // the reverse lookup can't offer it on the sign's room link as a second door —
   // examine is the one door, and USE is what you click from there.
   const signActions = availableActions({ flags: { prologue_holosign: true } });
-  check('read is not advertised on the holosign', !signActions.includes('read'), signActions.join(','));
+  check("read isn't advertised on the holosign", !signActions.includes('read'), signActions.join(','));
   check('use IS advertised on the holosign', signActions.includes('use'), signActions.join(','));
 
   // ── The attendant's dialogue drives the first two beacons ──────────────────
@@ -214,7 +214,7 @@ export default async function regress({ check }) {
   const again = await useHolosign(['holosign'], 'use holosign', lp);
   check('second holosign touch is a flavour no-op', again?.type === 'emote');
   const g2 = await query('SELECT stat_brawn, gifted_stat_points FROM players WHERE id=$1', [p.id]);
-  check('holosign does not re-gift stats', g2.rows[0].stat_brawn === 1 && g2.rows[0].gifted_stat_points === 6, JSON.stringify(g2.rows[0]));
+  check("holosign doesn't re-gift stats", g2.rows[0].stat_brawn === 1 && g2.rows[0].gifted_stat_points === 6, JSON.stringify(g2.rows[0]));
 
   // ── Broadcast door was shut; the holocaster opens it and is consumed ───────
   const g2blocked = await prologueMoveGate({ player: { ...p, current_zone: Z_LATTICE }, to: { id: Z_BROADCAST } });
@@ -249,7 +249,7 @@ export default async function regress({ check }) {
   const declined = await cmdTutorial(['no'], 'tutorial no', p);
   check('tutorial no answers with a hint', declined?.type === 'system');
   check('tutorial no marks the question asked', await isSet(p, F_TOUR_ASKED));
-  check('tutorial no does not mark the tour taken', !(await isSet(p, F_TOUR_TAKEN)));
+  check("tutorial no doesn't mark the tour taken", !(await isSet(p, F_TOUR_TAKEN)));
   const accepted = await cmdTutorial(['yes'], 'tutorial yes', p);
   check('tutorial yes is silent (the client is already touring)', accepted === null);
   const replay = await cmdTutorial([], 'tutorial', p);
@@ -326,7 +326,7 @@ export default async function regress({ check }) {
     Object.entries(NUDGES).map(([k, v]) => `${k}=${v.length}`).join(' '));
   check('the delay ladder only ever grows',
     NUDGE_DELAYS.every((d, i) => i === 0 || d > NUDGE_DELAYS[i - 1]));
-  check('the first prod is not instant', NUDGE_DELAYS[0] >= 60000);
+  check("the first prod isn't instant", NUDGE_DELAYS[0] >= 60000);
 
   // Every beacon the prologue lights must resolve to a step that has lines, or
   // a step ships its shimmer with nothing to say when the player stalls on it.

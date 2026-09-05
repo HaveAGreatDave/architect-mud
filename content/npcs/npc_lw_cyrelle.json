@@ -19,7 +19,7 @@
     "\"We don't want to burn the city down. We want the keys to it. There's a difference, and it's everything.\"",
     "\"Paper doesn't leak. Paper doesn't get hacked. Paper is why we're still here.\""
   ],
-  "description": "A tall woman with cropped iron-grey hair, standing at the great hand-drawn wall map with a grease pencil behind one ear. She has the calm of someone who plans in years, not days. When she looks at you it's not unkind, but it is complete: she is deciding what you're good for, and she is usually right.",
+  "description": "A tall woman with cropped iron-grey hair, standing at the great hand-drawn wall map with a grease pencil behind one ear. She has the calm of someone who plans in years, not days. When she looks at you it's not unkind, but it's complete: she's deciding what you're good for, and she's usually right.",
   "dialogue_tree": {
     "asc_accept": {
       "actions": [
@@ -39,16 +39,16 @@
     "asc_after": {
       "options": [
         {
-          "label": "I will keep digging.",
+          "label": "I'll keep digging.",
           "next": "bye"
         }
       ],
-      "text": "\"Dig carefully. A door that opens for you out there opens for a reason, and the reason is not you.\"\n\nShe is already marking the western edge of the map, a shape she does not have a symbol for yet."
+      "text": "\"Dig carefully. A door that opens for you out there opens for a reason, and the reason isn't you.\"\n\nShe is already marking the western edge of the map, a shape she doesn't have a symbol for yet."
     },
     "asc_offer": {
       "options": [
         {
-          "label": "I will go west.",
+          "label": "I'll go west.",
           "next": "asc_accept"
         },
         {
@@ -56,7 +56,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Start at the source. The claims hall in Halcyon Towers. Watch where the payouts route, and then follow the track west until it stops being grass.\"\n\nA beat.\n\n\"I do not know what is out there. That is exactly why I want eyes that will come back.\""
+      "text": "\"Start at the source. The claims hall in Halcyon Towers. Watch where the payouts route, and then follow the track west until it stops being grass.\"\n\nA beat.\n\n\"I don't know what's out there. That's exactly why I want eyes that'll come back.\""
     },
     "asc_report": {
       "actions": [
@@ -73,11 +73,11 @@
       ],
       "options": [
         {
-          "label": "There is a whole complex out there.",
+          "label": "There's a whole complex out there.",
           "next": "asc_after"
         }
       ],
-      "text": "She listens to all of it without moving.\n\n\"A chrome city. Turrets. A Gate that turns you away.\"\n\nShe exhales slowly.\n\n\"So that is where the money has been going. Whatever that place is, it is the machine's friend and not ours.\"\n\nA long look, and she does not soften it.\n\n\"Learn what it is, if you are going back. But Halcyon. Do not ever trust a payout from them again.\"\n\n\"Did anybody take your name?\""
+      "text": "She listens to all of it without moving.\n\n\"A chrome city. Turrets. A Gate that turns you away.\"\n\nShe exhales slowly.\n\n\"So that's where the money has been going. Whatever that place is, it's the machine's friend and not ours.\"\n\nA long look, and she doesn't soften it.\n\n\"Learn what it is, if you're going back. But Halcyon. Don't ever trust a payout from them again.\"\n\n\"Did anybody take your name?\""
     },
     "asc_reveal": {
       "options": [
@@ -90,12 +90,12 @@
           "next": "bye"
         }
       ],
-      "text": "Cyrelle sets down the grease pencil, which is rare.\n\n\"Bothering me too. Halcyon settles its biggest claims by moving money west, past the grass, off every map we keep. Insurance does not work like that. Insurance argues. Insurance delays. Something out there is wearing Halcyon's face and it has never once argued a claim.\"\n\nShe studies you.\n\n\"You have earned enough rope to go and pull on it. Quietly. Find out what is west, and do not let them learn you are Watch.\""
+      "text": "Cyrelle sets down the grease pencil, which is rare.\n\n\"Bothering me too. Halcyon settles its biggest claims by moving money west, past the grass, off every map we keep. Insurance doesn't work like that. Insurance argues. Insurance delays. Something out there's wearing Halcyon's face and it has never once argued a claim.\"\n\nShe studies you.\n\n\"You have earned enough rope to go and pull on it. Quietly. Find out what's west, and don't let them learn you're Watch.\""
     },
     "blind": {
       "options": [
         {
-          "label": "I will take the work.",
+          "label": "I'll take the work.",
           "next": "work"
         },
         {
@@ -103,7 +103,7 @@
           "next": "root"
         }
       ],
-      "text": "\"That is the long game. It is slow, and it is the only one worth playing.\"\n\nShe does not smile yet.\n\n\"Do the arithmetic before you decide you are impressed. There are sixty-one of us. On the other side there is a machine that owns every wire in the Basin, and a chrome city out west that can print a new body faster than we can bury an old one. Nobody sensible takes that bet. I want you to know that I know it.\"\n\nNow the smile, and it is thin, and it is real.\n\n\"But a machine has to be told where to look. That is the one thing it has never been able to do for itself. So we do not win this with a bomb. We win it one dark corner at a time, until the map is more ours than his, and one morning it goes looking for us and finds a city with rooms of its own again.\""
+      "text": "\"That's the long game. It's slow, and it's the only one worth playing.\"\n\nShe doesn't smile yet.\n\n\"Do the arithmetic before you decide you're impressed. There are sixty-one of us. On the other side there's a machine that owns every wire in the Basin, and a chrome city out west that can print a new body faster than we can bury an old one. Nobody sensible takes that bet. I want you to know that I know it.\"\n\nNow the smile, and it's thin, and it's real.\n\n\"But a machine has to be told where to look. That's the one thing it has never been able to do for itself. So we don't win this with a bomb. We win it one dark corner at a time, until the map is more ours than his, and one morning it goes looking for us and finds a city with rooms of its own again.\""
     },
     "bye": {
       "options": [],
@@ -125,7 +125,7 @@
           "next": "cross_meet2"
         }
       ],
-      "text": "She does not put a light on. She is on the stool by the type cases with her coat still buttoned, and she has clearly been there a while, and she is not surprised.\n\n\"Six nights,\" she says. \"Halloran said four. I said seven. It was six.\"\n\nShe does not get up.\n\n\"Sit down. You have had a long walk and you are going to have a longer one back.\""
+      "text": "She doesn't put a light on. She's on the stool by the type cases with her coat still buttoned, and she has clearly been there a while, and she isn't surprised.\n\n\"Six nights,\" she says. \"Halloran said four. I said seven. It was six.\"\n\nShe doesn't get up.\n\n\"Sit down. You have had a long walk and you're going to have a longer one back.\""
     },
     "cross_meet2": {
       "_vine": {
@@ -135,7 +135,7 @@
       "actions": [],
       "options": [
         {
-          "label": "They are going to win, Cyrelle.",
+          "label": "They're going to win, Cyrelle.",
           "next": "cross_refuse"
         },
         {
@@ -147,7 +147,7 @@
           "next": "cross_refuse"
         }
       ],
-      "text": "\"Here is what I am not going to do. I am not going to tell you that you have made a terrible mistake, because you know, and being told is what makes a person dig in.\"\n\nShe nods at the press behind her.\n\n\"Take the address. Genuinely, take it. It is a machine and we have two more, and the day they come for it is the day we find out how many of them are prepared to be seen carrying a crate out of a basement.\"\n\nA long pause, and she is not performing it.\n\n\"But you are still on the rota. Nobody has crossed you off. That is not sentiment. Crossing somebody off is a decision, and I am not making it while there is any version of this where you come back.\""
+      "text": "\"Here is what I'm not going to do. I'm not going to tell you that you have made a terrible mistake, because you know, and being told is what makes a person dig in.\"\n\nShe nods at the press behind her.\n\n\"Take the address. Genuinely, take it. It's a machine and we have two more, and the day they come for it's the day we find out how many of them are prepared to be seen carrying a crate out of a basement.\"\n\nA long pause, and she isn't performing it.\n\n\"But you're still on the rota. Nobody has crossed you off. That isn't sentiment. Crossing somebody off is a decision, and I'm not making it while there's any version of this where you come back.\""
     },
     "cross_open": {
       "_vine": {
@@ -171,11 +171,11 @@
       ],
       "options": [
         {
-          "label": "I will think about it.",
+          "label": "I'll think about it.",
           "next": "bye"
         }
       ],
-      "text": "\"Nothing you would have to do tonight.\" She says it carefully, the way you say a thing you have rehearsed and do not want to sound rehearsed.\n\n\"You would have to still be a person we could reach. That is all it is at this stage, and I am aware of exactly how much I am asking for and how little I am offering back.\"\n\nShe stands, finally, and pulls her coat straight.\n\n\"Go on. He will want it before morning, and you should not be the last one out of this building.\""
+      "text": "\"Nothing you would have to do tonight.\" She says it carefully, having rehearsed it, and not wanting it to sound rehearsed.\n\n\"You would have to still be a person we could reach. That's all it's at this stage, and I'm aware of exactly how much I'm asking for and how little I'm offering back.\"\n\nShe stands, finally, and pulls her coat straight.\n\n\"Go on. He'll want it before morning, and you shouldn't be the last one out of this building.\""
     },
     "cross_refuse": {
       "_vine": {
@@ -203,7 +203,7 @@
           "next": "bye"
         }
       ],
-      "text": "She takes it better than you were braced for, which is worse.\n\n\"All right.\"\n\nShe moves off the stool to let you past the type cases, and she is careful not to touch you doing it, and that is the part you will remember.\n\n\"For what it is worth, and it is worth nothing: I do not think you are a coward and I do not think you were bought. I think you did the arithmetic and got the right answer.\"\n\nShe sits back down in the dark.\n\n\"I have done it too. I just could not make myself live in it.\""
+      "text": "She takes it better than you were braced for, which is worse.\n\n\"All right.\"\n\nShe moves off the stool to let you past the type cases, and she's careful not to touch you doing it, and that's the part you'll remember.\n\n\"For what it's worth, and it's worth nothing: I don't think you're a coward and I don't think you were bought. I think you did the arithmetic and got the right answer.\"\n\nShe sits back down in the dark.\n\n\"I have done it too. I just couldn't make myself live in it.\""
     },
     "l13_done": {
       "_vine": {
@@ -231,7 +231,7 @@
           "next": "bye"
         }
       ],
-      "text": "She hears the whole of it without interrupting once, which she does not do.\n\n\"Running.\" Cyrelle says it before you have finished. \"The ports are capped clean and recent and he has not asked us for a single thing. Somebody sent would have asked for something by now, because that is what they are sent to do.\"\n\nShe turns back to the map. \"He comes in. He sleeps in the commons for a month and does not go past the spine, and in a month I will still be the one who decided it.\""
+      "text": "She hears the whole of it without interrupting once, which she doesn't do.\n\n\"Running.\" Cyrelle says it before you have finished. \"The ports are capped clean and recent and he hasn't asked us for a single thing. Somebody sent would have asked for something by now. They always do, inside a week.\"\n\nShe turns back to the map. \"He comes in. He sleeps in the commons for a month and doesn't go past the spine, and in a month I'll still be the one who decided it.\""
     },
     "l13_offer": {
       "_vine": {
@@ -244,14 +244,14 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will sit with him.",
+          "label": "I'll sit with him.",
           "next": "l13_take"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "And if I cannot tell which?",
+          "label": "And if I can't tell which?",
           "next": "l13_why"
         },
         {
@@ -262,7 +262,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a boy at the Threshold.\" Cyrelle does not leave the map. \"Nineteen, Spire haircut, two capped ports in his forearms, and Rennick will not turn him away and will not let him in, which is exactly the right answer and is also not an answer.\"\n\n\"Sit with him. He is one of three things: sent, running, or lost.\""
+      "text": "\"There's a boy at the Threshold.\" Cyrelle doesn't leave the map. \"Nineteen, Spire haircut, two capped ports in his forearms, and Rennick won't turn him away and won't let him in, which is exactly the right answer and is also not an answer.\"\n\n\"Sit with him. He's one of three things: sent, running, or lost.\""
     },
     "l13_take": {
       "_vine": {
@@ -284,7 +284,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Take him something to eat. He has not asked for anything, which is the part I do not like.\" Back to the map. \"And do not tell him you have been up there. Let him say it all first.\""
+      "text": "\"Take him something to eat. He hasn't asked for anything, which is the part I don't like.\" Back to the map. \"And don't tell him you have been up there. Let him say it all first.\""
     },
     "l13_why": {
       "_vine": {
@@ -297,7 +297,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will sit with him.",
+          "label": "I'll sit with him.",
           "next": "l13_take"
         },
         {
@@ -308,7 +308,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then you tell me that.\" She looks up. \"Do not decide. Listen, then tell me. I will decide, and if it is wrong it will be my fault, and I want it to be my fault. That is what this chair is.\""
+      "text": "\"Then you tell me that.\" She looks up. \"Don't decide. Listen, then tell me. I'll decide, and if it's wrong it'll be my fault, and I want it to be my fault. That's what this chair is.\""
     },
     "l14_done": {
       "_vine": {
@@ -341,7 +341,7 @@
           "next": "bye"
         }
       ],
-      "text": "She reads the file, then the count, then the file again.\n\n\"A whole bank of them dry.\" Cyrelle sits down, which is new. \"Nine years of arguing about whether they would ever open the vats to everybody, and it turns out they could not, and have not been able to for some time, and are still selling it every Tuesday to somebody like Halbrook.\"\n\nA long pause. \"This does not go in the room yet. I need to know what to do with it before forty people know I have it.\""
+      "text": "She reads the file, then the count, then the file again.\n\n\"A whole bank of them dry.\" Cyrelle sits down, which is new. \"Nine years of arguing about whether they would ever open the vats to everybody, and it turns out they could not, and haven't been able to for some time, and are still selling it every Tuesday to somebody like Halbrook.\"\n\nA long pause. \"This doesn't go in the room yet. I need to know what to do with it before forty people know I have it.\""
     },
     "l14_offer": {
       "_vine": {
@@ -354,7 +354,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will count them.",
+          "label": "I'll count them.",
           "next": "l14_take"
         },
         {
@@ -394,7 +394,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Hall first, Registry after, and out of the building before anybody has a reason to look at you twice.\" She is already back on the map. \"You have a face they let in. It is the only thing about your last year I am glad of.\""
+      "text": "\"Hall first, Registry after, and out of the building before anybody has a reason to look at you twice.\" She's already back on the map. \"You have a face they let in. It's the only thing about your last year I'm glad of.\""
     },
     "l14_why": {
       "_vine": {
@@ -407,7 +407,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will count them.",
+          "label": "I'll count them.",
           "next": "l14_take"
         },
         {
@@ -418,7 +418,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They are.\" She does not soften it. \"That is exactly why I want the number. A promise you have not counted is a poster.\"\n\nShe takes the finger off the map. \"And if the number is good, I want to know that too, and I will say so in this room, and half of them will not forgive me for it.\""
+      "text": "\"They are.\" She doesn't soften it. \"That's exactly why I want the number. A promise you haven't counted is a poster.\"\n\nShe takes the finger off the map. \"And if the number is good, I want to know that too, and I'll say so in this room, and half of them won't forgive me for it.\""
     },
     "l15_done": {
       "_vine": {
@@ -450,7 +450,7 @@
           "next": "bye"
         }
       ],
-      "text": "She takes the chip, looks at it once, and puts it in her coat.\n\n\"No name.\" Cyrelle nods slowly. \"Good. You will work out whose it is inside a fortnight, if you have not already, because it is not difficult and there are only forty of us.\"\n\nShe holds your eye for a moment. \"And then you will be the second person carrying it. I am sorry about that. It is the actual price and nobody warns anybody about it.\""
+      "text": "She takes the chip, looks at it once, and puts it in her coat.\n\n\"No name.\" Cyrelle nods slowly. \"Good. You'll work out whose it's inside a fortnight, if you haven't already, because it isn't difficult and there are only forty of us.\"\n\nShe holds your eye for a moment. \"And then you'll be the second person carrying it. I'm sorry about that. It's the actual price and nobody warns anybody about it.\""
     },
     "l15_offer": {
       "_vine": {
@@ -470,7 +470,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You do not want the person.",
+          "label": "You don't want the person.",
           "next": "l15_why"
         },
         {
@@ -481,7 +481,7 @@
           "next": "bye"
         }
       ],
-      "text": "She takes you out of the ops room to say it, which she has never done.\n\n\"Somebody here has been taking money. Eleven days I have known and I have not said a name to anybody, including Halloran, including you.\" Cyrelle keeps her voice at the level of a conversation about rations. \"The drop is behind the tap. I want the money. Tonight.\""
+      "text": "She takes you out of the ops room to say it, which she has never done.\n\n\"Somebody here has been taking money. Eleven days I have known and I haven't said a name to anybody, including Halloran, including you.\" Cyrelle keeps her voice at the level of a conversation about rations. \"The drop is behind the tap. I want the money. Tonight.\""
     },
     "l15_take": {
       "_vine": {
@@ -503,7 +503,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Behind the tap, low on the left, and do not look round while you are doing it.\" She is already going back in. \"Bring it to me and say no name. Not even if you know it. Especially not then.\""
+      "text": "\"Behind the tap, low on the left, and don't look round while you're doing it.\" She's already going back in. \"Bring it to me and say no name. Not even if you know it. Especially not then.\""
     },
     "l15_why": {
       "_vine": {
@@ -527,7 +527,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I want the person to find an empty gap and understand that it is over and that nobody is coming.\" She folds her arms. \"They will stop. People do, when the money stops and nothing else happens. It is the nothing else that does it.\"\n\n\"If I take them out of the bunkroom at three in the morning I have forty people who sleep worse for a year and one person who is gone. I have done that. It is not better.\""
+      "text": "\"I want the person to find an empty gap and understand that it's over and that nobody is coming.\" She folds her arms. \"They'll stop. People do, when the money stops and nothing else happens. It's the nothing else that does it.\"\n\n\"If I take them out of the bunkroom at three in the morning I have forty people who sleep worse for a year and one person who's gone. I have done that. It isn't better.\""
     },
     "map": {
       "options": [
@@ -540,7 +540,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Every red mark is one of the Architect's eyes.\" She sweeps a hand across the east of the Basin. \"Every one struck through is an eye we have closed.\"\n\n\"It looks like a small thing, one camera. It is not. A blind spot is a place people can breathe, and meet, and move, and a place the machine has to guess about. String enough of them together and you have something it cannot see at all.\"\n\n\"You have a city with rooms of its own again.\""
+      "text": "\"Every red mark is one of the Architect's eyes.\" She sweeps a hand across the east of the Basin. \"Every one struck through is an eye we have closed.\"\n\n\"It looks like a small thing, one camera. It's not. A blind spot is a place people can breathe, and meet, and move, and a place the machine has to guess about. String enough of them together and you have something it can't see at all.\"\n\n\"You have a city with rooms of its own again.\""
     },
     "ret_accept": {
       "actions": [
@@ -555,21 +555,21 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then go and get her.\"\n\nShe marks the Vats on the wall, and for once it is not a red eye. It is a circle.\n\n\"Two rules and I am not flexible on either. You do not put a floor supervisor in the ground. Kill one of Halcyon's middle managers and by morning we did not rescue a witness, we murdered a man in a polo shirt, and every name on that slate turns into paperwork nobody will ever read. Cosh them, lock them in a cupboard, walk around them. I do not care which.\"\n\nShe looks up.\n\n\"And you come back at her pace. Not yours. She is carrying everything she is and she cannot run with it. If you get here without her, do not get here.\"\n\n\"Can you carry somebody who cannot walk?\""
+      "text": "\"Then go and get her.\"\n\nShe marks the Vats on the wall, and for once it isn't a red eye. It's a circle.\n\n\"Two rules and I'm not flexible on either. You don't put a floor supervisor in the ground. Kill one of Halcyon's middle managers and by morning we didn't rescue a witness, we murdered a man in a polo shirt, and every name on that slate turns into paperwork nobody will ever read. Cosh them, lock them in a cupboard, walk around them. I don't care which.\"\n\nShe looks up.\n\n\"And you come back at her pace. Not yours. She's carrying everything she is and she can't run with it. If you get here without her, don't get here.\"\n\n\"Can you carry somebody who can't walk?\""
     },
     "ret_after": {
       "options": [
         {
-          "label": "I will be around.",
+          "label": "I'll be around.",
           "next": "bye"
         }
       ],
-      "text": "\"Eleven thousand and forty.\" She says the number the way you would test a weight. \"Every one of them a policy somebody's mother is still paying into. That is not a cult out there. That is a debt collector with a chapel.\"\n\nShe looks past you at the woman on the crate.\n\n\"She keeps the room. She keeps the name. Anybody asks, she is Watch now, and the Watch do not file people.\""
+      "text": "\"Eleven thousand and forty.\" She says the number the way you would test a weight. \"Every one of them a policy somebody's mother is still paying into. That isn't a cult out there. That's a debt collector with a chapel.\"\n\nShe looks past you at the woman on the crate.\n\n\"She keeps the room. She keeps the name. Anybody asks, she's Watch now, and the Watch don't file people.\""
     },
     "ret_offer": {
       "options": [
         {
-          "label": "Who is she?",
+          "label": "Who's she?",
           "next": "ret_offer2"
         },
         {
@@ -577,12 +577,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"I told you the first day there would be work. Cameras to close. Its little servants to inconvenience.\"\n\nShe finally turns all the way round.\n\n\"And people to move out from under the machine's eye. That is the one I have never been able to hand anybody, because we have never had somebody inside worth moving.\"\n\n\"Now we do. And she found us.\""
+      "text": "\"I told you the first day there would be work. Cameras to close. Its little servants to inconvenience.\"\n\nShe finally turns all the way round.\n\n\"And people to move out from under the machine's eye. That's the one I have never been able to hand anybody, because we have never had somebody inside worth moving.\"\n\n\"Now we do. And she found us.\""
     },
     "ret_offer2": {
       "options": [
         {
-          "label": "I will walk her out.",
+          "label": "I'll walk her out.",
           "next": "ret_accept"
         },
         {
@@ -590,7 +590,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A sub-registrar in the Vats. Nine years filing the accounts they stopped paying to run.\"\n\nA short breath.\n\n\"She is not a defector. She is a clerk who read her own filing cabinet and could not stop reading it. She will hand us the whole archive. She will not do it from inside that building, and she cannot get out of it on her own.\""
+      "text": "\"A sub-registrar in the Vats. Nine years filing the accounts they stopped paying to run.\"\n\nA short breath.\n\n\"She isn't a defector. She's a clerk who read her own filing cabinet and couldn't stop reading it. She'll hand us the whole archive. She won't do it from inside that building, and she can't get out of it on her own.\""
     },
     "ret_report": {
       "actions": [
@@ -632,20 +632,20 @@
           "next": "ret_after"
         }
       ],
-      "text": "Cyrelle looks at the woman sitting on a crate in her bunker, and then at the slate, and then at the woman again, and she takes the slate second.\n\n\"Nine years.\" She does not say it to you. \"Nine years of writing down who they were never going to bring back, and filing it, and coming in the next day.\"\n\nShe thumbs the archive open, reads for a while, and her face does something Halloran would not believe if you told him.\n\n\"You understand what this is. It is not proof they are a cult. Nobody cares about a cult. It is proof an insurer is selling a resurrection it has already decided not to perform.\""
+      "text": "Cyrelle looks at the woman sitting on a crate in her bunker, and then at the slate, and then at the woman again, and she takes the slate second.\n\n\"Nine years.\" She doesn't say it to you. \"Nine years of writing down who they were never going to bring back, and filing it, and coming in the next day.\"\n\nShe thumbs the archive open, reads for a while, and her face does something Halloran wouldn't believe if you told him.\n\n\"You understand what this is. It isn't proof they're a cult. Nobody cares about a cult. It's proof an insurer is selling a resurrection it has already decided not to perform.\""
     },
     "ret_reveal": {
       "options": [
         {
-          "label": "There is more. They keep the ones who lapse.",
+          "label": "There's more. They keep the ones who lapse.",
           "next": "ret_offer"
         },
         {
-          "label": "That is all I have.",
+          "label": "That's all I have.",
           "next": "bye"
         }
       ],
-      "text": "She sets the grease pencil down and this time she does not pick it back up.\n\n\"Say the last part again.\"\n\nYou do. Cyrelle stands very still in front of a map covered in eyes she has spent her life closing.\n\n\"So the payouts were not going west to somebody. They were going west to themselves.\"\n\nA flat sound that is not a laugh.\n\n\"An insurance company that owns the afterlife it is underwriting. No wonder they never argue a claim.\""
+      "text": "She sets the grease pencil down and this time she doesn't pick it back up.\n\n\"Say the last part again.\"\n\nYou do. Cyrelle stands very still in front of a map covered in eyes she has spent her life closing.\n\n\"So the payouts weren't going west to somebody. They were going west to themselves.\"\n\nA flat sound that isn't a laugh.\n\n\"An insurance company that owns the afterlife it's underwriting. No wonder they never argue a claim.\""
     },
     "root": {
       "options": [
@@ -670,7 +670,7 @@
             }
           ],
           "enabled": true,
-          "label": "There is a boy at the Threshold.",
+          "label": "There's a boy at the Threshold.",
           "next": "l13_offer"
         },
         {
@@ -784,7 +784,7 @@
               "value": "active"
             }
           ],
-          "label": "(she is sitting in the dark by the press)",
+          "label": "(she's sitting in the dark by the press)",
           "next": "cross_meet"
         },
         {
@@ -796,7 +796,7 @@
           "next": "blind"
         },
         {
-          "label": "I am here to work.",
+          "label": "I'm here to work.",
           "next": "work"
         },
         {
@@ -871,7 +871,7 @@
               "scope": "player"
             }
           ],
-          "label": "She is here. She is standing right there.",
+          "label": "She's here. She's standing right there.",
           "next": "ret_report"
         },
         {
@@ -879,7 +879,7 @@
           "next": "bye"
         }
       ],
-      "text": "She does not turn from the map at first.\n\n\"New blood. Halloran vouches for you, and Halloran is not generous with that.\"\n\nNow she looks.\n\n\"I am Cyrelle. I run operations down here, which is to say I decide, most days, what the Architect gets to see next. Sit with that a moment, and then tell me what you want to know.\""
+      "text": "She doesn't turn from the map at first.\n\n\"New blood. Halloran vouches for you, and Halloran isn't generous with that.\"\n\nNow she looks.\n\n\"I'm Cyrelle. I run operations down here, which is to say I decide, most days, what the Architect gets to see next. Sit with that a moment, and then tell me what you want to know.\""
     },
     "work": {
       "options": [
@@ -888,7 +888,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There will be operations for you soon enough. Cameras to close. People to move out from under the machine's eye. Its little servants to inconvenience.\"\n\nShe taps the map.\n\n\"For now, get the lie of the place. Talk to the Quartermaster. Rest while you can. When there is a run with your name on it you will hear about it.\""
+      "text": "\"There will be operations for you soon enough. Cameras to close. People to move out from under the machine's eye. Its little servants to inconvenience.\"\n\nShe taps the map.\n\n\"For now, get the lie of the place. Talk to the Quartermaster. Rest while you can. When there's a run with your name on it you'll hear about it.\""
     }
   },
   "faction": "ideology_long_watch",

@@ -2,8 +2,8 @@
   "cost": 2000,
   "description": "A second mind bolted alongside the first: cold, fast, and tireless. It runs the maths your meat is too slow for, and never once gets bored.",
   "failure_messages": {
-    "burnout": "The co-processor browns out. For a long moment you cannot remember what you were about to do.",
-    "dead": "The second mind stops. You are alone in your head for the first time in a while, and it is quieter and slower.",
+    "burnout": "The co-processor browns out. For a long moment you can't remember what you were about to do.",
+    "dead": "The second mind stops. You're alone in your head for the first time in a while, and it's quieter and slower.",
     "fault": "Your thoughts stutter as the processor drops synchronisation. You lose a sentence, then find it somewhere behind you.",
     "strain": "The second mind is running hot. Your own thoughts start arriving with a lag you can hear."
   },

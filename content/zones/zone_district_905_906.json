@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#7d8a4e",
-  "description": "A camp on the pond shore that has been here long enough to stop being temporary: tarpaulin over a bus shell, a cook fire in a cut-down drum, and a hand-lettered board reading CAMP GIARDIA that is either a warning or an advertisement depending on how hungry you are. Somebody has planted a row of beans along the waterline. Something has eaten most of them.",
+  "description": "A camp on the pond shore that has been here long enough to stop being temporary: tarpaulin over a bus shell, a cook fire in a cut-down drum, and a hand-lettered board reading CAMP GIARDIA that's either a warning or an advertisement depending on how hungry you are. Somebody has planted a row of beans along the waterline. Something has eaten most of them.",
   "exits": {
     "east": "zone_giardia_shop",
     "west": "zone_district_904_906"

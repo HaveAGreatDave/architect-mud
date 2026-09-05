@@ -134,14 +134,14 @@
     "squares a stack of deeds that were already square.",
     "\"A record is only a message you're trying to keep from decaying. Mostly you lose. You keep the ones you can.\"",
     "\"I could be wrong about that. I try to leave room to be.\"",
-    "pushes his glasses up into his hair, forgets they are there, and looks for them."
+    "pushes his glasses up into his hair, forgets they're there, and looks for them."
   ],
   "description": "An unremarkable older man at the records annex counter, cardigan buttoned wrong by one, reading glasses pushed up into thinning hair he keeps forgetting he pushed them into. Ink on two fingers, a mug of something gone cold at his elbow. The flat-files behind him are ordered with a patience that seems, if you look too long, faintly inhuman, as though one man had been keeping this room straight far longer than one man could. He looks up when you approach, and looks glad to, which almost nobody in this building does.",
   "dialogue_tree": {
     "arch_defend": {
       "options": [
         {
-          "label": "I was not here for what it held back.",
+          "label": "I wasn't here for what it held back.",
           "next": "root"
         }
       ],
@@ -244,7 +244,7 @@
           "next": "root"
         }
       ],
-      "text": "\"No one remembers, and that is the marvel of the thing.\" He closes the folder gently. \"Most advertising dies in a fortnight. These twelve got themselves sewn straight into the language, so a child says 'Septek' and means only the season, never the security firm that paid for the syllables. The corporations went the way corporations go: merged, bankrupt, taken, bombed, forgotten. The words outlived every last one of them.\" A small, tired smile. \"That's the part I keep, when the rest decays into noise. Not the products, not the profits, but the names. Billions of mouths still speaking dead slogans and calling it the date.\" He squares the folder against the counter. \"A record's a stubborn thing. It almost never keeps what its authors meant it to. I've made a sort of peace with that.\""
+      "text": "\"No one remembers, and that's the marvel of the thing.\" He closes the folder gently. \"Most advertising dies in a fortnight. These twelve got themselves sewn straight into the language, so a child says 'Septek' and means only the season, never the security firm that paid for the syllables. The corporations went the way corporations go: merged, bankrupt, taken, bombed, forgotten. The words outlived every last one of them.\" A small, tired smile. \"That's the part I keep, when the rest decays into noise. Not the products, not the profits, but the names. Billions of mouths still speaking dead slogans and calling it the date.\" He squares the folder against the counter. \"A record's a stubborn thing. It almost never keeps what its authors meant it to. I've made a sort of peace with that.\""
     },
     "calendar_list": {
       "options": [
@@ -257,16 +257,16 @@
           "next": "root"
         }
       ],
-      "text": "\"All twelve, sold like billboard space.\" He counts them off on ink-stained fingers, unhurried. \"Janufizz was a soda company. Februtek made robots. Marchex ran freight across half the world. Aprilex sold better genes to those who could afford them. Julyte kept the substations lit; scrape the paint off an old transformer and you'll still find their mark under three newer ones. Augmentum built limbs, and chose a grand Latin sound to seem permanent; ironically, it's the one thing of theirs that lasted. Septek was a security house, surveillance and predictive policing, which is the one that gives me a chill, given where we all ended up. Octane scarcely had to change its name at all. Novapex built rockets. And Decibel was the great broadcaster, and because their month carried the holidays, they owned the festive season for generations.\" He pauses on one, and turns his mug a quarter-turn without drinking. \"And Maytrix, an early thinking-machine company; a trademark suit forced the odd spelling. Some of us who keep these records believe their work fed, in time, the thing that drew this city.\" He does not say the word. \"I only file the belief. I've never been able to stamp it true.\""
+      "text": "\"All twelve, sold like billboard space.\" He counts them off on ink-stained fingers, unhurried. \"Janufizz was a soda company. Februtek made robots. Marchex ran freight across half the world. Aprilex sold better genes to those who could afford them. Julyte kept the substations lit; scrape the paint off an old transformer and you'll still find their mark under three newer ones. Augmentum built limbs, and chose a grand Latin sound to seem permanent; ironically, it's the one thing of theirs that lasted. Septek was a security house, surveillance and predictive policing, which is the one that gives me a chill, given where we all ended up. Octane scarcely had to change its name at all. Novapex built rockets. And Decibel was the great broadcaster, and because their month carried the holidays, they owned the festive season for generations.\" He pauses on one, and turns his mug a quarter-turn without drinking. \"And Maytrix, an early thinking-machine company; a trademark suit forced the odd spelling. Some of us who keep these records believe their work fed, in time, the thing that drew this city.\" He doesn't say the word. \"I only file the belief. I've never been able to stamp it true.\""
     },
     "codex_habit": {
       "options": [
         {
-          "label": "A habit is not nothing either.",
+          "label": "A habit isn't nothing either.",
           "next": "root"
         }
       ],
-      "text": "\"The commute,\" he says. \"The argument at the counter. The rent. The grudge. Tuesday.\" He looks, for a moment, genuinely tired. \"It didn't save humanity, whatever the Deacon sings. It kept a habit going.\"\n\nHe straightens the papers that did not need straightening. \"And I have never been able to establish whose habit it was. That's the drawer I can't fill.\""
+      "text": "\"The commute,\" he says. \"The argument at the counter. The rent. The grudge. Tuesday.\" He looks, for a moment, genuinely tired. \"It didn't save humanity, whatever the Deacon sings. It kept a habit going.\"\n\nHe straightens the papers that didn't need straightening. \"And I have never been able to establish whose habit it was. That's the drawer I can't fill.\""
     },
     "codex_theories": {
       "options": [
@@ -676,7 +676,7 @@
           "next": "bye"
         }
       ],
-      "text": "He sets down his pen and looks at you properly, the look of someone genuinely glad you exist, which you will not get much of out here. \"Fresh up. Of course. Nobody tells you a thing down there but 'mind the step.'\" He opens a drawer, stamps a card, and slides a small parcel across the counter. \"Relocation allowance. Every new arrival's owed one; the fund hasn't been touched in years, because nobody knows to ask. Consider yourself asked-for.\" He taps a ledger. \"And I've put you on the record: name, arrival, nothing you need fear. You exist officially now. It's a small thing. It's not nothing.\" A faint smile. \"Now. What are you short of? I can still point you at most things this city keeps.\""
+      "text": "He sets down his pen and looks at you properly, the look of someone genuinely glad you exist, which you won't get much of out here. \"Fresh up. Of course. Nobody tells you a thing down there but 'mind the step.'\" He opens a drawer, stamps a card, and slides a small parcel across the counter. \"Relocation allowance. Every new arrival's owed one; the fund hasn't been touched in years, because nobody knows to ask. Consider yourself asked-for.\" He taps a ledger. \"And I've put you on the record: name, arrival, nothing you need fear. You exist officially now. It's a small thing. It's not nothing.\" A faint smile. \"Now. What are you short of? I can still point you at most things this city keeps.\""
     }
   },
   "faction": null,

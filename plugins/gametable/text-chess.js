@@ -120,7 +120,7 @@ export function threatLines(game, color) {
   const out = [];
   out.push(yours.length ? `Under attack: ${yours.join(', ')}.` : 'Nothing of yours is attacked.');
   if (theirs.length) out.push(`Hanging for you: ${theirs.join(', ')}.`);
-  if (game.inCheck() && game.turn === color) out.push('You are in check.');
+  if (game.inCheck() && game.turn === color) out.push("You're in check.");
   return out.join('<br>');
 }
 
@@ -145,7 +145,7 @@ export function narrateBoard(table, onlyPlayerId = null) {
     const color = g.seatByPlayer(pid)?.color || 'w';
     const you = g.seatByPlayer(pid)
       ? `You are ${color === 'w' ? 'White' : 'Black'}.`
-      : 'You are watching.';
+      : "You're watching.";
     const turn = g.isOver()
       ? g.resultLine()
       : `${g.turn === 'w' ? 'White' : 'Black'} to move${g.inCheck() ? ' — in check' : ''}.`;

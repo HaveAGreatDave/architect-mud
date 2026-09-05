@@ -2,10 +2,10 @@
   "ambient": [
     "The vault begins the courteous business of closing.",
     "Something waves. It has a great many things to wave with.",
-    "The pattern thins, and behind it there is wallpaper."
+    "The pattern thins, and behind it there's wallpaper."
   ],
   "cause": "drug",
-  "description": "The pattern has begun to fold itself down into a shape you could leave through. This is being done for you, and well, and with a certain formality. There is a great deal of goodwill here and none of it will come back with you.",
+  "description": "The pattern has begun to fold itself down into a shape you could leave through. This is being done for you, and well, and with a certain formality. There's a great deal of goodwill here and none of it'll come back with you.",
   "drug_id": "drug_dmt",
   "fx": "tracers",
   "fx_intensity": 0.6,
@@ -16,15 +16,15 @@
       "looks": [
         "A shape resolving into something a person could go through.",
         "Folded properly, with corners. Somebody does this for a living.",
-        "On the other side of it is a room, and a body, and an evening."
+        "On the other side of it's a room, and a body, and an evening."
       ],
       "name": "the fold"
     },
     {
       "looks": [
         "Enormous, and directed at you, and not remotely personal.",
-        "They are pleased you came. They see a lot of people.",
-        "It will not survive the trip back and everybody knows that."
+        "They're pleased you came. They see a lot of people.",
+        "It won't survive the trip back and everybody knows that."
       ],
       "name": "the goodwill"
     }

@@ -242,7 +242,7 @@ const TALK = {
   badbeat: [ // fires when he loses a strong hand — he's now on tilt
     'Two-outer. Of course. Of COURSE.',
     'Unreal. You chase everything and the deck kisses you for it, {name}.',
-    'That is not poker. That is a mugging. Deal.',
+    "That isn't poker. That's a mugging. Deal.",
     "Sure. Why not. Everybody hits but me. Deal the cards.",
   ],
   busted: [

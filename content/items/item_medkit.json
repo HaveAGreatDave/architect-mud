@@ -1,11 +1,11 @@
 {
-  "description": "A soft green pouch of gauze, sutures and a one-shot analgesic. Field grade. It will get you walking, not right.",
+  "description": "A soft green pouch of gauze, sutures and a one-shot analgesic. Field grade. It'll get you walking, not right.",
   "flags": {},
   "id": "item_medkit",
   "name": "medkit",
   "tags": {
     "consumable": true,
-    "description": "A soft green pouch of gauze, sutures and a one-shot analgesic. Field grade. It will get you walking, not right.",
+    "description": "A soft green pouch of gauze, sutures and a one-shot analgesic. Field grade. It'll get you walking, not right.",
     "heal_over_time": {
       "amount": 50,
       "duration_seconds": 300

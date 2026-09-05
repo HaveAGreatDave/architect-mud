@@ -5,7 +5,7 @@
     "The chair creaks, the way a chair does when someone gets up."
   ],
   "cause": "dream",
-  "description": "A room under a building, full of pipework and one enormous machine that is running well. It has been maintained by somebody who cared. There is a chair by it, and a mug, and a logbook, and whoever kept this place stepped out for a moment that has lasted a very long time.",
+  "description": "A room under a building, full of pipework and one enormous machine that's running well. It has been maintained by somebody who cared. There's a chair by it, and a mug, and a logbook, and whoever kept this place stepped out for a moment that has lasted a very long time.",
   "drug_id": null,
   "fx": "fog",
   "fx_intensity": 0.5,
@@ -15,16 +15,16 @@
     {
       "looks": [
         "Entries every day in the same hand, going back further than the building.",
-        "The last entry is today, and it is in your handwriting.",
+        "The last entry is today, and it's in your handwriting.",
         "Every entry says the same thing: STILL RUNNING. NOTHING TO REPORT."
       ],
       "name": "the logbook"
     },
     {
       "looks": [
-        "Running sweetly. You have no idea what it does and you are certain it matters.",
+        "Running sweetly. You have no idea what it does and you're certain it matters.",
         "Warm, and slightly damp, and breathing.",
-        "There is a panel you could open. You will not."
+        "There's a panel you could open. You'll not."
       ],
       "name": "the machine"
     },
@@ -37,5 +37,5 @@
       "name": "the mug"
     }
   ],
-  "weather": "It is very warm and slightly damp, and the warmth is coming from something that is working."
+  "weather": "It's very warm and slightly damp, and the warmth is coming from something that's working."
 }

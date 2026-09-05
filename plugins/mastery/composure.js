@@ -61,7 +61,7 @@ export function clearComposure(player) { if (player) player._composure = 0; }
 /** How it reads on the sheet — a count of held breaths, never a number bar. */
 export function composureLine(player) {
   const c = getComposure(player);
-  if (c <= 0) return '<span class="text-dim">You are not composed.</span>';
+  if (c <= 0) return '<span class="text-dim">You aren\'t composed.</span>';
   return `<span class="crit-tag">${'◆'.repeat(c)}</span> <span class="text-dim">composed</span>`;
 }
 

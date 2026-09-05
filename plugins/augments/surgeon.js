@@ -63,7 +63,7 @@ export function surgeonsIn(zoneId) {
  */
 export function pickSurgeon(zoneId, needle) {
   const all = surgeonsIn(zoneId);
-  if (!all.length) return { error: 'There is nobody here qualified to do the cutting.' };
+  if (!all.length) return { error: "There's nobody here qualified to do the cutting." };
   if (needle) {
     const q = String(needle).toLowerCase();
     const hit = all.find(s => s.name.toLowerCase() === q) || all.find(s => s.name.toLowerCase().includes(q));

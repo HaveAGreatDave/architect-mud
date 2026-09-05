@@ -55,15 +55,15 @@
         "If you're standing on my floor, you're playing. Type {verb} and a letter. That's the whole apparatus.",
         "Anyone in this studio may answer: {verb}, then A, B, C or D. Say it on television and mean it.",
         "You. Yes. {verb} and a letter. You have lived here your whole life. Prove some of it.",
-        "The rules have not changed since the format changed: I ask, you {verb} a letter, the Basin watches you be wrong."
+        "The rules haven't changed since the format changed: I ask, you {verb} a letter, the Basin watches you be wrong."
       ],
       "commercial": [
         "KSAB will return to JACKPOT PROTOCOL. Stay where you are. The lights are on.",
-        "A bumper plays: the logo, spinning, over a city that does not look like this one.",
-        "KSAB. We are legally required to tell you the prize money is real."
+        "A bumper plays: the logo, spinning, over a city that doesn't look like this one.",
+        "KSAB. We're legally required to tell you the prize money is real."
       ],
       "no_payout": [
-        "The network says one purse a day. Bertrand did not write that rule and neither did I."
+        "The network says one purse a day. Bertrand didn't write that rule and neither did I."
       ],
       "open": [
         "From the KSAB soundstage, under lights that cost more than the prize: this is JACKPOT PROTOCOL.",
@@ -94,7 +94,7 @@
       "round_intro.choice": [
         "Here we go. A question, some answers, and about forty seconds of you looking at the ceiling.",
         "Next question. One of these is true and the rest were written to look like it.",
-        "On we go. Statistically, two of you are about to pick the same wrong one.",
+        "On we go. Statistically, two of you're about to pick the same wrong one.",
         "Same shape, harder ground. Let's see.",
         "Another one. The field is wider than it looks and so is the silence.",
         "And again. Nobody has ever made this look as difficult as you're all about to."
@@ -123,7 +123,7 @@
         "Still time. Not much of it."
       ],
       "ticker": [
-        "JACKPOT PROTOCOL is recorded before a live studio audience · Prize money subject to network verification · Contestant answers are broadcast in full and cannot be withdrawn · KSAB Entertainment"
+        "JACKPOT PROTOCOL is recorded before a live studio audience · Prize money subject to network verification · Contestant answers are broadcast in full and can't be withdrawn · KSAB Entertainment"
       ],
       "verdict_read": [
         "{verdict} That's {purse} credits and a place in the transcript.",

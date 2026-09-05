@@ -52,38 +52,38 @@ const seen = new Map();   // `${playerId}:${zoneId}` -> ms
 const STARE = [
   (n) => `${n} looks at you a moment too long, then finds something else to look at.`,
   (n) => `${n}'s eyes go to you and stay there.`,
-  (n) => `You catch ${n} looking. They do not stop when you catch them.`,
+  (n) => `You catch ${n} looking. They don't stop when you catch them.`,
 ];
 
 const UNCOMFORTABLE = [
-  (n) => `${n} shifts their weight and does not look at you, which takes effort.`,
+  (n) => `${n} shifts their weight and doesn't look at you, which takes effort.`,
   (n) => `${n} has stopped whatever they were saying.`,
   (n) => `${n} folds their arms and looks hard at the middle distance.`,
 ];
 
 const BACK_AWAY = [
   (n) => `${n} takes a step back and makes it look like they meant to.`,
-  (n) => `${n} moves so that there is furniture between you.`,
+  (n) => `${n} moves so that there's furniture between you.`,
   (n) => `${n} crosses to the far side of the room without hurrying, which is worse than hurrying.`,
 ];
 
 const COMMENT = [
-  (n) => `${n} says, to nobody: "That should not be walking around."`,
+  (n) => `${n} says, to nobody: "That shouldn't be walking around."`,
   (n) => `"Christ," says ${n}, not quietly enough.`,
   (n) => `${n} mutters something to the person next to them, and the person next to them looks.`,
-  (n) => `"You cannot bring that in here," ${n} says, to somebody who does not work here either.`,
+  (n) => `"You can't bring that in here," ${n} says, to somebody who doesn't work here either.`,
 ];
 
 const GATHER = [
   `Conversation stops. Everyone in the room has arrived at the same opinion at the same time, and none of them are moving yet.`,
-  `Two of them have drifted together near the door, and they are talking about you without looking at you.`,
-  `The room has quietly rearranged itself so that you are on one side of it and everybody else is on the other.`,
+  `Two of them have drifted together near the door, and they're talking about you without looking at you.`,
+  `The room has quietly rearranged itself so that you're on one side of it and everybody else is on the other.`,
 ];
 
 const REPORT = [
   (n) => `${n} steps outside with a handset already at their ear.`,
   (n) => `${n} leaves. Not quickly, and not away from you so much as toward a telephone.`,
-  (n) => `Somebody has gone for somebody. You did not see who, and that is worse.`,
+  (n) => `Somebody has gone for somebody. You didn't see who, and that's worse.`,
 ];
 
 const pick = (pool) => pool[Math.floor(Math.random() * pool.length)];

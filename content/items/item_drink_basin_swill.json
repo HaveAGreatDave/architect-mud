@@ -1,11 +1,11 @@
 {
-  "description": "House drink. Nobody has ever asked what's in it twice.",
+  "description": "House drink. The barman will tell you what's in it if you ask, and you'll wish you hadn't.",
   "flags": {},
   "id": "item_drink_basin_swill",
   "name": "basin swill",
   "tags": {
     "consumable": true,
-    "description": "House drink. Nobody has ever asked what's in it twice.",
+    "description": "House drink. The barman will tell you what's in it if you ask, and you'll wish you hadn't.",
     "food_noun": "water",
     "food_profile": "liquid",
     "hydrating": true,

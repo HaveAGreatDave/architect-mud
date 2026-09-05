@@ -1,11 +1,11 @@
 {
-  "description": "Long, oval, and far too optimistic about how many people you are feeding.",
+  "description": "Long, oval, and far too optimistic about how many people you're feeding.",
   "flags": {},
   "id": "item_serving_platter",
   "name": "serving platter",
   "tags": {
     "container": 2500,
-    "description": "Long, oval, and far too optimistic about how many people you are feeding.",
+    "description": "Long, oval, and far too optimistic about how many people you're feeding.",
     "dishware": true,
     "dishware_kind": "plate",
     "unique": true

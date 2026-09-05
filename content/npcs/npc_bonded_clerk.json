@@ -131,11 +131,11 @@
     }
   },
   "chitchat": [
-    "runs a thumb down a seal number and does not look up.",
+    "runs a thumb down a seal number and doesn't look up.",
     "\"Everything in here belongs to somebody who isn't you.\"",
     "\"You want it released, you want a form. I have four hundred forms.\""
   ],
-  "description": "A bonded clerk in a cage of chicken wire and rubber stamps, who has never once opened a pallet and can tell you what is in all of them. He signs with two fingers because the third was crushed by a seal press in a year he will not name.",
+  "description": "A bonded clerk in a cage of chicken wire and rubber stamps, who has never once opened a pallet and can tell you what's in all of them. He signs with two fingers because the third was crushed by a seal press in a year he won't name.",
   "dialogue_tree": {
     "bye": {
       "options": [],

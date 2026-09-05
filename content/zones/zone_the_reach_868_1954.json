@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "description": "A narrow shopfront at the west end of the street, its false front squared off and painted a flat grey that has gone chalky in the sun. No sign, no name, only a length of black ribbon nailed above the door and replaced whenever it frays. The window is shuttered from the inside. Everybody in the Reach knows what this place is and nobody says it out loud.",
+  "description": "A narrow shopfront at the west end of the street, its false front squared off and painted a flat grey that has gone chalky in the sun. There's no sign and no name, just a length of black ribbon nailed above the door and replaced whenever it frays. The window is shuttered from the inside. Everybody in the Reach knows what this place is and nobody says it out loud.",
   "exits": {
     "north": "zone_bld_reach_trade_lobby",
     "south": "zone_the_reach_868_1955"

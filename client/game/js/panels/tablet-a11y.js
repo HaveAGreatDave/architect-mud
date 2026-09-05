@@ -330,7 +330,7 @@ export function renderA11yTablet(msg) {
   else if (msg.items?.length) html += renderRows(msg.items);   // an unknown view that still shipped a list
   else {
     const hint = VERB_HINT[view] ?? VERB_HINT[_app];
-    html += `<p class="ta-note">This screen is drawn rather than written, so there is nothing here to read. `
+    html += `<p class="ta-note">This screen is drawn rather than written, so there's nothing here to read. `
       + (hint
         ? `Type <strong>${esc(hint)}</strong> at the prompt for the same information in words.`
         : `It has no written form yet. Close this and carry on — nothing here is needed to play.`)

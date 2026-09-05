@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere. Nothing grows in it. The quiet is not the absence of noise. It is the absence of anything that would make one.",
+  "description": "Grey ash to the horizon, level and going nowhere. Nothing grows in it, and there's nothing out here that could make a noise.",
   "exits": {
     "east": "zone_dw_805_983",
     "north": "zone_dw_804_982",

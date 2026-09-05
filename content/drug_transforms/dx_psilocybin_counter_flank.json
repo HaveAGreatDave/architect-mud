@@ -4,7 +4,7 @@
     "Is the head still in there?",
     "Am I in the way?"
   ],
-  "description": "A long warm flank, haired and dark, running the length of the room at counter height, rising and falling with a slow enormous regularity. Whatever it belongs to is lying down and the head is not in this room.",
+  "description": "A long warm flank, haired and dark, running the length of the room at counter height, rising and falling with a slow enormous regularity. Whatever it belongs to is lying down and the head isn't in this room.",
   "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} takes an enormous breath and lets it out over several seconds.",
@@ -17,12 +17,12 @@
   "looks": [
     "The hair lies all one way and is coarse and warm and has dust worked down into it.",
     "The rise and fall is slow enough that you can lean on it and go up and down.",
-    "There is an old healed scar running a long way along it and out of sight."
+    "There's an old healed scar running a long way along it and out of sight."
   ],
   "matches": "counter",
   "name": "the flank of something large and lying down",
   "says": [
-    "Lean if you like. I am not getting up.",
+    "Lean if you like. I'm not getting up.",
     "The rest of me is next door.",
     "Not on the scar."
   ],

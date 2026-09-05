@@ -146,7 +146,7 @@
     "\"Second printing,\" he says, to nobody, in the tone other men use for a diagnosis.",
     "\"They put the inker's name on the cover of that one,\" he says. \"Once. Nineteen years too late.\"",
     "\"People say golden age like it's a decade. It's a paper stock.\"",
-    "\"That's a variant. Not a rare one. A variant.\" He waits for an argument that does not come.",
+    "\"That's a variant. Not a rare one. A variant.\" He waits for an argument that doesn't come.",
     "\"Trimmed,\" he says, closing something with two fingers. \"You can hear it.\"",
     "He sets a book down mid-page, looks at the door for a moment, and picks it up again.",
     "\"Nobody comes in for the art,\" he says. \"They come in for what it's worth. Same building, different shop.\"",
@@ -160,11 +160,11 @@
     "He counts the float, gets a number he dislikes, and counts it again to the same result.",
     "He eats half a sandwich over the bin, well clear of the counter, and washes his hands after."
   ],
-  "description": "A very large man in a black shirt buttoned to the throat, sitting on a stool that has given up arguing with him. He has the encyclopedic, wounded manner of somebody who knows more about one subject than anyone alive and has never once been thanked for it, and he will correct you — courteously, exhaustively, and at a volume that assumes an audience — on the year, the printing, the inker, and what you have just called it. His hands, though, are careful past the point of reverence: he handles forty-year-old newsprint the way a nurse handles a wrist.",
+  "description": "A very large man in a black shirt buttoned to the throat, sitting on a stool that has given up arguing with him. He has the encyclopedic, wounded manner of somebody who knows more about one subject than anyone alive and has never once been thanked for it, and he'll correct you — courteously, exhaustively, and at a volume that assumes an audience — on the year, the printing, the inker, and what you have just called it. His hands, though, are careful past the point of reverence: he handles forty-year-old newsprint the way a nurse handles a wrist.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Mm.\" The stool creaks and he is already reading again before the bell over the door has finished."
+      "text": "\"Mm.\" The stool creaks and he's already reading again before the bell over the door has finished."
     },
     "dq_seal_accept": {
       "actions": [
@@ -184,7 +184,7 @@
           "text": "\"Sealed. Understood.\""
         }
       ],
-      "text": "\"Do not sell one on to see what happens,\" he says, as you turn. \"People do. They think I will not know which sleeve. I always know which sleeve.\""
+      "text": "\"Don't sell one on to see what happens,\" he says, as you turn. \"People do. They think I won't know which sleeve. I always know which sleeve.\""
     },
     "dq_seal_done": {
       "actions": [
@@ -204,7 +204,7 @@
           "text": "\"Keep it shut, Sloat.\""
         }
       ],
-      "text": "He takes them one at a time, holds each one up, tilts it until the holographics change their mind about the colour, and puts it in a case with a great many others.\n\nHe pays you an amount that makes no commercial sense whatsoever.\n\n\"People ask me what I think is in them,\" he says, closing the case. \"I do not think anything is in them. That is the point. It is the last place left in this town where nothing has happened yet.\""
+      "text": "He takes them one at a time, holds each one up, tilts it until the holographics change their mind about the colour, and puts it in a case with a great many others.\n\nHe pays you an amount that makes no commercial sense whatsoever.\n\n\"People ask me what I think is in them,\" he says, closing the case. \"I don't think anything is in them. It's the last place left in this town where nothing has happened yet.\""
     },
     "dq_seal_offer": {
       "options": [
@@ -228,7 +228,7 @@
           "text": "\"That's not how value works.\""
         }
       ],
-      "text": "Sloat does not get off the stool. He has not got off the stool in your presence and you are beginning to suspect the stool is structural.\n\n\"I will pay you well above machine price for three Architect Draft sleeves,\" he says. \"One condition, and I am going to say it three ways, because people only hear one.\"\n\nHe holds up a finger for each.\n\n\"They stay shut. They arrive sealed. You do not look.\"\n\nHis hands go back on his knees.\n\n\"The moment you look, it becomes a card. A card has a value and I can look a value up. Sealed, it is every card at once. Sealed, it is the good one.\""
+      "text": "Sloat doesn't get off the stool. He hasn't got off the stool in your presence and you're beginning to suspect the stool is structural.\n\n\"I'll pay you well above machine price for three Architect Draft sleeves,\" he says. \"One condition, and I'm going to say it three ways, because people only hear one.\"\n\nHe holds up a finger for each.\n\n\"They stay shut. They arrive sealed. You don't look.\"\n\nHis hands go back on his knees.\n\n\"The moment you look, it becomes a card. A card has a value and I can look a value up. Sealed, it's every card at once. Sealed, it's the good one.\""
     },
     "dq_seal_once": {
       "options": [
@@ -247,7 +247,7 @@
           "text": "\"I need to think.\""
         }
       ],
-      "text": "The shop is quiet in a way that suggests the shop is usually quiet and this is a different quiet.\n\n\"Once,\" Sloat says. \"I was nineteen.\"\n\nHe adjusts something on the counter that did not need adjusting.\n\n\"I do not discuss it. I will tell you the only part that matters, which is that I was right about what was in it, and being right cost me more than being wrong would have, and I have never worked out how to explain that to anybody who has not done it.\"\n\nHe looks at you for the first time.\n\n\"Three. Sealed.\""
+      "text": "The shop is quiet in a way that suggests the shop is usually quiet and this is a different quiet.\n\n\"Once,\" Sloat says. \"I was nineteen.\"\n\nHe adjusts something on the counter that didn't need adjusting.\n\n\"I don't discuss it. I'll tell you the only part that matters, which is that I was right about what was in it, and being right cost me more than being wrong would have, and I have never worked out how to explain that to anybody who hasn't done it.\"\n\nHe looks at you for the first time.\n\n\"Three. Sealed.\""
     },
     "gossip": {
       "actions": [
@@ -261,7 +261,7 @@
           "next": "root"
         }
       ],
-      "text": "\"People tell me things while they are deciding whether to spend money.\" He shrugs. \"It is a slow shop. There is a lot of deciding.\""
+      "text": "\"People tell me things while they're deciding whether to spend money.\" He shrugs. \"It's a slow shop. There's a lot of deciding.\""
     },
     "grading": {
       "options": [
@@ -270,7 +270,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Grading is a number between one and ten that describes a piece of paper, and it is the closest thing this city has to an honest institution.\" He puts his hand flat on the counter. \"Corners, spine, colour of the interior pages, whether some animal has folded it. Nine-four is near mint. Ten does not exist and anybody who tells you they have one is lying to you about that and probably about other things.\" He looks at you levelly. \"It is not a conversation. It is not a NEGOTIATION. It is a measurement. I do not care what your uncle said.\""
+      "text": "\"Grading is a number between one and ten that describes a piece of paper, and it's the closest thing this city has to an honest institution.\" He puts his hand flat on the counter. \"Corners, spine, colour of the interior pages, whether some animal has folded it. Nine-four is near mint. Ten doesn't exist and anybody who tells you they have one is lying to you about that and probably about other things.\" He looks at you levelly. \"It isn't a conversation. It isn't a NEGOTIATION. It's a measurement. I don't care what your uncle said.\""
     },
     "grievance": {
       "options": [
@@ -279,7 +279,7 @@
           "next": "read"
         }
       ],
-      "text": "\"The Grievance.\" He says the title flatly, without any of the performance. \"Some clerk drew it on a photocopier because nobody would read the form. Says so on the back. Says COPY IT, DO NOT SELL IT, and if somebody sold you one, take your money back off them.\" He looks at the box for a moment. \"So I price it at what the paper cost me, and I buy every one I find, and I do not discuss it, and no, that is not a bargaining position, that is the actual end of the conversation.\""
+      "text": "\"The Grievance.\" He says the title flatly, without any of the performance. \"Some clerk drew it on a photocopier because nobody would read the form. Says so on the back. Says COPY IT, DO NOT SELL IT, and if somebody sold you one, take your money back off them.\" He looks at the box for a moment. \"So I price it at what the paper cost me, and I buy every one I find, and I don't discuss it, and no, that isn't a bargaining position, that's the actual end of the conversation.\""
     },
     "late": {
       "options": [
@@ -288,7 +288,7 @@
           "next": "tapes"
         }
       ],
-      "text": "\"Then I write the date under your name.\" He lets that sit. \"And then, every day after that, it costs you. And when it costs you enough, the wall stops opening for you, and it does not start again until we are square.\" He turns a page. \"Two people on that wall have their names underlined twice. They are not, at present, customers.\""
+      "text": "\"Then I write the date under your name.\" He lets that sit. \"And then, every day after that, it costs you. And when it costs you enough, the wall stops opening for you, and it doesn't start again until we're square.\" He turns a page. \"Two people on that wall have their names underlined twice. They're not, at present, customers.\""
     },
     "looking": {
       "options": [
@@ -306,7 +306,7 @@
           "next": "read"
         }
       ],
-      "text": "\"Forty pages. A man goes up a building taking readings and the numbers keep going up in flats with nobody in them.\" He shrugs, enormously. \"Twenty-four pages of it are BLANK FORMS. People skip them. You are MEANT to skip them — the skipping is the thing, you feel the thickness of it under your thumb, that is a comic doing something a film physically cannot do, which is why the film is —\" He stops. \"The film is fine. The film is fine. I have said what I am going to say about the film.\""
+      "text": "\"Forty pages. A man goes up a building taking readings and the numbers keep going up in flats with nobody in them.\" He shrugs, enormously. \"Twenty-four pages of it are BLANK FORMS. People skip them. You're MEANT to skip them — the skipping is the thing, you feel the thickness of it under your thumb, that's a comic doing something a film physically can't do, which is why the film is —\" He stops. \"The film is fine. The film is fine. I have said what I'm going to say about the film.\""
     },
     "mint": {
       "options": [
@@ -328,7 +328,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Because a card is not a receipt.\" He says it like he has said it a thousand times, and he has. \"It is a record of a person on a particular day, in what they happened to be wearing, with whatever they happened to be carrying, and it is PERMANENT, and it is the only permanent thing most people in this city will ever own.\" He straightens the cloth on the glass. \"The bank treated that like a novelty item next to the deposit boxes. So. Stand on the carpet when you're ready and I'll strike you a good one.\""
+      "text": "\"Because a card isn't a receipt.\" He says it like he has said it a thousand times, and he has. \"It's a record of a person on a particular day, in what they happened to be wearing, with whatever they happened to be carrying, and it's PERMANENT, and it's the only permanent thing most people in this city will ever own.\" He straightens the cloth on the glass. \"The bank treated that like a novelty item next to the deposit boxes. So. Stand on the carpet when you're ready and I'll strike you a good one.\""
     },
     "read": {
       "options": [
@@ -349,7 +349,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Oh, we are doing this.\" He puts the book down. He is delighted and would rather die than show it. \"Right. Everybody wants me to say The Meter Reader, because everybody has seen the film, and the film is a crime. Sister Steel is the better book and it is not close. And there is a photocopied thing in the fifty-credit box that is worth more than either of them and costs less than a sandwich.\" A beat. \"You can read all of them on that tablet for nothing, incidentally. Scans have been up for years. I am not going to pretend otherwise.\""
+      "text": "\"Oh, we're doing this.\" He puts the book down. He's delighted and would rather die than show it. \"Right. Everybody wants me to say The Meter Reader, because everybody has seen the film, and the film is a crime. Sister Steel is the better book and it isn't close. And there's a photocopied thing in the fifty-credit box that's worth more than either of them and costs less than a sandwich.\" A beat. \"You can read all of them on that tablet for nothing, incidentally. Scans have been up for years. I'm not going to pretend otherwise.\""
     },
     "root": {
       "options": [
@@ -419,11 +419,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Mm.\" He does not get off the stool. \"Racks are reading copies, wall is graded, counter is cards, back room is tapes and the back room is by invitation. Ask before you handle anything and we will get along.\"\n\n\"After something, or looking? Both are fine. They want different answers out of me.\"",
+      "text": "\"Mm.\" He doesn't get off the stool. \"Racks are reading copies, wall is graded, counter is cards, back room is tapes and the back room is by invitation. Ask before you handle anything and we'll get along.\"\n\n\"After something, or looking? Both are fine. They want different answers out of me.\"",
       "text_by_relation": {
-        "familiar": "He is already reaching under the counter before you are all the way through the door, and what comes out is a book in a sleeve with a strip of paper in it marked, in blunt pencil, with your name.\n\n\"Came in Thursday. I did not put it out.\" He slides it across the glass and immediately looks somewhere else, as though the transaction embarrasses him. \"You do not have to take it.\"",
-        "first": "The large man on the stool marks his place with a finger and looks at you the way a customs officer looks at a bag.\n\n\"Emmett Sloat. This is mine.\" A small pause, in which he decides to be generous. \"Racks in the middle are reading copies — creased, cheap, meant to be read, that is what they are FOR. The wall is graded and the wall is not a browsing wall. Counter is cards. Back room is tapes.\" He returns to his page. \"Ask before you handle anything and we will get along famously.\"",
-        "known": "\"You.\" He turns a page. \"You handled the spinner rack correctly last time. I noticed. I notice everything, it is a curse.\" He finally looks up. \"What.\""
+        "familiar": "He's already reaching under the counter before you're all the way through the door, and what comes out is a book in a sleeve with a strip of paper in it marked, in blunt pencil, with your name.\n\n\"Came in Thursday. I didn't put it out.\" He slides it across the glass and immediately looks somewhere else, as though the transaction embarrasses him. \"You don't have to take it.\"",
+        "first": "The large man on the stool marks his place with a finger and looks at you the way a customs officer looks at a bag.\n\n\"Emmett Sloat. This is mine.\" A small pause, in which he decides to be generous. \"Racks in the middle are reading copies — creased, cheap, meant to be read, so read them. The wall is graded and the wall isn't a browsing wall. Counter is cards. Back room is tapes.\" He returns to his page. \"Ask before you handle anything and we'll get along famously.\"",
+        "known": "\"You.\" He turns a page. \"You handled the spinner rack correctly last time. I noticed. I notice everything, it's a curse.\" He finally looks up. \"What.\""
       }
     },
     "steel": {
@@ -433,7 +433,7 @@
           "next": "read"
         }
       ],
-      "text": "\"Ilse Marek. Wrote it, drew it, inked it, lettered it, fourteen months, on paper you could sand a floor with.\" He is speaking more quietly now, which from him is remarkable. \"There is a page where a woman walks down a corridor in nine panels and nobody says anything. Nine panels. Eleven seconds. Best page anybody in this city ever drew.\" He taps the glass. \"First printing has a note from her on the inside back cover. They took it out of every edition after. If you ever see one with the note in it, you buy it, and you do not haggle, and you do not tell me, because I will make an offer and I will not be able to help myself.\""
+      "text": "\"Ilse Marek. Wrote it, drew it, inked it, lettered it, fourteen months, on paper you could sand a floor with.\" He's speaking more quietly now, which from him is remarkable. \"There's a page where a woman walks down a corridor in nine panels and nobody says anything. Nine panels. Eleven seconds. Best page anybody in this city ever drew.\" He taps the glass. \"First printing has a note from her on the inside back cover. They took it out of every edition after. If you ever see one with the note in it, you buy it, and you don't haggle, and you don't tell me, because I'll make an offer and I won't be able to help myself.\""
     },
     "tapes": {
       "options": [

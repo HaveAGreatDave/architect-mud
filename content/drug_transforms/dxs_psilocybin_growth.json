@@ -3,10 +3,10 @@
     "How long has this building been up?",
     "Is there a window in here?"
   ],
-  "description": "A young tree has come up through the floor here, tiles shouldered aside in a neat ring, and it is going about its business as if it had been given permission.",
+  "description": "A young tree has come up through the floor here, tiles shouldered aside in a neat ring, and it's going about its business as if it had been given permission.",
   "drug_id": "drug_psilocybin",
   "emotes": [
-    "{it} puts out a leaf while you are watching, which takes about four seconds.",
+    "{it} puts out a leaf while you're watching, which takes about four seconds.",
     "A tile lifts and cracks somewhere near the base of {it}.",
     "{it} turns very slightly towards the nearest light."
   ],
@@ -22,7 +22,7 @@
   "name": "a tree coming up through the floor",
   "says": [
     "I was doing this before you came.",
-    "Do not be alarmed. I would not know how."
+    "Don't be alarmed. I wouldn't know how."
   ],
   "scope": "spawn"
 }

@@ -50,7 +50,7 @@ export const BEHAVIOURS = [
   },
   {
     key: 'paw_tap', weight: 5, gate: () => true,
-    line: (c) => `${c.name} taps the ground with the steel paw. Tap. Tap. Tap. Perfectly evenly spaced, which is not how a cat does anything.`,
+    line: (c) => `${c.name} taps the ground with the steel paw. Tap. Tap. Tap. Perfectly evenly spaced, which isn't how a cat does anything.`,
   },
   {
     key: 'paw_spark', weight: 3, gate: () => true,
@@ -84,7 +84,7 @@ export const BEHAVIOURS = [
   },
   {
     key: 'wind_ears', weight: 7, gate: (c) => windy(c),
-    line: (c) => `${c.name} sits with its ears flattened back against the wind, tracking something upwind that you cannot hear and probably should.`,
+    line: (c) => `${c.name} sits with its ears flattened back against the wind, tracking something upwind that you can't hear and probably should.`,
   },
 
   // ── Time of day ───────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ export const BEHAVIOURS = [
   },
   {
     key: 'dusk_hunt', weight: 8, gate: (c) => hour(c) >= 18 && hour(c) < 22,
-    line: (c) => `${c.name}'s pupils have gone wide and black. It is stalking something in absolutely empty air, belly low, deadly serious.`,
+    line: (c) => `${c.name}'s pupils have gone wide and black. It's stalking something in absolutely empty air, belly low, deadly serious.`,
   },
   {
     key: 'night_eyes', weight: 8, gate: (c) => hour(c) >= 22 || hour(c) < 5,
@@ -108,7 +108,7 @@ export const BEHAVIOURS = [
   // ── The room it's standing in ─────────────────────────────────────────────
   {
     key: 'bin_dive', weight: 8, gate: (c) => hasFurn(c, /bin|trash|dumpster|skip|refuse/i),
-    line: (c) => `${c.name} goes head-first into the bin. There is a rummaging noise, and a long pause, and then it reverses out with nothing and considerable dignity.`,
+    line: (c) => `${c.name} goes head-first into the bin. There's a rummaging noise, and a long pause, and then it reverses out with nothing and considerable dignity.`,
   },
   {
     key: 'crate_perch', weight: 7, gate: (c) => hasFurn(c, /crate|pallet|barrel|drum|stack/i),
@@ -136,7 +136,7 @@ export const BEHAVIOURS = [
   },
   {
     key: 'seek_talk', weight: 14, gate: (c) => c.mood === 'seek',
-    line: (c) => `${c.name} looks up at ${handleOf(c)} and makes a small interrogative noise. It is clearly a question. It is unfortunately not in any language.`,
+    line: (c) => `${c.name} looks up at ${handleOf(c)} and makes a small interrogative noise. It's clearly a question. It's unfortunately not in any language.`,
   },
   {
     key: 'seek_gift', weight: 10, gate: (c) => c.mood === 'seek' && (c.pets || 0) >= 10,
@@ -184,7 +184,7 @@ export const BEHAVIOURS = [
   // The load-bearing baseline. Do not trim these to make room for cleverer ones.
   { key: 'groom',            weight: 10, gate: () => true, line: (c) => `${c.name} washes one shoulder with great thoroughness, as though it has been on the list for a while.` },
   { key: 'yawn',             weight: 10, gate: () => true, line: (c) => `${c.name} yawns enormously, entirely too many teeth for the size of it, and smacks its mouth shut.` },
-  { key: 'chirp_at_bird',    weight: 8,  gate: () => true, line: (c) => `${c.name} fixes on something on a ledge overhead and makes a rapid clicking chirp at it. The something does not care.` },
+  { key: 'chirp_at_bird',    weight: 8,  gate: () => true, line: (c) => `${c.name} fixes on something on a ledge overhead and makes a rapid clicking chirp at it. The something doesn't care.` },
   { key: 'loaf',             weight: 10, gate: () => true, line: (c) => `${c.name} has folded all four legs underneath itself and become a loaf. It intends to remain a loaf.` },
   { key: 'stare_at_nothing', weight: 9,  gate: () => true, line: (c) => `${c.name} is staring intently at a completely unremarkable patch of wall. After a while it looks away, apparently satisfied.` },
   { key: 'knead',            weight: 8,  gate: () => true, line: (c) => `${c.name} kneads at a folded scrap of cardboard, slow and rhythmic, eyes half shut. One paw goes thump, thump instead of push, push.` },

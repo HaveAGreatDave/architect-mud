@@ -181,7 +181,7 @@ async function stash(b, npc, emitLine) {
     id,
     zone_id: b.zoneId,
     name: b.name,
-    description: 'Nothing about the room suggests it is there.',
+    description: "Nothing about the room suggests it's there.",
     object_type: 'container',
     flags: JSON.stringify({
       container: b.capacity,

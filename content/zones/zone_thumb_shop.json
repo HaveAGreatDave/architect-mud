@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#221d15",
-  "description": "One room, one window, one counter, and the scale chain coming in through a slot in the wall so Osric can weigh from where he sits. A jeweller's loupe hangs on a string. The strongbox chained to his ankle is under the counter and you are not going to see inside it. Every surface is covered in small sorted heaps of other people's finds.",
+  "description": "One room, one window, one counter, and the scale chain coming in through a slot in the wall so Osric can weigh from where he sits. A jeweller's loupe hangs on a string. The strongbox chained to his ankle is under the counter and you aren't going to see inside it. Every surface is covered in small sorted heaps of other people's finds.",
   "exits": {
     "down": "zone_util_zone_thumb_shop",
     "east": "zone_thumb_back",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Threlfall has put you on gauge duty, which is not a favour and not a test in any way she would admit to. Walk out to the gauge house, wind the drum, check the chart against the board, and come back. Twice a day is the rent this place pays for a lake that does not need it. Doing it once is how they find out whether you turn up.",
+  "description": "Threlfall has put you on gauge duty, which isn't a favour and not a test in any way she would admit to. Walk out to the gauge house, wind the drum, check the chart against the board, and come back. Twice a day is the rent this place pays for a lake that doesn't need it. Doing it once is how they find out whether you turn up.",
   "fail_on": [],
   "id": "quest_null_1",
   "meta": {},
@@ -10,7 +10,7 @@
       "desc": "Walk out to the gauge house on the far shoulder of the dam and wind the drum.",
       "emotes": [
         "{who} winds the cord back onto the drum and squints at the pen line.",
-        "{who} finds the drum stiff for the first half turn and easier after, the way it is described on the card.",
+        "{who} finds the drum stiff for the first half turn and easier after, the way it's described on the card.",
         "{who} copies the figure onto the chart in the box provided, and not in the margin."
       ],
       "id": "o_gauge",

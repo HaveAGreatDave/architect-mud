@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The middle of the works: a swept yard with a roofed board at one end of it and benches along both sides. The board carries the week in chalk, ruled off in columns by somebody with a straight edge, and the columns are shaft duty, gauge duty, gate duty and stores. Every name has hours against it and every entry is initialled. People cross constantly on their way somewhere. Two of them look up, decide you are not carrying anything that needs a hand, and carry on.",
+  "description": "The middle of the works: a swept yard with a roofed board at one end of it and benches along both sides. The board carries the week in chalk, ruled off in columns by somebody with a straight edge, and the columns are shaft duty, gauge duty, gate duty and stores. Every name has hours against it and every entry is initialled. People cross constantly on their way somewhere. Two of them look up, decide you aren't carrying anything that needs a hand, and carry on.",
   "exits": {
     "east": "zone_dw_770_976",
     "north": "zone_dw_769_975",

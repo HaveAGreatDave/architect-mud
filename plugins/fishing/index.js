@@ -502,7 +502,7 @@ async function cmdFishResolve(args, raw, player, broadcast) {
     }
     out(player.id, won
       ? '<span class="text-yellow">You haul back hard — and something far bigger than a fish comes with it.</span>'
-      : '<span class="text-red">The line screams out — whatever took it is coming up whether you like it or not.</span>');
+      : '<span class="text-red">The line screams out — whatever took it\'s coming up whether you like it or not.</span>');
     if (won) await awardSkillUse(player.id, 'fishing', 4);
     stopFishing(player.id, st.zoneId, player.handle);
     return { type: 'noop' };

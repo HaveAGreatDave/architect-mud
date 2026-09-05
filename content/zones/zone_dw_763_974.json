@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Somebody is teaching somebody else to grind a drill by hand, patiently, and it is clearly not the first attempt or the second.",
+  "description": "Somebody is teaching somebody else to grind a drill by hand, patiently, and it's clearly not the first attempt or the second.",
   "exits": {
     "east": "zone_dw_764_974",
     "north": "zone_dw_763_973",

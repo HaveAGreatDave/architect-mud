@@ -4,7 +4,7 @@
     "Would you like it back?",
     "How much of today do you actually remember?"
   ],
-  "description": "A person stands here in unremarkable clothes doing an unremarkable thing, and they have your face on. Not a likeness. Yours, including the parts you would not have been able to describe.",
+  "description": "A person stands here in unremarkable clothes doing an unremarkable thing, and they have your face on. Not a likeness. Yours, including the parts you wouldn't have been able to describe.",
   "drug_id": null,
   "emotes": [
     "{it} scratches its cheek, your cheek, and carries on with what it was doing.",
@@ -15,15 +15,15 @@
   "fx_intensity": 0.5,
   "id": "dxp_default_stranger",
   "looks": [
-    "It is doing your face better than you do. Nothing about it is exaggerated and that is the problem.",
-    "When you move your hand, it does not copy you. It is simply somebody else, wearing this.",
+    "It's doing your face better than you do. Nothing about it's exaggerated and that's the problem.",
+    "When you move your hand, it doesn't copy you. It's simply somebody else, wearing this.",
     "The expression is one you have never seen from the inside and now recognise instantly."
   ],
   "matches": null,
   "name": "somebody wearing your face",
   "says": [
-    "Do not make it weird.",
-    "I am not doing anything you would not.",
+    "Don't make it weird.",
+    "I'm not doing anything you would not.",
     "It suits me, I think."
   ],
   "scope": "person"

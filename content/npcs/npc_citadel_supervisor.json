@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [],
-  "description": "A small, upright woman of about sixty in a charcoal suit that has been let out and taken in more than once, working the brass row with a clipboard she does not need. Reading glasses on a chain, one shoe worn differently from the other, and a ring of box keys on a retractable line at her hip. She has the specific stillness of someone who has been threatened at length by people far larger than her and has, on each occasion, waited for them to finish. She does not look up when you come in. She knows where you are. She knew before the door opened.",
+  "description": "A small, upright woman of about sixty in a charcoal suit that has been let out and taken in more than once, working the brass row with a clipboard she doesn't need. Reading glasses on a chain, one shoe worn differently from the other, and a ring of box keys on a retractable line at her hip. She has the specific stillness of someone who has been threatened at length by people far larger than her and has, on each occasion, waited for them to finish. She doesn't look up when you come in. She knows where you are. She knew before the door opened.",
   "dialogue_tree": {
     "boxes": {
       "options": [
@@ -148,7 +148,7 @@
     },
     "bye": {
       "options": [],
-      "text": "She turns back to the row. The clipboard has not moved."
+      "text": "She turns back to the row. The clipboard hasn't moved."
     },
     "contents": {
       "options": [
@@ -161,7 +161,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"I don't know and I've made a career of not knowing.\" She finally looks up over the glasses. \"Wills. Deeds. Photographs of people who are dead now. A quantity of things that would go very badly for their owners if Precinct 9 ever got a warrant, and a rather larger quantity of things that are only precious to one person alive.\" A dry beat. \"Number 1140 has been rented for thirty-one years and contains, I am reliably informed, a single dog collar.\""
+      "text": "\"I don't know and I've made a career of not knowing.\" She finally looks up over the glasses. \"Wills. Deeds. Photographs of people who are dead now. A quantity of things that would go very badly for their owners if Precinct 9 ever got a warrant, and a rather larger quantity of things that are only precious to one person alive.\" A dry beat. \"Number 1140 has been rented for thirty-one years and contains, I'm reliably informed, a single dog collar.\""
     },
     "contents2": {
       "options": [
@@ -187,7 +187,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Bottom tier, near the steps.\" She doesn't point. \"Nineteen boxes, one night, eleven years ago. They were in and working for six minutes and they got through nineteen because they were good, and they were stopped at seven because we are better.\" A pause. \"We repaired them badly on purpose. Every prospective client sees them. It saves an enormous amount of talking.\""
+      "text": "\"Bottom tier, near the steps.\" She doesn't point. \"Nineteen boxes, one night, eleven years ago. They were in and working for six minutes and they got through nineteen because they were good, and they were stopped at seven because we're better.\" A pause. \"We repaired them badly on purpose. Every prospective client sees them. It saves an enormous amount of talking.\""
     },
     "forced2": {
       "options": [
@@ -238,7 +238,7 @@
           "next": "forced"
         }
       ],
-      "text": "\"The vault.\" She says it the way other people say a relative's name. \"Nine metres of concrete, a door that weighs nine tonnes, and a lock that has never once been talked out of anything. Two people in this ward can open it and I am not either of them, which I have always found restful.\""
+      "text": "\"The vault.\" She says it the way other people say a relative's name. \"Nine metres of concrete, a door that weighs nine tonnes, and a lock that has never once been talked out of anything. Two people in this ward can open it and I'm not either of them, which I have always found restful.\""
     },
     "vault2": {
       "options": [
@@ -251,7 +251,7 @@
           "next": "boxes"
         }
       ],
-      "text": "\"Twice. Both times with three other people and a form.\" She looks down the row at the steps. \"It's cold, and it's ugly, and it's very bright, and there is nothing in there that anybody made, just a great deal of what everybody agreed to pretend is worth something.\" The pen moves again. \"I found it a bit sad, if I'm honest. Don't tell head office.\""
+      "text": "\"Twice. Both times with three other people and a form.\" She looks down the row at the steps. \"It's cold, and it's ugly, and it's very bright, and there's nothing in there that anybody made, just a great deal of what everybody agreed to pretend is worth something.\" The pen moves again. \"I found it a bit sad, if I'm honest. Don't tell head office.\""
     }
   },
   "faction": null,

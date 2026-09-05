@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#3a5a8a",
-  "description": "The wash block, one open room with no doors on anything and a trench drain running the length of the floor. Six shower heads on a single pipe, four of them working, all of them on the same municipal timer. The tiles were white once and are now the colour of a bad tooth, and the grout has gone black in a way that scrubbing has already been tried on. A sheet of polished steel bolted where a mirror should be gives you back to yourself smeared and slightly wrong. There is nowhere in here to stand where you cannot be seen from the doorway. That is the design. The cell block is back <b>west</b>.",
+  "description": "The wash block, one open room with no doors on anything and a trench drain running the length of the floor. Six shower heads on a single pipe, four of them working, all of them on the same municipal timer. The tiles were white once and are now the colour of a bad tooth, and the grout has gone black in a way that scrubbing has already been tried on. A sheet of polished steel bolted where a mirror should be gives you back to yourself smeared and slightly wrong. There's nowhere in here to stand where you can't be seen from the doorway. That's the design. The cell block is back <b>west</b>.",
   "exits": {
     "west": "zone_mq_precinct_holding"
   },

@@ -4,7 +4,7 @@
     "Which one of those do you think is you?",
     "Do you want to see the far end?"
   ],
-  "description": "The mirror is not a mirror, it is a doorway onto a corridor identical to this room repeated away into the distance, every copy very slightly smaller, and there is no end visible in any of them.",
+  "description": "The mirror isn't a mirror, it's a doorway onto a corridor identical to this room repeated away into the distance, every copy very slightly smaller, and there's no end visible in any of them.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} deepens by one room, and every copy shuffles along.",
@@ -17,13 +17,13 @@
   "looks": [
     "The seventh copy along has something moving in it. The sixth and eighth do not.",
     "Each room is a little smaller and a little dimmer, at a rate you could work out if you wanted.",
-    "You are in every one of them, standing exactly like this, at every size."
+    "You're in every one of them, standing exactly like this, at every size."
   ],
   "matches": "mirror",
   "name": "a corridor going back forever",
   "says": [
-    "There is no last one. I have checked.",
-    "The far ones are already doing what you are about to.",
+    "There's no last one. I have checked.",
+    "The far ones are already doing what you're about to.",
     "Wave. See how long it takes."
   ],
   "scope": "object"

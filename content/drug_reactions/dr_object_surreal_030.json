@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Do not be alarmed. I would not know how.",
+  "self_line": "Don't be alarmed. I wouldn't know how.",
   "source": "object",
   "tone": "surreal"
 }

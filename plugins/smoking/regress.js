@@ -29,5 +29,5 @@ export default async function regress({ run, check }) {
 
   // accept/refuse with no pending offer are not claimed (fall through → unknown).
   r = await run('refuse');
-  check('refuse with no offer is not claimed', /Unknown command/i.test(r?.message || ''), r?.message);
+  check("refuse with no offer isn't claimed", /Unknown command/i.test(r?.message || ''), r?.message);
 }

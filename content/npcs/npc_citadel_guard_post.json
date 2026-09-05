@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [],
-  "description": "Behind the ballistic glass, a broad young woman in a charcoal uniform shirt with the sleeves rolled to the elbow, forearms like someone who used to do a job that involved lifting. One hand rests on a console showing four camera tiles; the other holds a pen over a paper log, because Citadel does not trust a record that can be deleted from somewhere else. She looks at the outline of you on her screen rather than at you, which after a few seconds becomes considerably more unpleasant than eye contact would have been.",
+  "description": "Behind the ballistic glass, a broad young woman in a charcoal uniform shirt with the sleeves rolled to the elbow, forearms like someone who used to do a job that involved lifting. One hand rests on a console showing four camera tiles; the other holds a pen over a paper log, because Citadel doesn't trust a record that can be deleted from somewhere else. She looks at the outline of you on her screen rather than at you, which after a few seconds becomes considerably more unpleasant than eye contact would have been.",
   "dialogue_tree": {
     "arch": {
       "options": [
@@ -225,7 +225,7 @@
           "next": "bye"
         }
       ],
-      "text": "She doesn't look up from the screen, where you are a pale outline with a bright inventory laid out inside it. \"Both doors are shut. That's not me being difficult, that's how the room works.\" The pen taps once. \"Talk while you're waiting, if you want. It's a very boring job.\""
+      "text": "She doesn't look up from the screen, where you're a pale outline with a bright inventory laid out inside it. \"Both doors are shut. That's not me being difficult, that's how the room works.\" The pen taps once. \"Talk while you're waiting, if you want. It's a very boring job.\""
     },
     "wanted": {
       "options": [

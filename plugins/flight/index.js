@@ -741,7 +741,7 @@ schedule('1s', () => runupTick().catch(e => console.error('[flight] runup error:
 
 async function cmdShutdown(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (live.row.airborne) return { type: 'emote', message: 'You are NOT shutting the engine down up here.' };
+  if (live.row.airborne) return { type: 'emote', message: "You're NOT shutting the engine down up here." };
   if (!live.row.engine_on) return { type: 'emote', message: "The engine's already cold." };
   live.row.engine_on = 0; live.row.throttle = 0;
   await persist(live); pushHud(live);
@@ -1164,11 +1164,11 @@ async function checkAirspace(live) {
   if (!pilot) return;
   live.noflyStage = (live.noflyStage || 0) + 1;
   if (live.noflyStage === 1) {
-    out(pilot.id, '<span class="text-amber">⚠ TOWER: You are entering RESTRICTED AIRSPACE. Come about and leave now.</span>');
+    out(pilot.id, '<span class="text-amber">⚠ TOWER: You\'re entering RESTRICTED AIRSPACE. Come about and leave now.</span>');
   } else if (live.noflyStage === 2 && !live.noflyRaised) {
     live.noflyRaised = true;
     await dispatchAction({ type: 'WANTED_RAISE', actor: pilot, params: { amount: 2, reason: 'violating restricted airspace' } });
-    out(pilot.id, '<span class="text-red">TOWER: You are now a hostile contact. Interceptors are being vectored to you.</span>');
+    out(pilot.id, '<span class="text-red">TOWER: You\'re now a hostile contact. Interceptors are being vectored to you.</span>');
     sendToZone(below.id, { type: 'zone_event', message: 'Police interceptors scramble skyward with a rising howl.' });
   }
 }
@@ -1323,7 +1323,7 @@ export function checkDiveSiren(live) {
       ? `<span class="text-red">Something up there tips over and starts to <b>scream</b> — a rising mechanical wail, getting louder, coming down at you.</span>`
       : dist <= 3
         ? `<span class="text-amber">A wail starts up somewhere above, climbing in pitch — a ${name}, going down after something.</span>`
-        : `A thin rising note somewhere off to the ${degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase()}, high up. It is getting higher.`;
+        : `A thin rising note somewhere off to the ${degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase()}, high up. It's getting higher.`;
     emitSky(live, cell.id, line);
   }
   // The sound itself, propagated from the tile she is diving at — so it fades through walls
@@ -1922,7 +1922,7 @@ async function cmdFlightWaypoint(args, raw, player) {
   player.flightWaypoint = { x: cx, y: cy };
   if (live && isContinuous(live)) pushContext(live);
   // No aircraft is a success, not an error — the designation simply waits for one.
-  const tail = live ? '' : ' It will be waiting when you board.';
+  const tail = live ? '' : " It'll be waiting when you board.";
   return { type: 'emote', message: `<span class="text-cyan">✜ Target designated — tile ${cx}, ${cy}.</span>${tail}` };
 }
 
@@ -2143,7 +2143,7 @@ async function cmdDeadhead(args, raw, player) {
   if (aboard) {
     return {
       type: 'output',
-      message: 'You are aboard her. Fly her yourself: '
+      message: "You're aboard her. Fly her yourself: "
         + '<span class="action-link" data-action="cmd" data-cmd="takecontrols">takecontrols</span> · '
         + '<span class="action-link" data-action="cmd" data-cmd="nav">nav</span> · '
         + '<span class="action-link" data-action="cmd" data-cmd="landat">landat</span>',

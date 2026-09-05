@@ -5,7 +5,7 @@
     "From somewhere at the back, the sound of a tap that has been running the whole time."
   ],
   "cause": "dream",
-  "description": "A door in your own place that opens onto rooms you own. They are furnished, and the furniture is yours, and it has been under sheets. The rent you have been paying was for all of this. You have been living in the corner of it.",
+  "description": "A door in your own place that opens onto rooms you own. They're furnished, and the furniture is yours, and it has been under sheets. The rent you have been paying was for all of this. You have been living in the corner of it.",
   "drug_id": null,
   "fx": "ash",
   "fx_intensity": 0.3,
@@ -15,7 +15,7 @@
     {
       "looks": [
         "Under each one, something of yours from a year you can name.",
-        "They have not been touched. The dust on them is even, and deep, and yours.",
+        "They haven't been touched. The dust on them is even, and deep, and yours.",
         "You lift one. The shape underneath keeps the shape."
       ],
       "name": "the sheets"
@@ -23,7 +23,7 @@
     {
       "looks": [
         "Beyond it, another room, and in that room another door.",
-        "It is the front door of the flat. From this side.",
+        "It's the front door of the flat. From this side.",
         "It has your number on it. So did the last one."
       ],
       "name": "the far door"

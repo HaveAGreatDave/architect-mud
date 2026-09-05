@@ -1,5 +1,5 @@
 {
-  "description": "Half a truck leaf-spring, ground to an edge and wrapped in fence wire. It is heavy in the wrong place, it will never hold an edge, and every serious blade in this shop is measured against how much better it is than this. That is the point of it.",
+  "description": "Half a truck leaf-spring, ground to an edge and wrapped in fence wire. It's heavy in the wrong place, it'll never hold an edge, and every serious blade in this shop is priced against it.",
   "flags": {},
   "id": "item_leafspring_blade",
   "name": "leaf-spring blade",
@@ -10,7 +10,7 @@
         "min": 4
       },
       "damage_type": "edged",
-      "description": "Half a truck leaf-spring, ground to an edge and wrapped in fence wire. It is heavy in the wrong place, it will never hold an edge, and every serious blade in this shop is measured against how much better it is than this. That is the point of it.",
+      "description": "Half a truck leaf-spring, ground to an edge and wrapped in fence wire. It's heavy in the wrong place, it'll never hold an edge, and every serious blade in this shop is priced against it.",
       "weapon_skill": "blades"
     },
     "__super": [
@@ -21,7 +21,7 @@
       "min": 4
     },
     "damage_type": "edged",
-    "description": "Half a truck leaf-spring, ground to an edge and wrapped in fence wire. It is heavy in the wrong place, it will never hold an edge, and every serious blade in this shop is measured against how much better it is than this. That is the point of it.",
+    "description": "Half a truck leaf-spring, ground to an edge and wrapped in fence wire. It's heavy in the wrong place, it'll never hold an edge, and every serious blade in this shop is priced against it.",
     "slot": "weapon_hand",
     "weapon": true,
     "weapon_skill": "blades"

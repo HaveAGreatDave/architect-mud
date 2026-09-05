@@ -1,5 +1,5 @@
 {
-  "description": "A wall-mounted nutrient dispenser in clone-facility beige, bolted at chest height by the door. A cracked label reads NUTRITION IS A RIGHT, NOT A PRIVILEGE; someone has scratched 'lol' beneath it. A dented steel tray waits under the nozzle, stained the colour of everything it has ever served. The display is dark, the VEND button unlit, and its power cord hangs loose from the wall socket behind it.",
+  "description": "A wall-mounted nutrient dispenser in clone-facility beige, bolted at chest height by the door. A cracked label reads NUTRITION IS A RIGHT, NOT A PRIVILEGE; somebody has scratched 'lol' beneath it. A dented steel tray waits under the nozzle. The display is dark and the power cord hangs loose.",
   "flags": {
     "interactions": [
       "vend"

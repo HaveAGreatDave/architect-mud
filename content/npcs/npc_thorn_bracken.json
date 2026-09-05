@@ -2,12 +2,12 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Do not put your hand on the wire.",
-    "They are working dogs. They are not for stroking.",
-    "Stand still. She is deciding.",
-    "If they go quiet, that is the bit to worry about."
+    "Don't put your hand on the wire.",
+    "They're working dogs. They aren't for stroking.",
+    "Stand still. She's deciding.",
+    "If they go quiet, that's the bit to worry about."
   ],
-  "description": "A heavy, quiet man going down a line of hounds with a bucket and a rag, doing ears. The hounds are enormous and scarred and they sit for him one after another without being asked twice. He watches you the entire time he is doing it, and he does not stop doing it.",
+  "description": "A heavy, quiet man going down a line of hounds with a bucket and a rag, doing ears. The hounds are enormous and scarred and they sit for him one after another without being asked twice. He watches you the entire time he's doing it, and he doesn't stop doing it.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -38,11 +38,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Walking people in. Turning stock. Finding whoever has gone over the wall after dark, which is always Ossa and it is always the same gap and I have stopped pretending to be surprised.\"\n\nHe scratches the nearest one under the jaw and it leans its whole weight into him.\n\n\"And this. Mostly this, if I am honest, and I would thank you not to spread that about.\""
+      "text": "\"Walking people in. Turning stock. Finding whoever has gone over the wall after dark, which is always Ossa and it's always the same gap and I have stopped pretending to be surprised.\"\n\nHe scratches the nearest one under the jaw and it leans its whole weight into him.\n\n\"And this. Mostly this, if I'm honest, and I would thank you not to spread that about.\""
     },
     "root": {
       "actions": [],
-      "first": "He does not stop what he is doing. \"Hand off the wire.\" A hound has come to the front and is looking at you with total, silent attention. \"She is fine. She is deciding. Let her.\"",
+      "first": "He doesn't stop what he's doing. \"Hand off the wire.\" A hound has come to the front and is looking at you with total, silent attention. \"She's fine. She's deciding. Let her.\"",
       "options": [
         {
           "actions": [],
@@ -103,7 +103,7 @@
             }
           ],
           "enabled": true,
-          "label": "The dogs would not go past the bend.",
+          "label": "The dogs wouldn't go past the bend.",
           "next": "wild_offer6"
         },
         {
@@ -121,7 +121,7 @@
             }
           ],
           "enabled": true,
-          "label": "It is done, past the third bend.",
+          "label": "It's done, past the third bend.",
           "next": "wild_done6"
         },
         {
@@ -148,9 +148,9 @@
       ],
       "text": "\"Hand off the wire.\"",
       "text_by_relation": {
-        "close": "\"Take the bucket.\" He is already handing it over. \"Left side. She likes you better than me.\"",
-        "familiar": "He nods you to the gate of the run, which is as close to a welcome as he does. \"Come in if you are coming.\"",
-        "known": "\"You are back. She remembers you. That is not nothing.\""
+        "close": "\"Take the bucket.\" He's already handing it over. \"Left side. She likes you better than me.\"",
+        "familiar": "He nods you to the gate of the run, which is as close to a welcome as he does. \"Come in if you're coming.\"",
+        "known": "\"You're back. She remembers you. That isn't nothing.\""
       }
     },
     "shadow": {
@@ -171,7 +171,7 @@
           "next": "for"
         }
       ],
-      "text": "\"They did. From the cairn.\" He wrings the rag out. \"That is the job. They walk you in, off the road, in sight, and they do not close.\n\nIf you had gone off the track toward the beds they would have turned you back. If you had come at the gate at a run they would have had you down and held you there until somebody came. They have not bitten anybody in four years and I would rather like to keep the number.\""
+      "text": "\"They did. From the cairn.\" He wrings the rag out. \"That's the job. They walk you in, off the road, in sight, and they don't close.\n\nIf you had gone off the track toward the beds they would have turned you back. If you had come at the gate at a run they would have had you down and held you there until somebody came. They haven't bitten anybody in four years and I would rather like to keep the number.\""
     },
     "wild_accept6": {
       "_vine": {
@@ -193,7 +193,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Past the third bend, off the north side, where the ground drops.\" He is already looking at the door. \"Stay behind the dogs until they stop. When they stop, get in front of them.\""
+      "text": "\"Past the third bend, off the north side, where the ground drops.\" He's already looking at the door. \"Stay behind the dogs until they stop. When they stop, get in front of them.\""
     },
     "wild_after2": {
       "actions": [],
@@ -206,7 +206,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They did.\"\n\nShe whistles the dogs in past her.\n\n\"Go and see the Chorus. She has been waiting to say something to you and she will not say it until I tell her you can walk eleven miles.\""
+      "text": "\"They did.\"\n\nShe whistles the dogs in past her.\n\n\"Go and see the Chorus. She has been waiting to say something to you and she won't say it until I tell her you can walk eleven miles.\""
     },
     "wild_dogs_did": {
       "_vine": {
@@ -223,7 +223,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They did.\" He does not argue with it. \"And you walked in with them, which is the whole of what anybody here means by one of us.\""
+      "text": "\"They did.\" He doesn't argue with it. \"And you walked in with them, and nobody here means more than that by one of us.\""
     },
     "wild_done2": {
       "actions": [],
@@ -253,7 +253,7 @@
           "next": "wild_after2"
         }
       ],
-      "text": "She counts the dogs before she looks at you, which is correct.\n\n\"All four. And the far poles are straight, I can see them from here.\"\n\nShe takes the tool roll back and puts it on the hook, and then does not go inside.\n\n\"You did not ask me about the road. Everyone asks me about the road.\""
+      "text": "She counts the dogs before she looks at you, which is correct.\n\n\"All four. And the far poles are straight, I can see them from here.\"\n\nShe takes the tool roll back and puts it on the hook, and then doesn't go inside.\n\n\"You didn't ask me about the road. Everyone asks me about the road.\""
     },
     "wild_done6": {
       "_vine": {
@@ -298,7 +298,7 @@
           "next": "bye"
         }
       ],
-      "text": "He goes down the line with his hands in each of them in turn before he says anything to you, and that is the right order and you know it is.\n\n\"They will go past the bend tomorrow.\" He straightens up. \"You got in front of them when they stopped. Most people find out about themselves at that exact moment and most of what they find out is disappointing.\""
+      "text": "He goes down the line with his hands in each of them in turn before he says anything to you, and that's the right order and you know it is.\n\n\"They'll go past the bend tomorrow.\" He straightens up. \"You got in front of them when they stopped. Most people find out about themselves at that exact moment and most of what they find out is disappointing.\""
     },
     "wild_offer2": {
       "actions": [],
@@ -329,7 +329,7 @@
           "next": "wild_road_what"
         }
       ],
-      "text": "\"You are the one who did the mask.\"\n\nShe does not look up from the leads she is untangling.\n\n\"Thursday. The road, out to the far poles and back, checking fixings. It is eleven miles of bad ground and the dogs will not wait for you. Bring water.\""
+      "text": "\"You're the one who did the mask.\"\n\nShe doesn't look up from the leads she's untangling.\n\n\"Thursday. The road, out to the far poles and back, checking fixings. It's eleven miles of bad ground and the dogs won't wait for you. Bring water.\""
     },
     "wild_offer6": {
       "_vine": {
@@ -360,7 +360,7 @@
           "next": "bye"
         }
       ],
-      "text": "He has a hand flat on the neck of the big grey one, and the big grey one is not settling.\n\n\"They would not go past the third bend on Thursday.\" He says it like a fact about the weather. \"Whatever is out there has been eating what comes off the poles. That means it has been there a while and it means it has stopped minding the road.\"\n\n\"First light. Bring something you can hold a line with.\""
+      "text": "He has a hand flat on the neck of the big grey one, and the big grey one isn't settling.\n\n\"They wouldn't go past the third bend on Thursday.\" He says it like a fact about the weather. \"Whatever is out there has been eating what comes off the poles. That means it has been there a while and it means it has stopped minding the road.\"\n\n\"First light. Bring something you can hold a line with.\""
     },
     "wild_road_what": {
       "actions": [],
@@ -380,7 +380,7 @@
           ],
           "conditions": [],
           "enabled": true,
-          "label": "I will come Thursday.",
+          "label": "I'll come Thursday.",
           "next": "bye"
         },
         {
@@ -391,7 +391,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Fixings. Wind gets under them and they go crooked, and a crooked one looks like nobody is keeping it.\"\n\nShe hands you a leather roll of tools without being asked whether you are coming.\n\n\"Straighten what is crooked. Replace what is gone. It is not complicated work and it wants doing every week for the rest of your life.\""
+      "text": "\"Fixings. Wind gets under them and they go crooked, and a crooked one looks like nobody is keeping it.\"\n\nShe hands you a leather roll of tools without being asked whether you're coming.\n\n\"Straighten what's crooked. Replace what's gone. It isn't complicated work and it wants doing every week for the rest of your life.\""
     },
     "wild_teeth_why": {
       "_vine": {
@@ -415,7 +415,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because then it eats something that is walking.\" He scratches the grey one under the jaw. \"It is not a monster and I am not going to make a speech about it. It is hungry and it has found somewhere easy, and easy is the part we take away.\""
+      "text": "\"Because then it eats something that's walking.\" He scratches the grey one under the jaw. \"It isn't a monster and I'm not going to make a speech about it. It's hungry and it has found somewhere easy, and easy is the part we take away.\""
     }
   },
   "faction": "ideology_wildblood",

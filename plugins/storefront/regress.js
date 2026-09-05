@@ -26,7 +26,7 @@ export default async function regress({ run, check }) {
   const bare = authoredTerms({ flags: {} });
   check('unpriced unit falls back to the default terms', bare.price === 6000 && bare.term === 8 && bare.upkeep === 40, JSON.stringify(bare));
   check('the instalment is price ÷ term, rounded up', authoredTerms({ flags: { shop_price: 9000, shop_term: 10 } }).weekly === 900);
-  check('a price that does not divide evenly rounds the instalment up',
+  check("a price that doesn't divide evenly rounds the instalment up",
     authoredTerms({ flags: { shop_price: 4500, shop_term: 8 } }).weekly === 563);
   check('a zero/nonsense price falls back rather than dividing by nothing',
     authoredTerms({ flags: { shop_price: 0, shop_term: 0 } }).price === 6000 && authoredTerms({ flags: { shop_term: 0 } }).term === 8);
@@ -118,10 +118,10 @@ export default async function regress({ run, check }) {
     check('buyshop takes the first instalment', owner.credits === 4800, `credits=${owner.credits}`);
     let deed = getDeed(ZONE);
     check('the deed records the buyer', deed?.owner_id === OWNER && deed.payments_made === 1 && deed.payments_total === 4, JSON.stringify(deed));
-    check('a fresh mortgage is not paid off', deed.paid_off === 0);
+    check("a fresh mortgage isn't paid off", deed.paid_off === 0);
 
     r = await _test.cmdBuyShop(buyer);
-    check('a second buyer is refused once it is sold', /already holds the deed/.test(r.message), r.message);
+    check("a second buyer is refused once it's sold", /already holds the deed/.test(r.message), r.message);
 
     // Name over the door lives on the deed, never on the zone (content drift).
     await _test.cmdRenameShop(['Cheap', 'Ammo'], owner);
@@ -154,7 +154,7 @@ export default async function regress({ run, check }) {
     check('the display is empty again', (await _test.listingsFor(ZONE)).length === 0);
 
     r = await _test.cmdBuyWare(['trinket'], owner);
-    check('the owner cannot buy from their own bare display', /display is bare/i.test(r.message), r.message);
+    check("the owner can't buy from their own bare display", /display is bare/i.test(r.message), r.message);
 
     // ── Staff ────────────────────────────────────────────────────────────────
     // Hiring must never touch `npcs` — that's a CONTENT-class table, and a
@@ -167,7 +167,7 @@ export default async function regress({ run, check }) {
     check('hiring writes NO npcs row (content-class table)', npcsBefore === npcsAfter, `${npcsBefore} → ${npcsAfter}`);
     check('the guard is on the books', (await _test.staffFor(ZONE)).some(m => m.role === 'guard'));
     r = await _test.cmdHire(['guard'], owner);
-    check('you cannot hire two of the same role', /already have a guard/.test(r.message), r.message);
+    check("you can't hire two of the same role", /already have a guard/.test(r.message), r.message);
     r = await _test.cmdHire([], owner);
     check('bare hire lists the roles and their wages', /clerk/.test(r.message) && /guard/.test(r.message), r.message);
     check('staff show in the room description', /stands by the door/.test(await _test.describeRoom(getZone(ZONE)) || ''));
@@ -183,7 +183,7 @@ export default async function regress({ run, check }) {
     check('the lifted row is marked unpaid against this shop', unpaid.length === 1 && unpaid[0].id === invId, JSON.stringify(unpaid));
     check('the display no longer holds it', (await _test.listingsFor(ZONE)).length === 0);
     r = await _test.cmdPocket(['trinket'], owner);
-    check('the owner cannot pocket their own stock', /your own stock/i.test(r.message), r.message);
+    check("the owner can't pocket their own stock", /your own stock/i.test(r.message), r.message);
 
     // Settling up is the honest way out, and it pays the till like any sale.
     const creditsBeforeSettle = buyer.credits;
@@ -218,7 +218,7 @@ export default async function regress({ run, check }) {
     check('a filled order closes', (await _test.ordersFor(ZONE)).length === 0);
 
     r = await _test.cmdSupply(['regress trinket'], owner);
-    check('the owner cannot supply their own shop', /your own shop/i.test(r.message), r.message);
+    check("the owner can't supply their own shop", /your own shop/i.test(r.message), r.message);
 
     // An order the till can't fund must refuse rather than mint credits.
     await _test.cmdBuyOrder(['regress trinket for 999999'], owner);
@@ -237,7 +237,7 @@ export default async function regress({ run, check }) {
     const shelf = (await _test.listingsFor(ZONE))[0];
     await query(`UPDATE player_inventory SET custom_data = jsonb_build_object('list_price', 9999) WHERE id=$1`, [shelf.id]);
     await _test.footfallTick(true);
-    check('passers-by will not pay an absurd markup', (await _test.listingsFor(ZONE)).length === 1);
+    check("passers-by won't pay an absurd markup", (await _test.listingsFor(ZONE)).length === 1);
 
     await query(`UPDATE player_inventory SET custom_data = jsonb_build_object('list_price', 12) WHERE id=$1`, [shelf.id]);
     const tillPreFootfall = getDeed(ZONE).till_credits;
@@ -280,7 +280,7 @@ export default async function regress({ run, check }) {
     deed = getDeed(ZONE);
     check('the instalment is drafted from the till', deed.till_credits === 50 && deed.payments_made === 2,
       `till=${deed.till_credits} made=${deed.payments_made}`);
-    check('paying from the till does not touch the owner\'s credits',
+    check('paying from the till doesn\'t touch the owner\'s credits',
       (await query('SELECT credits FROM players WHERE id=$1', [OWNER])).rows[0].credits === 4800);
     check('the due date rolls forward past today',
       String(deed.due_date ?? '').slice(0, 10) > TODAY, String(deed.due_date));

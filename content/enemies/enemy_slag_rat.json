@@ -87,7 +87,7 @@
     }
   ],
   "death_message": "The rat kicks twice, then goes still.",
-  "description": "A rat the size of a housecat, hairless and slick, its skin the grey of cooled slag. It is not afraid of you.",
+  "description": "A rat the size of a housecat, hairless and slick, its skin the grey of cooled slag. It isn't afraid of you.",
   "dodge": 2,
   "faction": null,
   "flags": {

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Wheel ruts run away east, dead straight, made by something with a long wheelbase that was not stopping for the Reach.",
+  "description": "Wheel ruts run away east, dead straight, made by something with a long wheelbase that wasn't stopping for the Reach.",
   "exits": {
     "east": "zone_the_reach_882_1956",
     "north": "zone_the_reach_881_1955",

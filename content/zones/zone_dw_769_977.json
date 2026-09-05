@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The works' water: a cast column with four taps round it and a stone trough beneath, fed off the tailrace through a sand bed you can see the top of. A tin cup hangs on a chain. The chain has been mended with wire, and the wire has been dressed flat so it will not catch a hand. Somebody has scratched a fill line inside the trough and everybody appears to respect it.",
+  "description": "The works' water: a cast column with four taps round it and a stone trough beneath, fed off the tailrace through a sand bed you can see the top of. A tin cup hangs on a chain. The chain has been mended with wire, and the wire has been dressed flat so it won't catch a hand. Somebody has scratched a fill line inside the trough and everybody appears to respect it.",
   "exits": {
     "east": "zone_dw_770_977",
     "north": "zone_dw_769_976",

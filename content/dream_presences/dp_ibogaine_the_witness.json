@@ -7,16 +7,16 @@
   "cause": "drug",
   "departures": [
     "They move on to another part of it, still listening.",
-    "They are elsewhere in the accounting now.",
+    "They're elsewhere in the accounting now.",
     "They step out, briefly, the way people do."
   ],
   "drug_id": "drug_ibogaine",
   "id": "dp_ibogaine_the_witness",
   "looks": [
     "Attentive. Not judging. Taking it in properly, which is worse.",
-    "They have been here for all of it and have not once interrupted.",
-    "They are waiting for you to say something about this part.",
-    "They look exactly like somebody. You will not be able to say who."
+    "They have been here for all of it and haven't once interrupted.",
+    "They're waiting for you to say something about this part.",
+    "They look exactly like somebody. You won't be able to say who."
   ],
   "name": "the one who sits with you"
 }

@@ -51,8 +51,8 @@ function ensureStyles() {
     box-shadow:0 0 0 1px rgba(255,255,255,.05) inset, 0 24px 70px rgba(0,0,0,.7),
       0 0 var(--sl-halo,30px) color-mix(in srgb, var(--sl-c,#8b98a8) 55%, transparent); }
 
-  /* Marquee. It is the CABINET's name, handed over by the server, never a venue
-     baked in here — that is how it went stale last time. */
+  /* Marquee. It's the CABINET's name, handed over by the server, never a venue
+     baked in here — that's how it went stale last time. */
   .sl-marquee { text-align:center; font-size:0.9375rem; letter-spacing:5px; font-weight:700;
     color:var(--sl-c,#ffd15c); text-shadow:0 0 12px var(--sl-c,#ffd15c), 0 0 34px var(--sl-c,#ffd15c);
     animation:sl-buzz 5s ease-in-out infinite; }

@@ -1,7 +1,7 @@
 {
   "appearance": {
     "extreme": "They have wings that fill the room when they open, dark and veined and easily twice their height. Everyone has stopped talking.",
-    "obvious": "Folded wings sit against their back, ribbed and leathery, twitching when they are startled.",
+    "obvious": "Folded wings sit against their back, ribbed and leathery, twitching when they're startled.",
     "subtle": "Their shoulder blades stand out much too far."
   },
   "blocks_slots": [
@@ -13,7 +13,7 @@
   ],
   "clone_inheritance": "all",
   "conceal_slots": [],
-  "description": "Wings. Actual wings, grown from your shoulder blades, ribbed and enormous. Whether they will ever carry you is a question the Wildblood argue about.",
+  "description": "Wings. Actual wings, grown from your shoulder blades, ribbed and enormous. Whether they'll ever carry you is a question the Wildblood argue about.",
   "drawbacks": [
     "No coat, no pack, no torso armour"
   ],

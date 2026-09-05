@@ -28,7 +28,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Leaving a lore-less zone stamps nothing — an unrelated lore zone is unaffected.
   _test.onZoneEntered({ actor: player, from: bare.id });
   out = await _test.introLore(zone, player);
-  check('leaving a lore-less zone does not suppress others', /class="intro-lore"/.test(out || ''), String(out));
+  check("leaving a lore-less zone doesn't suppress others", /class="intro-lore"/.test(out || ''), String(out));
 
   // Once the seen marker is set (the departure commit), the block stops.
   await setFlag('player', _test.seenKey(zone.id), 'true', player);
@@ -119,7 +119,7 @@ export default async function regress({ run, check, getPlayer }) {
     // Second entry is gated — the marker suppresses a repeat (we just confirm no throw).
     threw = false;
     try { await _test.onGpsSuggest({ actor: player, zone: trigger.id }); } catch { threw = true; }
-    check('gps-suggest does not re-fire once seen', !threw, 'threw on second entry');
+    check("gps-suggest doesn't re-fire once seen", !threw, 'threw on second entry');
     await clearFlag('player', _test.gpsSuggestKey(trigger.id), player);
   }
 

@@ -2,9 +2,9 @@
   "cost": 650,
   "description": "Your eyes come out; something better goes in. Low-light overlays and threat-tagging sharpen everything you look at.",
   "failure_messages": {
-    "burnout": "One optic dims and does not come back up. Everything is suddenly flat on that side.",
-    "dead": "The array goes dark. You are looking through two dead lenses and nothing else.",
-    "fault": "Your vision tears into bands of static. You are blind for as long as it takes to be frightening.",
+    "burnout": "One optic dims and doesn't come back up. Everything is suddenly flat on that side.",
+    "dead": "The array goes dark. You're looking through two dead lenses and nothing else.",
+    "fault": "Your vision tears into bands of static. You're blind for as long as it takes to be frightening.",
     "strain": "The overlay starts to smear at the edges, colours dragging a half-second behind what you look at."
   },
   "heat_rate": 0.3,

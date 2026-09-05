@@ -56,7 +56,7 @@ export default async function regress({ run, check }) {
   // The crossover — the whole answer to "does it push you to real targets".
   check('the rig beats a live target for a beginner',
     chance(_test.rigMargin(D, D)) > chance(liveMargin(D)));
-  check('a live target beats the rig once you are good',
+  check("a live target beats the rig once you're good",
     chance(_test.rigMargin(D + 6, D)) < chance(liveMargin(D + 6)));
   check('and a harder live target beats an easier one at high skill',
     chance(marginOf(10, 7)) > chance(marginOf(10, 5)));
@@ -75,7 +75,7 @@ export default async function regress({ run, check }) {
   // the verb (return undefined) rather than swallow it — otherwise hacking a
   // hololock or vendor safe would break the moment this plugin loaded.
   const r = await run('hack');
-  check('hack in a rigless room is not claimed by hackrig',
+  check("hack in a rigless room isn't claimed by hackrig",
     !/lock sequence|leads/i.test(r?.message || ''), r?.message);
 
 

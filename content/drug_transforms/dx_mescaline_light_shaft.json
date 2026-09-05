@@ -2,7 +2,7 @@
   "asks": [
     "What time do you make it?",
     "Do you want to stand in this? Most people want to stand in this.",
-    "Have you seen where I am pointing, or shall I move?"
+    "Have you seen where I'm pointing, or shall I move?"
   ],
   "description": "A solid column of afternoon light comes down through the ceiling at a slant, thick with turning dust, and lands on one small patch of the floor as though it had been aiming.",
   "drug_id": "drug_mescaline",
@@ -15,16 +15,16 @@
   "fx_intensity": 0.5,
   "id": "dx_mescaline_light_shaft",
   "looks": [
-    "The dust in it turns slowly, all in the same direction, and the direction is not the one the air is going.",
-    "It is warm on the back of your hand. It is warm the way a wall is warm at four in the afternoon.",
-    "It moves onto the right thing and settles, and it is right."
+    "The dust in it turns slowly, all in the same direction, and the direction isn't the one the air is going.",
+    "It's warm on the back of your hand. It's warm the way a wall is warm at four in the afternoon.",
+    "It moves onto the right thing and settles, and it's right."
   ],
   "matches": "light",
   "name": "a shaft of desert sun",
   "says": [
     "There. That one. Look at that one.",
     "I have been pointing at it all along.",
-    "It is later than it is in here."
+    "It's later than it's in here."
   ],
   "scope": "object"
 }

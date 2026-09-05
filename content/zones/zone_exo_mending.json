@@ -1,12 +1,12 @@
 {
   "ambient_events": [
     "A drawer goes out, and back, and the label gets straightened.",
-    "Somebody outside on the bench pours a cup and does not drink it.",
+    "Somebody outside on the bench pours a cup and doesn't drink it.",
     "Linen comes off the boil and is hung, steaming, on the line by the window.",
     "A splint is cut down to length with four unhurried strokes."
   ],
   "ambient_theme": "indoors",
-  "description": "Two beds, a screen, a scrubbed table and a wall of small drawers, each one labelled in a small square hand. Splints, honey, boiled linen, willow, a bone saw kept very clean and used very rarely. There is no machine in this room. There is a great deal of knowledge in it, and most of it is in one person's head.\n\nA child's drawing is pinned inside the door where the patient can see it and the physician cannot.",
+  "description": "Two beds, a screen, a scrubbed table and a wall of small drawers, each one labelled in a small square hand. Splints, honey, boiled linen, willow, a bone saw kept very clean and used very rarely. There's no machine in this room. There's a great deal of knowledge in it, and most of it's in one person's head.\n\nA child's drawing is pinned inside the door where the patient can see it and the physician cannot.",
   "exits": {
     "down": "zone_util_zone_exo_mending",
     "west": "zone_terminus_1213_944"

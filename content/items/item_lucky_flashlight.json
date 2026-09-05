@@ -1,12 +1,12 @@
 {
-  "description": "Two-Cell's flashlight: a scuffed, rubber-armoured brick of a torch with \"2-CELL\" gouged into the barrel by a man who names his tools. The lens is cracked clean across and could not possibly care less. Grady swears it has never once left him in the dark: not through two floods, one roof collapse, and a marriage. Best of all, it sips power like a monk sips wine. A single cell lasts it about twice as long as any shop-bought light. LIGHT it on, UNLIGHT to save the cell, RELOAD when it finally dies (which it won't, mostly out of spite).",
+  "description": "Two-Cell's torch, rubber-armoured, \"2-CELL\" gouged into the barrel. The lens is cracked clean across and couldn't care less. Grady swears it has never left him in the dark, and it sips power: one cell lasts twice as long as any shop light. LIGHT to switch on, UNLIGHT to save it, RELOAD when it dies.",
   "flags": {
     "flashlight_drain": 0.5
   },
   "id": "item_lucky_flashlight",
   "name": "Two-Cell's flashlight",
   "tags": {
-    "description": "Two-Cell's flashlight: a scuffed, rubber-armoured brick of a torch with \"2-CELL\" gouged into the barrel by a man who names his tools. The lens is cracked clean across and could not possibly care less. Grady swears it has never once left him in the dark: not through two floods, one roof collapse, and a marriage. Best of all, it sips power like a monk sips wine. A single cell lasts it about twice as long as any shop-bought light. LIGHT it on, UNLIGHT to save the cell, RELOAD when it finally dies (which it won't, mostly out of spite).",
+    "description": "Two-Cell's flashlight: a scuffed, rubber-armoured brick of a torch with \"2-CELL\" gouged into the barrel by a man who names his tools. The lens is cracked clean across and couldn't possibly care less. Grady swears it has never once left him in the dark: not through two floods, one roof collapse, and a marriage. Best of all, it sips power like a monk sips wine. A single cell lasts it about twice as long as any shop-bought light. LIGHT it on, UNLIGHT to save the cell, RELOAD when it finally dies (which it won't, mostly out of spite).",
     "flashlight": true,
     "misc": true,
     "unique": true

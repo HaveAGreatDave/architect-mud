@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Dwellings packed shoulder to shoulder: plate, hide, rammed earth, every roof pitched the same steep angle into the same run of tin gutter. Doorways are curtained against the grit. Somebody has planted something in a cut-down drum by a step and it is being watered.",
+  "description": "Dwellings packed shoulder to shoulder: plate, hide, rammed earth, every roof pitched the same steep angle into the same run of tin gutter. Doorways are curtained against the grit. Somebody has planted something in a cut-down drum by a step and it's being watered.",
   "exits": {
     "east": "zone_scw_1046_973",
     "south": "zone_scw_1045_974",

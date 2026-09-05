@@ -142,11 +142,11 @@
           "next": "perm2"
         },
         {
-          "label": "I am happy on the board.",
+          "label": "I'm happy on the board.",
           "next": "bye"
         }
       ],
-      "text": "\"Ah. Yes.\" He finds the docket without looking for it, which means it has been on the desk a while.\n\n\"Five contracts, all closed, none of them late, and — \" he checks, and is briefly pleased \" — you have not once asked me what any of it was for. Do you know how rare that is? It is not discretion. Most of them simply are not curious. You are curious and you did not ask, which is a different thing and a much more useful one.\""
+      "text": "\"Ah. Yes.\" He finds the docket without looking for it, which means it has been on the desk a while.\n\n\"Five contracts, all closed, none of them late, and — \" he checks, and is briefly pleased \" — you haven't once asked me what any of it was for. Do you know how rare that is? It isn't discretion. Most of them simply aren't curious. You're curious and you didn't ask, which is a different thing and a much more useful one.\""
     },
     "perm2": {
       "_vine": {
@@ -160,11 +160,11 @@
           "next": "perm3"
         },
         {
-          "label": "I will think about it.",
+          "label": "I'll think about it.",
           "next": "bye"
         }
       ],
-      "text": "\"Contract work, but on a rota rather than a board, and salaried.\" He says the word the way other men say a woman's name. \"Better money. Better hours. A clinic that is not a tent.\"\n\nHe squares the docket against the counter.\n\n\"I should be straight with you, because you will hear it eventually and I would rather you heard it here: the work is upstairs work. The building has opinions. Nobody will ask you to share them and a great many people who work here do not.\""
+      "text": "\"Contract work, but on a rota rather than a board, and salaried.\" He says the word the way other men say a woman's name. \"Better money. Better hours. A clinic that isn't a tent.\"\n\nHe squares the docket against the counter.\n\n\"I should be straight with you, because you'll hear it eventually and I would rather you heard it here: the work is upstairs work. The building has opinions. Nobody will ask you to share them and a great many people who work here do not.\""
     },
     "perm3": {
       "_vine": {
@@ -178,7 +178,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Claims oversight. Ives. She is at the west gate most days, and if she is not, wait, because she will be.\"\n\nHe is already reaching for the next docket in the stack.\n\n\"She will do a great deal of listening and very little talking, and you will come away thinking you did well. Everybody does. She is genuinely quite good at it.\""
+      "text": "\"Claims oversight. Ives. She's at the west gate most days, and if she's not, wait, because she'll be.\"\n\nHe is already reaching for the next docket in the stack.\n\n\"She'll do a great deal of listening and very little talking, and you'll come away thinking you did well. Everybody does. She's genuinely quite good at it.\""
     }
   },
   "faction": null,

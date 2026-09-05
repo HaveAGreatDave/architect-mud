@@ -1,8 +1,8 @@
 {
   "appearance": {
     "extreme": "Their jaw is distended around the glands and their hands are permanently wet with venom. Where they rested a palm, the table has gone soft.",
-    "obvious": "Glands bulge under their jaw, and their knuckles weep a clear fluid that beads and does not dry.",
-    "subtle": "There is a swelling under their jaw on both sides."
+    "obvious": "Glands bulge under their jaw, and their knuckles weep a clear fluid that beads and doesn't dry.",
+    "subtle": "There's a swelling under their jaw on both sides."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -14,7 +14,7 @@
   "conceal_slots": [
     "hands"
   ],
-  "description": "Glands under your jaw and along your knuckles, full of something that is not supposed to be in a person. Anything you break the skin of gets a dose.",
+  "description": "Glands under your jaw and along your knuckles, full of something that isn't supposed to be in a person. Anything you break the skin of gets a dose.",
   "drawbacks": [
     "You have to be careful about kissing anyone"
   ],

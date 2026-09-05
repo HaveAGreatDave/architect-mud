@@ -130,7 +130,7 @@ export async function cameraTargets(player, ctx = {}) {
     const key = deviceKey(dev.id);
     const notes = [];
     if (dev.is_damaged) notes.push('Already broken. Somebody got here first.');
-    if (dev.status_flags?.hijacked_by) notes.push('Answering to somebody who does not own it.');
+    if (dev.status_flags?.hijacked_by) notes.push("Answering to somebody who doesn't own it.");
 
     return {
       key,
@@ -172,7 +172,7 @@ export async function cameraTargets(player, ctx = {}) {
         if (opId === 'sabotage') {
           await query(`UPDATE security_devices SET is_damaged = 1 WHERE id = $1`, [dev.id]);
           return {
-            message: `<span class="text-red">Something inside the ${dev.fname} lets go. It is not coming back on.</span>`,
+            message: `<span class="text-red">Something inside the ${dev.fname} lets go. It isn't coming back on.</span>`,
             ownerMessage: `<span class="text-red">⚠ SPECTER</span> ${dev.fname} has failed.`,
           };
         }

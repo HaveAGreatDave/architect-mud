@@ -1,9 +1,9 @@
 {
   "category": null,
-  "description": "You signed. There was a form. The form had a cartoon of a ladder on it and every rung was smiling.\n\nDenny explains the structure with genuine tenderness. Above him is a regional. Above the regional is a name nobody has met. Above that, he gestures vaguely north, is the part that pays. Below him, as of this morning, is you. Below you there is nothing at all, and that is the problem he needs solving.\n\nThe uniform is not negotiable. It is a cap. It says HANG IN THERE and it has a kitten on it and it is, Denny insists, the single most recognisable piece of corporate identity in the Basin.\n\n\"Move five. Wear the cap while you do it. And go and see McCracken in the Meridian, because that man has a lanyard and no employer, and I have been thinking about him for a year.\"",
+  "description": "You signed. There was a form. The form had a cartoon of a ladder on it and every rung was smiling.\n\nDenny explains the structure with genuine tenderness. Above him is a regional. Above the regional is a name nobody has met. Above that, he gestures vaguely north, is the part that pays. Below him, as of this morning, is you. Below you there's nothing at all, and that's the problem he needs solving.\n\nThe uniform isn't negotiable. It's a cap. It says HANG IN THERE and it has a kitten on it and it is, Denny insists, the single most recognisable piece of corporate identity in the Basin.\n\n\"Move five. Wear the cap while you do it. And go and see McCracken in the Meridian, because that man has a lanyard and no employer, and I have been thinking about him for a year.\"",
   "fail_on": [
     {
-      "desc": "Denny is dead. You cannot be paid by an upline. That is the entire architecture of the thing.",
+      "desc": "Denny is dead. You can't be paid by an upline. That's the entire architecture of the thing.",
       "target": "npc_corp_recruiter",
       "type": "assassinate"
     }

@@ -100,7 +100,7 @@ export default async function regress({ run, check, getPlayer }) {
   {
     const s = fmStall1g(may);
     for (let i = 0; i < 180; i++) fmStep(s, fmIn({ elevator: 1, throttle: 0 }), may, FM_DT);
-    check('flight model: a HELD stall does not self-recover', s.stalled);
+    check("flight model: a HELD stall doesn't self-recover", s.stalled);
     check('flight model: a stalled aircraft actually falls', s.vs < -250, Math.round(s.vs));
     let rec = null;
     for (let i = 0; i < 60 * 25 && rec == null; i++) { fmStep(s, fmIn({ elevator: 0, throttle: 0 }), may, FM_DT); if (!s.stalled) rec = i * FM_DT; }
@@ -175,11 +175,11 @@ export default async function regress({ run, check, getPlayer }) {
     acTypes.length > 0 && offContinuous.length === 0);
 
   // ── Fit-to-fly: severe impairment (any kind) is detected ────────────────────
-  check('a sober pilot is not impaired', isSeverelyImpaired({ intoxication: 10, activeDrugs: [] }) === false);
+  check("a sober pilot isn't impaired", isSeverelyImpaired({ intoxication: 10, activeDrugs: [] }) === false);
   check('blackout-drunk is impaired', isSeverelyImpaired({ intoxication: 70 }) === true);
   check('a real active drug dose is impaired', isSeverelyImpaired({ activeDrugs: [{ potency: 0.9 }] }) === true);
-  check('a faded comedown tail is not severe', isSeverelyImpaired({ intoxication: 20, activeDrugs: [{ potency: 0.3 }] }) === false);
-  check('a null pilot is not impaired', isSeverelyImpaired(null) === false);
+  check("a faded comedown tail isn't severe", isSeverelyImpaired({ intoxication: 20, activeDrugs: [{ potency: 0.3 }] }) === false);
+  check("a null pilot isn't impaired", isSeverelyImpaired(null) === false);
 
   // ── Pure helpers ────────────────────────────────────────────────────────────
   check('DIRS has all 8 compass steps', Object.keys(_test.DIRS).length === 8, Object.keys(_test.DIRS).join(','));
@@ -216,7 +216,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('Buzzard Field charters', buzzard?.charter === true, JSON.stringify(buzzard));
     check('Buzzard Field has no rental desk', buzzard?.rent !== true, JSON.stringify(buzzard));
     // The capability must be genuinely separable, not just unset everywhere.
-    check('some field still rents (the split did not close every desk)',
+    check("some field still rents (the split didn't close every desk)",
       fields.some(f => f.rent === true), fields.filter(f => f.rent === true).map(f => f.name).join(',') || 'NONE');
 
     // A helipad has no runway: it must never OFFER an airframe it can't launch.
@@ -247,7 +247,7 @@ export default async function regress({ run, check, getPlayer }) {
       const bad = (await acquirableTypes(zone)).filter(t => !stocked.includes(t.fuel_type));
       if (bad.length) { unfuelable = `${f.name} stocks ${stocked.join('/')} but offers ${bad.map(t => `${t.id}(${t.fuel_type})`).join(',')}`; break; }
     }
-    check('no field offers an airframe it cannot fuel', unfuelable === null, unfuelable || '');
+    check("no field offers an airframe it can't fuel", unfuelable === null, unfuelable || '');
 
     // Positive control: the filter must not have emptied everything. Buzzard is
     // the case it was written for — props and helis, no jets.
@@ -403,12 +403,12 @@ export default async function regress({ run, check, getPlayer }) {
   check('describeExterior names the craft', /Mule/.test(describeExterior({ base: '#b81f24', trim: '#eeeeee', pattern: 'stripes', finish: 'gloss' }, 'Mule', 'R-DAV1')));
   check('conspicuousnessMult reads paint off a live row', conspicuousnessMult({ row: { custom_data: { livery: darkLv } } }) < conspicuousnessMult({ row: { custom_data: { livery: brightLv } } }));
   check('paintCost scales by class (heavy dearer than ultralight)', paintCost({ class: 'heavy' }) > paintCost({ class: 'ultralight' }));
-  check('rentals and wrecks are not paintable; a plain owned craft is', !isPaintable({ rental: 1 }) && !isPaintable({ is_wreck: 1 }) && isPaintable({}));
+  check("rentals and wrecks aren't paintable; a plain owned craft is", !isPaintable({ rental: 1 }) && !isPaintable({ is_wreck: 1 }) && isPaintable({}));
   // The warbird scheme. Two assertions, because it is the one pattern whose renderer derives
   // extra tones from `base` — and the thing that would break silently is the ID going out of the
   // catalog (leaving every aeroplane wearing it to normalise back to bare on the next save).
   check('warbird is a real pattern, so a painted craft keeps it', normalizeLivery({ livery: { pattern: 'warbird' } }).pattern === 'warbird');
-  check('…and it is described rather than falling through to the bare clause',
+  check("…and it's described rather than falling through to the bare clause",
     /cowl/i.test(describeExterior({ base: '#4c5340', trim: '#e2b21c', pattern: 'warbird', finish: 'matte' }, 'Shrike')));
   // Slice 2 — decals + saved schemes.
   check('a decal is described in the exterior prose', /shark/i.test(describeExterior({ base: '#334455', trim: '#889', pattern: 'solid', finish: 'satin', decal: 'sharkmouth' }, 'Reaper')));
@@ -519,7 +519,7 @@ export default async function regress({ run, check, getPlayer }) {
   const wpx = Math.round((wb.minx + wb.maxx) / 2), wpy = Math.round((wb.miny + wb.maxy) / 2);
   r = await run(`flightwaypoint ${wpx} ${wpy}`);
   check('a waypoint can be set with no aircraft at all', /designated/i.test(r?.message || ''), r?.message);
-  check('…and says it will be waiting', /waiting when you board/i.test(r?.message || ''), r?.message);
+  check("…and says it'll be waiting", /waiting when you board/i.test(r?.message || ''), r?.message);
   check('…and is held on the PLAYER, not on an airframe', getPlayer().flightWaypoint?.x === wpx && getPlayer().flightWaypoint?.y === wpy, JSON.stringify(getPlayer().flightWaypoint));
   r = await run('flightwaypoint clear');
   check('…and clears', /cleared/i.test(r?.message || '') && !getPlayer().flightWaypoint, r?.message);
@@ -561,7 +561,7 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('contracts'); check('contracts off-field reports the board is elsewhere', /board/i.test(r?.message || ''), r?.message);
   r = await run('hangar'); check('hangar off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);
   r = await run('showroom'); check('showroom off-field points to the airfields', /airfield|showroom/i.test(r?.message || ''), r?.message);
-  r = await run('view mayfly'); check('view off-field falls through (does not hijack the generic verb)', r?.type === 'error' && /unknown command/i.test(r?.message || ''), `${r?.type}:${r?.message}`);
+  r = await run('view mayfly'); check("view off-field falls through (doesn't hijack the generic verb)", r?.type === 'error' && /unknown command/i.test(r?.message || ''), `${r?.type}:${r?.message}`);
   r = await run('loadout'); check('loadout with no craft here reports it', /no aircraft of yours/i.test(r?.message || ''), r?.message);
   r = await run('salvage'); check('salvage with no wreck reports it', /no wreck/i.test(r?.message || ''), r?.message);
   r = await run('modify'); check('modify requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
@@ -626,7 +626,7 @@ export default async function regress({ run, check, getPlayer }) {
       [strangerId, acType.id]
     );
     sr = await sellAircraft(p, strangerId);
-    check('sellAircraft refuses an aircraft you do not own', sr?.type === 'error', JSON.stringify(sr));
+    check("sellAircraft refuses an aircraft you don't own", sr?.type === 'error', JSON.stringify(sr));
     await query('UPDATE aircraft SET owner_id=$1, airborne=1 WHERE id=$2', [p.id, strangerId]);
     sr = await sellAircraft(p, strangerId);
     check('sellAircraft refuses an airborne aircraft', sr?.type === 'error' && /air/i.test(sr.message || ''), JSON.stringify(sr));
@@ -724,7 +724,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('the catalogue excludes the MULE crate shell (an unopenable dud)',
     !cat.some(e => e.id === 'item_mule_crate'), JSON.stringify(cat.filter(e => e.id === 'item_mule_crate')));
   const crops = cat.filter(e => e.legal);
-  check('the bottom rung is legal crop, and there is some', crops.length >= 2, JSON.stringify(crops.map(e => e.id)));
+  check("the bottom rung is legal crop, and there's some", crops.length >= 2, JSON.stringify(crops.map(e => e.id)));
   check('every legal crop is tier 0', crops.every(e => e.tier === 0), JSON.stringify(crops.map(e => [e.id, e.tier])));
   // The whole point of the legal rung: a bale is NOT a manufacturing felony, so the
   // crop items must never carry the tags that make one.
@@ -794,7 +794,7 @@ export default async function regress({ run, check, getPlayer }) {
   let ords = await openOrders(p);
   check('openOrders groups the order into one cache line', ords.length === 1, JSON.stringify(ords));
   check('a fresh order reports pallets and units', ords[0]?.pallets === 2 && ords[0]?.units === unitsPerPallet(crop.tier) * 2, JSON.stringify(ords[0]));
-  check('a fresh order is not out there yet (lead time)', ords[0]?.readyIn > 0, `readyIn=${ords[0]?.readyIn}`);
+  check("a fresh order isn't out there yet (lead time)", ords[0]?.readyIn > 0, `readyIn=${ords[0]?.readyIn}`);
   check('a pallet still in transit is NOT loadable at the cache',
     (await waitingDropAt(ords[0].cache.zone, p.id)) === null, 'waitingDropAt saw an in-transit pallet');
   await query("UPDATE cargo_drops SET created_at=$2 WHERE owner_id=$1 AND kind='fence'", [p.id, nowSec() - 3600]);
@@ -831,7 +831,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a shop purchase writes pallets to a cache', bought.length === 2, `n=${bought.length}`);
     const { rows: inInv } = await query(
       'SELECT COUNT(*)::int n FROM player_inventory WHERE player_id=$1 AND item_id=$2', [p.id, crop.id]);
-    check('a shop purchase puts NOTHING in inventory (a pallet is not a hand-carry)', inInv[0]?.n === 0, JSON.stringify(inInv[0]));
+    check("a shop purchase puts NOTHING in inventory (a pallet isn't a hand-carry)", inInv[0]?.n === 0, JSON.stringify(inInv[0]));
 
     // The seam is keyed on the VENDOR, not the goods, so two fences selling the same
     // raws can't collide. A shop with no counter flag therefore has no delivery
@@ -864,7 +864,7 @@ export default async function regress({ run, check, getPlayer }) {
     const { rows: after } = await query('SELECT credits FROM players WHERE id=$1', [p.id]);
     check('a refused delivery rolls the sale back (no credits taken)', after[0]?.credits === palletPrice(crop) * 20,
       `${palletPrice(crop) * 20} → ${after[0]?.credits}`);
-    check('…and the live player object is not left showing the phantom debit', p.credits === after[0]?.credits,
+    check("…and the live player object isn't left showing the phantom debit", p.credits === after[0]?.credits,
       `live=${p.credits} db=${after[0]?.credits}`);
 
     await query('DELETE FROM npcs WHERE id = ANY($1)', [[counter.id, notCounter.id]]);
@@ -1108,7 +1108,7 @@ export default async function regress({ run, check, getPlayer }) {
     // A cold, parked aeroplane must simply not be simulated — the tick's early-out.
     tpLive.fx = 925; tpLive.fy = 903;
     await textPilotTick();
-    check('a cold parked craft is not simulated', tpLive.fmState.airspeed === 0 && (tpLive.cont === undefined || tpLive.cont === null));
+    check("a cold parked craft isn't simulated", tpLive.fmState.airspeed === 0 && (tpLive.cont === undefined || tpLive.cont === null));
 
     // Full power on the deck: she must actually accelerate and then fly.
     tpLive.row.engine_on = 1;
@@ -1127,7 +1127,7 @@ export default async function regress({ run, check, getPlayer }) {
     tpLive.textTargets.altitude = 1200;
     for (let i = 0; i < 60; i++) await textPilotTick();
     check('the autopilot climbs toward a commanded altitude', tpLive.fmState.altitude > 200, `alt=${Math.round(tpLive.fmState.altitude)}`);
-    check('the assist does not leave her parked in a stall', !tpLive.fmState.stalled);
+    check("the assist doesn't leave her parked in a stall", !tpLive.fmState.stalled);
     check('status reads out real instruments', /ALT/.test(statusLines(tpLive)) && /HDG/.test(statusLines(tpLive)));
 
     // The live ASCII panel: every field the renderer reads must actually be present,
@@ -1405,7 +1405,7 @@ export default async function regress({ run, check, getPlayer }) {
         check('the world map has one row string per grid row, each the full width',
           wm.rows.length === wm.h && wm.rows.every(r => r.length === wm.w), `rows=${wm.rows.length}/${wm.h}`);
         const chars = new Set(wm.rows.join(''));
-        check('the world map is not blank (real terrain got classified, not all void)',
+        check("the world map isn't blank (real terrain got classified, not all void)",
           [...chars].some(c => c !== '.') && chars.size >= 3, [...chars].join(''));
         check('airfields survive the downsample (priority beats majority vote)', chars.has('A'), [...chars].join(''));
         check('the world map is memoised too', worldTerrainMap() === wm);
@@ -1605,7 +1605,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // The hangar tile is not part of the strip and must not be marked — it is a building, and a
     // threshold bar across a hangar door would be nonsense.
-    check('the field\'s own tile is not a strip tile', der(910, 1042)?.mark !== 'strip');
+    check('the field\'s own tile isn\'t a strip tile', der(910, 1042)?.mark !== 'strip');
     // …and the tiles either side of the ends are outside it, or the strip would grow every pass.
     check('the strip stops where it stops', der(909, 1038)?.mark !== 'strip' && der(909, 1043)?.mark !== 'strip');
 

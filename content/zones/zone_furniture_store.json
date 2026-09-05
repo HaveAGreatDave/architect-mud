@@ -12,7 +12,7 @@
     "intro_lore": "Somebody looked at a gutted industrial unit and saw a showroom, which is either vision or denial, and out here it's hard to tell the difference. The neon flickers on a schedule because someone wired it that way on purpose, which almost makes the burnt coffee and outgassing plastic smell like ambiance instead of a warning.",
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

@@ -27,7 +27,7 @@ export const CRIME_DEFAULTS = {
   hacking:             { label: 'Hacking',                      stars: 2,   witness: 'any',    description: 'Breaching a device or terminal.' },
   murder:              { label: 'Murder',                       stars: 5,   witness: 'always', description: 'Killing another player outright.' },
   theft:               { label: 'Theft',                        stars: 1.5, witness: 'any',    description: 'Pickpocketing or stealing a personal item.' },
-  shoplifting:         { label: 'Shoplifting',                   stars: 3,   witness: 'any',    description: "Walking out of a shop with goods off the shelf you never paid for. The door asks you first — you are told what you are still holding and given the chance to settle — so anyone who keeps walking has decided to steal, and it is charged as the deliberate act it is. The clerk is right there and the ceiling camera is pointed at the door, but a quiet lift on a busy floor still slips sometimes." },
+  shoplifting:         { label: 'Shoplifting',                   stars: 3,   witness: 'any',    description: "Walking out of a shop with goods off the shelf you never paid for. The door asks you first — you're told what you're still holding and given the chance to settle — so anyone who keeps walking has decided to steal, and it's charged as the deliberate act it is. The clerk is right there and the ceiling camera is pointed at the door, but a quiet lift on a busy floor still slips sometimes." },
   robbery:             { label: 'Robbery',                      stars: 2.5, witness: 'any',    description: 'Forcibly robbing another player at gunpoint.' },
   atm_robbery:         { label: 'ATM robbery',                  stars: 2,   witness: 'always', description: "Draining a compromised ATM's cash reserve." },
   burglary:            { label: 'Burglary',                     stars: 2,   witness: 'any',    description: 'Breaking into a private residence.' },
@@ -41,7 +41,7 @@ export const CRIME_DEFAULTS = {
   weapon_brandish:     { label: 'Brandishing a weapon',          stars: 1,   witness: 'any',    description: 'Drawing a weapon in public.' },
   public_intoxication: { label: 'Public intoxication',           stars: 0.5, witness: 'any',    description: 'Stumbling drunk or high in plain view.' },
   indecent_exposure:   { label: 'Indecent exposure',             stars: 0.5, witness: 'any',    description: 'Public indecency.' },
-  filth_assault:       { label: 'Throwing filth at a person',    stars: 1,   witness: 'any',    description: 'Throwing bodily filth at somebody. Deliberately NOT charged as assault — a thrown turd does no damage and a 4-star response to it would be absurd — but it is worse than tagging a wall, so it sits just above graffiti.' },
+  filth_assault:       { label: 'Throwing filth at a person',    stars: 1,   witness: 'any',    description: "Throwing bodily filth at somebody. Deliberately NOT charged as assault — a thrown turd does no damage and a 4-star response to it would be absurd — but it's worse than tagging a wall, so it sits just above graffiti." },
   curfew_violation:    { label: 'Curfew violation',              stars: 1,   witness: 'any',    description: 'Wandering outdoors during an active lockdown.' },
   looting:             { label: 'Looting',                       stars: 1,   witness: 'any',    description: 'Looting a corpse in view of a witness.' },
   contraband_possession: { label: 'Contraband possession',       stars: 1,   witness: 'any',    description: 'Carrying illicit goods past a checkpoint or scanner.' },
@@ -52,7 +52,7 @@ export const CRIME_DEFAULTS = {
   jamming_signal:      { label: 'Signal jamming',                stars: 1.5, witness: 'camera', description: "Jamming a security network's transmission." },
   broadcast_piracy:    { label: 'Broadcast piracy',             stars: 3.5, witness: 'always', description: 'Hijacking a station’s media deck and seizing its frequency — a citywide signal takeover reports itself the moment it airs.' },
   bribery_attempt:     { label: 'Attempted bribery',              stars: 0.5, witness: 'camera', description: 'Attempting to bribe an officer on camera.' },
-  harbouring:          { label: 'Harbouring a fugitive',          stars: 2,   witness: 'always', description: "Caught carrying somebody who is wanted. Charged at a scale house when an officer opens the passenger door and finds a person in the sleeper — 'always' witnessed because the officer looking IS the witness, and there is no version of this where nobody saw it. Deliberately below smuggling: you moved a person, not a product." },
+  harbouring:          { label: 'Harbouring a fugitive',          stars: 2,   witness: 'always', description: "Caught carrying somebody who is wanted. Charged at a scale house when an officer opens the passenger door and finds a person in the sleeper — 'always' witnessed because the officer looking IS the witness, and there's no version of this where nobody saw it. Deliberately below smuggling: you moved a person, not a product." },
 };
 
 let overrides = {}; // key → stars (from DB)

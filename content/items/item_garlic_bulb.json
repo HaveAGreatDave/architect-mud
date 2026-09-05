@@ -1,11 +1,11 @@
 {
-  "description": "A papery head of it, cloves tight as a fist. Sweetens completely when it is cooked slow and turns acrid the second it catches. No middle ground.",
+  "description": "A papery head of it, cloves tight as a fist. Sweetens completely when it's cooked slow and turns acrid the second it catches. No middle ground.",
   "flags": {},
   "id": "item_garlic_bulb",
   "name": "garlic bulb",
   "tags": {
     "consumable": true,
-    "description": "A papery head of it, cloves tight as a fist. Sweetens completely when it is cooked slow and turns acrid the second it catches. No middle ground.",
+    "description": "A papery head of it, cloves tight as a fist. Sweetens completely when it's cooked slow and turns acrid the second it catches. No middle ground.",
     "food_noun": "garlic",
     "food_profile": "aromatic",
     "perishable": true,

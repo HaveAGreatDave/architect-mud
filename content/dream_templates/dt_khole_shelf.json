@@ -5,7 +5,7 @@
     "You almost move. The intention is filed for later."
   ],
   "cause": "drug",
-  "description": "You have come to rest on a flat place. It is comfortable in the way that being put down is comfortable. There is a great deal of space above you and it is all the same distance away. Time is being administered here in doses and you are between them.",
+  "description": "You have come to rest on a flat place. It's comfortable in the way that being put down is comfortable. There's a great deal of space above you and it's all the same distance away. Time is being administered here in doses and you're between them.",
   "drug_id": "drug_khole",
   "fx": "tunnel",
   "fx_intensity": 0.7,

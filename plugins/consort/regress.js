@@ -132,8 +132,8 @@ export default async function regress({ check }) {
   check('pair: two consorts sharing a pairing resolve to an ordered A/B', !!resolved && resolved[0] === pairA && resolved[1] === pairB);
   check('pair: order follows the PAIRINGS registry, not spawn order',
     (() => { const r = _test.pairIn([pairB, pairA], 'zone_pair'); return r && r[0] === pairA && r[1] === pairB; })());
-  check('pair: a lone consort is not a pair', _test.pairIn([pairA], 'zone_pair') === null);
-  check('pair: two UNRELATED consorts are not a pair',
+  check("pair: a lone consort isn't a pair", _test.pairIn([pairA], 'zone_pair') === null);
+  check("pair: two UNRELATED consorts aren't a pair",
     _test.pairIn([mk({ id: 'u1', zone_id: 'z' }), mk({ id: 'u2', zone_id: 'z', flags: { ...roxy.flags, consort_archetype: 'ghost' } })], 'z') === null);
 
   // ── Two-hander threads ─────────────────────────────────────────────────────
@@ -158,7 +158,7 @@ export default async function regress({ check }) {
   check('settle: an unrelated reply → dodge', _test.classifySettle('the weather is nice', 'Roxy', 'Jolie') === 'dodge');
   // The bug this replaced: hardcoded names meant a renamed consort was unnameable.
   check('settle: works for arbitrary generated names', _test.classifySettle('Thaddeus', 'Thaddeus', 'Ondine') === 'a');
-  check('settle: a name that is a regex metacharacter does not throw',
+  check("settle: a name that's a regex metacharacter doesn't throw",
     _test.classifySettle('hello', 'A(', 'B[') === 'dodge');
   check('settle: every reaction pool is a well-formed two-hander',
     Object.values(_test.SETTLE_REACT).every(th => th.length >= 1
@@ -206,11 +206,11 @@ export default async function regress({ check }) {
   // The classifier: generous, and an unreadable answer is a dodge, never a crash.
   const qStay = _test.questionByKey('staying');
   check('questions: questionByKey resolves', !!qStay);
-  check('questions: a yes is read as yes', _test.classifyAnswer(qStay, 'yeah, I am staying') === 'yes');
+  check('questions: a yes is read as yes', _test.classifyAnswer(qStay, "yeah, I'm staying") === 'yes');
   check('questions: a no is read as no', _test.classifyAnswer(qStay, 'nope, heading out') === 'no');
   check('questions: an unrelated reply is a dodge', _test.classifyAnswer(qStay, 'the gin is warm') === 'dodge');
   check('questions: an empty reply is a dodge', _test.classifyAnswer(qStay, '') === 'dodge');
-  check('questions: punctuation does not defeat the match', _test.classifyAnswer(qStay, 'Yes!!!') === 'yes');
+  check("questions: punctuation doesn't defeat the match", _test.classifyAnswer(qStay, 'Yes!!!') === 'yes');
   check('questions: a branch with no written reaction never wins',
     QS.every(q => q.answers.every(([b]) => !!q.react[b])));
 
@@ -345,7 +345,7 @@ export default async function regress({ check }) {
   check('co-presence: a pairing key of null never pairs anyone',
     _test.arePaired(mk({ flags: { ...roxy.flags, consort_pairing: null } }),
                     mk({ id: 'z', flags: { ...roxy.flags, consort_pairing: null } })) === false);
-  check('co-presence: consorts in DIFFERENT pairings are not paired',
+  check("co-presence: consorts in DIFFERENT pairings aren't paired",
     _test.arePaired(pA, mk({ id: 'cp_pc', flags: { ...roxy.flags, consort_pairing: 'wit_ice' } })) === false);
 
   // Lines render clean for every combination — no leftover slot either side.
@@ -586,7 +586,7 @@ export default async function regress({ check }) {
     if (singles.length >= 2 && (m === 0 || f === 0)) { splitBad = `one-sided: ${m}m/${f}f`; break; }
   }
   check('roster: every register is an even split of men and women', splitBad === null, splitBad || '');
-  check('roster: a register is not always ordered the same way',
+  check("roster: a register isn't always ordered the same way",
     new Set(registers.map(r => r.map(l => l.members[0].appearance.sex).join(''))).size > 4);
 
   // Sections: what the app shelves the register into.
@@ -640,7 +640,7 @@ export default async function regress({ check }) {
     }
     return true;
   })());
-  check('anatomy: adding it did not change any pre-existing appearance', (() => {
+  check("anatomy: adding it didn't change any pre-existing appearance", (() => {
     // A seed is a promise: anatomy is rolled last, so every axis above it must
     // still land where it always did. Spot-check the axes by shape rather than
     // by frozen fixture — a changed ORDER would scramble these.
@@ -794,7 +794,7 @@ export default async function regress({ check }) {
     const { _test: bliss } = await import('./bliss-cmd.js');
     const unopted = { id: 'regress_bliss_unopted', handle: 'Unopted' };
     const gate = bliss.misGate(unopted, 'bliss place 1');
-    check('bliss: an unopted player is told the VERB does not exist',
+    check("bliss: an unopted player is told the VERB doesn't exist",
       gate?.type === 'error' && /unknown command/i.test(gate.message || ''), JSON.stringify(gate));
     // The verb ITSELF is echoed — that's required, not a leak: a real unknown
     // command echoes what you typed, so anything else would make this refusal
@@ -820,7 +820,7 @@ export default async function regress({ check }) {
     check('bliss: either half of a pair finds the pairing', bliss.pickListing(LISTINGS, 'Vera')?.id === 'bbb');
     check('bliss: an out-of-range slot is nothing, not the last one',
       bliss.pickListing(LISTINGS, '9') === null, JSON.stringify(bliss.pickListing(LISTINGS, '9')));
-    check('bliss: a bare number that is not one is refused', bliss.pickListing(LISTINGS, '0') === null);
+    check("bliss: a bare number that isn't one is refused", bliss.pickListing(LISTINGS, '0') === null);
     check('bliss: an empty argument picks nothing', bliss.pickListing(LISTINGS, '') === null);
   }
 

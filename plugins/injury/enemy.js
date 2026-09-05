@@ -212,7 +212,7 @@ export function enemyWoundNote(enemy) {
   const label = partLabel(worst.part);
   const name = injuryName(worst.rec.type, worst.rec.sev, worst.part);
   return worst.rec.sev >= MAIMED
-    ? `Its ${label} is ${name} — it is barely using that side.`
+    ? `Its ${label} is ${name} — it's barely using that side.`
     : `Its ${label} is ${name}.`;
 }
 

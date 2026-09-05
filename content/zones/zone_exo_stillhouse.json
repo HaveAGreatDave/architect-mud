@@ -2,11 +2,11 @@
   "ambient_events": [
     "The drain gurgles once and settles.",
     "Linen is refolded on the bench by somebody who has folded a great deal of linen.",
-    "The door at the far end does not open. You had not asked it to.",
+    "The door at the far end doesn't open. You hadn't asked it to.",
     "Water runs somewhere behind the wall, for a long time, and stops all at once."
   ],
   "ambient_theme": "indoors",
-  "description": "Whitewash, a drain in the middle of the floor, and a chair bolted down over it under a hood of salvaged medical gear. Along one wall, a bench with a great deal of clean linen folded on it and a bucket underneath. At the far end there is a second door, plain, with no handle on it.\n\nThe room smells of soap and, under the soap, of something else.",
+  "description": "Whitewash, a drain in the middle of the floor, and a chair bolted down over it under a hood of salvaged medical gear. Along one wall, a bench with a great deal of clean linen folded on it and a bucket underneath. At the far end there's a second door, plain, with no handle on it.\n\nThe room smells of soap and, under the soap, of something else.",
   "exits": {
     "down": "zone_util_zone_exo_stillhouse",
     "east": "zone_exo_stillwell",

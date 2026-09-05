@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "Their mouth is full of dense conical teeth, too many and too large, and their lips do not entirely close over them.",
+    "extreme": "Their mouth is full of dense conical teeth, too many and too large, and their lips don't entirely close over them.",
     "obvious": "Their teeth are thick and pointed, crowding the front of their mouth.",
     "subtle": "Their teeth look heavier than they should."
   },
@@ -12,7 +12,7 @@
   "conceal_slots": [],
   "description": "Your teeth have thickened and come to points. A bite means something now, and so does a smile.",
   "drawbacks": [
-    "You cannot talk without showing them"
+    "You can't talk without showing them"
   ],
   "effects": {
     "bite_attack": true,

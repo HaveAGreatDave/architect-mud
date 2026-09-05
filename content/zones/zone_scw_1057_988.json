@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A sink in the rock holding water the colour of a bruise, lit from underneath by nothing that should be lighting it. The rim is worn smooth in three places by a great many feet. There are offerings: wire, teeth, a child's shoe, a wedding band. The air over the water shakes. Whatever is in this pool is not a metaphor and it does not care who you are, and everybody who has ever come here came here on purpose.",
+  "description": "A sink in the rock holding water the colour of a bruise, lit from underneath by nothing that should be lighting it. The rim is worn smooth in three places by a great many feet. There are offerings: wire, teeth, a child's shoe, a wedding band. The air over the water shakes. Whatever is in this pool isn't a metaphor and it doesn't care who you are, and everybody who has ever come here came here on purpose.",
   "exits": {
     "east": "zone_scw_1058_988",
     "north": "zone_scw_1057_987",

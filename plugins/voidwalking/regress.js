@@ -51,7 +51,7 @@ export default async function regress({ run, check, getPlayer }) {
     // A `terrains` list naming ground nobody wrote words for is a feature that can never appear.
     const known = new Set(VOID_TERRAINS.concat(CUT_TERRAINS));
     const orphan = FEATURES.filter(f => f.terrains && f.terrains.some(t => !known.has(t)));
-    check('no highlight is gated to ground that does not exist', orphan.length === 0,
+    check("no highlight is gated to ground that doesn't exist", orphan.length === 0,
       orphan.map(f => `${f.id}:${f.terrains}`).join(' '));
     // Every KIND must be reachable, or it is a contract nothing can ever satisfy.
     for (const k of _flavour.KINDS) {
@@ -191,7 +191,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('walking the trunk then the south limb arrives at The Reach', player.current_zone === REACH, player.current_zone);
     check('arriving tears the instance down', !player._crossing && !_test.crossings.has(c.id),
       `crossing=${!!player._crossing} instance=${_test.crossings.has(c.id)}`);
-    check('arriving tells the city (void.crossed, with the names a subscriber cannot look up)',
+    check("arriving tells the city (void.crossed, with the names a subscriber can't look up)",
       heardOf('void.crossed').some(h => h.handle === player.handle && h.heading === 'The Reach'
         && h.origin === 'Coldwater' && h.tiles > 0),
       JSON.stringify(heardOf('void.crossed')));
@@ -268,7 +268,7 @@ export default async function regress({ run, check, getPlayer }) {
     // gamble") is about the crossing, not about which twenty yards of it happen to be made right now,
     // and testing it through `getZone` would have quietly become a test of the window instead. That
     // is the exact mistake the split exists to make impossible, so the suite has to model it too.
-    check('nothing is materialised that is not on the plan',
+    check("nothing is materialised that isn't on the plan",
       [...bc.roomSet].every(id => bc.plan.all.has(id)));
     check('every materialised detour is a planned detour',
       [...bc.detourSet].every(id => bc.plan.detourIds.has(id)),
@@ -321,7 +321,7 @@ export default async function regress({ run, check, getPlayer }) {
           // A camp is derived, so a rolled highlight must never be sitting on top of it.
           check('…and no rolled highlight sits on top of it', !cz?.flags?.void_feature, cz?.flags?.void_feature);
           // It is relief, not safety: the waste does not stop being lawless because there are tents.
-          check('…and it is still lawless ground', cz?.flags?.lawless === true);
+          check("…and it's still lawless ground", cz?.flags?.lawless === true);
         }
       }
 
@@ -389,7 +389,7 @@ export default async function regress({ run, check, getPlayer }) {
         // the refusal has to come before the cost rather than after it.
         player.thirst = 3;
         const dry = await run('camp');
-        check('…and refused outright when there is no water left in you',
+        check("…and refused outright when there's no water left in you",
           dry?.type === 'error' && player.thirst === 3, `${dry?.type} thirst=${player.thirst}`);
       }
       // Nowhere to rest is a refusal, not a free heal.
@@ -427,7 +427,7 @@ export default async function regress({ run, check, getPlayer }) {
       // happens where it is asked for — which also means a stale one can never outlive being looked at.
       check('…and reading it prunes the expired one', !_test.beacons.has('probe_b'));
 
-      check('a beacon out of range is not seen', _test.beaconsNear(400, 400, 20, now).length === 0);
+      check("a beacon out of range isn't seen", _test.beaconsNear(400, 400, 20, now).length === 0);
       check('…and range is a real distance, not a room', _test.beaconsNear(112, 100, 20, now).length === 1);
       const far = _test.beaconsNear(100, 100, 20, now)[0];
       check('…and it reports how far off it is', far && far.dist === 0, String(far?.dist));
@@ -452,7 +452,7 @@ export default async function regress({ run, check, getPlayer }) {
           `expected ${cr.cutSaves}`);
         // ⚠ AND NEVER WHETHER IT IS PASSABLE. Finding the face by walking to it is the whole of what a
         // cut risks; a hint here would refund the gamble before it was taken.
-        check('…and never whether it is walkable', !/pitch|sheer|blocked|cliff/i.test(line || ''));
+        check("…and never whether it's walkable", !/pitch|sheer|blocked|cliff/i.test(line || ''));
       }
     }
 
@@ -485,7 +485,7 @@ export default async function regress({ run, check, getPlayer }) {
       _test.setEncounters(true);
       emit('zone.entered', { actor: player, zone: drive, mounted: true });
       check('a mounted traveller rolls no encounter', getZoneEnemies(drive).length === 0);
-      check('…and does not spend the room\'s roll either',
+      check('…and doesn\'t spend the room\'s roll either',
         !player._crossing.seen.has(drive) || before.has(drive),
         `seen=${player._crossing.seen.has(drive)}`);
       _test.setEncounters(false);
@@ -634,7 +634,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('dying out there tells the city (void.died, carrying the cause)',
       heardOf('void.died').some(h => h.handle === player.handle && /rad-mutant/.test(h.cause || '')),
       JSON.stringify(heardOf('void.died')));
-    check('death cleans up the dangling crossing (respawn is not a cmdMove)',
+    check("death cleans up the dangling crossing (respawn isn't a cmdMove)",
       !player._crossing && !_test.crossings.has(tc.id), `crossing=${!!player._crossing} instance=${_test.crossings.has(tc.id)}`);
 
     // Outside the void, scrawl is a gentle no-op.
@@ -699,7 +699,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a looted corpse-pack is claimed (async first-come)',
       traces.getTraces(pc.voidKey, pc.window, packSalt).find(t => t.kind === 'corpse')?.claimed === true, 'not claimed');
     const loot2 = await run('loot'); // claimed → falls through to ambient scav, not another strip
-    check('a claimed corpse cannot be stripped twice', !/strip/i.test(loot2?.message || ''), loot2?.message?.slice(0, 50));
+    check("a claimed corpse can't be stripped twice", !/strip/i.test(loot2?.message || ''), loot2?.message?.slice(0, 50));
     wipe();
 
     // ── Slice 5b: the weekly big score (claimed globally, first-come) ─────────
@@ -766,10 +766,10 @@ export default async function regress({ run, check, getPlayer }) {
       .filter(f => f.endsWith('.json'))
       .map(f => JSON.parse(readFileSync(`content/regions/${f}`, 'utf8')).id)
       .filter(Boolean);
-    check('every authored region is on the road graph — the roster is not empty',
+    check("every authored region is on the road graph — the roster isn't empty",
       authoredRegions.length > 0, String(authoredRegions.length));
     for (const id of authoredRegions) {
-      check(`${id} has an overland route — it is in VOIDS at all`, !!VOIDS[id], id);
+      check(`${id} has an overland route — it's in VOIDS at all`, !!VOIDS[id], id);
       const inbound = Object.values(VOIDS).some(v => v.dests.some(d => d.region === id));
       check(`…and something leads TO ${id}`, inbound, id);
     }
@@ -778,7 +778,7 @@ export default async function regress({ run, check, getPlayer }) {
       for (const d of v.dests) {
         const to = d.region;
         check(`the ${d.heading} limb lands on a zone that exists`, !!getZone(d.dest), d.dest);
-        check(`${d.heading} is not a one-way trip — it has a road out`, !!VOIDS[to], to);
+        check(`${d.heading} isn't a one-way trip — it has a road out`, !!VOIDS[to], to);
       }
     }
     for (const [from, v] of Object.entries(VOIDS)) {
@@ -805,7 +805,7 @@ export default async function regress({ run, check, getPlayer }) {
       player.current_zone = GATE;
       M.runs.clear();
       const nowhere = await run('march');
-      check('march is refused when you are not on a crossing', nowhere?.type === 'error' && !M.runs.size, `${nowhere?.type}`);
+      check("march is refused when you aren't on a crossing", nowhere?.type === 'error' && !M.runs.size, `${nowhere?.type}`);
 
       await launch();
       const mc = _test.materialiseAll(_test.crossings.get(player._crossing.instanceId));
@@ -836,7 +836,7 @@ export default async function regress({ run, check, getPlayer }) {
       // If this cancels, a march dies on its first tile for anybody with the map open.
       await arm();
       emit('player.command', { player, cmd: 'look', silent: true });
-      check('a silent client command does not stop a march', M.runs.has(player.id));
+      check("a silent client command doesn't stop a march", M.runs.has(player.id));
       emit('player.command', { player, cmd: 'look', silent: false });
       check('a command the player typed stops a march', !M.runs.has(player.id));
 
@@ -861,7 +861,7 @@ export default async function regress({ run, check, getPlayer }) {
         check('a limb head really does carry a lateral exit back to the fork', !!hz?.exits?.west, JSON.stringify(hz?.exits));
         const wasZone = player.current_zone;
         player.current_zone = head;
-        check('…and a march does not treat that as a branch', M.haltReason(mc, player) === null,
+        check("…and a march doesn't treat that as a branch", M.haltReason(mc, player) === null,
           String(M.haltReason(mc, player)));
         player.current_zone = wasZone;
       }
@@ -875,7 +875,7 @@ export default async function regress({ run, check, getPlayer }) {
         const wasZone = player.current_zone;
         player.current_zone = probe;
         pz.flags.void_feature_kind = 'marker';
-        check('a marker highlight does not halt a march', M.haltReason(mc, player) === null);
+        check("a marker highlight doesn't halt a march", M.haltReason(mc, player) === null);
         for (const kind of [...M.ACTIONABLE_KINDS]) {
           pz.flags.void_feature_kind = kind;
           check(`a "${kind}" highlight halts a march`, typeof M.haltReason(mc, player) === 'string', kind);
@@ -896,7 +896,7 @@ export default async function regress({ run, check, getPlayer }) {
         const fork = mc.plan.fork;
         const wasZone = player.current_zone;
         player.current_zone = fork;
-        check('the fork carries a limb SOUTH — it is not stopped by having no way on',
+        check("the fork carries a limb SOUTH — it isn't stopped by having no way on",
           !!getZone(fork)?.exits?.south, JSON.stringify(getZone(fork)?.exits));
         const why = M.haltReason(mc, player);
         check('…and a march halts there anyway, naming the headings',
@@ -929,7 +929,7 @@ export default async function regress({ run, check, getPlayer }) {
         // The gate is the assertion, not a second tick: whether the NEXT tile happens to hold a
         // highlight is the seed's business, and a case that depends on it is a flake waiting to
         // happen. That a march keeps walking is proved by the one-tile case above.
-        check('setting off already dry does not arm a gate you are past',
+        check("setting off already dry doesn't arm a gate you're past",
           M.runs.has(player.id) && !M.runs.get(player.id).gates.includes(40),
           JSON.stringify(M.runs.get(player.id)?.gates));
       }

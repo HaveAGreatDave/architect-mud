@@ -12,8 +12,8 @@ export default async function regress({ check }) {
 
   // Newness gate.
   check('isNewPlayer: first-week account is new', _test.isNewPlayer(freshP) === true);
-  check('isNewPlayer: 40-day account is not new', _test.isNewPlayer(oldP) === false);
-  check('isNewPlayer: missing created_at is not new', _test.isNewPlayer({ id: 'x' }) === false);
+  check("isNewPlayer: 40-day account isn't new", _test.isNewPlayer(oldP) === false);
+  check("isNewPlayer: missing created_at isn't new", _test.isNewPlayer({ id: 'x' }) === false);
 
   // Tip drip: every tip unique, then it dries up (→ graduation).
   const seen = new Set();

@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "amb_terminus_the_wall_walk_04",
   "loudness": 1,
-  "message": "Somebody hands somebody else a tool a moment before it is reached for. Neither of them remarks.",
+  "message": "Somebody hands somebody else a tool a moment before it's reached for. Neither of them remarks.",
   "theme": "terminus_the_wall_walk",
   "weight": 100
 }

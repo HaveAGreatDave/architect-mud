@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Where the track in from the northeast stops pretending to be a road: a graded turning circle, a fuel tank up on a stand with a hand pump and a gauge glass, and a plate shack with a stove pipe. A board by the door lists distances, in a column, in feet and miles, all of them correct. Somebody has left a full can of water on the step with a tin over the top of it, and it is obvious from the ring in the dust that it lives there.",
+  "description": "Where the track in from the northeast stops pretending to be a road: a graded turning circle, a fuel tank up on a stand with a hand pump and a gauge glass, and a plate shack with a stove pipe. A board by the door lists distances, in a column, in feet and miles, all of them correct. Somebody has left a full can of water on the step with a tin over the top of it, and it's obvious from the ring in the dust that it lives there.",
   "exits": {
     "east": "zone_dw_813_955",
     "north": "zone_dw_812_954",

@@ -702,7 +702,7 @@ async function scanChannelDay(channelId) {
   const { rows: deckRows } = await query(
     `SELECT id, zone_id FROM furniture WHERE flags->>'media_deck'='true' AND flags->>'channel_id'=$1 LIMIT 1`, [channelId]
   );
-  if (!deckRows.length) add('error', 'no_transmitter', 'No media deck (transmitter) linked — this channel cannot broadcast; it stays dark.');
+  if (!deckRows.length) add('error', 'no_transmitter', "No media deck (transmitter) linked — this channel can't broadcast; it stays dark.");
   else if (deckRows[0].zone_id) {
     const z = getZone(deckRows[0].zone_id);
     if (z && z.powerStatus === 'offline') add('warn', 'transmitter_unpowered', 'The media deck sits in a blacked-out zone — off air until power returns.');
@@ -765,17 +765,17 @@ async function scanChannelDay(channelId) {
         const studio = resolveLanding(_itemStageZone(ch, item));
         for (const npcId of staff) {
           const npc = world.npcs?.get(npcId);
-          if (!npc) { add('warn', 'missing_npc', `'${label}': staffed NPC '${npcId}' does not exist.`, { broadcast: label }); continue; }
+          if (!npc) { add('warn', 'missing_npc', `'${label}': staffed NPC '${npcId}' doesn't exist.`, { broadcast: label }); continue; }
           // Where the commute STARTS. home_zone is the honest answer for resident cast;
           // the talk-show guest materialises near the studio from a hidden backstage, so
           // its backstage home is deliberately unroutable and must not be reported.
           const from = npc.home_zone;
           if (!from || from === studio || from === TALKSHOW_BACKSTAGE_ZONE) continue;
-          if (!getZone(from)) { add('warn', 'staff_home_missing', `'${label}': ${npc.name || npcId} has home zone '${from}', which does not exist — they have nowhere to commute from.`, { broadcast: label }); continue; }
+          if (!getZone(from)) { add('warn', 'staff_home_missing', `'${label}': ${npc.name || npcId} has home zone '${from}', which doesn't exist — they have nowhere to commute from.`, { broadcast: label }); continue; }
           const path = findPath(from, studio);
           if (!path || path.length < 2) {
             add('error', 'staff_unreachable',
-              `'${label}': ${npc.name || npcId} cannot walk from home ('${from}') to the studio ('${studio}') — no route. They will never arrive, and the slot will show a "please stand by" card until it gives up to the fallback slate.`,
+              `'${label}': ${npc.name || npcId} can't walk from home ('${from}') to the studio ('${studio}') — no route. They will never arrive, and the slot will show a "please stand by" card until it gives up to the fallback slate.`,
               { broadcast: label });
           }
         }
@@ -801,8 +801,8 @@ async function scanChannelDay(channelId) {
       const gid = (node.type === 'title_card' || node.type === 'overlay' || node.type === 'show_overlay') ? d.graphic_id : null;
       if (gid && !graphicsCache.has(gid)) add('warn', 'missing_graphic', `'${label}': graphic '${gid}' not found — the card will be skipped.`, { broadcast: label, node: nid });
       if (node.type === 'music' && d.song && !getSongDefByName(d.song) && !getSampleDefByName(d.song)) add('info', 'missing_song', `'${label}': song '${d.song}' not found — falls back to cue text or is skipped.`, { broadcast: label, node: nid });
-      if (node.type === 'npc_anchor' && d.npc_id && !world.npcs?.has(d.npc_id)) add('warn', 'missing_npc', `'${label}': host NPC '${d.npc_id}' does not exist.`, { broadcast: label, node: nid });
-      if (node.type === 'camera_cut' && d.zone_id && !getZone(d.zone_id)) add('warn', 'missing_zone', `'${label}': camera-cut zone '${d.zone_id}' does not exist.`, { broadcast: label, node: nid });
+      if (node.type === 'npc_anchor' && d.npc_id && !world.npcs?.has(d.npc_id)) add('warn', 'missing_npc', `'${label}': host NPC '${d.npc_id}' doesn't exist.`, { broadcast: label, node: nid });
+      if (node.type === 'camera_cut' && d.zone_id && !getZone(d.zone_id)) add('warn', 'missing_zone', `'${label}': camera-cut zone '${d.zone_id}' doesn't exist.`, { broadcast: label, node: nid });
     }
   }
 
@@ -1252,7 +1252,7 @@ const _DELIVERY_DEFAULT = {
     'uh —', 'that is —', 'well —', 'hold on —', 'no, wait —', "let's — let's go again —",
   ],
   offscript: [
-    "...what is that? What does that even mean?",
+    "...what's that? What does that even mean?",
     "...I'm not saying that. Give me the other one.",
     "...are we rolling? Are we still rolling?",
     "...no. No, that's not — start me again.",
@@ -1261,8 +1261,8 @@ const _DELIVERY_DEFAULT = {
   collapse: [
     'stares into the lens for a long moment and says nothing at all.',
     'opens their mouth, thinks better of it, and just breathes.',
-    'has lost the script. It is on the floor. So, increasingly, are they.',
-    'gestures at something off-camera and does not finish the gesture.',
+    "has lost the script. It's on the floor. So, increasingly, are they.",
+    "gestures at something off-camera and doesn't finish the gesture.",
   ],
 };
 
@@ -1296,7 +1296,7 @@ const _DELIVERY = {
       "...I don't think anyone's watching this. Are they? Genuinely.",
       "...say the rest of it for me. Just say it.",
       "...that's not true, by the way. None of that's true.",
-      "...I'm going to sit down. I am sitting down.",
+      "...I'm going to sit down. I'm sitting down.",
     ],
     collapse: [
       'has gone somewhere behind their own eyes and taken the line with them.',
@@ -1317,7 +1317,7 @@ const _DELIVERY = {
     ],
     collapse: [
       'talks straight through the line, past it, and out the other side into nothing.',
-      'is saying something at considerable speed. None of it is the script.',
+      "is saying something at considerable speed. None of it's the script.",
       'has stopped, entirely, mid-word, and is looking at their own hand.',
     ],
   },
@@ -1332,7 +1332,7 @@ const _DELIVERY = {
       "...somebody's changed this. Somebody has been in here.",
     ],
     collapse: [
-      'stares past the lens at something over the crew, and will not be talked round.',
+      "stares past the lens at something over the crew, and won't be talked round.",
       'backs off the mark, watching the corner of the room.',
       'stops dead and asks the studio, quietly, whether they can hear it too.',
     ],
@@ -1396,7 +1396,7 @@ const _DELIVERY = {
       "...you want to try doing this? Come and do it.",
     ],
     collapse: [
-      'is not saying the line. They are looking at the crew, and waiting.',
+      "isn't saying the line. They're looking at the crew, and waiting.",
       'throws the cards. It takes some time for them all to land.',
       'walks off the mark mid-sentence to have a word with somebody off-camera.',
     ],
@@ -1412,8 +1412,8 @@ const _DELIVERY = {
     ],
     collapse: [
       'closes their eyes for a beat too long, and the beat keeps going.',
-      'rubs their face with both hands and does not come back up for a while.',
-      'is awake. That is as far as it goes.',
+      "rubs their face with both hands and doesn't come back up for a while.",
+      "is awake. That's as far as it goes.",
     ],
   },
 };
@@ -3076,7 +3076,7 @@ function assembleSermonGraph(script, broadcastId, stories, bucket) {
     // The interpretation: the celebrant's own signature pool first, then the lens,
     // then the generic. This is why five preachers do not sound like one preacher.
     say(reader.name, pick(`exegesis.${reader.tag}`, `exegesis.${lens}`, 'exegesis'), tok,
-        'And so we are shown, again, that the flesh was only ever an interval.');
+        "And so we're shown, again, that the flesh was only ever an interval.");
     if (Math.random() < 0.55) say(other.name, pick(`interjection.${other.tag}`, 'interjection'), { ...tok, celebrant: other.name });
     if (Math.random() < 0.4) say(reader.name, pick(`exegesis.${lens}`, 'exegesis'), tok);
     say(null, pick('amen'), tok);
@@ -3883,7 +3883,7 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
   else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The morning theme plays. ♪' });
 
   // Cold open — the real clock, the real temperature, the real day of the week.
-  beat('open', null, 'Good morning — it is {time}, it is {temp} degrees, and you are alive. >> Statistically.');
+  beat('open', null, "Good morning — it is {time}, it is {temp} degrees, and you're alive. >> Statistically.");
   if (rand() < 0.6) beat('couch');
 
   // Weather window — keyed to what the sky is actually doing, with the severe channel
@@ -7801,7 +7801,7 @@ async function cmdPirate(args, raw, player) {
   const nameHint = args.join(' ').trim().toLowerCase();
   const zoneDecks = getZoneFurniture(player.current_zone).filter(f => f.flags && 'media_deck' in f.flags);
   const deck = nameHint ? zoneDecks.find(f => f.name?.toLowerCase().includes(nameHint)) : zoneDecks[0];
-  if (!deck) return { type: 'error', message: 'There is no media deck here to pirate.' };
+  if (!deck) return { type: 'error', message: "There's no media deck here to pirate." };
   const dflags = _deckFlags(deck);
   if (canOperateDeck(dflags, player)) return { type: 'error', message: `You already control the ${deck.name}.` };
   // Firmware AND hardware. The firmware (above) is what makes a transmitter stack
@@ -8252,7 +8252,7 @@ async function cmdLoadCassette(args, raw, player) {
     cassette = match;
   }
   const deck = await _findDeckInZone(player.current_zone);
-  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  if (!deck) return { type: 'output', message: "There's no media deck here." };
   const dflags = _deckFlags(deck);
   const lock = _deckLockError(dflags, player);
   if (lock) return lock;
@@ -8391,7 +8391,7 @@ export async function ensureClipBroadcast(broadcastId, name, frames, intervalSec
 async function cmdEjectCassette(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   const deck = await _findDeckInZone(player.current_zone);
-  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  if (!deck) return { type: 'output', message: "There's no media deck here." };
   const dflags = _deckFlags(deck);
   const lock = _deckLockError(dflags, player);
   if (lock) return lock;
@@ -8487,7 +8487,7 @@ async function cmdEjectCassette(args, raw, player) {
 async function cmdUplink(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   const deck = (getZoneFurniture(player.current_zone) || []).find(f => f?.flags?.portable_mediadeck);
-  if (!deck) return { type: 'output', message: 'There is no portable mediadeck here.' };
+  if (!deck) return { type: 'output', message: "There's no portable mediadeck here." };
 
   const dflags = _deckFlags(deck);
   const isOff = !!dflags.deck_off;
@@ -8501,7 +8501,7 @@ async function cmdUplink(args, raw, player) {
 
   const turnOff = want === 'off';
   if (turnOff === isOff) {
-    return { type: 'output', message: turnOff ? 'It is already off.' : 'It is already running.' };
+    return { type: 'output', message: turnOff ? "It's already off." : "It's already running." };
   }
   if (turnOff) dflags.deck_off = true; else delete dflags.deck_off;
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
@@ -8538,12 +8538,12 @@ async function cmdSelectCassette(args, raw, player) {
   const broadcastId = args[0];
   if (!broadcastId) return { type: 'error', message: 'Select which cassette? Use the deck panel or "select <id>".' };
   const deck = await _findDeckInZone(player.current_zone);
-  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  if (!deck) return { type: 'output', message: "There's no media deck here." };
   const dflags = _deckFlags(deck);
   const lock = _deckLockError(dflags, player);
   if (lock) return lock;
   const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
-  if (!cassettes.includes(broadcastId)) return { type: 'output', message: 'That cassette is not in this deck.' };
+  if (!cassettes.includes(broadcastId)) return { type: 'output', message: "That cassette isn't in this deck." };
   dflags.deck_active = broadcastId;
   if (dflags.deck_cam_source) { dflags.deck_cam_source = null; _camPatchCache.delete(deck.id); }
   _evictDeckZone(player.current_zone);
@@ -8619,7 +8619,7 @@ async function _camPatchMessage(deck, dflags, nowMs) {
 async function cmdPatch(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   const deck = await _findDeckInZone(player.current_zone);
-  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  if (!deck) return { type: 'output', message: "There's no media deck here." };
   const dflags = _deckFlags(deck);
   if (!dflags.mini_deck) {
     return { type: 'output', message: 'Station decks take their feed from the gallery, not from you. Cut a camera live from the pirate console instead.' };
@@ -8689,11 +8689,11 @@ export function miniDeckHere(zoneId) {
 // Patch (or unpatch) one camera by id. Returns a short line for the app to echo.
 export async function patchCamToDeck(player, deviceId) {
   const here = miniDeckHere(player.current_zone);
-  if (!here) return 'There is no deck here to take the feed.';
+  if (!here) return "There's no deck here to take the feed.";
   const mod = await _specter();
-  if (!mod || !(await mod.isSpecterInstalled(player))) return 'SPECTER is not installed.';
+  if (!mod || !(await mod.isSpecterInstalled(player))) return "SPECTER isn't installed.";
   const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [here.deckId]);
-  if (!rows.length) return 'There is no deck here to take the feed.';
+  if (!rows.length) return "There's no deck here to take the feed.";
   const deck = rows[0];
   const dflags = _deckFlags(deck);
 
@@ -8701,7 +8701,7 @@ export async function patchCamToDeck(player, deviceId) {
     dflags.deck_cam_source = null;
   } else {
     const src = (await mod.camSourcesFor(player.id)).find(s => s.deviceId === deviceId);
-    if (!src) return 'That camera is not yours.';
+    if (!src) return "That camera isn't yours.";
     dflags.deck_cam_source = { deviceId: src.deviceId, label: src.label, zoneId: src.zoneId };
     dflags.deck_active = dflags.deck_active || null;
   }
@@ -9044,7 +9044,7 @@ async function cmdTune(args, raw, player, broadcast) {
 
   // Find a broadcast_receiver furniture in the player's current zone
   const device = _zoneReceiver(player.current_zone);
-  if (!device) return { type: 'output', message: 'There is no broadcast-capable device here.' };
+  if (!device) return { type: 'output', message: "There's no broadcast-capable device here." };
 
   const result = await _applyTuning(device, channelNumber, player.current_zone);
   if (result.status === 'off') {
@@ -9303,7 +9303,7 @@ async function cmdTv(args, raw, player) {
     const flags = typeof row.flags === 'object' ? row.flags : JSON.parse(row.flags || '{}');
     return buildTvOffPanel(player, flags.tv_skin || 'crt');
   }
-  return { type: 'output', message: 'There is no television here.' };
+  return { type: 'output', message: "There's no television here." };
 }
 
 async function cmdWatch(args, raw, player) {
@@ -9360,7 +9360,7 @@ async function cmdRestartBroadcast(args, raw, player) {
   if (!deck) return { type: 'error', message: 'No media deck in this zone.' };
   const dflags = typeof deck.flags === 'object' ? deck.flags : JSON.parse(deck.flags || '{}');
   const channelId = dflags.channel_id || null;
-  if (!channelId) return { type: 'error', message: 'Deck is not linked to a channel.' };
+  if (!channelId) return { type: 'error', message: "Deck isn't linked to a channel." };
   const ok = restartChannelBroadcast(channelId);
   return ok
     ? { type: 'output', message: 'Broadcast restarted from the top.' }
@@ -9411,12 +9411,12 @@ async function cmdAirEmergency(args, raw, player, broadcast) {
   // Key presence off the world.furniture Map, exactly what the old
   // `flags::text LIKE '%"emergency_deck"%'` scan tested.
   const deckFurn = getZoneFurniture(player.current_zone).find(f => f.flags && 'emergency_deck' in f.flags);
-  if (!deckFurn) return { type: 'error', message: 'There is no emergency broadcast deck here. This can only be done from the Echelon.' };
+  if (!deckFurn) return { type: 'error', message: "There's no emergency broadcast deck here. This can only be done from the Echelon." };
   const dflags = deckFurn.flags || {};
   const broadcastId = args?.[0] || dflags.deck_active || dflags.emergency_broadcast_id;
   if (!broadcastId) return { type: 'error', message: 'Load an emergency bulletin into the deck first, or name one: airemergency <broadcast id>.' };
   const r = await startEmergency(broadcastId);
-  if (!r.ok) return { type: 'error', message: `Cannot go to air: ${r.error}.` };
+  if (!r.ok) return { type: 'error', message: `Can't go to air: ${r.error}.` };
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} throws the EMERGENCY BROADCAST switch. The ON AIR lamp floods the room red.` }, player.id);
   return { type: 'system', message: '⚠ EMERGENCY BROADCAST ENGAGED. Every tuned television in Architect now carries your feed. Type ENDEMERGENCY to release the airwaves.' };
 }
@@ -10829,7 +10829,7 @@ console.log(`[broadcast] Plugin loaded. ${channelRuntime.size} channel(s), ${zon
 const OWNER_REVERT_LINES = [
   '$npc reaches past you without a word, thumbs the tape back in, and hits PLAY.',
   '"No." $npc puts the tape back on. "You can watch the news at home."',
-  '$npc glances up, sees what is on, and fixes it. The fuzz guitar starts again.',
+  "$npc glances up, sees what's on, and fixes it. The fuzz guitar starts again.",
 ];
 
 // The same instinct, applied to a television rather than a tape deck. A set may
@@ -10838,7 +10838,7 @@ const OWNER_REVERT_LINES = [
 // Switching it off is covered by the same check — `tuned_channel` simply becomes
 // absent, which is not the default either.
 const CHANNEL_REVERT_LINES = [
-  '$npc does not look up from the glass he is drying. "Game\'s on." The dial goes back.',
+  '$npc doesn\'t look up from the glass he is drying. "Game\'s on." The dial goes back.',
   '$npc puts the game back on with the wet end of a bar towel. Nobody argues.',
   '"That stays where it is." $npc retunes the set without breaking stride.',
   '$npc reaches up and thumbs it back to the game, and gives you a long look about it.',

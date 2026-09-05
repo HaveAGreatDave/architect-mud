@@ -301,12 +301,12 @@ const GREETINGS = {
     plain: [`${'{n}'} looks you over a beat too long. "Unpicked, then." A shrug that costs them something. "Body's yours again. Mostly."`],
   },
   [FORMER.HALF_CLEAN]: {
-    coded: [`${'{n}'} takes you in and files you somewhere. "You've had a time of it." It is not sympathy. "Stand up straight."`],
+    coded: [`${'{n}'} takes you in and files you somewhere. "You've had a time of it." It isn't sympathy. "Stand up straight."`],
     plain: [`${'{n}'} takes you in and something in their mouth goes flat. "Half-clean." They say it the way you'd read a label. "Fine. Stand up straight."`],
   },
   [REGARD.PURE]: {
     coded: [
-      `${'{n}'} looks you over once and finds nothing to look at twice. "Clean lines. No surprises." That is the whole inspection.`,
+      `${'{n}'} looks you over once and finds nothing to look at twice. "Clean lines. No surprises." That's the whole inspection.`,
       `"Everything you bring in here is yours," ${'{n}'} says, and means it as the highest thing they say to anyone. "Right. Feet."`,
     ],
     plain: [`${'{n}'} gives you the once-over and nods, satisfied. "First-body. Good."`],
@@ -316,29 +316,29 @@ const GREETINGS = {
     // lines admits the thing works — the joke is always that it doesn't.
     coded: [
       `"Oh," says ${'{n}'}, without turning round. "You'll know what I'm about to say, then." They wait exactly long enough. "No? Hands up."`,
-      `${'{n}'} looks at you the way you look at somebody's brother who has found a new church. "Still listening, are we." It is not a question, and they do not wait for one.`,
+      `${'{n}'} looks at you the way you look at somebody's brother who has found a new church. "Still listening, are we." It isn't a question, and they don't wait for one.`,
       `"We had a few go that way," ${'{n}'} says, to the room, conversationally. "Walked off mid-watch to sit in a field." Back to you, flatly: "Feet apart."`,
     ],
     plain: [
       `${'{n}'} snorts. "Walkaway." They let it sit there. "Your lot left. We're still here. Hands up."`,
-      `"Mind powers," ${'{n}'} says, and does not bother to make it a sneer, which is worse. "Right. Let's see what your ARMS can do."`,
+      `"Mind powers," ${'{n}'} says, and doesn't bother to make it a sneer, which is worse. "Right. Let's see what your ARMS can do."`,
     ],
   },
   [REGARD.AUGMENTED]: {
     coded: [
-      `${'{n}'} glances at where the metal goes in, and away. "How much of that's under warranty?" It is asked lightly, as a joke, twice.`,
+      `${'{n}'} glances at where the metal goes in, and away. "How much of that's under warranty?" It's asked lightly, as a joke, twice.`,
       `"Serviced," ${'{n}'} says, half to themselves, marking something down. "Right. Let's find out what's still yours."`,
     ],
-    plain: [`${'{n}'} does not pretend not to look. "Bought." A short breath through the nose. "Everything you've got, someone sold you. Let's see what's left."`],
+    plain: [`${'{n}'} doesn't pretend not to look. "Bought." A short breath through the nose. "Everything you've got, someone sold you. Let's see what's left."`],
   },
   [REGARD.MUTANT]: {
     // The polite ones are the worst ones. Pity doing the work of disgust.
     coded: [
       `${'{n}'} is scrupulously, elaborately normal with you. "Nobody holds it against you," they say, unprompted, before you have said anything at all.`,
-      `"You can't help what you are," ${'{n}'} says, gently, and it is the gentleness that does it. "We'll work around it."`,
-      `${'{n}'} does not step back. The effort of not stepping back is the whole greeting. "...Right. Hands up."`,
+      `"You can't help what you are," ${'{n}'} says, gently, and it's the gentleness that does it. "We'll work around it."`,
+      `${'{n}'} doesn't step back. The effort of not stepping back is the whole greeting. "...Right. Hands up."`,
     ],
-    plain: [`${'{n}'} looks at you the way you'd look at meat left out. "Slipped." They do not use your name today. "Hands up. Let's go."`],
+    plain: [`${'{n}'} looks at you the way you'd look at meat left out. "Slipped." They don't use your name today. "Hands up. Let's go."`],
   },
 };
 
@@ -366,15 +366,15 @@ export function capReason(player, now = Date.now()) {
 
   if (!chrome && !flesh) {
     // The stain, which is the hardest one to explain and the most important to.
-    return 'you got it taken out, and the body has not finished forgetting';
+    return "you got it taken out, and the body hasn't finished forgetting";
   }
-  if (chrome && flesh) return 'there is metal in you, and the flesh has gone its own way besides';
+  if (chrome && flesh) return "there's metal in you, and the flesh has gone its own way besides";
   if (chrome) return chrome > 2
-    ? 'there is more machine in you than there is you'
-    : 'there is metal in you, and it does not listen the way bone does';
+    ? "there's more machine in you than there's you"
+    : "there's metal in you, and it doesn't listen the way bone does";
   return flesh > 60
-    ? 'your body is busy being something else, and it will not hold still long enough to learn'
-    : 'the flesh has started going its own way, and it does not take instruction';
+    ? "your body is busy being something else, and it won't hold still long enough to learn"
+    : "the flesh has started going its own way, and it doesn't take instruction";
 }
 
 // ── the door ────────────────────────────────────────────────────────────────
@@ -406,7 +406,7 @@ export function cleanseDemand(player, npcName = 'They') {
   if (!chrome && !flesh) return null;
 
   if (chrome && flesh) {
-    return `${npcName} stops you at arm's length, and does not pretend to be looking anywhere else.`
+    return `${npcName} stops you at arm's length, and doesn't pretend to be looking anywhere else.`
       + `\n<span class="text-dim">"There's metal in you and the flesh has gone its own way besides. I'm not teaching that. Get yourself cut clean and unpicked both, and then we'll see about you."</span>`;
   }
   if (chrome) {

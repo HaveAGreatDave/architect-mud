@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2c231c",
-  "description": "Nine stools at a wooden counter worn pale where nine pairs of elbows go, and standing room for as many again behind them. Steam comes off the range in sheets. The menu is four items on a board and two of them have been crossed out since the board was made. Everyone eats facing the street, shoulder to shoulder with strangers, and nobody talks, and it is somehow the least lonely room on Marrow Street.",
+  "description": "Nine stools at a wooden counter worn pale where nine pairs of elbows go, and standing room for as many again behind them. Steam comes off the range in sheets. The menu is four items on a board and two of them have been crossed out since the board was made. Everyone eats facing the street, shoulder to shoulder with strangers, and nobody talks, and it's somehow the least lonely room on Marrow Street.",
   "exits": {
     "down": "zone_util_zone_broth_counter",
     "east": "zone_broth_galley",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

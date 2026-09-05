@@ -1,5 +1,5 @@
 {
-  "description": "A pair of strip lights end to end down the middle of the ceiling, one of them buzzing at a pitch you stop hearing after a minute and then cannot stop hearing.",
+  "description": "A pair of strip lights end to end down the middle of the ceiling, one of them buzzing at a pitch you stop hearing after a minute and then can't stop hearing.",
   "flags": {
     "interactions": [
       "switch"

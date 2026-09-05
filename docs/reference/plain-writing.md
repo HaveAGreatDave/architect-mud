@@ -83,6 +83,31 @@ Same for noun stacks: `X-backed`, `X-side`, `X-level`, `X-first`, `X-safe`,
 `X-matched`, `X-layer`, `X-surface`, `X-path`, `X-boundary`. Recover the actual
 relationship and prefer a verb.
 
+## Use contractions
+
+Added 2026-09-04. Contractions are the default, everywhere — docs, comments,
+READMEs, guides, dev-panel copy, and every line of in-world prose. "Don't",
+"it's", "you're", "isn't", "won't", "can't", "there's", "that's". Writing them
+out is what makes prose sound dictated rather than spoken, and sounding like a
+person talking is the whole point of this spec.
+
+Expand a contraction only when the uncontracted form IS the emphasis:
+
+| Contracted | Expanded, for emphasis |
+|---|---|
+| It isn't a slogan, it's an inventory. | It is not a slogan. It is an inventory. |
+| I'm not going. | I am **not** going. |
+| That won't happen. | That will not happen. Ever. |
+
+The test: read it aloud. If the stress lands on the negative or on the verb,
+expand it. If it doesn't, contract it. A page of expanded forms means none of
+them reads as emphatic any more.
+
+Two exceptions. **Formal and archaic voices** — the Architect, Ascendant wire
+copy, official notices — write out on purpose, and that's a voice tell in the
+same way em dashes are. And **fixed strings** keep their exact wording: verb
+names, parsed command output, error text, quotations.
+
 ## Simplify over-formal research language
 
 frontier, horizon, floor, surface, exchange rate, regime, trajectory, slice,
@@ -1259,6 +1284,33 @@ none of them is a defect.
 The first pass cut 44 distinct phrasings across 78 files and left 18 on purpose.
 [scripts/content/prose-trim-asides.mjs](../../scripts/content/prose-trim-asides.mjs)
 is the record of which was which, and is idempotent so it stays readable as one.
+
+**Swept again 2026-09-04, and this time the clause was not the whole problem.**
+`explaining-aside` only ever matched the tell written as a TRAILING CLAUSE — it
+needs a comma and an "and"/"which" — so the identical move written as its own
+sentence had never been read. "That is the whole argument for it." after a full
+stop was invisible to the audit for as long as the audit existed. Three rules
+closed that: `aphoristic-closer` (the sentence form), `stock-simile` ("the way
+you look at a clock", "and it shows" — each fine once and a tic by the eleventh),
+and `absence-list` ("No range, no hob, just a convection unit"). Four surfaces
+were added at the same time and were where most of it lived: `media_broadcasts`,
+`drug_transforms`, `drug_reactions` and `aircraft_types`, none of which had ever
+been scanned.
+
+The sweep found 134 strings across 96 files and rewrote all but five. **Two
+earlier "left alone" decisions were reversed on instruction**: the steam-hood
+joke ("which is the entire advertising budget") and the snow-boot liners now
+read without the construction, because the standing rule is now that no two
+pieces of prose should share a shape, jokes included. What stayed: Auggie
+Prine's "That is the real reason" (a callback to the line before it, which is
+the sentence doing work rather than explaining), Molly's "the only review I have
+ever wanted", and two similes kept as the one permitted use each.
+
+It also caught a template problem no per-file read could: **"The quiet is not the
+absence of noise. It is the absence of anything that would make one." was on 1,900
+ash tiles**, and "reads as exactly what it is" on 180. One authored line, one
+find-and-replace, 2,080 files. A repeated sentence is one job with a blast radius,
+and the corpus is the only place the repetition is visible.
 
 ## Architect carve-outs
 

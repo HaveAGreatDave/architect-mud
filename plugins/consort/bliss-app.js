@@ -128,13 +128,13 @@ async function handleAction(player, actionId, params) {
     const listing = await findListing(player, listingId);
     if (!listing) return { ...(await buildListings(player)), notice: 'That placement is no longer on the register.' };
     if (!(await holdsPrivateSpace(player, zoneId))) {
-      return { ...(await buildDetail(player, listingId)), notice: 'That address is not one you hold.' };
+      return { ...(await buildDetail(player, listingId)), notice: "That address isn't one you hold." };
     }
     // First day up front — the retainer is prepaid, then billed nightly.
     const cost = listing.rate;
     const paid = await chargeUpFront(player, cost);
     if (!paid) {
-      return { ...(await buildDetail(player, listingId)), notice: `Declined. The first day's retainer is ${cost}₵ and your accounts do not cover it.` };
+      return { ...(await buildDetail(player, listingId)), notice: `Declined. The first day's retainer is ${cost}₵ and your accounts don't cover it.` };
     }
     const created = await placeListing(player, listing, zoneId);
     const names = created.map(c => c.name).join(' and ');
@@ -153,7 +153,7 @@ async function handleAction(player, actionId, params) {
       const arr = await buildArrangement(player);
       const house = (arr.entries || []).find(e => e.id === String(params || '') && e.house);
       return { ...arr, notice: house
-        ? `${house.names.join(' and ')} are not a Syndicate placement. B.L.I.S.S. cannot collect what it did not place.`
+        ? `${house.names.join(' and ')} aren't a Syndicate placement. B.L.I.S.S. can't collect what it didn't place.`
         : 'No such placement on your account.' };
     }
     const members = await pairMembers(row);
@@ -162,7 +162,7 @@ async function handleAction(player, actionId, params) {
     return {
       ...(await buildArrangement(player)),
       notice: members.length > 1
-        ? `${names} released. A matched pair goes together; the Syndicate does not sever one.`
+        ? `${names} released. A matched pair goes together; the Syndicate doesn't sever one.`
         : `${names} released. The retainer ends tonight.`,
     };
   }

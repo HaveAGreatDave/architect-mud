@@ -96,7 +96,7 @@ async function blackout(zoneId) {
   const res = await drainZonePower(zoneId).catch(() => ({ ok: false }));
   if (!res?.ok) return;                            // zone has no power grid — no-op
   sendToZone(zoneId, ambient(
-    `Every light on the block dies at once — not a flicker, a decision. The dark holds a moment too long to be an accident. Somewhere, something is running a calculation, and you are inside it.`));
+    `Every light on the block dies at once — not a flicker, a decision. The dark holds a moment too long to be an accident. Somewhere, something is running a calculation, and you're inside it.`));
   setTimeout(() => recomputePower().catch(e => console.error('[drugwar] power restore:', e.message)), 60_000);
 }
 

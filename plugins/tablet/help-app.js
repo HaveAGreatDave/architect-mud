@@ -14,7 +14,7 @@ const CHAPTERS = [
     prose: [
       'Type a command on the bottom line and press Enter. You move with north, south, east, west, up and down — or their initials n / s / e / w / u / d.',
       'look (or just l) describes where you are. look <thing> or examine <thing> inspects something specific — an item, a player, a piece of furniture.',
-      'Lost? help lists every command by category, and the chapters here break the same commands down by what you are trying to do.',
+      "Lost? help lists every command by category, and the chapters here break the same commands down by what you're trying to do.",
       'Your Tablet holds Skills, Bank, Map, Music and more — including this help — so most of what you need is a tap away.',
     ] },
   { id: 'moving', title: 'Moving & Looking', blurb: 'Get around, and read a room.',
@@ -80,14 +80,14 @@ async function buildScreen(player, screenId, params) {
 // without anything having to remember where it got to.
 const HELP_TIPS = [
   ['look, then look at things', 'l describes the room; examine <thing> reads the detail. Most of this world is in the second one.'],
-  ['Banked money is safe money', 'Cash on hand is lost if you are robbed, booked or killed. An ATM fixes that in one command.'],
-  ['Cold kills quietly', 'Layers are not decoration. Check what you are wearing before you walk out into weather.'],
+  ['Banked money is safe money', "Cash on hand is lost if you're robbed, booked or killed. An ATM fixes that in one command."],
+  ['Cold kills quietly', "Layers aren't decoration. Check what you're wearing before you walk out into weather."],
   ['Everything wears out', 'Gear has condition. Repair it before the band reads Failing, because zero destroys the item.'],
-  ['You can sit down', 'sit, lie, rest. Posture changes how fast you heal and how easily you are noticed.'],
+  ['You can sit down', "sit, lie, rest. Posture changes how fast you heal and how easily you're noticed."],
   ['The city is watching', 'Cameras and police witness crimes. Heat decays on its own if nobody catches up with you.'],
   ['Ask anyone about anything', 'talk to an NPC, then ask them about a subject. Some of them remember you afterwards.'],
   ['Work before crime', 'The job board pays honestly and nobody shoots at you for it. Quests app, Work.'],
-  ['Type help', 'Every command, grouped by what you are trying to do. This app is the same manual, browsable.'],
+  ['Type help', "Every command, grouped by what you're trying to do. This app is the same manual, browsable."],
 ];
 function buildWidget() {
   const twentyMinBlocks = Math.floor(Date.now() / (20 * 60 * 1000));

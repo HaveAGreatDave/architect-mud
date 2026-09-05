@@ -4,7 +4,7 @@
     "Is it sharper, or only brighter?",
     "Should I go finer?"
   ],
-  "description": "A great brass ring in the ceiling holding a lens that is still being made, glass folding over itself and polishing itself smooth, throwing a beam that sharpens and softens as it works.",
+  "description": "A great brass ring in the ceiling holding a lens that's still being made, glass folding over itself and polishing itself smooth, throwing a beam that sharpens and softens as it works.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} tightens by one ring and the whole room comes into focus.",
@@ -15,16 +15,16 @@
   "fx_intensity": 0.5,
   "id": "dx_blotter_light_lens",
   "looks": [
-    "The glass turns against a shape that is also glass, and both are getting more exact.",
+    "The glass turns against a shape that's also glass, and both are getting more exact.",
     "The beam narrows to a point of unbearable clarity and then opens out again to a wash.",
     "There are rings inside rings, each one correcting the one outside it."
   ],
   "matches": "light",
   "name": "a lens grinding its own focus",
   "says": [
-    "It is nearly right. It has been nearly right for a while.",
+    "It's nearly right. It has been nearly right for a while.",
     "Every pass takes off less than the last.",
-    "You will know when it is done."
+    "You'll know when it's done."
   ],
   "scope": "object"
 }

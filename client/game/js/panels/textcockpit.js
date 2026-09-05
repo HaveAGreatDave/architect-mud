@@ -31,7 +31,7 @@ function ensureStyles() {
        came out a different pixel width than the rows around it: the horizon ball had a
        ragged right edge and the chart's columns walked. Consolas/DejaVu/Cascadia all
        carry the block at the same width as their own space. Courier New stays the
-       house font everywhere else; a grid is the one place it cannot be used. */
+       house font everywhere else; a grid is the one place it can't be used. */
     .tck { font-family:'Cascadia Mono',Consolas,'DejaVu Sans Mono','Liberation Mono',ui-monospace,monospace;
       font-size:0.75rem; line-height:1.25;
       color:#9fe0c4; background:linear-gradient(170deg,#0b1512,#060b09 70%);

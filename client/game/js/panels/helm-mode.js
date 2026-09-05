@@ -758,7 +758,7 @@ export function openHelm(opts = {}) {
     // with a specific reason instead of silently doing nothing, so it's clear you must choose water.
     const cell = cellFromEvent(e);
     if (!cell) { clearCourse(); mapInfo.textContent = 'Off the chart — tap open water inside the basin.'; return; }
-    if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = 'That is dry land — the Echelon can only make way over open water.'; return; }
+    if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = "That's dry land — the Echelon can only make way over open water."; return; }
     const path = previewCourse(cell.rows, cell.c, cell.c, cell.rx, cell.ry);
     if (!path) { clearCourse(); mapInfo.textContent = 'No navigable channel to that tile — pick open water clear of the shore.'; return; }
     armCourse(path.map(([rx, ry]) => [cell.gx + (rx - cell.c), cell.gy + (ry - cell.c)]));

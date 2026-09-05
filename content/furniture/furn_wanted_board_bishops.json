@@ -1,6 +1,14 @@
 {
-  "description": "A cork board in a cafe, with a lost cat on it and a guitar for sale and a card offering to tutor mathematics, and in among all of that, at eye height, in the middle, printed on the same thermal paper as everything else, four sheets with people's faces described on them and a price underneath. Nobody has moved the lost cat. The coin slot is set discreetly into the frame's lower rail and painted the same green as the wall, and the printer inside is quiet enough that the room does not usually notice it going. Bishop's has never advertised that the board does this. It simply does, the way the toaster does, and the regulars have long since stopped seeing it.",
+  "description": "A Severance 400 bolted to the wall: coin slot and thermal printer up top, an amber screen of open contracts, a round stainless port by your knees. PAYABLE ON DELIVERY. DO NOT INSERT LIVING TISSUE. A card taped over the coin slot reads OUT OF ORDER. Under it, in different biro: IT ISN'T.",
   "flags": {
+    "receptacle": {
+      "accept": "The port cycles slowly, thinking about it, and takes it. The machine makes the noise it would make for a gas bill.",
+      "dark": "The port won't open. The terminal is dead, and Bishop's hasn't noticed.",
+      "darkPost": "Nothing in the terminal is running. The cafe is going to keep on not mentioning it.",
+      "empty": "A contract pays on delivery, and the port isn't for your hand.",
+      "noun": "the port",
+      "room": "{handle} crouches at the terminal by the wall. It thinks for a while, then counts out {amount}, and a man two tables away turns a page."
+    },
     "wanted_board": true
   },
   "hp": null,
@@ -8,9 +16,9 @@
   "id": "furn_wanted_board_bishops",
   "light_type": null,
   "lumen_output": null,
-  "name": "cork board",
+  "name": "bounty terminal",
   "object_type": "decoration",
-  "power_draw_kw": null,
+  "power_draw_kw": 0.02,
   "price": 0,
   "zone_id": "zone_solenne_salon"
 }

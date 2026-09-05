@@ -42,7 +42,7 @@ export default async function regress({ run, check, getPlayer }) {
   // leaves flag rows behind (see the header).
   const refuser = { id: 'refuser', _flags: new Map([['topical_consent', 'false']]) };
   const res = await applyTopical(refuser, { fluid: 'water', actor: me });
-  check('a player who turned it off is not splashed',
+  check("a player who turned it off isn't splashed",
     res.applied === false && res.reason === 'no_consent', res.reason);
   check('refusal message is physical, not administrative',
     !/consent/i.test(res.message || ''), res.message);
@@ -57,7 +57,7 @@ export default async function regress({ run, check, getPlayer }) {
   // else. This is what stops a new fluid being silently inert.
   const unknown = await applyTopical({ id: 'someone-else', wetness: 0 }, { fluid: 'nosuchfluid' });
   check('an unknown liquid still lands', unknown.applied === true, unknown.reason);
-  check('…and still wets, because that is the law', unknown.reason === 'wet', unknown.reason);
+  check("…and still wets, because that's the law", unknown.reason === 'wet', unknown.reason);
   check('…and reads as a liquid', /wet/.test(fluidInfo('nosuchfluid').arrival));
 
   // ── The fluid table ───────────────────────────────────────────────────────
@@ -86,12 +86,12 @@ export default async function regress({ run, check, getPlayer }) {
   const pint = describeContainerFluid({ tags: {}, custom_data: { drink: { name: 'a pint', servings: 2, capacity: 2, potency: 1.4 } } });
   check('a glass of liquor resolves to booze', pint?.fluid === 'booze', JSON.stringify(pint));
   const soda = describeContainerFluid({ tags: {}, custom_data: { drink: { name: 'a cola', servings: 1, capacity: 1, potency: 0 } } });
-  check('a soft drink is not booze', soda?.fluid === 'soft_drink', JSON.stringify(soda));
+  check("a soft drink isn't booze", soda?.fluid === 'soft_drink', JSON.stringify(soda));
   const coffee = describeContainerFluid({ tags: {}, custom_data: { drink: { name: 'a coffee', servings: 1, capacity: 1, potency: 0, hot_at: Date.now() } } });
   check('a fresh coffee is a scalding drink', coffee?.fluid === 'hot_drink', JSON.stringify(coffee));
   const stale = describeContainerFluid({ tags: {}, custom_data: { drink: { name: 'a coffee', servings: 1, capacity: 1, potency: 0, hot_at: Date.now() - 60 * 60 * 1000 } } });
   check('…but a cold one is just a drink', stale?.fluid === 'soft_drink', JSON.stringify(stale));
-  check('the fillable resolver does not claim a drink vessel',
+  check("the fillable resolver doesn't claim a drink vessel",
     describeContainerFluid({ custom_data: { fluid_amount: 5, drink: { name: 'x', servings: 1, capacity: 1 } } })?.fluid !== 'water');
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── Absorption: on you vs INTO you ────────────────────────────────────────
   // dose = potency × absorb × skinExposure, floored at MIN_SYSTEMIC_DOSE.
-  check('a solvent carries what is in it straight through',
+  check("a solvent carries what's in it straight through",
     systemicDose({ potency: 1, absorb: 0.85, skinExposure: 1 }) > 0.5,
     String(systemicDose({ potency: 1, absorb: 0.85, skinExposure: 1 })));
   check('alcohol sits on the skin and does nothing — a full pint on a bare chest',

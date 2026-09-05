@@ -2,11 +2,11 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "It is running right. I would know.",
+    "It's running right. I would know.",
     "One line a day. Eleven years of them.",
     "Oil is the only thing we buy that I sign for myself.",
-    "Do not touch the log with those hands.",
-    "It will do another eleven if I do my job."
+    "Don't touch the log with those hands.",
+    "It'll do another eleven if I do my job."
   ],
   "description": "A man of about forty with a rag through his belt, standing with one hand flat on the generator housing, listening to it. He stays like that for a while. Then he takes his hand off, writes one line in the log, and only then notices you.",
   "dialogue_tree": {
@@ -17,7 +17,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You are not supposed to have one of these.",
+          "label": "You aren't supposed to have one of these.",
           "next": "one"
         },
         {
@@ -35,12 +35,12 @@
           "next": "bye"
         }
       ],
-      "text": "He stops with his hand on the housing.\n\n\"It stays.\"\n\nHe says it flatly, and then, because he is honest, \"It has to. It is four tons and it is the wrong kind of thing to be taking.\" A pause. \"Somebody will come up that road eventually and find a shed with a plant in it that starts first time, and a log, and no one at all.\"\n\nHe takes his hand off the machine.\n\n\"I have thought about writing them a note. I probably will not.\""
+      "text": "He stops with his hand on the housing.\n\n\"It stays.\"\n\nHe says it flatly, and then, because he's honest, \"It has to. It's four tons and it's the wrong kind of thing to be taking.\" A pause. \"Somebody will come up that road eventually and find a shed with a plant in it that starts first time, and a log, and no one at all.\"\n\nHe takes his hand off the machine.\n\n\"I have thought about writing them a note. I probably will not.\""
     },
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+      "text": "\"Mind how you go.\"\n\nHe is back under the housing before you reach the door."
     },
     "log": {
       "actions": [],
@@ -49,7 +49,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You are not supposed to have one of these.",
+          "label": "You aren't supposed to have one of these.",
           "next": "one"
         },
         {
@@ -67,7 +67,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Twelve in March.\"\n\nHe turns a page back, and another, and finds a day without looking for it.\n\n\"That one. Load dropped a third for six hours and I could not find why, and I stripped the governor twice, and on the third day I found a bird in the intake.\" He shuts the book. \"I wrote that down too. That is the point of writing it down.\""
+      "text": "\"Twelve in March.\"\n\nHe turns a page back, and another, and finds a day without looking for it.\n\n\"That one. Load dropped a third for six hours and I couldn't find why, and I stripped the governor twice, and on the third day I found a bird in the intake.\" He shuts the book. \"I wrote that down too. A bird in the intake is exactly the thing you forget by August.\""
     },
     "one": {
       "actions": [],
@@ -94,17 +94,17 @@
           "next": "bye"
         }
       ],
-      "text": "He does not react at all, which takes practice.\n\n\"It runs the lamps in the sick room and the pump on the cistern and the cold in the seed vault. And the pump out on the road, and the lights in Stannard's shed, which he would tell you about at length.\"\n\nHe checks the gauge. Writes nothing.\n\n\"I keep it running and I keep the log and in eleven years nobody has come in here and had an argument with me about it. Not one person. You are the first one to bring it up and you do not live here.\"\n\nA beat.\n\n\"That is not a complaint. Take it however you like.\""
+      "text": "He doesn't react at all, which takes practice.\n\n\"It runs the lamps in the sick room and the pump on the cistern and the cold in the seed vault. And the pump out on the road, and the lights in Stannard's shed, which he would tell you about at length.\"\n\nHe checks the gauge. Writes nothing.\n\n\"I keep it running and I keep the log and in eleven years nobody has come in here and had an argument with me about it. Not one person. You're the first one to bring it up and you don't live here.\"\n\nA beat.\n\n\"That isn't a complaint. Take it however you like.\""
     },
     "root": {
       "actions": [],
-      "first": "\"Mind the pad, it is greasy.\" He wipes his hands. \"You are the new one. Everybody comes and looks at it eventually.\"",
+      "first": "\"Mind the pad, it's greasy.\" He wipes his hands. \"You're the new one. Everybody comes and looks at it eventually.\"",
       "options": [
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You are not supposed to have one of these.",
+          "label": "You aren't supposed to have one of these.",
           "next": "one"
         },
         {
@@ -131,8 +131,8 @@
       ],
       "text": "\"Mind the pad.\"",
       "text_by_relation": {
-        "close": "He moves along the bench without being asked, and there is a mug on it that is not his.",
-        "familiar": "\"Listen to that,\" he says, of a sound you cannot hear, and you both listen to it.",
+        "close": "He moves along the bench without being asked, and there's a mug on it that isn't his.",
+        "familiar": "\"Listen to that,\" he says, of a sound you can't hear, and you both listen to it.",
         "known": "\"You.\" He goes back to the gauge. \"Mind the pad.\""
       }
     }

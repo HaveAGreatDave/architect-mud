@@ -1,0 +1,16 @@
+{
+  "description": "Heavy white porcelain, no bigger than an egg cup, with a rolled rim that keeps the heat where it belongs. The kind of cup that only ever holds two mouthfuls and expects you to take them seriously.",
+  "flags": {},
+  "id": "item_demitasse_cup",
+  "name": "demitasse cup",
+  "tags": {
+    "description": "Heavy white porcelain, no bigger than an egg cup, with a rolled rim that keeps the heat where it belongs. The kind of cup that only ever holds two mouthfuls and expects you to take them seriously.",
+    "drinkware": true,
+    "drinkware_kind": "cup",
+    "fillable": 1,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 30,
+  "weight": 120
+}

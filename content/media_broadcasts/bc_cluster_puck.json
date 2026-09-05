@@ -155,10 +155,10 @@
         "The ice in here hasn't been resurfaced since the ownership change, and you can tell; {team} are skating through what I'd generously call a puddle with ambition.",
         "Goal judge's been in that booth thirty years. Nobody's checked on him in twelve. Light still works.",
         "{goalie} has the thousand-yard stare of a man watching his own future arrive on a two-on-one.",
-        "The Zamboni runs on something the league will not disclose and the driver wears a respirator. Draw your own conclusions.",
+        "The Zamboni runs on something the league won't disclose and the driver wears a respirator. Draw your own conclusions.",
         "Nobody founded this league. The scheduler just started sending pairings one morning and the clubs turned up. Forty years later here we all are.",
         "That's the third time tonight someone's gone head first into the boards and the third time the officials have looked at their shoes.",
-        "They sell a hot dog here that is legally not a hot dog. There's a sign. Nobody reads the sign.",
+        "They sell a hot dog here that's legally not a hot dog. There's a sign. Nobody reads the sign.",
         "I'm told the trophy is a pre-Handoff vessel of unknown industrial purpose. They fill it. They drink from it. Champions do tend to die.",
         "The {team} bench is quiet. Then again half of them are hurt and one of them is, I believe, technically deceased.",
         "There's a man in section nine who has come to every home game for nineteen years and has never once cheered.",
@@ -166,31 +166,31 @@
         "Somewhere in this building is a room with all the league's records in it. Nobody has ever found the door.",
         "The glass behind that net has been replaced four times this season. Same pane. Same corner. Same reason.",
         "{shooter} came up through the Ashway. You can tell by the way he skates like the ice owes him money.",
-        "It is fourteen below out there and colder in here, which is a choice somebody made deliberately.",
-        "The CPhL does not have a commissioner. It has a scheduler, and the scheduler has never once been late."
+        "It's fourteen below out there and colder in here, which is a choice somebody made deliberately.",
+        "The CPhL doesn't have a commissioner. It has a scheduler, and the scheduler has never once been late."
       ],
       "chatter.ashway": [
-        "The Zamboni here is the only one in the league that has never broken down, and the driver will not let anyone else touch it or look directly at it.",
+        "The Zamboni here is the only one in the league that has never broken down, and the driver won't let anyone else touch it or look directly at it.",
         "They resurface this ice four times a night at Ashway. Nobody has ever explained why four.",
-        "This building smells of diesel and it is not a rink that has ever had a diesel engine in it.",
+        "This building smells of diesel and it isn't a rink that has ever had a diesel engine in it.",
         "Ashway's clock has been eleven seconds fast since the ownership change. Both clubs know. Neither has complained, because both have won on it."
       ],
       "chatter.docks": [
         "You can hear the cranes through the roof here. Third period, low tide, the whole building hums.",
-        "The Docks barn floods twice a winter. They play through it. There is a line painted on the wall showing how high, and it is above my head.",
-        "Half this crowd came straight off a shift and half of them are still wearing the hard hats. The hats are not for the hockey."
+        "The Docks barn floods twice a winter. They play through it. There's a line painted on the wall showing how high, and it's above my head.",
+        "Half this crowd came straight off a shift and half of them are still wearing the hard hats. The hats aren't for the hockey."
       ],
       "chatter.longwatch": [
-        "Longwatch is the only club with a barn OUTSIDE the wall. Away sides travel in convoy and they do not stop for anything on the road.",
+        "Longwatch is the only club with a barn OUTSIDE the wall. Away sides travel in convoy and they don't stop for anything on the road.",
         "There's a gun rack in the lobby here. Coats and firearms, same counter, same attendant, one ticket.",
-        "The crowd here doesn't cheer, it just gets quieter. That is worse and every visiting club will tell you so."
+        "The crowd here doesn't cheer, it just gets quieter. That's worse and every visiting club will tell you so."
       ],
       "cup.final": [
-        "THE {leader} HAVE WON THE COLDWATER CUP. {home} {homeScore}, {away} {awayScore}. They will drink out of it, because that is the tradition, and we will see who's still here next season.",
+        "THE {leader} HAVE WON THE COLDWATER CUP. {home} {homeScore}, {away} {awayScore}. They'll drink out of it, because that's the tradition, and we'll see who's still here next season.",
         "IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever's still standing."
       ],
       "cup.intro": [
-        "This is it. The Coldwater Cup. Nobody can produce a record of who commissioned it and nobody has ever asked twice.",
+        "This is it. The Coldwater Cup. Nobody can produce a record of who commissioned it, and the one reporter who went looking took a job in Terminus instead.",
         "Cup final tonight. One game, one trophy, and a trophy nobody can explain."
       ],
       "cup.matchup": [
@@ -203,8 +203,8 @@
       ],
       "death": [
         "{player} IS DEAD. That's the game: sudden death, and the CPhL has never pretended it meant anything else. {winnerTeam} win it.",
-        "He's gone. {player}, on the ice, in overtime, and that is how this league ends a tie.",
-        "{player} does not get up, and he is not going to. {winnerTeam} take it. Somebody call his people."
+        "He's gone. {player}, on the ice, in overtime, and that's how this league ends a tie.",
+        "{player} doesn't get up, and he isn't going to. {winnerTeam} take it. Somebody call his people."
       ],
       "faceoff": [
         "Puck's down at the dot.",
@@ -231,7 +231,7 @@
       "fight.result": [
         "{winner} takes it. {loser} takes five, and the {winnerTeam} go on the power play for winning a fistfight, which is the CPhL rulebook in one sentence.",
         "It's {winner}. {loser} is helped up and sent away, and his team pays for it with a man.",
-        "{winner} wins the fight and wins his side the man advantage. Whoever wrote these rules was not well."
+        "{winner} wins the fight and wins his side the man advantage. Whoever wrote these rules wasn't well."
       ],
       "final": [
         "FINAL from Coldwater: {home} {homeScore}, {away} {awayScore}. {leader} take it.",
@@ -247,7 +247,7 @@
       ],
       "goal.en": [
         "Empty net, and {shooter} buries it from his own blue line. {home} {homeScore}, {away} {awayScore}. Turn the lights off on your way out.",
-        "Into the empty cage. {shooter}. That's the gamble, and it did not pay.",
+        "Into the empty cage. {shooter}. That's the gamble, and it didn't pay.",
         "{shooter} finds the empty net. The goalie is on the bench watching it happen from sixty feet."
       ],
       "goal.pp": [
@@ -262,11 +262,11 @@
       ],
       "hattrick": [
         "That's THREE for {player}. A hat trick in the CPhL, and nobody in this building owns a hat.",
-        "{player} completes the hat trick. Whatever they throw on the ice tonight, do not touch it.",
+        "{player} completes the hat trick. Whatever they throw on the ice tonight, don't touch it.",
         "Three goals, {player}. Remember the name, because at this rate he may not be with us long."
       ],
       "injury": [
-        "{player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters, no replacement, that's the rule, and they wear it for the rest of the night.",
+        "{player} isn't getting up. He's helped off, and the {teamName} are down to {remaining} skaters, no replacement, that's the rule, and they wear it for the rest of the night.",
         "That's {player}'s evening finished. {teamName} play the rest of this short.",
         "{player} goes down the tunnel under his own power, barely. {remaining} left on the bench and nobody coming over the boards to help."
       ],
@@ -274,12 +274,12 @@
         "Before we drop it: {count} out of the lineup tonight. {missing}, all still on the shelf from what was done to them, and up from the reserve, {callups}.",
         "The injury list, and it's long: {missing}. Dressing instead: {callups}. Best of luck to them, sincerely, they'll need it.",
         "{missing} not in the building tonight, or not in a state to be. {callups} get the sweaters. Nobody has asked them if they want them.",
-        "No {player} tonight, still out, and the club brings up {callup}. This league does not do get-well cards.",
+        "No {player} tonight, still out, and the club brings up {callup}. This league doesn't do get-well cards.",
         "{count} missing between these two. That's the CPhL in the back half of a season: eventually everybody is somebody's replacement."
       ],
       "intermission.casualties": [
         "Off the ice this period and not coming back: {casualties}. Their side plays the rest of this short. That's the rule and nobody's ever changed it.",
-        "{count} man off in that period. {player} in particular is not going to be right for a while.",
+        "{count} man off in that period. {player} in particular isn't going to be right for a while.",
         "We lost {casualties} in there. No replacements. That's how a game gets away from a club in this league."
       ],
       "intermission.goal": [
@@ -314,7 +314,7 @@
         "Here's the scoring:"
       ],
       "intro": [
-        "Good evening from Coldwater and welcome to CLUSTER PUCK. I'm Tug Brennan, nobody made me do this, and we are under way.",
+        "Good evening from Coldwater and welcome to CLUSTER PUCK. I'm Tug Brennan, nobody made me do this, and we're under way.",
         "CPhL hockey tonight, brought to you by whoever is still paying, and I have been told not to name them on air.",
         "Evening. Tug Brennan with you. The scheduler says these two are playing, so these two are playing.",
         "Welcome in. The ice is down, the lights are on, and the insurance has lapsed. Let's go."
@@ -328,23 +328,23 @@
       "matchup.records": [
         "The {away}, {awayRecord} on the season, into the barn against the {home} at {homeRecord}.",
         "On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's record gets worse tonight.",
-        "{away} bring {awayRecord} in here. {home} sit at {homeRecord}. The scheduler does not care."
+        "{away} bring {awayRecord} in here. {home} sit at {homeRecord}. The scheduler doesn't care."
       ],
       "ot.intro": [
-        "Level after sixty. SUDDEN DEATH, and in this league that is not a figure of speech.",
+        "Level after sixty. SUDDEN DEATH, and in this league that isn't a figure of speech.",
         "We go to overtime. First goal wins it. So does the first body.",
         "Sixty minutes settled nothing, so now we find out the other way."
       ],
       "outro": [
         "That's CLUSTER PUCK. I'm Tug Brennan. Mind how you go, and mind what's on the ice.",
-        "For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there is always another one.",
+        "For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there's always another one.",
         "Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent."
       ],
       "penalty": [
         "{player} goes for {infraction}. {penaltyMin} minutes, and the {team} are down a man.",
         "Arm's up. {infraction} on {player}. {penaltyMin} in the box.",
         "That's {penaltyMin} for {infraction}. {player} has a sit down and a think.",
-        "{player} caught for {infraction}. The officials noticed that one, which is not guaranteed."
+        "{player} caught for {infraction}. The officials noticed that one, which isn't guaranteed."
       ],
       "penalty.fight": [
         "Gloves off. {fighters} have decided the scoreboard isn't settling this. Linesmen are giving it a count of five before they pretend to care.",
@@ -372,13 +372,13 @@
         "Empty net at the far end. {teamName} are down {down} and out of patience."
       ],
       "rivalry.intro": [
-        "Evening. Tug Brennan, and you know what tonight is. These two do not like each other and they have never needed a reason.",
+        "Evening. Tug Brennan, and you know what tonight is. These two don't like each other and they have never needed a reason.",
         "Welcome in. It's one of THOSE nights. The scheduler put these two together again and the building knew before I did.",
         "Good evening from Coldwater, where the ice is down and both of these clubs turned up early to stand around looking at each other."
       ],
       "rivalry.matchup": [
         "{away} at {home}, and this one has history nobody wrote down. Bring a bucket.",
-        "The {away} and the {home}. There is no trophy for this and they will both bleed for it anyway.",
+        "The {away} and the {home}. There's no trophy for this and they'll both bleed for it anyway.",
         "It's {away}–{home}. Whatever this is, it started before the records did, and the records don't exist.",
         "{away} into {home}'s barn. Last time these two met the officials went home early."
       ],

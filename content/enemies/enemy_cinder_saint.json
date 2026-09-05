@@ -110,14 +110,14 @@
     }
   ],
   "death_message": "The saint sits down in the ash, dims like a filament, and leaves a scorch in the exact shape of sitting down.",
-  "description": "Man-shaped, roughly, and lit from inside like a stove with the door left open. The ash does not settle on it. It walks the burn in slow circuits and does not appear to be going anywhere in particular, which is somehow worse than if it were.",
+  "description": "Man-shaped, roughly, and lit from inside like a stove with the door left open. The ash doesn't settle on it. It walks the burn in slow circuits and doesn't appear to be going anywhere in particular, which is somehow worse than if it were.",
   "dodge": 4,
   "faction": null,
   "flags": {
     "attacks_npcs": true,
     "battle_cries": [
       "$enemy turns toward $player, and the air between you gets a great deal warmer.",
-      "$enemy speaks. It is not language, but it has the shape of one.",
+      "$enemy speaks. It isn't language, but it has the shape of one.",
       "$enemy's chest glows through, and the ash around it lifts and hangs there."
     ],
     "radiates": true,

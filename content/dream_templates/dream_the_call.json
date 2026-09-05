@@ -1,11 +1,11 @@
 {
   "ambient": [
     "The line opens onto a room with somebody in it, and then onto the dial tone.",
-    "You get to the last digit. There is one more.",
-    "Somebody breathes at the other end, briefly, and it is a recording."
+    "You get to the last digit. There's one more.",
+    "Somebody breathes at the other end, briefly, and it's a recording."
   ],
   "cause": "dream",
-  "description": "A phone and a number you know without looking. You get it right every time. The dialling takes as long as the number is long, and the number is longer each time you are most of the way through it, and you have never once made a mistake.",
+  "description": "A phone and a number you know without looking. You get it right every time. The dialling takes as long as the number is long, and the number is longer each time you're most of the way through it, and you have never once made a mistake.",
   "drug_id": null,
   "fx": "static",
   "fx_intensity": 0.4,
@@ -16,7 +16,7 @@
       "looks": [
         "Warm. You have been at this a while.",
         "The keys are worn in the pattern of this exact number.",
-        "It rings while you are holding it, and it is you."
+        "It rings while you're holding it, and it's you."
       ],
       "name": "the phone"
     },
@@ -24,7 +24,7 @@
       "looks": [
         "You have never had to write it down.",
         "It belongs to somebody you could name, and you decline to, here.",
-        "Correct. Every digit of it is correct."
+        "Correct. Every digit of it's correct."
       ],
       "name": "the number"
     }

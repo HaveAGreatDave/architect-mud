@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A circle of hard standing scraped flat and edged with painted drums, well off the road and a good way from the wall. A windsock on a pole, a fuel bowser under a tarpaulin, and nothing else at all. It is maintained, and it is maintained by somebody who does not come out here except to maintain it.",
+  "description": "A circle of hard standing scraped flat and edged with painted drums, well off the road and a good way from the wall. A windsock on a pole, a fuel bowser under a tarpaulin, and nothing else at all. It's maintained, and it's maintained by somebody who doesn't come out here except to maintain it.",
   "exits": {
     "east": "zone_terminus_1204_943",
     "north": "zone_terminus_1203_942",

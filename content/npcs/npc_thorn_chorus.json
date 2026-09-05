@@ -2,12 +2,12 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Roof crew is short. It is always short.",
-    "Sit down, you are in the light.",
-    "If you are here about the water rota you may join the queue.",
+    "Roof crew is short. It's always short.",
+    "Sit down, you're in the light.",
+    "If you're here about the water rota you may join the queue.",
     "Somebody has taken the good knife again."
   ],
-  "description": "An old woman in a good chair, holding court over a room full of cushions with the total authority of somebody who has already won every argument in it once. When she speaks the words come doubled and a half-beat apart, as though there is more than one of her getting to them, and the room has plainly stopped noticing this a very long time ago. There is a ledger open on her knee. It is a rota.",
+  "description": "An old woman in a good chair, holding court over a room full of cushions with the total authority of somebody who has already won every argument in it once. When she speaks the words come doubled and a half-beat apart, as though there's more than one of her getting to them, and the room has plainly stopped noticing this a very long time ago. There's a ledger open on her knee. It's a rota.",
   "dialogue_tree": {
     "animals": {
       "actions": [],
@@ -27,7 +27,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Yes.\"\n\nThe pen does not stop.\n\n\"Was there a second half to that?\""
+      "text": "\"Yes.\"\n\nThe pen doesn't stop.\n\n\"Was there a second half to that?\""
     },
     "better": {
       "actions": [],
@@ -40,7 +40,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A road nobody needs to be frightened of.\" She turns a page. \"Bring me that and I will burn the poles myself, and Ossa will help, and we will have a party about it.\n\nUntil then it is the rota. Tuesdays and Fridays. The mask is on the rack by the gate and the lining wants restitching, if you have a needle and a free afternoon.\""
+      "text": "\"A road nobody needs to be frightened of.\" She turns a page. \"Bring me that and I'll burn the poles myself, and Ossa will help, and we'll have a party about it.\n\nUntil then it's the rota. Tuesdays and Fridays. The mask is on the rack by the gate and the lining wants restitching, if you have a needle and a free afternoon.\""
     },
     "bother": {
       "actions": [],
@@ -60,12 +60,12 @@
           "next": "bye"
         }
       ],
-      "text": "She thinks about it properly, which is worse than if she had snapped.\n\n\"It bothers Ossa. He is fifteen and he has to wear the thing, so it is his to be bothered by, and he is doing it very loudly, and I have not told him to stop.\"\n\nA shrug.\n\n\"It costs me four hours a week and it has cost me no children at all. I have done the sum more than once. It comes out the same way every time, and I would be delighted to be shown a better one, and nobody has ever brought me a better one. They bring me opinions.\""
+      "text": "She thinks about it properly, which is worse than if she had snapped.\n\n\"It bothers Ossa. He's fifteen and he has to wear the thing, so it's his to be bothered by, and he's doing it very loudly, and I haven't told him to stop.\"\n\nA shrug.\n\n\"It costs me four hours a week and it has cost me no children at all. I have done the sum more than once. It comes out the same way every time, and I would be delighted to be shown a better one, and nobody has ever brought me a better one. They bring me opinions.\""
     },
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Mind the step. It is a bad step. It has always been a bad step.\""
+      "text": "\"Mind the step. It's a bad step. It has always been a bad step.\""
     },
     "eleven": {
       "actions": [],
@@ -74,7 +74,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is this place?",
+          "label": "What's this place?",
           "next": "place"
         },
         {
@@ -85,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is. My daughter did the last one.\" She says this in exactly the tone she used for the rota. \"Sill will tell you about it if you get her onto the subject of the tanks, and you will get her onto the subject of the tanks, everybody does.\""
+      "text": "\"It is. My daughter did the last one.\" She says this in exactly the tone she used for the rota. \"Sill will tell you about it if you get her onto the subject of the tanks, and you'll get her onto the subject of the tanks, everybody does.\""
     },
     "howling": {
       "actions": [],
@@ -127,7 +127,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "It works because people think you are animals.",
+          "label": "It works because people think you're animals.",
           "next": "animals"
         },
         {
@@ -145,11 +145,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"What about it.\"\n\nShe says it flatly, and waits, and does not help you.\n\n\"It is four hours on the poles in the wet and eight in the dry, and it is a rotten job, and it is done because it works. Nobody has come up that road with a truck and a rope in eleven years. Before it, they came twice a season.\"\n\nShe goes back to the ledger.\n\n\"You may think what you like about it. Most do. That is rather the arrangement.\""
+      "text": "\"What about it.\"\n\nShe says it flatly, and waits, and doesn't help you.\n\n\"It's four hours on the poles in the wet and eight in the dry, and it's a rotten job, and it's done because it works. Nobody has come up that road with a truck and a rope in eleven years. Before it, they came twice a season.\"\n\nShe goes back to the ledger.\n\n\"You may think what you like about it. Most do. That's rather the arrangement.\""
     },
     "root": {
       "actions": [],
-      "first": "She does not stop writing. \"Sit, or do not, but do not hover, it makes the dogs anxious.\" A pause, and then she looks up, and her eyes take rather longer to arrive than her attention did. \"You came up the north road. Everyone comes up the north road, and everyone arrives looking exactly like you look.\"",
+      "first": "She doesn't stop writing. \"Sit, or do not, but don't hover, it makes the dogs anxious.\" A pause, and then she looks up, and her eyes take rather longer to arrive than her attention did. \"You came up the north road. Everyone comes up the north road, and everyone arrives looking exactly like you look.\"",
       "options": [
         {
           "actions": [],
@@ -316,7 +316,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is this place?",
+          "label": "What's this place?",
           "next": "place"
         },
         {
@@ -334,10 +334,10 @@
           "next": "bye"
         }
       ],
-      "text": "\"You are back. The chair is there.\"",
+      "text": "\"You're back. The chair is there.\"",
       "text_by_relation": {
-        "close": "\"There you are.\" She closes the ledger, which from her is a public holiday. \"Tell me something that is not about water.\"",
-        "familiar": "She waves a hand at the cushions without looking up from the rota. \"Go on, sit. I am nearly done being important.\"",
+        "close": "\"There you are.\" She closes the ledger, which from her is a public holiday. \"Tell me something that isn't about water.\"",
+        "familiar": "She waves a hand at the cushions without looking up from the rota. \"Go on, sit. I'm nearly done being important.\"",
         "known": "\"Ah. Shut the flap, would you, the grit gets in.\""
       }
     },
@@ -359,7 +359,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They call me the Chorus. They have called me it since before it was funny, and it was never funny.\" The doubling in her voice settles for a moment into something almost single. \"I keep the rota. That is the whole of the office. Everything else people have decided to hang off it is theirs, not mine.\""
+      "text": "\"They call me the Chorus. They have called me it since before it was funny, and it was never funny.\" The doubling in her voice settles for a moment into something almost single. \"I keep the rota. That's the whole of the office. Everything else people have decided to hang off it's theirs, not mine.\""
     },
     "wild_accept4": {
       "_vine": {
@@ -381,7 +381,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Vurn has your mask.\" Back to the rota. \"Eat first. It is a long stand and there is nothing at the gate but weather.\""
+      "text": "\"Vurn has your mask.\" Back to the rota. \"Eat first. It's a long stand and there's nothing at the gate but weather.\""
     },
     "wild_accept5": {
       "_vine": {
@@ -403,7 +403,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Second bend, first light if you have any sense, midday if you have not.\" A page turns. \"It will rain. It does not matter.\""
+      "text": "\"Second bend, first light if you have any sense, midday if you have not.\" A page turns. \"It'll rain. It doesn't matter.\""
     },
     "wild_after1": {
       "actions": [],
@@ -416,7 +416,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Yes.\"\n\nThe pen is back in her hand and the page has turned, and that is apparently the whole of it.\n\n\"Bracken walks the road on Thursday and she is short a pair of hands. You will want boots that fasten.\""
+      "text": "\"Yes.\"\n\nThe pen is back in her hand and the page has turned, and that's apparently the whole of it.\n\n\"Bracken walks the road on Thursday and she's short a pair of hands. You'll want boots that fasten.\""
     },
     "wild_done1": {
       "actions": [],
@@ -446,7 +446,7 @@
           "next": "wild_after1"
         }
       ],
-      "text": "She turns the mask over twice, finds the seam, and runs her thumb along it.\n\n\"That will hold.\"\n\nShe puts it back on the rack, rim out, the way it goes.\n\n\"You did the inside of it as well. Nobody sees the inside of it.\""
+      "text": "She turns the mask over twice, finds the seam, and runs her thumb along it.\n\n\"That'll hold.\"\n\nShe puts it back on the rack, rim out, the way it goes.\n\n\"You did the inside of it as well. Nobody sees the inside of it.\""
     },
     "wild_done3": {
       "actions": [],
@@ -480,7 +480,7 @@
           "next": "bye"
         }
       ],
-      "text": "You do not remember coming back. Gristle Thole says it was six days and that you talked for most of them.\n\nThe Chorus comes in on the seventh, looks at whatever you have become in the meantime, and does not comment on it.\n\n\"You are on the rota,\" she says. \"Tuesdays. The mask will not fit you now, so we will cut you a different one.\""
+      "text": "You don't remember coming back. Gristle Thole says it was six days and that you talked for most of them.\n\nThe Chorus comes in on the seventh, looks at whatever you have become in the meantime, and doesn't comment on it.\n\n\"You're on the rota,\" she says. \"Tuesdays. The mask won't fit you now, so we'll cut you a different one.\""
     },
     "wild_done4": {
       "_vine": {
@@ -504,7 +504,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will do it.",
+          "label": "I'll do it.",
           "next": "bye"
         },
         {
@@ -515,7 +515,7 @@
           "next": "wild_offer5"
         }
       ],
-      "text": "\"Vurn says you stood it out and did not fidget.\" She writes you into the following week without asking. \"The lining wanted taking in at the left. I have told him. He will not do it.\""
+      "text": "\"Vurn says you stood it out and didn't fidget.\" She writes you into the following week without asking. \"The lining wanted taking in at the left. I have told him. He won't do it.\""
     },
     "wild_done5": {
       "_vine": {
@@ -548,7 +548,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Hale says the fourth pole wants replacing and that you said so before he did.\" The nearest thing to approval that has happened in this room. \"It will be done in the spring.\""
+      "text": "\"Hale says the fourth pole wants replacing and that you said so before he did.\" The nearest thing to approval that has happened in this room. \"It'll be done in the spring.\""
     },
     "wild_gate_what": {
       "_vine": {
@@ -572,7 +572,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Traders, mostly. Somebody lost. Twice a year, somebody who has come to see it for themselves and has not thought past the seeing.\" She turns a page. \"You let the first two in and you send the third one home before dark. Nobody has ever needed telling twice.\""
+      "text": "\"Traders, mostly. Somebody lost. Twice a year, somebody who has come to see it for themselves and hasn't thought past the seeing.\" She turns a page. \"You let the first two in and you send the third one home before dark. Nobody has ever needed telling twice.\""
     },
     "wild_offer1": {
       "actions": [],
@@ -592,7 +592,7 @@
           ],
           "conditions": [],
           "enabled": true,
-          "label": "I will do it properly.",
+          "label": "I'll do it properly.",
           "next": "bye"
         },
         {
@@ -603,7 +603,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The lining.\" She puts the pen down, which she does not often do.\n\n\"You are the first person to ask about the lining. Everyone asks about the road and the poles and whether we mean it. Nobody asks about the lining, and Ossa has been wearing that thing on a raw ear since the spring.\"\n\nShe looks at you for slightly too long.\n\n\"There is a needle in the tin on the rack. It wants doing properly, not quickly.\""
+      "text": "\"The lining.\" She puts the pen down, which she doesn't often do.\n\n\"You're the first person to ask about the lining. Everyone asks about the road and the poles and whether we mean it. Nobody asks about the lining, and Ossa has been wearing that thing on a raw ear since the spring.\"\n\nShe looks at you for slightly too long.\n\n\"There's a needle in the tin on the rack. It wants doing properly, not quickly.\""
     },
     "wild_offer3": {
       "actions": [],
@@ -623,7 +623,7 @@
           ],
           "conditions": [],
           "enabled": true,
-          "label": "I will go and stand in it.",
+          "label": "I'll go and stand in it.",
           "next": "bye"
         },
         {
@@ -641,7 +641,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a pool east of the wall.\"\n\nShe says it the way she says the rota.\n\n\"We do not drink from it and we do not fence it off, and both of those are on purpose. It sits at seventy. You will be sick for a week and you may be sick for longer, and some of what it does to you does not come off afterwards, and there is no version of this where I tell you it is safe.\"\n\nA pause, and she does the thing she does, which is the arithmetic out loud.\n\n\"Four hours a week for the masks. A week in bed for the pool. I have done this sum too. You are not obliged to reach the same answer I did.\""
+      "text": "\"There's a pool east of the wall.\"\n\nShe says it the way she says the rota.\n\n\"We don't drink from it and we don't fence it off, and both of those are on purpose. It sits at seventy. You'll be sick for a week and you may be sick for longer, and some of what it does to you doesn't come off afterwards, and there's no version of this where I tell you it's safe.\"\n\nA pause, and she does the thing she does, which is the arithmetic out loud.\n\n\"Four hours a week for the masks. A week in bed for the pool. I have done this sum too. You aren't obliged to reach the same answer I did.\""
     },
     "wild_offer4": {
       "_vine": {
@@ -672,7 +672,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Tuesdays. North gate.\" She does not look up from the rota. \"Vurn will show you where to stand. The mask is cut for you and the lining is quilted, because eleven hours in a hard mask takes the skin off a jaw and we are not stupid.\""
+      "text": "\"Tuesdays. North gate.\" She doesn't look up from the rota. \"Vurn will show you where to stand. The mask is cut for you and the lining is quilted, because eleven hours in a hard mask takes the skin off a jaw and we aren't stupid.\""
     },
     "wild_offer5": {
       "_vine": {
@@ -685,14 +685,14 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will take the wire.",
+          "label": "I'll take the wire.",
           "next": "wild_accept5"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Nobody ever mentions what is on them.",
+          "label": "No one here mentions what's on them.",
           "next": "wild_poles_what"
         },
         {
@@ -703,7 +703,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The road wants doing.\" She says it exactly the way she said the mask. \"Poles rot at the base, wire goes, what is on them comes down in the wind. Four hours in the wet.\"\n\n\"Wire is in the den. Ladder is by the door. Hale will meet you at the second bend.\""
+      "text": "\"The road wants doing.\" She says it exactly the way she said the mask. \"Poles rot at the base, wire goes, what's on them comes down in the wind. Four hours in the wet.\"\n\n\"Wire is in the den. Ladder is by the door. Hale will meet you at the second bend.\""
     },
     "wild_poles_what": {
       "_vine": {
@@ -716,11 +716,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will take the wire.",
+          "label": "I'll take the wire.",
           "next": "wild_accept5"
         }
       ],
-      "text": "\"What about them.\"\n\nShe waits, and does not help you, and after a moment goes back to the rota.\n\n\"Take the small pliers. The big ones are no good on the crossbars.\""
+      "text": "\"What about them.\"\n\nShe waits, and doesn't help you, and after a moment goes back to the rota.\n\n\"Take the small pliers. The big ones are no good on the crossbars.\""
     },
     "wild_pool_after": {
       "actions": [],
@@ -740,7 +740,7 @@
           ],
           "conditions": [],
           "enabled": true,
-          "label": "Then I will go.",
+          "label": "Then I'll go.",
           "next": "bye"
         },
         {
@@ -751,7 +751,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Afterwards you are one of us, and the flasks are yours to ask for, and what is in them will do what it likes with you.\"\n\nShe turns a page.\n\n\"Gristle will sit with you for the week. He is not gentle and he is very good. Eat what he gives you even when you cannot.\""
+      "text": "\"Afterwards you're one of us, and the flasks are yours to ask for, and what's in them will do what it likes with you.\"\n\nShe turns a page.\n\n\"Gristle will sit with you for the week. He isn't gentle and he's very good. Eat what he gives you even when you cannot.\""
     }
   },
   "faction": "ideology_wildblood",

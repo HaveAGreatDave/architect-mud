@@ -4,7 +4,7 @@
   "lines": [
     "\"Do you want the short version?\"",
     "\"Is there a short version?\"",
-    "\"There is not a short version.\"",
+    "\"There isn't a short version.\"",
     "\"Then give me the long one, I have got nowhere to be.\""
   ],
   "personality": "chatty",

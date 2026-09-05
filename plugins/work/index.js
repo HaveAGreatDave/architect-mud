@@ -108,7 +108,7 @@ const DINER_EVENTS = [
   { id: 'drunk', verb: 'bounce', stat: 'brawn|cool', difficulty: 6,
     prompt: 'A drunk at the counter is getting loud and handsy. <b>bounce</b> him — muscle or mouth.',
     nailed: 'You walk him to the door without a scene. The room exhales; the mood holds.',
-    botched: 'It turns into a shoving match. A stool goes over, two tables clear out. Gus is not thrilled.' },
+    botched: "It turns into a shoving match. A stool goes over, two tables clear out. Gus isn't thrilled." },
 ];
 
 // A second venue shape: a bar/nightclub floor. Reuses the same five response
@@ -149,23 +149,23 @@ const BAR_EVENTS = [
 const BENCH_EVENTS = [
   { id: 'ticket', verb: 'serve', stat: 'brains', difficulty: 6,
     prompt: 'A finished piece is sitting on the done-shelf and its owner is at the counter. <b>serve</b> it back before they start poking the other tickets.',
-    nailed: 'You hand it over, point out the mend, and let them feel the seam. They leave believing it will hold, which it will.',
+    nailed: "You hand it over, point out the mend, and let them feel the seam. They leave believing it'll hold, which it will.",
     botched: 'You hand back the wrong ticket, twice. They take theirs eventually, and take a long look at the workmanship on the way out.' },
   { id: 'quote', verb: 'bill', stat: 'cool', difficulty: 6,
     prompt: 'The quote on a wrecked jacket is more than the jacket cost new. <b>bill</b> it straight — no flinching.',
-    nailed: 'You tell them what it costs and why, and you do not blink. They pay it, because you clearly were not guessing.',
+    nailed: "You tell them what it costs and why, and you don't blink. They pay it, because you clearly weren't guessing.",
     botched: 'You hedge, discount yourself mid-sentence, and end up doing half of it for nothing to save the argument.' },
   { id: 'flare', verb: 'douse', stat: 'reflexes', difficulty: 6,
     prompt: '<span class="text-red">Solvent rag, open torch, and the bench is going up.</span> <b>douse</b> it.',
     nailed: 'Blanket, weight, done — out before it found the thinners. The shop smells wrong for an hour and nothing else.',
     botched: 'It gets into the tray before you smother it. Two jobs on that bench are now somebody\'s bad news.' },
   { id: 'sentimental', verb: 'soothe', stat: 'cool', difficulty: 5,
-    prompt: 'Someone has brought in a coat that cannot be saved, and it was their mother\'s. <b>soothe</b> them.',
-    nailed: 'You do not lie to them. You tell them what you can do, do that, and let them keep the buttons. They go quiet, and grateful.',
+    prompt: 'Someone has brought in a coat that can\'t be saved, and it was their mother\'s. <b>soothe</b> them.',
+    nailed: "You don't lie to them. You tell them what you can do, do that, and let them keep the buttons. They go quiet, and grateful.",
     botched: 'You lead with the price and the verdict. They take the coat back off the bench and go somewhere with a softer front counter.' },
   { id: 'hot_goods', verb: 'bounce', stat: 'brawn|cool', difficulty: 7,
     prompt: 'The rig on your bench has a serial that has been ground off, and the man who brought it in is watching you notice. <b>bounce</b> it.',
-    nailed: 'You slide it back across the counter and tell him you are full this week. He reads your face, takes it, and goes.',
+    nailed: "You slide it back across the counter and tell him you're full this week. He reads your face, takes it, and goes.",
     botched: 'You make it awkward. He leaves loud, and the shop wears the story for a while.' },
 ];
 

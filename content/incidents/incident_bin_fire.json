@@ -23,11 +23,11 @@
     },
     {
       "do": "gossip",
-      "text": "It has properly gone off in {place}. I would not walk it tonight, not for money."
+      "text": "It has properly gone off in {place}. I wouldn't walk it tonight, not for money."
     },
     {
       "do": "news",
-      "text": "A minor fire in {place} has been contained — the cause is under review and there is no risk to Basin infrastructure."
+      "text": "A minor fire in {place} has been contained — the cause is under review and there's no risk to Basin infrastructure."
     }
   ],
   "updated_at": "1787702400",

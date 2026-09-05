@@ -1,6 +1,6 @@
 {
   "ambient_theme": "outdoors",
-  "description": "A raked gravel way running dead straight from the gate to the middle of the compound. It is the only straight line in the place and everything else has been arranged either side of it.",
+  "description": "A raked gravel way running dead straight from the gate to the middle of the compound. It's the only straight line in the place and everything else has been arranged either side of it.",
   "exits": {
     "east": "zone_terminus_1213_940",
     "north": "zone_terminus_1212_939",

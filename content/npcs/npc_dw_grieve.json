@@ -4,10 +4,10 @@
   "chitchat": [
     "Casings go on the alloy stack. Not this stack.",
     "Anything that thinks goes indoors, under the cloth.",
-    "Mind the seam, it will have your shin.",
-    "If you are here to sell me a machine, I will buy it broken."
+    "Mind the seam, it'll have your shin.",
+    "If you're here to sell me a machine, I'll buy it broken."
   ],
-  "description": "A heavy man kneeling on the seam of an opened hull with a prybar across his knee, sorting through the inside of it without any particular hurry. The frames behind him are laid out in rows, stripped, all facing the same way. There is a wooden box beside him about the size of a bread tin with a crank folded into its side and a wire aerial wound round it, and he has a hand on the box the whole time he talks to you.",
+  "description": "A heavy man kneeling on the seam of an opened hull with a prybar across his knee, sorting through the inside of it without any particular hurry. The frames behind him are laid out in rows, stripped, all facing the same way. There's a wooden box beside him about the size of a bread tin with a crank folded into its side and a wire aerial wound round it, and he has a hand on the box the whole time he talks to you.",
   "dialogue_tree": {
     "box": {
       "actions": [],
@@ -34,7 +34,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A crank and a coil and a bit of wire.\" He turns it so you can see, and the lid is off, and there is genuinely nothing else in it. \"You wind it and it makes a noise nothing wants to hear. Not a noise you can hear.\n\n\"Anything close by that is listening to itself stops listening for a while. It does not last. You have to keep winding.\"\n\nHe puts his hand back on it.\n\n\"Mine has no battery in it, which is the point of it, and I made the coil in the winding shop on a Thursday.\""
+      "text": "\"A crank and a coil and a bit of wire.\" He turns it so you can see, and the lid is off, and there's genuinely nothing else in it. \"You wind it and it makes a noise nothing wants to hear. Not a noise you can hear.\n\n\"Anything close by that's listening to itself stops listening for a while. It doesn't last. You have to keep winding.\"\n\nHe puts his hand back on it.\n\n\"Mine has no battery in it, nothing to drain and nothing to trace, and I made the coil in the winding shop on a Thursday.\""
     },
     "bye": {
       "actions": [],
@@ -59,7 +59,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Everywhere. They come down, or they stop, or somebody drags one in on a cart from four days out and wants paying for it.\" He works a fastener loose. \"We buy them broken. We are the only people who will.\""
+      "text": "\"Everywhere. They come down, or they stop, or somebody drags one in on a cart from four days out and wants paying for it.\" He works a fastener loose. \"We buy them broken. We're the only people who will.\""
     },
     "keepwhy": {
       "actions": [],
@@ -72,7 +72,7 @@
           "next": "bye"
         }
       ],
-      "text": "He thinks about it for a while, and the answer, when it comes, is not a speech.\n\n\"Because throwing them away is a thing you do with rubbish.\""
+      "text": "He thinks about it for a while, and the answer, when it comes, isn't a speech.\n\n\"Because throwing them away is a thing you do with rubbish.\""
     },
     "onme": {
       "actions": [],
@@ -85,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is nothing in me to stop.\" He knocks a knuckle against his own forearm, and it is flesh. \"Selke has a steel one and it is cable and spring, so it does not care either.\n\n\"We're not being clever. It's just what we happen to be made of.\""
+      "text": "\"There's nothing in me to stop.\" He knocks a knuckle against his own forearm, and it's flesh. \"Selke has a steel one and it's cable and spring, so it doesn't care either.\n\n\"We're not being clever. It's just what we happen to be made of.\""
     },
     "parts": {
       "actions": [],
@@ -105,7 +105,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Every one.\" He nods at the shed behind him. \"There is a shelf indoors with a cloth over it. Everything on it used to make a decision.\n\n\"We do not use them and we do not sell them. They go on the shelf, and the shelf gets longer, and when we go east somebody will be able to say how many there were.\""
+      "text": "\"Every one.\" He nods at the shed behind him. \"There's a shelf indoors with a cloth over it. Everything on it used to make a decision.\n\n\"We don't use them and we don't sell them. They go on the shelf, and the shelf gets longer, and when we go east somebody will be able to say how many there were.\""
     },
     "people": {
       "actions": [],
@@ -114,7 +114,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "And it cannot be used on you?",
+          "label": "And it can't be used on you?",
           "next": "onme"
         },
         {
@@ -125,17 +125,17 @@
           "next": "bye"
         }
       ],
-      "text": "\"It works on what is in them.\" No relish in it at all, which is somehow worse. \"A drone, mostly. A person with the city's work in their arm, also, and they do not enjoy it and it does not hurt them.\n\n\"You do not point it at somebody standing at the top of a ladder. That is the whole of the rule and everybody knows the rule.\""
+      "text": "\"It works on what's in them.\" No relish in it at all, which is somehow worse. \"A drone, mostly. A person with the city's work in their arm, also, and they don't enjoy it and it doesn't hurt them.\n\n\"You don't point it at somebody standing at the top of a ladder. That's the whole of the rule and everybody knows the rule.\""
     },
     "root": {
       "actions": [],
-      "first": "He does not get up. \"You are stood in the row.\" He says it mildly and waits until you move, which is worse than if he had not. \"Yestin Grieve. This is the yard. We take them apart properly, from that end to this end, and everything gets kept.\"",
+      "first": "He doesn't get up. \"You're stood in the row.\" He says it mildly and waits until you move, which is worse than if he had not. \"Yestin Grieve. This is the yard. We take them apart properly, from that end to this end, and everything gets kept.\"",
       "options": [
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is in the box?",
+          "label": "What's in the box?",
           "next": "box"
         },
         {
@@ -162,9 +162,9 @@
       ],
       "text": "\"Row. Mind the row.\"",
       "text_by_relation": {
-        "close": "\"Right.\" He sets the prybar down. \"You can hold a casing steady and I will tell you what it is.\"",
+        "close": "\"Right.\" He sets the prybar down. \"You can hold a casing steady and I'll tell you what it is.\"",
         "familiar": "He kicks a crate over for you to sit on without looking up. \"Sit down, you make me nervous stood up.\"",
-        "known": "\"You are learning where to stand. Good.\""
+        "known": "\"You're learning where to stand. Good.\""
       }
     }
   },

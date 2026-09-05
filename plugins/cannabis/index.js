@@ -37,11 +37,11 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const CRAVINGS = [
   'Your stomach growls. You would commit crimes for something salty right now.',
   'A vivid, aching craving for junk food blooms in your skull. Crisps. So many crisps.',
-  'You are suddenly, profoundly hungry. Anything greasy would be a religious experience.',
+  "You're suddenly, profoundly hungry. Anything greasy would be a religious experience.",
   'The munchies hit like a truck. You start seriously considering eating whatever is nearest.',
 ];
 const SELF_GIGGLES = [
-  'A giggle escapes you. Then another. You have no idea why and it does not matter.',
+  "A giggle escapes you. Then another. You have no idea why and it doesn't matter.",
   'Something — nothing — sets you off, and you dissolve into helpless giggling.',
   'You snort, then start laughing quietly to yourself at absolutely nothing.',
 ];

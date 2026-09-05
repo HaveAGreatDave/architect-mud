@@ -1,10 +1,10 @@
 {
-  "description": "A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it is still inside.",
+  "description": "A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it's still inside.",
   "flags": {},
   "id": "item_drowned_lockbox",
   "name": "drowned lockbox",
   "tags": {
-    "description": "A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it is still inside.",
+    "description": "A sealed alloy lockbox, weed-strung and dripping, heavier than it has any right to be. Whatever the bay swallowed with it's still inside.",
     "misc": true
   },
   "type": "misc",

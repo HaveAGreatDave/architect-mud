@@ -92,11 +92,11 @@ function wearsArmour(player) {
  * and keep thinking less of you.
  */
 const LINES = [
-  'Somebody glances at your coat, then away, and does not look back.',
+  "Somebody glances at your coat, then away, and doesn't look back.",
   'Two of them stop talking as you pass. One of them says something. The other laughs.',
-  'A woman in a plain grey gi looks you up and down. "Expecting trouble?" She does not wait for an answer.',
-  'Nobody offers you a seat. It is not an accident and nobody pretends it is.',
-  'An old man taps his own chest, then yours, where the plate is. "That is not for here." He walks off before you can reply.',
+  'A woman in a plain grey gi looks you up and down. "Expecting trouble?" She doesn\'t wait for an answer.',
+  "Nobody offers you a seat. It isn't an accident and nobody pretends it is.",
+  'An old man taps his own chest, then yours, where the plate is. "That isn\'t for here." He walks off before you can reply.',
 ];
 
 /**
@@ -108,7 +108,7 @@ const LINES = [
  */
 const EXPLAINED =
   'Someone falls into step beside you, friendly enough. "You can wear it. Nobody will stop you." ' +
-  'A pause. "It is a question of respect. For the work, and for the people who did it before you were here. ' +
+  'A pause. "It\'s a question of respect. For the work, and for the people who did it before you were here. ' +
   'And we left all that out there on purpose." A shrug. "Your call."';
 
 const TAUGHT_FLAG = 'psi_taboo_explained';

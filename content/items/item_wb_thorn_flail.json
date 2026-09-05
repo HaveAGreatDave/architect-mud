@@ -1,5 +1,5 @@
 {
-  "description": "Two feet of the wall on a length of chain. It is still alive: it has been cut and it is closing, and it goes on closing on whatever it is wrapped around. It has to be watered.",
+  "description": "Two feet of the wall on a length of chain. It's still alive: it has been cut and it's closing, and it goes on closing on whatever it's wrapped around. It has to be watered.",
   "flags": {},
   "id": "item_wb_thorn_flail",
   "name": "thorn flail",
@@ -9,7 +9,7 @@
       "min": 7
     },
     "damage_type": "kinetic",
-    "description": "A living length of thorn wired to a chain. The spines are the length of your hand and it is not dead.",
+    "description": "A living length of thorn wired to a chain. The spines are the length of your hand and it isn't dead.",
     "min_skill": {
       "clubs": 1
     },

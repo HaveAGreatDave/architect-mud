@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Halloran has a parcel in a drop near the Hall of Records and wants it brought to him. It is sealed. He will not say what is in it, and when you ask he tells you why not.\n\n\"If they pick you up, you can only tell them what you know. So we make sure that is almost nothing. You know me and you know this bench. That is two people and one room, and it is as much as anybody down here knows about anybody.\"\n\nHe goes back to work.\n\n\"Do not open it, do not ask about it, and do not carry it like it matters. Somebody who looks like they are carrying something is the only kind of person anybody stops.\"",
+  "description": "Halloran has a parcel in a drop near the Hall of Records and wants it brought to him. It's sealed. He won't say what's in it, and when you ask he tells you why not.\n\n\"If they pick you up, you can only tell them what you know. So we make sure that's almost nothing. You know me and you know this bench. That's two people and one room, and it's as much as anybody down here knows about anybody.\"\n\nHe goes back to work.\n\n\"Don't open it, don't ask about it, and don't carry it like it matters. Somebody who looks like they're carrying something is the only kind of person anybody stops.\"",
   "fail_on": [],
   "id": "quest_lw_1",
   "meta": {},
@@ -10,7 +10,7 @@
       "desc": "Collect the sealed parcel from the drop near the Hall of Records.",
       "emotes": [
         "{who} eases the parcel out from behind the brick and puts it under an arm.",
-        "{who} does not weigh it in their hand, and is aware of not doing it.",
+        "{who} doesn't weigh it in their hand, and is aware of not doing it.",
         "{who} walks back without hurrying and without stopping."
       ],
       "id": "o_collect",

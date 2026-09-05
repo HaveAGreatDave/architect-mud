@@ -2,12 +2,12 @@
   "ambient_events": [
     "A wire of light drifts past at the edge of sight, carrying something that might be a voice.",
     "The attendant tilts its head a fraction, as if listening to a frequency you can't reach.",
-    "For a moment there is a floor beneath you. Then there isn't. You do not fall.",
+    "For a moment there's a floor beneath you. Then there isn't. You don't fall.",
     "The terminal hums a chord that resolves into your own name, then loses it."
   ],
   "ambient_theme": null,
   "bg_color": "#0b0d1a",
-  "description": "There is no floor, but you are standing. There is no light, but you can see. You are a held breath in a room the size of everything: white on white on nothing, edges that refuse to be edges. A single chrome attendant waits with the patience of something that has done this a billion times, one hand resting on a humming terminal. It knows your name before you do. When it speaks, the sound arrives inside your skull a half-second before its mouth moves.",
+  "description": "There's no floor, but you're standing. There's no light, but you can see. You're a held breath in a room the size of everything: white on white on nothing, edges that refuse to be edges. A single chrome attendant waits with the patience of something that has done this a billion times, one hand resting on a humming terminal. It knows your name before you do. When it speaks, the sound arrives inside your skull a half-second before its mouth moves.",
   "exits": {
     "north": "zone_the_lattice"
   },
@@ -18,7 +18,7 @@
     "is_interior": true,
     "prologue": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

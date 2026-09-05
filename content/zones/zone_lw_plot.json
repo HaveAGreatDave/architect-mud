@@ -1,13 +1,13 @@
 {
   "ambient_events": [
     "Somebody moves a pin two inches west, steps back, and looks at it for a long time.",
-    "A green thread runs the length of the wall, from a substation on the docks to a stairwell in the Yards. It is the most valuable object in the room.",
+    "A green thread runs the length of the wall, from a substation on the docks to a stairwell in the Yards. It's the most valuable object in the room.",
     "A boxed set of yesterday's plots sits on the floor, ready for the archive."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "The live version of the map upstairs, and the reason the Long Watch still exists. A great sheet of butcher's paper covers the whole east wall, every camera, mic and counter in the Basin plotted on it in three colours: black for watching, red for blinded, green for lying, the ones the Watch have not killed but taught to say the wrong thing. Pins and string mark the corridors those greens open up. Nobody raises their voice in this room.",
+  "description": "The live version of the map upstairs, and the reason the Long Watch still exists. A great sheet of butcher's paper covers the whole east wall, every camera, mic and counter in the Basin plotted on it in three colours: black for watching, red for blinded, green for lying, the ones the Watch haven't killed but taught to say the wrong thing. Pins and string mark the corridors those greens open up. Nobody raises their voice in this room.",
   "exits": {
     "east": "zone_lw_genvault",
     "north": "zone_lw_archive",

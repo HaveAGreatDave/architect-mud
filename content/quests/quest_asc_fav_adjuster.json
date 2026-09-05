@@ -1,9 +1,9 @@
 {
   "category": null,
-  "description": "An adjuster is closing an account on the ninth floor this afternoon. A year in arrears. She wants somebody in the corridor while she does it.\n\nNot to come in. Not to be introduced. Not to intervene.\n\n\"He will not take it well and it will not last long.\"\n\nClosing an account is four things. The cover ends. The chrome in him reverts to Halcyon and is scheduled for recovery. The household comes off the water and power book at the end of the month. The file goes into run-off.\n\nNone of that happens this afternoon. This afternoon he is only told.",
+  "description": "An adjuster is closing an account on the ninth floor this afternoon. A year in arrears. She wants somebody in the corridor while she does it.\n\nNot to come in. Not to be introduced. Not to intervene.\n\n\"He won't take it well and it won't last long.\"\n\nClosing an account is four things. The cover ends. The chrome in him reverts to Halcyon and is scheduled for recovery. The household comes off the water and power book at the end of the month. The file goes into run-off.\n\nNone of that happens this afternoon. This afternoon he's only told.",
   "fail_on": [
     {
-      "desc": "Somebody looked straight at you. An adjuster who is remembered is not an adjuster.",
+      "desc": "Somebody looked straight at you. An adjuster who's remembered isn't an adjuster.",
       "type": "spotted"
     },
     {

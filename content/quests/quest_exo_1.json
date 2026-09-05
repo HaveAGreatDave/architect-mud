@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Oracle-9 told you where to go before you asked her anything, and she told you what would be there. She knows these tunnels better than the people who dug them and she listens to every relay in the Under, so there is nothing strange about it at all. Go and see whether she was right.",
+  "description": "Oracle-9 told you where to go before you asked her anything, and she told you what would be there. She knows these tunnels better than the people who dug them and she listens to every relay in the Under, so there's nothing strange about it at all. Go and see whether she was right.",
   "fail_on": [],
   "id": "quest_exo_1",
   "meta": {},
@@ -11,7 +11,7 @@
       "emotes": [
         "{who} stands in it for a moment, working out how she could have known.",
         "{who} finds the water exactly where it was said to be, at the height it was said to be at.",
-        "{who} checks the run of the wall twice, because once is not enough to settle it."
+        "{who} checks the run of the wall twice, because once isn't enough to settle it."
       ],
       "id": "o_relay",
       "type": "visit",
@@ -20,7 +20,7 @@
     {
       "desc": "Go back down to Oracle-9 and tell her she was right.",
       "emotes": [
-        "{who} arrives with the answer and finds she is already looking up.",
+        "{who} arrives with the answer and finds she's already looking up.",
         "{who} says it out loud and gets a nod rather than an explanation."
       ],
       "id": "o_back",

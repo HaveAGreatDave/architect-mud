@@ -1,11 +1,11 @@
 {
   "ambient": [
     "The voice announces something for later.",
-    "A gap opens. It is comfortable, and it goes on slightly too long.",
+    "A gap opens. It's comfortable, and it goes on slightly too long.",
     "A theme starts, ten seconds of it, and is faded under."
   ],
   "cause": "drug",
-  "description": "Small hours, and a continuity voice is reading out the schedule for a day that is not going to happen. It is doing it warmly and without hurrying. Between the items there is a great deal of nothing, and the nothing is the part that was prepared.",
+  "description": "Small hours, and a continuity voice is reading out the schedule for a day that isn't going to happen. It's doing it warmly and without hurrying. Between the items there's a great deal of nothing, and the nothing is the part that was prepared.",
   "drug_id": "drug_deadair",
   "fx": "static",
   "fx_intensity": 0.8,
@@ -15,19 +15,19 @@
     {
       "looks": [
         "Warm, unhurried, and reading from something.",
-        "It gives a time, and the time is not one that comes around.",
-        "It is talking to you the way a voice talks to a room it assumes is empty."
+        "It gives a time, and the time isn't one that comes around.",
+        "It's talking to you the way a voice talks to a room it assumes is empty."
       ],
       "name": "the voice"
     },
     {
       "looks": [
         "Every slot filled. None of the titles hold still long enough to be read.",
-        "Between the items there is a gap, and the gap is longer each time.",
-        "You are on it, somewhere in the small hours, for four minutes."
+        "Between the items there's a gap, and the gap is longer each time.",
+        "You're on it, somewhere in the small hours, for four minutes."
       ],
       "name": "the schedule"
     }
   ],
-  "weather": "The forecast is read out, at length, for a region that is never named."
+  "weather": "The forecast is read out, at length, for a region that's never named."
 }

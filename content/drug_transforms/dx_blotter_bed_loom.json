@@ -4,7 +4,7 @@
     "What colour were you wearing yesterday? I need it for the border.",
     "Are you going to stand still at all?"
   ],
-  "description": "A wide frame of pale wood stands where the bed was, and it is weaving: shuttle going back and forth with nobody driving it, producing a cloth patterned with the room you are standing in.",
+  "description": "A wide frame of pale wood stands where the bed was, and it's weaving: shuttle going back and forth with nobody driving it, producing a cloth patterned with the room you're standing in.",
   "drug_id": "drug_blotter",
   "emotes": [
     "The shuttle on {it} crosses, snaps back, and the cloth grows a finger-width.",
@@ -15,7 +15,7 @@
   "fx_intensity": 0.5,
   "id": "dx_blotter_bed_loom",
   "looks": [
-    "The cloth coming off it shows this room, in thread, about four seconds behind. You are in it.",
+    "The cloth coming off it shows this room, in thread, about four seconds behind. You're in it.",
     "The shuttle crosses, returns, crosses. It never catches, and it never quite gets going either.",
     "The finished end trails off the frame and onto the floor and keeps going out under the door."
   ],
@@ -23,8 +23,8 @@
   "name": "a loom weaving itself",
   "says": [
     "Lie on the finished part. That end is done with.",
-    "I only work on the one pattern. It is a big pattern.",
-    "You moved. I will have to do that row again."
+    "I only work on the one pattern. It's a big pattern.",
+    "You moved. I'll have to do that row again."
   ],
   "scope": "object"
 }

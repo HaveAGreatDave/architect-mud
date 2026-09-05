@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Corin Halbrook has been through the Gate and has the same look on him you had, and Vess is busy.\n\n\"The Gallery first, because it is beautiful. Then the Vats, because that is the promise.\" She hands you nothing, because there is nothing to hand over. \"Say it in your own words. He will believe you and he will not believe me, and neither of those is anything to do with what is true.\"",
+  "description": "Corin Halbrook has been through the Gate and has the same look on him you had, and Vess is busy.\n\n\"The Gallery first, because it's beautiful. Then the Vats, because that's the promise.\" She hands you nothing, because there's nothing to hand over. \"Say it in your own words. He'll believe you and he won't believe me, and neither of those is anything to do with what's true.\"",
   "fail_on": [],
   "id": "quest_asc_12",
   "meta": {},
@@ -9,7 +9,7 @@
     {
       "desc": "Walk Halbrook through the Gallery.",
       "emotes": [
-        "{who} gives the Gallery the pause it is built for, because it works and because they remember it working.",
+        "{who} gives the Gallery the pause it's built for, because it works and because they remember it working.",
         "{who} hears themselves use a sentence of Vess word for word, and keeps going."
       ],
       "id": "o_gallery",
@@ -18,7 +18,7 @@
       "zone": "zone_asc_spire_gallery"
     },
     {
-      "desc": "Then the Vats, because that is the promise.",
+      "desc": "Then the Vats, because that's the promise.",
       "emotes": [
         "{who} watches a man look at a tank with his own face in it for the first time.",
         "{who} is asked how much it costs, and answers, and watches the arithmetic happen behind his eyes."

@@ -1,6 +1,6 @@
 {
   "category": "Job Board",
-  "description": "There's a crate in the Stash with no markings on it, and Marla would like it to be at the field instead of under her bar. Take it out through town and leave it on the apron. Nobody will ask you what's in it, and you will extend the same courtesy. 25₵.",
+  "description": "There's a crate in the Stash with no markings on it, and Marla would like it to be at the field instead of under her bar. Take it out through town and leave it on the apron. Nobody will ask you what's in it, and you'll extend the same courtesy. 25₵.",
   "fail_on": [],
   "id": "quest_reach_nolabel",
   "meta": {},
@@ -9,7 +9,7 @@
     {
       "desc": "The Stash",
       "emotes": [
-        "{who} gets a shoulder under the unmarked crate and lifts. It is heavier than a crate that size has any business being.",
+        "{who} gets a shoulder under the unmarked crate and lifts. It's heavier than a crate that size has any business being.",
         "{who} checks all six sides of the crate for a label, finds nothing, and stops looking.",
         "{who} hauls the crate off the cellar floor. Something inside it shifts once and then goes very still."
       ],
@@ -37,7 +37,7 @@
       "desc": "Buzzard Field",
       "emotes": [
         "{who} sets the crate down on the apron, well clear of the fuel bowser, and walks away from it.",
-        "{who} leaves the crate on the hardpan and does not look back at it. That's the whole job.",
+        "{who} leaves the crate on the hardpan and doesn't look back at it. That's the whole job.",
         "{who} lowers the crate onto the apron, straightens up, and decides they were never here."
       ],
       "id": "o2",

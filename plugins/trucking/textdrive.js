@@ -139,7 +139,7 @@ const ROAD_LINES = [
   'The engine settles into its note and holds it.',
   'Heat-shimmer stands on the hardtop ahead and never gets closer.',
   'A wind comes across the flat and leans on the trailer for a while.',
-  'Mile markers, if that is what they are. Nobody has repainted them.',
+  "Mile markers, if that's what they are. Nobody has repainted them.",
 ];
 const CITY_LINES = [
   'A junction, a dead signal, nobody coming the other way.',

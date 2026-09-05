@@ -360,7 +360,7 @@ function floorScreen() {
     <div class="td-floor">
       <canvas id="td-scene" class="td-scene" aria-label="The depot floor"></canvas>
       ${fleet.length ? '' : `<div class="td-hint">The bay is empty and the strip light is buzzing over nothing.
-        There is a line of trucks along the fence outside with chalk on their screens.</div>`}
+        There's a line of trucks along the fence outside with chalk on their screens.</div>`}
       <div class="td-strip">${fleet.map(t => `
         <button class="td-chip${t.id === B.selId ? ' on' : ''}${t.hereNow ? '' : ' away'}" data-sel="${esc(t.id)}">
           <span class="td-chip-name">${esc(t.name)}</span>
@@ -372,7 +372,7 @@ function floorScreen() {
       ${sel ? truckPane(sel) : '<div class="td-none">Nothing of yours is standing here.</div>'}
       <div class="td-acts">${acts}</div>
       <div class="td-deck"><span class="td-lab">On the deck</span> ${deck}
-        ${d.driving ? '' : '<div class="td-dim td-note">You are not in a truck.</div>'}</div>
+        ${d.driving ? '' : '<div class="td-dim td-note">You aren\'t in a truck.</div>'}</div>
       ${boxes}
     </aside>`;
 }
@@ -572,7 +572,7 @@ function buyScreen() {
         <div><dt>top</dt><dd>${t.top} mph</dd></div>
       </dl>
       <div class="td-acts">
-        ${tbtn('⊕', `Buy · ${money(t.price)}`, `data-cmd="yard buy ${esc(t.id)}" ${t.afford ? '' : 'disabled title="You cannot afford it"'}`, 'primary')}
+        ${tbtn('⊕', `Buy · ${money(t.price)}`, `data-cmd="yard buy ${esc(t.id)}" ${t.afford ? '' : 'disabled title="You can\'t afford it"'}`, 'primary')}
       </div>
     </div>`).join('');
 
@@ -648,7 +648,7 @@ function tuneTab(t) {
   return `
     <div class="td-pane">
       ${statBars(t.stats)}
-      <div class="td-dim td-note">Dials reach ±${range} with your hands and what is fitted.</div>
+      <div class="td-dim td-note">Dials reach ±${range} with your hands and what's fitted.</div>
       ${knobs}
       <div class="td-acts">
         <button class="td-act primary" data-cmd="${esc(cmd)}" ${dirty ? '' : 'disabled title="Nothing changed"'}>Commit the tune</button>
@@ -664,7 +664,7 @@ function kitsTab(t) {
     return `<div class="td-kit-row${on ? ' on' : ''}">
       <div class="td-main"><b>${esc(k.name)}</b><div class="td-dim">${esc(k.desc)}</div></div>
       ${on ? '<span class="td-fitted">FITTED</span>'
-        : `<button class="td-act" data-cmd="rig kit ${esc(t.id)} ${esc(k.id)}" ${k.afford ? '' : 'disabled title="You cannot afford it"'}>${money(k.price)}</button>`}
+        : `<button class="td-act" data-cmd="rig kit ${esc(t.id)} ${esc(k.id)}" ${k.afford ? '' : 'disabled title="You can\'t afford it"'}>${money(k.price)}</button>`}
     </div>`;
   }).join('')}</div>`;
 }
@@ -731,7 +731,7 @@ function fitsTab(t) {
         <div class="td-dim">${esc(f.desc)}</div></div>
       ${fitted
         ? `<button class="td-act ghost" data-cmd="rig unfit ${esc(t.id)} ${esc(f.id)}">Take it off</button>`
-        : `<button class="td-act" data-cmd="rig fit ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You cannot afford it"'}>${p ? money(p) : 'Put it back on'}</button>`}
+        : `<button class="td-act" data-cmd="rig fit ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You can\'t afford it"'}>${p ? money(p) : 'Put it back on'}</button>`}
     </div>`;
   }).join('');
 
@@ -742,7 +742,7 @@ function fitsTab(t) {
     <div class="td-fitsheet">${sheet}</div>
     <div class="td-sub-head">${esc(cur.label)} <span class="td-dim">${esc(cur.note)}</span></div>
     ${rows}
-    <div class="td-dim td-note">None of it changes how the truck drives. One per place, and once it is yours, swapping is free.</div>
+    <div class="td-dim td-note">None of it changes how the truck drives. One per place, and once it's yours, swapping is free.</div>
   </div>`;
 }
 
@@ -956,7 +956,7 @@ function paintInside(t) {
         <button class="td-act primary" data-cmd="${esc(cmd || '')}" ${cmd ? '' : 'disabled title="Nothing changed"'}>Retrim it · ${money(t.trimPrice || 0)}</button>
         <button class="td-act ghost" data-trim-reset ${cmd ? '' : 'disabled'}>Put it back</button>
       </div>
-      <div class="td-dim td-note">The bench does not sell instruments. What is in the binnacle came with the truck.</div>`;
+      <div class="td-dim td-note">The bench doesn't sell instruments. What's in the binnacle came with the truck.</div>`;
 }
 
 // The mix currently on the wells: the player's own if they have one, otherwise the colourway they
@@ -1732,9 +1732,9 @@ function ensureStyles() {
   .td-fitted{font:700 11px/1 'Courier New',monospace;letter-spacing:1px;color:#6fcf83}
   /* ── THE RIG SHEET ─────────────────────────────────────────────────────────
      Eight cells, two across, and each one answers a question the old shelf made you scroll for:
-     what is on this truck, in this place, right now. The cell is also the tab that opens that
-     place's shelf, so 'on' (something is fitted here) and 'sel' (this is the one you are looking
-     at) have to be legible AT THE SAME TIME and cannot share a channel — 'on' is the fitted name
+     what's on this truck, in this place, right now. The cell is also the tab that opens that
+     place's shelf, so 'on' (something is fitted here) and 'sel' (this is the one you're looking
+     at) have to be legible AT THE SAME TIME and can't share a channel — 'on' is the fitted name
      going green, 'sel' is the accent border every other selected thing in this panel wears. */
   .td-fitsheet{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:2px}
   .td-fitcell{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 8px;cursor:pointer;text-align:left;
@@ -1745,7 +1745,7 @@ function ensureStyles() {
     box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 28%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
   .td-fitslot{font:700 9.5px/1 'Courier New',monospace;letter-spacing:1.6px;text-transform:uppercase;color:var(--td-fg-dim2)}
   /* The empty state is italic and dim; the filled one is the same green the FITTED tag uses on the
-     kits tab, because "there is something here" is one idea and should not be two colours. */
+     kits tab, because "there's something here" is one idea and shouldn't be two colours. */
   .td-fitwhat{font:400 11.5px/1.2 'Courier New',monospace;color:var(--td-fg-dim2);font-style:italic;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
   .td-fitcell.on .td-fitslot{color:var(--td-fg-dim)}
@@ -1769,7 +1769,7 @@ function ensureStyles() {
   .td-seg-btn:hover{color:var(--td-fg)}
   .td-seg-btn.on{color:var(--td-fg);background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 8px color-mix(in srgb, var(--td-accent) 24%, transparent)}
-  /* A scheme card: the whole truck as six chips, then its name, then what it is wearing. */
+  /* A scheme card: the whole truck as six chips, then its name, then what it's wearing. */
   .td-schemes{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
   .td-scheme{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:7px 8px;cursor:pointer;text-align:left;
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));border-radius:8px;
@@ -1788,7 +1788,7 @@ function ensureStyles() {
     padding:5px 6px;border-radius:7px;cursor:pointer}
   .td-crow:hover{background:var(--td-surf-lo)}
   .td-crow.off{opacity:.45}
-  /* The mix, while it is the one fitted. Same accent the selected swatch wears, so "this is the
+  /* The mix, while it's the one fitted. Same accent the selected swatch wears, so "this is the
      one you have chosen" reads the same on a row of wells as it does on a row of buttons. */
   .td-crows.on{box-shadow:inset 2px 0 0 var(--td-accent);padding-left:6px;border-radius:7px}
   .td-cname{display:flex;flex-direction:column;gap:1px;font:700 11.5px/1.1 'Courier New',monospace;
@@ -1798,7 +1798,7 @@ function ensureStyles() {
   .td-col{width:38px;height:30px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
     border-radius:6px;background:var(--td-surf-lo);cursor:pointer;box-shadow:inset 0 1px 0 var(--td-bevel-hi);padding:2px}
   /* ── The interior, and its still ────────────────────────────────────────────
-     A dashboard is a slab under a header rail with two lit dials in it, and that is exactly what
+     A dashboard is a slab under a header rail with two lit dials in it, and that's exactly what
      this is — the colourway's own gradient, the material's grain, the gloss on the lip. */
   .td-dashmock{position:relative;display:block;height:96px;border-radius:9px;overflow:hidden;margin-bottom:4px;
     border:1px solid var(--border);box-shadow:inset 0 2px 8px rgba(0,0,0,.5)}
@@ -1839,7 +1839,7 @@ function ensureStyles() {
   /* The two boards stack their own contents — .td-body is a flex ROW (see freightScreen). */
   .td-col{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px}
   .td-deckstrip{flex:0 0 auto}
-  /* The row you are already carrying: lit down its leading edge, the same channel the selected box
+  /* The row you're already carrying: lit down its leading edge, the same channel the selected box
      row uses, so "this one is yours" reads the same way everywhere in the panel. */
   .td-row.taken{background:color-mix(in srgb,var(--td-accent) 9%,transparent);
     box-shadow:inset 2px 0 0 var(--td-accent)}
@@ -1847,7 +1847,7 @@ function ensureStyles() {
   .td-row .td-fitted{text-align:center}
   /* THE NOTICE. Pinned over the body rather than pushed into it, because a strip that reflows the
      board would move the button under the cursor at the exact moment the player is looking at it.
-     One 5.2s animation, matching the timer in showToast — there is no second clock. */
+     One 5.2s animation, matching the timer in showToast — there's no second clock. */
   #td-root .td-toast{position:absolute;left:50%;bottom:64px;z-index:6;max-width:min(78%,64ch);
     transform:translateX(-50%);pointer-events:none;text-align:center;
     font:700 12.5px/1.4 'Courier New',monospace;letter-spacing:1px;color:var(--td-fg);
@@ -1889,7 +1889,7 @@ function ensureStyles() {
     background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
     border-top:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
-  /* The footer verbs. They are buttons, so they look pressable: a raised chip that lifts under the
+  /* The footer verbs. They're buttons, so they look pressable: a raised chip that lifts under the
      cursor and sits down when armed — never the flat dim <code> they used to be, which read as
      documentation and was ignored accordingly. */
   .td-foot{display:flex;flex-wrap:wrap;gap:7px;align-items:center}

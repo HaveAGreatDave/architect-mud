@@ -3,9 +3,9 @@
   "id": "bt_amb_gen_103",
   "lines": [
     "\"{temp} out.\"",
-    "\"That is not weather, that is a diagnosis.\"",
+    "\"That isn't weather, that's a diagnosis.\"",
     "\"It was worse last year.\"",
-    "\"It is always worse last year.\""
+    "\"It's always worse last year.\""
   ],
   "personality": null,
   "sort_order": 502

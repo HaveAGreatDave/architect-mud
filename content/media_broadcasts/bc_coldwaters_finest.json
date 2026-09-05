@@ -164,7 +164,7 @@
         },
         "next": "bsm_24",
         "style": "narration",
-        "text": "The suspect's chief concern is not the night in Precinct 9.",
+        "text": "The suspect's chief concern isn't the night in Precinct 9.",
         "type": "say"
       },
       "bsm_24": {
@@ -298,7 +298,7 @@
           "x": 300,
           "y": 1200
         },
-        "message": "looks at Boedeker for confirmation. He does not get it.",
+        "message": "looks at Boedeker for confirmation. He doesn't get it.",
         "next": "bsm_37",
         "type": "npc_action"
       },
@@ -473,7 +473,7 @@
         },
         "next": "bsm_53",
         "style": "narration",
-        "text": "Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock does not care that you are bored.",
+        "text": "Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock doesn't care that you're bored.",
         "type": "say"
       },
       "bsm_53": {
@@ -503,7 +503,7 @@
         },
         "next": "bsm_56",
         "style": "narration",
-        "text": "Ordway's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment.",
+        "text": "Ordway's cruiser, parked. Engine ticking as it cools. He doesn't get out for a long moment.",
         "type": "say"
       },
       "bsm_56": {
@@ -704,7 +704,7 @@
       "text": "Under Basin ordinance, possession at this weight is three stars and a night in Precinct 9."
     },
     {
-      "text": "The suspect's chief concern is not the night in Precinct 9."
+      "text": "The suspect's chief concern isn't the night in Precinct 9."
     },
     {
       "text": "Hey. Look at me. When did you last back up?"
@@ -746,13 +746,13 @@
       "text": "A folded orange jumpsuit is pushed across the counter. It has been washed so many times it has gone the colour of weak tea."
     },
     {
-      "text": "Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock does not care that you are bored."
+      "text": "Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock doesn't care that you're bored."
     },
     {
       "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they're waiting for it to buffer."
     },
     {
-      "text": "Ordway's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment."
+      "text": "Ordway's cruiser, parked. Engine ticking as it cools. He doesn't get out for a long moment."
     },
     {
       "text": "People ask if it gets to you."

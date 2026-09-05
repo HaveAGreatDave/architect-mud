@@ -50,7 +50,7 @@ export async function maybeBriefDepot(player, zoneId, { depotFrom, isDriving }) 
       + '\n<span class="text-dim">· ' + teachVerb('haul', 'haul') + ' — the freight board. Loads that need moving, and what they pay.</span>'
       + '\n<span class="text-dim">· ' + teachVerb('market', 'market') + ' — what this town is paying for what. Buy low here, sell high there.</span>'
       + '\n<span class="text-dim">· ' + teachVerb('drive', 'drive') + ' — climb into one of yours. '
-      + 'Then it is the wheel, the gears and the road; ' + teachVerb('park', 'park') + ' gets you back out.</span>'
+      + "Then it's the wheel, the gears and the road; " + teachVerb('park', 'park') + ' gets you back out.</span>'
       + '\n<span class="text-amber">Nobody hands over forty tonnes on trust, so you need a licence first — and the school '
       + 'rig in the shed is free. ' + teachVerb('roadtest', 'roadtest') + '</span> <span class="text-dim">takes it out with '
       + 'the foreman talking you through it: out of the yard, some road, back, park. Nothing of yours to lose, and they pay '

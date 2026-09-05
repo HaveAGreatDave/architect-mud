@@ -75,8 +75,8 @@ const WRONG = [
   "You're going to do it anyway. We've read ahead.",
   "{you}. {you}. {you}.",
   "This isn't the first time we've had this conversation.",
-  "There is somebody standing behind you and it is also me.",
-  "You are the only thing in this room that thinks it's real.",
+  "There's somebody standing behind you and it's also me.",
+  "You're the only thing in this room that thinks it's real.",
   "We can stop. You only have to ask us to stop. You won't.",
   "Put it down.",
 ];

@@ -4,11 +4,11 @@
     "Shall we start again?",
     "How many times is this now?"
   ],
-  "description": "You know this person. You met them earlier, and it went fine, and you cannot produce a single detail of it. They are pleased to see you again and are waiting for you to catch up.",
+  "description": "You know this person. You met them earlier, and it went fine, and you can't produce a single detail of it. They're pleased to see you again and are waiting for you to catch up.",
   "drug_id": null,
   "emotes": [
-    "{it} raises an eyebrow as though you are running behind.",
-    "{it} nods along to something you have not said yet.",
+    "{it} raises an eyebrow as though you're running behind.",
+    "{it} nods along to something you haven't said yet.",
     "{it} checks the room, as if for the others."
   ],
   "fx": null,
@@ -16,8 +16,8 @@
   "id": "dxp_default_again",
   "looks": [
     "Their face is familiar in the way a word is familiar when you have said it forty times.",
-    "They are dressed exactly as they were the first time, which you also cannot remember.",
-    "They are waiting patiently for you to place them, and they are enjoying it a little."
+    "They're dressed exactly as they were the first time, which you also can't remember.",
+    "They're waiting patiently for you to place them, and they're enjoying it a little."
   ],
   "matches": null,
   "name": "somebody you have already met tonight",

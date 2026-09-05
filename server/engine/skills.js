@@ -23,7 +23,7 @@ export const SKILLS = {
   // by different people in different places. It scales the COST of a climb and
   // never the outcome — see the ⚠ on engine:impassable-terrain: a climb that
   // sometimes worked would undo the whole reason cliffs are allowed to be climbed.
-  climbing:    { id:'climbing',    name:'Climbing',    category:'survival', stats:['stat_brawn','stat_endurance'], desc:'Loose rock, bad holds, and the weight of everything you insisted on carrying. Getting up the parts of the world that were not built with stairs.' },
+  climbing:    { id:'climbing',    name:'Climbing',    category:'survival', stats:['stat_brawn','stat_endurance'], desc:"Loose rock, bad holds, and the weight of everything you insisted on carrying. Getting up the parts of the world that weren't built with stairs." },
   hacking:     { id:'hacking',     name:'Hacking',     category:'tech',     stats:['stat_brains'], desc:'Talking computers into betraying their owners. Locks, terminals, and ATMs all listen eventually.' },
   electronics: { id:'electronics', name:'Electronics', category:'tech',     stats:['stat_brains'], desc:'Wiring, circuits, and salvaged tech. Making dead gadgets twitch back to life.' },
   fabrication: { id:'fabrication', name:'Fabrication', category:'tech',     stats:['stat_brains'], desc:'Crafting and repairing gear from raw parts. The backbone of building anything worth having.' },

@@ -135,11 +135,11 @@
     "\"Sit. Eat. Talk after.\"",
     "The stockpot lid lifts on a shoulder of steam and settles again."
   ],
-  "description": "A lean, fast cook in a sweat-through vest, working nine bowls at once with a ladle in one hand and a set of tongs in the other and never once looking at either. He does not do conversation during service. Between services he does very little else, and he is extremely good at it.",
+  "description": "A lean, fast cook in a sweat-through vest, working nine bowls at once with a ladle in one hand and a set of tongs in the other and never once looking at either. He doesn't do conversation during service. Between services he does very little else, and he's extremely good at it.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He is already three bowls into the next order and you have ceased to exist."
+      "text": "He's already three bowls into the next order and you have ceased to exist."
     },
     "gossip": {
       "actions": [
@@ -153,7 +153,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Nine men eating shoulder to shoulder and not one of them looking at each other. You would not believe what gets said.\""
+      "text": "\"Nine men eating shoulder to shoulder and not one of them looking at each other. You wouldn't believe what gets said.\""
     },
     "nine": {
       "options": [
@@ -175,7 +175,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Never cold. Not once.\" He says it flatly, the way you'd state a fact about a river. \"Topped, skimmed, fed, every day, through the bad winter and the week the grid went. My mother started it. Whatever's in there now, some of it is hers.\" He looks at you for the first time. \"So don't ask for it with the broth left out.\""
+      "text": "\"Never cold. Not once.\" He says it flatly, the way you'd state a fact about a river. \"Topped, skimmed, fed, every day, through the bad winter and the week the grid went. My mother started it. Whatever's in there now, some of it's hers.\" He looks at you for the first time. \"So don't ask for it with the broth left out.\""
     },
     "root": {
       "options": [

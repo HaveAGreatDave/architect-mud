@@ -290,7 +290,7 @@ export function operationDifficulty(target, subsystem, opId) {
 /** Can this operation be pointed at this subsystem at all? Returns a reason, or null. */
 export function operationRefusal(player, target, subsystem, opId) {
   const op = getNullOperation(opId);
-  if (!op) return `There is no such operation.`;
+  if (!op) return `There's no such operation.`;
   if (!subsystem) return `You would have to name a subsystem.`;
   if (!operationApplies(opId, subsystem.kind)) {
     return `You can't ${op.label.toLowerCase()} ${subsystem.label || subsystem.id} — there's nothing there that works that way.`;

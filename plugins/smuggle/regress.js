@@ -60,7 +60,7 @@ export default async ({ run, check, getPlayer }) => {
   // the FRONT counter must be refused, or the covert half leaks: the client sends an
   // item id, so without the shelf check a bar patron could buy precursor.
   const leak = await buyFromVendor(p, fence, raw.id, 1, null);
-  check('raw is not buyable from the front counter (the back room stays shut)',
+  check("raw isn't buyable from the front counter (the back room stays shut)",
     leak.success === false, JSON.stringify(leak.message));
   let { rows: leaked } = await query("SELECT COUNT(*)::int n FROM smuggle_orders WHERE player_id=$1", [p.id]);
   check('a front-counter attempt books no order', leaked[0]?.n === 0, JSON.stringify(leaked[0]));
@@ -85,7 +85,7 @@ export default async ({ run, check, getPlayer }) => {
   await buyFromVendor(p, fence, raw.id, 1, 'back_room');
   const { rows: tr } = await query(
     "SELECT flag_value FROM player_flags WHERE player_id=$1 AND flag_key='bm_trust'", [p.id]);
-  check('buying does not buy standing (trust_per_buy 0)', Number(tr[0]?.flag_value) === 50, JSON.stringify(tr[0]));
+  check("buying doesn't buy standing (trust_per_buy 0)", Number(tr[0]?.flag_value) === 50, JSON.stringify(tr[0]));
 
   await query('DELETE FROM smuggle_orders WHERE player_id=$1', [p.id]);
   await query('DELETE FROM npcs WHERE id=$1', [fence.id]);

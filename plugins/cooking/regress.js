@@ -163,7 +163,7 @@ export default async function regress({ run, check, getPlayer }) {
       matchScore(sigOf([penneRow, ginRow, fatRow, greensRow, creamRow]), t, ids) === -1);
     check('...nor does a pile of them big enough to meet the weight',
       matchScore(sigOf([penneRow, ginRow, fatRow, greensRow, { ...greensRow }, creamRow]), t, ids) === -1);
-    check('...and cheese is not the cream that goes in last',
+    check("...and cheese isn't the cream that goes in last",
       matchScore(sigOf([penneRow, ginRow, fatRow, tomatoRow,
         row('vat cheese', { food_profile: 'dairy', food_noun: 'vat cheese' }, 200)]), t, ids) === -1);
     // The display half and the binding half are one statement, and the validator
@@ -188,11 +188,11 @@ export default async function regress({ run, check, getPlayer }) {
     const penne = { name: 'box of penne', tags: { food_profile: 'dry_starch' } };
 
     check('water in the pot is a medium', isMedium(water));
-    check('...and stock is not — it is an ingredient', !isMedium(stock));
+    check("...and stock is not — it's an ingredient", !isMedium(stock));
     check('...and neither is a thing with no tags at all', !isMedium(penne) && !isMedium(null));
     check('a medium still reads as a liquid to the pan', hasCookingLiquid([water]));
     check('...so does real stock', hasCookingLiquid([stock]));
-    check('a dry pan of penne is not wet, which is what the gate turns on',
+    check("a dry pan of penne isn't wet, which is what the gate turns on",
       !hasCookingLiquid([penne]));
 
     // ...but the gate is about DRY starch. Boiled and drained pasta going into a
@@ -213,7 +213,7 @@ export default async function regress({ run, check, getPlayer }) {
     // are excluded upstream, so this asserts the exclusion is what makes ramen
     // refuse rather than any property of `signature` itself.
     const forDish = rows => signature(rows.filter(r => !isMedium(r)), profileNameFor);
-    check('a pot of noodles and tap water is not ramen',
+    check("a pot of noodles and tap water isn't ramen",
       matchScore(forDish([penne, water]), DISHES.ramen, new Set(['item_ramen_noodles'])) === -1,
       JSON.stringify(forDish([penne, water])));
     check('...and the same pot with actual stock in it is',
@@ -291,7 +291,7 @@ export default async function regress({ run, check, getPlayer }) {
     const wrongVeg = scoreWith(held);
     check('a pan of greens and cheese is still short the tomato and the cream',
       wrongVeg.missing.length === 2, JSON.stringify(wrongVeg.missing));
-    check('...so it cannot read 100% over a list of what it is missing',
+    check("...so it can't read 100% over a list of what it's missing",
       wrongVeg.pct < 100, wrongVeg.pct);
     check('...but it beats holding none of the class at all',
       wrongVeg.pct > scoreWith(held.filter(r => !/greens|cheese/.test(r.name))).pct,
@@ -322,7 +322,7 @@ export default async function regress({ run, check, getPlayer }) {
   // The stage the workspace HUD draws its pips from. It must be the SAME beat the
   // prose beside it names — one table, one index — and it must never grow into a
   // clock: how long is left is the question the kitchen deliberately refuses.
-  check('mid-cook reports which beat it is on, in range',
+  check("mid-cook reports which beat it's on, in range",
     midState.phase === 'cook' && midState.stage >= 1 && midState.stage <= midState.stages,
     midState);
   check('...and the stage agrees with the prose it sits beside',
@@ -398,7 +398,7 @@ export default async function regress({ run, check, getPlayer }) {
   const perfectActs = [{ at: 5000, kind: 'flip' }];
   const bestKit = session('dense_meat', { startedAt: 0, cookMs: 10000, acts: perfectActs, vessel: { d: 1, r: 1 } });
   const burntBest = evaluate(bestKit, PROFILES.dense_meat, timeline(bestKit, PROFILES.dense_meat).burnAt + 1, 14);
-  check('a burnt steak cannot exceed its burnt target however well it was handled', burntBest.band === PROFILES.dense_meat.targets.burnt, burntBest);
+  check("a burnt steak can't exceed its burnt target however well it was handled", burntBest.band === PROFILES.dense_meat.targets.burnt, burntBest);
 
   // A well-run cook in the window reaches the top band; a careless one does not.
   const good = evaluate(session('dense_meat', { startedAt: 0, cookMs: 10000, acts: perfectActs, vessel: { d: 0.9, r: 0.8 } }), PROFILES.dense_meat, at, 10);
@@ -520,7 +520,7 @@ export default async function regress({ run, check, getPlayer }) {
     player.hunger = 0;
     r = await run('eat test raw cutlet');
     check('eating raw food applies the undercooked message, not a normal restore', /raw in the middle/.test(r?.message || ''), r?.message);
-    check('eating raw food does not restore hunger', player.hunger === 0, `hunger=${player.hunger}`);
+    check("eating raw food doesn't restore hunger", player.hunger === 0, `hunger=${player.hunger}`);
     check('eating raw food applies food_poisoning', (player.statuses || []).some(s => s.name === 'food_poisoning'), player.statuses);
     player.statuses = (player.statuses || []).filter(s => s.name !== 'food_poisoning');
 
@@ -597,7 +597,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('flipping with a spatula in hand works', r?.type === 'output', JSON.stringify(r));
     sRow = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [steakId])).rows[0];
     check('a flip is recorded against the session', sRow.custom_data.cooking.acts?.length === 1, sRow.custom_data.cooking.acts);
-    check('flipping does not disturb the rest of the session',
+    check("flipping doesn't disturb the rest of the session",
       sRow.custom_data.cooking.startedAt === live.startedAt && sRow.custom_data.cooking.doneAt === live.doneAt);
 
     await query('UPDATE player_inventory SET container_id=NULL WHERE id=$1', [turnerId]);
@@ -680,7 +680,7 @@ export default async function regress({ run, check, getPlayer }) {
       player.hunger = 0;
       const eaten = await run('eat test steak');
       check(`a ${band} meal restores ${expected} hunger`, player.hunger === expected, `hunger=${player.hunger}`);
-      if (band === 'masterful') check('a masterful meal is well-fed even though the item is not tagged well_fed', /Well-fed/.test(eaten?.message || ''), eaten?.message);
+      if (band === 'masterful') check("a masterful meal is well-fed even though the item isn't tagged well_fed", /Well-fed/.test(eaten?.message || ''), eaten?.message);
     }
 
     // Unquality-stamped food is untouched by any of this.
@@ -724,7 +724,7 @@ export default async function regress({ run, check, getPlayer }) {
     // The failure that started this: an unknown vessel must refuse in words,
     // never fall through to "Unknown command" — the verb plainly exists.
     r = await run('mix nothing at all into a fictional bowl');
-    check('mixing into something you do not have is a spoken refusal',
+    check("mixing into something you don't have is a spoken refusal",
       r?.type === 'error' && /don't have/.test(r.message || ''), JSON.stringify(r));
     r = await run('mix a fictional bowl');
     check('bare mix of an unknown vessel is a spoken refusal too',
@@ -865,7 +865,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     r = await run('cook test pan');
     check('cooking a vessel heats its real ingredients', r?.type === 'output' && /test steak/.test(r.message), JSON.stringify(r));
-    check('a modifier is not put on the heat as its own ingredient', !/test dripping/.test(r?.message || ''), r?.message);
+    check("a modifier isn't put on the heat as its own ingredient", !/test dripping/.test(r?.message || ''), r?.message);
 
     const batch = (await query(
       `SELECT pi.id, pi.custom_data, i.tags->>'food_profile' AS profile
@@ -908,7 +908,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a second routine meal inside the cooldown pays nothing',
       cookingIpFor('good', justEarned, justEarned + 1000).ip === 0, cookingIpFor('good', justEarned, justEarned + 1000));
     check('...and says so, rather than silently paying zero', cookingIpFor('good', justEarned, justEarned + 1000).cooled === true);
-    check('masterful ignores the cooldown entirely — you cannot grind those',
+    check("masterful ignores the cooldown entirely — you can't grind those",
       cookingIpFor('masterful', justEarned, justEarned + 1000).ip === MASTERFUL_IP);
     check('the cooldown expires', cookingIpFor('good', justEarned, justEarned + ROUTINE_IP_COOLDOWN_MS + 1).ip === ROUTINE_IP);
     check('only a routine award resets the cooldown clock',
@@ -951,7 +951,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('half a dish sells for about half', Math.abs(px('masterful', { portion: 0.5 }) - px('masterful') / 2) <= 1);
     check('an item with no band prices exactly as it always did',
       computeSellUnitPrice(40, 0, 0, {}) === computeSellUnitPrice(40, 0, 0, { cookQuality: null }));
-    check('an unknown band does not zero out the price', px('nonsense') === computeSellUnitPrice(40, 0, 0, {}));
+    check("an unknown band doesn't zero out the price", px('nonsense') === computeSellUnitPrice(40, 0, 0, {}));
     check('the quality multiplier respects the same ceiling drug potency does',
       Math.max(...Object.values(COOK_QUALITY_PRICE)) <= 3);
 
@@ -977,7 +977,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Resting: carry-over cooking from ONE timestamp ───────────────────────
     const T = 1_000_000;
-    check('food that does not rest is unaffected', restMultiplier(T, false, T + 60_000) === 1);
+    check("food that doesn't rest is unaffected", restMultiplier(T, false, T + 60_000) === 1);
     check('eaten straight off the heat, no bonus', restMultiplier(T, true, T + 1000) === 1);
     check('rested into the window, a real bonus', restMultiplier(T, true, T + REST_PEAK_MS) > 1.2, restMultiplier(T, true, T + REST_PEAK_MS));
     check('the bonus climbs toward the peak',
@@ -1044,7 +1044,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     const p1 = sick();
     runTicks(p1, 8);
-    check('it guts your stamina fast — you are going nowhere', p1.stamina <= 10, p1.stamina);
+    check("it guts your stamina fast — you're going nowhere", p1.stamina <= 10, p1.stamina);
     check('...but barely touches your HP', 100 - p1.hp <= 10, 100 - p1.hp);
 
     const p2 = sick();
@@ -1095,7 +1095,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('tenderising costs one rung; mince costs two',
       prepCeilingDrop({ tenderised: true }) < prepCeilingDrop({ minced: true }) && prepCeilingDrop({ tenderised: true }) > 0,
       { tenderised: prepCeilingDrop({ tenderised: true }), minced: prepCeilingDrop({ minced: true }) });
-    check('mince already destroyed what tenderising would — the costs do not stack',
+    check("mince already destroyed what tenderising would — the costs don't stack",
       prepCeilingDrop({ minced: true, tenderised: true }) === prepCeilingDrop({ minced: true }));
     check('scoring pays a flat bonus', prepBonus({ scored: true }) > 0);
     check('a marinade under the minimum soak has done nothing',
@@ -1170,7 +1170,7 @@ export default async function regress({ run, check, getPlayer }) {
       JSON.stringify(seeded(12345)) === JSON.stringify(seeded(12345)));
     check('a different seed gives a different cue',
       JSON.stringify(seeded(12345)) !== JSON.stringify(seeded(999)));
-    check('seeding does not leave the generator armed for the next caller', (() => {
+    check("seeding doesn't leave the generator armed for the next caller", (() => {
       seeded(42);
       const x = buildCookingCue({ action: 'chop', material: 'hard_food' });
       const y = buildCookingCue({ action: 'chop', material: 'hard_food' });
@@ -1187,7 +1187,7 @@ export default async function regress({ run, check, getPlayer }) {
     // Material must actually change the sound, or the whole design is theatre.
     const wet = buildCookingCue({ action: 'chop', material: 'wet_meat', intensity: 0.6 });
     const dry = buildCookingCue({ action: 'chop', material: 'bread', intensity: 0.6 });
-    check('a wet material adds a squelch layer a dry one does not have',
+    check("a wet material adds a squelch layer a dry one doesn't have",
       wet.config.layers.length > dry.config.layers.length,
       { wet: wet.config.layers.length, dry: dry.config.layers.length });
     check('heat drives sizzle density', (() => {
@@ -1222,7 +1222,7 @@ export default async function regress({ run, check, getPlayer }) {
     const hob = (extra = {}) => ({ ...mw(extra), microwave: undefined });
 
     check('a microwave is faster than the best stove', MICROWAVE_SPEED > STOVE_SPEED.high);
-    check('...and thaws faster still — the one job it is genuinely best at',
+    check("...and thaws faster still — the one job it's genuinely best at",
       MICROWAVE_THAW_SPEED > MICROWAVE_SPEED);
     check('frozen food thaws far quicker in one than on a hob', (() => {
       const onHob = computeDuration(1000, STOVE_SPEED.high, true, 1);
@@ -1263,7 +1263,7 @@ export default async function regress({ run, check, getPlayer }) {
       beep.config.layers.length === 3, beep.config.layers.length);
     check('the beeps are one flat identical tone',
       new Set(beep.config.layers.map(l => l.freq)).size === 1);
-    check('the beep is not the running sound', beep.id !== mwCue.id);
+    check("the beep isn't the running sound", beep.id !== mwCue.id);
     check('...built from one knock per revolution',
       mwCue.config.layers.filter(l => l.waveform === 'triangle').length === 3);
     check('...and more revolutions runs longer',
@@ -1294,7 +1294,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('the tiers are ordered', tasteTier(0) === 'novice' && tasteTier(TASTE_TIERS.competent) === 'competent' && tasteTier(TASTE_TIERS.expert) === 'expert');
     check('a novice is told something vague, an expert something specific',
       notesAt(0)[0] !== tasteNotes({ session: tSess, profile: PROFILES.dense_meat, skill: 9, now: 1 })[0]);
-    check('seasoning is only commented on when there is a dish to judge',
+    check("seasoning is only commented on when there's a dish to judge",
       tasteNotes({ template: DISHES.roast, modifierCount: 0, skill: 9 }).length > 0 &&
       tasteNotes({ skill: 9 }).length === 0);
 
@@ -1310,7 +1310,7 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Fond remembers what made it ──────────────────────────────────────────
     const meatFond = makeFond('dense_meat', 'excellent', 1_000_000);
     check('fond from meat belongs in a meat dish', fondBelongs(meatFond, DISHES.stew));
-    check('...and does not belong in a fruit one', !fondBelongs(makeFond('preserved', 'good', 1), DISHES.compote));
+    check("...and doesn't belong in a fruit one", !fondBelongs(makeFond('preserved', 'good', 1), DISHES.compote));
     check('lifting fond that belongs pays',
       fondModifier(meatFond, { deglazed: true, template: DISHES.stew, now: 1_000_001 }) > 0);
     check('lifting fond that does NOT belong costs — fruit tasting of fish is worse than plain fruit',
@@ -1336,7 +1336,7 @@ export default async function regress({ run, check, getPlayer }) {
       { whole: mBand.ceiling, minced: wBand.ceiling });
     check('mince is still food, never floored to poor', bandIndex(mBand.ceiling) >= 1, mBand.ceiling);
 
-    check('a doneness target on mince is ignored — there is no rare middle',
+    check("a doneness target on mince is ignored — there's no rare middle",
       timeline({ ...minceSess(true), target: 'blue' }, PROFILES.dense_meat).doneAt ===
       timeline({ ...minceSess(true), target: 'well done' }, PROFILES.dense_meat).doneAt);
     check('...while a whole cut still honours it',
@@ -1446,7 +1446,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a mismatched fond lifts into the dish passively too, and still ruins it',
       fondModifier(makeFond('dense_meat', 'excellent', 1_000_000),
         { deglazed: false, hadLiquid: true, template: DISHES.compote, now: 1_000_001 }) < 0);
-    check('LIFTING it is worth a real bonus', fondModifier(fresh, { deglazed: true, now: 1_000_001 }) === FOND_BONUS);
+    check("LIFTING it's worth a real bonus", fondModifier(fresh, { deglazed: true, now: 1_000_001 }) === FOND_BONUS);
     check('dried residue is an active penalty on the next cook',
       fondModifier(fresh, { deglazed: true, now: 1_000_000 + FOND_LIFE_MS + 1 }) === FOND_RESIDUE_PENALTY);
     check('a clean pan is neutral', fondModifier(null) === 0);
@@ -1469,7 +1469,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('liquids, batter and preserved cuts do not',
       !profileNeedsPrep('liquid') && !profileNeedsPrep('batter') && !profileNeedsPrep('preserved'),
       ['liquid', 'batter', 'preserved'].filter(profileNeedsPrep));
-    check('seasoning never needs a knife — it is already dust or oil',
+    check("seasoning never needs a knife — it's already dust or oil",
       Object.keys(PROFILES).filter(p => PROFILES[p].modifier).every(p => !profileNeedsPrep(p)));
     check('needsPrep reads off the item, not just the profile name',
       needsPrep({ tags: { food_profile: 'soft_vegetable' } }) && !needsPrep({ tags: { food_profile: 'liquid' } }));
@@ -1483,7 +1483,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Intermediates: a dish whose output is an INGREDIENT ──────────────────
     const inters = Object.entries(DISHES).filter(([, t]) => t.output);
-    check('there is at least one intermediate recipe', inters.length >= 1, inters.map(([k]) => k));
+    check("there's at least one intermediate recipe", inters.length >= 1, inters.map(([k]) => k));
     check('an intermediate names a real item id', inters.every(([, t]) => /^item_/.test(t.output.item)), inters.map(([, t]) => t.output.item));
     const mbRows = [
       { id: 'item_sausage', name: 'sausage', tags: { food_profile: 'dense_meat' }, custom_data: {} },
@@ -1543,7 +1543,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('smoked meat finished with the sauce is its own dish', chop?.key === 'smoked_chop', chop?.key);
     check('...and it names the cut it came from',
       dishName(chop.template, chopRows, profileNameFor) === 'smoked pork chop', dishName(chop.template, chopRows, profileNameFor));
-    check('the same cut WITHOUT the sauce is not that dish',
+    check("the same cut WITHOUT the sauce isn't that dish",
       matchDish(signature(chopRows, profileNameFor), 'pan', new Set(['item_pink_slab']))?.key !== 'smoked_chop');
     // The overnight cousin of the chop: same smoker, no sauce required, and it
     // takes TWO units of shoulder because a shoulder is not a portion.
@@ -1563,7 +1563,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('the rub produces the same item the grocery sells',
       DISHES.spice_rub.output?.item === 'item_bbq_rub');
 
-    check('an unsmoked slab cannot be a smoked chop, whatever sauce you put on it', (() => {
+    check("an unsmoked slab can't be a smoked chop, whatever sauce you put on it", (() => {
       const raw = [{ id: 'item_pink_slab', tags: { food_profile: 'dense_meat' }, custom_data: {} }, chopRows[1]];
       return matchDish(signature(raw, profileNameFor), 'pan', new Set(raw.map(r => r.id)))?.key !== 'smoked_chop';
     })());
@@ -1587,7 +1587,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Doneness targets ─────────────────────────────────────────────────────
     check('dense meat offers a choice of doneness', (donenessLevels(PROFILES.dense_meat) || []).length >= 3, donenessLevels(PROFILES.dense_meat)?.map(l => l.name));
-    check('a potato does not — it is cooked or it is not', donenessLevels(PROFILES.starchy_vegetable) === null);
+    check("a potato does not — it's cooked or it's not", donenessLevels(PROFILES.starchy_vegetable) === null);
     check('a profile with no doneness block sits at 1.0, exactly as before', donenessAt(PROFILES.starchy_vegetable, 'anything') === 1);
 
     const mk = target => ({ startedAt: 0, thawMs: 0, cookMs: 60000, doneAt: 60000, profile: 'dense_meat',
@@ -1624,10 +1624,10 @@ export default async function regress({ run, check, getPlayer }) {
 
     const badDefault = validateProfiles({ bad: { ...PROFILES.dense_meat,
       doneness: { default: 'rare', levels: [{ name: 'rare', at: 0.75 }, { name: 'medium', at: 1 }] } } });
-    check('the validator rejects a default that is not at 1.0', !badDefault.ok && /must sit at 1.0/.test(badDefault.errors.join(' ')), badDefault.errors);
+    check("the validator rejects a default that isn't at 1.0", !badDefault.ok && /must sit at 1.0/.test(badDefault.errors.join(' ')), badDefault.errors);
     const badOrder = validateProfiles({ bad: { ...PROFILES.dense_meat,
       doneness: { default: 'medium', levels: [{ name: 'medium', at: 1 }, { name: 'rare', at: 0.75 }] } } });
-    check('the validator rejects levels that are not ordered rarest-first', !badOrder.ok, badOrder.errors);
+    check("the validator rejects levels that aren't ordered rarest-first", !badOrder.ok, badOrder.errors);
 
     // ── Temperature curves ───────────────────────────────────────────────────
     const curveSession = (heats, tier) => ({
@@ -1658,7 +1658,7 @@ export default async function regress({ run, check, getPlayer }) {
     });
     check('the validator rejects a heatTolerance that disagrees with its curve', !badCurve.ok && /must agree/.test(badCurve.errors.join(' ')), badCurve.errors);
     const gapCurve = validateProfiles({ bad: { ...PROFILES.dense_meat, heatCurve: [{ until: 0.5, tier: 'low' }] } });
-    check('the validator rejects a curve that does not cover the whole cook', !gapCurve.ok, gapCurve.errors);
+    check("the validator rejects a curve that doesn't cover the whole cook", !gapCurve.ok, gapCurve.errors);
 
     // ── Seasoning: under is bland, over is a mistake ──────────────────────────
     check('a dish with no required modifiers wants one', seasoningIdeal(DISHES.roast) === 1, seasoningIdeal(DISHES.roast));
@@ -1721,16 +1721,16 @@ export default async function regress({ run, check, getPlayer }) {
     const toastieRows = [ing('flatbread', 'bread', 'bread'), ing('vat cheese', 'dairy', 'vat cheese'), ing('butter', 'fat_or_oil')];
     const toastie = matchDish(signature(toastieRows, P), 'pan');
     check('bread + cheese + fat in a pan is a toastie', toastie?.key === 'toastie', toastie?.key);
-    check('...and it is named off the cheese that went in it',
+    check("...and it's named off the cheese that went in it",
       /vat cheese/.test(dishName(DISHES.toastie, toastieRows, P)), dishName(DISHES.toastie, toastieRows, P));
     // Bread and fat alone used to fall through to a root-vegetable glaze; the
     // cheese is what makes it a toastie, so removing it must NOT still match.
-    check('without the cheese it is not a toastie',
+    check("without the cheese it isn't a toastie",
       matchDish(signature([toastieRows[0], toastieRows[2]], P), 'pan')?.key !== 'toastie');
     check('cheese is fine raw but best melted',
       bandIndex(PROFILES.dairy.targets.raw) >= bandIndex('good')
         && bandIndex(PROFILES.dairy.targets.peak) > bandIndex(PROFILES.dairy.targets.raw));
-    check('cheese splits fast once it is past — the shortest grace of any real profile',
+    check("cheese splits fast once it's past — the shortest grace of any real profile",
       PROFILES.dairy.burnFraction < PROFILES.dense_meat.burnFraction
         && PROFILES.dairy.burnFraction < PROFILES.batter.burnFraction);
     check('melting cheese is something you let happen, not something you poke',
@@ -1760,7 +1760,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('meat, veg and a cured strip on bread is a club', sandwich(clubRows)?.key === 'club', sandwich(clubRows)?.key);
 
     // Bread is its own profile now, and the reason is the raw target.
-    check('bread arrives baked, so it is GOOD raw — a cold sandwich is not punished for it',
+    check("bread arrives baked, so it's GOOD raw — a cold sandwich isn't punished for it",
       bandIndex(PROFILES.bread.targets.raw) >= bandIndex('good'));
     check('bread is no longer a root vegetable',
       !matchDish(signature([breadRow, ing('broth', 'liquid'), ing('meat', 'dense_meat')], P), 'pot'));
@@ -1795,7 +1795,7 @@ export default async function regress({ run, check, getPlayer }) {
       matchScore(signature([milk], P), MILKY) >= 0, matchScore(signature([milk], P), MILKY));
     // ...but milk is still a LIQUID, and bread does not take liquids. Pouring
     // milk on bread is not a cheese sandwich, and the allowed check says so.
-    check('being "also dairy" does not make milk a sandwich filling',
+    check('being "also dairy" doesn\'t make milk a sandwich filling',
       matchDish(signature([breadRow, milk], P), 'bread') === null,
       matchDish(signature([breadRow, milk], P), 'bread')?.key);
     check('adding a secondary can never disqualify what already matched',
@@ -1898,7 +1898,7 @@ export default async function regress({ run, check, getPlayer }) {
     }
 
     const rice = named(['item_grey_rice', 'item_bone_broth'], 'pot', ['dry_starch', 'liquid']);
-    check('rice in the same stock is not ramen', rice?.key !== 'ramen', rice?.key);
+    check("rice in the same stock isn't ramen", rice?.key !== 'ramen', rice?.key);
 
     // The tie that forced KEY_DISH_FLOOR: a keyed dish must beat a generic one
     // no matter how the counts fall, not merely when it happens to score higher.
@@ -1929,16 +1929,16 @@ export default async function regress({ run, check, getPlayer }) {
     const mac = named(macRows, 'tray', macProfiles);
     check('macaroni, cheese, milk, egg and butter on a tray is mac and cheese', mac?.key === 'mac_and_cheese', mac?.key);
     const macPenne = named(['item_penne', ...macRows.slice(1)], 'tray', macProfiles);
-    check('the same tray with penne in it is NOT mac and cheese', macPenne?.key !== 'mac_and_cheese', macPenne?.key);
+    check("the same tray with penne in it's NOT mac and cheese", macPenne?.key !== 'mac_and_cheese', macPenne?.key);
     const macNoCheese = named(['item_macaroni', 'item_synth_cream', 'item_ration_milk', 'item_water_bottle', 'item_battery_egg', 'item_butter_analog'], 'tray', macProfiles);
-    check('dairy that is not cheese does not answer the cheese requirement', macNoCheese?.key !== 'mac_and_cheese', macNoCheese?.key);
+    check("dairy that isn't cheese doesn't answer the cheese requirement", macNoCheese?.key !== 'mac_and_cheese', macNoCheese?.key);
     // The method is two vessels and eight steps, and the pasta half of it is the
     // half a player can get wrong: boiled long, it is soft before it ever sees
     // the oven. The card has to say so, or the dish is a list of ingredients.
     check('mac and cheese ships an authored method', (DISHES.mac_and_cheese.steps || []).length >= 6, DISHES.mac_and_cheese.steps?.length);
 
     const badKey = validateDishes({ bad: { ...DISHES.ramen, keyItems: ['ramen_noodles'] } });
-    check('the validator rejects a keyItem that is not an item id', !badKey.ok, badKey.errors);
+    check("the validator rejects a keyItem that isn't an item id", !badKey.ok, badKey.errors);
     const badFmt = validateDishes({ bad: { ...DISHES.okonomiyaki, nameFormat: '{0} okonomiyaki', nameSlots: [] } });
     check('the validator rejects a nameFormat slot with nothing behind it', !badFmt.ok, badFmt.errors);
 
@@ -2026,7 +2026,7 @@ export default async function regress({ run, check, getPlayer }) {
       composeBand(['masterful', 'masterful'], DISHES.broth) === DISHES.broth.ceiling, composeBand(['masterful', 'masterful'], DISHES.broth));
     check('slop can never be better than acceptable',
       bandIndex(composeBand(['masterful', 'masterful'], UNKNOWN_DISH)) <= bandIndex(UNKNOWN_DISH.ceiling));
-    check('knowing the recipe helps but cannot break the ceiling',
+    check("knowing the recipe helps but can't break the ceiling",
       composeBand(['masterful', 'masterful'], DISHES.broth, 5) === DISHES.broth.ceiling);
 
     // ── Recipe knowledge ─────────────────────────────────────────────────────
@@ -2048,14 +2048,14 @@ export default async function regress({ run, check, getPlayer }) {
 
     // A poor plate is not progress — you can't stumble in by failing repeatedly.
     const bad = await recordAttempt(player.id, 'chowder', 'poor', 1);
-    check('a plate below the bar does not count toward discovery', !bad.counted && bad.count === 1, bad);
+    check("a plate below the bar doesn't count toward discovery", !bad.counted && bad.count === 1, bad);
     const weak = await recordAttempt(player.id, 'chowder', 'acceptable', 1);
     check('acceptable is still below the bar', !weak.counted, weak);
 
     const first = await learnRecipe(player.id, 'roast', 'good');
     check('a taught recipe is written immediately, no repetition', first.learned === true, first);
     const again = await learnRecipe(player.id, 'stew', 'good');
-    check('cooking it a second time does not re-learn it', again.learned === false, again);
+    check("cooking it a second time doesn't re-learn it", again.learned === false, again);
 
     const book = await knownRecipes(player.id);
     check('the cookbook reads back the band achieved', book.get('stew') === 'good', [...book]);
@@ -2087,7 +2087,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('liquid, meat and a root in a pot is a stew', fam({ liquid: 1, dense_meat: 1, starchy_vegetable: 2 }, 'pot') === 'stew');
       check('...two aromatics make it a curry instead', fam({ liquid: 1, dense_meat: 1, aromatic: 2 }, 'pot') === 'curry');
       check('...dairy with the meat makes it a chowder', fam({ liquid: 1, dense_meat: 1, dairy: 1 }, 'pot') === 'chowder');
-      check('...no meat at all and it is a soup', fam({ liquid: 1, soft_vegetable: 2 }, 'pot') === 'soup');
+      check("...no meat at all and it's a soup", fam({ liquid: 1, soft_vegetable: 2 }, 'pot') === 'soup');
       check('liquid on its own is a broth', fam({ liquid: 2 }, 'pot') === 'broth');
       check('batter and fruit in a tray is a pie', fam({ batter: 1, fruit: 2 }, 'tray') === 'pie');
       check('meat in a tray is a roast', fam({ dense_meat: 2 }, 'tray') === 'roast');
@@ -2098,7 +2098,7 @@ export default async function regress({ run, check, getPlayer }) {
       // The one route to a mess that's left, and the reason it's the right one.
       check('something with no food profile in the pan is still a mess',
         inferDish({ liquid: 1, dense_meat: 1, unprofiled: 1 }, 'pot') === null);
-      check('seasoning alone is not a dish', inferDish({ aromatic: 2 }, 'pot') === null);
+      check("seasoning alone isn't a dish", inferDish({ aromatic: 2 }, 'pot') === null);
 
       // Naming: a dish is called after the thing it is mostly OF.
       const stewT = inferDish({ liquid: 1, dense_meat: 1, starchy_vegetable: 1 }, 'pot');
@@ -2113,7 +2113,7 @@ export default async function regress({ run, check, getPlayer }) {
       const rich = inferDish({ liquid: 1, dense_meat: 1, starchy_vegetable: 1, soft_vegetable: 1, dairy: 1 }, 'pot');
       check('a more complex improvisation has a higher ceiling',
         bandIndex(rich.ceiling) > bandIndex(simple.ceiling), `${simple.ceiling} → ${rich.ceiling}`);
-      check('...and it is harder, so the ceiling is not free',
+      check("...and it's harder, so the ceiling isn't free",
         rich.difficulty > simple.difficulty, `${simple.difficulty} → ${rich.difficulty}`);
       check('NO improvisation ever reaches masterful — that rung is the catalog\'s',
         bandIndex(improvisedCeiling(99)) < bandIndex('masterful'), improvisedCeiling(99));
@@ -2129,7 +2129,7 @@ export default async function regress({ run, check, getPlayer }) {
         recipeSignature({ liquid: 1, dense_meat: 1 }, 'pan') !== a);
       // Seasoning is not an ingredient — a stew you salted and one you didn't
       // are the same recipe, and a saved one has to match both.
-      check('...and seasoning is not part of the identity',
+      check("...and seasoning isn't part of the identity",
         recipeSignature({ liquid: 1, dense_meat: 1, aromatic: 1 }, 'pot') === a, a);
     }
 
@@ -2145,10 +2145,10 @@ export default async function regress({ run, check, getPlayer }) {
       let r = await run('shoplist');
       check('an empty list says how to fill it', /Nothing on your list/.test(r?.message || ''), r?.message);
       r = await run('shoplist add not_a_real_dish');
-      check('adding a recipe you do not know is refused', r?.type === 'error', JSON.stringify(r));
+      check("adding a recipe you don't know is refused", r?.type === 'error', JSON.stringify(r));
 
       r = await run('shoplist add soup');
-      check('adding a recipe writes down what you are SHORT of', /Added to the list/.test(r?.message || ''), r?.message);
+      check("adding a recipe writes down what you're SHORT of", /Added to the list/.test(r?.message || ''), r?.message);
       const list = await getList(player.id);
       check('...as ingredient CLASSES, which is what a recipe actually asks for',
         list.length > 0 && list.every(e => e.k === 'p' || e.k === 'i'), JSON.stringify(list));
@@ -2157,7 +2157,7 @@ export default async function regress({ run, check, getPlayer }) {
       // The kit is DERIVED at read time, never stored — so it is absent above and
       // present the moment the list is answered.
       const answered = answer(list, await holdings(player.id));
-      check('...and the KIT it is made in, derived rather than written down',
+      check("...and the KIT it's made in, derived rather than written down",
         answered.some(e => e.k === 'g' && e.v === 'vessel:pot' && e.derived), JSON.stringify(answered.map(e => [e.k, e.v])));
       check('...never the stove, which is furniture and not a thing you carry out of a shop',
         !answered.some(e => e.v === 'heat'), JSON.stringify(answered.map(e => e.v)));
@@ -2258,7 +2258,7 @@ export default async function regress({ run, check, getPlayer }) {
       // line read MISSING no matter what was in your hands.
       {
         const h = await holdings(player.id);
-        check('holdings knows which specific items you are carrying', (h.byItem[TOM] || 0) >= 1, JSON.stringify(h.byItem));
+        check("holdings knows which specific items you're carrying", (h.byItem[TOM] || 0) >= 1, JSON.stringify(h.byItem));
       }
 
       // A key item is mandatory AND it satisfies a unit of its own class, so it
@@ -2351,7 +2351,7 @@ export default async function regress({ run, check, getPlayer }) {
         const sauce = l.filter(e => e.part);
         check('a dish\'s components are stamped with the thing they compose',
           sauce.length >= 2 && sauce.every(e => e.part === 'the sauce'), JSON.stringify(l.map(e => [e.label, e.part])));
-        check('...and the pasta is not one of them', l.some(e => e.v === 'item_penne' && !e.part), JSON.stringify(l.map(e => [e.v, e.part])));
+        check("...and the pasta isn't one of them", l.some(e => e.v === 'item_penne' && !e.part), JSON.stringify(l.map(e => [e.v, e.part])));
 
         const shop = await run('tabletnav cookbook Shopping_List __shop');
         const rows = shop?.items || [];
@@ -2546,7 +2546,7 @@ export default async function regress({ run, check, getPlayer }) {
           after.filter(e => e.for === 'stew').length === stewLines, JSON.stringify(after.map(e => e.for)));
         check('...and says so', /soup/i.test(r?.message || '') && r?.type === 'output', JSON.stringify(r));
         r = await run('shoplist drop soup');
-        check('dropping one that isn\'t on it is an error, not a silent no-op',
+        check('dropping one that isn\'t on it\'s an error, not a silent no-op',
           r?.type === 'error', JSON.stringify(r));
         // A number still means a line — the two readings must not collide.
         const n = (await getList(player.id)).length;
@@ -2597,7 +2597,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('renaming is free', /House Special/.test(r?.message || ''), JSON.stringify(r));
       const saved2 = await savedRecipes(player.id);
       const only = [...saved2.values()][0];
-      check('...and it is the same recipe underneath — the signature is the identity',
+      check("...and it's the same recipe underneath — the signature is the identity",
         only.sig === 'pot|dense_meat:1,liquid:1,starchy_vegetable:2', only.sig);
 
       r = await run('recipe write House Special');
@@ -2668,7 +2668,7 @@ export default async function regress({ run, check, getPlayer }) {
         { tags: { food_profile: 'batter' },
           custom_data: { crafted_quality: 'good', hazards: { status_chance: { food_poisoning: 0.9 }, disease_risk: true, donors: ['somebody'] } } },
       ]);
-      check('an intermediate cannot launder what went into it',
+      check("an intermediate can't launder what went into it",
         viaPaste?.status_chance?.food_poisoning === 0.9 && viaPaste.disease_risk === true, JSON.stringify(viaPaste));
       check('...donors included', viaPaste?.donors?.includes('somebody'));
 

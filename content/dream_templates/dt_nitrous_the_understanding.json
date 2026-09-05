@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "It holds. It is still simple.",
+    "It holds. It's still simple.",
     "A part of it that seemed separate turns out to be the same part.",
-    "It resolves further, which you had not thought was available."
+    "It resolves further, which you hadn't thought was available."
   ],
   "cause": "drug",
-  "description": "You have got it. All of it, at once, and it is simple, and the simplicity is the astonishing part. It will hold for as long as you are here. Everything else you have ever thought was a way of not having this and you can see exactly how that worked.",
+  "description": "You have got it. All of it, at once, and it's simple, and the simplicity is the astonishing part. It'll hold for as long as you're here. Everything else you have ever thought was a way of not having this and you can see exactly how that worked.",
   "drug_id": "drug_nitrous",
   "fx": "bloom",
   "fx_intensity": 0.9,
@@ -14,7 +14,7 @@
   "objects": [
     {
       "looks": [
-        "One thing. You could say it in a sentence and the sentence is not long.",
+        "One thing. You could say it in a sentence and the sentence isn't long.",
         "It accounts for everything, including the objections.",
         "You have had it before. You have had it exactly this many times."
       ],
@@ -22,9 +22,9 @@
     },
     {
       "looks": [
-        "They are here and they are adequate.",
-        "You assemble the sentence. It is a good sentence.",
-        "It will not go through the door with you and you know that and it is fine."
+        "They're here and they're adequate.",
+        "You assemble the sentence. It's a good sentence.",
+        "It won't go through the door with you and you know that and it's fine."
       ],
       "name": "the words for it"
     }

@@ -9,7 +9,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b1524",
   "color": "#f4e6ff",
-  "description": "Aurelia is less a shop than a lit vitrine you are permitted to stand inside. The walls are brushed graphite; the racks are single slender rails, each holding one garment, spaced like paintings. A mag-lev display plinth turns a liquid-chrome gown under a pin-spot in the centre of the room. Everything is underlit in cool violet except the full-height mirror by the fitting alcove, which throws a warm, forgiving light that makes you look like the most expensive version of yourself. There are no prices anywhere. That is the price.",
+  "description": "Aurelia is less a shop than a lit vitrine you're permitted to stand inside. The walls are brushed graphite; the racks are single slender rails, each holding one garment, spaced like paintings. A mag-lev display plinth turns a liquid-chrome gown under a pin-spot in the centre of the room. Everything is underlit in cool violet except the full-height mirror by the fitting alcove, which throws a warm, forgiving light that makes you look like the most expensive version of yourself. There are no prices anywhere. That's the price.",
   "exits": {
     "west": "zone_district_895_907"
   },
@@ -17,7 +17,7 @@
     "floor": "boards",
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

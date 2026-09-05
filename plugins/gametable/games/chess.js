@@ -511,7 +511,7 @@ export class ChessGame {
   handleMove(playerId, input) {
     if (this.result) return { ok: false, error: 'The game is over.' };
     const seat = this.seatByPlayer(playerId);
-    if (!seat) return { ok: false, error: 'You are not playing this game.' };
+    if (!seat) return { ok: false, error: "You aren't playing this game." };
     if (seat.color !== this.position.turn) return { ok: false, error: "It isn't your move." };
 
     const moves = generateMoves(this.position);
@@ -605,7 +605,7 @@ export class ChessGame {
   resign(playerId) {
     if (this.result) return { ok: false, error: 'The game is already over.' };
     const seat = this.seatByPlayer(playerId);
-    if (!seat) return { ok: false, error: 'You are not playing this game.' };
+    if (!seat) return { ok: false, error: "You aren't playing this game." };
     this.result = {
       over: true,
       winnerColor: opposite(seat.color),

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#3f7fb0",
-  "description": "Open water, grey to the horizon, moving in long slow swells that never quite commit to being waves. The cold comes off it in a steady breath. There is nothing to fix your eye on and no way to guess how deep it goes.",
+  "description": "Open water, grey to the horizon, moving in long slow swells that never quite commit to being waves. The cold comes off it in a steady breath. There's nothing to fix your eye on and no way to guess how deep it goes.",
   "exits": {
     "east": "zone_district_931_903",
     "north": "zone_district_930_902",

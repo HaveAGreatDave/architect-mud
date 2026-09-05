@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Trestles and boards under a run of roofing sheet, seating perhaps sixty at a push, with the benches worn pale in the places people sit. This is where the works eats when it eats together. A hatch at one end, a rota pinned beside it, and on the wall a framed sheet of paper too old to read from where you are standing, which somebody has dusted.",
+  "description": "Trestles and boards under a run of roofing sheet, seating perhaps sixty at a push, with the benches worn pale in the places people sit. This is where the works eats when it eats together. A hatch at one end, a rota pinned beside it, and on the wall a framed sheet of paper too old to read from where you're standing, which somebody has dusted.",
   "exits": {
     "east": "zone_dw_772_977",
     "north": "zone_dw_771_976",

@@ -4,7 +4,7 @@
     "Would you rather I stood over there?",
     "Do you want me to say something? I can."
   ],
-  "description": "A person is standing well inside the distance people stand at. They are perfectly ordinary in every other respect, which is the part that will not sit still in your head.",
+  "description": "A person is standing well inside the distance people stand at. They're perfectly ordinary in every other respect, which is the part that won't sit still in your head.",
   "drug_id": null,
   "emotes": [
     "{it} smiles, briefly, and then stops.",
@@ -16,15 +16,15 @@
   "id": "dxp_default_close",
   "looks": [
     "Their face is arranged pleasantly and holds the arrangement for longer than faces do.",
-    "They have not blinked since you started counting, and you started counting some time ago.",
-    "Whenever you shift your weight they are exactly as close as they were."
+    "They haven't blinked since you started counting, and you started counting some time ago.",
+    "Whenever you shift your weight they're exactly as close as they were."
   ],
   "matches": null,
   "name": "somebody standing much too close",
   "says": [
     "This is a normal amount of space.",
     "You moved. I did not.",
-    "Carry on. I am not stopping you."
+    "Carry on. I'm not stopping you."
   ],
   "scope": "person"
 }

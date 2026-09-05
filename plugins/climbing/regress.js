@@ -61,12 +61,12 @@ export default async ({ check, getPlayer }) => {
       bareNoGear?.block && /sheer/i.test(bareNoGear.message || ''), bareNoGear?.message);
 
     const screeNoGear = await gate(SCREE);
-    check('a scree slope also refuses one — the terrain is not a doorway',
+    check("a scree slope also refuses one — the terrain isn't a doorway",
       !!screeNoGear?.block, screeNoGear?.message);
     // …but it refuses DIFFERENTLY, and that difference is the whole reason the
     // terrain is painted rather than being a flag on a cliff. A player who walks
     // into one has to be able to learn what it is from the refusal alone.
-    check('…and it says what is missing rather than "no way up", which would teach nothing',
+    check('…and it says what\'s missing rather than "no way up", which would teach nothing',
       /kit|hands/i.test(screeNoGear?.message || '') && !/sheer/i.test(screeNoGear?.message || ''),
       screeNoGear?.message);
 
@@ -102,7 +102,7 @@ export default async ({ check, getPlayer }) => {
     const spent = await gate(SCREE);
     check('an empty body is refused even holding the rack',
       !!spent?.block && /left in you|arms/i.test(spent.message || ''), spent?.message);
-    check('…and that refusal is not the cliff line — it names the body, not the rock',
+    check("…and that refusal isn't the cliff line — it names the body, not the rock",
       !/sheer/i.test(spent?.message || ''), spent?.message);
   } finally {
     await query('DELETE FROM player_inventory WHERE id=$1', [GEAR]).catch(() => {});

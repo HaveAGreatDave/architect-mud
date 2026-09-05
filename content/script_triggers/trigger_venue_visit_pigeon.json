@@ -2,7 +2,7 @@
   "chance": 1,
   "conditions": [],
   "cooldown_seconds": 900,
-  "description": "Visit-tier tracking for The Dead Pigeon. 15-minute cooldown so pacing in and out of the door cannot farm the house round.",
+  "description": "Visit-tier tracking for The Dead Pigeon. 15-minute cooldown so pacing in and out of the door can't farm the house round.",
   "enabled": 1,
   "event": "zone.entered",
   "id": "trigger_venue_visit_pigeon",

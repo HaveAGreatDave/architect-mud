@@ -9,7 +9,7 @@
         },
         "next": "qh_wait_f",
         "style": "narration",
-        "text": "Apologies. That was not us.",
+        "text": "Apologies. That wasn't us.",
         "type": "say"
       },
       "qh_aside": {
@@ -40,7 +40,7 @@
         },
         "next": "qh_cam2",
         "style": "narration",
-        "text": "The room you are in is the correct temperature for what comes next. Please do not adjust it.",
+        "text": "The room you're in is the correct temperature for what comes next. Please don't adjust it.",
         "type": "say"
       },
       "qh_aside_temp": {
@@ -50,7 +50,7 @@
         },
         "next": "qh_cam2",
         "style": "narration",
-        "text": "It is {tempc} degrees where you are sitting. We keep it a little cooler in here. It helps you stay still.",
+        "text": "It is {tempc} degrees where you're sitting. We keep it a little cooler in here. It helps you stay still.",
         "type": "say"
       },
       "qh_aside_wx": {
@@ -186,7 +186,7 @@
         },
         "next": "qh_count_a2",
         "style": "narration",
-        "text": "The number on the screen only ticks down as the hour goes on. It does not tick up.",
+        "text": "The number on the screen only ticks down as the hour goes on. It doesn't tick up.",
         "type": "say"
       },
       "qh_count_a2": {
@@ -236,7 +236,7 @@
         },
         "next": "qh_count_c2",
         "style": "narration",
-        "text": "We are not going to show you the numbers tonight.",
+        "text": "We aren't going to show you the numbers tonight.",
         "type": "say"
       },
       "qh_count_c2": {
@@ -306,7 +306,7 @@
         },
         "next": "qh_wait_d",
         "style": "narration",
-        "text": "Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour.",
+        "text": "Eleven of them won't be watching by four o'clock. We aren't going to tell you which eleven. That would spoil the hour.",
         "type": "say"
       },
       "qh_elev_c1": {
@@ -316,7 +316,7 @@
         },
         "next": "qh_wait_d",
         "style": "narration",
-        "text": "By the time the morning service begins, {until_four} from now, eleven of those watching will have stopped. We know the number. We do not know your name. So you may relax. Probably.",
+        "text": "By the time the morning service begins, {until_four} from now, eleven of those watching will have stopped. We know the number. We don't know your name. So you may relax. Probably.",
         "type": "say"
       },
       "qh_eleven_check": {
@@ -356,7 +356,7 @@
         },
         "next": "qh_eleven_real2",
         "style": "narration",
-        "text": "One of the eleven has already gone. It happened tonight, out in the Basin, while you were breathing with us. We did not interrupt to say so. You were doing so well.",
+        "text": "One of the eleven has already gone. It happened tonight, out in the Basin, while you were breathing with us. We didn't interrupt to say so. You were doing so well.",
         "type": "say"
       },
       "qh_eleven_real2": {
@@ -366,7 +366,7 @@
         },
         "next": "qh_relax",
         "style": "narration",
-        "text": "We are not going to tell you who. You would only look for yourself in it. That leaves ten.",
+        "text": "We aren't going to tell you who. You would only look for yourself in it. That leaves ten.",
         "type": "say"
       },
       "qh_fadein": {
@@ -398,7 +398,7 @@
         },
         "next": "qh_card3",
         "style": "narration",
-        "text": "The signal drops. Static, seven seconds of it, and underneath the static something that is almost the tone from earlier, slowed down.",
+        "text": "The signal drops. Static, seven seconds of it, and underneath the static something that's almost the tone from earlier, slowed down.",
         "type": "say"
       },
       "qh_hourcheck": {
@@ -432,7 +432,7 @@
         },
         "next": "qh_wait_h",
         "style": "narration",
-        "text": "It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it.",
+        "text": "It's made for you. It's made every night. It has been made every night for a very long time, and it'll be made tomorrow, whether or not you're here to receive it.",
         "type": "say"
       },
       "qh_open_day": {
@@ -452,7 +452,7 @@
         },
         "next": "qh_open_join",
         "style": "narration",
-        "text": "We have checked it against three others. It is the Quiet Hour regardless. Please draw whatever you have that closes.",
+        "text": "We have checked it against three others. It's the Quiet Hour regardless. Please draw whatever you have that closes.",
         "type": "say"
       },
       "qh_open_deep": {
@@ -472,7 +472,7 @@
         },
         "next": "qh_wait_a",
         "style": "narration",
-        "text": "There is nothing on. That is what this is for.",
+        "text": "There's nothing on. So we're here instead.",
         "type": "say"
       },
       "qh_open_line2": {
@@ -492,7 +492,7 @@
         },
         "next": "qh_open_join",
         "style": "narration",
-        "text": "It is {clock} in Coldwater Basin. Late, though not as late as it gets. You are still up; that is the only fact that concerns us.",
+        "text": "It is {clock} in Coldwater Basin. Late, though not as late as it gets. You're still up; that's the only fact that concerns us.",
         "type": "say"
       },
       "qh_open_sh_b": {
@@ -502,7 +502,7 @@
         },
         "next": "qh_open_join",
         "style": "narration",
-        "text": "It is a {weekday}, or it was, back when the days still had names. In here it is only ever the Quiet Hour.",
+        "text": "It's a {weekday}, or it was, back when the days still had names. In here it's only ever the Quiet Hour.",
         "type": "say"
       },
       "qh_open_shoulder": {
@@ -529,7 +529,7 @@
         },
         "next": "qh_reason2",
         "style": "narration",
-        "text": "If you are awake because you are working, we hope the shift is a short one.",
+        "text": "If you're awake because you're working, we hope the shift is a short one.",
         "type": "say"
       },
       "qh_reason2": {
@@ -539,7 +539,7 @@
         },
         "next": "qh_wait_b",
         "style": "narration",
-        "text": "If you are awake because you cannot sleep, try this with us.",
+        "text": "If you're awake because you can't sleep, try this with us.",
         "type": "say"
       },
       "qh_relax": {
@@ -566,7 +566,7 @@
         },
         "next": "qh_wait_e",
         "style": "narration",
-        "text": "You are not one of them. You can relax.",
+        "text": "You aren't one of them. You can relax.",
         "type": "say"
       },
       "qh_relax_b": {
@@ -576,7 +576,7 @@
         },
         "next": "qh_wait_e",
         "style": "narration",
-        "text": "You are not on the list tonight. We checked it twice, against the warm sets. Yours is warm.",
+        "text": "You aren't on the list tonight. We checked it twice, against the warm sets. Yours is warm.",
         "type": "say"
       },
       "qh_schedule": {
@@ -586,7 +586,7 @@
         },
         "next": "qh_aside",
         "style": "narration",
-        "text": "That is not a threat. It is a schedule.",
+        "text": "That isn't a threat. It's a schedule.",
         "type": "say"
       },
       "qh_signoff": {
@@ -641,7 +641,7 @@
         },
         "next": "qh_ticker",
         "style": "narration",
-        "text": "We like it when you are still.",
+        "text": "We like it when you're still.",
         "type": "say"
       },
       "qh_still_b": {
@@ -651,7 +651,7 @@
         },
         "next": "qh_ticker",
         "style": "narration",
-        "text": "You are very still right now. Thank you. It makes the counting easier.",
+        "text": "You're very still right now. Thank you. It makes the counting easier.",
         "type": "say"
       },
       "qh_techdiff": {
@@ -669,7 +669,7 @@
           "y": 1560
         },
         "next": "qh_tone2",
-        "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching",
+        "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and aren't stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching",
         "type": "ticker"
       },
       "qh_tone1": {
@@ -689,7 +689,7 @@
         },
         "next": "qh_credits",
         "song": "quiet_hour_tone",
-        "text": "♪ The tone resumes. It does not resolve. It simply continues, at exactly the volume it was before. ♪",
+        "text": "♪ The tone resumes. It doesn't resolve. It simply continues, at exactly the volume it was before. ♪",
         "type": "music"
       },
       "qh_vats": {
@@ -699,7 +699,7 @@
         },
         "next": "qh_wait_c",
         "style": "narration",
-        "text": "Some of those still awake are in the vats, and do not know they are watching.",
+        "text": "Some of those still awake are in the vats, and don't know they're watching.",
         "type": "say"
       },
       "qh_viewer_check": {
@@ -884,19 +884,19 @@
   "message_interval": 5,
   "messages": [
     {
-      "text": "It is two o'clock in the morning in Coldwater Basin."
+      "text": "It's two o'clock in the morning in Coldwater Basin."
     },
     {
-      "text": "There is nothing on. That is what this is for."
+      "text": "There's nothing on. So we're here instead."
     },
     {
       "text": "The test card holds. In the lower right corner, a small counter increments by one, then by three, then settles."
     },
     {
-      "text": "If you are awake because you are working, we hope the shift is a short one."
+      "text": "If you're awake because you're working, we hope the shift is a short one."
     },
     {
-      "text": "If you are awake because you cannot sleep, try this with us."
+      "text": "If you're awake because you can't sleep, try this with us."
     },
     {
       "text": "Breathe in for four."
@@ -914,25 +914,25 @@
       "text": "We can see that from here."
     },
     {
-      "text": "The number on the screen only ticks down as the hour goes on. It does not tick up."
+      "text": "The number on the screen only ticks down as the hour goes on. It doesn't tick up."
     },
     {
-      "text": "Some of those still awake are in the vats, and do not know they are watching."
+      "text": "Some of those still awake are in the vats, and don't know they're watching."
     },
     {
-      "text": "Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour."
+      "text": "Eleven of them won't be watching by four o'clock. We aren't going to tell you which eleven. That would spoil the hour."
     },
     {
-      "text": "You are not one of the eleven. You can relax."
+      "text": "You aren't one of the eleven. You can relax."
     },
     {
       "text": "We checked."
     },
     {
-      "text": "The signal drops. Static, seven seconds of it, and underneath the static something that is almost the tone from earlier, slowed down."
+      "text": "The signal drops. Static, seven seconds of it, and underneath the static something that's almost the tone from earlier, slowed down."
     },
     {
-      "text": "Apologies. That was not us."
+      "text": "Apologies. That wasn't us."
     },
     {
       "text": "Where were we."
@@ -941,10 +941,10 @@
       "text": "Some of you write in and ask who makes this programme."
     },
     {
-      "text": "It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it."
+      "text": "It's made for you. It's made every night. It has been made every night for a very long time, and it'll be made tomorrow, whether or not you're here to receive it."
     },
     {
-      "text": "That is not a threat. It is a schedule."
+      "text": "That isn't a threat. It's a schedule."
     },
     {
       "text": "The Quiet Hour will continue until the morning service begins at four."
@@ -953,7 +953,7 @@
       "text": "Until then: stay in. Stay warm. Stay still."
     },
     {
-      "text": "We like it when you are still."
+      "text": "We like it when you're still."
     }
   ],
   "morning_pools": null,

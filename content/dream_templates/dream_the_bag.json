@@ -5,7 +5,7 @@
     "Somebody passing looks at the bag and then at you and says nothing at all."
   ],
   "cause": "dream",
-  "description": "You are carrying something in a bag and it is alive and it is your responsibility. It has been yours for a while. You are taking it somewhere and the somewhere is agreed. The bag is warm at the bottom and you have been told, by somebody with authority, not to open it on the way.",
+  "description": "You're carrying something in a bag and it's alive and it's your responsibility. It has been yours for a while. You're taking it somewhere and the somewhere is agreed. The bag is warm at the bottom and you have been told, by somebody with authority, not to open it on the way.",
   "drug_id": null,
   "fx": "none",
   "fx_intensity": 0.2,
@@ -23,8 +23,8 @@
     {
       "looks": [
         "You know the address. You have known it since you were handed the bag.",
-        "It is not far now and it has not been far for some time.",
-        "Somebody will be there to take it, and they will check."
+        "It isn't far now and it hasn't been far for some time.",
+        "Somebody will be there to take it, and they'll check."
       ],
       "name": "the way ahead"
     }

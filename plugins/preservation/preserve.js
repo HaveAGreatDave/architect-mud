@@ -82,7 +82,7 @@ export async function cmdPreserve(args, raw, player) {
   return {
     type: 'output',
     message: sys(`You work the BHT through the ${food.name}${many}. It tastes of nothing.`)
-      + `\n${dim('It will keep for a great deal longer now, wherever you put it.')}`,
+      + `\n${dim("It'll keep for a great deal longer now, wherever you put it.")}`,
   };
 }
 

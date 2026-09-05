@@ -179,7 +179,7 @@ const PANELS = {
   },
   dream_presences: {
     title: 'Dream Presences',
-    description: 'The wandering figure that moves between the rooms of an instance. It is announced arriving and leaving, and never resolves into anything.',
+    description: "The wandering figure that moves between the rooms of an instance. It's announced arriving and leaving, and never resolves into anything.",
     idPrefix: 'dp',
     fetch: () => dreamSuiteFetch('dream_presences'),
     columns: [

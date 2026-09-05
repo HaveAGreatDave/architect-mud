@@ -355,7 +355,7 @@ export const SLIPPING_LINES = {
   preserved: 'soft right through and gone a deeper brown',
   bread: 'gold going on brown, and hard when you press it',
   dairy: 'still molten, though a thin slick of oil has come up at the edge',
-  _: 'about as good as it is going to get',
+  _: "about as good as it's going to get",
 };
 
 // The window has closed.
@@ -549,7 +549,7 @@ export function restText(platedAt, restsWell, now = Date.now()) {
   if (!restsWell || !platedAt) return null;
   const age = now - platedAt;
   if (age < REST_MIN_MS) return 'still spitting — it hasn\'t settled';
-  if (age <= REST_PEAK_MS) return 'resting, and about as good as it is going to get';
+  if (age <= REST_PEAK_MS) return "resting, and about as good as it's going to get";
   if (age < REST_COLD_MS) return 'still warm, but going off the boil';
   return 'gone cold';
 }

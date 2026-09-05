@@ -139,7 +139,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He is already glassing the dark again, whistle between his teeth."
+      "text": "He's already glassing the dark again, whistle between his teeth."
     },
     "root": {
       "options": [

@@ -532,7 +532,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\"\n\nShe does not flinch and she does not pretend she has to think about it.\n\n\"There would have been nowhere to send him. He could not work and he could not be covered, and no district would have housed him — you know that as well as I do, and it is the part nobody ever says out loud.\"\n\nShe smooths the front of her coat.\n\n\"It was handled kindly. I did ask.\"\n\nShe starts walking, and her voice is exactly as warm as it was ten minutes ago.\n\n\"The Vats are this way. You will like them. Everybody does.\""
+      "text": "\"No.\"\n\nShe does not flinch and she does not pretend she has to think about it.\n\n\"There would have been nowhere to send him. He could not work and he could not be covered, and no district would have housed him — you know that as well as I do, and it is the part that never makes the brochure.\"\n\nShe smooths the front of her coat.\n\n\"It was handled kindly. I did ask.\"\n\nShe starts walking, and her voice is exactly as warm as it was ten minutes ago.\n\n\"The Vats are this way. You will like them. Everybody does.\""
     },
     "climb_recover": {
       "_vine": {
@@ -662,7 +662,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I want you to notice that I have not asked you to break anything.\" He says it pleasantly, and then says the rest of it just as pleasantly. \"That is because breaking things is a different department. They are extremely good, and they have never once had to find an address.\"\n\nHe moves on to the next case.\n\n\"You know the way in. That is the entire reason you were asked, and I would think less of both of us if I pretended otherwise.\""
+      "text": "\"I want you to notice that I have not asked you to break anything.\" He says it pleasantly, and then says the rest of it just as pleasantly. \"That is because breaking things is a different department. They are extremely good, and they have never once had to find an address.\"\n\nHe moves on to the next case.\n\n\"You know the way in. It is why you were asked, and I would think less of both of us if I pretended otherwise.\""
     },
     "gallery_removal": {
       "_vine": {
@@ -1353,7 +1353,7 @@
           "next": "bye"
         }
       ],
-      "text": "Vess looks at the door with real, brief attention, the way you look at a clock.\n\n\"I am not sure. One of the floor staff.\"\n\nShe refills your cup herself, gracefully, and hands it across.\n\n\"Was she rude to you?\""
+      "text": "Vess looks at the door with real, brief attention, as though checking a clock.\n\n\"I am not sure. One of the floor staff.\"\n\nShe refills your cup herself, gracefully, and hands it across.\n\n\"Was she rude to you?\""
     },
     "tour_talk": {
       "options": [

@@ -231,7 +231,7 @@ const _questNodeDefs = {
       const [tlabel, tph] = _qTargetLabel(n.data.kind);
       return `
       ${_qHelp(id,
-        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, retrieve an item, assassinate a named NPC, or escort one somewhere. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it is always there to find. "Assassinate" names a PERSON where "Kill" names a species — any three rats satisfy a kill, only that one NPC satisfies an assassination. "Escort" is met when that NPC ARRIVES at the delivery zone walking with the player; give the NPC flags.escortable, or have their dialogue fire ESCORT_START, and remember they can be killed on the way. The commerce/act kinds (buy, sell, craft, equip, hack, spend, survive) take a blank target to mean "anything counts". "Spend" is counted in CREDITS, not in purchases. "Survive" means standing OUTDOORS from the peak of a named storm through to the all-clear — ducking inside earns nothing. Any target field may hold a SELECTOR instead of a fixed id, rolled once when the player takes the quest and frozen for them: "@any_of:[item_a,item_b]", "@zone_with:map_id=coldwater" (or flags.terrain=marsh), "@enemy_in:coldwater". A selector that matches nothing refuses the quest, so keep them wide. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
+        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, retrieve an item, assassinate a named NPC, or escort one somewhere. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it\'s always there to find. "Assassinate" names a PERSON where "Kill" names a species — any three rats satisfy a kill, only that one NPC satisfies an assassination. "Escort" is met when that NPC ARRIVES at the delivery zone walking with the player; give the NPC flags.escortable, or have their dialogue fire ESCORT_START, and remember they can be killed on the way. The commerce/act kinds (buy, sell, craft, equip, hack, spend, survive) take a blank target to mean "anything counts". "Spend" is counted in CREDITS, not in purchases. "Survive" means standing OUTDOORS from the peak of a named storm through to the all-clear — ducking inside earns nothing. Any target field may hold a SELECTOR instead of a fixed id, rolled once when the player takes the quest and frozen for them: "@any_of:[item_a,item_b]", "@zone_with:map_id=coldwater" (or flags.terrain=marsh), "@enemy_in:coldwater". A selector that matches nothing refuses the quest, so keep them wide. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
         'kind: retrieve\ntarget: ancient_relic\nspawnZone: zone_sewers\ncount: 1\ndesc: Recover the ancient relic from the sewers'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_KINDS, n.data.kind))}
@@ -243,7 +243,7 @@ const _questNodeDefs = {
       ${n.data.kind === 'escort' ? _qField('Deliver them to (zone)', _qInput('data.spawnZone', n.data.spawnZone, 'zone_clinic')) : ''}
       ${_qField(_qCountLabel(n.data.kind), _qInput('data.count', n.data.count ?? 1, n.data.kind === 'spend' ? '5000' : '1', 'number'))}
       ${_qField('Description', _qTextarea('data.desc', n.data.desc, 2))}
-      ${_qField('Required to finish?', _qSelect('data.optional', [['no', 'Yes — the quest is not done without it'], ['yes', 'No — optional bonus objective']], n.data.optional || 'no'))}
+      ${_qField('Required to finish?', _qSelect('data.optional', [['no', "Yes — the quest isn't done without it"], ['yes', 'No — optional bonus objective']], n.data.optional || 'no'))}
       ${n.data.optional === 'yes' ? `
       ${_qField('Bonus credits (paid at turn-in if this was done)', _qInput('data.bonusCredits', n.data.bonusCredits ?? '', '100', 'number'))}
       ${_qField('Bonus XP', _qInput('data.bonusXp', n.data.bonusXp ?? '', '5', 'number'))}
@@ -280,7 +280,7 @@ const _questNodeDefs = {
       const [tlabel, tph] = _qTargetLabel(kind);
       return `
       ${_qHelp(id,
-        'A way this quest can BLOW. Same kinds as an objective and judged the same way — "assassinate npc_vale" as an objective means kill him, as a failure means he must not die. Two kinds are failure-only: "Ran out of time" (measured from the moment the quest was taken) and "Lost the escortee". A failed quest can be taken again from the start unless the quest node\'s meta sets failPermanent. Fail nodes need no edges — they are always live while the quest is.',
+        'A way this quest can BLOW. Same kinds as an objective and judged the same way — "assassinate npc_vale" as an objective means kill him, as a failure means he must not die. Two kinds are failure-only: "Ran out of time" (measured from the moment the quest was taken) and "Lost the escortee". A failed quest can be taken again from the start unless the quest node\'s meta sets failPermanent. Fail nodes need no edges — they\'re always live while the quest is.',
         'kind: timeout\ncount: 600\ndesc: The meet was over by then.'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_FAIL_KINDS, kind))}
@@ -337,11 +337,11 @@ const _questNodeDefs = {
     getOutPorts: () => [],
     renderProperties: (n, ed, id) => `
       ${_qHelp(id,
-        'Granted when every objective feeding this node is complete. Items, flags and reputation are JSON arrays; leave blank for none. Reputation is the mirror of the Penalty node\'s — a list of {ideology, delta} — and it is how faction work PAYS. Standing decays on a 30-day half-life by design (it is meant to be kept up, not banked), so an order you want players to stay in needs repeatable work that pays it. The player is told only when a reward crosses them into a new TIER; a move within one passes without comment, which is what stops a repeatable printing a line every hand-in.',
+        'Granted when every objective feeding this node is complete. Items, flags and reputation are JSON arrays; leave blank for none. Reputation is the mirror of the Penalty node\'s — a list of {ideology, delta} — and it\'s how faction work PAYS. Standing decays on a 30-day half-life by design (it\'s meant to be kept up, not banked), so an order you want players to stay in needs repeatable work that pays it. The player is told only when a reward crosses them into a new TIER; a move within one passes without comment, which is what stops a repeatable printing a line every hand-in.',
         'credits: 250\nxp: 50\nitems: [{"item_id":"pistol","quantity":1}]\nrep: [{"ideology":"ideology_ascendants","delta":40}]\nflags: [{"scope":"player","flag":"super_trusts_me","value":"true"}]'
       )}
       ${_qField('Credits', _qInput('data.credits', n.data.credits ?? 0, '0', 'number'))}
-      ${_qField('Advance — paid when the quest is TAKEN, and kept if it is failed (0 = none)', _qInput('data.advance', n.data.advance ?? 0, '0', 'number'))}
+      ${_qField("Advance — paid when the quest is TAKEN, and kept if it's failed (0 = none)", _qInput('data.advance', n.data.advance ?? 0, '0', 'number'))}
       ${_qField('XP', _qInput('data.xp', n.data.xp ?? 0, '0', 'number'))}
       ${_qField('Items (JSON)', _qTextarea('data.items', JSON.stringify(n.data.items || [], null, 2), 3, true))}
       ${_qField('Reputation (JSON)', _qTextarea('data.rep', JSON.stringify(n.data.rep || [], null, 2), 3, true))}

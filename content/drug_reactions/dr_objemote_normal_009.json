@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "{it} taps out a short rhythm, twice, and then does not do it again.",
+  "self_line": "{it} taps out a short rhythm, twice, and then doesn't do it again.",
   "source": "object_emote",
   "tone": "normal"
 }

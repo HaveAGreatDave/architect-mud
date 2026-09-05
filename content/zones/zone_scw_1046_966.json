@@ -11,7 +11,7 @@
     "Somebody has painted the rock. Not with paint."
   ],
   "ambient_theme": "wasteland",
-  "description": "Poles either side of the track, and lashed to each one a length of bone drilled through in a row of holes. The wind is doing the rest. It is not a sound a throat could make and it does not stop, and it has been tuned: the holes are spaced, and they are spaced the same on every pole.",
+  "description": "Poles either side of the track, and lashed to each one a length of bone drilled through in a row of holes. The wind is doing the rest. It isn't a sound a throat could make and it doesn't stop, and it has been tuned: the holes are spaced, and they're spaced the same on every pole.",
   "exits": {
     "east": "zone_scw_1047_966",
     "north": "zone_scw_1046_965",

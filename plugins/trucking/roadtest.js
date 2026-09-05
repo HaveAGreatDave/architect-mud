@@ -54,11 +54,11 @@ const INSTRUCTIONS = {
     + 'Nothing else on this truck works until the diesel is running.',
   [STAGE.OUT]: 'First is a crawler, so she will pull away at walking pace on almost no throttle. '
     + 'Get her out of the yard and onto the road, and change up as the needle comes round.',
-  [STAGE.RUN]: 'Now put some road under her — ten tiles out, and I do not care which way. Work up through the box. '
+  [STAGE.RUN]: "Now put some road under her — ten tiles out, and I don't care which way. Work up through the box. "
     + 'She stops in about three times what you think she does, and on anything long and downhill you hold a gear '
     + 'and use the <b>jake</b> rather than cooking the brakes.',
   [STAGE.BACK]: 'Good. Now bring her home. Back to the yard you came out of — the same road will do it.',
-  [STAGE.PARK]: 'Line her up and set the brakes. That is the test.',
+  [STAGE.PARK]: "Line her up and set the brakes. That's the test.",
 };
 const STAGE_NAME = {
   [STAGE.KEY]: 'THE KEY', [STAGE.OUT]: 'PULLING OUT', [STAGE.RUN]: 'ON THE ROAD',
@@ -168,7 +168,7 @@ export async function roadTestPark(player, rig) {
   // but the lesson is over, because the school rig goes back in the shed at the end of the day.
   if (ride.stage !== STAGE.PARK || dist > BACK_TILES) {
     rides.delete(player.id);
-    tell(player.id, '<span class="text-amber">You climb down short of the yard, and that is the lesson over. '
+    tell(player.id, '<span class="text-amber">You climb down short of the yard, and that\'s the lesson over. '
       + 'No harm in it — the rig goes back, and you can take it out again whenever you like.</span>'
       + '\n<span class="text-dim">' + teachVerb('roadtest', 'roadtest') + ' at any depot to start over.</span>');
     await sweepLoaner(ride);
@@ -191,10 +191,10 @@ async function pass(player, ride) {
   // about. ⚠ Deliberately NOT a grade: flight can fail a landing because a bad one is a crater, and
   // the equivalent here — parking badly — is a thing every driver in the world does daily. Bringing
   // it back IS the pass, and the corners are a remark.
-  tell(player.id, '<span class="item-grant">★ ROAD TEST PASSED — you are licensed to drive, and ' + PURSE + '₵ for the day.</span>'
+  tell(player.id, '<span class="item-grant">★ ROAD TEST PASSED — you\'re licensed to drive, and ' + PURSE + '₵ for the day.</span>'
     + '\n<span class="text-dim">' + (ride.hit
       ? 'You brought it back with the corners rearranged, which the fitters will mention for a fortnight. It still came back.'
-      : 'Nothing bent, nothing scraped. They will not say so, but that is unusual.')
+      : "Nothing bent, nothing scraped. They won't say so, but that's unusual.")
     + ' Buy your own in the ' + teachVerb('yard', 'yard') + ', read the board with ' + teachVerb('haul', 'haul')
     + ', and see what a town is paying with ' + teachVerb('market', 'market') + '.</span>');
 }
@@ -212,7 +212,7 @@ async function sweepLoaner(ride) {
 // never reaches back into the 3,000-line module that calls it.
 export async function beginRoadTest(player, { depotHere, mount, isDriving }) {
   if (rides.has(player.id)) {
-    return { type: 'emote', message: 'You are on one. Get back in the school rig and finish it.' };
+    return { type: 'emote', message: "You're on one. Get back in the school rig and finish it." };
   }
   const { depot, yard } = depotHere(player);
   if (!depot) return { type: 'emote', message: 'The lessons run out of the freight yards. Find a depot and ask there.' };

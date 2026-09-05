@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Two faces of red rock a shoulder-width apart, going straight up into a slot of sky. You do not climb a thing like this so much as wedge yourself into it and get taller.",
+  "description": "Two faces of red rock a shoulder-width apart, going straight up into a slot of sky. You don't climb a thing like this so much as wedge yourself into it and get taller.",
   "exits": {
     "east": "zone_scw_1064_990",
     "north": "zone_scw_1063_989",

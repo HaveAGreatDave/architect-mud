@@ -1,12 +1,12 @@
 {
   "ambient_events": [
     "Somebody turns over, two rows down, and settles.",
-    "A blanket is squared off at the foot of a bed that is already made.",
+    "A blanket is squared off at the foot of a bed that's already made.",
     "The building ticks as it cools.",
     "Someone comes in off a night shift, undresses in the dark without a sound, and is asleep in under a minute."
   ],
   "ambient_theme": "indoors",
-  "description": "Beds down both walls, a chest at the foot of each, and nothing on top of any chest. The blankets are the same blanket. The pillows are the same pillow. Somebody's boots stand under a bed at the far end with a book laid across them, and that is the single most personal object in a room that sleeps sixty.\n\nThere are no locks and there is nothing here worth one.",
+  "description": "Beds down both walls, a chest at the foot of each, and nothing on top of any chest. The blankets are the same blanket. The pillows are the same pillow. Somebody's boots stand under a bed at the far end with a book laid across them, and that's the single most personal object in a room that sleeps sixty.\n\nThere are no locks and there's nothing here worth one.",
   "exits": {
     "down": "zone_util_zone_exo_dorm",
     "north": "zone_terminus_1216_933"

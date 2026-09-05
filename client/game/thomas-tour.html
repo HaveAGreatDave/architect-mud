@@ -308,7 +308,7 @@ footer p { max-width: 80ch; }
     <h1 class="hero-name">THOMAS</h1>
     <p class="hero-exp"><b>T</b>he <b>H</b>ypermedia <b>O</b>nline <b>M</b>ultiplayer <b>A</b>dventure <b>S</b>ystem</p>
     <div class="hero-rule"></div>
-    <p class="hero-thesis">A client and engine for real-time text worlds &mdash; and the editors you build one with. <em>Architect</em> is the game that runs on it. It is not the only one that could.</p>
+    <p class="hero-thesis">A client and engine for real-time text worlds &mdash; and the editors you build one with. <em>Architect</em> is the game that runs on it. It isn't the only one that could.</p>
     <p class="hero-by">by David Lacey and John Akerson</p>
   </div>
 </header>
@@ -328,15 +328,15 @@ footer p { max-width: 80ch; }
 <section id="client">
   <p class="eyebrow">Runtime &middot; what a player sees</p>
   <h2>The client</h2>
-  <p class="lede">Raw WebSockets, vanilla JavaScript, one HTML file per client and a sibling stylesheet. No framework, no bundler, no build step &mdash; what is in the repo is what the browser runs.</p>
-  <p>The room is prose, and everything around it is instrumentation: a minimap, vitals, a D-pad, the environment block (clock, in-world date, temperature, light, rest, dryness), who else is here, and a smartbar that offers only the verbs this room can actually take. Nouns in the description are live &mdash; the camera, the furniture, the exits are all clickable.</p>
+  <p class="lede">Raw WebSockets, vanilla JavaScript, one HTML file per client and a sibling stylesheet. No framework, no bundler, no build step &mdash; what's in the repo is what the browser runs.</p>
+  <p>The room is prose, and everything around it's instrumentation: a minimap, vitals, a D-pad, the environment block (clock, in-world date, temperature, light, rest, dryness), who else is here, and a smartbar that offers only the verbs this room can actually take. Nouns in the description are live &mdash; the camera, the furniture, the exits are all clickable.</p>
 
   <figure>
     <div class="frame">
       <div class="frame-bar"><span class="dot o"></span><b>Architect</b> &middot; game client</div>
       <img src="/assets/thomas/client-00.webp" alt="The Architect game client showing a room description, vitals, minimap, D-pad and smartbar" width="1500" height="938" loading="lazy" decoding="async">
     </div>
-    <figcaption><b>Coldwater Clone Facility.</b> Vitals, minimap and D-pad on the rail; the smartbar along the bottom carries <b>Switch (2)</b>, <b>Examine (8)</b>, <b>Use (2)</b> &mdash; counts derived from what is in the room, not a fixed toolbar. The wanted-star meter is at the top; the tile is flagged <b>[SAFE]</b>.</figcaption>
+    <figcaption><b>Coldwater Clone Facility.</b> Vitals, minimap and D-pad on the rail; the smartbar along the bottom carries <b>Switch (2)</b>, <b>Examine (8)</b>, <b>Use (2)</b> &mdash; counts derived from what's in the room, not a fixed toolbar. The wanted-star meter is at the top; the tile is flagged <b>[SAFE]</b>.</figcaption>
   </figure>
 
   <figure>
@@ -412,12 +412,12 @@ footer p { max-width: 80ch; }
       <div class="frame-bar"><span class="dot"></span><b>Architect Studio</b> &middot; map authoring &mdash; files, not database</div>
       <img src="/assets/thomas/studio-00.webp" alt="The Studio map editor showing all five regions and a tile inspector" width="1500" height="938" loading="lazy" decoding="async">
     </div>
-    <figcaption>All five regions drawn at once &mdash; 16,712 tiles. Every fill and glyph comes from the same derive pass the content import runs, so the preview cannot show a colour the build would not produce. The status bar lints continuously (<b>lint clean &middot; 2 warnings</b>), and the right pane lists the 136 exits that lead off this map. Thirty-one themes ship with it.</figcaption>
+    <figcaption>All five regions drawn at once &mdash; 16,712 tiles. Every fill and glyph comes from the same derive pass the content import runs, so the preview can't show a colour the build wouldn't produce. The status bar lints continuously (<b>lint clean &middot; 2 warnings</b>), and the right pane lists the 136 exits that lead off this map. Thirty-one themes ship with it.</figcaption>
   </figure>
 
   <div class="note c">
     <span class="tag">Why two map editors</span>
-    <p>The dev panel edits the live database; the Studio edits files. They are two processes because the Studio parses the whole content tree to lint, which inside the game server would stall the tick loop. The panel says so itself, in the banner above its own canvas: <em>don't run both on the same tiles in one sitting.</em></p>
+    <p>The dev panel edits the live database; the Studio edits files. They're two processes because the Studio parses the whole content tree to lint, which inside the game server would stall the tick loop. The panel says so itself, in the banner above its own canvas: <em>don't run both on the same tiles in one sitting.</em></p>
   </div>
 </section>
 
@@ -447,7 +447,7 @@ footer p { max-width: 80ch; }
       <div class="frame-bar"><span class="dot g"></span><b>VineDialogue</b> &middot; index</div>
       <img src="/assets/thomas/vine-01-dialogue-index.webp" alt="The VineDialogue index listing NPCs by dialogue node count" width="1500" height="938" loading="lazy" decoding="async">
     </div>
-    <figcaption>One family's flat list. Clicking a row does not open a viewer &mdash; it switches to the panel that owns the record, opens that record's real edit form, and then fires the graph editor on top of it. There is no second copy of the data.</figcaption>
+    <figcaption>One family's flat list. Clicking a row doesn't open a viewer &mdash; it switches to the panel that owns the record, opens that record's real edit form, and then fires the graph editor on top of it. There's no second copy of the data.</figcaption>
   </figure>
 </section>
 
@@ -485,7 +485,7 @@ footer p { max-width: 80ch; }
       <div class="frame-bar"><span class="dot o"></span><b>VINEbehaviour</b> &middot; auto-laid out, 30 nodes</div>
       <img src="/assets/thomas/vine-04c-ai-enemy.webp" alt="The same behaviour tree after auto-layout, showing loop edges" width="1500" height="525" loading="lazy" decoding="async">
     </div>
-    <figcaption>The same tree after <b>Auto-layout</b>, which arranges left-to-right and minimises crossings. The long returning wires are the loop edges &mdash; a behaviour tree is a cycle, and the layout does not pretend otherwise. The largest behaviour graph in the world is 98 nodes.</figcaption>
+    <figcaption>The same tree after <b>Auto-layout</b>, which arranges left-to-right and minimises crossings. The long returning wires are the loop edges &mdash; a behaviour tree is a cycle, and the layout doesn't pretend otherwise. The largest behaviour graph in the world is 98 nodes.</figcaption>
   </figure>
 </section>
 
@@ -620,15 +620,15 @@ footer p { max-width: 80ch; }
 <!-- ── LIVE SIMULATION ───────────────────────────────────────────────────── -->
 <section id="sim">
   <p class="eyebrow">/dev &rarr; server</p>
-  <h2>The world while it is running</h2>
-  <p class="lede">These screens are not editors. They are instruments on a simulation that keeps moving whether or not anyone is looking at it.</p>
+  <h2>The world while it's running</h2>
+  <p class="lede">These screens aren't editors. They're instruments on a simulation that keeps moving whether or not anyone is looking at it.</p>
 
   <figure>
     <div class="frame">
       <div class="frame-bar"><span class="dot"></span><b>Unrest</b> &middot; operator-only by design</div>
       <img src="/assets/thomas/p-unrest.webp" alt="The Unrest ledger showing grip, heat and pressure per city block" width="1500" height="938" loading="lazy" decoding="async">
     </div>
-    <figcaption><b>The faction-conflict ledger</b> &mdash; grip, heat and pressure per derived city block, the band each sits in, the authored role roster, and every live incident. None of it reaches the player: there is no verb, no gauge and no number in the game client, because the moment there is one the simulation becomes a dashboard to optimise. The dev panel is the deliberate opposite and gets every scalar.</figcaption>
+    <figcaption><b>The faction-conflict ledger</b> &mdash; grip, heat and pressure per derived city block, the band each sits in, the authored role roster, and every live incident. None of it reaches the player: there's no verb, no gauge and no number in the game client, because the moment there's one the simulation becomes a dashboard to optimise. The dev panel is the deliberate opposite and gets every scalar.</figcaption>
   </figure>
 
   <div class="grid">
@@ -658,7 +658,7 @@ footer p { max-width: 80ch; }
     </div>
     <div class="card">
       <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Games</b></div><img src="/assets/thomas/p-games.webp" alt="games panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
-      <h4>Games</h4><p>Live poker and chess tables &mdash; who is seated, what is in the pot.</p>
+      <h4>Games</h4><p>Live poker and chess tables &mdash; who is seated, what's in the pot.</p>
     </div>
     <div class="card">
       <div class="frame"><div class="frame-bar"><span class="dot"></span><b>Players</b></div><img src="/assets/thomas/p-players.webp" alt="players panel in the dev panel" width="1150" height="910" loading="lazy" decoding="async"></div>
@@ -688,7 +688,7 @@ footer p { max-width: 80ch; }
         <tr><td><b>regress</b></td><td>Boots the world and all plugins with no server, sweeps every plugin manifest against the live registries, then drives real commands end to end.</td></tr>
         <tr><td><b>content:lint</b></td><td>A hand-authored content file carrying a runtime column.</td></tr>
         <tr><td><b>docs:lint</b></td><td>A dead doc link, a plugin verb missing from the index, or a status header that contradicts its own body.</td></tr>
-        <tr><td><b>client:smoke</b></td><td>Any of the 253 client files failing to parse &mdash; there is no build step, so nothing else would catch it.</td></tr>
+        <tr><td><b>client:smoke</b></td><td>Any of the 253 client files failing to parse &mdash; there's no build step, so nothing else would catch it.</td></tr>
         <tr><td><b>shapes:smoke</b></td><td>A building model that throws when a player flies past it.</td></tr>
         <tr><td><b>query-lint</b></td><td>A database round trip added to a hot path.</td></tr>
       </tbody>
@@ -705,7 +705,7 @@ footer p { max-width: 80ch; }
 
   <div class="note">
     <span class="tag">Where the name comes from</span>
-    <p>THOMAS appears exactly once in the running product &mdash; the dev panel's boot splash, which reads as if it were naming the dev panel. It is not. It names the platform the splash is booting: the client, the engine, the plugin loader, the editors on this page and the deploy pipeline behind them. Coldwater, the Basin and everything written in them are Architect, and they are the part a second game would replace.</p>
+    <p>THOMAS appears exactly once in the running product &mdash; the dev panel's boot splash, which reads as if it were naming the dev panel. It's not. It names the platform the splash is booting: the client, the engine, the plugin loader, the editors on this page and the deploy pipeline behind them. Coldwater, the Basin and everything written in them are Architect, and they're the part a second game would replace.</p>
   </div>
 </section>
 

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#231713",
-  "description": "Under the corrugate, out of the sun, in the shade of the cart itself. The Clinkerman's whole trade is spread on boards within arm's reach of where he sits: sorted, graded and priced by a system he has never written down. The bell rope runs past his shoulder. He does not stop talking, and he does not stop listening to the flats either.",
+  "description": "Under the corrugate, out of the sun, in the shade of the cart itself. The Clinkerman's whole trade is spread on boards within arm's reach of where he sits: sorted, graded and priced by a system he has never written down. The bell rope runs past his shoulder. He doesn't stop talking, and he doesn't stop listening to the flats either.",
   "exits": {
     "down": "zone_util_zone_slag_shop",
     "north": "zone_slag_back",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

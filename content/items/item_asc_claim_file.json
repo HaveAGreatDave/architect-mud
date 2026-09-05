@@ -1,10 +1,10 @@
 {
-  "description": "A card wallet, taped shut, with a policy number on the front and nothing else. It is heavier than paper. Whatever is in it, somebody has already been paid out for it.",
+  "description": "A card wallet, taped shut, with a policy number on the front and nothing else. It's heavier than paper. Whatever is in it, somebody has already been paid out for it.",
   "flags": {},
   "id": "item_asc_claim_file",
   "name": "sealed claim file",
   "tags": {
-    "description": "A card wallet, taped shut, with a policy number on the front and nothing else. It is heavier than paper.",
+    "description": "A card wallet, taped shut, with a policy number on the front and nothing else. It's heavier than paper.",
     "misc": true
   },
   "type": "misc",

@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "extreme": "The clicking is constant and loud enough to feel. Their eyes have gone milky and useless and it has not slowed them at all.",
+    "extreme": "The clicking is constant and loud enough to feel. Their eyes have gone milky and useless and it hasn't slowed them at all.",
     "obvious": "They click steadily as they move, head tilting, and they navigate a dark room without slowing down.",
-    "subtle": "There is a faint clicking when they enter a room."
+    "subtle": "There's a faint clicking when they enter a room."
   },
   "blocks_slots": [],
   "body_parts": [

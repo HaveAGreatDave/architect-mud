@@ -5,7 +5,7 @@
     "The sorting continues at the rate that was established."
   ],
   "cause": "drug",
-  "description": "You are being taken apart by something with no opinion about you, into piles that are the correct piles. It is being done properly and nothing is being damaged. You watch a category of yourself get set down next to the others, and it looks tidier over there.",
+  "description": "You're being taken apart by something with no opinion about you, into piles that are the correct piles. It's being done properly and nothing is being damaged. You watch a category of yourself get set down next to the others, and it looks tidier over there.",
   "drug_id": "drug_khole",
   "fx": "static",
   "fx_intensity": 0.6,
@@ -14,16 +14,16 @@
   "objects": [
     {
       "looks": [
-        "Sorted by a rule you cannot see and have no complaints about.",
-        "One of them is everything you were going to say. It is smaller than expected.",
-        "They are within reach, and reaching is not one of the things you currently have."
+        "Sorted by a rule you can't see and have no complaints about.",
+        "One of them is everything you were going to say. It's smaller than expected.",
+        "They're within reach, and reaching isn't one of the things you currently have."
       ],
       "name": "the piles"
     },
     {
       "looks": [
-        "It has done this many times and it is not hurrying.",
-        "It is not interested in you. It is interested in the sorting.",
+        "It has done this many times and it isn't hurrying.",
+        "It isn't interested in you. It's interested in the sorting.",
         "It sets a part of you down gently, which is worse than roughly."
       ],
       "name": "the thing doing it"

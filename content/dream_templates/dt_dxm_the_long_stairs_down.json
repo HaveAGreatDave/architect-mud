@@ -5,7 +5,7 @@
     "The light at the top gets fractionally less theoretical."
   ],
   "cause": "drug",
-  "description": "Stairs, going up, and a great many of them. You are climbing out of something and it is taking most of an evening. Your body is coming back to you a piece at a time and each piece is heavier than you remember agreeing to.",
+  "description": "Stairs, going up, and a great many of them. You're climbing out of something and it's taking most of an evening. Your body is coming back to you a piece at a time and each piece is heavier than you remember agreeing to.",
   "drug_id": "drug_dxm",
   "fx": "ash",
   "fx_intensity": 0.4,
@@ -16,18 +16,18 @@
       "looks": [
         "Many. Even. Going up out of it.",
         "You have done a lot of them and there are a lot of them.",
-        "They are getting easier, which is how you know."
+        "They're getting easier, which is how you know."
       ],
       "name": "the stairs"
     },
     {
       "looks": [
-        "A hand. Then the other. They are handed over properly.",
+        "A hand. Then the other. They're handed over properly.",
         "Weight returns to you in instalments and you sign for each.",
-        "The half-second gap is down to a quarter. You will miss it."
+        "The half-second gap is down to a quarter. You'll miss it."
       ],
       "name": "the pieces coming back"
     }
   ],
-  "weather": "It gets fractionally less close with every flight, which is how you know you are getting out."
+  "weather": "It gets fractionally less close with every flight, which is how you know you're getting out."
 }

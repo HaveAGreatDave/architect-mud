@@ -92,7 +92,7 @@ export async function corruptOnDeath(player, corpseId = null) {
 
   const names = corrupted.map(c => c.aug.name).join(', ');
   sendToPlayer(player.id, { type: 'output', message:
-    `<span class="text-red">Your chrome did not come out of that with you.</span> `
+    `<span class="text-red">Your chrome didn't come out of that with you.</span> `
     + `${names} corrupted when the body stopped — keyed hardware is keyed to something that was still running. `
     + (survived.length ? `<span style="opacity:.8">${survived.map(a => a.name).join(', ')} held.</span>` : '') });
 

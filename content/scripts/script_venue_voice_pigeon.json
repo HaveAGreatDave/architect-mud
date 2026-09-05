@@ -56,7 +56,7 @@
         "type": "say"
       },
       "r1": {
-        "text": "\"Look who it is.\" Not warm. But it is a sentence, aimed at you, using a tone.",
+        "text": "\"Look who it is.\" Not warm. But it's a sentence, aimed at you, using a tone.",
         "type": "say"
       },
       "r2": {
@@ -85,7 +85,7 @@
         "type": "say"
       },
       "s1": {
-        "text": "The bartender clocks you, prices you, and decides you are not worth remembering yet.",
+        "text": "The bartender clocks you, prices you, and decides you aren't worth remembering yet.",
         "type": "say"
       },
       "s2": {

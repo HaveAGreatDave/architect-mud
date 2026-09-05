@@ -35,7 +35,7 @@ async function saveMutation(existing) {
   // mutation silently applies nothing. Reject anything but the real stat_* columns.
   const STAT_COLS = ['stat_brawn', 'stat_reflexes', 'stat_endurance', 'stat_brains', 'stat_cool'];
   const badStat = Object.keys(statMods || {}).find(k => !STAT_COLS.includes(k));
-  if (badStat) return { error: `Stat modifiers: "${badStat}" is not a stat column. Use one of: ${STAT_COLS.join(', ')}.` };
+  if (badStat) return { error: `Stat modifiers: "${badStat}" isn't a stat column. Use one of: ${STAT_COLS.join(', ')}.` };
   try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
   try { drawbacks = JSON.parse(document.getElementById('f-drawbacks').value); } catch { return { error: 'Drawbacks: invalid JSON' }; }
   const body = {

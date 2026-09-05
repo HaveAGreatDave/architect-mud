@@ -149,7 +149,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Splendid! West of Onyx Row: the Scald, the steppe, the sootbanks. Four should quiet them. Do watch the leach-beds; they are not on any map I'd trust.\""
+      "text": "\"Splendid! West of Onyx Row: the Scald, the steppe, the sootbanks. Four should quiet them. Do watch the leach-beds; they aren't on any map I'd trust.\""
     },
     "bye": {
       "options": [],
@@ -190,7 +190,7 @@
     "root": {
       "options": [
         {
-          "label": "What is it?",
+          "label": "What's it?",
           "next": "quest_offer"
         },
         {

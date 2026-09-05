@@ -2,10 +2,10 @@
   "enabled": true,
   "id": "bt_amb_gruff_043",
   "lines": [
-    "\"They do not build them like they used to.\"",
-    "\"They do not build them at all.\"",
-    "\"That is worse.\"",
-    "\"That is what I said.\""
+    "\"They don't build them like they used to.\"",
+    "\"They don't build them at all.\"",
+    "\"That's worse.\"",
+    "\"That's what I said.\""
   ],
   "personality": "gruff",
   "sort_order": 442

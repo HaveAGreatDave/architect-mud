@@ -135,7 +135,7 @@
     "\"Rope's not personal. Rope's just math.\"",
     "He unclips the velvet rope for someone with a band, clips it again before you can follow."
   ],
-  "description": "Bishop holds the foot of the VIP stair the way a load-bearing wall holds a roof: without apparent effort and without moving. Immaculate black, an earpiece, a hand-scanner clipped at his hip, and a stillness that reads every approach before it arrives. He is unfailingly polite, which somehow makes the rope harder to argue with. Buy a band and the stair opens like it was always going to. Try it without one and discover how far his patience does not extend.",
+  "description": "Bishop holds the foot of the VIP stair the way a load-bearing wall holds a roof: without apparent effort and without moving. Immaculate black, an earpiece, a hand-scanner clipped at his hip, and a stillness that reads every approach before it arrives. He's unfailingly polite, which somehow makes the rope harder to argue with. Buy a band and the stair opens like it was always going to. Try it without one and discover how far his patience doesn't extend.",
   "dialogue_tree": {
     "band": {
       "options": [
@@ -148,7 +148,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Band's the whole conversation. You get one from me, the reader on the stair reads it, the rope stops being my problem and starts being your good time.\" A small, professional smile. \"It is not cheap. That is the entire point of it.\""
+      "text": "\"Band's the whole conversation. You get one from me, the reader on the stair reads it, the rope stops being my problem and starts being your good time.\" A small, professional smile. \"It isn't cheap. Cheap would be standing out here with me.\""
     },
     "bye": {
       "options": [],
@@ -182,7 +182,7 @@
           "next": "root"
         }
       ],
-      "text": "He doesn't look at the stair. He doesn't have to. \"Up there is quiet, and the quiet costs. Booths, bottle service, a pour called Arc Light that the floor bar will deny exists.\" He shrugs, one centimetre. \"Get a band and it's all yours.\""
+      "text": "He doesn't look at the stair. He doesn't have to. \"Up there's quiet, and the quiet costs. Booths, bottle service, a pour called Arc Light that the floor bar will deny exists.\" He shrugs, one centimetre. \"Get a band and it's all yours.\""
     }
   },
   "faction": null,

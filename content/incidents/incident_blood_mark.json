@@ -18,14 +18,14 @@
     {
       "do": "ambient",
       "lines": [
-        "There is a handprint on the shutter and the fingers do not stop where fingers stop.",
+        "There's a handprint on the shutter and the fingers don't stop where fingers stop.",
         "Somebody has been at the mark on the wall with a brush and got about half of it.",
-        "The dogs on this street will not go past the corner and nobody can make them."
+        "The dogs on this street won't go past the corner and nobody can make them."
       ]
     },
     {
       "do": "gossip",
-      "text": "There is a mark on the wall on {place}. It is an invitation, and it is not for you, so keep your hands off it."
+      "text": "There's a mark on the wall on {place}. It's an invitation, and it isn't for you, so keep your hands off it."
     }
   ],
   "updated_at": "1788307200",

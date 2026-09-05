@@ -1,6 +1,14 @@
 {
-  "description": "A sheet of chipboard the size of a door, screwed to the wall between the toilets and the fire exit, which are the two places in this building everybody eventually walks past. It is not a noticeboard, whatever the bar insists to anyone official who asks. Down the left-hand side a coin slot and a thermal printer have been let into the wood with a jigsaw and no apology, and the printer is always warm. The rest is paper: WANTED sheets stapled over WANTED sheets stapled over the ghosts of WANTED sheets, four fingers thick in the middle and going brown at the edges, so that the board has a grain to it now, like something felled. Nobody takes an old one down. They just staple the new one on top, and the wall gets slowly heavier with everybody this city has ever been angry at.",
+  "description": "A Severance 400 bolted to the wall: coin slot and thermal printer up top, an amber screen of open contracts, a round stainless port by your knees. PAYABLE ON DELIVERY. DO NOT INSERT LIVING TISSUE. This one has been hit: cracked screen, scoured port, a gasket of inner tube. It weighs true.",
   "flags": {
+    "receptacle": {
+      "accept": "The port takes it, inner tube squeaking as the outer door shuts. Something behind it turns over twice and stops.",
+      "dark": "The port won't cycle. No power in the wall behind it, and the cracked screen is blank.",
+      "darkPost": "Printer cold, screen dead. Nothing goes up on this terminal tonight.",
+      "empty": "A contract pays on delivery, and the port won't cycle for an empty hand.",
+      "noun": "the port",
+      "room": "{handle} crouches at the terminal and puts something in the port. It counts out {amount}, and the two people who looked up go back to their drinks."
+    },
     "wanted_board": true
   },
   "hp": null,
@@ -8,9 +16,9 @@
   "id": "furn_wanted_board_grindhouse",
   "light_type": null,
   "lumen_output": null,
-  "name": "WANTED board",
+  "name": "bounty terminal",
   "object_type": "decoration",
-  "power_draw_kw": null,
+  "power_draw_kw": 0.02,
   "price": 0,
   "zone_id": "zone_grindhouse_interior"
 }

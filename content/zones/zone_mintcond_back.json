@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#1e1c20",
-  "description": "Through a bead curtain that has lost about a third of its beads: the back room, which is the actual shop. Long white boxes on trestles, lids off, dividers standing up out of them like teeth. One wall is nothing but tape spines, alphabetised, each shell in a numbered pigeonhole and each pigeonhole with a little card in front of it saying who has it and when it is due. A rewinder sits on the end of the bench with a tape in it, whirring. There is one chair, and it is not for you.",
+  "description": "Through a bead curtain that has lost about a third of its beads: the back room, which is the actual shop. Long white boxes on trestles, lids off, dividers standing up out of them like teeth. One wall is nothing but tape spines, alphabetised, each shell in a numbered pigeonhole and each pigeonhole with a little card in front of it saying who has it and when it's due. A rewinder sits on the end of the bench with a tape in it, whirring. There's one chair, and it isn't for you.",
   "exits": {
     "east": "zone_mintcond_floor"
   },

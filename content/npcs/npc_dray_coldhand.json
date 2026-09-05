@@ -132,14 +132,14 @@
   },
   "chitchat": [
     "stamps his boots and blows into cupped hands.",
-    "\"You get used to the cold. That is a lie we tell the new ones.\"",
+    "\"You get used to the cold. That's a lie we tell the new ones.\"",
     "\"Racks one through six, ask me anything. Seven, ask somebody else.\""
   ],
   "description": "The night man on the chill room, who works ten hours at four degrees and has the permanent pink face of somebody who never fully thaws. He moves fast, not out of urgency, but because standing still in here is how you find out how cold it is.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Good lad.\" He is already leaning back into the pallet."
+      "text": "\"Good lad.\" He's already leaning back into the pallet."
     },
     "root": {
       "options": [
@@ -148,7 +148,7 @@
           "next": "bye"
         }
       ],
-      "text": "Yarrow shifts a shrouded pallet with his hip and keeps hold of it. \"Door shut, please. Every second it is open costs somebody money and at this hour it is definitely not me.\""
+      "text": "Yarrow shifts a shrouded pallet with his hip and keeps hold of it. \"Door shut, please. Every second it's open costs somebody money and at this hour it's definitely not me.\""
     }
   },
   "faction": null,

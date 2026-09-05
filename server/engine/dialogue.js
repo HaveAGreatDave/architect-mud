@@ -173,7 +173,7 @@ function isHostileOption(opt, tree) {
 // before the click, not after. Kept on the server beside the kind rules so the
 // glyph and the sentence can't drift apart.
 const OPT_KIND_HINT = {
-  hostile: 'This one turns ugly. There is no taking it back.',
+  hostile: "This one turns ugly. There's no taking it back.",
   shop:    'Opens their stock — you can browse without buying.',
   quest:   'Takes the job on. It lands in your Tablet.',
   turnin:  'Hands the job in and settles up.',
@@ -206,7 +206,7 @@ export async function filterDialogueOptions(options, tree, player, context) {
       const status = await getFlag('player', questId, player);
       if (status === 'active') {
         return { ...tagged, _turninDisabled: true, _turninQuestId: questId,
-          _hint: 'Not finished yet — opens the Tablet so you can see what is outstanding.' };
+          _hint: "Not finished yet — opens the Tablet so you can see what's outstanding." };
       }
       if (status !== 'completed') return null;
     }
@@ -243,7 +243,7 @@ async function speakerMood(npc, player) {
 // state on the NPC object (plugins/posture), so this is free.
 const ARRIVAL_STAGE = {
   sitting: 'They stay seated, and let you come to them.',
-  lying: 'They do not get up.',
+  lying: "They don't get up.",
 };
 
 // What a reputation swing looks like from the outside. The player never sees the

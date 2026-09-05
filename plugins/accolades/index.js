@@ -195,7 +195,7 @@ async function cmdAccolades(args, raw, player) {
   if (!entries.length) {
     return {
       type: 'system',
-      message: `<span class="system">Your file is empty. That is not the same as clean.</span>`,
+      message: `<span class="system">Your file is empty. That isn't the same as clean.</span>`,
     };
   }
 
@@ -210,7 +210,7 @@ async function cmdAccolades(args, raw, player) {
       `<span class="system">━━ ACCOLADES ━━ ${entries.length} ` +
       `${entries.length === 1 ? 'entry' : 'entries'} on file</span>\n` +
       lines.join('\n') +
-      `\n<span class="hint">Nothing here is earned. It is merely observed.</span>`,
+      `\n<span class="hint">Nothing here is earned. It's merely observed.</span>`,
   };
 }
 

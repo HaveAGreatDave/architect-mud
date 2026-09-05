@@ -135,7 +135,7 @@
     "\"If it moves and it shouldn't, tape. If it should move and it doesn't, oil. That's the whole trade.\"",
     "Somewhere in the back, something is cut, and the smell of hot steel drifts through."
   ],
-  "description": "A wide, unhurried man in a canvas apron with a pencil behind each ear, one for wood and one for metal, and he will tell you which is which if you ask. He has never once said a thing couldn't be fixed. He has, several times, said it wasn't worth fixing, which he considers a completely different sentence.",
+  "description": "A wide, unhurried man in a canvas apron with a pencil behind each ear, one for wood and one for metal, and he'll tell you which is which if you ask. He has never once said a thing couldn't be fixed. He has, several times, said it wasn't worth fixing, which he considers a completely different sentence.",
   "dialogue_tree": {
     "bye": {
       "options": [],

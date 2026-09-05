@@ -1,8 +1,8 @@
 {
   "color": "#9B59B6",
-  "description": "The future cannot be found in the ruins of the past. The Exodus abandoned Coldwater Basin entirely; Architect, technology, and even mutation are all remnants of a failed civilization to them. They seek humanity's next beginning beyond the city's reach, cultivating rare mental disciplines and psionic abilities they hold to be humanity's true, unopened potential. The awakened among them need neither wire nor weapon: they still a room and move what is in it without a touch, press a thought whole into another skull, and speak of the mind as the last country the Architect could never wire shut.",
+  "description": "The future can't be found in the ruins of the past. The Exodus abandoned Coldwater Basin entirely; Architect, technology, and even mutation are all remnants of a failed civilization to them. They seek humanity's next beginning beyond the city's reach, cultivating rare mental disciplines and psionic abilities they hold to be humanity's true, unopened potential. The awakened among them need neither wire nor weapon: they still a room and move what's in it without a touch, press a thought whole into another skull, and speak of the mind as the last country the Architect could never wire shut.",
   "flags": {
-    "creed": "The future cannot be found in the ruins of the past.",
+    "creed": "The future can't be found in the ruins of the past.",
     "path": "mind",
     "reader": {
       "experience": "Stand with the Exodus and the city stops being the point. Their circles teach what no vendor stocks, waking a faculty the Architect could never wire shut. The disciplines come slow and then all at once: a room going still because you willed it, a locked thought pressed whole into a stranger's skull, objects sliding because you looked at them. You stop reaching for a weapon because you have become the weapon, and the wired and the armored start to feel like people who brought guns to a staring contest. The last country is behind your eyes, and you're learning to hold the border.",
@@ -11,7 +11,7 @@
       "pull": "The answer was never in the city. It was always behind the eyes.",
       "relnote": "Quarrels only with the Architect's champions; indifferent to the rest of the Basin's squabbles.",
       "tenets": [
-        "The future is not in the ruins of the past.",
+        "The future isn't in the ruins of the past.",
         "Abandon it all. Machine and mutation alike are dead ends.",
         "Awaken the mind: discipline, then psionics."
       ]

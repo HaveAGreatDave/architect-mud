@@ -29,7 +29,7 @@
   ],
   "behaviour_graph": {},
   "chitchat": [],
-  "description": "A small, upright woman on the end of a bolted bench, sitting the way people sit when they have somewhere to be and thirty years to get there. Her coat has been mended so many times it is mostly mend. Across her knees, held flat with one gloved hand against the wind, is a notebook swollen to twice its proper thickness by rain and dried again into a solid brick of paper. She writes in it constantly, in a tiny, disciplined hand, and she does not stop writing when you sit down.",
+  "description": "A small, upright woman on the end of a bolted bench, sitting the way people sit when they have somewhere to be and thirty years to get there. Her coat has been mended so many times it's mostly mend. Across her knees, held flat with one gloved hand against the wind, is a notebook swollen to twice its proper thickness by rain and dried again into a solid brick of paper. She writes in it constantly, in a tiny, disciplined hand, and she doesn't stop writing when you sit down.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -54,7 +54,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Twenty-one years taking the minutes for a body that no longer meets.\" She says it the way you'd read out a weight. \"The room is still there. I checked. Chairs, water jug, the lot. Nobody has told it to stop being a room.\" <span class=\"text-dim\">She turns a page.</span> \"They stopped paying me in the spring and I kept coming in until the autumn, because a thing without a record didn't happen, and I was not going to be the reason it didn't happen.\""
+      "text": "\"Twenty-one years taking the minutes for a body that no longer meets.\" She says it the way you'd read out a weight. \"The room is still there. I checked. Chairs, water jug, the lot. Nobody has told it to stop being a room.\" <span class=\"text-dim\">She turns a page.</span> \"They stopped paying me in the spring and I kept coming in until the autumn, because a thing without a record didn't happen, and I wasn't going to be the reason it didn't happen.\""
     },
     "how_press": {
       "_vine": {
@@ -71,7 +71,7 @@
           "next": "bye"
         }
       ],
-      "text": "Prue looks up for the first time, and her eyes are perfectly clear and perfectly kind, and that is somehow worse. \"Dear,\" she says, \"you have misunderstood the arrangement. I was never waiting to be collected.\" <span class=\"text-dim\">She taps the brick of paper.</span> \"I am still taking the minutes. The venue changed.\""
+      "text": "Prue looks up for the first time, and her eyes are perfectly clear and perfectly kind, and that's somehow worse. \"Dear,\" she says, \"you have misunderstood the arrangement. I was never waiting to be collected.\" <span class=\"text-dim\">She taps the brick of paper.</span> \"I'm still taking the minutes. The venue changed.\""
     },
     "notebook": {
       "_vine": {
@@ -92,7 +92,7 @@
           "next": "root"
         }
       ],
-      "text": "\"This is the record.\" She does not tilt it toward you. \"Everything said out loud within about nine feet of this bench since the last time it rained hard enough to matter. Times, weather, who was standing where.\" <span class=\"text-dim\">She turns a page with a papery crack.</span> \"People believe a conversation ends. It doesn't. It just stops having witnesses.\""
+      "text": "\"This is the record.\" She doesn't tilt it toward you. \"Everything said out loud within about nine feet of this bench since the last time it rained hard enough to matter. Times, weather, who was standing where.\" <span class=\"text-dim\">She turns a page with a papery crack.</span> \"People believe a conversation ends. It doesn't. It just stops having witnesses.\""
     },
     "notebook_no": {
       "_vine": {
@@ -105,7 +105,7 @@
           "next": "root"
         }
       ],
-      "text": "\"No.\" No heat in it at all. \"You may be told what is in it. That is a different service and it has a different price, and the price is that you sit down and do not fidget.\""
+      "text": "\"No.\" No heat in it at all. \"You may be told what's in it. That's a different service and it has a different price, and the price is that you sit down and don't fidget.\""
     },
     "notebook_you": {
       "_vine": {
@@ -122,7 +122,7 @@
           "next": "root"
         }
       ],
-      "text": "Prue does not check. \"You are,\" she says. \"You have been for some minutes.\""
+      "text": "Prue doesn't check. \"You are,\" she says. \"You have been for some minutes.\""
     },
     "root": {
       "_vine": {
@@ -145,7 +145,7 @@
       ],
       "text": [
         "Prue writes a moment longer, finishes the line, and only then looks up. \"Yes.\"",
-        "\"One moment.\" She finishes a sentence. \"There. Now I'm listening properly, which is the only way worth doing it.\"",
+        "\"One moment.\" She finishes a sentence. \"There. Now I'm listening properly. I don't do it the other way.\"",
         "She glances up, notes the time off the light, and writes that down before she says a word to you."
       ],
       "text_by_relation": {
@@ -153,7 +153,7 @@
           "Prue shuffles along the bench without being asked, and turns the notebook face-down. \"There,\" she says. \"Off the record. Sit.\""
         ],
         "first": [
-          "The woman on the bench finishes her line, caps her pen, and looks up at you with the bright, terrible attention of a professional listener. \"Gantry,\" she says. \"Prue Gantry. Around here they call me the Minutes, which I have decided to take as a courtesy.\" <span class=\"text-dim\">She taps the swollen notebook on her knees.</span> \"I keep the record for this stretch of grass. It is unpaid and unasked for and entirely accurate. Sit down, you're in the light.\""
+          "The woman on the bench finishes her line, caps her pen, and looks up at you with the bright, terrible attention of a professional listener. \"Gantry,\" she says. \"Prue Gantry. Around here they call me the Minutes, which I have decided to take as a courtesy.\" <span class=\"text-dim\">She taps the swollen notebook on her knees.</span> \"I keep the record for this stretch of grass. It's unpaid and unasked for and entirely accurate. Sit down, you're in the light.\""
         ],
         "known": [
           "\"You again.\" Prue makes a small mark in the margin, which you suspect is you. \"Sit down.\"",

@@ -155,13 +155,13 @@ async function cmdPlace(player, rest) {
   }
 
   if (!(await holdsPrivateSpace(player, space.id))) {
-    return { type: 'error', message: 'That address is not one you hold.' };
+    return { type: 'error', message: "That address isn't one you hold." };
   }
 
   // First day up front — the retainer is prepaid, then billed nightly.
   const cost = l.rate;
   if (!(await chargeUpFront(player, cost))) {
-    return { type: 'error', message: `Declined. The first day's retainer is ${cost}₵ and your accounts do not cover it.` };
+    return { type: 'error', message: `Declined. The first day's retainer is ${cost}₵ and your accounts don't cover it.` };
   }
   const created = await placeListing(player, l, space.id);
   // Burn the listing so it can't be ordered twice out of the same catalogue. The
@@ -228,7 +228,7 @@ async function cmdRelease(player, rest) {
   if (hit.house) {
     return {
       type: 'error',
-      message: `${hit.names.map(esc).join(' and ')} are not a Syndicate placement. B.L.I.S.S. cannot collect what it did not place.`,
+      message: `${hit.names.map(esc).join(' and ')} aren't a Syndicate placement. B.L.I.S.S. can't collect what it didn't place.`,
     };
   }
 
@@ -238,7 +238,7 @@ async function cmdRelease(player, rest) {
   return {
     type: 'output',
     message: members.length > 1
-      ? `<span class="msg-system">${names} released. A matched pair goes together; the Syndicate does not sever one.</span>`
+      ? `<span class="msg-system">${names} released. A matched pair goes together; the Syndicate doesn't sever one.</span>`
       : `<span class="msg-system">${names} released. The retainer ends tonight.</span>`,
   };
 }

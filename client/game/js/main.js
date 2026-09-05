@@ -663,7 +663,7 @@ document.getElementById("signout-btn").addEventListener("click", () => {
 	}
 	showDangerDialog({
 		title: "Sign Out",
-		prompt: "Your body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing out here.",
+		prompt: "Your body stays asleep exactly where you log out — it'll remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing out here.",
 		confirmLabel: "Sign Out Anyway",
 	}, doSignout);
 });

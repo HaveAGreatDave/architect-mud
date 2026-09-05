@@ -2,9 +2,9 @@
   "asks": [
     "Is there water in this building?",
     "Are you going to move, or shall I?",
-    "What is under the floor here?"
+    "What's under the floor here?"
   ],
-  "description": "A grey heron stands exactly where the chair was, folded up on one leg, neck kinked back, holding a stillness so complete that you keep checking whether it is real.",
+  "description": "A grey heron stands exactly where the chair was, folded up on one leg, neck kinked back, holding a stillness so complete that you keep checking whether it's real.",
   "drug_id": null,
   "emotes": [
     "{it} unfolds its neck to full length, holds it, and folds it back.",
@@ -17,15 +17,15 @@
   "id": "dx_default_chair_bird",
   "looks": [
     "Every feather is lying exactly where it was put. The eye is yellow and entirely without sympathy.",
-    "The one visible leg is thin as a rail and jointed the wrong way, and it is not shaking at all.",
-    "It has not blinked. You have blinked eleven times."
+    "The one visible leg is thin as a rail and jointed the wrong way, and it isn't shaking at all.",
+    "It hasn't blinked. You have blinked eleven times."
   ],
   "matches": "chair",
   "name": "a heron standing very still",
   "says": [
     "I can stand here longer than you can watch.",
-    "There is water under this building. I can hear it.",
-    "Do not sit down suddenly."
+    "There's water under this building. I can hear it.",
+    "Don't sit down suddenly."
   ],
   "scope": "object"
 }

@@ -79,19 +79,19 @@ async function readiness(player) {
 function refusal(r) {
   if (!r.chrome) {
     return 'The terminal reads you, finds no pattern-grade hardware in your skull, and declines.\n'
-      + '<span class="text-dim">There is nothing here to copy. The Cortical Backup is fitted at the clinic, and it is not cheap, and that is the point of it.</span>';
+      + '<span class="text-dim">There\'s nothing here to copy. The Cortical Backup is fitted at the clinic, and it isn\'t cheap, and that\'s the point of it.</span>';
   }
   if (!r.policy) {
     return 'The terminal reads the hardware, finds the account behind it empty, and declines.\n'
-      + '<span class="text-dim">A backup with no policy behind it is a photograph. Buy the assurance first (`assurance`), or the Vats have no instruction to print you.</span>';
+      + '<span class="text-dim">A backup with no policy behind it\'s a photograph. Buy the assurance first (`assurance`), or the Vats have no instruction to print you.</span>';
   }
   if (!r.pattern) {
     return 'The terminal finds hardware and a paid policy, and no scan on file, and declines.\n'
-      + '<span class="text-dim">Nothing of you has been committed yet. Go to the Vats Registry and `backup` — what you commit there is exactly who gets up afterwards.</span>';
+      + '<span class="text-dim">Nothing of you has been committed yet. Go to the Vats Registry and `backup` — what you commit there\'s exactly who gets up afterwards.</span>';
   }
   if (!r.clean) {
-    return 'The terminal reads you, hesitates in a way machines are not supposed to, and declines.\n'
-      + '<span class="text-dim">There is a warrant against this body. The police take a wanted corpse before Halcyon does, and Halcyon will not contest it — they will simply not collect. Settle it, then come back.</span>';
+    return "The terminal reads you, hesitates in a way machines aren't supposed to, and declines.\n"
+      + '<span class="text-dim">There\'s a warrant against this body. The police take a wanted corpse before Halcyon does, and Halcyon won\'t contest it — they will simply not collect. Settle it, then come back.</span>';
   }
   return null;
 }
@@ -99,16 +99,16 @@ function refusal(r) {
 function warning() {
   return [
     '<span class="hdr">THE UPLINK</span>',
-    '<span class="ambient">You put both hands on the terminal. It is colder than the room, and the room is cold.</span>',
+    '<span class="ambient">You put both hands on the terminal. It\'s colder than the room, and the room is cold.</span>',
     '',
     '<span class="dmg-taken">This will kill you.</span>',
-    '<span class="text-dim">Not metaphorically, and not gently. The pattern held in the Vats is the one you committed, not the one standing here — anything you have become since your last scan is not in it.</span>',
+    '<span class="text-dim">Not metaphorically, and not gently. The pattern held in the Vats is the one you committed, not the one standing here — anything you have become since your last scan isn\'t in it.</span>',
     '',
-    '<span class="dmg-taken">And it will finish something.</span>',
-    '<span class="text-dim">Getting up in the Vats is the last step of the Rite, and after it you are theirs on the ledger, permanently. Your standing with them stops being something you can lose. The flesh path shut the day you were first fitted; this shuts the rest of the doors behind it, and the orders who might have taken you will not be taking you now.</span>',
-    '<span class="text-dim">There is no quiet way back out. Walking away from the Ascendants after tonight is not a conversation you can have — it is the Exodus on their table, taking out everything Halcyon ever put in.</span>',
+    '<span class="dmg-taken">And it\'ll finish something.</span>',
+    '<span class="text-dim">Getting up in the Vats is the last step of the Rite, and after it you\'re theirs on the ledger, permanently. Your standing with them stops being something you can lose. The flesh path shut the day you were first fitted; this shuts the rest of the doors behind it, and the orders who might have taken you won\'t be taking you now.</span>',
+    '<span class="text-dim">There\'s no quiet way back out. Walking away from the Ascendants after tonight isn\'t a conversation you can have — it\'s the Exodus on their table, taking out everything Halcyon ever put in.</span>',
     '',
-    '<span class="ambient">Somewhere behind you, Orrin is not saying anything.</span>',
+    '<span class="ambient">Somewhere behind you, Orrin isn\'t saying anything.</span>',
     '',
     '<span class="text-dim">`ascend` again within thirty seconds to go through with it. Nobody will ask you a third time.</span>',
   ].join('<br>');
@@ -159,8 +159,8 @@ export const riteAction = {
       }
 
       sendToPlayer(player.id, { type: 'output', message: [
-        '<span class="ambient">The white fire comes through the glass to meet you, which it has not done before.</span>',
-        '<span class="dmg-taken">It is very quick, and it is not painless, and you are aware of both.</span>',
+        '<span class="ambient">The white fire comes through the glass to meet you, which it hasn\'t done before.</span>',
+        '<span class="dmg-taken">It\'s very quick, and it isn\'t painless, and you\'re aware of both.</span>',
       ].join('<br>') });
 
       // The ordinary death path, deliberately. Everything that makes this the

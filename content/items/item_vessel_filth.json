@@ -1,12 +1,12 @@
 {
-  "description": "There is no polite word for what is in here. It has a heat of its own and it is not done producing smells. Cooking it will not fix this. Nothing will fix this.",
+  "description": "There's no polite word for what's in here. It has a heat of its own and it isn't done producing smells. Cooking it won't fix this. Nothing will fix this.",
   "flags": {},
   "id": "item_vessel_filth",
   "name": "measure of filth",
   "tags": {
     "bodily_filth": true,
     "consumable": true,
-    "description": "There is no polite word for what is in here. It has a heat of its own and it is not done producing smells. Cooking it will not fix this. Nothing will fix this.",
+    "description": "There's no polite word for what's in here. It has a heat of its own and it isn't done producing smells. Cooking it won't fix this. Nothing will fix this.",
     "disease_risk": true,
     "food_noun": "filth",
     "food_profile": "liquid",

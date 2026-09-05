@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Tace Ambler sits in the middle of the road facing west for eleven hours a day and has done for four years. She is going to sleep for three of those hours, on a Tuesday, in the shed, and somebody has to be sitting in the road while she does.\n\nThe job is to sit. It is not to talk to anybody, and it is not to stop anybody, and she is very clear that there is nothing you could stop.\n\n\"Face west. If somebody comes, you say no. If they keep coming, you say no again.\"",
+  "description": "Tace Ambler sits in the middle of the road facing west for eleven hours a day and has done for four years. She's going to sleep for three of those hours, on a Tuesday, in the shed, and somebody has to be sitting in the road while she does.\n\nThe job is to sit. It isn't to talk to anybody, and it isn't to stop anybody, and she's very clear that there's nothing you could stop.\n\n\"Face west. If somebody comes, you say no. If they keep coming, you say no again.\"",
   "fail_on": [],
   "id": "quest_terminus_4",
   "meta": {},
@@ -10,9 +10,9 @@
       "desc": "Sit the picket in the middle of the road, facing west, until she comes back.",
       "emotes": [
         "{who} sits down on a folding stool in the middle of a road and faces the whole of the rest of the world.",
-        "{who} watches the west for a long time and finds there is a great deal of it.",
-        "{who} understands, about an hour in, that the job is not watching. The job is being visible.",
-        "{who} does not get up."
+        "{who} watches the west for a long time and finds there's a great deal of it.",
+        "{who} understands, about an hour in, that the job isn't watching. The job is being visible.",
+        "{who} doesn't get up."
       ],
       "id": "o_sit",
       "taskSeconds": 180,

@@ -97,7 +97,7 @@
         },
         "next": "bsm_18",
         "style": "narration",
-        "text": "The clock behind her reads a date that does not quite match the one on her paperwork.",
+        "text": "The clock behind her reads a date that doesn't quite match the one on her paperwork.",
         "type": "say"
       },
       "bsm_18": {
@@ -234,7 +234,7 @@
       "text": "I died in a machining accident on a Tuesday. NextLife had me back at that same machine by Friday."
     },
     {
-      "text": "The clock behind her reads a date that does not quite match the one on her paperwork."
+      "text": "The clock behind her reads a date that doesn't quite match the one on her paperwork."
     }
   ],
   "morning_pools": null,

@@ -1,11 +1,11 @@
 {
-  "description": "Clear, cheap, and chemically indifferent to what you mix it with. The label claims a country that has not existed for sixty years.",
+  "description": "Clear, cheap, and chemically indifferent to what you mix it with. The label claims a country that hasn't existed for sixty years.",
   "flags": {},
   "id": "item_vodka",
   "name": "bottle of vodka",
   "tags": {
     "abv": 40,
-    "description": "Clear, cheap, and chemically indifferent to what you mix it with. The label claims a country that has not existed for sixty years.",
+    "description": "Clear, cheap, and chemically indifferent to what you mix it with. The label claims a country that hasn't existed for sixty years.",
     "drink_noun": "vodka",
     "drink_profile": "base_spirit",
     "pour_units": 14,

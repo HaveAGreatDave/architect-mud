@@ -5,7 +5,7 @@
     "A splint is cut down to fit a limb that has an extra joint in it."
   ],
   "ambient_theme": "wasteland",
-  "description": "A whitewashed building with a covered porch, a boot scraper, and a bell. The busiest door in the Thornwarren after the bathhouse. There is a queue and it is not first-come, and everybody in it knows the order and nobody argues about it.",
+  "description": "A whitewashed building with a covered porch, a boot scraper, and a bell. The busiest door in the Thornwarren after the bathhouse. There's a queue and it isn't first-come, and everybody in it knows the order and nobody argues about it.",
   "exits": {
     "north": "zone_scw_1049_976",
     "south": "zone_thorn_physic"

@@ -6,7 +6,7 @@
     "Wind finds the arrow slits and makes a low sound out of them, three notes, always the same three."
   ],
   "ambient_theme": "indoors",
-  "description": "A bare room with a stove, a kettle, four chairs and a table with a rota chalked on it. The rota runs three weeks ahead and every name on it has been written by the same hand. On a peg by the door, a coat nobody is wearing, and under the coat a pair of boots set square. Whoever is off shift is not in here, and the room has been left as though somebody is about to be.",
+  "description": "A bare room with a stove, a kettle, four chairs and a table with a rota chalked on it. The rota runs three weeks ahead and every name on it has been written by the same hand. On a peg by the door, a coat nobody is wearing, and under the coat a pair of boots set square. Whoever is off shift isn't in here, and the room has been left as though somebody is about to be.",
   "exits": {
     "down": "zone_util_zone_exo_gatehouse",
     "south": "zone_terminus_1211_939"

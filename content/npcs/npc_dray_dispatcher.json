@@ -133,9 +133,9 @@
   "chitchat": [
     "holds up one finger without looking, still talking into the headset.",
     "\"Say again? Say again. Kessler, or Kessler South? Because one of those burned down.\"",
-    "\"I can book you anywhere. I cannot promise it is still there.\""
+    "\"I can book you anywhere. I can't promise it's still there.\""
   ],
-  "description": "A dispatcher wearing a headset she has stopped taking off, booking loads into a network that keeps quietly losing destinations. There is a mug from the tar machine at her elbow at all times and it is never the same mug.",
+  "description": "A dispatcher wearing a headset she has stopped taking off, booking loads into a network that keeps quietly losing destinations. There's a mug from the tar machine at her elbow at all times and it's never the same mug.",
   "dialogue_tree": {
     "bye": {
       "options": [],

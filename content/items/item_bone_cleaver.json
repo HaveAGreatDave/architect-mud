@@ -1,12 +1,12 @@
 {
-  "description": "A rectangle of steel with a handle riveted on as an afterthought, heavy enough that it does most of the work on the way down. The spine is dented where it has been hit with other things. It parts joints, and it is not fussy about whose.",
+  "description": "A rectangle of steel with a handle riveted on as an afterthought, heavy enough that it does most of the work on the way down. The spine is dented where it has been hit with other things. It parts joints, and it isn't fussy about whose.",
   "flags": {},
   "id": "item_bone_cleaver",
   "name": "bone cleaver",
   "tags": {
     "butchering": true,
     "can_chop": true,
-    "description": "A rectangle of steel with a handle riveted on as an afterthought, heavy enough that it does most of the work on the way down. The spine is dented where it has been hit with other things. It parts joints, and it is not fussy about whose.",
+    "description": "A rectangle of steel with a handle riveted on as an afterthought, heavy enough that it does most of the work on the way down. The spine is dented where it has been hit with other things. It parts joints, and it isn't fussy about whose.",
     "unique": true,
     "utensil": true
   },

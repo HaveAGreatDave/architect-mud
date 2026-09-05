@@ -131,10 +131,10 @@
     }
   },
   "chitchat": [
-    "greets someone she is currently undermining with genuine warmth.",
+    "greets someone she's currently undermining with genuine warmth.",
     "\"Diplomacy is simply war with better catering.\""
   ],
-  "description": "A career corporate diplomat who has negotiated three ceasefires and broken all of them personally. She is unfailingly gracious, which is how you know to be afraid.",
+  "description": "A career corporate diplomat who has negotiated three ceasefires and broken all of them personally. She's unfailingly gracious, which is how you know to be afraid.",
   "dialogue_tree": {
     "accepted": {
       "actions": [

@@ -1136,7 +1136,7 @@ async function cmdCast(args, raw, player) {
     return { type: 'error', message: `Which one? ${rows.map(d => `<b>${d.name}</b>`).join(', ')}` };
   }
   const bc = await import('../broadcast/index.js').catch(() => null);
-  if (!bc?.patchCamToDeck) return { type: 'error', message: 'There is no deck here to take the feed.' };
+  if (!bc?.patchCamToDeck) return { type: 'error', message: "There's no deck here to take the feed." };
   const said = await bc.patchCamToDeck(player, rows[0].id);
   return { type: 'output', message: typeof said === 'string' ? said : `${rows[0].name} is on the deck.` };
 }
@@ -1149,12 +1149,12 @@ async function cmdCrush(args, raw, player) {
   const hint = args.join(' ').replace(/\s+(confirm|yes)$/i, '').trim();
   const chip = await resolveInventoryItem(player, { tag: 'datachip', name: hint || undefined, topLevel: false });
   if (!chip) {
-    return { type: 'error', message: hint ? `You are not carrying a datachip called "${hint}".` : 'Crush which datachip? Try "clips".' };
+    return { type: 'error', message: hint ? `You aren't carrying a datachip called "${hint}".` : 'Crush which datachip? Try "clips".' };
   }
   if (!confirmed) {
     return {
       type: 'output',
-      message: `Crush <b>${chip.name}</b>? The footage goes with it, and there is no other copy.\n`
+      message: `Crush <b>${chip.name}</b>? The footage goes with it, and there's no other copy.\n`
         + `<span class="action-link" data-action="cmd" data-cmd="crush ${chip.name} confirm">crush ${chip.name} confirm</span>`,
     };
   }

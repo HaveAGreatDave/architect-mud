@@ -5,7 +5,7 @@
   "name": "pair of chemical hand warmers",
   "tags": {
     "consumable": true,
-    "description": "Two foil sachets of iron filings and salt. Crack the seal, shake, and they get genuinely, surprisingly hot for about twenty minutes, then they are landfill. Every stall on the strip sells them in winter at four times what they cost in summer, and every winter everybody pays it.",
+    "description": "Two foil sachets of iron filings and salt. Crack the seal, shake, and they get genuinely, surprisingly hot for about twenty minutes, then they're landfill. Every stall on the strip sells them in winter at four times what they cost in summer, and every winter everybody pays it.",
     "warming": {
       "degrees": 5,
       "minutes": 20

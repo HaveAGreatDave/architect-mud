@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Are you warm enough? You do not look warm enough.",
+  "self_line": "Are you warm enough? You don't look warm enough.",
   "source": "object_ask",
   "tone": "normal"
 }

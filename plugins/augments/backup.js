@@ -83,7 +83,7 @@ export async function cmdBackup(args, raw, player) {
     return { type: 'error', message: 'You can only commit a backup at the Vats Registry.' };
   }
   if (!hasCortical(player)) {
-    return { type: 'error', message: 'The Registry construct regards you flatly. "No cortical backup on file. There is nothing of you to save." Install the Cortical Backup augment first.' };
+    return { type: 'error', message: 'The Registry construct regards you flatly. "No cortical backup on file. There\'s nothing of you to save." Install the Cortical Backup augment first.' };
   }
   if ((player.credits || 0) < RESCAN_PRICE) {
     return { type: 'error', message: `A fresh scan is ₵${RESCAN_PRICE}. Your account doesn't cover it.` };
@@ -120,14 +120,14 @@ export async function cmdBackup(args, raw, player) {
   const paid = restores > 0
     ? `\n<span style="opacity:.8">Restores on account: ${restores}.</span>`
     : `\n<span class="outcast-warning">No restores on account. A pattern with nothing to spend it on is just a photograph. Buy a policy at Halcyon.</span>`;
-  return { type: 'output', message: `The tanks hum. For a moment you are two places at once, and then only here again — a fresh reading of you laid down over the old one.${fidNote}${chromeNote}${paid}\n<span class="player-update-credits">₵${player.credits}</span>` };
+  return { type: 'output', message: `The tanks hum. For a moment you're two places at once, and then only here again — a fresh reading of you laid down over the old one.${fidNote}${chromeNote}${paid}\n<span class="player-update-credits">₵${player.credits}</span>` };
 }
 
 /** `assurance [buy n]` — the secret Halcyon front. */
 export async function cmdAssurance(args, raw, player) {
   const zone = world.zones.get(player.current_zone);
   if (!zone?.flags?.assurance_policy) {
-    return { type: 'error', message: 'There is no assurance desk here.' };
+    return { type: 'error', message: "There's no assurance desk here." };
   }
   const backup = await getBackup(player.id);
   const restores = backup?.restores_remaining || 0;
@@ -201,7 +201,7 @@ export async function onRespawnZone(player, killer) {
     // leave the body exactly where it fell, for whoever wants it.
     custody: false,
     __ascendantRestore: true,
-    message: `<span class="clone-vat-message">You are told, gently and from very close by, that you are all right, before you have worked out that you were not.</span>`,
+    message: `<span class="clone-vat-message">You're told, gently and from very close by, that you're all right, before you have worked out that you were not.</span>`,
   };
 }
 
@@ -238,7 +238,7 @@ export function scheduleAscendantEmergence(player, { left, chrome, fidelity, art
   const send = (message) => sendToPlayer(player.id, { type: 'output', message });
 
   setTimeout(() => {
-    send(`<span class="clone-vat-message">Warmth first. That is not how the other kind goes. The tank is blood-hot and someone has a hand flat between your shoulder blades, steadying you through the part where the lungs remember. A voice you do not know says your name correctly, including the part most people get wrong.</span>`);
+    send(`<span class="clone-vat-message">Warmth first. That isn't how the other kind goes. The tank is blood-hot and someone has a hand flat between your shoulder blades, steadying you through the part where the lungs remember. A voice you don't know says your name correctly, including the part most people get wrong.</span>`);
   }, ASC_BEAT_1);
 
   setTimeout(() => {

@@ -1,13 +1,13 @@
 {
   "category": null,
-  "description": "There is a place upstream where the old grid came into the valley, and there is nothing there now but a cut, a stub of conduit and a great deal of weather. Threlfall wants you to walk up and look at it. She has been unusually specific about the walking up and looking, and unusually vague about why, and for the first time since you met her she did not go straight back to the board.",
+  "description": "There's a place upstream where the old grid came into the valley, and there's nothing there now but a cut, a stub of conduit and a great deal of weather. Threlfall wants you to walk up and look at it. She has been unusually specific about the walking up and looking, and unusually vague about why, and for the first time since you met her she didn't go straight back to the board.",
   "fail_on": [],
   "id": "quest_null_3",
   "meta": {},
   "name": "The Quiet Part",
   "objectives": [
     {
-      "desc": "Walk up to the breach where the old grid came in, and look at what is left of it.",
+      "desc": "Walk up to the breach where the old grid came in, and look at what's left of it.",
       "emotes": [
         "{who} stands at the cut for a while longer than looking at it requires.",
         "{who} finds a cut in the hillside, a stub of conduit, and the weather getting into both.",
@@ -18,7 +18,7 @@
       "zone": "zone_dw_778_982"
     },
     {
-      "desc": "Go back to the tally. Threlfall will be waiting, and she will not be at the board.",
+      "desc": "Go back to the tally. Threlfall will be waiting, and she won't be at the board.",
       "emotes": [
         "{who} comes in with the answer already worked out and says none of it.",
         "{who} comes in to find Threlfall away from the board and facing the door."

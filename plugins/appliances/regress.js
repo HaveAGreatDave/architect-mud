@@ -46,7 +46,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('plug sets plugged_in true', isPluggedIn(f) === true, JSON.stringify(f.flags));
 
     r = await run('unplug test poster');
-    check('furniture with no power_draw_kw is not a valid unplug target', r?.type === 'error', JSON.stringify(r));
+    check("furniture with no power_draw_kw isn't a valid unplug target", r?.type === 'error', JSON.stringify(r));
   } finally {
     await deleteFurniture(FURN).catch(() => {});
     await deleteFurniture(DECOR).catch(() => {});

@@ -5,7 +5,7 @@
     "Your name is said, once, from the other room, in a tone that expects an answer."
   ],
   "cause": "dream",
-  "description": "A room with your things in it, being lived in. Not the way you live in a room. Better. The washing is done and put away, the bills are in a folder, and there is a note on the table in your handwriting reminding you about something you have no memory of agreeing to.",
+  "description": "A room with your things in it, being lived in. Not the way you live in a room. Better. The washing is done and put away, the bills are in a folder, and there's a note on the table in your handwriting reminding you about something you have no memory of agreeing to.",
   "drug_id": null,
   "fx": "static",
   "fx_intensity": 0.45,
@@ -24,7 +24,7 @@
       "looks": [
         "Everything paid. Everything filed. A year of it.",
         "Your account, in good standing, and the standing is recent.",
-        "A photograph at the back that you would not have kept."
+        "A photograph at the back that you wouldn't have kept."
       ],
       "name": "the folder"
     }

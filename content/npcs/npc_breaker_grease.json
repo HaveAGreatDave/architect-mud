@@ -9,7 +9,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Keep walking.\" He is already cataloguing the next one."
+      "text": "\"Keep walking.\" He's already cataloguing the next one."
     },
     "codex_arm": {
       "actions": [
@@ -28,7 +28,7 @@
           "next": "bye"
         }
       ],
-      "text": "He holds it up without being asked. The plates of it are not chrome. They are him: thickened, ridged, wrong in a way that is unmistakably grown rather than fitted.\n\n\"Three winters out past the rim.\" He says it like a résumé. \"City calls it a mutation. Calls me a mutant, puts a surcharge on my groceries, makes me carry a card.\" He flexes the hand; something in it creaks. \"Here's what the card doesn't say. Fallout kills you. It doesn't do this. Not this fast, not this many of us, not in ways that work better.\" A slow grin, mostly teeth. \"Something was in the water long before the bombs. We just got the dose that made it obvious.\""
+      "text": "He holds it up without being asked. The plates of it aren't chrome. They're him: thickened, ridged, wrong in a way that's unmistakably grown rather than fitted.\n\n\"Three winters out past the rim.\" He says it like a résumé. \"City calls it a mutation. Calls me a mutant, puts a surcharge on my groceries, makes me carry a card.\" He flexes the hand; something in it creaks. \"Here's what the card doesn't say. Fallout kills you. It doesn't do this. Not this fast, not this many of us, not in ways that work better.\" A slow grin, mostly teeth. \"Something was in the water long before the bombs. We just got the dose that made it obvious.\""
     },
     "codex_lane": {
       "options": [
@@ -59,7 +59,7 @@
           "next": "codex_arm"
         },
         {
-          "label": "What is a Breaker doing on a freight lane?",
+          "label": "What's a Breaker doing on a freight lane?",
           "next": "codex_lane"
         },
         {

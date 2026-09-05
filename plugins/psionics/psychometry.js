@@ -43,14 +43,14 @@ import { voice } from './prose.js';
 const RESIDUE_PROSE = {
   death: {
     strong: 'Something ended here. The room is still holding the shape of it.',
-    faint:  'There is a stillness in one corner that the rest of the room does not share.',
+    faint:  "There's a stillness in one corner that the rest of the room doesn't share.",
   },
   violence: {
     strong: 'Fast movement. A lot of it, all at once, and then not.',
-    faint:  'The air here has been disturbed and has not entirely settled.',
+    faint:  "The air here has been disturbed and hasn't entirely settled.",
   },
   fear: {
-    strong: 'Somebody was very frightened standing about where you are standing.',
+    strong: "Somebody was very frightened standing about where you're standing.",
     faint:  'A thin unease, like a draught from a door nobody can find.',
   },
   crime: {
@@ -58,12 +58,12 @@ const RESIDUE_PROSE = {
     faint:  'A furtiveness clings to the place. Somebody hurried.',
   },
   psionic: {
-    strong: 'Somebody was working here, and they were not using their hands.',
+    strong: "Somebody was working here, and they weren't using their hands.",
     faint:  'The quiet here is the wrong shape.',
   },
   intimacy: {
     strong: 'Warmth, and the memory of somebody not wanting to leave.',
-    faint:  'A softness in the room that does not match the furniture.',
+    faint:  "A softness in the room that doesn't match the furniture.",
   },
   sickness: {
     strong: 'Somebody was ill here for a long time.',
@@ -130,8 +130,8 @@ export async function readRoom(player, broadcast) {
     }
     if (!check.success && lines.length > 1) {
       lines.push(voice(player, {
-        low:  'You could not say which of those came first.',
-        high: 'The order will not hold still. They are all there; the sequence is not.',
+        low:  "You couldn't say which of those came first.",
+        high: "The order won't hold still. They're all there; the sequence is not.",
       }));
     }
   }

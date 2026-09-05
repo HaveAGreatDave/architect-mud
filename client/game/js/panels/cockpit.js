@@ -2557,7 +2557,7 @@ export function openFlightSim(opts = {}) {
           <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
           <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
           <button class="fsim-nightsw" id="fsim-landsw" title="exterior landing / taxi lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>LIGHTS</button>
-          <button class="fsim-nightsw" id="fsim-visorsw" title="CARGO NOSE — raise the visor to load. Only on the ground, and she will not roll with it open." tabindex="-1" style="display:none"><span class="fsim-nightsw-led"></span>NOSE</button>
+          <button class="fsim-nightsw" id="fsim-visorsw" title="CARGO NOSE — raise the visor to load. Only on the ground, and she won't roll with it open." tabindex="-1" style="display:none"><span class="fsim-nightsw-led"></span>NOSE</button>
           <div class="fsim-ft-row">
             ${buildFlapHtml(flapStyle)}
             <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
@@ -4317,7 +4317,7 @@ function fsimFrame(now) {
           if (F.paintPips) F.paintPips();
         } else if (!F.bombNagMs || now - F.bombNagMs > 1500) {
           F.bombNagMs = now;
-          fsimToast('✜ NOSE DOWN — the rack will not release out of a dive');
+          fsimToast("✜ NOSE DOWN — the rack won't release out of a dive");
         }
       }
     } else if (F.weapon === 'msl' && F.salvo > 1) {

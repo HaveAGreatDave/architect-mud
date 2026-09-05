@@ -13,7 +13,7 @@
       "Ivy stops dead, looks back the way she came for a long moment, and then goes on the way she was going."
     ],
     [
-      "\"Two more junctions,\" says Ivy. There are not two more junctions."
+      "\"Two more junctions,\" says Ivy. There aren't two more junctions."
     ],
     [
       "Ivy re-ties the tarpaulin over the trolley in a knot of frankly professional quality."
@@ -103,7 +103,7 @@
           "next": "root"
         }
       ],
-      "text": "\"No,\" Ivy says, pleasantly and instantly. She is smiling. Her hand has not left the rope."
+      "text": "\"No,\" Ivy says, pleasantly and instantly. She's smiling. Her hand hasn't left the rope."
     },
     "road": {
       "_vine": {
@@ -124,7 +124,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Onwards,\" says Ivy, and the way she says it, it is clearly a place. \"Marrow, then the cut across, then Kessler while the light's on it, and I'll be through the far end before it turns.\" <span class=\"text-dim\">She glances at the sky and does a sum.</span> \"I'm ahead, actually. I could give you a minute.\""
+      "text": "\"Onwards,\" says Ivy, and the way she says it, it's clearly a place. \"Marrow, then the cut across, then Kessler while the light's on it, and I'll be through the far end before it turns.\" <span class=\"text-dim\">She glances at the sky and does a sum.</span> \"I'm ahead, actually. I could give you a minute.\""
     },
     "road_out": {
       "_vine": {
@@ -182,10 +182,10 @@
       ],
       "text_by_relation": {
         "close": [
-          "Ivy sets the trolley down properly, both hands off the rope, and turns to face you square on. She does not do this for many people. \"Well then,\" she says. \"Sit on the kerb with me a minute. It'll keep.\""
+          "Ivy sets the trolley down properly, both hands off the rope, and turns to face you square on. She doesn't do this for many people. \"Well then,\" she says. \"Sit on the kerb with me a minute. It'll keep.\""
         ],
         "first": [
-          "The trolley stops with a shriek. The woman behind it looks you over once, top to boots, and evidently decides you are not a problem. \"Nowlan,\" she says. \"Ivy Nowlan. I walk this stretch, so you'll see me again, and I'd rather you knew the name than made one up.\" <span class=\"text-dim\">She keeps one hand on the rope throughout.</span> \"I'm not stopping long. I'm never stopping long. But I'll tell you what the road's doing between here and Kessler if it's any use to you, and it usually is.\""
+          "The trolley stops with a shriek. The woman behind it looks you over once, top to boots, and evidently decides you aren't a problem. \"Nowlan,\" she says. \"Ivy Nowlan. I walk this stretch, so you'll see me again, and I'd rather you knew the name than made one up.\" <span class=\"text-dim\">She keeps one hand on the rope throughout.</span> \"I'm not stopping long. I'm never stopping long. But I'll tell you what the road's doing between here and Kessler if it's any use to you, and it usually is.\""
         ],
         "known": [
           "\"You again,\" says Ivy, easing off the pace. \"Go on.\"",

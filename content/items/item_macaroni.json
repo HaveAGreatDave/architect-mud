@@ -1,11 +1,11 @@
 {
-  "description": "A half-kilo box of little elbows, every one of them identical, pressed out by a machine that has been pressing out elbows since before the Handoff and has never been asked to do anything else. There is a cartoon child on the front holding a bowl, drawn in a style nobody has drawn in for sixty years. It cooks up honest enough, which is the most anyone says about it.",
+  "description": "A half-kilo box of little elbows, every one identical, pressed out by a machine that has been pressing out elbows since before the Handoff. There's a cartoon child on the front holding a bowl, drawn in a style nobody has drawn in for sixty years. It cooks up honest enough.",
   "flags": {},
   "id": "item_macaroni",
   "name": "box of macaroni",
   "tags": {
     "consumable": true,
-    "description": "A half-kilo box of little elbows, every one of them identical, pressed out by a machine that has been pressing out elbows since before the Handoff and has never been asked to do anything else. There is a cartoon child on the front holding a bowl, drawn in a style nobody has drawn in for sixty years. It cooks up honest enough, which is the most anyone says about it.",
+    "description": "A half-kilo box of little elbows, every one of them identical, pressed out by a machine that has been pressing out elbows since before the Handoff and has never been asked to do anything else. There's a cartoon child on the front holding a bowl, drawn in a style nobody has drawn in for sixty years. It cooks up honest enough, which is the most anyone says about it.",
     "food_also": "starchy_vegetable",
     "food_noun": "macaroni",
     "food_profile": "dry_starch",

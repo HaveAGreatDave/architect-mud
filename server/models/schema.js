@@ -76,7 +76,7 @@ export const SCHEMA_SQL = `
   -- provenance -- the NAME OF THE TOOL that typed the row (wildlands-expand,
   -- zone-planner, sewer-grid, a raw player uuid on seven of them) -- and nothing
   -- ever read it back: not the engine, not the dev panel, not the Studio. Git is
-  -- the authorship record for content now, and it is a better one. Dropped with
+  -- the authorship record for content now, and it's a better one. Dropped with
   -- the zone planner, whose flags.planner was the same idea in the flags bag.
   -- (Each sibling table drops its own copy right after its CREATE, below.)
   ALTER TABLE zones DROP COLUMN IF EXISTS created_by;
@@ -139,7 +139,7 @@ export const SCHEMA_SQL = `
   -- orienting feature seen from afar. Read at boot into the districts registry;
   -- districtFor() is sync and query-free by contract (it runs per move).
   -- THE NAME WAS USED BEFORE. Until 2026-07-19 "district" meant the spatial place
-  -- that is now regions, and the rename moved the rows and files across but left
+  -- that's now regions, and the rename moved the rows and files across but left
   -- the old TABLE sitting in every database it had ever been created in — absent
   -- from this file, absent from the content registry, read by nothing. A plain
   -- create-if-not-exists therefore no-ops against that corpse and hands the new
@@ -184,7 +184,7 @@ export const SCHEMA_SQL = `
   -- enter content/. Renderers read ONLY these values; a renderer that falls back
   -- to zones.marker is drawing a marker nobody authored.
   --
-  -- Two payloads, and the split is the point (docs/proposals/terrain-property-presets.md):
+  -- Two payloads, and the split matters (docs/proposals/terrain-property-presets.md):
   --   spec   the RENDER resolution — fill, text, feature, minimap_class, speed_mult
   --   props  the GAMEPLAY resolution — liquid/swimmable/routable/buildable, each
   --          resolved terrain-preset then tile-flag override
@@ -223,8 +223,8 @@ export const SCHEMA_SQL = `
   -- audio_theme_id — two authored values standing in for 5,785 nulls.
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS defaults JSONB DEFAULT '{}';
 
-  -- AUTHORED connections (spec §1.4). A row exists only where geometry cannot say
-  -- what is true: a link the grid does not imply (a stairwell, a facade's front
+  -- AUTHORED connections (spec §1.4). A row exists only where geometry can't say
+  -- what's true: a link the grid doesn't imply (a stairwell, a facade's front
   -- door, a warp), a link that runs one way, or a WALL — two tiles that touch and
   -- are deliberately not connected. Contiguous walkable ground authors nothing.
   --
@@ -254,14 +254,14 @@ export const SCHEMA_SQL = `
   -- GENERATED connectivity (spec §2.2): the whole traversal graph, both
   -- directions, projected from grid geometry plus the connections above.
   -- TRUNCATEd and rebuilt by the same derive pass as zone_derived, classed runtime
-  -- so it structurally cannot enter content/.
+  -- so it structurally can't enter content/.
   --
   -- The PK is (from_zone, direction, to_zone), NOT the spec's (from_zone,
   -- direction): zones.exits already lets one direction hold an ARRAY of targets,
   -- and two tiles use it — the Halcyon and Solenne elevators, whose "up" serves
   -- five and four floors respectively, disambiguated at runtime by destination
   -- name. A two-part key would silently drop four of those nine floors, and this
-  -- table has to be a drop-in for exits or it is not a replacement at all.
+  -- table has to be a drop-in for exits or it isn't a replacement at all.
   --
   -- to_zone deliberately carries NO foreign key: TRUNCATE + rebuild in one
   -- transaction must not depend on insert order, and from_zone's cascade already
@@ -503,7 +503,7 @@ export const SCHEMA_SQL = `
   -- residence. Curtain and glass are runtime state in RAM (engine/environment.js),
   -- the same split doors use for lock_state, so a drawn curtain is never a
   -- content diff. Dropped rather than left dead: an unread table with authored
-  -- rows in it is a thing somebody re-implements against later.
+  -- rows in it's a thing somebody re-implements against later.
   DROP TABLE IF EXISTS windows;
 
   CREATE TABLE IF NOT EXISTS doors (
@@ -538,7 +538,7 @@ export const SCHEMA_SQL = `
   -- exit_dir), which is a coordinate, so 56 seams carried two rows describing one
   -- door — two lock_states, two hp pools, two tag sets, free to drift into "open
   -- in look, locked on move". Anchoring to an authored id that nothing regenerates
-  -- is the same P1 fix the connection ids exist for, and it is what lets
+  -- is the same P1 fix the connection ids exist for, and it's what lets
   -- getDoorForEdge() answer "which door, and which side am I on" in one lookup.
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS connection_id TEXT REFERENCES connections(id) ON DELETE CASCADE;
   CREATE UNIQUE INDEX IF NOT EXISTS idx_doors_connection ON doors(connection_id);
@@ -866,7 +866,7 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (player_id, mutation_id)
   );
   -- Expression 1-100: how strongly THIS body carries it. Rolled once at grant
-  -- and thereafter only ever reduced, by treatment — a mutation does not creep.
+  -- and thereafter only ever reduced, by treatment — a mutation doesn't creep.
   -- 'acquired_expression' keeps the original roll so the tablet can show how far
   -- a course of treatment has walked it back.
   --
@@ -912,8 +912,8 @@ export const SCHEMA_SQL = `
   );
 
   -- The authored half of the maintenance model. All content, all exported.
-  --   item_id / salvage_item_id — chrome is an ITEM while it is in your hands and
-  --     a body part once it is in you. item_id is the row install consumes and
+  --   item_id / salvage_item_id — chrome is an ITEM while it's in your hands and
+  --     a body part once it's in you. item_id is the row install consumes and
   --     remove hands back; salvage_item_id is the ruined lump death leaves in the
   --     corpse (scrap and repair stock, never installable).
   --   overclock_max — 0 means not overclockable. Licensed Ascendant chrome
@@ -921,7 +921,7 @@ export const SCHEMA_SQL = `
   --     the entire mechanical statement of the faction split.
   --   failure_messages — keys strain/fault/burnout/dead. An overclockable augment
   --     with none of these FAILS the regress suite: a machine that can break must
-  --     be able to say how, and "Bionic malfunction." is not an answer.
+  --     be able to say how, and "Bionic malfunction." isn't an answer.
   --   power_draw is authored now and INERT until the power phase. It costs one key
   --     per content file today and saves rewriting all of them later.
   ALTER TABLE augments ADD COLUMN IF NOT EXISTS item_id TEXT;
@@ -943,7 +943,7 @@ export const SCHEMA_SQL = `
 
   -- The maintenance half of an augment. THE SPLIT HERE IS THE WHOLE DESIGN:
   -- every column runtime mutates lives on player_augments, every column an
-  -- author writes lives on 'augments'. That is why the content pipeline needs
+  -- author writes lives on 'augments'. That's why the content pipeline needs
   -- no excludeColumns for either table and content:lint has nothing to trip on.
   --
   -- calibration DEFAULT 100 is the MIGRATION INVARIANT. Contribution scales by
@@ -953,7 +953,7 @@ export const SCHEMA_SQL = `
   -- installs seed BELOW 100 (see plugins/augments/install.js) — new chrome
   -- under-performs on purpose, and tuning is how you get the number on the tin.
   --
-  -- Temperature and stress are deliberately absent: they are memory-only, decayed
+  -- Temperature and stress are deliberately absent: they're memory-only, decayed
   -- lazily from a timestamp, and their durable residue is 'condition'. See
   -- plugins/augments/overclock.js.
   ALTER TABLE player_augments ADD COLUMN IF NOT EXISTS condition REAL DEFAULT 1.0;
@@ -1238,7 +1238,7 @@ export const SCHEMA_SQL = `
   -- login that condition evaluation and hot paths read; a few KB of macro script
   -- per player is noise in there, and flag_value is TEXT with no shape.
   --
-  -- updated_at is load-bearing rather than bookkeeping: it is the whole conflict
+  -- updated_at is load-bearing rather than bookkeeping: it's the whole conflict
   -- story (last writer wins, compared against the client's own stamp), so a device
   -- that has been offline with newer macros pushes rather than being overwritten.
   --
@@ -1288,7 +1288,7 @@ export const SCHEMA_SQL = `
   -- contact); "warmth" is how they feel about you (-100..100, signed). Both are
   -- REAL because decay is fractional and rounding it to int would let a slow
   -- decay never actually land. Decay is computed LAZILY from "last_seen_at" at
-  -- hydrate time — there is deliberately no sweep tick, so an offline player
+  -- hydrate time — there's deliberately no sweep tick, so an offline player
   -- costs nothing and comes back to a cast that has correctly cooled.
   --
   -- FK to players CASCADE, same as player_achievements: a write for a
@@ -1321,7 +1321,7 @@ export const SCHEMA_SQL = `
   --
   -- familiarity is REAL because decay is fractional — rounding it to int would
   -- let a slow decay never actually land. Decay is computed LAZILY from
-  -- "last_seen_at" at hydrate time; there is no sweep tick, so an offline player
+  -- "last_seen_at" at hydrate time; there's no sweep tick, so an offline player
   -- costs nothing and comes back correctly rusty.
   CREATE TABLE IF NOT EXISTS player_reads (
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -1342,14 +1342,14 @@ export const SCHEMA_SQL = `
   -- chrome came out. Same reasoning as mutation expression never being folded
   -- into players.stat_* — see docs/systems-mutations.md.
   -- "player_purity" is the STAIN. Pulling chrome out or having a mutation
-  -- treated does not hand your ceiling straight back — the body remembers what
+  -- treated doesn't hand your ceiling straight back — the body remembers what
   -- was done to it, and it takes time to stop remembering. Without this, chrome
   -- is rentable: install it for the fight, have it cut out before training, and
   -- the whole flesh-vs-machine-vs-discipline choice costs nothing.
   --
   -- One decaying scalar and the moment it was last set. Decay is LAZY — computed
   -- on read against "updated_at", renormalised in memory, and only written back
-  -- when it has moved materially. There is no tick, so an offline player costs
+  -- when it has moved materially. There's no tick, so an offline player costs
   -- nothing and comes back correspondingly cleaner.
   CREATE TABLE IF NOT EXISTS player_purity (
     player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
@@ -1371,9 +1371,9 @@ export const SCHEMA_SQL = `
   -- deliberately NOT in the content registry and never exports.
   --
   -- The dates are GAME-DAY INDICES (server/engine/zone-filth.js gameDayIndex), not
-  -- timestamps, and that is the whole design: the late fee is DERIVED on read from
+  -- timestamps, and by design the late fee is DERIVED on read from
   -- (today - due_day), so nothing ticks, nothing accrues in the background, and a
-  -- server that was off for a week does not owe anybody a catch-up pass. The same
+  -- server that was off for a week doesn't owe anybody a catch-up pass. The same
   -- reasoning as the corps rackets' fearNow().
   --
   -- \`debt\` is the one piece of state that must persist: a fee the borrower could
@@ -1428,7 +1428,7 @@ export const SCHEMA_SQL = `
   -- so an outfit survives the piece being stowed, re-bought, or replaced by an
   -- identical one. Scoped to the wardrobe furniture it was composed in — your
   -- apartment's wardrobe and a hotel's are separate closets, which is also why
-  -- there is no FK on furniture_id: a demolished wardrobe simply orphans rows
+  -- there's no FK on furniture_id: a demolished wardrobe simply orphans rows
   -- nothing reads. The composite PK is the rename/overwrite guard.
   CREATE TABLE IF NOT EXISTS player_outfits (
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -1481,7 +1481,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE script_triggers ADD COLUMN IF NOT EXISTS params JSONB NOT NULL DEFAULT '{}';
 
   -- Unrest incidents (plugins/unrest). One row is a THING THAT CAN HAPPEN in a
-  -- city block, not a thing that is happening: the live staging is RAM only and
+  -- city block, not a thing that's happening: the live staging is RAM only and
   -- deliberately never persisted, because a "checkpoint here" row that outlives
   -- its teardown is a permanent checkpoint nobody authored.
   --   writes       — the role that stages it, 'grip' (the authority) or 'heat'
@@ -1562,14 +1562,14 @@ export const SCHEMA_SQL = `
   -- minus items: { credits?, rep?:[{ideology,delta}], flags?:[{scope,flag,value}] }.
   -- Credits are stated POSITIVE and taken (never pushing the player below zero).
   -- Deliberately no item confiscation: the package being gone is usually WHY the
-  -- quest failed, so taking it is a no-op that reads like a bug.
+  -- quest failed, so taking it's a no-op that reads like a bug.
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS penalties JSONB NOT NULL DEFAULT '{}';
   -- What happens NEXT. Both are { start_quest: <quest_id> } or NULL, dispatched
   -- through the ordinary START_QUEST action: 'on_fail' when the quest blows,
-  -- 'on_turn_in' when it is handed in. The interesting answer to a failure is
+  -- 'on_turn_in' when it's handed in. The interesting answer to a failure is
   -- usually the cleanup job rather than a fine, and stating that here retires the
   -- hand-written flag chains that used to link a quest to its sequel. A follow-up
-  -- already live on that player is refused, so a pair naming each other cannot spin.
+  -- already live on that player is refused, so a pair naming each other can't spin.
   -- Endings. 'resolutions' is a list of [{ id, when, rewards }]: TURN_IN pays the
   -- first whose 'when' condition passes (the ordinary 'rewards' is the fallback),
   -- so a quest can be finished more than one way — the crossover in the faction
@@ -1580,7 +1580,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS resolutions JSONB NOT NULL DEFAULT '[]';
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_fail JSONB;
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS on_turn_in JSONB;
-  -- Quests this one permanently closes when it is TAKEN: taking the Null contract
+  -- Quests this one permanently closes when it's TAKEN: taking the Null contract
   -- shuts the Watch's. Applied as a player flag per blocked id (quest_blocked_<id>),
   -- so dialogue can gate on it through the ordinary Flag mechanism and no new
   -- player_quests status was needed. Empty for almost every quest, deliberately —
@@ -1618,7 +1618,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS spawned JSONB NOT NULL DEFAULT '[]';
   -- Rolled targets, index-aligned to the quest's objectives: [{}, {target}, {zone}].
   -- An objective may author a SELECTOR ('@any_of:[a,b]') instead of a fixed target;
-  -- it is resolved once when the quest is taken and frozen here, so the same gig is
+  -- it's resolved once when the quest is taken and frozen here, so the same gig is
   -- not byte-identical for every player and every rotation. Empty for the ordinary
   -- case, which is what keeps the read cost at zero for quests that roll nothing.
   ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS targets JSONB NOT NULL DEFAULT '[]';
@@ -1653,15 +1653,15 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS tracked_quest_id TEXT;
 
   -- Tablet OS Bank app: the banking ledger. It began as a display-only history
-  -- for the app's Transaction History screen, but it is now LOAD-BEARING: the
+  -- for the app's Transaction History screen, but it's now LOAD-BEARING: the
   -- ATM's 24-hour rolling allowance is computed by summing this table, so a
   -- machine transaction that fails to log here is a transaction that never
   -- counted against the limit. Written from the ATM plugin and the Tablet Bank
   -- app, both through logBankTx().
   --
-  -- network_id scopes the allowance. It is the atm_networks id for a linked
+  -- network_id scopes the allowance. It's the atm_networks id for a linked
   -- terminal, "atm:<furniture id>" for an unlinked one, and NULL for anything
-  -- that deliberately does not consume an allowance (teller counters, remote
+  -- that deliberately doesn't consume an allowance (teller counters, remote
   -- tablet transfers) — the window SUM filters on an equality, so NULLs are
   -- excluded for free. Deliberately NOT a foreign key: the unlinked-terminal
   -- key has no row to point at.
@@ -1903,7 +1903,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS location_zone_id TEXT;
 
   -- PERFORMED, NOT PRINTED. channel_type='live' has always meant "the cast are
-  -- really in a room", but it is a property of the CHANNEL, so a show made by
+  -- really in a room", but it's a property of the CHANNEL, so a show made by
   -- NPCs could only be performed by moving it to a live channel — which would
   -- drag every film and ball game on that channel onto the same gate. This is
   -- the per-programme opt-in: it staffs the cast (they commute to the stage) and
@@ -1942,7 +1942,7 @@ export const SCHEMA_SQL = `
   -- A table can never be insert-ordered to satisfy its own self-reference, so on a
   -- fresh restore of the world dump (schema + content in one BEGIN…COMMIT) an
   -- immediate check aborts the WHOLE transaction — leaving an empty DB that fails to
-  -- boot ("relation server_settings does not exist"). Same fix as the media_* cycle:
+  -- boot ("relation server_settings doesn't exist"). Same fix as the media_* cycle:
   -- make them DEFERRABLE INITIALLY DEFERRED so the dump's SET CONSTRAINTS ALL DEFERRED
   -- holds the check to COMMIT, by which point every parent row exists. (The old git
   -- seed masked this with SET session_replication_role=replica; buildDump doesn't —
@@ -2274,14 +2274,14 @@ export const SCHEMA_SQL = `
   --
   -- The room prose is fixed; this is the sentence appended to it that makes the
   -- dream YOURS. Kinds are the fact it needs: 'none' is a purely surreal line with
-  -- no personal hook at all, and exists so a dream is not relentlessly about you --
-  -- a dream that is always personal becomes as predictable as one that never is.
+  -- no personal hook at all, and exists so a dream isn't relentlessly about you --
+  -- a dream that's always personal becomes as predictable as one that never is.
   -- Everything else substitutes {value} from live player state.
   --
   --   none   no hook; pure surreality
   --   zone   the room your body is actually lying in
   --   npc    somebody you know (read from the in-memory relations map)
-  --   item   something you are carrying
+  --   item   something you're carrying
   --   death  how you last died
   CREATE TABLE IF NOT EXISTS dream_tethers (
     id TEXT PRIMARY KEY,
@@ -2295,7 +2295,7 @@ export const SCHEMA_SQL = `
     name TEXT NOT NULL,                        -- what the look/examine pass calls it
     cause TEXT NOT NULL DEFAULT 'dream',
     drug_id TEXT,
-    -- Lines shown when it enters the room you are in, and when it leaves.
+    -- Lines shown when it enters the room you're in, and when it leaves.
     arrivals JSONB NOT NULL DEFAULT '[]',
     departures JSONB NOT NULL DEFAULT '[]',
     -- Answers to examining it. Several, picked per look — it never resolves.
@@ -2304,7 +2304,7 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_dream_presences_cause ON dream_presences (cause, drug_id);
 
   -- What a psychedelic turns the furniture around you INTO. The other half of the
-  -- phantom law: a phantom adds something that is not there, a transform makes
+  -- phantom law: a phantom adds something that isn't there, a transform makes
   -- something that IS there read as something else, for one viewer only. Lives in
   -- the live world rather than a dreamscape on purpose -- the uncanny needs a
   -- baseline to violate, and your own kitchen is a baseline.
@@ -2314,7 +2314,7 @@ export const SCHEMA_SQL = `
     -- Optional narrowing: only applies to furniture whose name matches this
     -- (case-insensitive substring). NULL applies to any piece in the room.
     matches TEXT,
-    name TEXT NOT NULL,                        -- what the piece is called while you are high
+    name TEXT NOT NULL,                        -- what the piece is called while you're high
     description TEXT NOT NULL,                 -- its line in the room description
     looks JSONB NOT NULL DEFAULT '[]',         -- answers to examining it; picked per look
     says JSONB NOT NULL DEFAULT '[]'           -- what it says to you, unprompted
@@ -2323,19 +2323,19 @@ export const SCHEMA_SQL = `
 
   -- Added after drug_transforms shipped, so it needs its own idempotent ALTER --
   -- the create statement is a no-op on a database that already has the table.
-  -- (Do not write the create-if-not-exists phrase in a comment: the registry
+  -- (Don't write the create-if-not-exists phrase in a comment: the registry
   -- sweep in regress scrapes table names out of this string and would classify
   -- the next word as a table.)
   --   'object' — re-reads a piece of furniture (the original behaviour)
   --   'room'   — re-reads the ROOM ITSELF. Always applied, furniture or not, so a
   --              psychedelic on a bare street corner is still a psychedelic.
-  --   'spawn'  — a thing that is not there at all, conjured as a phantom object
+  --   'spawn'  — a thing that isn't there at all, conjured as a phantom object
   --              when the room has too little furniture to work with.
   --   'person' — re-reads one of the PEOPLE in the room. The room changing while
   --              its occupants stay ordinary reads as a bug in the furniture;
   --              talking to them and hitting them still reaches the real NPC.
   ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS weather TEXT;
-  -- Particle field for the client FX canvas while you are in this room:
+  -- Particle field for the client FX canvas while you're in this room:
   -- rain | snow | ash | fog | wind | none, plus a 0-1 intensity. Ignores the real
   -- weather AND the indoor gate, because a dream room running weather it cannot
   -- possibly have is the cheapest way to SHOW the rules are off rather than say it.
@@ -2360,11 +2360,11 @@ export const SCHEMA_SQL = `
   --   source 'object' — a transformed or conjured thing talking to you
   --   source 'npc'    — a person in the room reacting to how you look
   --
-  --   tone 'surreal'  — it half-participates in what you are experiencing
+  --   tone 'surreal'  — it half-participates in what you're experiencing
   --   tone 'normal'   — and then, sometimes, something completely mundane. This
   --                     is the load-bearing half: a chair asking whether you ever
   --                     sorted the bins is far worse than a chair being cosmic,
-  --                     because you cannot tell whether that one was real.
+  --                     because you can't tell whether that one was real.
   --
   -- Tokens {npc} and {player} are substituted at runtime. room_line may be blank
   -- for objects — nobody else hears the furniture.
@@ -2652,7 +2652,7 @@ export const SCHEMA_SQL = `
 
   -- ── Player-funded bounties (bounty plugin, docs/systems-bounties.md) ────────
   -- RUNTIME state: one row per contract taken out on a player's head. Escrow is
-  -- debited from the backer at posting and lives ON THIS ROW until it is paid,
+  -- debited from the backer at posting and lives ON THIS ROW until it's paid,
   -- refunded or forfeited, so a restart can neither lose nor double-pay it —
   -- the same durability rule sports_bets follows.
   --
@@ -2773,7 +2773,7 @@ export const SCHEMA_SQL = `
   -- aircraft is RUNTIME state: one row per physical craft in the world. Schema is
   -- exported, rows are not (production-owned, like generators/atm_units). The
   -- aircraft owns its occupant set at runtime (in-memory, mirroring live-zone
-  -- membership) -- there is deliberately NO cabin zones row; being aboard is
+  -- membership) -- there's deliberately NO cabin zones row; being aboard is
   -- player state and the cabin is synthesized. parked_zone_id is null when airborne.
   CREATE TABLE IF NOT EXISTS aircraft (
     id            TEXT PRIMARY KEY,
@@ -2916,7 +2916,7 @@ export const SCHEMA_SQL = `
     type_id       TEXT NOT NULL,                  -- key into flight-model.js TYPES (ground: true)
     name          TEXT,                           -- the plate/nickname on the door
     owner_id      TEXT,                           -- player id; null = dealer stock
-    depot_zone    TEXT,                           -- where it is parked; null = out on a run
+    depot_zone    TEXT,                           -- where it's parked; null = out on a run
     fuel          REAL    NOT NULL DEFAULT 1,     -- 0..1 of the type's tank
     odometer      REAL    NOT NULL DEFAULT 0,     -- lifetime tiles, for resale and for bragging
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -2928,8 +2928,8 @@ export const SCHEMA_SQL = `
   -- impounded; the truck is simply somewhere.
   ALTER TABLE trucks ADD COLUMN IF NOT EXISTS impound_fee INTEGER;
 
-  -- CONDITION. The rig's own HP bar, 1 = out of the factory and 0 = it does not start. It is the
-  -- one number the maintenance bench exists to move, and it is deliberately a truck column rather
+  -- CONDITION. The rig's own HP bar, 1 = out of the factory and 0 = it doesn't start. It's the
+  -- one number the maintenance bench exists to move, and it's deliberately a truck column rather
   -- than a durability row: player_inventory.condition is about a thing you CARRY, and a truck is
   -- never in an inventory. Wear accrues on distance and on contact, flushed with the same
   -- coalesced write that already carries fuel and the odometer home (fleet.js persistTruck).
@@ -2940,7 +2940,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE trucks ADD COLUMN IF NOT EXISTS custom_data JSONB NOT NULL DEFAULT '{}'::jsonb;
 
   -- TRAILERS. A trailer is a thing in the world, not a boolean on a rig: you drop it and it stays
-  -- dropped, somebody else can find it, and what is on it stays on it. parked_zone is where it
+  -- dropped, somebody else can find it, and what's on it stays on it. parked_zone is where it
   -- physically is; towed_by is the truck currently under it (exactly one of the two is set, and
   -- the partial index below is what enforces one-trailer-per-truck rather than a code path
   -- remembering to check). NO BACKTICKS IN HERE — SCHEMA_SQL is a template literal, and a stray
@@ -2951,13 +2951,13 @@ export const SCHEMA_SQL = `
     owner_id      TEXT,                           -- who bought it; null = yard stock
     kg            INTEGER NOT NULL DEFAULT 1400,  -- the empty box
     rated_kg      INTEGER NOT NULL DEFAULT 3500,  -- what the deck is allowed to carry
-    parked_zone   TEXT,                           -- where it is standing; null = hitched
+    parked_zone   TEXT,                           -- where it's standing; null = hitched
     towed_by      TEXT,                           -- trucks.id; null = standing somewhere
     cargo         JSONB,                          -- the declared load, or null
-    stash         JSONB,                          -- what is NOT on the manifest (see the weigh station)
+    stash         JSONB,                          -- what's NOT on the manifest (see the weigh station)
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
-  -- The box's own damage bar. It is the fourth component of the damage model (plugins/trucking/
+  -- The box's own damage bar. It's the fourth component of the damage model (plugins/trucking/
   -- damage.js) and it lives HERE rather than in the truck's bag for the reason the trailer is a row
   -- at all: a trailer outlives the tractor that towed it, gets dropped in yards, and is routinely
   -- somebody else's problem. Damage that followed the truck would heal every time you swapped boxes.
@@ -2972,7 +2972,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_x REAL;
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_y REAL;
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_heading REAL;
-  -- WHAT COLOUR IT IS, and the reason it is on the BOX rather than derived from whoever is towing
+  -- WHAT COLOUR IT IS, and the reason it's on the BOX rather than derived from whoever is towing
   -- it. A trailer is a thing you own, drop, come back for, and one day sell to somebody else; a
   -- colour that came off the tractor would mean the same box was two colours in one yard depending
   -- on which cab happened to be hooked to it, and would change under you the moment you unhitched.
@@ -3097,7 +3097,7 @@ export const SCHEMA_SQL = `
   -- home_zone is CONTENT and is NOT in the npcs excludeColumns, so a content
   -- deploy upserts the authored value back over anything runtime wrote — a
   -- defector walked to safety would reappear at her old desk on the next deploy.
-  -- Recording the move here puts it somewhere the deploy cannot reach.
+  -- Recording the move here puts it somewhere the deploy can't reach.
   -- One row per NPC: an NPC has one home, so relocating twice is an UPSERT
   -- rather than a second row to reconcile.
   CREATE TABLE IF NOT EXISTS npc_home_overrides (
@@ -3114,7 +3114,7 @@ export const SCHEMA_SQL = `
   -- makes "one per zone" a primary key instead of a rule somebody has to enforce.
   -- Painting over is an UPSERT, so this table can never exceed one row per street
   -- tile in the world. day_index is the game-day it went up (zone-filth.js
-  -- gameDayIndex); expiry is derived from it lazily on read, so there is no tick
+  -- gameDayIndex); expiry is derived from it lazily on read, so there's no tick
   -- and a restart can't wipe the city's walls. Runtime data, never content.
   CREATE TABLE IF NOT EXISTS zone_graffiti (
     zone_id TEXT PRIMARY KEY,
@@ -3129,7 +3129,7 @@ export const SCHEMA_SQL = `
   -- Per-letter colour and weight, as RUNS ([{n,c,f}]) rather than markup. The text
   -- column keeps its contract untouched — escaped on the way in, stored escaped —
   -- and style rides alongside it as data that can only ever hold a validated
-  -- #rrggbb and a four-bit flag, so there is no markup in a room description to
+  -- #rrggbb and a four-bit flag, so there's no markup in a room description to
   -- parse and none to get wrong. NULL is an ordinary unstyled tag.
   ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS style JSONB;
 

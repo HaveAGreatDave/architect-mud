@@ -4,7 +4,7 @@
     "Are you going to be long?",
     "Can you hear that as well?"
   ],
-  "description": "A large owl at about the height of a person, standing quite still with its shoulders up, waiting out the room. It has the manner of something that has never once needed to hurry and does not expect to start.",
+  "description": "A large owl at about the height of a person, standing quite still with its shoulders up, waiting out the room. It has the manner of something that has never once needed to hurry and doesn't expect to start.",
   "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} rotates its head an impossible amount and back again.",
@@ -15,14 +15,14 @@
   "fx_intensity": 0.5,
   "id": "dxp_psilocybin_owl",
   "looks": [
-    "The face is a flat pale dish and every part of it is aimed at you.",
+    "The face is a flat pale dish and every part of it's aimed at you.",
     "It blinks in two stages, and the second stage is unhurried.",
     "The feet are enormous and are gripping the floor, gently, in case."
   ],
   "matches": null,
   "name": "an owl being extremely patient",
   "says": [
-    "Take as long as you need. I am not going anywhere.",
+    "Take as long as you need. I'm not going anywhere.",
     "I heard you from the other room.",
     "You breathe very loudly. Nobody has told you."
   ],

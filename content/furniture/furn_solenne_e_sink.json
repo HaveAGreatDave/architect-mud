@@ -1,5 +1,5 @@
 {
-  "description": "The counter simply dips, and at the bottom of the dip there is a drain. Water arrives out of a slot in the backsplash with no tap in sight, which takes some getting used to.",
+  "description": "The counter simply dips, and at the bottom of the dip there's a drain. Water arrives out of a slot in the backsplash with no tap in sight, which takes some getting used to.",
   "flags": {
     "aliases": "kitchen sink,sink,basin,tap",
     "interactions": [

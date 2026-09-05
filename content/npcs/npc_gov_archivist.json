@@ -132,9 +132,9 @@
   },
   "chitchat": [
     "reshelves a file with the tenderness of a burial.",
-    "\"Everyone is on record here. Being on record is not the same as being alive.\""
+    "\"Everyone is on record here. Being on record isn't the same as being alive.\""
   ],
-  "description": "A stooped archivist who has memorised the location of files for people who no longer exist, and treats each one as a small held breath. She signs every retrieval slip I. BEKKER, in a hand that has not changed since before the war.",
+  "description": "A stooped archivist who has memorised the location of files for people who no longer exist, and treats each one as a small held breath. She signs every retrieval slip I. BEKKER, in a hand that hasn't changed since before the war.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -147,7 +147,7 @@
           "next": "bye"
         }
       ],
-      "text": "The archivist does not look up from the stacks. \"If you seek a record, give me a name. If you seek a person, I cannot help you; we stopped stocking those.\" A retrieval slip is filled and blotted, all of it by feel. \"Bekker. It will be on the docket, should you wish to complain.\""
+      "text": "The archivist doesn't look up from the stacks. \"If you seek a record, give me a name. If you seek a person, I can't help you; we stopped stocking those.\" A retrieval slip is filled and blotted, all of it by feel. \"Bekker. It'll be on the docket, should you wish to complain.\""
     }
   },
   "faction": null,

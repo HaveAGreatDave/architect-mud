@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2b2620",
-  "description": "Aisles of everything, none of it good. Strip lights buzz over bins of socks sold by weight, stacked cookware in a beige nobody chose, and a rack of coats in three sizes labelled SMALL, LARGE and REGRET. The tannoy overhead cycles the same four bars of music and the same cheerful announcement about an aisle that no longer exists. It is warm, it is dry, and it is the cheapest place in Coldwater to become a person with things.",
+  "description": "Aisles of everything, none of it good. Strip lights buzz over bins of socks sold by weight, stacked cookware in a beige nobody chose, and a rack of coats in three sizes labelled SMALL, LARGE and REGRET. The tannoy overhead cycles the same four bars of music and the same cheerful announcement about an aisle that no longer exists. It's warm, it's dry, and it's the cheapest place in Coldwater to become a person with things.",
   "exits": {
     "down": "zone_util_zone_adequate_floor",
     "east": "zone_adequate_upper",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

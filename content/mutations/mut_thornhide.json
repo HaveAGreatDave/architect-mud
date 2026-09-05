@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "They are hided over in dark thorn-bark from the jaw down, grained and split and hard, and where it creases at the joints there are short blunt spines.",
+    "extreme": "They're hided over in dark thorn-bark from the jaw down, grained and split and hard, and where it creases at the joints there are short blunt spines.",
     "obvious": "Their skin has gone dark and barked over the forearms and the back of the neck, split into small hard plates like a thorn stem.",
     "subtle": "The backs of their hands are darker than the rest of them, and rough."
   },
@@ -17,7 +17,7 @@
   ],
   "description": "The hide the Pool gives everyone. Dark, barked skin that turns a blade and marks you as theirs, which is the half that matters.",
   "drawbacks": [
-    "Everyone in the city can see what you are now"
+    "Everyone in the city can see what you're now"
   ],
   "effects": {
     "cold_resistance": 0.2,

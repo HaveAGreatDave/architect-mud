@@ -1,13 +1,13 @@
 {
   "asks": [
-    "Are we going out? Say it properly if we are going out.",
+    "Are we going out? Say it properly if we're going out.",
     "Was that the door? That was the door, was it not?",
     "Do you want this seat, or are you just looking at me?"
   ],
   "description": "A tall grey hound sits upright where the chair stands, spine straight, front legs braced, watching the door out of habit rather than worry.",
   "drug_id": "drug_psilocybin",
   "emotes": [
-    "{it} turns its head to follow something across the room that is not there any more.",
+    "{it} turns its head to follow something across the room that isn't there any more.",
     "{it} lies down with a grunt, then stands straight back up, unable to settle.",
     "{it} shakes itself from nose to tail, ears rattling, and sits back down exactly as it was.",
     "{it} rests its chin on the nearest surface and sighs through its nose."
@@ -17,15 +17,15 @@
   "id": "dx_psilocybin_chair_hound",
   "looks": [
     "Lean to the point of architecture. You can count the ribs, and the hips stand up like handles.",
-    "It has the patient, slightly disappointed face of an animal that has waited for people who did not come back.",
+    "It has the patient, slightly disappointed face of an animal that has waited for people who didn't come back.",
     "Its tail moves once against the floor when you look at it, and then thinks better of it."
   ],
   "matches": "chair",
   "name": "a grey hound sitting up",
   "says": [
-    "Sit. I will move. I always move.",
+    "Sit. I'll move. I always move.",
     "I have been holding this spot since before you came in.",
-    "You smell like outside. I am not complaining."
+    "You smell like outside. I'm not complaining."
   ],
   "scope": "object"
 }

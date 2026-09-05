@@ -16,7 +16,7 @@
 // either stage an operator action or let content edits bypass review.
 
 const UNREST_SUITE_TITLE = 'Unrest';
-const UNREST_SUITE_DESC = 'The faction-conflict ledger and the catalogue behind it — grip/heat/pressure per derived city block, what is standing right now, and every authored thing that CAN stand. Operator-only by design: none of it reaches the player.';
+const UNREST_SUITE_DESC = "The faction-conflict ledger and the catalogue behind it — grip/heat/pressure per derived city block, what's standing right now, and every authored thing that CAN stand. Operator-only by design: none of it reaches the player.";
 const UNREST_SUITE_TABS = [
   { panel: 'unrest',    label: '🔥 Live ledger' },
   { panel: 'incidents', label: '🧨 Catalogue' },
@@ -87,7 +87,7 @@ function _unrestRows(cells) {
     const band = _unrestBand[c.band] || _unrestBand.quiet;
     return `<tr>
       <td style="padding:6px 12px 6px 0;font-weight:600;color:var(--text)">${_unrestEsc(c.key)}</td>
-      <td style="padding:6px 12px 6px 0"><span style="color:${band.color};font-size:9px;letter-spacing:1px;font-weight:700">${band.label}</span>${c.lit ? '<span title="lit: burning until the grievance under it is spent" style="color:#ff9f43;font-weight:700;margin-left:6px">&#9650;</span>' : ''}</td>
+      <td style="padding:6px 12px 6px 0"><span style="color:${band.color};font-size:9px;letter-spacing:1px;font-weight:700">${band.label}</span>${c.lit ? '<span title="lit: burning until the grievance under it\'s spent" style="color:#ff9f43;font-weight:700;margin-left:6px">&#9650;</span>' : ''}</td>
       <td style="padding:6px 12px 6px 0;width:90px">${_unrestBar(c.grip, '#60a5fa')}</td>
       <td style="padding:6px 12px 6px 0;color:var(--text-dim);width:34px">${c.grip}</td>
       <td style="padding:6px 12px 6px 0;width:90px">${_unrestBar(c.heat, '#ff6b6b')}</td>
@@ -129,7 +129,7 @@ function _unrestRoles(roles) {
 function _unrestLive(inc) {
   const live = Array.isArray(inc?.live) ? inc.live : [];
   if (!live.length) {
-    return '<div style="color:var(--text-dim);font-size:11px">Nothing staged. That is the normal state of a quiet city.</div>';
+    return '<div style="color:var(--text-dim);font-size:11px">Nothing staged. That\'s the normal state of a quiet city.</div>';
   }
   const now = Date.now();
   return `<table style="width:100%;border-collapse:collapse;font-size:11px">
@@ -241,7 +241,7 @@ function renderUnrestPanel(data) {
       </div>
       <div style="color:var(--text-dim);font-size:11px;margin-bottom:10px">
         A staging is <b>never persisted</b> — a restart leaves the cell hot and the checkpoint gone,
-        and the next tick re-stages it if it is still warranted. Nothing may stage in a cell that has
+        and the next tick re-stages it if it's still warranted. Nothing may stage in a cell that has
         not carried a perceivable signal <i>from the same order</i> in the last six hours, which is
         what makes a checkpoint read as a reply to the graffiti rather than as spawn noise.
       </div>
@@ -249,7 +249,7 @@ function renderUnrestPanel(data) {
       <div style="font-weight:700;margin:16px 0 8px">Eligibility — why nothing is standing</div>
       <div style="color:var(--text-dim);font-size:11px;margin-bottom:8px">
         Every enabled definition against every cell, with the refusal counted per reason. This is the
-        question you will ask ninety times for every once you ask what is happening. Click a cell to
+        question you'll ask ninety times for every once you ask what's happening. Click a cell to
         stage that incident there by hand. The definitions themselves — stage steps, weights,
         durations — are authored content and live on the <b>Catalogue</b> tab.
       </div>
@@ -336,7 +336,7 @@ registerDevPanel({
 registerDevPanel({
   id: 'incidents',
   title: 'Incidents',
-  description: 'The authored catalogue behind Unrest — what CAN happen in a city block, never what is happening. The live side is the Live ledger tab.',
+  description: "The authored catalogue behind Unrest — what CAN happen in a city block, never what's happening. The live side is the Live ledger tab.",
   navAlias: 'unrest',
   idPrefix: 'incident',
   noEdit: false,

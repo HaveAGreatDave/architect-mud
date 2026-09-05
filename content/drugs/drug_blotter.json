@@ -32,11 +32,11 @@
         },
         {
           "atSec": 360,
-          "text": "[trip]You are absolutely certain, for one perfect second, that you understand it all.[/trip]"
+          "text": "[trip]You're absolutely certain, for one perfect second, that you understand it all.[/trip]"
         },
         {
           "atSec": 410,
-          "text": "[trip]A stranger who is also you steps out of the wall, waves, and folds back in.[/trip]"
+          "text": "[trip]A stranger who's also you steps out of the wall, waves, and folds back in.[/trip]"
         },
         {
           "atSec": 470,
@@ -58,7 +58,7 @@
     "instant": {
       "sanity": -8
     },
-    "onset_message": "<span class=\"msg-system\">The paper was not a lie. The walls take their first slow breath.</span>",
+    "onset_message": "<span class=\"msg-system\">The paper wasn't a lie. The walls take their first slow breath.</span>",
     "onset_seconds": 20,
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The peak loosens its grip. The world starts remembering how to be ordinary.</span>",
@@ -68,7 +68,7 @@
       "comeup_scale": 0.5,
       "comeup_seconds": 90,
       "end_message": "<span class=\"msg-system\">You're down: wrung-out and wide awake, thoughts still trailing colour.</span>",
-      "peak_message": "<span class=\"msg-system\">The come-up crests and breaks. You are all the way in it now.</span>",
+      "peak_message": "<span class=\"msg-system\">The come-up crests and breaks. You're all the way in it now.</span>",
       "peak_mods": {
         "stat_cool": -1,
         "stat_reflexes": 1

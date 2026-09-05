@@ -49,7 +49,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is in it?",
+          "label": "What's in it?",
           "next": "box_what"
         },
         {
@@ -60,7 +60,7 @@
           "next": "bye"
         }
       ],
-      "text": "He puts the pencil behind his ear, which for him is sitting down.\n\n\"I owe them for a thing. Eleven years ago, and it is not money, and I have tried to make it money eleven times because money is a thing I understand.\" He taps a flat sealed box on the counter. \"They will not take it off me. Off me specifically. I walk it up there and it comes back down.\"\n\n\"So take it up and leave it at the gate and bring the empty back. And do not open it, and I am going to say that twice, and then I am going to apologise for saying it twice, because you have not given me any reason.\"\n\nHe does. Both."
+      "text": "He puts the pencil behind his ear, which for him is sitting down.\n\n\"I owe them for a thing. Eleven years ago, and it isn't money, and I have tried to make it money eleven times because money is a thing I understand.\" He taps a flat sealed box on the counter. \"They won't take it off me. Off me specifically. I walk it up there and it comes back down.\"\n\n\"So take it up and leave it at the gate and bring the empty back. And don't open it, and I'm going to say that twice, and then I'm going to apologise for saying it twice, because you haven't given me any reason.\"\n\nHe does. Both."
     },
     "box2": {
       "_vine": {
@@ -91,7 +91,7 @@
           "next": "bye"
         }
       ],
-      "text": "He puts a second box on the trestle. The seal across the lid has been cut and pressed back down, and he does not look at it, and he does not look away from you either.\n\n\"Same gate. Bring the empty back.\""
+      "text": "He puts a second box on the trestle. The seal across the lid has been cut and pressed back down, and he doesn't look at it, and he doesn't look away from you either.\n\n\"Same gate. Bring the empty back.\""
     },
     "box2_done": {
       "_vine": {
@@ -119,7 +119,7 @@
           "next": "bye"
         }
       ],
-      "text": "He takes the empty and does not ask, and you work out on the walk back to the shed that not asking is a thing he does to you as well.\n\n\"Twelfth time,\" he says, to the list. \"It went up shut.\""
+      "text": "He takes the empty and doesn't ask, and you work out on the walk back to the shed that not asking is a thing he does to you as well.\n\n\"Twelfth time,\" he says, to the list. \"It went up shut.\""
     },
     "box2_seal": {
       "_vine": {
@@ -136,7 +136,7 @@
           "next": "box2_take"
         }
       ],
-      "text": "\"It is.\" He runs the pencil down the list and does not stop anywhere on it. \"You could look. It would take you four seconds and I would not know, and neither would they, and that is the entire arrangement in one sentence.\""
+      "text": "\"It is.\" He runs the pencil down the list and doesn't stop anywhere on it. \"You could look. It would take you four seconds and I wouldn't know, and neither would they.\""
     },
     "box2_take": {
       "_vine": {
@@ -158,7 +158,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Up the road, inside the line, back with the empty.\" He turns the page. \"Take your time. Nobody up there is in a hurry and it is catching.\""
+      "text": "\"Up the road, inside the line, back with the empty.\" He turns the page. \"Take your time. Nobody up there's in a hurry and it's catching.\""
     },
     "box_done": {
       "actions": [
@@ -178,7 +178,7 @@
           "next": "bye"
         }
       ],
-      "text": "He takes the empty box off you and turns it over twice, and there is nothing written on it and nothing in it, and something in his shoulders goes down about an inch.\n\n\"Right,\" he says. \"Right.\"\n\nHe puts it under the counter with a great deal of care, on top of the other ten.\n\n\"Ambler will talk to you now. She will pretend that is a coincidence.\""
+      "text": "He takes the empty box off you and turns it over twice, and there's nothing written on it and nothing in it, and something in his shoulders goes down about an inch.\n\n\"Right,\" he says. \"Right.\"\n\nHe puts it under the counter with a great deal of care, on top of the other ten.\n\n\"Ambler will talk to you now. She'll pretend that's a coincidence.\""
     },
     "box_take": {
       "actions": [],
@@ -191,7 +191,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Right.\" He slides it across. \"Gate. Leave it. Come back.\"\n\nAnd he picks up the pencil and goes down the list again, and does not look at you leaving."
+      "text": "\"Right.\" He slides it across. \"Gate. Leave it. Come back.\"\n\nAnd he picks up the pencil and goes down the list again, and doesn't look at you leaving."
     },
     "box_what": {
       "actions": [],
@@ -216,7 +216,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing you would want and nothing you could sell.\"\n\nHe looks at the box, and then out at the road, and for a moment he is somewhere else entirely.\n\n\"It is a set of gauges. Good ones. I made them, before, when I had hands that could.\" He turns one of them over, and you see the joint at the knuckle where it is not a knuckle. \"Eleven years I have been getting them exactly right and they will not take them, and they will not tell me why, and I know why, and I am not going to say it out loud in my own shed.\"\n\n\"Take the box or do not. It is the only thing I have ever asked anybody in this valley for.\""
+      "text": "\"Nothing you would want and nothing you could sell.\"\n\nHe looks at the box, and then out at the road, and for a moment he's somewhere else entirely.\n\n\"It's a set of gauges. Good ones. I made them, before, when I had hands that could.\" He turns one of them over, and you see the joint at the knuckle where it isn't a knuckle. \"Eleven years I have been getting them exactly right and they won't take them, and they won't tell me why, and I know why, and I'm not going to say it out loud in my own shed.\"\n\n\"Take the box or do not. It's the only thing I have ever asked anybody in this valley for.\""
     },
     "buy": {
       "actions": [],
@@ -243,7 +243,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Bearings. Wire. Anything that turns without complaining. Glass, if it's clean. Medical, always, at a price that will surprise you.\n\nWhat I don't buy is anything that thinks. No cores, no boards, no augments, nothing with a light on it that comes on by itself. Bring me one of those and we are finished, you and I, permanently.\""
+      "text": "\"Bearings. Wire. Anything that turns without complaining. Glass, if it's clean. Medical, always, at a price that'll surprise you.\n\nWhat I don't buy is anything that thinks. No cores, no boards, no augments, nothing with a light on it that comes on by itself. Bring me one of those and we're finished, you and I, permanently.\""
     },
     "bye": {
       "actions": [],
@@ -275,7 +275,7 @@
           "next": "bye"
         }
       ],
-      "text": "The pencil stops. He does not look angry. He looks like a man hearing a joke he stopped finding funny a long time ago.\n\n\"We are leaving. Leaving takes a wall, and water, and a hundred small turning things, and none of us can make a bearing out of good intentions. So somebody stands out here in the light and buys them, where everyone can see it being done, and that somebody is me.\n\nWhen we go, I don't. That's the arrangement. Somebody has to be the one who touched it.\""
+      "text": "The pencil stops. He doesn't look angry. He looks like a man hearing a joke he stopped finding funny a long time ago.\n\n\"We're leaving. Leaving takes a wall, and water, and a hundred small turning things, and none of us can make a bearing out of good intentions. So somebody stands out here in the light and buys them, where everyone can see it being done, and that somebody is me.\n\nWhen we go, I don't. That's the arrangement. Somebody has to be the one who touched it.\""
     },
     "howin": {
       "actions": [],
@@ -308,7 +308,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will be there.",
+          "label": "I'll be there.",
           "next": "offer3_take"
         },
         {
@@ -326,7 +326,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is a man on the road with a folder.\" The pencil stops. \"Two days of being pleasant to Tace, and this morning he asked her what she wanted, which is the question they ask when they have already worked out the answer.\"\n\n\"Stand beside her tomorrow. Hold nothing. Say nothing.\""
+      "text": "\"There's a man on the road with a folder.\" The pencil stops. \"Two days of being pleasant to Tace, and this morning he asked her what she wanted, which is the question they ask when they have already worked out the answer.\"\n\n\"Stand beside her tomorrow. Hold nothing. Say nothing.\""
     },
     "offer3_done": {
       "_vine": {
@@ -363,7 +363,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"He went back down at four.\" Stannard closes the list, which he does not do. \"He will come again in the spring with a better figure, and Tace will say no in exactly the same voice, and that is the job. It is not a war and nobody wins it.\"\n\n\"You stood in a road for a morning and said nothing. There is not a person here who does not know that by now.\""
+      "text": "\"He went back down at four.\" Stannard closes the list, which he doesn't do. \"He'll come again in the spring with a better figure, and Tace will say no in exactly the same voice. It isn't a war and nobody wins it.\"\n\n\"You stood in a road for a morning and said nothing. There isn't a person here who doesn't know that by now.\""
     },
     "offer3_take": {
       "_vine": {
@@ -385,7 +385,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Morning, on the road.\" He goes back to the list. \"If he offers you something personally, and he will, the answer is the same as hers and it is shorter than you think.\""
+      "text": "\"Morning, on the road.\" He goes back to the list. \"If he offers you something personally, and he will, the answer is the same as hers and it's shorter than you think.\""
     },
     "offer3_why": {
       "_vine": {
@@ -398,7 +398,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will be there.",
+          "label": "I'll be there.",
           "next": "offer3_take"
         },
         {
@@ -409,7 +409,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because you have been up that road twice with a box you could have opened.\" He does look up for this one. \"And because he will count you. One more of us standing in the road is worth more than anything either of us could say to him.\""
+      "text": "\"Because you have been up that road twice with a box you could have opened.\" He does look up for this one. \"And because he'll count you. One more of us standing in the road is worth more than anything either of us could say to him.\""
     },
     "root": {
       "actions": [],
@@ -559,7 +559,7 @@
       "text": "\"Buying's out here. Gate's not mine.\"\n\n\"So. What have you got?\"",
       "text_by_relation": {
         "close": "\"There you are.\" He puts the list down, which from him is an embrace. \"Sit if you like. Don't touch the crates.\"",
-        "familiar": "He does not look up, but the pencil stops. \"Go on then.\"",
+        "familiar": "He doesn't look up, but the pencil stops. \"Go on then.\"",
         "known": "\"You again. Whatever it is, leave it by the doors.\""
       }
     },
@@ -588,7 +588,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"People. Same as anywhere. Working, mostly.\"\n\nHe lets that sit exactly long enough for you to know it is all you are getting.\n\n\"They'll tell you themselves, if it ever comes to that. It won't come to that today. Go and look at the gate if you like. It's very good at being a gate.\""
+      "text": "\"People. Same as anywhere. Working, mostly.\"\n\nHe lets that sit exactly long enough for you to know it's all you're getting.\n\n\"They'll tell you themselves, if it ever comes to that. It won't come to that today. Go and look at the gate if you like. It's very good at being a gate.\""
     }
   },
   "faction": "ideology_exodus",

@@ -1,10 +1,10 @@
 {
-  "description": "A squat grey syringe, barrel gone cloudy with age, the plunger stiff with something that dried in it years ago. There is no printing on it anywhere. The needle is longer than seems reasonable. Somebody has scratched a tally mark into the barrel; somebody else has scratched four more.",
+  "description": "A squat grey syringe, barrel gone cloudy with age, the plunger stiff with something that dried in it years ago. There's no printing on it anywhere. The needle is longer than seems reasonable. Somebody has scratched a tally mark into the barrel; somebody else has scratched four more.",
   "flags": {},
   "id": "item_drug_grey_ampoule",
   "name": "unmarked grey syringe",
   "tags": {
-    "description": "A squat grey syringe, barrel gone cloudy with age, the plunger stiff with something that dried in it years ago. There is no printing on it anywhere. The needle is longer than seems reasonable. Somebody has scratched a tally mark into the barrel; somebody else has scratched four more.",
+    "description": "A squat grey syringe, barrel gone cloudy with age, the plunger stiff with something that dried in it years ago. There's no printing on it anywhere. The needle is longer than seems reasonable. Somebody has scratched a tally mark into the barrel; somebody else has scratched four more.",
     "stackable": true,
     "syringe": true
   },

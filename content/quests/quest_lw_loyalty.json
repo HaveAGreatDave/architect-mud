@@ -1,13 +1,13 @@
 {
   "category": null,
-  "description": "The Quartermaster hands you a purse heavy enough to be a point, and a list of parts the Watch cannot make and will not do without.\n\nAll of it is sold on Halcyon Boulevard. So is everything else. The clinic on that same street will fit you anything you like while you wait, at a discount, to anybody who looks like they might be considering it, and they are extremely good at spotting who is considering it.\n\nShe does not tell you not to. She has never told anybody not to, in twenty years of handing out that purse.\n\nShe says: bring the parts back, and bring yourself back. Then she watches you the whole way to the door.",
+  "description": "The Quartermaster hands you a purse heavy enough to be a point, and a list of parts the Watch can't make and won't do without.\n\nAll of it's sold on Halcyon Boulevard. So is everything else. The clinic on that same street will fit you anything you like while you wait, at a discount, to anybody who looks like they might be considering it, and they're extremely good at spotting who's considering it.\n\nShe doesn't tell you not to. She has never told anybody not to, in twenty years of handing out that purse.\n\nShe says: bring the parts back, and bring yourself back. Then she watches you the whole way to the door.",
   "fail_on": [
     {
       "desc": "You had something fitted. The parts are on the counter and so is the receipt, and the Quartermaster reads the second one first.",
       "type": "install"
     },
     {
-      "desc": "You came back a different shape. The Watch have a word for that and it is not one they say to your face.",
+      "desc": "You came back a different shape. The Watch have a word for that and it isn't one they say to your face.",
       "type": "mutate"
     }
   ],
@@ -31,9 +31,9 @@
       "desc": "The last part is behind the clinic counter. Wait for it.",
       "emotes": [
         "{who} sits in a warm, clean waiting room while somebody explains what could be done about the ache in their hands.",
-        "{who} is handed a brochure, and holds it, and does not read it.",
-        "{who} is told there is no obligation, twice, by two different people.",
-        "{who} is quoted a figure, and the figure is less than what is in the purse."
+        "{who} is handed a brochure, and holds it, and doesn't read it.",
+        "{who} is told there's no obligation, twice, by two different people.",
+        "{who} is quoted a figure, and the figure is less than what's in the purse."
       ],
       "id": "o_wait",
       "requires": [
@@ -49,8 +49,8 @@
       "emotes": [
         "{who} is asked, pleasantly, what they do with their hands all day.",
         "{who} is talked out of the expensive one by the man who would have been paid for it.",
-        "{who} is quoted a price, and then a smaller price, and is not pushed on either.",
-        "{who} is told the offer stands, and that it is not the kind that expires."
+        "{who} is quoted a price, and then a smaller price, and isn't pushed on either.",
+        "{who} is told the offer stands, and that it isn't the kind that expires."
       ],
       "id": "o_offer",
       "requires": [
@@ -62,7 +62,7 @@
     {
       "desc": "Take the parts back to the Quartermaster.",
       "emotes": [
-        "{who} puts the parts and what is left of the purse on the counter, in that order.",
+        "{who} puts the parts and what's left of the purse on the counter, in that order.",
         "{who} notices her counting the purse second."
       ],
       "id": "o_back",

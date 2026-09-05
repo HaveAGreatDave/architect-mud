@@ -5,7 +5,7 @@
     "A station at the far edge holds a note and drifts off it."
   ],
   "cause": "drug",
-  "description": "The part of the band where there is nothing, which turns out to be a place with weather and a floor. It goes on for the width of the gap. There are stations at both ends of it, faint, and this is the middle, and the middle is wide.",
+  "description": "The part of the band where there's nothing, which turns out to be a place with weather and a floor. It goes on for the width of the gap. There are stations at both ends of it, faint, and this is the middle, and the middle is wide.",
   "drug_id": "drug_deadair",
   "fx": "static",
   "fx_intensity": 0.95,
@@ -14,16 +14,16 @@
   "objects": [
     {
       "looks": [
-        "Everywhere and even. There is no louder part of it.",
+        "Everywhere and even. There's no louder part of it.",
         "Listen long enough and it has structure, and the structure is yours.",
-        "It is not covering anything up. There is nothing underneath it."
+        "It isn't covering anything up. There's nothing underneath it."
       ],
       "name": "the rush"
     },
     {
       "looks": [
-        "Both edges, faint, carrying something you cannot resolve.",
-        "They are closer to each other than either is to you.",
+        "Both edges, faint, carrying something you can't resolve.",
+        "They're closer to each other than either is to you.",
         "One of them is playing music and has been all along."
       ],
       "name": "the far stations"

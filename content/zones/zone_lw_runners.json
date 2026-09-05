@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "Six cots, six lockers, and a chalked board of legs. The Watch move their messages on foot, and no runner is ever told more than one leg of a route. You take a sealed sheet from a face you know to a face you know, and you are not told what is on it or where it goes next. Half of them are asleep at any hour. The board never carries a destination, only a time and a shape.",
+  "description": "Six cots, six lockers, and a chalked board of legs. The Watch move their messages on foot, and no runner is ever told more than one leg of a route. You take a sealed sheet from a face you know to a face you know, and you aren't told what's on it or where it goes next. Half of them are asleep at any hour. The board never carries a destination, only a time and a shape.",
   "exits": {
     "south": "zone_lw_genvault"
   },

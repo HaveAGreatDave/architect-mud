@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "They show you another thing, quickly, before there is no time.",
+    "They show you another thing, quickly, before there's no time.",
     "Something is decided about you and everyone is pleased.",
-    "The pace picks up. They are trying to fit it all in."
+    "The pace picks up. They're trying to fit it all in."
   ],
   "cause": "drug",
-  "description": "There are things here and they are delighted. Not menacing. Delighted, and busy, and in the middle of showing you something enormous at a speed you cannot follow. They know you. You have the strong sense that you knew them, before, and agreed to this.",
+  "description": "There are things here and they're delighted. Not menacing. Delighted, and busy, and in the middle of showing you something enormous at a speed you can't follow. They know you. You have the strong sense that you knew them, before, and agreed to this.",
   "drug_id": "drug_dmt",
   "fx": "bloom",
   "fx_intensity": 0.9,
@@ -14,20 +14,20 @@
   "objects": [
     {
       "looks": [
-        "Delighted. Genuinely. It is almost embarrassing.",
+        "Delighted. Genuinely. It's almost embarrassing.",
         "They have too many parts and all of them are being used well.",
-        "One of them checks you are keeping up and carries on regardless."
+        "One of them checks you're keeping up and carries on regardless."
       ],
       "name": "the ones here"
     },
     {
       "looks": [
         "Enormous, obvious, and going past far too fast.",
-        "You understand it perfectly and will not be permitted to keep it.",
-        "It is about you, mostly, and you are not the important part."
+        "You understand it perfectly and won't be permitted to keep it.",
+        "It's about you, mostly, and you aren't the important part."
       ],
-      "name": "what they are showing you"
+      "name": "what they're showing you"
     }
   ],
-  "weather": "It is warm here, and the warmth is coming from the activity rather than from anywhere."
+  "weather": "It's warm here, and the warmth is coming from the activity rather than from anywhere."
 }

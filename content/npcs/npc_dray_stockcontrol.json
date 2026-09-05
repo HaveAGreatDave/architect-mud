@@ -133,13 +133,13 @@
   "chitchat": [
     "writes a short line on the clipboard, then a shorter one under it.",
     "\"Everything in here has a tag. Not everything has a name.\"",
-    "\"Don't go near the hooks. I am not being mysterious. It is just heavy.\""
+    "\"Don't go near the hooks. I'm not being mysterious. It's just heavy.\""
   ],
-  "description": "The stock controller, a small woman in a coat three sizes too big, working down a clipboard in the one corner where her breath does not fog. She marks the far hooks with a dash rather than a number and has never been asked to explain the dash.",
+  "description": "The stock controller, a small woman in a coat three sizes too big, working down a clipboard in the one corner where her breath doesn't fog. She marks the far hooks with a dash rather than a number and has never been asked to explain the dash.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Mm.\" She is already back on the clipboard."
+      "text": "\"Mm.\" She's already back on the clipboard."
     },
     "root": {
       "options": [
@@ -148,7 +148,7 @@
           "next": "bye"
         }
       ],
-      "text": "Skerrit looks up from the clipboard and her pen does not stop. \"Collections at the front, deliveries at the front, questions at the front. There is a theme.\""
+      "text": "Skerrit looks up from the clipboard and her pen doesn't stop. \"Collections at the front, deliveries at the front, questions at the front. There's a theme.\""
     }
   },
   "faction": null,

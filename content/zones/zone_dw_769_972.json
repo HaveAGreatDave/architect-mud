@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A tunnel driven straight through the body of the dam, wide enough for two and lit by nothing at all, so you go through it with a hand on the wall. The wall is dry. Halfway along, a gauge is set into the stone at chest height with a brass cover on a hinge, and the cover is open, and the needle behind it is steady. Somebody has chalked the date beside it. The far end is a grey rectangle of daylight with water noise underneath it.",
+  "description": "A tunnel driven straight through the body of the dam, wide enough for two and lit by nothing at all, so you go through it with a hand on the wall. The wall is dry. Halfway along, a gauge is set into the stone at chest height with a brass cover on a hinge, and the cover is open, and the needle behind it's steady. Somebody has chalked the date beside it. The far end is a grey rectangle of daylight with water noise underneath it.",
   "exits": {
     "north": "zone_dw_769_971",
     "south": "zone_dw_769_973"

@@ -147,7 +147,7 @@ function haltReason(c, player) {
   if (z.flags?.void_wayside) return 'A camp on the road. You stop.';
 
   // Nothing in front of you at all — a detour's dead end, or a room whose way on has not been made.
-  if (!z.exits?.south) return 'There is no way on from here.';
+  if (!z.exits?.south) return "There's no way on from here.";
 
   // A branch off the spine. ⚠ READ OFF THE PLAN, NEVER OFF THE ZONE'S EXITS: a limb's first room
   // carries a lateral exit back to the fork (`OPPOSITE[d.dir]`, which for an east limb IS west), so
@@ -174,7 +174,7 @@ async function stepMarch(player, run) {
 
   // Anything that took your body out of your own hands. A march is a thing you are doing; if you are
   // not doing it, it is not paused, it is over.
-  if (player._koUntil > Date.now() || player.sleeping) return end(run, 'You are in no state to be walking.');
+  if (player._koUntil > Date.now() || player.sleeping) return end(run, "You're in no state to be walking.");
   if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId) return end(run, null);
 
   const before = player.current_zone;
@@ -239,10 +239,10 @@ schedule(TICK, () => tick().catch(e => console.error('[voidwalking] march tick e
 
 // ── The verb ─────────────────────────────────────────────────────────────────
 export async function cmdMarch(args, raw, player) {
-  if (!player?._crossing) return { type: 'error', message: 'There is nothing out here to march along. This is a thing you do on the trail.' };
+  if (!player?._crossing) return { type: 'error', message: "There's nothing out here to march along. This is a thing you do on the trail." };
   const c = CTX?.crossings?.get(player._crossing.instanceId);
-  if (!c) return { type: 'error', message: 'There is nothing out here to march along.' };
-  if (runs.has(player.id)) return { type: 'emote', message: `You are already walking. ${dim('stop')}` };
+  if (!c) return { type: 'error', message: "There's nothing out here to march along." };
+  if (runs.has(player.id)) return { type: 'emote', message: `You're already walking. ${dim('stop')}` };
 
   const z = getZone(player.current_zone);
   if (getZoneEnemies(player.current_zone).length)
@@ -250,7 +250,7 @@ export async function cmdMarch(args, raw, player) {
   // Standing ON the fork, a march has no forward to take — see haltReason. It refuses rather than
   // guessing, and it refuses with the same sentence the tick stops with.
   if (player.current_zone === c.plan.fork) return { type: 'error', message: forkLine(c) };
-  if (!z?.exits?.south) return { type: 'error', message: 'There is no way on from here.' };
+  if (!z?.exits?.south) return { type: 'error', message: "There's no way on from here." };
 
   const thirst = player.thirst ?? 100;
   runs.set(player.id, { pid: player.id, steps: 0, gates: THIRST_GATES.filter(g => g < thirst) });

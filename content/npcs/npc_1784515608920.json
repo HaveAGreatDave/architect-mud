@@ -92,7 +92,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Because you keep coming back, and every load you lose out there is a load I don't sell.\" <span class=\"text-dim\">He returns to the ledger.</span> \"Don't mistake it for fondness.\""
+      "text": "\"Because you keep coming back, and every load you lose out there's a load I don't sell.\" <span class=\"text-dim\">He returns to the ledger.</span> \"Don't mistake it for fondness.\""
     },
     "raws": {
       "_vine": {
@@ -169,7 +169,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Start with what won't get you shot.\" Amos counts it off on the ledger cover. \"Tobacco leaf. Cannabis flower. Baled, legal, dull as ditchwater. A scanner looks straight through it and the money is thin but it is money, and every bale you move is a bale I know you moved.\" <span class=\"text-dim\">He turns his hand over.</span> \"Above that it stops being farming. Precursor. The good stuff is a felony in your hold and the customs man is specifically looking for it, and I don't write that down for a man who's only ever hauled leaf. You'll see the ledger open up as it opens up.\""
+      "text": "\"Start with what won't get you shot.\" Amos counts it off on the ledger cover. \"Tobacco leaf. Cannabis flower. Baled, legal, dull as ditchwater. A scanner looks straight through it and the money is thin but it's money, and every bale you move is a bale I know you moved.\" <span class=\"text-dim\">He turns his hand over.</span> \"Above that it stops being farming. Precursor. The good stuff is a felony in your hold and the customs man is specifically looking for it, and I don't write that down for a man who's only ever hauled leaf. You'll see the ledger open up as it opens up.\""
     },
     "raws_list": {
       "_vine": {
@@ -195,7 +195,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Then I'd turn this ledger around and show you.\" <span class=\"text-dim\">He taps the closed cover once.</span> \"Three places out there hold a load. Never all three at once, and never the same two twice, and that's the whole trick of it. Which is why you'd be asking me every single time you came through that door, and why I'd still be here when you did.\""
+      "text": "\"Then I'd turn this ledger around and show you.\" <span class=\"text-dim\">He taps the closed cover once.</span> \"Three places out there hold a load. Never all three at once, and never the same two twice, and it moves on me week to week. Which is why you'd be asking me every single time you came through that door, and why I'd still be here when you did.\""
     },
     "raws_unvouched": {
       "_vine": {
@@ -278,7 +278,7 @@
           "next": "scans"
         },
         {
-          "label": "What is this place?",
+          "label": "What's this place?",
           "next": "about"
         },
         {

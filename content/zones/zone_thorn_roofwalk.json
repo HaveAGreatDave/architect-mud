@@ -6,7 +6,7 @@
     "Somebody comes down with an armful of gutter and a very specific opinion about it."
   ],
   "ambient_theme": "indoors",
-  "description": "The bottom of the gantry, which is also the tool store, which is also where the roof crew argue. A board on the wall carries the whole town drawn as a run of gutters, in chalk, corrected constantly, with the bad joints ringed.\n\nUp the ladder the walk goes out over the roofs, and from the top of it you can see the whole of the Thornwarren laid out and the wall around it and the red country going on past the wall for as far as there is anything.\n\nSomebody has written, small, on the underside of the top rail where you would only see it lying down: WE BUILT THIS. It is not a boast. It is a note to whoever is up here next.",
+  "description": "The bottom of the gantry, which is also the tool store, which is also where the roof crew argue. A board on the wall carries the whole town drawn as a run of gutters, in chalk, corrected constantly, with the bad joints ringed.\n\nUp the ladder the walk goes out over the roofs, and from the top of it you can see the whole of the Thornwarren laid out and the wall around it and the red country going on past the wall for as far as there's anything.\n\nSomebody has written, small, on the underside of the top rail where you would only see it lying down: WE BUILT THIS. It isn't a boast. It's a note to whoever is up here next.",
   "exits": {
     "down": "zone_util_zone_thorn_roofwalk",
     "south": "zone_scw_1047_975"

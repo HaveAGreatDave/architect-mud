@@ -82,7 +82,7 @@
   "butcher_difficulty": 8,
   "butcher_table": [],
   "death_message": "The Sunless comes down across the outfall it has held for a lifetime, and for the first time in that lifetime the western mains are quiet.",
-  "description": "At the far end of the western mains, where the Under stops being sewer and starts being simply hole, something grew up around the last working outfall and stayed. It is pale as a root and roughly the shape of a person if a person kept going. It has never seen the surface and it does not believe in one.",
+  "description": "At the far end of the western mains, where the Under stops being sewer and starts being simply hole, something grew up around the last working outfall and stayed. It's pale as a root and roughly the shape of a person if a person kept going. It has never seen the surface and it doesn't believe in one.",
   "dodge": 1,
   "faction": null,
   "flags": {
@@ -90,7 +90,7 @@
     "battle_cries": [
       "$enemy unfolds off the outfall, and it keeps unfolding, toward $player.",
       "$enemy puts a hand flat on the brick beside $player almost gently.",
-      "The dark ahead of $player moves, and it is all $enemy."
+      "The dark ahead of $player moves, and it's all $enemy."
     ],
     "first_strike_delay_ms": 8000
   },

@@ -5,7 +5,7 @@
     "Something ahead does a thing and you understand it in a moment."
   ],
   "cause": "drug",
-  "description": "A corridor where everything you do arrives after you have done it, by the same amount, every time. The amount does not vary. You have learned to work with it and are working with it well, and the corridor has been built for people who have learned that.",
+  "description": "A corridor where everything you do arrives after you have done it, by the same amount, every time. The amount doesn't vary. You have learned to work with it and are working with it well, and the corridor has been built for people who have learned that.",
   "drug_id": "drug_dxm",
   "fx": "tracers",
   "fx_intensity": 0.8,
@@ -23,7 +23,7 @@
     {
       "looks": [
         "The same every time. You could set a watch by it and have.",
-        "It applies to everything, including the things you did not do on purpose.",
+        "It applies to everything, including the things you didn't do on purpose.",
         "You reach for the rail. Your hand is already there."
       ],
       "name": "the lag"

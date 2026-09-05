@@ -83,7 +83,7 @@ export default async function regress({ run, check }) {
   const now = Date.now();
   const at = (daysAgo, fear = 80) => ({ fear, last_leaned_at: Math.floor((now - daysAgo * DAY) / 1000) });
   check('rackets: fresh fear is undecayed', Math.round(fearNow(at(0), now)) === 80, fearNow(at(0), now));
-  check('rackets: sub-day elapsed does not decay (noise short-circuit)', fearNow(at(0.5), now) === 80, fearNow(at(0.5), now));
+  check("rackets: sub-day elapsed doesn't decay (noise short-circuit)", fearNow(at(0.5), now) === 80, fearNow(at(0.5), now));
   const halved = fearNow(at(FEAR_HALFLIFE_DAYS), now);
   check('rackets: one half-life halves fear', Math.abs(halved - 40) < 0.5, halved);
   check('rackets: two half-lives quarter it', Math.abs(fearNow(at(FEAR_HALFLIFE_DAYS * 2), now) - 20) < 0.5, fearNow(at(FEAR_HALFLIFE_DAYS * 2), now));
@@ -92,7 +92,7 @@ export default async function regress({ run, check }) {
   check('rackets: half-life is faster than the 7-day rent clock is slow (never feels like a bill)', FEAR_HALFLIFE_DAYS <= 14, FEAR_HALFLIFE_DAYS);
   check('rackets: zero fear decays to zero, never NaN', fearNow({ fear: 0, last_leaned_at: 0 }, now) === 0);
   check('rackets: a null racket reads as zero fear (no throw)', fearNow(null) === 0);
-  check('rackets: a missing timestamp does not produce NaN', Number.isFinite(fearNow({ fear: 50 }, now)));
+  check("rackets: a missing timestamp doesn't produce NaN", Number.isFinite(fearNow({ fear: 50 }, now)));
 
   // Console block is safe for a corp with nobody on the books.
   const rBlock = racketConsoleBlock('org-that-does-not-exist');

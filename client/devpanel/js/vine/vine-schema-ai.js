@@ -474,7 +474,7 @@ const _aiNodeDefs = {
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
       ${_aiHelpBox(id,
-        'Suspends this entity\'s AI graph for N seconds. The graph will not be walked again until the timer expires. Useful for pacing SAY messages, adding a delay between attacks, or making patrol stops feel natural.',
+        'Suspends this entity\'s AI graph for N seconds. The graph won\'t be walked again until the timer expires. Useful for pacing SAY messages, adding a delay between attacks, or making patrol stops feel natural.',
         'seconds: 10\n\n→ entity pauses at current waypoint for 10s before continuing'
       )}
       ${_aiField('Seconds', `<input data-vine-field="data.seconds" data-vine-type="number" type="number" min="0" step="1" value="${n.data.seconds || 0}" style="${_AI_IS}">`)}

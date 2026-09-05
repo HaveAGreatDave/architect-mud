@@ -57,10 +57,10 @@ function build() {
 
     cat('THE MICROWAVE', [
       dim('  Its own appliance, not a fast hob. It heats water, so it browns NOTHING — no crust,'),
-      dim('  no sear, nothing left in the pan. There is a hard ceiling on anything that comes out'),
+      dim("  no sear, nothing left in the pan. There's a hard ceiling on anything that comes out"),
       dim('  of one, and no skill, prep or seasoning lifts it.'),
-      dim('  In exchange it is the fastest thing in the kitchen, unbeatable at defrosting, and'),
-      dim('  almost impossible to ruin food in. You also cannot flip or stir — the door is shut.'),
+      dim("  In exchange it's the fastest thing in the kitchen, unbeatable at defrosting, and"),
+      dim("  almost impossible to ruin food in. You also can't flip or stir — the door is shut."),
       dim('  Right for leftovers, thawing, and being in a hurry. Wrong for anything else.'),
     ].join('\n')),
 
@@ -84,11 +84,11 @@ function build() {
     ].join('\n')),
 
     cat('TASTING', [
-      `  taste <food|vessel>      ${dim('the only reading that is not visual')}`,
+      `  taste <food|vessel>      ${dim("the only reading that isn't visual")}`,
       dim('  Everything else is something you can SEE. Tasting reaches seasoning, and whether the'),
       dim('  thing is any good. What it TELLS you scales with your Cooking skill — a novice learns'),
-      dim('  one vague thing, an expert learns what is wrong and by how much.'),
-      dim('  Every taste is a mouthful you do not get back. Ten of them costs you a meal.'),
+      dim("  one vague thing, an expert learns what's wrong and by how much."),
+      dim("  Every taste is a mouthful you don't get back. Ten of them costs you a meal."),
     ].join('\n')),
 
     cat('THE PAN REMEMBERS', [
@@ -109,13 +109,13 @@ function build() {
 
     cat('STAGING', [
       dim('  Heavy things cook slower than light ones. Put everything in at once and there may be'),
-      dim('  no moment when all of it is good. Start the slow thing first, then:'),
+      dim("  no moment when all of it's good. Start the slow thing first, then:"),
       `  add <food> in <vessel>   ${dim('then')}  cook <vessel>   ${dim('again — it joins the same burner')}`,
     ].join('\n')),
 
     cat('SEASONING', [
       dim(`  ${modifiers.map(label).join(' and ')} season a dish instead of cooking in it. They never burn,`),
-      dim('  and they are never handled. Each dish has an amount it wants: too little is bland,'),
+      dim("  and they're never handled. Each dish has an amount it wants: too little is bland,"),
       dim('  too much is worse than too little.'),
     ].join('\n')),
 
@@ -124,7 +124,7 @@ function build() {
       dim(`  any of the ${profiles.length} kinds will do, so beef and rat make the same roast under different names.`),
       dim(`  Cook a combination at ${DISCOVERY_MIN_BAND} or better ${DISCOVERY_ATTEMPTS} times and it goes in your cookbook.`),
       dim('  Recipe cards and a few people can teach you one outright. Knowing one never gates'),
-      dim('  cooking it — it is worth a small edge and a line in the book.'),
+      dim("  cooking it — it's worth a small edge and a line in the book."),
       `  tablet ${dim('→ Cookbook')}       ${dim('what you know, and how many you don\'t')}`,
     ].join('\n')),
 

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A small room off the yard with one table, four chairs and every wall covered in working: figures, columns, distances, fuel loads, a route east across the whole width of the world drawn in a hand that has drawn it many times, and a running total at the bottom that has been rubbed out and replaced so often the plaster has gone thin there. It is all arithmetic. Not one word of it is an argument. Whoever does this comes in, works, and goes back to their shift, and the door is not locked, and nobody has ever needed it to be.",
+  "description": "A small room off the yard with one table, four chairs and every wall covered in working: figures, columns, distances, fuel loads, a route east across the whole width of the world drawn in a hand that has drawn it many times, and a running total at the bottom that has been rubbed out and replaced so often the plaster has gone thin there. It's all arithmetic. Not one word of it's an argument. Whoever does this comes in, works, and goes back to their shift, and the door isn't locked, and nobody has ever needed it to be.",
   "exits": {
     "east": "zone_dw_768_977",
     "north": "zone_dw_767_976",

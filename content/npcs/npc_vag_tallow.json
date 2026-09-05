@@ -16,7 +16,7 @@
       "\"KEEP CLEAR,\" Dorrit reads off the hardstand, fondly. \"Twenty years and nobody's kept it clear but me.\""
     ],
     [
-      "Dorrit counts the blanket. He does this often enough that you suspect it is not really about the count."
+      "Dorrit counts the blanket. He does this often enough that you suspect it isn't really about the count."
     ],
     [
       "\"Not junk,\" says Dorrit, to nobody who accused him. \"Inventory.\""
@@ -61,7 +61,7 @@
           "next": "root"
         }
       ],
-      "text": "\"That's Cathode.\" Dorrit does not look up. \"Comes and goes. Doesn't want feeding and takes it as an insult if you offer.\" <span class=\"text-dim\">He squares a row.</span> \"I named her off the leg. Seemed like the thing to do and nobody else was going to.\""
+      "text": "\"That's Cathode.\" Dorrit doesn't look up. \"Comes and goes. Doesn't want feeding and takes it as an insult if you offer.\" <span class=\"text-dim\">He squares a row.</span> \"I named her off the leg. Seemed like the thing to do and nobody else was going to.\""
     },
     "cat_call": {
       "_vine": {
@@ -117,7 +117,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I'm aware,\" says Dorrit, with enormous dignity. \"I was eleven years in a bonded store and about four days into this blanket when I named her, and I hadn't learned the trade yet.\" <span class=\"text-dim\">He does not appear even slightly embarrassed.</span> \"It's her name now. You don't get to take a thing's name off it because you've since read up.\""
+      "text": "\"I'm aware,\" says Dorrit, with enormous dignity. \"I was eleven years in a bonded store and about four days into this blanket when I named her, and I hadn't learned the trade yet.\" <span class=\"text-dim\">He doesn't appear even slightly embarrassed.</span> \"It's her name now. You don't get to take a thing's name off it because you've since read up.\""
     },
     "how": {
       "_vine": {
@@ -134,7 +134,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Bonded store, forty yards that way.\" He does not point. \"Eleven years. Then the bond went and the stock went with it, and I came out the back door with what I could carry, which was a blanket and an eye.\" <span class=\"text-dim\">He squares off a row.</span> \"Turns out the eye was the business. The rest was overheads.\""
+      "text": "\"Bonded store, forty yards that way.\" He doesn't point. \"Eleven years. Then the bond went and the stock went with it, and I came out the back door with what I could carry, which was a blanket and an eye.\" <span class=\"text-dim\">He squares off a row.</span> \"Turns out the eye was the business. The rest was overheads.\""
     },
     "how_press": {
       "_vine": {
@@ -206,7 +206,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Some of it. I'll tell you which, and I'll tell you before you pay, and that is the entire reason anybody comes back down this lane twice.\" <span class=\"text-dim\">He taps a dead cell block.</span> \"That one's a paperweight with a story. Priced like one.\""
+      "text": "\"Some of it. I'll tell you which, and I'll tell you before you pay, and it's why people come back down this lane twice.\" <span class=\"text-dim\">He taps a dead cell block.</span> \"That one's a paperweight with a story. Priced like one.\""
     },
     "root": {
       "_vine": {
@@ -237,7 +237,7 @@
           "Dorrit reaches under the near edge of the blanket and comes out with something he has clearly been keeping there for you. \"Before the rest of them,\" he says. \"Look at it.\""
         ],
         "first": [
-          "The kneeling man looks at your boots, then at your face, and gets a whole quote out of the pair. \"Tallow,\" he says. \"Dorrit Tallow. This is the Keep Clear.\" <span class=\"text-dim\">He indicates the blanket, and then the painted line it is laid inside, with the same small gesture.</span> \"Rules are quick. Everything I've got is on the blanket. Prices are the prices. I'll tell you what's broken before you pay for it, and if I've told you wrong you bring it back and I'll make it right, which nobody in a building on this lane will do for you. Don't stand on the blanket.\""
+          "The kneeling man looks at your boots, then at your face, and gets a whole quote out of the pair. \"Tallow,\" he says. \"Dorrit Tallow. This is the Keep Clear.\" <span class=\"text-dim\">He indicates the blanket, and then the painted line it's laid inside, with the same small gesture.</span> \"Rules are quick. Everything I've got is on the blanket. Prices are the prices. I'll tell you what's broken before you pay for it, and if I've told you wrong you bring it back and I'll make it right, which nobody in a building on this lane will do for you. Don't stand on the blanket.\""
         ],
         "known": [
           "\"You're back.\" Dorrit sounds neither surprised nor displeased. \"Second rank's new since Tuesday.\"",

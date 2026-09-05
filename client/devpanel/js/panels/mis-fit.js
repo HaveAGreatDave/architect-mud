@@ -15,7 +15,7 @@ let _misFitBulk = new Set();  // ids ticked for a bulk write
 
 const MISFIT_TOKENS = [
   ['{actor}',    'the one doing it'],
-  ['{target}',   'the one it is being done to'],
+  ['{target}',   "the one it's being done to"],
   ['{part}',     'the hole in play (pussy / ass / mouth / throat)'],
   ['{size}',     "giver's length in cm"],
   ['{capacity}', "receiver's capacity in cm"],

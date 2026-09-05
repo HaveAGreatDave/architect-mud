@@ -9,7 +9,7 @@
     "restore_hunger": 40,
     "restore_sanity": -1,
     "stackable": true,
-    "use_message": "It is exactly what it says. No sweetness, no smoke, no citrus, nothing put in front of the taste to stand between you and it. It goes down thick and body-warm and tastes faintly of the inside of your own mouth. You finish it because you are hungry, and you think about the lot-number for a while afterwards."
+    "use_message": "It's exactly what it says. No sweetness, no smoke, no citrus, nothing put in front of the taste to stand between you and it. It goes down thick and body-warm and tastes faintly of the inside of your own mouth. You finish it because you're hungry, and you think about the lot-number for a while afterwards."
   },
   "type": "consumable",
   "value": 1,

@@ -5,7 +5,7 @@
     "Somebody crosses a name off the rota and writes it in again two rows down."
   ],
   "ambient_theme": "outdoors",
-  "description": "The wall thickens here into a squat two-storey block with a stair running up the inside of it to the walk. Arrow slits, of a sort, except that nothing about the people here suggests arrows. There is a bell mounted under the eave with no rope on it.",
+  "description": "The wall thickens here into a squat two-storey block with a stair running up the inside of it to the walk. Arrow slits, of a sort, except that nothing about the people here suggests arrows. There's a bell mounted under the eave with no rope on it.",
   "exits": {
     "north": "zone_exo_gatehouse",
     "south": "zone_terminus_1211_940"

@@ -13,7 +13,7 @@
     "onset_seconds": 10,
     "overdose": {
       "lethal": true,
-      "message": "Your heart is a fist clenching until it cannot open again."
+      "message": "Your heart is a fist clenching until it can't open again."
     },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The wire goes slack. Your hands start to shake.</span>",
@@ -23,7 +23,7 @@
       "comeup_scale": 0.4,
       "comeup_seconds": 20,
       "end_message": "<span class=\"msg-system\">The crash lands on you like a dropped ceiling.</span>",
-      "peak_message": "<span class=\"msg-system\">You are made of wire and lightning. Nothing can touch you.</span>",
+      "peak_message": "<span class=\"msg-system\">You're made of wire and lightning. Nothing can touch you.</span>",
       "peak_mods": {
         "hp_max": 15,
         "stamina_regen_per_sec": 2,

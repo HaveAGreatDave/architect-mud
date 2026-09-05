@@ -5,7 +5,7 @@
     "For a moment the walls forget their colour, and then they have it."
   ],
   "cause": "drug",
-  "description": "It has the dimensions of a room and none of the reasons for one. The walls are the colour of whatever you last looked at. There is a light source and it is not anywhere. You are very aware that this has been assembled quickly and on your behalf.",
+  "description": "It has the dimensions of a room and none of the reasons for one. The walls are the colour of whatever you last looked at. There's a light source and it isn't anywhere. You're very aware that this has been assembled quickly and on your behalf.",
   "drug_id": null,
   "fx": null,
   "fx_intensity": 0.5,
@@ -15,14 +15,14 @@
     {
       "looks": [
         "The colour of whatever you last looked at. They update.",
-        "They are the right distance away and there are not enough of them.",
+        "They're the right distance away and there aren't enough of them.",
         "One of them is doing the work of two, and doing it well."
       ],
       "name": "the walls"
     },
     {
       "looks": [
-        "There is plenty of it and no source. Nobody has minded until now.",
+        "There's plenty of it and no source. Nobody has minded until now.",
         "It comes from about a foot in front of your face.",
         "It dims when you stop needing it and comes back before you ask."
       ],

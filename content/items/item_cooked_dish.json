@@ -1,11 +1,11 @@
 {
-  "description": "A plated meal, still steaming. Whatever it was an hour ago, it is this now.",
+  "description": "A plated meal, still steaming. Whatever it was an hour ago, it's this now.",
   "flags": {},
   "id": "item_cooked_dish",
   "name": "plated dish",
   "tags": {
     "consumable": true,
-    "description": "A plated meal, still steaming. Whatever it was an hour ago, it is this now.",
+    "description": "A plated meal, still steaming. Whatever it was an hour ago, it's this now.",
     "perishable": true,
     "restore_hp": 6,
     "restore_hunger": 30,

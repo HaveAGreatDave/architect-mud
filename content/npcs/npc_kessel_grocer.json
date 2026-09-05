@@ -135,7 +135,7 @@
     "\"On the tab? Fine. Fine. Don't make a thing of it.\"",
     "The radio in the back room changes to something nobody asked for and nobody turns it off."
   ],
-  "description": "An old grocer in a cardigan with the elbows gone, who runs a tab for half of Marrow Street and has never once written down what he is actually owed by any of them, on the grounds that the ledger is for the ones who'd be embarrassed to be reminded. He knows what everyone on this street eats, and therefore roughly how they are doing.",
+  "description": "An old grocer in a cardigan with the elbows gone, who runs a tab for half of Marrow Street and has never once written down what he's actually owed by any of them, on the grounds that the ledger is for the ones who'd be embarrassed to be reminded. He knows what everyone on this street eats, and therefore roughly how they're doing.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -162,7 +162,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Tab.\" He puts a hand flat on it. \"Half the street's in there and not one of them's been chased for it. If a man's on the tab it's because a week went badly, and a week goes badly for everyone eventually.\" He shrugs. \"They pay when they can. Mostly they do. The ones who don't, I stop writing down, which is not the same as forgetting.\""
+      "text": "\"Tab.\" He puts a hand flat on it. \"Half the street's in there and not one of them's been chased for it. If a man's on the tab it's because a week went badly, and a week goes badly for everyone eventually.\" He shrugs. \"They pay when they can. Mostly they do. The ones who don't, I stop writing down, which isn't the same as forgetting.\""
     },
     "root": {
       "options": [

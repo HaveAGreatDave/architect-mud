@@ -322,7 +322,7 @@ async function bankCreateAtmSave() {
   const diff    = parseInt(document.getElementById('batm-diff').value, 10) || 5;
 
   if (!name) { toast('Terminal name is required.', true); return; }
-  if (!zoneId) { toast('A zone is required — furniture cannot be created unplaced.', true); return; }
+  if (!zoneId) { toast("A zone is required — furniture can't be created unplaced.", true); return; }
 
   // Create the furniture — server auto-creates atm_units row when flags.atm is set
   const fur = await API('/furniture', 'POST', {

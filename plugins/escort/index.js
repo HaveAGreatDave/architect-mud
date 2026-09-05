@@ -225,15 +225,15 @@ function cmdEscort(args, raw, player, broadcast) {
   const current = escorteeOf(player.id);
 
   if (!sub) {
-    if (!current) return { type: 'output', message: 'You are not escorting anyone. Type "escort <name>" to walk someone out.' };
-    if (current._aboard) return { type: 'output', message: `You are escorting ${current.name} — strapped in behind you.` };
+    if (!current) return { type: 'output', message: 'You aren\'t escorting anyone. Type "escort <name>" to walk someone out.' };
+    if (current._aboard) return { type: 'output', message: `You're escorting ${current.name} — strapped in behind you.` };
     const z = getZone(current.zone_id);
     const here = current.zone_id === player.current_zone;
-    return { type: 'output', message: `You are escorting ${current.name}${here ? ' — right behind you.' : ` — but they're back at ${z?.name || 'somewhere else'}.`}` };
+    return { type: 'output', message: `You're escorting ${current.name}${here ? ' — right behind you.' : ` — but they're back at ${z?.name || 'somewhere else'}.`}` };
   }
 
   if (sub === 'stop' || sub === 'dismiss' || sub === 'leave') {
-    if (!current) return { type: 'output', message: 'You are not escorting anyone.' };
+    if (!current) return { type: 'output', message: "You aren't escorting anyone." };
     endEscort(current.id, 'dismissed');
     broadcast(player.current_zone, { type: 'zone_event', message: `${current.name} stops following ${player.handle}.` }, player.id);
     return { type: 'output', message: `${current.name} stops following you.` };

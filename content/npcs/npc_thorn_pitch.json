@@ -5,10 +5,10 @@
     "Sit. Eat. Then talk, if you have got to.",
     "That one is fine. That one is fine. Not that one.",
     "Nobody pays. Put your name on the board if you feel bad about it.",
-    "Bones in, always. It is the bones that make it.",
-    "Everything out there wants to poison you. Most of it is bad at it."
+    "Bones in, always. It's the bones that make it.",
+    "Everything out there wants to poison you. Most of it's bad at it."
   ],
-  "description": "A wide man working six pots at once with a ladle in each hand and a third under his arm. He has eleven fingers and every one of them is doing something.\n\nHe tastes off the back of his wrist rather than off the spoon, holding it against the inside of his lip for a moment before he swallows, and what he is checking for is not seasoning. Everything that goes into a Thornwarren pot comes off ground that is trying to kill them, and he is the reason nobody has died of dinner in twenty years.",
+  "description": "A wide man working six pots at once with a ladle in each hand and a third under his arm. He has eleven fingers and every one of them is doing something.\n\nHe tastes off the back of his wrist rather than off the spoon, holding it against the inside of his lip for a moment before he swallows, and what he's checking for isn't seasoning. Everything that goes into a Thornwarren pot comes off ground that's trying to kill them, and he's the reason nobody has died of dinner in twenty years.",
   "dialogue_tree": {
     "board": {
       "actions": [],
@@ -17,7 +17,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is in the third pot?",
+          "label": "What's in the third pot?",
           "next": "pots"
         },
         {
@@ -28,7 +28,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Who the town owes.\"\n\nHe wipes his hands.\n\n\"Nobody pays for food. So instead it goes up there: what you brought in, what you did, what you are owed. Roof crew are owed a lot. Gate shift are owed a lot. The people in the Kept are owed everything and cannot do anything, so their names are at the top and they stay there.\"\n\nA shrug.\n\n\"It does not settle. It is not supposed to settle. It is just so everybody can see it.\""
+      "text": "\"Who the town owes.\"\n\nHe wipes his hands.\n\n\"Nobody pays for food. So instead it goes up there: what you brought in, what you did, what you're owed. Roof crew are owed a lot. Gate shift are owed a lot. The people in the Kept are owed everything and can't do anything, so their names are at the top and they stay there.\"\n\nA shrug.\n\n\"It doesn't settle. It isn't supposed to settle. It's just so everybody can see it.\""
     },
     "bye": {
       "actions": [],
@@ -42,7 +42,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the owing board?",
+          "label": "What's the owing board?",
           "next": "board"
         },
         {
@@ -53,24 +53,24 @@
           "next": "bye"
         }
       ],
-      "text": "\"Not sure yet.\"\n\nHe stirs it, tastes it off his wrist, makes a face that is entirely professional, and stirs it again.\n\n\"Somebody brought in a sack of something off the north flats. Looks like it should be food. Half of what looks like it should be food out here will shut your kidneys in a day and a half.\" He puts the lid back. \"So it sits in the third pot for a week and it goes to me first and to nobody else, and if it is all right in a fortnight it is dinner.\"\n\nHe says this the way another man would say he is thinking about painting the shed."
+      "text": "\"Not sure yet.\"\n\nHe stirs it, tastes it off his wrist, makes a face that's entirely professional, and stirs it again.\n\n\"Somebody brought in a sack of something off the north flats. Looks like it should be food. Half of what looks like it should be food out here will shut your kidneys in a day and a half.\" He puts the lid back. \"So it sits in the third pot for a week and it goes to me first and to nobody else, and if it's all right in a fortnight it's dinner.\"\n\nHe says this the way another man would say he's thinking about painting the shed."
     },
     "root": {
       "actions": [],
-      "first": "\"You are the one at the gate.\" A bowl arrives before you have agreed to anything. \"Eat that. It is safe. I would know.\"",
+      "first": "\"You're the one at the gate.\" A bowl arrives before you have agreed to anything. \"Eat that. It's safe. I would know.\"",
       "options": [
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is in the third pot?",
+          "label": "What's in the third pot?",
           "next": "pots"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the owing board?",
+          "label": "What's the owing board?",
           "next": "board"
         },
         {
@@ -83,7 +83,7 @@
       ],
       "text": "\"Eat something.\"",
       "text_by_relation": {
-        "close": "The bowl is already poured and already on the bench and he does not mention it.",
+        "close": "The bowl is already poured and already on the bench and he doesn't mention it.",
         "familiar": "\"I did the one you liked.\" He had. He remembered.",
         "known": "\"You.\" A bowl. \"Eat.\""
       }

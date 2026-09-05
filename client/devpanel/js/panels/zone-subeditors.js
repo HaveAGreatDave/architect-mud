@@ -23,7 +23,7 @@ async function submitAddRoom(zoneId, isBuilding) {
   await refreshZoneEditPanel(zoneId);
 }
 async function deleteRoomQuick(roomId, parentZoneId) {
-  if (!(await dpConfirm(`Delete this room? This cannot be undone.`, { danger: true }))) return;
+  if (!(await dpConfirm(`Delete this room? This can't be undone.`, { danger: true }))) return;
   const result = await API(`/zones/${roomId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast(result.message || 'Room deleted');
@@ -191,7 +191,7 @@ const LOCK_MESSAGES = {
   'lock:hololock': {
     lock: 'The hololock hums as it engages.',
     unlock: 'The hololock disengages with a soft click.',
-    denied: 'The hololock does not recognize your credentials.',
+    denied: "The hololock doesn't recognize your credentials.",
     hackSuccess: 'You bypass the hololock\'s security matrix.',
     hackFail: 'The hololock resists your intrusion.'
   },

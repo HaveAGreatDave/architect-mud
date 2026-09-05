@@ -34,14 +34,14 @@
     }
   },
   "chitchat": [],
-  "description": "The announcer on Jackpot Protocol, keeper of the sealed card, and a man who has read the ratings and drawn conclusions. He reads the category, he holds the answer, and he has the settled expression of somebody who knows how tonight ends and is not going to say. He and Thorne have never once disagreed on air.",
+  "description": "The announcer on Jackpot Protocol, keeper of the sealed card, and a man who has read the ratings and drawn conclusions. He reads the category, he holds the answer, and he has the settled expression of somebody who knows how tonight ends and isn't going to say. He and Thorne have never once disagreed on air.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
     "clothing_layers": [
       "a dinner jacket a half-size too generous",
       "a dress shirt with the collar worn soft",
-      "a bow tie, tied, and he will tell you so",
+      "a bow tie, tied, and he'll tell you so",
       "dark trousers",
       "an undershirt"
     ],

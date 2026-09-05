@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "There is a dead spot down here where nothing transmits and nothing has for years: no relay, no signal, no hum in the walls. Oracle-9 wants you to sit in it. Not do anything in it. Sit in it, on your own, for as long as you can stand, and then come back and tell her what happened. She seems entirely aware that the answer will be nothing.",
+  "description": "There's a dead spot down here where nothing transmits and nothing has for years: no relay, no signal, no hum in the walls. Oracle-9 wants you to sit in it. Not do anything in it. Sit in it, on your own, for as long as you can stand, and then come back and tell her what happened. She seems entirely aware that the answer will be nothing.",
   "fail_on": [],
   "id": "quest_exo_2",
   "meta": {},
@@ -10,8 +10,8 @@
       "desc": "Find the dead spot where nothing transmits, and sit in it a while.",
       "emotes": [
         "{who} sits down in the dark and stops trying to do anything about it.",
-        "{who} listens for the hum that is in every other wall down here, and it is not in this one.",
-        "{who} lasts longer than they meant to, and could not say by how much."
+        "{who} listens for the hum that's in every other wall down here, and it isn't in this one.",
+        "{who} lasts longer than they meant to, and couldn't say by how much."
       ],
       "id": "o_sit",
       "type": "visit",
@@ -21,7 +21,7 @@
       "desc": "Go back and tell Oracle-9 what happened, which was nothing.",
       "emotes": [
         "{who} comes back down with nothing to report and reports it.",
-        "{who} is not asked what it was like, which is the first surprising thing all night."
+        "{who} isn't asked what it was like, which is the first surprising thing all night."
       ],
       "id": "o_report",
       "type": "visit",

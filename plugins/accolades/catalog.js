@@ -151,7 +151,7 @@ export const ENTRIES = [
   {
     key: 'bionic_purr',
     title: 'Bionic Purr',
-    line: 'Something in this city let you touch it. Enjoy the feeling; it is not a trend.',
+    line: "Something in this city let you touch it. Enjoy the feeling; it isn't a trend.",
     on: 'npc.petted',
     test: (p) => (p?.npc?.flags?.stray_cat ? p.actor?.id || null : null),
   },
@@ -172,7 +172,7 @@ export const ENTRIES = [
   {
     key: 'nine_lives_one_paw',
     title: 'Nine Lives, One Paw',
-    line: 'Killed a cat with a prosthetic. The Architect has logged this and will not be discussing it further.',
+    line: "Killed a cat with a prosthetic. The Architect has logged this and won't be discussing it further.",
     on: 'npc.killed',
     test: (p) => (p?.npc?.flags?.stray_cat ? p.actor?.id || null : null),
   },

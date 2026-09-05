@@ -191,7 +191,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Where do you hit them.\" He says it flat, like it is not a question worth the breath. \"Same place everyone hits them, is where. The middle. It is the biggest part of a person and it is the part that is always facing you.\"\nHe sets down the crate he was holding.\n\"Now. You *can* pick a spot. Head, knee, the hand holding the thing you do not want held. It works. It works about as well as your hands do, which right now is not very. A man who calls a head shot he cannot make has not made a head shot, he has made a miss, and out here a miss is a whole second of your life you handed to somebody else.\""
+      "text": "\"Where do you hit them.\" He says it flat, like it isn't a question worth the breath. \"Same place everyone hits them, is where. The middle. It's the biggest part of a person and it's the part that's always facing you.\"\nHe sets down the crate he was holding.\n\"Now. You *can* pick a spot. Head, knee, the hand holding the thing you don't want held. It works. It works about as well as your hands do, which right now isn't very. A man who calls a head shot he can't make hasn't made a head shot, he has made a miss, and out here a miss is a whole second of your life you handed to somebody else.\""
     },
     "aim_lesson_trained": {
       "_vine": {
@@ -205,7 +205,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then it stops being a gamble and starts being a decision.\" He shrugs. \"That is the entire difference between the two of us and whatever is out in that alley. It is not the gun. Anyone can hold the gun. It is that you get to choose where it goes and they do not.\"\nHe goes back to the crate.\n\"Come ask me again when you have been swinging a while. I will tell you the same thing and it will be worth more.\""
+      "text": "\"Then it stops being a gamble and starts being a decision.\" He shrugs. \"That's the entire difference between the two of us and whatever is out in that alley. It isn't the gun. Anyone can hold the gun. It's that you get to choose where it goes and they do not.\"\nHe goes back to the crate.\n\"Come ask me again when you have been swinging a while. I'll tell you the same thing and it'll be worth more.\""
     },
     "bye": {
       "_vine": {
@@ -552,7 +552,7 @@
     ],
     "personality": "vendor",
     "purchase_remarks": {
-      "item_pry_deck": "slides the deck across the crates and does not quite let go of it. \"Now. I'm legally obliged to tell you that's for authorised diagnostic work only.\" He lets go. \"And there's a rig on that wall behind you that isn't attached to anything, isn't owned by anybody, and doesn't call the police. Purely decorative. Terrible waste, really. A man could learn a lot off a thing like that and nobody the wiser.\" He goes back to sorting cells. \"Anyway. Don't go near the cash machines till you're good. They bite.\""
+      "item_pry_deck": "slides the deck across the crates and doesn't quite let go of it. \"Now. I'm legally obliged to tell you that's for authorised diagnostic work only.\" He lets go. \"And there's a rig on that wall behind you that isn't attached to anything, isn't owned by anybody, and doesn't call the police. Purely decorative. Terrible waste, really. A man could learn a lot off a thing like that and nobody the wiser.\" He goes back to sorting cells. \"Anyway. Don't go near the cash machines till you're good. They bite.\""
     }
   },
   "home_activities": [],

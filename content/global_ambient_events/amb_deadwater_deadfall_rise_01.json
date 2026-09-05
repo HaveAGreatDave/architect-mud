@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "amb_deadwater_deadfall_rise_01",
   "loudness": 1,
-  "message": "The wind goes through the stand and makes almost no sound, because there is nothing left on them to make one with.",
+  "message": "The wind goes through the stand and makes almost no sound, because there's nothing left on them to make one with.",
   "theme": "deadwater_deadfall_rise",
   "weight": 100
 }

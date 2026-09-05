@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Suit yourself. I am not going anywhere.",
+  "self_line": "Suit yourself. I'm not going anywhere.",
   "source": "object_reply_denial",
   "tone": "normal"
 }

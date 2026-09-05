@@ -95,7 +95,7 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
   }
   const zoneId = player.current_zone;
   const zone = getZone(zoneId);
-  if (!zone) return { type: 'error', message: 'You are nowhere the grid can reach.' };
+  if (!zone) return { type: 'error', message: "You're nowhere the grid can reach." };
 
   // 1. Ensure the room has a lit overhead fixture.
   const { rows: existing } = await query(
@@ -248,7 +248,7 @@ async function cmdWeatherEvent(args, raw, player) {
   const type = (args?.[0] || '').trim().toLowerCase();
   if (!type) return { type: 'error', message: 'Usage: <span class="text-dim">weatherevent &lt;type&gt;</span> — e.g. <span class="text-dim">weatherevent ion_storm</span>.' };
   const res = devTriggerWeatherEvent(type);
-  if (!res?.ok) return { type: 'error', message: res?.error || 'Could not start that event.' };
+  if (!res?.ok) return { type: 'error', message: res?.error || "Couldn't start that event." };
   return { type: 'output', message: `<span class="msg-system">Forced weather event: ${res.label}. It begins to approach.</span>` };
 }
 

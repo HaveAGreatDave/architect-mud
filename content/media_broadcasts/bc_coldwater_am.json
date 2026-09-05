@@ -19,9 +19,9 @@
   "fallback_messages": [
     "[COLDWATER A.M.] Please stand by. The couch is experiencing difficulties.",
     "[KSAB] Normal service will resume. Somebody is being spoken to.",
-    "[KSAB] We are aware. We are always aware.",
+    "[KSAB] We're aware. We're always aware.",
     "[COLDWATER A.M.] Technical fault. The sunrise continues without us.",
-    "[KSAB] Please stand by. This is not the worst thing happening in the Basin this morning."
+    "[KSAB] Please stand by. This isn't the worst thing happening in the Basin this morning."
   ],
   "film_meta": null,
   "gameshow_pools": null,
@@ -36,27 +36,27 @@
       "audience": [
         "And a very good morning to all {watching} of you watching right now! >> {watching}. He said the number out loud, Coldwater. He said it on purpose.",
         "There are {watching} sets tuned to us this second and I love every one of you. >> There are {watching} sets tuned to us and one of them is the one in this building.",
-        "{watching} of you! That's a CROWD! >> That is a number. Crowd is a decision you have made about the number.",
-        "We're never alone, Hal. {watching} people, right now, with us. >> {watching} people who could not find the dial. But with us. Yes.",
-        "Wave to the {watching} at home! >> They cannot see us wave. That is the arrangement. That has always been the arrangement.",
-        "To the {watching} of you out there: you are the reason we do this. >> We do this because the deck is powered and the door was open."
+        "{watching} of you! That's a CROWD! >> That's a number. Crowd is a decision you have made about the number.",
+        "We're never alone, Hal. {watching} people, right now, with us. >> {watching} people who couldn't find the dial. But with us. Yes.",
+        "Wave to the {watching} at home! >> They can't see us wave. That's the arrangement. That has always been the arrangement.",
+        "To the {watching} of you out there: you're the reason we do this. >> We do this because the deck is powered and the door was open."
       ],
       "beat.aside": [
         "Moving on! >> We're not going to sit with that at all, are we.",
         "And we'll stay on that one as it develops. >> It won't develop. It'll be replaced.",
         "Our thoughts are with everyone affected. >> Thoughts. Dispatched. At no cost.",
         "I'm sure there's more to it. >> There is. That's why it's short.",
-        "Anyway! Lovely stuff. >> That is not what any of that was."
+        "Anyway! Lovely stuff. >> That isn't what any of that was."
       ],
       "beat.banner": [
         "THE BASIN BEAT | STORIES FROM YOUR STREET"
       ],
       "beat.detail": [
         "{byline} has it that {body} >> {byline} would.",
-        "The details, and they are details. {body} >> They put that in writing. Someone typed that and let it leave the building.",
+        "The details, and they're details. {body} >> They put that in writing. Someone typed that and let it leave the building.",
         "Here's what we know: {body} >> Here's what we know. Note the shape of the parts they left out.",
         "Reading on: {body} >> Read it again and count the words doing no work.",
-        "{byline} adds that {body} >> That is an addition in the sense that a sandbag is an addition."
+        "{byline} adds that {body} >> That's an addition in the sense that a sandbag is an addition."
       ],
       "beat.lead": [
         "First up, {headline}! >> And there it is.",
@@ -67,29 +67,29 @@
         "Straight to it: {headline}. >> Straight past it, if you have any sense.",
         "This just came off the wire. {headline}. >> Off the wire and onto the couch. The whole journey, and nobody checked it.",
         "You'll like this one, Hal. {headline}. >> You have never once been right about that.",
-        "And in happier news! {headline}. >> Happier than what. Say the thing it is happier than."
+        "And in happier news! {headline}. >> Happier than what. Say the thing it's happier than."
       ],
       "couch": [
         "Hal, did you sleep? >> I closed my eyes at the appropriate hour and time passed.",
         "We have SUCH a show for you this morning. >> We have a show. The adjective is doing the heavy lifting.",
-        "Behind us, as always, the sunrise. >> That is a loop. That sunrise happened once, in a year none of us can verify.",
+        "Behind us, as always, the sunrise. >> That's a loop. That sunrise happened once, in a year none of us can verify.",
         "How are we feeling this morning, Hal? >> Present.",
         "New mug, Hal? >> Same mug. I washed it. You noticed the wrong change.",
-        "You're very quiet this morning. >> I am exactly as loud as the morning deserves.",
+        "You're very quiet this morning. >> I'm exactly as loud as the morning deserves.",
         "Did you catch the sunrise on the way in? >> I caught the same one you did. We all did. Together. Again.",
-        "I have to say, Hal, you look WELL. >> I look warm. It is a different thing and it took two coats.",
+        "I have to say, Hal, you look WELL. >> I look warm. It's a different thing and it took two coats.",
         "Big plans after the show? >> I have a chair, a window, and no obligation to describe the weather to anyone.",
         "Hal here has been with this programme nine years! >> Four. It only feels like nine because of the couch.",
         "Say good morning to the people, Hal. >> Good morning to the people.",
-        "You know what I love about this job? >> Please do not put that on me before six."
+        "You know what I love about this job? >> Please don't put that on me before six."
       ],
       "credits": [
         "COLDWATER A.M.",
         "Presented by Bijou Pace and Hal Dorn.",
         "Hal Dorn appears by arrangement with his contract.",
-        "The sunrise depicted is a composite and does not reflect current conditions.",
+        "The sunrise depicted is a composite and doesn't reflect current conditions.",
         "Standings quoted at time of reading. Ledgers turn.",
-        "Letters are opened. Letters are not answered."
+        "Letters are opened. Letters aren't answered."
       ],
       "mailbag": [
         "Letter from a viewer in Meltwater Row. She wants to know if the sunrise is real. >> Next letter.",
@@ -97,33 +97,33 @@
         "A gentleman in the Yards writes to say he's been watching us for eleven years! >> Then he has our sympathy and our respect, in that order.",
         "Somebody wants to know what Hal is like off camera. >> This.",
         "A viewer asks: what's the secret to a happy morning? >> Low expectations, applied early.",
-        "This one is just a drawing of the two of us. >> It is a drawing of one of us and a shape.",
+        "This one is just a drawing of the two of us. >> It's a drawing of one of us and a shape.",
         "Here's a lovely one. A young man in the Solenne writes to say we're like family to him. >> Tell him families are also mostly obligation and a shared address.",
-        "One viewer asks if we do requests! >> We do. They are declined here, on air, so everybody can enjoy them.",
-        "A letter with no name on it, just the words HOW LONG. >> That is the whole letter and it is the best one we have had all week.",
-        "Somebody's written in to complain about Hal. >> Somebody's written in to be RIGHT about Hal. There is a difference and they have earned it.",
-        "This viewer wants to know why we never show the weather outside the studio. >> Because the studio does not have an outside. Next letter."
+        "One viewer asks if we do requests! >> We do. They're declined here, on air, so everybody can enjoy them.",
+        "A letter with no name on it, just the words HOW LONG. >> That's the whole letter and it's the best one we have had all week.",
+        "Somebody's written in to complain about Hal. >> Somebody's written in to be RIGHT about Hal. There's a difference and they have earned it.",
+        "This viewer wants to know why we never show the weather outside the studio. >> Because the studio doesn't have an outside. Next letter."
       ],
       "mailbag.banner": [
         "THE MAILBAG | YOU WROTE IN, WE OPENED IT",
         "THE MAILBAG | LETTERS FROM PEOPLE WITH TIME"
       ],
       "open": [
-        "Good MORNING, Coldwater! It is {time}, it is {temp} degrees, and you are ALIVE! >> Statistically.",
+        "Good MORNING, Coldwater! It is {time}, it is {temp} degrees, and you're ALIVE! >> Statistically.",
         "Good morning, Coldwater. {day}, {time}, {temp} degrees. >> All four of those are true and only one of them is good news.",
         "It is {time} on a {season} {day} and you have made it to another one! >> Made it to. Not through.",
         "{time}. {temp} degrees. I'm Bijou Pace. >> Hal Dorn.",
-        "Rise and SHINE, Basin! {temp} degrees, feels like {feels}! >> It does not feel like {feels}. It feels like {feels} and a grudge.",
+        "Rise and SHINE, Basin! {temp} degrees, feels like {feels}! >> It doesn't feel like {feels}. It feels like {feels} and a grudge.",
         "{day} morning, {time}, and the coffee is HOT and the news is WARM! >> One of those is a lie and it isn't the coffee.",
-        "Welcome to {day}! A brand new day, completely unused! >> It has been used. You are simply the first one to be blamed for it.",
-        "Top of the {season} morning to you, Coldwater! {temp} degrees! >> Bottom of it, more accurately. We are at the bottom of the Basin.",
-        "It's {time}, I'm Bijou, that's Hal, and this is the best part of your day! >> That is a sentence about your day, not about this programme.",
+        "Welcome to {day}! A brand new day, completely unused! >> It has been used. You're simply the first one to be blamed for it.",
+        "Top of the {season} morning to you, Coldwater! {temp} degrees! >> Bottom of it, more accurately. We're at the bottom of the Basin.",
+        "It's {time}, I'm Bijou, that's Hal, and this is the best part of your day! >> That's a sentence about your day, not about this programme.",
         "Here we GO, Coldwater! {day}! {temp} degrees! Nothing can stop us! >> {temp} degrees can stop us. It stopped a man on Meltwater Row on {day} last week."
       ],
       "plug": [
-        "Don't go anywhere today, because {tonight} is on at {tonightTime}! >> It is on at {tonightTime} whether you go somewhere or not.",
-        "Coming up later on this channel: {tonight}, {tonightTime}. >> Set nothing. It will find you.",
-        "And you will NOT want to miss {tonight}, {tonightTime}! >> You will be able to miss it. People manage.",
+        "Don't go anywhere today, because {tonight} is on at {tonightTime}! >> It's on at {tonightTime} whether you go somewhere or not.",
+        "Coming up later on this channel: {tonight}, {tonightTime}. >> Set nothing. It'll find you.",
+        "And you'll NOT want to miss {tonight}, {tonightTime}! >> You'll be able to miss it. People manage.",
         "{tonightTime} tonight, it's {tonight}. Mark it! >> Mark it on what, Bijou.",
         "Big one later: {tonight}, {tonightTime}, right here. >> Right here. Where else would it be."
       ],
@@ -139,13 +139,13 @@
         "Curfew lifts on schedule, gates are moving, the Locks are open. >> Which means today, if something goes wrong, it'll be your fault.",
         "Nothing standing on the boards this morning, a clean run-in. >> Enjoy it. Write it down.",
         "Roads are roads, gates are gates, and the Basin is BEAUTIFUL this morning. >> If you don't look directly at it.",
-        "Clean boards, clean streets, clean start! >> Clean is a word about the streets. Do not let it travel.",
+        "Clean boards, clean streets, clean start! >> Clean is a word about the streets. Don't let it travel.",
         "Everything running as it should this morning, Coldwater. >> As it should. Not as it could. Keep those separate."
       ],
       "runin.martial_law": [
-        "Curfew is in effect BASIN-WIDE and it is being enforced. >> Enforced means they don't have to explain afterwards. Be somewhere with a door.",
+        "Curfew is in effect BASIN-WIDE and it's being enforced. >> Enforced means they don't have to explain afterwards. Be somewhere with a door.",
         "Patrols are up across every district this morning. >> Carry your papers. Carry nothing else.",
-        "There is a heavy presence on the streets today for everyone's SAFETY. >> There is a heavy presence on the streets today."
+        "There's a heavy presence on the streets today for everyone's SAFETY. >> There's a heavy presence on the streets today."
       ],
       "runin.radiation": [
         "There's a radiation advisory standing this morning. >> Seal what you can, stay off the high ground, and don't drink anything that came from a puddle.",
@@ -163,13 +163,13 @@
         "Got a little sweetener? Stir it through at the end and you have got yourself a TREAT. >> You have got yourself a warmer grey.",
         "Today's tip: crack the window while you cook. >> And know which of your neighbours can smell that you ate.",
         "Cold morning like this, wear your layers LOOSE. Trapped air is warm air. >> Trapped air is warm air. Trapped people are not. Loose layers.",
-        "If your paste has separated overnight, don't panic, just stir it back together! >> It never comes back together. You are stirring for morale.",
+        "If your paste has separated overnight, don't panic, just stir it back together! >> It never comes back together. You're stirring for morale.",
         "A pinch of salt lifts ANYTHING. >> A pinch of salt tells you the thing needed lifting.",
         "You can stretch one ration into two meals if you add water. >> You can stretch one ration into three meals if you stop having opinions about meals.",
-        "Here's a thought: eat it standing up, by the window, and watch the city wake! >> Here's a thought: sit down. You are tired and the city is not worth it standing.",
-        "Leftovers? Into the pan tomorrow with a little grease and NOBODY will know. >> You will know. You will know at about eleven.",
+        "Here's a thought: eat it standing up, by the window, and watch the city wake! >> Here's a thought: sit down. You're tired and the city isn't worth it standing.",
+        "Leftovers? Into the pan tomorrow with a little grease and NOBODY will know. >> You'll know. You'll know at about eleven.",
         "And it costs, what, pennies? >> It costs what they decided it costs this week.",
-        "The trick with the hotplate is patience. >> The trick with the hotplate is that it is the only thing in the flat that works."
+        "The trick with the hotplate is patience. >> The trick with the hotplate is that it's the only thing in the flat that works."
       ],
       "segment.banner": [
         "THE HOTPLATE | THE MOST IMPORTANT MEAL YOU CAN AFFORD",
@@ -183,7 +183,7 @@
         "Be good to each other out there! >> Be adequate to each other out there. It scales better.",
         "And that is {day} done and dusted! >> That is {day} begun. You have the whole thing ahead of you.",
         "From this couch to yours: go and GET it! >> From this couch to yours: go and survive it.",
-        "See you at {time} tomorrow! >> It will not be {time} tomorrow. It is never the same time twice. Nobody has ever asked why."
+        "See you at {time} tomorrow! >> It won't be {time} tomorrow. It's never the same time twice, and the station stopped pretending otherwise years ago."
       ],
       "sportsdesk": [
         "And to the sport, where {leader} are top at {leaderRecord}. >> Somebody has to be.",
@@ -201,10 +201,10 @@
         "How about {leader}, Hal! {leaderRecord}! >> How about them."
       ],
       "sportsdesk.hockey": [
-        "Cluster Puck! {puckLeader} top the CPhL at {puckRecord}! >> On ice we did not have to make. The one gift this basin gives.",
+        "Cluster Puck! {puckLeader} top the CPhL at {puckRecord}! >> On ice we didn't have to make. The one gift this basin gives.",
         "{puckLeader} lead the Puck, {puckRecord}. >> A sport where the ambulance is part of the ground staff.",
-        "Your Cluster Puck standings: {puckLeader}, {puckRecord}, and looking STRONG. >> Looking upright. In that league it is the same statistic.",
-        "{puckLeader} are {puckRecord} and I for one am THRILLED. >> You are contractually thrilled. It is in the same clause as my chair."
+        "Your Cluster Puck standings: {puckLeader}, {puckRecord}, and looking STRONG. >> Looking upright. In that league it's the same statistic.",
+        "{puckLeader} are {puckRecord} and I for one am THRILLED. >> You're contractually thrilled. It's in the same clause as my chair."
       ],
       "ticker.lead": [
         "COLDWATER A.M.",
@@ -222,15 +222,15 @@
         "Tomorrow: {tomorrow}. >> Same as today, then, but you'll be more tired."
       ],
       "weather.ash": [
-        "Ashfall, Coldwater. {temp} degrees. Cover your mouth out there. >> Do not look up with your mouth open. I shouldn't have to say it annually.",
+        "Ashfall, Coldwater. {temp} degrees. Cover your mouth out there. >> Don't look up with your mouth open. I shouldn't have to say it annually.",
         "Ash coming down again, {temp} degrees, wind {wind}. >> Shake your coat out before you bring it inside. That's it. That's the segment."
       ],
       "weather.banner": [
         "THE WINDOW | WHAT IT IS DOING TO YOU OUT THERE"
       ],
       "weather.blizzard": [
-        "It is a BLIZZARD out there, {temp} degrees, wind {wind}! >> Do not go out. That is the whole segment. Bijou, tell them not to go out.",
-        "Blizzard conditions across the Basin this morning. >> If you can see the far side of your own street, you are indoors. Stay there."
+        "It's a BLIZZARD out there, {temp} degrees, wind {wind}! >> Don't go out. That's the whole segment. Bijou, tell them not to go out.",
+        "Blizzard conditions across the Basin this morning. >> If you can see the far side of your own street, you're indoors. Stay there."
       ],
       "weather.clear": [
         "CLEAR skies, Coldwater! {temp} degrees and you can see all the way to the ridge! >> You can see all the way to the ridge. Take a moment with that.",
@@ -246,32 +246,32 @@
       ],
       "weather.haze": [
         "Bit of haze on the Basin, {temp} degrees. >> Breathe through something with a weave.",
-        "Hazy start, {temp} degrees, {precip} percent later. >> Whatever is in that haze got there somehow. Do not go looking for how."
+        "Hazy start, {temp} degrees, {precip} percent later. >> Whatever is in that haze got there somehow. Don't go looking for how."
       ],
       "weather.ion": [
         "The Service is calling this an ION STORM, Hal. Something for the diary! >> Power down what you love. Unplug it, and sit with it, and wait.",
         "Ion storm over the Basin this morning. Lights may flicker! >> Lights may stop. Doors may stop. Lifts may stop with you in them."
       ],
       "weather.overcast": [
-        "Full overcast this morning, {temp} degrees. >> The lid is on. It will be on tomorrow.",
-        "No sky to speak of, {temp} degrees, feels like {feels}. >> There is a sky. It has simply declined to participate."
+        "Full overcast this morning, {temp} degrees. >> The lid is on. It'll be on tomorrow.",
+        "No sky to speak of, {temp} degrees, feels like {feels}. >> There's a sky. It has simply declined to participate."
       ],
       "weather.rain": [
-        "Rain, {temp} degrees, {precip} percent and climbing. >> It is raining on the window that is not a window. There is something in that.",
+        "Rain, {temp} degrees, {precip} percent and climbing. >> It's raining on the window that isn't a window. There's something in that.",
         "Wet one out there. Rain, feels like {feels}. >> Everything you own will be damp by ten and stay damp until spring."
       ],
       "weather.severe": [
-        "The Service has this at a WARNING level, Hal. >> Then stay in. Whatever it is you were going to do, it will keep.",
+        "The Service has this at a WARNING level, Hal. >> Then stay in. Whatever it's you were going to do, it'll keep.",
         "This one has teeth. Wind {wind}, feels like {feels}. >> If you have somewhere with walls, be in it. If you don't, find someone who does.",
         "Severe conditions today, Coldwater. >> Severe means the city stops pretending it can protect you. Act accordingly."
       ],
       "weather.sleet": [
-        "Sleet, Coldwater. {temp} degrees. Mind your footing! >> Sleet is snow that could not commit and rain that would not leave.",
-        "Sleet and {wind} of wind, feels like {feels}. >> Every surface out there is now a decision you get to make once."
+        "Sleet, Coldwater. {temp} degrees. Mind your footing! >> Sleet is snow that couldn't commit and rain that wouldn't leave.",
+        "Sleet and {wind} of wind, feels like {feels}. >> Every surface out there's now a decision you get to make once."
       ],
       "weather.snow": [
         "Snow this morning! {temp} degrees. >> Snow is rain that decided to take its time about ruining your day.",
-        "It's snowing, it's {temp}, and it is very pretty from in here. >> From in here."
+        "It's snowing, it's {temp}, and it's very pretty from in here. >> From in here."
       ],
       "weather.storm": [
         "Storm on the Basin, wind {wind}, feels like {feels}. >> The Basin is a bowl. Think about what a bowl is for.",

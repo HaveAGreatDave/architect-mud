@@ -99,7 +99,7 @@ registerStatusEffect({
   label: 'Bleeding',
   onTick(player) {
     player.hp = Math.max(0, player.hp - 2);
-    return 'You are bleeding. (-2 HP)';
+    return "You're bleeding. (-2 HP)";
   },
   // Kinetic, so a mob's armour soaks it the way armour soaks anything else — a
   // plated thing bleeds less because there was less of it to open.
@@ -111,7 +111,7 @@ registerStatusEffect({
   label: 'Burning',
   onTick(player) {
     player.hp = Math.max(0, player.hp - 5);
-    return 'You are on fire. (-5 HP)';
+    return "You're on fire. (-5 HP)";
   },
   // `fire` typed, which is the whole point of routing this through the strike
   // path: a thing with fire soak on a part shrugs some of it off, and a thing
@@ -197,12 +197,12 @@ const EPISODE_EVERY = 8;              // ticks between one indignity and the nex
 const VOMIT_LINES = [
   'It comes up without warning. You get most of it on yourself.',
   'You double over and bring up everything you have eaten today.',
-  'Your stomach turns itself inside out. There is nothing dignified about it.',
+  "Your stomach turns itself inside out. There's nothing dignified about it.",
 ];
 const VOID_LINES = [
   "You don't make it anywhere near a toilet.",
-  'Your guts give out entirely. It is very obvious what has happened.',
-  'There is no holding it. None at all.',
+  "Your guts give out entirely. It's very obvious what has happened.",
+  "There's no holding it. None at all.",
 ];
 
 registerStatusEffect({

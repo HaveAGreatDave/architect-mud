@@ -127,15 +127,15 @@ async function setHiddenUntil(ms) {
 // field wrongly gets its mistake made CONSISTENT rather than corrected.
 
 const ARRIVALS = [
-  'Something small comes out from between the crates, unhurried, and sits down like it owns the lane. One of its front paws is not a paw.',
+  "Something small comes out from between the crates, unhurried, and sits down like it owns the lane. One of its front paws isn't a paw.",
   'A grey cat picks its way out of the shadows at the side of the lane. It puts down three soft feet and one that clicks.',
-  'There is a cat here. There was not a cat here a moment ago, and it is not going to explain that.',
+  "There's a cat here. There wasn't a cat here a moment ago, and it isn't going to explain that.",
 ];
 
 const DEPARTURES = [
-  'The cat decides it is done with you, and is gone between one look and the next.',
-  'The cat stretches, turns, and walks off into a gap you would not have said was a gap.',
-  'Somewhere behind the crates there is one small clink of metal on stone, and then nothing.',
+  "The cat decides it's done with you, and is gone between one look and the next.",
+  "The cat stretches, turns, and walks off into a gap you wouldn't have said was a gap.",
+  "Somewhere behind the crates there's one small clink of metal on stone, and then nothing.",
 ];
 
 function surface(zoneId, line) {
@@ -238,7 +238,7 @@ async function behave() {
 const REPEAT_KILLS = 2;
 
 const SPOOK_YOU = [
-  'She comes up off the ground the instant she registers you — sideways, hackles up, one long hiss — and then there is nothing in the lane but the noise of her leaving.',
+  "She comes up off the ground the instant she registers you — sideways, hackles up, one long hiss — and then there's nothing in the lane but the noise of her leaving.",
   'The hiss starts before she has finished turning round. She holds it for exactly as long as it takes to get her feet under her, and then she is gone.',
   'She sees you. Whatever she was doing stops. She hisses, once, flat and ugly, and runs.',
 ];
@@ -278,7 +278,7 @@ async function strayTick() {
   // home on the next boot, and hiding silently stops working forever. Warn once.
   if (c.home_zone !== DEN_ZONE && !S._warnedHome) {
     S._warnedHome = true;
-    console.warn(`[strays] ${CAT_ID}.home_zone is "${c.home_zone}", expected "${DEN_ZONE}" — hiding will not work. See docs/systems-strays.md.`);
+    console.warn(`[strays] ${CAT_ID}.home_zone is "${c.home_zone}", expected "${DEN_ZONE}" — hiding won't work. See docs/systems-strays.md.`);
   }
 
   if (isSurfaced()) {
@@ -343,8 +343,8 @@ const PET_LINES = {
 };
 
 const PET_PAW = [
-  'The steel paw rests on your wrist. It is warmer than you expected.',
-  'One paw kneads your sleeve. The other one just presses, evenly, over and over, because that is all it knows how to do.',
+  "The steel paw rests on your wrist. It's warmer than you expected.",
+  "One paw kneads your sleeve. The other one just presses, evenly, over and over, because that's all it knows how to do.",
   'Somewhere under the fur a small motor is running in time with the purr.',
 ];
 
@@ -372,20 +372,20 @@ const PET_PAW = [
 
 const HISS_LINES = [
   'The cat comes up off the ground in one motion, ears flat, and hisses at you. It holds it, without blinking, until you take your hand back.',
-  'You get within a foot of it. The sound it makes is not a noise a pet makes. Its whole body has gone hard and low and the steel paw is set flat against the ground.',
-  'The cat hisses, once, and does not run. It is telling you something quite clearly and it is only going to tell you the once.',
+  "You get within a foot of it. The sound it makes isn't a noise a pet makes. Its whole body has gone hard and low and the steel paw is set flat against the ground.",
+  "The cat hisses, once, and doesn't run. It's telling you something quite clearly and it's only going to tell you the once.",
 ];
 
 const BITE_LINES = [
   'You were told. The cat takes your hand hard enough to grate on bone, twists, and is gone before you have finished swearing.',
-  'It does not hiss this time. It goes straight for the web of your thumb, and the steel paw braces on your wrist to get the leverage.',
+  "It doesn't hiss this time. It goes straight for the web of your thumb, and the steel paw braces on your wrist to get the leverage.",
   'The bite is quick, deep and entirely deliberate, and it lets go the instant it has made its point.',
 ];
 
 const BOLT_LINES = [
-  'The cat sees you and leaves. No hiss, no bristle, nothing to argue with. It is simply not in the lane any more.',
-  'It is gone the moment you move toward it, at a flat unhurried run, without ever having looked directly at you.',
-  'There is a scrabble of claws on hardstand going the other way, and then the lane is empty. It did not stay to make a point.',
+  "The cat sees you and leaves. No hiss, no bristle, nothing to argue with. It's simply not in the lane any more.",
+  "It's gone the moment you move toward it, at a flat unhurried run, without ever having looked directly at you.",
+  "There's a scrabble of claws on hardstand going the other way, and then the lane is empty. It didn't stay to make a point.",
 ];
 
 const BITE_DMG_MIN = 2;
@@ -433,7 +433,7 @@ async function onPetAttempt({ player, npc, zoneId, broadcast }) {
     query('UPDATE players SET hp=$1 WHERE id=$2', [hp, player.id]).catch(() => {});
 
     sendToZone(zoneId, { type: 'zone_event', message: `The cat bites ${player.handle} and vanishes.` }, player.id);
-    if (isSurfaced()) despawn('It does not stay to see what happens next.');
+    if (isSurfaced()) despawn("It doesn't stay to see what happens next.");
 
     return {
       type: 'output',
@@ -523,7 +523,7 @@ async function finishKill({ actor, npc }) {
     if (adjustSanity(p, WITNESS_SANITY, 'you watched that')) {
       query('UPDATE players SET sanity=$1 WHERE id=$2', [p.sanity, p.id]).catch(() => {});
     }
-    sendToPlayer(p.id, { type: 'output', message: 'You watch the whole thing. You will be able to hear it again later, when you are trying to sleep.' });
+    sendToPlayer(p.id, { type: 'output', message: "You watch the whole thing. You'll be able to hear it again later, when you're trying to sleep." });
   }
 
   // The street's memory. Sync and query-free — flushed by the existing relations
@@ -561,7 +561,7 @@ async function searchForCat({ player, zoneId, margin }) {
 
   perPlayerSearch.set(player.id, Date.now());
 
-  const found = surface(zoneId, `Behind the crates, something small and grey decides ${player.handle} is not worth hiding from any more. It steps out into the lane. One of its front paws is not a paw.`);
+  const found = surface(zoneId, `Behind the crates, something small and grey decides ${player.handle} isn't worth hiding from any more. It steps out into the lane. One of its front paws isn't a paw.`);
   if (!found) return null;
 
   emit('stray.found', { actor: player, npcId: CAT_ID, zoneId });
@@ -633,13 +633,13 @@ const CALL_MISSES = [
   'Your voice goes off down the street and comes back slightly changed. No cat.',
   'Nothing. Somebody two doors down laughs at you, which is fair.',
   'You call. The city continues doing what it was doing.',
-  'A pigeon leaves. That is the entire response.',
+  "A pigeon leaves. That's the entire response.",
 ];
 
 const CALL_HITS = [
-  'It takes a moment. Then there is a click of metal on stone somewhere behind you, unhurried, getting closer, and she walks out into the open like she has been looking for you rather than the other way round.',
+  "It takes a moment. Then there's a click of metal on stone somewhere behind you, unhurried, getting closer, and she walks out into the open like she has been looking for you rather than the other way round.",
   'She comes round the corner at a trot with her tail up, as though you had an appointment and she is slightly late for it.',
-  'Something drops off a wall you did not know was climbable, lands wrong on one steel foot, recovers its dignity instantly, and sits down in front of you.',
+  "Something drops off a wall you didn't know was climbable, lands wrong on one steel foot, recovers its dignity instantly, and sits down in front of you.",
 ];
 
 function inTheCity(zone) {
@@ -656,7 +656,7 @@ async function onCalled(args, raw, player, broadcast) {
   broadcast(zoneId, { type: 'zone_event', message: `${player.handle} calls for a cat.` }, player.id);
 
   if (Date.now() - (lastCall.get(player.id) || 0) < CALL_COOLDOWN_MS) {
-    return { type: 'output', message: 'You just called. Give it a minute; she is not deaf, she is ignoring you.' };
+    return { type: 'output', message: "You just called. Give it a minute; she isn't deaf, she is ignoring you." };
   }
   lastCall.set(player.id, Date.now());
 

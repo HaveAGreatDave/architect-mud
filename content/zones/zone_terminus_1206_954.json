@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A slab has come away from the rim at some point and landed in pieces that happen to be stacked. It is not a stair and calling it one is optimism, but the pieces go up in the right order and the top of them is the top.",
+  "description": "A slab has come away from the rim at some point and landed in pieces that happen to be stacked. It isn't a stair and calling it one is optimism, but the pieces go up in the right order and the top of them is the top.",
   "exits": {
     "east": "zone_terminus_1207_954",
     "north": "zone_terminus_1206_953",

@@ -88,7 +88,7 @@ export function blindFightingLine(player, enemy) {
   const key = enemy?.instanceId || enemy?.id || null;
   if (!key || player._blindSaid === key) return null;
   player._blindSaid = key;
-  return '\n<span class="text-dim">You have stopped trying to see it, and you are hitting it more often.</span>';
+  return '\n<span class="text-dim">You have stopped trying to see it, and you\'re hitting it more often.</span>';
 }
 
 export const _test = { BLIND_MIN_RANK, BLIND_MAX_GIVEBACK };

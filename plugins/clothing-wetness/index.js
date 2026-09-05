@@ -305,7 +305,7 @@ async function douseWithFluid(player, { potency = 1, broadcast, source, info = {
   const lead = source ? `${source} — ` : '';
   const tail = wasHot
     ? ' The heat goes out of you all at once.'
-    : (player.wetness >= 75 ? ' You are soaked through.' : '');
+    : (player.wetness >= 75 ? " You're soaked through." : '');
   return {
     message: `<span class="text-cyan">${lead}${info.arrival || 'it lands wet and cold'}.${tail}</span>`,
     skinExposure,

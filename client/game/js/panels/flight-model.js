@@ -418,7 +418,7 @@ export const TYPES = {
     gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
-    blurb: 'The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.',
+    blurb: "The one everybody learns on. Nothing about it's remarkable and nothing about it has ever stopped working.",
   },
   // A HEAVY TRUCK IS SLOW TO WIND UP, NOT INCAPABLE. `thrustMax` is the whole engine, and it has to
   // clear `rollFric × drag` on the worst surface with headroom or the truck simply cannot move off
@@ -434,7 +434,7 @@ export const TYPES = {
     gears: [0, 5.7, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.7], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.37, hitchOffset: 0.10, trailerKg: 5200,   // kingpin geometry, and the empty box itself
-    blurb: 'A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it will take a whole market with it.',
+    blurb: "A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it'll take a whole market with it.",
   },
   // The bottom rung exists so the first truck is a REAL decision at a price a new player can
   // actually reach, rather than a wall between them and the entire system.

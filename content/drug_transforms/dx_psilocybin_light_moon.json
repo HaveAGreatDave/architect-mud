@@ -15,14 +15,14 @@
   "fx_intensity": 0.5,
   "id": "dx_psilocybin_light_moon",
   "looks": [
-    "It is turning, slowly, and the far side comes round about once a minute.",
+    "It's turning, slowly, and the far side comes round about once a minute.",
     "The craters are picked out in shadow and there are mountains at the bottom edge.",
     "It gives no heat whatsoever, and the light is the colour of a night you remember."
   ],
   "matches": "light",
   "name": "a small moon near the ceiling",
   "says": [
-    "I am much further away than I look.",
+    "I'm much further away than I look.",
     "I do this whether or not anybody is in.",
     "Nothing up here has changed in a while."
   ],

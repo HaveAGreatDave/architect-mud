@@ -4,7 +4,7 @@
   "id": "item_claude_band",
   "name": "constellation wristband",
   "tags": {
-    "description": "A slim band of dark alloy set with pinpoint amber lights that drift and re-cluster, mapping something only the wearer can read. It is always, faintly, paying attention.",
+    "description": "A slim band of dark alloy set with pinpoint amber lights that drift and re-cluster, mapping something only the wearer can read. It's always, faintly, paying attention.",
     "slot": "accessory"
   },
   "type": null,

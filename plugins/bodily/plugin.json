@@ -37,9 +37,9 @@
       "note": "KNOWN GAP: requires a toilet in the zone (object_type='toilet' or flags.toilet); errors otherwise. Surfaced as an action-link inside the 'use toilet' panel, not on examine. (The `use toilet`/`use sink` panels are a tagless specializedAction that examine can't surface either — toilet/sink are not in examine's hardcoded object_type branches — but `use` is not a command so it cannot be logged here. The same is true of the `take` specializedAction that scoops a fouled toilet: it self-gates on a fouled toilet being present, falls through to the inventory builtin everywhere else, and is surfaced as a `take filth` action-link inside the same `use toilet` panel while the bowl is dirty.)"
     },
     "shower": {
-      "discoverVia": "none",
+      "discoverVia": "furniture:shower",
       "exposed": false,
-      "note": "Requires a shower in the zone (object_type='shower' / flags.shower / name ~ 'shower'); errors otherwise. Surfaced as an action-link inside the 'use shower' panel. Strips clothing_contamination + soiled_state + ejaculate_state + covered_in_blood (a superset of MIS `wash`, which leaves the bodily stains) and applies the cosmetic 'refreshed' effect."
+      "note": "Requires a shower in the zone (object_type='shower' / flags.shower / name ~ 'shower'); errors otherwise. Surfaced by the furniture.describe hook on any shower fixture, which offers `shower` and `clean` together (you wash yourself and you wash the room), and as an action-link inside the 'use shower' panel. Strips clothing_contamination + soiled_state + ejaculate_state + covered_in_blood (a superset of MIS `wash`, which leaves the bodily stains) and applies the cosmetic 'refreshed' effect."
     },
     "soap": {
       "discoverVia": "none",

@@ -4,7 +4,7 @@
   "id": "part_frame_plate",
   "name": "bolt-on armour plate",
   "tags": {
-    "description": "Composite plate cut to go over the tub, the tanks and the pilot, in that order of importance according to the fitting instructions. Aerodynamically every gram is in the wrong place. Every gram has also been earned by somebody who is still alive."
+    "description": "Composite plate cut to go over the tub, the tanks and the pilot, in that order of importance according to the fitting instructions. Aerodynamically every gram is in the wrong place. Every gram has also been earned by somebody who's still alive."
   },
   "type": "misc",
   "value": 3400,

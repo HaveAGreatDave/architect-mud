@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Somebody bought me. That is the whole story.",
+  "self_line": "Somebody bought me. That's the whole story.",
   "source": "object_reply_identity",
   "tone": "normal"
 }

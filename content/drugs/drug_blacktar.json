@@ -3,7 +3,7 @@
   "description": "Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.",
   "duration_seconds": 480,
   "effects": {
-    "comeon_message": "<span class=\"msg-system\">It is in you. Now the part nobody talks about: the waiting.</span>",
+    "comeon_message": "<span class=\"msg-system\">It's in you. Now the part nobody talks about: the waiting.</span>",
     "diuretic": 0.4,
     "instant": {
       "hunger": -6,
@@ -13,7 +13,7 @@
     "onset_seconds": 30,
     "overdose": {
       "lethal": true,
-      "message": "The nod goes all the way down and does not turn around."
+      "message": "The nod goes all the way down and doesn't turn around."
     },
     "phases": {
       "comedown_scale": 0.6,
@@ -45,11 +45,11 @@
       },
       "onset_seconds": 480,
       "stages": {
-        "easing": "The sweating stops before the shaking does. You get an hour that feels like the end of it, and it is not.",
-        "onset": "Your nose starts running and will not stop. It is such a small thing that it takes a while to understand it is the first one.",
-        "peak": "You can hear your own digestion. It has been going on your whole life underneath everything and now it is the loudest thing in the room, and there is nowhere to put your legs.",
-        "rising": "You sneeze eleven times in a row, and then again four minutes later, and your eyes will not stay dry.",
-        "tail": "Six hours off the blacktar and still on your feet. Your legs will not let you sit down."
+        "easing": "The sweating stops before the shaking does. You get an hour that feels like the end of it, and it's not.",
+        "onset": "Your nose starts running and won't stop. It's such a small thing that it takes a while to understand it's the first one.",
+        "peak": "You can hear your own digestion. It has been going on your whole life underneath everything and now it's the loudest thing in the room, and there's nowhere to put your legs.",
+        "rising": "You sneeze eleven times in a row, and then again four minutes later, and your eyes won't stay dry.",
+        "tail": "Six hours off the blacktar and still on your feet. Your legs won't let you sit down."
       }
     }
   },

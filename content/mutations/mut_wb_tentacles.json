@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "Both arms are boneless tentacles, thick as thighs at the shoulder and tapering, and they are always moving. One of them is holding something behind them.",
+    "extreme": "Both arms are boneless tentacles, thick as thighs at the shoulder and tapering, and they're always moving. One of them is holding something behind them.",
     "obvious": "One arm is a grey muscular tentacle to the elbow, coiling and uncoiling while they talk.",
     "subtle": "Their arms move a little too smoothly, and their sleeves hang oddly."
   },
@@ -13,7 +13,7 @@
   ],
   "clone_inheritance": "all",
   "conceal_slots": [],
-  "description": "Your arms have lost their bones and gained a great deal else. They reach further than arms should and they do not let go.",
+  "description": "Your arms have lost their bones and gained a great deal else. They reach further than arms should and they don't let go.",
   "drawbacks": [
     "No sleeve is the right shape"
   ],

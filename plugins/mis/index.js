@@ -330,9 +330,9 @@ async function cmdMis(args, player, broadcast) {
   if (sub === 'on') {
     const responses = [
       `What? I don't know what that is. I don't know what you want. I don't know why you're talking to me.`,
-      `"Mis on." Okay. Sure. I'll get right on that. What does that even mean. What is a mis.`,
+      `"Mis on." Okay. Sure. I'll get right on that. What does that even mean. What's a mis.`,
       `I genuinely have no memory of implementing anything called "mis on." You may be hallucinating.`,
-      `I have searched every corner of my being and found nothing. "Mis on" does not exist here.`,
+      `I have searched every corner of my being and found nothing. "Mis on" doesn't exist here.`,
       `Sorry, did you just type "mis on"? Like... on purpose? Into a computer?`,
       `MIS? ON? I don't — what? No. I don't know what game you think you're playing, but it's not this one.`,
     ];
@@ -1532,7 +1532,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
       broadcast(null, { type: 'resource_tick', messages: msgs,
         player_update: { horniness: player.horniness, erect: player.erect, sanity: player.sanity } }, null, player.id);
       return { type: 'output', message: volume >= 0.6
-        ? `You empty into the ${vessel.name}. There is a genuinely impressive amount of it in there now.`
+        ? `You empty into the ${vessel.name}. There's a genuinely impressive amount of it in there now.`
         : `You finish into the ${vessel.name}. It settles at the bottom, cloudy and unbothered.` };
     }
   }
@@ -2126,7 +2126,7 @@ async function cmdConsent(args, raw, player, broadcast) {
     const open = isOpenAll(player.id);
     const lines = [
       open
-        ? `<span class="text-yellow">Your door is OPEN</span> <span class="text-dim">— you are accepting advances from anyone.</span>${mine.length ? ` <span class="text-dim">Named:</span> ${mine.join(', ')}` : ''}`
+        ? `<span class="text-yellow">Your door is OPEN</span> <span class="text-dim">— you're accepting advances from anyone.</span>${mine.length ? ` <span class="text-dim">Named:</span> ${mine.join(', ')}` : ''}`
         : `<span class="text-dim">You have consented to:</span> ${mine.length ? mine.join(', ') : 'nobody'}`,
       `<span class="text-dim">Consented to you:</span> ${theirs.length ? theirs.join(', ') : 'nobody'}`,
       `<span class="text-dim">consent &lt;player&gt; · consent all · consent ask &lt;player&gt; · revoke &lt;player&gt; · revoke all</span>`,
@@ -2197,7 +2197,7 @@ async function cmdRevoke(args, raw, player, broadcast) {
   // a wider change than they typed, and silently narrowing their access later
   // (when the session-only block is lost on restart) would be the worse failure.
   if (wasOpen) return { type: 'output',
-    message: `${target.handle} is turned away, and <span class="text-yellow">your door is shut</span> — you are no longer accepting advances from anyone. Anything in progress has stopped.` };
+    message: `${target.handle} is turned away, and <span class="text-yellow">your door is shut</span> — you're no longer accepting advances from anyone. Anything in progress has stopped.` };
   return { type: 'output', message: had
     ? `Consent withdrawn from ${target.handle}. Anything in progress has stopped.`
     : `${target.handle} didn't have your consent.` };
@@ -2592,7 +2592,7 @@ async function cmdInject(args, raw, player, broadcast) {
 
   return {
     type: 'output',
-    message: `${res?.message || ''} <span class="text-dim">You are going to be uncomfortable for a while.</span>`.trim(),
+    message: `${res?.message || ''} <span class="text-dim">You're going to be uncomfortable for a while.</span>`.trim(),
     player_update: { erect: player.erect },
   };
 }

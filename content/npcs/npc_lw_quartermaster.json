@@ -69,7 +69,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Keep it clean.\" She is already back to her ledger."
+      "text": "\"Keep it clean.\" She's already back to her ledger."
     },
     "carry_accept": {
       "actions": [
@@ -84,12 +84,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Both books balance by the end of the week, or I will be unpleasant about it, and I am very good at that.\""
+      "text": "\"Both books balance by the end of the week, or I'll be unpleasant about it, and I'm very good at that.\""
     },
     "carry_offer": {
       "options": [
         {
-          "label": "I will fetch it.",
+          "label": "I'll fetch it.",
           "next": "carry_accept"
         },
         {
@@ -97,7 +97,7 @@
           "next": "bye"
         }
       ],
-      "text": "She turns a page.\n\n\"I keep two ledgers. One is everything the Watch owns. The other is everything it has lost, and it is shorter, and I take it personally.\"\n\n\"There is a cache under the Fisherman's Green that has been in the second book for a month. It is not dangerous and it is not clever. I would simply like it back where it belongs.\""
+      "text": "She turns a page.\n\n\"I keep two ledgers. One is everything the Watch owns. The other is everything it has lost, and it's shorter, and I take it personally.\"\n\n\"There's a cache under the Fisherman's Green that has been in the second book for a month. It isn't dangerous and it isn't clever. I would simply like it back where it belongs.\""
     },
     "carry_report": {
       "actions": [
@@ -125,7 +125,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Everything here works without the grid, without an augment, without a wire running back to the machine.\"\n\nShe taps a rifle's iron sights.\n\n\"The chromed will tell you flesh and steel is obsolete, and they will be pleasant about it, and they will have a figure ready for what your hands are costing you. Then a storm rolls through, and their optics die, and it is us still standing and still shooting straight over plain iron.\"\n\n\"Master the simple thing and nobody can take it off you. That is not a slogan. It is an inventory.\""
+      "text": "\"Everything here works without the grid, without an augment, without a wire running back to the machine.\"\n\nShe taps a rifle's iron sights.\n\n\"The chromed will tell you flesh and steel is obsolete, and they'll be pleasant about it, and they'll have a figure ready for what your hands are costing you. Then a storm rolls through, and their optics die, and it's us still standing and still shooting straight over plain iron.\"\n\n\"Master the simple thing and nobody can take it off you. That isn't a slogan. It's an inventory.\""
     },
     "fit_above": {
       "_vine": {
@@ -149,7 +149,7 @@
           "next": "fit_done"
         }
       ],
-      "text": "\"Then you want lenses and a band.\"\n\nSmoked glass, and a paper strip she snaps once to show it still works.\n\n\"The rain out past the wall has had radiation in it since before I was born. You cannot feel it and you cannot taste it. The band changes colour when you have had as much as a body should take in a day. When it changes, you turn round and come home.\""
+      "text": "\"Then you want lenses and a band.\"\n\nSmoked glass, and a paper strip she snaps once to show it still works.\n\n\"The rain out past the wall has had radiation in it since before I was born. You can't feel it and you can't taste it. The band changes colour when you have had as much as a body should take in a day. When it changes, you turn round and come home.\""
     },
     "fit_above_early": {
       "_vine": {
@@ -166,7 +166,7 @@
           "next": "fit_done"
         }
       ],
-      "text": "\"Then it changes early and you have wasted a night.\"\n\nShe shrugs.\n\n\"I have got more bands. I have not got more of you.\""
+      "text": "\"Then it changes early and you have wasted a night.\"\n\nShe shrugs.\n\n\"I have got more bands. I haven't got more of you.\""
     },
     "fit_basic": {
       "_vine": {
@@ -186,11 +186,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That will do.",
+          "label": "That'll do.",
           "next": "fit_done"
         }
       ],
-      "text": "\"Water, a light, and a spare battery. That is the answer for everybody, every time.\"\n\nShe sets all three out.\n\n\"Tell me the actual job and I will do better than that.\""
+      "text": "\"Water, a light, and a spare battery. That's the answer for everybody, every time.\"\n\nShe sets all three out.\n\n\"Tell me the actual job and I'll do better than that.\""
     },
     "fit_done": {
       "_vine": {
@@ -214,7 +214,7 @@
           "next": "bye"
         }
       ],
-      "text": "She writes the lot into the ledger and turns it round so you can see your own name against it.\n\n\"None of that is a gift. Bring back whatever you do not use, and tell me what you did use, because that is how I know what to keep on the shelf.\""
+      "text": "She writes the lot into the ledger and turns it round so you can see your own name against it.\n\n\"None of that's a gift. Bring back whatever you don't use, and tell me what you did use, because that's how I know what to keep on the shelf.\""
     },
     "fit_job": {
       "_vine": {
@@ -227,7 +227,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Anything I should not take?",
+          "label": "Anything I shouldn't take?",
           "next": "fit_job_not"
         },
         {
@@ -238,7 +238,7 @@
           "next": "fit_done"
         }
       ],
-      "text": "\"Inside.\" She does not ask whose. \"Gloves, then, and tape.\"\n\nWork gloves and a roll of duct tape.\n\n\"Gloves so you leave nothing of yourself behind. Tape because it is quiet and it holds, and half of what we do is making a thing look like it failed rather than like somebody helped it.\""
+      "text": "\"Inside.\" She doesn't ask whose. \"Gloves, then, and tape.\"\n\nWork gloves and a roll of duct tape.\n\n\"Gloves so you leave nothing of yourself behind. Tape because it's quiet and it holds, and half of what we do is making a thing look like it failed rather than like somebody helped it.\""
     },
     "fit_job_not": {
       "_vine": {
@@ -279,7 +279,7 @@
           "next": "fit_done"
         }
       ],
-      "text": "\"Four kinds, mostly. Carrying something by hand, because every wire in this city belongs to somebody who reads it. Going and looking at a thing and coming back able to describe it. Making something of theirs stop working in a way that looks like it broke on its own.\"\n\n\"And now and again, breaking something so badly that everybody knows it was us. That one is rare and it is decided a long way above me.\"\n\n\"Ask me again when you have been given one.\""
+      "text": "\"Four kinds, mostly. Carrying something by hand, because every wire in this city belongs to somebody who reads it. Going and looking at a thing and coming back able to describe it. Making something of theirs stop working in a way that looks like it broke on its own.\"\n\n\"And now and again, breaking something so badly that everybody knows it was us. That one is rare and it's decided a long way above me.\"\n\n\"Ask me again when you have been given one.\""
     },
     "fit_under": {
       "_vine": {
@@ -292,7 +292,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the danger down there?",
+          "label": "What's the danger down there?",
           "next": "fit_under_danger"
         },
         {
@@ -303,7 +303,7 @@
           "next": "fit_done"
         }
       ],
-      "text": "\"The Under, then. The drains and the service tunnels.\"\n\nA flashlight, a spare battery and ear defenders go on the counter.\n\n\"We are not down there because we like it. We are down there because it is the only way across Coldwater that does not walk you past forty cameras. Learn the tunnels and you can be on the other side of the city with nothing on record saying you left this room.\""
+      "text": "\"The Under, then. The drains and the service tunnels.\"\n\nA flashlight, a spare battery and ear defenders go on the counter.\n\n\"We aren't down there because we like it. We're down there because it's the only way across Coldwater that doesn't walk you past forty cameras. Learn the tunnels and you can be on the other side of the city with nothing on record saying you left this room.\""
     },
     "fit_under_danger": {
       "_vine": {
@@ -320,7 +320,7 @@
           "next": "fit_done"
         }
       ],
-      "text": "\"The dark, first. There is no daylight at all, so you carry your own or you do not go.\"\n\n\"Then the pumps. They start at four every morning, and earlier if it has rained. They are loud enough to take your hearing for a day. Put the defenders on before four, not when you hear them start, because by then it has already happened.\""
+      "text": "\"The dark, first. There's no daylight at all, so you carry your own or you don't go.\"\n\n\"Then the pumps. They start at four every morning, and earlier if it has rained. They're loud enough to take your hearing for a day. Put the defenders on before four, not when you hear them start, because by then it has already happened.\""
     },
     "fit_what": {
       "_vine": {
@@ -340,7 +340,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Going inside somewhere I should not be.",
+          "label": "Going inside somewhere I shouldn't be.",
           "next": "fit_job"
         },
         {
@@ -354,7 +354,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I do not know yet. What do people take?",
+          "label": "I don't know yet. What do people take?",
           "next": "fit_basic"
         }
       ],
@@ -375,7 +375,7 @@
           "next": "fit_done"
         }
       ],
-      "text": "\"By who needs it in the morning.\"\n\nShe turns a page.\n\n\"A camera on the approach is theirs and nobody else's, so it goes. The pumps under the Row are ours as much as theirs, so they stay, and I have sat through four hours of argument about a substation that turned out to be both.\"\n\n\"We are taking this city. Not the ashes of it.\""
+      "text": "\"By who needs it in the morning.\"\n\nShe turns a page.\n\n\"A camera on the approach is theirs and nobody else's, so it goes. The pumps under the Row are ours as much as theirs, so they stay, and I have sat through four hours of argument about a substation that turned out to be both.\"\n\n\"We're taking this city. Not the ashes of it.\""
     },
     "l12_done": {
       "_vine": {
@@ -403,7 +403,7 @@
           "next": "bye"
         }
       ],
-      "text": "She rules a line under the last column and sits looking at it for a while.\n\n\"Formula is out of date by nine years.\" The Quartermaster says it evenly. \"The seed is not. That is the whole of what we are: a room of things that went off and a room of things that cannot, and we keep both, because the day we throw the first room out is the day we have decided how long this lasts.\"\n\nShe closes the slate. \"You did not ask what the genvault was for. Halloran asked. Twice.\""
+      "text": "She rules a line under the last column and sits looking at it for a while.\n\n\"Formula is out of date by nine years.\" The Quartermaster says it evenly. \"The seed is not. That's the whole of what we are: a room of things that went off and a room of things that cannot, and we keep both, because the day we throw the first room out is the day we have decided how long this lasts.\"\n\nShe closes the slate. \"You didn't ask what the genvault was for. Halloran asked. Twice.\""
     },
     "l12_offer": {
       "_vine": {
@@ -423,7 +423,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You will not check my numbers?",
+          "label": "You won't check my numbers?",
           "next": "l12_why"
         },
         {
@@ -434,7 +434,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Twice a year I count everything the Watch has.\" She has the slate already, which means she decided this before you came in. \"I have never let anybody help and I am not going to explain why I am now.\"\n\n\"You read, I write. Cache first, then the genvault.\""
+      "text": "\"Twice a year I count everything the Watch has.\" She has the slate already, which means she decided this before you came in. \"I have never let anybody help and I'm not going to explain why I'm now.\"\n\n\"You read, I write. Cache first, then the genvault.\""
     },
     "l12_take": {
       "_vine": {
@@ -456,7 +456,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Shelf by shelf, left to right, and say the number even when it is nothing.\" She is already walking. \"Especially when it is nothing. Nothing is a count too.\""
+      "text": "\"Shelf by shelf, left to right, and say the number even when it's nothing.\" She's already walking. \"Especially when it's nothing. Nothing is a count too.\""
     },
     "l12_why": {
       "_vine": {
@@ -480,7 +480,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" She says it like a door closing. \"If I am going to check them I may as well read them, and then I have not let anybody help, I have had somebody stand next to me.\""
+      "text": "\"No.\" She says it like a door closing. \"If I'm going to check them I may as well read them, and then I haven't let anybody help, I have had somebody stand next to me.\""
     },
     "loyalty_accept": {
       "actions": [
@@ -495,7 +495,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Bring the parts back. And bring yourself back.\" She does not look away as you go, and does not pretend she is doing anything else."
+      "text": "\"Bring the parts back. And bring yourself back.\" She doesn't look away as you go, and doesn't pretend she's doing anything else."
     },
     "loyalty_offer": {
       "options": [
@@ -508,7 +508,7 @@
           "next": "bye"
         }
       ],
-      "text": "The Quartermaster puts a purse on the counter. It is heavier than the errand needs to be and both of you can see that.\n\n\"Parts we cannot make. All of it sells on Halcyon Boulevard, and the last of it is behind the clinic counter, and you will be waiting there a while.\"\n\nShe slides the list across.\n\n\"They will offer you things while you wait. They are very good at it, they will be kind about it, and there is a discount for anybody who looks like they are thinking it over.\"\n\nA beat.\n\n\"I am not telling you not to. I am telling you I will be here when you get back, and so will the ledger.\""
+      "text": "The Quartermaster puts a purse on the counter. It's heavier than the errand needs to be and both of you can see that.\n\n\"Parts we can't make. All of it sells on Halcyon Boulevard, and the last of it's behind the clinic counter, and you'll be waiting there a while.\"\n\nShe slides the list across.\n\n\"They'll offer you things while you wait. They're very good at it, they'll be kind about it, and there's a discount for anybody who looks like they're thinking it over.\"\n\nA beat.\n\n\"I'm not telling you not to. I'm telling you I'll be here when you get back, and so will the ledger.\""
     },
     "loyalty_report": {
       "actions": [
@@ -523,7 +523,7 @@
           "next": "bye"
         }
       ],
-      "text": "She counts the parts, and then the change, and then she looks at you. At your hands. At the sides of your throat. At the way you are standing.\n\nIt goes on a good deal longer than four seconds.\n\n\"Right,\" says the Quartermaster, and writes something in the first ledger."
+      "text": "She counts the parts, and then the change, and then she looks at you. At your hands. At the sides of your throat. At the way you're standing.\n\nIt goes on a good deal longer than four seconds.\n\n\"Right,\" says the Quartermaster, and writes something in the first ledger."
     },
     "root": {
       "options": [
@@ -548,7 +548,7 @@
             }
           ],
           "enabled": true,
-          "label": "You are counting this week.",
+          "label": "You're counting this week.",
           "next": "l12_offer"
         },
         {
@@ -566,11 +566,11 @@
             }
           ],
           "enabled": true,
-          "label": "That is the count.",
+          "label": "That's the count.",
           "next": "l12_done"
         },
         {
-          "label": "What is the philosophy of the shelf?",
+          "label": "What's the philosophy of the shelf?",
           "next": "creed"
         },
         {
@@ -671,7 +671,7 @@
           "next": "bye"
         }
       ],
-      "text": "She looks up and marks her place in the ledger with one finger.\n\n\"So they let you in. Good for you.\"\n\nA measuring glance, head to boots, and it takes about four seconds.\n\n\"I am the quartermaster. What the Watch trusts you with depends on what you have done for the Watch. But you are inside the door, so let us see what fits.\"\n\n\"What are you carrying?\""
+      "text": "She looks up and marks her place in the ledger with one finger.\n\n\"So they let you in. Good for you.\"\n\nA measuring glance, head to boots, and it takes about four seconds.\n\n\"I'm the quartermaster. What the Watch trusts you with depends on what you have done for the Watch. But you're inside the door, so let's see what fits.\"\n\n\"What are you carrying?\""
     },
     "teach": {
       "options": [
@@ -680,7 +680,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I fit gear to people,\" she says, without looking up from the ledger. \"Which means most of my job is looking at somebody for four seconds and knowing what they will do under load. You can learn that. It is not a gift. It is a habit with a very long run up.\"\n\nShe closes the ledger.\n\n\"Senses, and will. Noticing, and not giving in. `train senses` or `train will`, and bring me your hands clean.\""
+      "text": "\"I fit gear to people,\" she says, without looking up from the ledger. \"Which means most of my job is looking at somebody for four seconds and knowing what they'll do under load. You can learn that. It isn't a gift. It's a habit with a very long run up.\"\n\nShe closes the ledger.\n\n\"Senses, and will. Noticing, and not giving in. `train senses` or `train will`, and bring me your hands clean.\""
     }
   },
   "faction": "ideology_long_watch",

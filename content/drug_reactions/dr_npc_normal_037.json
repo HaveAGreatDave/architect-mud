@@ -3,8 +3,8 @@
   "id": "dr_npc_normal_037",
   "npc_type": null,
   "relation": null,
-  "room_line": "{npc} asks {player} if they are all right. It takes a while to land.",
-  "self_line": "{npc} asks if you are all right. You are asked twice before you notice.",
+  "room_line": "{npc} asks {player} if they're all right. It takes a while to land.",
+  "self_line": "{npc} asks if you're all right. You're asked twice before you notice.",
   "source": "npc",
   "tone": "normal"
 }

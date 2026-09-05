@@ -1,11 +1,11 @@
 {
-  "description": "A double handful of grey-green eggs in a slick of their own jelly. Better than it looks, which is not a high bar.",
+  "description": "A double handful of grey-green eggs in a slick of their own jelly. Better than it looks, which isn't a high bar.",
   "flags": {},
   "id": "item_gulper_roe",
   "name": "sump roe",
   "tags": {
     "consumable": true,
-    "description": "A double handful of grey-green eggs in a slick of their own jelly. Better than it looks, which is not a high bar.",
+    "description": "A double handful of grey-green eggs in a slick of their own jelly. Better than it looks, which isn't a high bar.",
     "food_noun": "roe",
     "food_profile": "egg",
     "needs_cooking": true,

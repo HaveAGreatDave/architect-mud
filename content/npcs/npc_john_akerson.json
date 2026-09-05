@@ -75,7 +75,7 @@
           "next": "root"
         }
       ],
-      "text": "He holds up one finger without looking at you, the gesture of a man silencing a room he assumes is listening.\n\n\"Not now. I'm on in a few and I don't hand out anything good before a show. Voice goes flat when I give something away for free.\" <span class=\"text-dim\">He is already facing the lights again.</span> \"Catch me off the clock. I'm significantly more generous when nobody's watching, which is one of the great ironies of my life.\""
+      "text": "He holds up one finger without looking at you, the gesture of a man silencing a room he assumes is listening.\n\n\"Not now. I'm on in a few and I don't hand out anything good before a show. Voice goes flat when I give something away for free.\" <span class=\"text-dim\">He's already facing the lights again.</span> \"Catch me off the clock. I'm significantly more generous when nobody's watching, which is one of the great ironies of my life.\""
     },
     "n_ratings": {
       "_vine": {
@@ -89,7 +89,7 @@
           "next": "root"
         }
       ],
-      "text": "\"*Numbers.*\" A short laugh, entirely for his own benefit. \"I stopped reading them years ago. Obviously I know them. I just don't *read* them.\" He adjusts a cuff that did not need adjusting. \"Second in the slot. Behind a channel that runs executions. That's not a ratings problem, that's a *civilisation* problem.\""
+      "text": "\"*Numbers.*\" A short laugh, entirely for his own benefit. \"I stopped reading them years ago. Obviously I know them. I just don't *read* them.\" He adjusts a cuff that didn't need adjusting. \"Second in the slot. Behind a channel that runs executions. That's not a ratings problem, that's a *civilisation* problem.\""
     },
     "n_recipe": {
       "_vine": {
@@ -129,7 +129,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The show.\" He says it the way other men say their children's names. \"Forty minutes, live, no net. Everyone in this building has a job and mine is the only one that can't be done by somebody else.\"\n\n<span class=\"text-dim\">He waits. There is clearly a follow-up question he would like you to ask.</span>"
+      "text": "\"The show.\" He says it the way other men say their children's names. \"Forty minutes, live, no net. Everyone in this building has a job and mine is the only one that can't be done by somebody else.\"\n\n<span class=\"text-dim\">He waits. There's clearly a follow-up question he would like you to ask.</span>"
     },
     "n_teach": {
       "_vine": {
@@ -201,7 +201,7 @@
           "next": "bye"
         }
       ],
-      "text": "Akerson turns from the mirror with the timing of a man who has practised turning from mirrors. <span class=\"text-dim\">The smile arrives before the eye contact does.</span>\n\n\"You know, people say to me, John, how do you do it, and I tell them: you don't *do* it. You *are* it.\" He lets that land on you like it's a gift. \"Anyway. You wanted something.\"\n\n\"Do you watch the show? Be honest. It does not hurt me.\""
+      "text": "Akerson turns from the mirror with the timing of a man who has practised turning from mirrors. <span class=\"text-dim\">The smile arrives before the eye contact does.</span>\n\n\"You know, people say to me, John, how do you do it, and I tell them: you don't *do* it. You *are* it.\" He lets that land on you like it's a gift. \"Anyway. You wanted something.\"\n\n\"Do you watch the show? Be honest. It doesn't hurt me.\""
     }
   },
   "faction": null,
@@ -209,7 +209,7 @@
     "absent_lines": [
       "\"Ladies and gentlemen, {missing} has been detained. By what, we don't know. Ask me again in ten.\"",
       "\"This is the part of the show nobody writes and everybody watches.\"",
-      "straightens things on a desk that does not need straightening, quickly, twice.",
+      "straightens things on a desk that doesn't need straightening, quickly, twice.",
       "\"I can do twenty minutes on nothing. I would rather not. But I can.\""
     ],
     "preshow_habit": "Neural Overclock",
@@ -228,7 +228,7 @@
         {
           "lines": [
             "...how are we doing for time? Genuinely, not as a bit, how are we doing for time.",
-            "I am going to finish the show. I want that clear. I've finished worse shows in worse shape.",
+            "I'm going to finish the show. I want that clear. I've finished worse shows in worse shape.",
             "There was a night in the second year that nobody has ever put on tape, and I finished it.",
             "So we're fine. This is fine. Roll something."
           ],
@@ -278,7 +278,7 @@
         {
           "lines": [
             "...and the Machine wished everyone a happy productivity quarter, which, fine, but follow it through.",
-            "It does not know what happiness is. It is very confident about it anyway. That's the whole species now.",
+            "It doesn't know what happiness is. It's very confident about it anyway. That's the whole species now.",
             "I asked it a question once. On air. Years ago, you won't remember.",
             "It answered in about eleven seconds and I have thought about those eleven seconds every day since.",
             "Anyway! Anyway. That's a different show. That's a show nobody would let me make."
@@ -287,7 +287,7 @@
         },
         {
           "lines": [
-            "...and our guest tonight, who is a lovely person, is going to sit in that chair and lie to us.",
+            "...and our guest tonight, who's a lovely person, is going to sit in that chair and lie to us.",
             "Not maliciously. Everybody does. You sit there, the light comes up, and something in you starts editing.",
             "I do it. I'm doing it now. This is the edited version and it's still going badly.",
             "The chair should have a warning on it. The desk has a warning on it. I put it there."
@@ -298,7 +298,7 @@
           "lines": [
             "...I want to talk about sleep, because I have been up since a day I'd rather not name.",
             "Here's what nobody tells you about the penthouse. It's quiet. That's the amenity. Quiet.",
-            "You pay for silence and then you are alone in it at four in the morning with your own head.",
+            "You pay for silence and then you're alone in it at four in the morning with your own head.",
             "So you come here. Twenty-two hundred. Lights, crowd, band. This is the loud part of my day and it's the only part I can stand.",
             "That got sad. Let's do the desk bit."
           ],
@@ -308,8 +308,8 @@
     }
   },
   "home_activities": [
-    "pours two fingers of something amber and pointedly does not offer you any",
-    "\"Forty-fourth floor. You can't hear the city scream from up here. That's the whole point.\"",
+    "pours two fingers of something amber and pointedly doesn't offer you any",
+    "\"Forty-fourth floor. You can't hear the city scream from up here. Forty-three floors of other people's noise, and all of it underneath me.\"",
     "sprawls back on the emperor bed and scrolls last night's ratings on a floating screen, smirking",
     "practises a monologue punchline to the window, nails it, and toasts his own reflection",
     "\"I've interviewed presidents, killers, and one very rude AI. Sit down before you embarrass us both.\"",

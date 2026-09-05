@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "You will not remember this part. That is all right.",
+  "self_line": "You won't remember this part. That's all right.",
   "source": "object",
   "tone": "surreal"
 }

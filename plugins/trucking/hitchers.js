@@ -29,13 +29,13 @@ const KINDS = [
   {
     id: 'mechanic', weight: 3,
     look: 'a heavy-set woman sitting on a toolbox with her back to the wind',
-    line: '"Whatever it is, I can probably get you to the other end. That is all I ever promise."',
+    line: '"Whatever it is, I can probably get you to the other end. That\'s all I ever promise."',
     // Worth money in the sense that mattered: she is the difference between a breakdown and a haul.
   },
   {
     id: 'local', weight: 3,
     look: 'a wiry man in a coat two sizes too big, watching the road rather than you',
-    line: '"You are going the long way. Everybody does. I will show you where it stops being the long way."',
+    line: '"You\'re going the long way. Everybody does. I will show you where it stops being the long way."',
   },
   {
     id: 'chancer', weight: 2,
@@ -44,8 +44,8 @@ const KINDS = [
   },
   {
     id: 'fugitive', weight: 2,
-    look: 'a thin figure who does not step out until you have already slowed, and who does not look at the road behind them',
-    line: '"I am not going to lie to you about what this is. I am going to ask anyway."',
+    look: "a thin figure who doesn't step out until you have already slowed, and who doesn't look at the road behind them",
+    line: '"I\'m not going to lie to you about what this is. I\'m going to ask anyway."',
   },
 ];
 const TOTAL = KINDS.reduce((n, k) => n + k.weight, 0);

@@ -22,8 +22,8 @@ export default async ({ check }) => {
 
   // An indestructible junction box is a content error, not a hum: the bed is for
   // a device that can be smashed to kill it, so no hp_max means no bed.
-  check('a power device with no HP bar does not count', !isPowerDevice({ object_type: 'junction_box', hp_max: null }));
-  check('and nothing at all does not throw', !isPowerDevice(null) && !isPowerDevice(undefined));
+  check("a power device with no HP bar doesn't count", !isPowerDevice({ object_type: 'junction_box', hp_max: null }));
+  check("and nothing at all doesn't throw", !isPowerDevice(null) && !isPowerDevice(undefined));
 
   // ── The dense sound tier ──────────────────────────────────────────────────
   const { footingFor, lockFamilyOf, TERRAIN_STEP, FLOOR_STEP } = await import('./index.js');
@@ -62,7 +62,7 @@ export default async ({ check }) => {
   check('a lock family is read off the door\'s own tag',
     lockFamilyOf({ tags: { 'lock:hololock': {} } }) === 'hololock');
   check('an unlocked door has no family', lockFamilyOf({ tags: { unbreakable: true } }) === null);
-  check('a door with no tags at all does not throw', lockFamilyOf({}) === null && lockFamilyOf(null) === null);
+  check("a door with no tags at all doesn't throw", lockFamilyOf({}) === null && lockFamilyOf(null) === null);
 
   // Every cue the two emitters can produce has to build a sound. A cue that
   // returns null is a silent door, and a silent door is exactly as informative
@@ -89,7 +89,7 @@ export default async ({ check }) => {
   // the game whose job is to carry a refusal to somebody who is not reading.
   const denied = JSON.stringify(P.buildActionCue({ action: 'lock', surface: 'hololock', state: 'denied', seed: 5 }));
   const opened = JSON.stringify(P.buildActionCue({ action: 'lock', surface: 'hololock', state: 'unlock', seed: 5 }));
-  check('a refused lock does not sound like an opened one', denied !== opened);
+  check("a refused lock doesn't sound like an opened one", denied !== opened);
 
   // ── Bearable for hours, and blended ───────────────────────────────────────
   //

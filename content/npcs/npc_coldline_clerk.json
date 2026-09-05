@@ -133,7 +133,7 @@
   "chitchat": [
     "logs a door temperature and moves to the next without looking up.",
     "\"Minus twenty-two. Minus twenty-two. Minus nineteen, and that one is a conversation.\"",
-    "\"I write down what the tag says. What is behind the door is above my pay.\""
+    "\"I write down what the tag says. What's behind the door is above my pay.\""
   ],
   "description": "A manifest clerk working the corridor door by door in fingerless gloves, a pen on a string round her neck and a temperature log on every handle. She reads the manifests, records the numbers, and has trained herself out of reading the descriptions.",
   "dialogue_tree": {
@@ -148,7 +148,7 @@
           "next": "bye"
         }
       ],
-      "text": "Whitlock caps the pen and lets it drop on its string. \"Catch is in at five and out by nine. If you are neither, you are standing in a freezing corridor for fun, which is a choice.\""
+      "text": "Whitlock caps the pen and lets it drop on its string. \"Catch is in at five and out by nine. If you're neither, you're standing in a freezing corridor for fun, which is a choice.\""
     }
   },
   "faction": null,

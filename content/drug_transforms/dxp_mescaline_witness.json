@@ -4,7 +4,7 @@
     "Would you like to say it properly, for the record?",
     "Is this the part that matters?"
   ],
-  "description": "A person in plain unbleached robes standing where they can see the whole room. They are not doing anything and do not intend to. They are here to have seen it, and they are very good at it.",
+  "description": "A person in plain unbleached robes standing where they can see the whole room. They aren't doing anything and don't intend to. They're here to have seen it, and they're very good at it.",
   "drug_id": "drug_mescaline",
   "emotes": [
     "{it} moves its gaze one notch around the room.",
@@ -22,9 +22,9 @@
   "matches": null,
   "name": "a witness in undyed cloth",
   "says": [
-    "I am not here to stop anything.",
-    "It will be remembered accurately. That is all I offer.",
-    "Go on. I am not the point of the room."
+    "I'm not here to stop anything.",
+    "It'll be remembered accurately. That's all I offer.",
+    "Go on. I'm not the point of the room."
   ],
   "scope": "person"
 }

@@ -100,16 +100,28 @@ async function findVessel(player, name) {
   return row && isDrinkware(row) ? row : null;
 }
 
+// Does this typed string name that piece of furniture? The same loose rule the
+// rest of the game uses: the whole name, or part of it.
+function matchesFurniture(f, str) {
+  const n = String(f?.name || '').toLowerCase();
+  const q = str.toLowerCase();
+  return !!n && (n === q || n.includes(q) || q.includes(n));
+}
+
 // A hot-water appliance in the room, if there is one and it's working.
-function brewAppliance(zoneId) {
+function brewAppliance(zoneId, name = '') {
+  let first = null;
   for (const f of getZoneFurniture(zoneId)) {
     const tier = f.flags?.brew_tier;
     if (!tier || !BREW_TIERS[tier]) continue;
     // A kettle is a kettle; a machine is a machine and machines need power.
     if (tier !== 'kettle' && f.power_draw_kw != null && !isPluggedIn(f)) continue;
-    return { furniture: f, tier, ...BREW_TIERS[tier] };
+    const app = { furniture: f, tier, ...BREW_TIERS[tier] };
+    // A cafe can have two machines. If the player named one, use that one.
+    if (name && matchesFurniture(f, name)) return app;
+    if (!first) first = app;
   }
-  return null;
+  return first;
 }
 
 // ── mix ──────────────────────────────────────────────────────────────────────
@@ -162,7 +174,7 @@ async function addToBuild(player, ingredientStr, vesselStr) {
 
   const profile = profileNameFor(row);
   if (!profile) {
-    return { type: 'error', message: `${row.name} is not something that goes in a drink. Not one you'd finish, anyway.` };
+    return { type: 'error', message: `${row.name} isn't something that goes in a drink. Not one you'd finish, anyway.` };
   }
 
   const build = buildOf(vessel);
@@ -192,12 +204,16 @@ async function addToBuild(player, ingredientStr, vesselStr) {
 // ── brew ─────────────────────────────────────────────────────────────────────
 
 async function cmdBrew(args, raw, player, broadcast) {
-  const str = args.join(' ').trim();
+  let str = args.join(' ').trim();
+  const app = brewAppliance(player.current_zone, str);
+  // The appliance advertises BREW on examine, so `brew <machine>` is the sentence
+  // a player types next. The machine is not the vessel — read it as the bare
+  // form and go looking for a mug.
+  if (str && app && matchesFurniture(app.furniture, str)) str = '';
   const vessel = await findVessel(player, str);
   if (!vessel) {
-    return { type: 'error', message: str ? `You don't have a "${str}" to brew in.` : `Brew what? You need something to brew into.` };
+    return { type: 'error', message: str ? `You don't have a "${str}" to brew in.` : `Brew what? You need a mug or a cup in hand.` };
   }
-  const app = brewAppliance(player.current_zone);
   if (!app) {
     // Deliberately says what's missing rather than "you can't do that" — the
     // appliance gate is only a good gate if the refusal teaches it.
@@ -289,7 +305,7 @@ async function resolveBuild(player, vessel, broadcast, { hot, appliance = null }
     dim(template.blurb),
   ];
   if (strength) lines.push(dim(`It reads ${strength}.`));
-  if (drink.contaminated) lines.push(`<span style="color:var(--red)">Whatever water went into this was not clean.</span>`);
+  if (drink.contaminated) lines.push(`<span style="color:var(--red)">Whatever water went into this wasn't clean.</span>`);
   lines.push(dim(`${capacity} serving${capacity === 1 ? '' : 's'} in the ${vessel.name}.`));
   return { type: 'use', message: lines.join('\n') };
 }
@@ -450,7 +466,7 @@ async function cmdPour(args, raw, player, broadcast) {
   else await takeServing(from.inv_id, { ...src, servings: 1 });   // empties it and leaves it dirty
 
   const note = (dst && merged.name === UNKNOWN_DRINK.noun && dst.name !== src.name)
-    ? `\n${dim('The two of them do not get on. It goes cloudy.')}` : '';
+    ? `\n${dim("The two of them don't get on. It goes cloudy.")}` : '';
   return { type: 'use',
     message: `You pour ${moved} serving${moved === 1 ? '' : 's'} from the ${from.name} into the ${to.name}.${note}` };
 }

@@ -16,15 +16,15 @@
   "id": "dx_psilocybin_sink_nest",
   "looks": [
     "The weave is tight and clever and includes a good deal of stolen material.",
-    "Whatever is in the bottom of it is a grey curve that rises and falls and does not wake.",
-    "It is warm above the nest, noticeably, the way it is warm above an animal."
+    "Whatever is in the bottom of it's a grey curve that rises and falls and doesn't wake.",
+    "It's warm above the nest, noticeably, the way it's warm above an animal."
   ],
   "matches": "sink",
   "name": "a nest with something asleep in it",
   "says": [
     "Keep it down.",
     "It has been up all night.",
-    "There is room, if you are small."
+    "There's room, if you're small."
   ],
   "scope": "object"
 }

@@ -103,7 +103,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Never accepted → the turn-in option is hidden entirely.
   let rendered = await renderDialogueNode(npc, 'root', player, {});
-  check('turn-in option is hidden while the quest is not accepted', !rendered.options.some(o => o.next === 'reported'), JSON.stringify(rendered.options));
+  check("turn-in option is hidden while the quest isn't accepted", !rendered.options.some(o => o.next === 'reported'), JSON.stringify(rendered.options));
 
   // Accepted but not yet complete → the option is SHOWN but disabled (the client
   // routes a click to the Tablet quest screen), carrying the quest id to route to.
@@ -169,7 +169,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_timed_spot');
   ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]));
-  check('timed objective does not complete instantly', rows[0]?.status === 'active' && (rows[0]?.progress?.[0] || 0) === 0, JSON.stringify(rows[0]));
+  check("timed objective doesn't complete instantly", rows[0]?.status === 'active' && (rows[0]?.progress?.[0] || 0) === 0, JSON.stringify(rows[0]));
 
   await sleep(400);
   ({ rows } = await query('SELECT status, progress FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TIMED_QUEST_ID]));
@@ -325,13 +325,13 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'assassinate', target: 'npc_regress_mark', count: 1, desc: 'Do it' }]);
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_bystander', name: 'Someone Else' } });
     await settle();
-    check('assassinate does not fire for a different NPC', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("assassinate doesn't fire for a different NPC", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
 
     // escort — needs BOTH the right NPC and the destination zone.
     await mkQuest([{ id: 'o0', type: 'escort', target: 'npc_regress_ward', zone: 'zone_regress_dest', count: 1, desc: 'Walk them' }]);
     emit('escort.arrived', { actor: player, npc: { id: 'npc_regress_ward', name: 'Ward' }, zone: 'zone_regress_wrong' });
     await settle();
-    check('escort does not advance at the wrong destination', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("escort doesn't advance at the wrong destination", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('escort.arrived', { actor: player, npc: { id: 'npc_regress_ward', name: 'Ward' }, zone: 'zone_regress_dest' });
     await settle();
     check('escort advances when the escortee arrives at the destination', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -377,7 +377,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'hack', zone: 'zone_regress_till', count: 1, desc: 'Crack it' }]);
     emit('hack.success', { player, zoneId: 'zone_regress_elsewhere' });
     await settle();
-    check('hack does not advance for the wrong site', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("hack doesn't advance for the wrong site", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('hack.success', { player, zoneId: 'zone_regress_till' });
     await settle();
     check('hack advances at the named site', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -396,7 +396,7 @@ export default async function regress({ run, check, getPlayer }) {
     await settle();
     check('spend accumulates the AMOUNT, not a count', (await settled(900))[0] === 900, JSON.stringify(await progressOf()));
     let { rows: st } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);
-    check('spend is not complete below the credit target', st[0]?.status === 'active', JSON.stringify(st[0]));
+    check("spend isn't complete below the credit target", st[0]?.status === 'active', JSON.stringify(st[0]));
     emit('credits.changed', { actor: player, delta: -200, reason: 'vendor:buy' });
     await settle();
     ({ rows: st } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]));
@@ -441,7 +441,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'install', target: 'aug_regress_arm', count: 1, desc: 'Get fitted' }]);
     emit('augment.installed', { actor: player, augment_id: 'aug_regress_other' });
     await settle();
-    check('install does not advance for a different augment', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("install doesn't advance for a different augment", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('augment.installed', { actor: player, augment_id: 'aug_regress_arm' });
     await settle();
     check('install advances on augment.installed', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -469,7 +469,7 @@ export default async function regress({ run, check, getPlayer }) {
       await mkQuest([{ id: 'o0', type: 'mutate', target: 'mut_regress_gills', count: 1, desc: 'Change' }]);
       emit('mutation.gained', { player, id: 'mut_regress_spurs', expression: 40, source: 'radiation' });
       await settle();
-      check('mutate does not advance for a different mutation', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+      check("mutate doesn't advance for a different mutation", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
       emit('mutation.gained', { player, id: 'mut_regress_gills', expression: 40, source: 'mutagen' });
       await settle();
       check('mutate advances on mutation.gained', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -486,10 +486,10 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'subdue', target: 'npc_regress_mark', count: 1, desc: 'Cosh them' }]);
     emit('knockout.landed', { player: { id: 'player_regress_stranger' }, target: player, kind: 'player', zoneId: player.current_zone });
     await settle();
-    check('subdue does not credit the player who was knocked out', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("subdue doesn't credit the player who was knocked out", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('knockout.landed', { player, target: { id: 'npc_regress_bystander', name: 'Someone Else' }, kind: 'npc', zoneId: player.current_zone });
     await settle();
-    check('subdue does not fire for a different person', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("subdue doesn't fire for a different person", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('knockout.landed', { player, target: { id: 'npc_regress_mark', name: 'The Mark' }, kind: 'npc', zoneId: player.current_zone });
     await settle();
     check('subdue advances on knockout.landed by the player', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -501,7 +501,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mkQuest([{ id: 'o0', type: 'restore', count: 1, desc: 'Die on a policy' }]);
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Ordinary' }, deathZone: player.current_zone, claimed: false });
     await settle();
-    check('restore does not advance on an ordinary death', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
+    check("restore doesn't advance on an ordinary death", (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Claimed' }, deathZone: player.current_zone, claimed: true });
     await settle();
     check('restore advances on a claimed death', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
@@ -566,7 +566,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a quest with fail_on starts normally', (await statusOf()) === 'active', await statusOf());
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_other', name: 'Nobody' } });
     await settle();
-    check('an unrelated event does not fail the quest', (await statusOf()) === 'active', await statusOf());
+    check("an unrelated event doesn't fail the quest", (await statusOf()) === 'active', await statusOf());
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
     await settle();
     check('a fail_on condition fails the quest', (await failed('failed')) === 'failed', await statusOf());
@@ -582,7 +582,7 @@ export default async function regress({ run, check, getPlayer }) {
     );
     emit('enemy.killed', { actor: player, enemy: { name: 'Gutter Hound' } });
     await settle();
-    check('killing something else does not trip a kill prohibition', (await statusOf()) === 'active', await statusOf());
+    check("killing something else doesn't trip a kill prohibition", (await statusOf()) === 'active', await statusOf());
     emit('enemy.killed', { actor: player, enemy: { name: 'Supervisor, Halcyon Compliance' } });
     await settle();
     check('a kill fail_on matches the enemy name by substring', (await failed('failed')) === 'failed', await statusOf());
@@ -602,7 +602,7 @@ export default async function regress({ run, check, getPlayer }) {
     );
     emit('stealth.noticed', { sneaker: { id: 'player_regress_stranger' }, observer: { id: 'npc_regress_guard' }, zoneId: player.current_zone });
     await settle();
-    check('spotted does not fail on somebody ELSE being seen', (await statusOf()) === 'active', await statusOf());
+    check("spotted doesn't fail on somebody ELSE being seen", (await statusOf()) === 'active', await statusOf());
     emit('stealth.noticed', { sneaker: player, observer: { id: 'npc_regress_guard' }, zoneId: player.current_zone });
     await settle();
     check('spotted fails the quest when the player is noticed', (await failed('failed')) === 'failed', await statusOf());
@@ -617,7 +617,7 @@ export default async function regress({ run, check, getPlayer }) {
     );
     emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key: 'loitering', zoneId: player.current_zone, label: 'Loitering' });
     await settle();
-    check('witnessed does not fail for a different crime key', (await statusOf()) === 'active', await statusOf());
+    check("witnessed doesn't fail for a different crime key", (await statusOf()) === 'active', await statusOf());
     emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key: 'burglary', zoneId: player.current_zone, label: 'Burglary' });
     await settle();
     check('witnessed fails on the named crime, resolving the flattened payload', (await failed('failed')) === 'failed', await statusOf());
@@ -639,11 +639,11 @@ export default async function regress({ run, check, getPlayer }) {
     // it was meant to succeed.
     await mkFail(
       [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Come back' }],
-      [{ type: 'died', desc: 'You did not come back.' }]
+      [{ type: 'died', desc: "You didn't come back." }]
     );
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Claimed' }, deathZone: player.current_zone, claimed: true });
     await settle();
-    check('died does not fail on a claimed death', (await statusOf()) === 'active', await statusOf());
+    check("died doesn't fail on a claimed death", (await statusOf()) === 'active', await statusOf());
     emit('player.death', { player, killer: null, cause: { type: 'regress', label: 'Regress Ordinary' }, deathZone: player.current_zone, claimed: false });
     await settle();
     check('died fails the quest on an ordinary death', (await failed('failed')) === 'failed', await statusOf());
@@ -657,7 +657,7 @@ export default async function regress({ run, check, getPlayer }) {
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
     await failed('failed');
     let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: FAIL_QUEST_ID } });
-    check('a failed quest cannot be turned in', r?.type === 'error' && r?.turned_in !== true, JSON.stringify(r));
+    check("a failed quest can't be turned in", r?.type === 'error' && r?.turned_in !== true, JSON.stringify(r));
     check('…and it stays failed after the attempt', (await statusOf()) === 'failed', await statusOf());
 
     // Retry is the default — a permanent dead end has to be asked for.
@@ -714,7 +714,7 @@ export default async function regress({ run, check, getPlayer }) {
     await backdate();
     const creditsBefore = Number(player.credits) || 0;
     r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: FAIL_QUEST_ID } });
-    check('a completed quest that expired en route cannot be turned in', r?.turned_in !== true, JSON.stringify(r));
+    check("a completed quest that expired en route can't be turned in", r?.turned_in !== true, JSON.stringify(r));
     check('…and it pays out nothing', (Number(player.credits) || 0) === creditsBefore, `${creditsBefore} → ${player.credits}`);
     check('…and it reads as failed, not completed', (await statusOf()) === 'failed', await statusOf());
 
@@ -937,7 +937,7 @@ export default async function regress({ run, check, getPlayer }) {
     await mk({ rewards: { credits: 0, xp: 3, rep: [{ ideology: null, delta: 10 }, { ideology: REP_ORDER, delta: 5 }] } });
     await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: AUDIT, index: 0 } });
     const repR = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: AUDIT } });
-    check('a malformed rewards.rep entry does not blow the turn-in', repR?.turned_in === true, JSON.stringify(repR)?.slice(0, 120));
+    check("a malformed rewards.rep entry doesn't blow the turn-in", repR?.turned_in === true, JSON.stringify(repR)?.slice(0, 120));
     check('…and the well-formed entries beside it still pay', (await repOf()) === 30, String(await repOf()));
 
     await query('DELETE FROM player_ideology_rep WHERE player_id=$1', [player.id]);
@@ -964,7 +964,7 @@ export default async function regress({ run, check, getPlayer }) {
     let r = await run('quest');
     check('bare quest is still the log, not a usage error', r?.type !== 'error', JSON.stringify(r)?.slice(0, 120));
 
-    r = await run('quest track something that is not a quest');
+    r = await run("quest track something that isn't a quest");
     check('quest track on an unheld quest is refused by name',
       r?.type === 'error' || /no active quests/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 140));
 
@@ -1060,7 +1060,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: QID } });
     let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: QID } });
-    check('a state objective whose condition does not hold is not met', r?.turned_in !== true, JSON.stringify(r));
+    check("a state objective whose condition doesn't hold isn't met", r?.turned_in !== true, JSON.stringify(r));
 
     // The world changes with the player standing still — no event, no command.
     await setFlag('world', 'regress_grid_up', 'true');
@@ -1146,7 +1146,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // Exclusivity: taking it closed the rival, permanently.
     const blocked = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: CLOSED } });
-    check('a quest closed by another cannot be started', blocked?.blocked === true, JSON.stringify(blocked));
+    check("a quest closed by another can't be started", blocked?.blocked === true, JSON.stringify(blocked));
     check('…and no row is written for it', !(await loadPlayerQuest(player.id, CLOSED)), 'row exists');
 
     // …and it stays closed after the quest that closed it is failed. A door that
@@ -1226,7 +1226,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('when two resolutions match, the first authored one wins',
       (Number(player.total_xp) || 0) - mark === 40, `${mark} → ${player.total_xp}`);
     pq = await loadPlayerQuest(player.id, QID);
-    check('…and it is the one recorded', pq?.resolution === 'told', String(pq?.resolution));
+    check("…and it's the one recorded", pq?.resolution === 'told', String(pq?.resolution));
 
     // The flag mirror is the authoring route: dialogue gates on which way you went
     // through the ordinary Flag mechanism, with no new condition shape.
@@ -1331,7 +1331,7 @@ export default async function regress({ run, check, getPlayer }) {
     // follow-up must be refused rather than resurrecting a finished quest.
     await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: B, reason: 'testing' } });
     const pqA = await loadPlayerQuest(player.id, A);
-    check('a follow-up never re-opens a quest that is already finished',
+    check("a follow-up never re-opens a quest that's already finished",
       pqA?.status === 'turned_in', JSON.stringify(pqA?.status));
 
     // And the live-quest guard: failing A again would try to start B, which is
@@ -1341,7 +1341,7 @@ export default async function regress({ run, check, getPlayer }) {
     await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: A } });
     await dispatchAction({ type: 'FAIL_QUEST', actor: player, params: { quest_id: A, reason: 'testing' } });
     pqB = await loadPlayerQuest(player.id, B);
-    check('on_fail restarts a follow-up that is not currently live',
+    check("on_fail restarts a follow-up that isn't currently live",
       pqB?.status === 'active', JSON.stringify(pqB?.status));
 
     for (const id of [A, B]) {

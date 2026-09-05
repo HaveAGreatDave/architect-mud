@@ -30,7 +30,7 @@ export const DEFAULT_BIG = `Connected: <date> as <player name>
 ║  through contaminated zones. Factions carve territory out of ruins, data, and steel. Every         ║
 ║  district is a different rule set waiting to be discovered, exploited, or rewritten.               ║
 ║                                                                                                    ║
-║  You are not entering a world that reacts to you—you are entering one that continues without you.  ║
+║  You aren't entering a world that reacts to you—you're entering one that continues without you.  ║
 ║                                                                                                    ║
 ║  BASIC STARTER COMMANDS:                                                                           ║
 ║  - look              : Examine your surroundings                                                   ║

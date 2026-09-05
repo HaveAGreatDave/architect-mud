@@ -1,5 +1,5 @@
 {
-  "description": "The wall behind the counter, stacked to head height with crates one aisle deep. This is the entire stockroom. There is no back room at Flash Point; there is only behind.",
+  "description": "The wall behind the counter, stacked to head height with crates one aisle deep. This is the entire stockroom. There's no back room at Flash Point; there's only behind.",
   "flags": {
     "aliases": "crates, stock, boxes, stockroom, pallet",
     "backstock_depth": 2,

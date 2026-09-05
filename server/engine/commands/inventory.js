@@ -927,7 +927,7 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
       if (!(p > 0) || Math.random() >= p) continue;
       applyEffect(player, effect, effect === 'food_poisoning' ? 60 : 30);
       messages.push(effect === 'food_poisoning'
-        ? 'That was not right. You knew it going down, and you swallowed anyway.'
+        ? "That wasn't right. You knew it going down, and you swallowed anyway."
         : 'Something about that disagrees with you.');
       break;   // one affliction per mouthful
     }

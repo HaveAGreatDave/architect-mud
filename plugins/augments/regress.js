@@ -372,7 +372,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('fidelity caps calibration', augScale(fRec, 50) < augScale(fRec, 100), augScale(fRec, 50));
     check('…and never writes it down', fRec.calibration === 100, fRec.calibration);
     check('fidelity above calibration is a no-op',
-      augScale({ ...fRec, calibration: 40 }, 90) === augScale({ ...fRec, calibration: 40 }, 100), 'capped when it should not be');
+      augScale({ ...fRec, calibration: 40 }, 90) === augScale({ ...fRec, calibration: 40 }, 100), "capped when it shouldn't be");
     check('fidelityOf defaults to 100 for a player who never died',
       fidelityOf({ id: 'nobody' }) === 100, fidelityOf({ id: 'nobody' }));
   }
@@ -483,7 +483,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('oath: the arc gate exists on the install path', oath > 0, String(oath));
     check('oath: …and sits ABOVE the quote, not at the counter', oath > 0 && oath < quote,
       `oath@${oath} quote@${quote}`);
-    check('oath: …so nobody unsworn is ever told they cannot afford it', oath < charge,
+    check("oath: …so nobody unsworn is ever told they can't afford it", oath < charge,
       `oath@${oath} charge@${charge}`);
 
     check('first fitting: the point-of-no-return confirm exists', confirm > 0, String(confirm));

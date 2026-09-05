@@ -54,7 +54,7 @@ function renderPlayersPanel(data) {
 async function confirmServerWipe() {
   const count = (Array.isArray(allRecords) ? allRecords : []).filter(p => !ADMIN_ROLES.has(p.role)).length;
   if (!(await dpConfirm(`Server wipe: reincarnate all ${count} non-staff player(s)? Every one is wiped to a brand-new account in The Inbetween — progress, gear, property and history gone.`, { danger: true }))) return;
-  if (!(await dpConfirm('Last chance. This cannot be undone.', { danger: true }))) return;
+  if (!(await dpConfirm("Last chance. This can't be undone.", { danger: true }))) return;
   const r = await API('/players/wipe-all', 'POST');
   if (r.error) { toast(r.error, true); return; }
   toast(`☠ Server wiped — ${r.wiped} player(s) reincarnated`);

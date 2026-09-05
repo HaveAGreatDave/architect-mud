@@ -1,10 +1,10 @@
 {
   "category": null,
-  "description": "The Watch have one working wireless set and use it as little as they can, because using it is the most dangerous thing anybody in the order does.\n\nHalcyon run detection vans. Two of them take a bearing on a signal from different streets, and where the bearings cross is a roof, and then a building, and then a room. In a district this dense they can do it in half an hour.\n\nSo the drill is twenty minutes, start to finish. Climb, string the aerial, send, take it down, and be somewhere else.\n\nPike carries the set up for you, and says the only thing anybody ever says about this job.\n\n\"The set is worth more than the message. If you have to choose, you throw the message off the roof and you carry the set down.\"",
+  "description": "The Watch have one working wireless set and use it as little as they can, because using it's the most dangerous thing anybody in the order does.\n\nHalcyon run detection vans. Two of them take a bearing on a signal from different streets, and where the bearings cross is a roof, and then a building, and then a room. In a district this dense they can do it in half an hour.\n\nSo the drill is twenty minutes, start to finish. Climb, string the aerial, send, take it down, and be somewhere else.\n\nPike carries the set up for you, and says the only thing anybody ever says about this job.\n\n\"The set is worth more than the message. If you have to choose, you throw the message off the roof and you carry the set down.\"",
   "fail_on": [
     {
       "count": 1200,
-      "desc": "Twenty minutes. A van has been sitting at the end of Kessler for six of them, and now there is a second one on the parallel street, and the two of them have your roof.",
+      "desc": "Twenty minutes. A van has been sitting at the end of Kessler for six of them, and now there's a second one on the parallel street, and the two of them have your roof.",
       "id": "f_van",
       "type": "timeout"
     }
@@ -27,7 +27,7 @@
       "desc": "Get up to the roof on Kessler and string the aerial.",
       "emotes": [
         "{who} runs the wire along a gutter, because a wire along a gutter is a gutter.",
-        "{who} works out which way is west from a chimney and hopes it is close enough."
+        "{who} works out which way is west from a chimney and hopes it's close enough."
       ],
       "id": "o_roof",
       "requires": [

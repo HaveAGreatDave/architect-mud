@@ -141,7 +141,7 @@ export default async function regress({ run, check, getPlayer }) {
     tags: { 'lock:hololock': { canHack: true, difficulty: 5, messages: { denied: 'not recognized', unlock: 'click' } } },
   });
   r = await run(`unlock ${dir}`);
-  check('hololock: non-owner cannot unlock', /not recognized/.test(r?.message || '') && r?.type === 'error', JSON.stringify(r)?.slice(0, 100));
+  check("hololock: non-owner can't unlock", /not recognized/.test(r?.message || '') && r?.type === 'error', JSON.stringify(r)?.slice(0, 100));
   deleteDoorCache(holoDoorId);
 
   // Long Watch lock: the bunker blast door is gated on LIVE Long Watch standing,
@@ -254,14 +254,14 @@ export default async function regress({ run, check, getPlayer }) {
     put();
     check('a locked door paints its own side, and only its side', painted() === '["north"]', painted());
     put({ lock_state: 'unlocked' });
-    check('an unlocked door is not painted', interiorLockedDirs(room, p) === null);
+    check("an unlocked door isn't painted", interiorLockedDirs(room, p) === null);
     put({ is_open: 1, lock_state: 'locked' });
     check('a locked door still counts while standing open (the lock is the state)',
       painted() === '["north"]', painted());
     put({ hp: 0 });
-    check('a door already smashed off its hinges is not painted', interiorLockedDirs(room, p) === null);
+    check("a door already smashed off its hinges isn't painted", interiorLockedDirs(room, p) === null);
     put({ tags: {} });
-    check('locked with no lock installed is not painted (the gate lets it pass)',
+    check("locked with no lock installed isn't painted (the gate lets it pass)",
       interiorLockedDirs(room, p) === null);
     put();
     check('an exterior tile has no edges at all, so it can never have a red one',
@@ -276,7 +276,7 @@ export default async function regress({ run, check, getPlayer }) {
       const prior = getApartment(aptZone.id);
       put({ target_zone: aptZone.id });
       setApartmentCache(aptZone.id, null);
-      check("an unrented unit's lock is vestigial and is not painted",
+      check("an unrented unit's lock is vestigial and isn't painted",
         interiorLockedDirs(aptRoom, p) === null, painted(aptRoom));
       setApartmentCache(aptZone.id, { zone_id: aptZone.id, owner_id: 'regress_owner_' + p.id });
       check('...but the same lock on a rented one is', painted(aptRoom) === '["north"]', painted(aptRoom));
@@ -368,7 +368,7 @@ export default async function regress({ run, check, getPlayer }) {
         putF({ lock_state: 'unlocked' });
         check('...and an unlocked one leaves it green', interiorLockedDirs(facade, p) === null);
         putF({ tags: {} });
-        check('...and the gate exemptions carry over: no lock installed is not painted',
+        check("...and the gate exemptions carry over: no lock installed isn't painted",
           interiorLockedDirs(facade, p) === null);
 
         // ...and it survives the WIRE. Everything above asks the seam directly, which

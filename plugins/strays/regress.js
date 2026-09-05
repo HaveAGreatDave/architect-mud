@@ -53,7 +53,7 @@ export default async function regress({ run, check, getPlayer }) {
   // She only ever settles against somebody she is neutral or better toward. A
   // stranger does not get leaned on and a killer certainly does not.
   const cuddles = BEHAVIOURS.filter((b) => b.key.startsWith('cuddle_'));
-  check('cuddle: there is something to cuddle with', cuddles.length >= 2, String(cuddles.length));
+  check("cuddle: there's something to cuddle with", cuddles.length >= 2, String(cuddles.length));
   const sitter = { handle: 'Tester', posture: 'sitting' };
   const gatedFor = (mood) => cuddles.filter((b) => {
     try { return !!b.gate({ ...bare, mood, pets: 12, player: sitter }); } catch { return false; }
@@ -86,7 +86,7 @@ export default async function regress({ run, check, getPlayer }) {
     'a table of nothing but paw jokes is a mechanism, not an animal');
   check('behaviours: pickBehaviour returns something for a bare room',
     !!pickBehaviour(bare, []), 'silence reads as a bug');
-  check('behaviours: recency does not starve the pool to nothing',
+  check("behaviours: recency doesn't starve the pool to nothing",
     !!pickBehaviour(bare, keys), 'a repeat beats going mute');
 
   // ── Memory (pure-ish — flag reads on a hydrated player) ────────────────────
@@ -110,7 +110,7 @@ export default async function regress({ run, check, getPlayer }) {
   // being its favourite person five minutes earlier.
   await setFlag('player', KILLS_FLAG, '1', P);
   check('memory: a kill outranks any amount of petting',
-    await moodToward(P, CAT_ID) === 'flee', 'there is deliberately no way back');
+    await moodToward(P, CAT_ID) === 'flee', "there's deliberately no way back");
 
   await resetMemory();
   check('memory: the pet cooldown is a real duration', PET_COOLDOWN_MS >= 60 * 60_000, String(PET_COOLDOWN_MS));
@@ -127,7 +127,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('content: the cat is flagged for the plugin to find', c.flags?.stray_cat === true, JSON.stringify(c.flags));
     check('content: home_zone is the den (the engine returns it to hiding for free)',
       c.home_zone === DEN_ZONE, c.home_zone);
-    check('content: the cat does not wander (the engine must not move it)', !c.wanders, String(c.wanders));
+    check("content: the cat doesn't wander (the engine must not move it)", !c.wanders, String(c.wanders));
     check('content: the cat has no behaviour graph (ditto)',
       !c.behaviour_graph?._start, JSON.stringify(c.behaviour_graph)?.slice(0, 60));
     // A no_attack cat would be a statue with a personality. The whole weight of
@@ -169,7 +169,7 @@ export default async function regress({ run, check, getPlayer }) {
       await setHiddenUntil(Date.now() + HIDE_MS);
       S.lastSurfaceAt = 0;                       // pretend the quiet gap has passed
       await strays.strayTick();
-      check('hide gate: a hidden cat does not surface even with the lane occupied',
+      check("hide gate: a hidden cat doesn't surface even with the lane occupied",
         !isSurfaced() && inLane().length === 0, String(S.zoneId));
 
       // ── THE ONE THAT MATTERS ────────────────────────────────────────────────
@@ -257,7 +257,7 @@ export default async function regress({ run, check, getPlayer }) {
       const deadForBolt = c._dead;
       c._dead = false;
       surface(LANE_ZONES[2], 'regress: surfacing for the bolt test');
-      check('ladder: it is actually in the room to bolt from', isSurfaced());
+      check("ladder: it's actually in the room to bolt from", isSurfaced());
       c._dead = deadForBolt;
       const hpBeforeBolt = P.hp;
       const r4 = await petAgain();
@@ -289,7 +289,7 @@ export default async function regress({ run, check, getPlayer }) {
       await setFlag('player', KILLS_FLAG, '1', P);
       surface(LANE_ZONES[3], 'regress: surfacing for the single-kill case');
       await strays.onZoneEntered({ actor: P, zone: LANE_ZONES[3] });
-      check('spook: one kill does not empty the room', isSurfaced(), String(S.zoneId));
+      check("spook: one kill doesn't empty the room", isSurfaced(), String(S.zoneId));
       despawn('regress: cleanup');
       c._dead = wasDead;
 
@@ -322,8 +322,8 @@ export default async function regress({ run, check, getPlayer }) {
       // nothing else in the suite would notice.
       check('call: bare "call" still belongs to poker', !CALL_RE.test('call'), 'gametable owns it');
       check('call: bare "summon" still belongs to poker', !CALL_RE.test('summon'), 'gametable owns it');
-      check('call: "call dealer" is not swallowed', !CALL_RE.test('calldealer') && !CALL_RE.test('call dealer'));
-      check('call: an unrelated sentence is not swallowed',
+      check('call: "call dealer" isn\'t swallowed', !CALL_RE.test('calldealer') && !CALL_RE.test('call dealer'));
+      check("call: an unrelated sentence isn't swallowed",
         !CALL_RE.test('say cathode is a cat') && !CALL_RE.test('kill cathode'));
 
       const MISS_OR_HIT = [...CALL_MISSES, ...CALL_HITS, 'She came.'];
@@ -334,7 +334,7 @@ export default async function regress({ run, check, getPlayer }) {
       despawn();
       check('call: outside the city she is unreachable',
         strays.inTheCity({ id: 'zone_somewhere', flags: { region_id: 'region_scarletwastes' } }) === false);
-      check('call: a dream/void room is not the city',
+      check("call: a dream/void room isn't the city",
         strays.inTheCity({ id: [...world.transientZones][0] || 'zone_none', flags: { region_id: 'region_coldwater' } })
           === (world.transientZones.size ? false : true));
 
@@ -359,7 +359,7 @@ export default async function regress({ run, check, getPlayer }) {
         lastCall.delete(P.id);
         await strays.onCalled([], 'Cathode!', P, () => {});
       }
-      check('call: 25 calls do not raise the odds (no streak/pity counter)',
+      check("call: 25 calls don't raise the odds (no streak/pity counter)",
         CALL_CHANCE.wary === chanceBefore, `${chanceBefore} -> ${CALL_CHANCE.wary}`);
 
       // A regular is likelier than a stranger, and a killer is never answered.
@@ -378,7 +378,7 @@ export default async function regress({ run, check, getPlayer }) {
         if (CALL_HITS.includes(r?.message) || r?.message === 'She came.') { answeredAKiller = true; break; }
       }
       check('call: she never comes for a killer, however many times they shout',
-        !answeredAKiller && !isSurfaced(), 'she is there; she does not come; it is never said');
+        !answeredAKiller && !isSurfaced(), "she is there; she doesn't come; it's never said");
 
       // And the miss a killer gets is the ORDINARY miss — no special line, or
       // the message itself would tell them what they had done.
@@ -414,7 +414,7 @@ export default async function regress({ run, check, getPlayer }) {
 
       // Outside the lane it does not exist, whatever you roll.
       strays.perPlayerSearch.delete(P.id);
-      check('search: the cat is not findable outside its lane',
+      check("search: the cat isn't findable outside its lane",
         (await strays.searchForCat({ player: P, zoneId: 'zone_start', margin: 20 })) === null);
 
       // ── Petting pays once ───────────────────────────────────────────────────
@@ -475,7 +475,7 @@ export default async function regress({ run, check, getPlayer }) {
     }
     check('…every line renders as an emote', !lines.some((l) => /says,/.test(formatChitchat('Cathode', l).message)));
     // The engine floor under an animal nobody has written lines for yet.
-    check('the animal fallback is not a person s small talk',
+    check("the animal fallback isn't a person s small talk",
       !ANIMAL_CHITCHAT_LINES.some((l) => DEFAULT_CHITCHAT_LINES.includes(l)));
   }
 

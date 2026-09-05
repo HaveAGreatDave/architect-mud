@@ -43,7 +43,7 @@ export default async function regress({ run, check }) {
   const dark = _test.ALARM_PHASES.has(phase);
   check('alarm never arms while the owner is standing there',
     _test.alarmArmed('zone_anywhere', true) === false, `phase=${phase}`);
-  check('alarm arms iff it is dark and the owner is away',
+  check("alarm arms iff it's dark and the owner is away",
     _test.alarmArmed('zone_anywhere', false) === dark, `phase=${phase} armed=${_test.alarmArmed('zone_anywhere', false)}`);
 
   // The examine tell reads the SAME condition, so it can never promise a quiet
@@ -52,6 +52,6 @@ export default async function regress({ run, check }) {
   check('the armed-safe tell agrees with the mechanic', (!!tell) === dark, `phase=${phase} tell=${!!tell}`);
   // undefined, not null — fireHook takes the LAST non-undefined result, so a null
   // here would blank out another plugin's examine line (it briefly did).
-  check('a non-safe piece gets no tell, and does not blank another plugin\'s line',
+  check('a non-safe piece gets no tell, and doesn\'t blank another plugin\'s line',
     (await hooks['furniture.describe']({ flags: {}, zone_id: 'zone_anywhere' }, null)) === undefined);
 }

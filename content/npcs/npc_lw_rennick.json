@@ -19,7 +19,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "The picket says nothing more, and somehow you are already walking away."
+      "text": "The picket says nothing more, and somehow you're already walking away."
     },
     "carrying": {
       "options": [
@@ -32,7 +32,7 @@
           "next": "hardline"
         }
       ],
-      "text": "The picket does not answer straight away, and the pause is the answer.\n\n\"Then you get it taken out, and you get the flesh corrected, and you come back standing in your own body.\" No heat in it at all. \"Not a step of that happens down here. We do not do that work and we would not know how. Go and be cleansed, properly, and present yourself again.\"\n\nA beat.\n\n\"We will know. Everybody always thinks we will not.\""
+      "text": "The picket doesn't answer straight away, and the pause is the answer.\n\n\"Then you get it taken out, and you get the flesh corrected, and you come back standing in your own body.\" No heat in it at all. \"Not a step of that happens down here. We don't do that work and we wouldn't know how. Go and be cleansed, properly, and present yourself again.\"\n\nA beat.\n\n\"We'll know. Everybody always thinks we'll not.\""
     },
     "give_pass": {
       "actions": [
@@ -48,7 +48,7 @@
           "next": "bye"
         }
       ],
-      "text": "The picket studies you a long moment. Your gear. Your hands. The way you got this deep and lived.\n\nSomething settles.\n\n\"You came all this way, and you lean the right direction. That is rare enough to spend a word on.\"\n\nThe rifle lowers an inch.\n\n\"Do not loiter at this door. Go up top, Kessler Street, a repair shop called Percussive Maintenance. Tell the man there: the lights stay on, somebody should keep the switch. He will know what to do with you.\"\n\n\"Now move, before something with more teeth than me finds you standing here.\""
+      "text": "The picket studies you a long moment. Your gear. Your hands. The way you got this deep and lived.\n\nSomething settles.\n\n\"You came all this way, and you lean the right direction. That's rare enough to spend a word on.\"\n\nThe rifle lowers an inch.\n\n\"Don't loiter at this door. Go up top, Kessler Street, a repair shop called Percussive Maintenance. Tell the man there: the lights stay on, somebody should keep the switch. He'll know what to do with you.\"\n\n\"Now move, before something with more teeth than me finds you standing here.\""
     },
     "hardline": {
       "options": [
@@ -57,7 +57,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is,\" the picket agrees, perfectly pleasant. \"You will find nobody here who thinks it is not, and nobody here who will move it.\"\n\nThe rifle has not moved either.\n\n\"There are four other answers in this city and every one of them will take you tonight, exactly as you stand. That is rather the difference.\""
+      "text": "\"It is,\" the picket agrees, perfectly pleasant. \"You'll find nobody here who thinks it's not, and nobody here who will move it.\"\n\nThe rifle hasn't moved either.\n\n\"There are four other answers in this city and every one of them will take you tonight, exactly as you stand. That's rather the difference.\""
     },
     "root": {
       "options": [
@@ -90,7 +90,7 @@
           "next": "bye"
         },
         {
-          "label": "Who are you? What is this place?",
+          "label": "Who are you? What's this place?",
           "next": "wary"
         },
         {
@@ -102,12 +102,12 @@
           "next": "bye"
         }
       ],
-      "text": "You almost do not see them until they want you to.\n\n\"Far enough.\" The voice is quiet, unhurried, certain. \"That door is not for you, and the things back the way you came are not either. State your business or turn around.\"\n\n\"So. Who are you, and who told you there was anything down here?\""
+      "text": "You almost don't see them until they want you to.\n\n\"Far enough.\" The voice is quiet, unhurried, certain. \"That door isn't for you, and the things back the way you came aren't either. State your business or turn around.\"\n\n\"So. Who are you, and who told you there was anything down here?\""
     },
     "terms": {
       "options": [
         {
-          "label": "And if I am carrying something?",
+          "label": "And if I'm carrying something?",
           "next": "carrying"
         },
         {
@@ -115,7 +115,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Terms,\" the picket says, as though reading a list they have read a great many times.\n\n\"You come as you were made. No steel in you, nothing growing that should not be. Not because we are better than the ones who did it, though I will not pretend some here do not think so.\"\n\nThe rifle does not move.\n\n\"Because everything past this door was built by people who had nothing but their hands, and it does not work for anybody who took the other road.\""
+      "text": "\"Terms,\" the picket says, as though reading a list they have read a great many times.\n\n\"You come as you were made. No steel in you, nothing growing that shouldn't be. Not because we're better than the ones who did it, though I won't pretend some here don't think so.\"\n\nThe rifle doesn't move.\n\n\"Because everything past this door was built by people who had nothing but their hands, and it doesn't work for anybody who took the other road.\""
     },
     "wary": {
       "options": [
@@ -124,7 +124,7 @@
           "next": "root"
         }
       ],
-      "text": "\"What this is,\" the picket says, \"is as far as you go. There is a door here and it does not open for the curious.\"\n\nA pause, measuring you.\n\n\"The machine owns most people before they ever think to ask who does. Go and decide what kind of city you actually want. Really decide. Then maybe there is a place down here for you. Come back the same as you are now and there is not.\"\n\nA flick of the eyes, down and up, taking inventory.\n\n\"And come back in the body you were issued. We have no use for the bought or the slipped, whatever they can do.\""
+      "text": "\"What this is,\" the picket says, \"is as far as you go. There's a door here and it doesn't open for the curious.\"\n\nA pause, measuring you.\n\n\"The machine owns most people before they ever think to ask who does. Go and decide what kind of city you actually want. Really decide. Then maybe there's a place down here for you. Come back the same as you're now and there's not.\"\n\nA flick of the eyes, down and up, taking inventory.\n\n\"And come back in the body you were issued. We have no use for the bought or the slipped, whatever they can do.\""
     }
   },
   "faction": "ideology_long_watch",

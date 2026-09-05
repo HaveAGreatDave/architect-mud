@@ -1,11 +1,11 @@
 {
   "ambient": [
     "Somebody at the front turns a page over and the whole hall turns a page over.",
-    "The invigilator walks the aisle and does not stop at you, which is worse.",
+    "The invigilator walks the aisle and doesn't stop at you, which is worse.",
     "Chalk on a board behind you writes the time remaining and rubs it out."
   ],
   "cause": "dream",
-  "description": "A hall of desks and a paper you have not prepared for, in a subject you did study, a long time ago, thoroughly. Everyone else started an hour ago. The questions are fair. You have been given the full time and the full time began before you arrived.",
+  "description": "A hall of desks and a paper you haven't prepared for, in a subject you did study, a long time ago, thoroughly. Everyone else started an hour ago. The questions are fair. You have been given the full time and the full time began before you arrived.",
   "drug_id": null,
   "fx": "fog",
   "fx_intensity": 0.35,
@@ -14,7 +14,7 @@
   "objects": [
     {
       "looks": [
-        "Question one is one you can do. You did it. It is still question one.",
+        "Question one is one you can do. You did it. It's still question one.",
         "The questions are in your subject and in your year and in your handwriting.",
         "Turn it over and the reverse is the same side."
       ],
@@ -23,7 +23,7 @@
     {
       "looks": [
         "All writing. None of them hurried.",
-        "You know several of them. They are the ages they were then.",
+        "You know several of them. They're the ages they were then.",
         "The one beside you has finished and is waiting, politely, for you."
       ],
       "name": "the other candidates"

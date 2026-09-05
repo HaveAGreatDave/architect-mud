@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Sloped ground running down to water, graded by hand at some point and kept graded, with stone laid into the worst of it so a loaded axle does not sit down. Reeds at the edge, thin and grey, and a great many bootprints between them all pointing the same two ways.",
+  "description": "Sloped ground running down to water, graded by hand at some point and kept graded, with stone laid into the worst of it so a loaded axle doesn't sit down. Reeds at the edge, thin and grey, and a great many bootprints between them all pointing the same two ways.",
   "exits": {
     "east": "zone_scw_1026_976",
     "north": "zone_scw_1025_975",

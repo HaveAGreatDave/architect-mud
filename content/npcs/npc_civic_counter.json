@@ -15,17 +15,17 @@
     }
   },
   "chitchat": [
-    "\"Doorways. That is all. I do not ask what is behind them, that is a different department.\"",
-    "\"It is a job. You do not have to like the ledger to eat off it.\""
+    "\"Doorways. That's all. I don't ask what's behind them, that's a different department.\"",
+    "\"It's a job. You don't have to like the ledger to eat off it.\""
   ],
-  "description": "A damp, apologetic man with a clipboard held against his chest like a shield, counting doorways on Foundry Way and writing each one down. He has a lanyard nobody has ever asked to see and the specific patience of somebody paid by the hour to do something pointless.",
+  "description": "A damp, apologetic man with a clipboard held against his chest like a shield, counting doorways on Foundry Way and writing each one down. He has a lanyard that has never once been checked and the specific patience of somebody paid by the hour to do something pointless.",
   "dialogue_tree": {
     "bye": {
       "options": [],
       "text": "He goes back to the doorways."
     },
     "root": {
-      "first": "He looks up from the clipboard, sees somebody who is not a doorway, and is briefly at a loss. \"Ah. Are you — is this your door?\"",
+      "first": "He looks up from the clipboard, sees somebody who isn't a doorway, and is briefly at a loss. \"Ah. Are you — is this your door?\"",
       "options": [
         {
           "label": "What are you counting?",
@@ -45,7 +45,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Doorways.\" He shows you the clipboard as though it settles something. \"Every one on the Row, and whether it opens. I do not ask what is behind them. That is a different department and I have never met anybody from it.\"\n\nHe writes another number down.\n\n\"It is a job. You do not have to like the ledger to eat off it.\""
+      "text": "\"Doorways.\" He shows you the clipboard as though it settles something. \"Every one on the Row, and whether it opens. I don't ask what's behind them. That's a different department and I have never met anybody from it.\"\n\nHe writes another number down.\n\n\"It's a job. You don't have to like the ledger to eat off it.\""
     }
   },
   "faction": null,

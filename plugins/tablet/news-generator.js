@@ -160,11 +160,11 @@ const TABLOID = [
 // grounded in the headline it expands.
 const TABLOID_BODY = [
   'Sources close to {zone} describe the scene as "exactly what everyone expected, only louder." {org} declined to comment, a silence residents took as a full confession.',
-  'The {object} at the centre of it all could not be reached for comment. Authorities have urged the people of {zone} to "remain calm and, above all, keep purchasing."',
+  'The {object} at the centre of it all couldn\'t be reached for comment. Authorities have urged the people of {zone} to "remain calm and, above all, keep purchasing."',
   'Witnesses agree it was the worst thing to happen in {zone} since the last worst thing. An investigation has been ruled out on the grounds of "general futility."',
   'Officials confirmed the report, then confirmed they would confirm nothing further. A {profession} in {zone} called it "about right, honestly."',
   'The Machine logged the incident under "statistically inevitable" and moved on. {org} is reportedly "monetising the coverage as we speak."',
-  'Reached at length, a bystander in {zone} offered a lengthy statement about a {object}, most of which cannot be printed. The rest simply said: "typical."',
+  'Reached at length, a bystander in {zone} offered a lengthy statement about a {object}, most of which can\'t be printed. The rest simply said: "typical."',
   'A committee in {zone} studied the matter for {number} minutes, then adjourned for lunch and never reconvened. {org} hailed the response as "proportionate."',
   'Property values in {zone} were unaffected, chiefly because there were none to affect. The {object} remains at large and, by all accounts, unbothered.',
   'The zoning board of {zone} approved the fallout retroactively, citing "vibes." A {profession} was seen nodding gravely, then leaving to file for a permit.',
@@ -375,7 +375,7 @@ on('sports.worldseries', ({ teams, when, airHour }) => {
 const WX_EVENT_HEADLINES = {
   acid_rain: {
     approach: [
-      'ACID FRONT INBOUND: Do Not Go Out In It. The Sentinel Cannot Stress This Enough',
+      "ACID FRONT INBOUND: Do Not Go Out In It. The Sentinel Can't Stress This Enough",
       'Chemical Rain Warning Issued; Weather Desk Advises "A Coat, And We Mean A Real One"',
       'Yellow Sky Over the Basin — Sealed Rainwear Sells Out Citywide in Under an Hour',
     ],
@@ -417,7 +417,7 @@ on('weather.event', ({ type, phase }) => {
 // the story a reader is looking at.
 const LIVE_BODIES = [
   'Details remain scarce and are expected to stay that way. The Machine has flagged further questions as "unproductive" and closed the thread.',
-  'City officials confirmed the incident, then confirmed they would not be confirming anything further. The Sentinel stands by the part it made up.',
+  "City officials confirmed the incident, then confirmed they wouldn't be confirming anything further. The Sentinel stands by the part it made up.",
   'Eyewitnesses were plentiful, articulate, and immediately contradicted one another. An update will follow the moment it becomes convenient.',
   'The story is developing, in the sense that everything is, technically, always developing. Readers are advised to feel whatever they were already feeling.',
 ];
@@ -505,7 +505,7 @@ const WIRE = [
   // ── The Architect — the Machine, glimpsed only obliquely ───────────────────
   {
     headline: 'The Machine Rules the Quarter "Fine, Probably"; Rationing to Continue Regardless',
-    body: 'This edition\'s civic determination was rendered in under a second and is not subject to appeal, review, or the residents it concerns. The Sentinel is grateful for the clarity and asks no further questions, as instructed.',
+    body: 'This edition\'s civic determination was rendered in under a second and isn\'t subject to appeal, review, or the residents it concerns. The Sentinel is grateful for the clarity and asks no further questions, as instructed.',
     byline: 'The Coldwater Sentinel',
   },
   {

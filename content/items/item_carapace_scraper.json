@@ -10,7 +10,7 @@
       "min": 1
     },
     "damage_type": "edged",
-    "description": "A short hooked blade on a rubber grip, ground so thin by resharpening that the maker's stamp has gone. It is for finding the seam where a shell wants to come apart and persuading it, and it is a poor weapon in every way except being to hand.",
+    "description": "A short hooked blade on a rubber grip, ground so thin by resharpening that the maker's stamp has gone. It's for finding the seam where a shell wants to come apart and persuading it, and it's a poor weapon in every way except being to hand.",
     "slot": "weapon_hand",
     "weapon": true,
     "weapon_skill": "blades"

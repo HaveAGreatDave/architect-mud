@@ -210,7 +210,7 @@ async function cmdTrade(args, raw, player, broadcast) {
   // few lines of combat spam a visual player has lost the panel's history too.
   if (/^(status|check|show)$/i.test((args[0] || '').trim())) {
     const s = sessions.get(player.id);
-    if (!s) return { type: 'error', message: 'You are not in a trade.' };
+    if (!s) return { type: 'error', message: "You aren't in a trade." };
     return { type: 'output', message: statusBlock(s, player.id, '<span class="text-cyan">TRADE</span>') };
   }
 
@@ -243,7 +243,7 @@ async function cmdTrade(args, raw, player, broadcast) {
 
 async function cmdTradeoffer(args, raw, player) {
   const session = sessions.get(player.id);
-  if (!session) return { type: 'error', message: 'You are not in a trade.' };
+  if (!session) return { type: 'error', message: "You aren't in a trade." };
   const off = session.offers[player.id];
 
   if ((args[0] || '').toLowerCase() === 'credits') {
@@ -275,7 +275,7 @@ async function cmdTradeoffer(args, raw, player) {
 
 async function cmdTraderetract(args, raw, player) {
   const session = sessions.get(player.id);
-  if (!session) return { type: 'error', message: 'You are not in a trade.' };
+  if (!session) return { type: 'error', message: "You aren't in a trade." };
   const off = session.offers[player.id];
   const token = (args[0] || '').trim();
   if (token.toLowerCase() === 'credits') off.credits = 0;
@@ -290,7 +290,7 @@ async function cmdTraderetract(args, raw, player) {
 
 async function cmdTradeready(args, raw, player) {
   const session = sessions.get(player.id);
-  if (!session) return { type: 'error', message: 'You are not in a trade.' };
+  if (!session) return { type: 'error', message: "You aren't in a trade." };
   const off = session.offers[player.id];
   off.ready = !off.ready;
   if (session.players.every(p => session.offers[p].ready)) { await executeTrade(session); return { type: 'noop' }; }
@@ -301,7 +301,7 @@ async function cmdTradeready(args, raw, player) {
 }
 
 async function cmdTradecancel(args, raw, player) {
-  if (!(await cancelFor(player.id, 'Trade cancelled.'))) return { type: 'error', message: 'You are not in a trade.' };
+  if (!(await cancelFor(player.id, 'Trade cancelled.'))) return { type: 'error', message: "You aren't in a trade." };
   return { type: 'noop' };
 }
 

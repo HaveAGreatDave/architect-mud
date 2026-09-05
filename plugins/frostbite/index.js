@@ -41,14 +41,14 @@ const COVERED_FLOOR = 0.25;
 // Stage floors. The meter is 0–100; the stage is what the player and the DB actually care about.
 const STAGES = [
   { at: 90, name: 'deep_frostbite', label: 'Deep Frostbite', ref: -3,
-    onset: '<span style="color:var(--red)">The pain in your fingers and toes stops. They have gone hard and waxy and white, and they do not belong to you any more.</span>' },
+    onset: '<span style="color:var(--red)">The pain in your fingers and toes stops. They have gone hard and waxy and white, and they don\'t belong to you any more.</span>' },
   { at: 60, name: 'frostbite', label: 'Frostbite', ref: -2,
-    onset: '<span style="color:var(--orange)">Your fingertips and the rims of your ears have gone numb and bloodless. You cannot feel the difference between touching something and not.</span>' },
+    onset: '<span style="color:var(--orange)">Your fingertips and the rims of your ears have gone numb and bloodless. You can\'t feel the difference between touching something and not.</span>' },
   { at: 25, name: 'frostnip', label: 'Frostnip', ref: -1,
     onset: 'Your fingers and ears sting, then itch, then start to go numb at the tips.' },
 ];
 const THAW_MSG = {
-  deep_frostbite: 'Sensation crawls back into your hands. It is much worse than the numbness was.',
+  deep_frostbite: "Sensation crawls back into your hands. It's much worse than the numbness was.",
   frostbite: 'The feeling returns to your fingers and ears in a slow, ugly burn.',
   frostnip: 'The sting fades out of your fingers.',
 };
@@ -211,7 +211,7 @@ export const hooks = {
     const moved = await treatFrostbite(player, rx);
     if (!moved) return 'You warm and wrap what you can. The damage is past what this can reach.';
     return moved.to
-      ? `You work the circulation back as far as it will go. ${moved.from} — ${moved.to}.`
+      ? `You work the circulation back as far as it'll go. ${moved.from} — ${moved.to}.`
       : 'You work the feeling back into your hands.';
   },
 };

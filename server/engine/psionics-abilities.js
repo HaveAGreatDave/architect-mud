@@ -269,13 +269,13 @@ registerPsiAbility({
 registerPsiAbility({
   id: 'draw', discipline: 'telekinesis', label: 'Draw', kind: 'utility',
   appliesTo: ['object'], rank: 'sensitive', resonance: 3, strain: 1, difficulty: 5,
-  describe: 'Take a thing you could not reach. Across a room, behind glass, through a gap.',
+  describe: "Take a thing you couldn't reach. Across a room, behind glass, through a gap.",
 });
 
 registerPsiAbility({
   id: 'reach', discipline: 'telekinesis', label: 'Reach', kind: 'utility',
   appliesTo: ['object', 'place'], rank: 'sensitive', resonance: 3, strain: 1, difficulty: 5,
-  describe: 'Work a mechanism from where you are standing. A handle, a lever, a switch, a door.',
+  describe: "Work a mechanism from where you're standing. A handle, a lever, a switch, a door.",
 });
 
 registerPsiAbility({
@@ -312,7 +312,7 @@ registerPsiAbility({
   id: 'cascade', discipline: 'ergokinesis', label: 'Cascade', kind: 'strike',
   appliesTo: ['place'], rank: 'master', resonance: 18, strain: 20, difficulty: 13,
   minSkill: 8, focusOnly: true, unlockFlag: 'psi_stillhouse_rite',
-  describe: 'The room, all of it, at once. Afterwards you will be on the floor, and you will have earned it.',
+  describe: "The room, all of it, at once. Afterwards you'll be on the floor, and you'll have earned it.",
 });
 
 // ── Aegis — the shield major ─────────────────────────────────────────────────
@@ -331,7 +331,7 @@ registerPsiAbility({
 registerPsiAbility({
   id: 'ward', discipline: 'aegis', label: 'Ward', kind: 'effect',
   appliesTo: ['self'], rank: 'channeler', resonance: 4, strain: 2, difficulty: 5,
-  describe: 'A held shape in the air a handspan off your skin. Holding it is work, and the work does not stop.',
+  describe: "A held shape in the air a handspan off your skin. Holding it's work, and the work doesn't stop.",
 });
 
 registerPsiAbility({
@@ -345,5 +345,5 @@ registerPsiAbility({
   id: 'redoubt', discipline: 'aegis', label: 'Redoubt', kind: 'effect',
   appliesTo: ['place'], rank: 'master', resonance: 16, strain: 16, difficulty: 12,
   minSkill: 8, focusOnly: true, unlockFlag: 'psi_stillhouse_rite',
-  describe: 'A shape across a whole room, over everyone in it. You will not be doing anything else while it stands.',
+  describe: "A shape across a whole room, over everyone in it. You won't be doing anything else while it stands.",
 });

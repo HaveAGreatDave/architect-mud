@@ -98,7 +98,7 @@ export default async function regress({ run, check, getPlayer }) {
   const powAfterDodge = await run('pow');
   check('pow shares the dodge cooldown', powAfterDodge?.type === 'error' && /not set for it yet/i.test(powAfterDodge.message || ''), powAfterDodge?.message);
   const dodgeAgain = await run('dodge');
-  check('dodge cannot be re-armed inside the window', dodgeAgain?.type === 'error', dodgeAgain?.message);
+  check("dodge can't be re-armed inside the window", dodgeAgain?.type === 'error', dodgeAgain?.message);
 
   p._dodgeUntil = 0;
   clearCd('combat_move'); clearCd('attack');
@@ -206,7 +206,7 @@ export default async function regress({ run, check, getPlayer }) {
       // Second beat is silent — the anti-spam cadence, which is the only thing
       // standing between a 20-second burn and 20 identical lines.
       const [second] = tickMobEffects(mob);
-      check('the second beat is not spoken', second.speak === false);
+      check("the second beat isn't spoken", second.speak === false);
 
       // …and the strike path is what actually hurts it.
       const struck = await applyStrikeToEnemy(p, mob, intent);
@@ -218,7 +218,7 @@ export default async function regress({ run, check, getPlayer }) {
       // is the backstop that stops it ever being ADVERTISED.
       applyEffect(mob, 'food_poisoning', 5);
       check('a player-only effect is never shown on a mob', !mobStatusLabels(mob).includes('Food poisoning'), JSON.stringify(mobStatusLabels(mob)));
-      check('…and is not ticked either', tickMobEffects(mob).every(i => i.effect !== 'food_poisoning'));
+      check("…and isn't ticked either", tickMobEffects(mob).every(i => i.effect !== 'food_poisoning'));
 
       // Expiry: an effect that has run out leaves the list rather than lingering.
       mob.statuses = [];
@@ -274,7 +274,7 @@ export default async function regress({ run, check, getPlayer }) {
       // anyway; this catches the authoring mistake where it was clamped.
       check(`${a.id}: arc falls off rather than amplifying`, Number(arc?.falloff) > 0 && Number(arc?.falloff) < 1, JSON.stringify(arc));
       // An arc carrying status_chance would stun a whole room off one swing.
-      check(`${a.id}: an arc weapon does not also apply statuses`, a.tags.status_chance == null, JSON.stringify(a.tags.status_chance));
+      check(`${a.id}: an arc weapon doesn't also apply statuses`, a.tags.status_chance == null, JSON.stringify(a.tags.status_chance));
     }
   }
 }

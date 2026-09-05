@@ -758,7 +758,7 @@ async function devTriggerHeroEvent(type) {
   const label = type === 'acid_rain' ? 'ACID RAIN' : 'ION STORM';
   if (!confirm(`Fire ${label} on the live world?\n\nIt announces to every player outdoors and runs its full lifecycle. One hero event at a time.`)) return;
   const r = await API('/environment/weather/event', 'POST', { type });
-  if (r?.error || r?.ok === false) { toast(r?.error || `Could not start ${label}`, true); return; }
+  if (r?.error || r?.ok === false) { toast(r?.error || `Couldn't start ${label}`, true); return; }
   toast(`⚠⚠ ${r?.label || label} incoming`);
   loadPanel('timeweather');
 }

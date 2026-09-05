@@ -216,7 +216,7 @@ registerNullOperation({
   id: 'powerspike', label: 'Power Spike', kind: 'durable', tier: 4,
   appliesTo: ['power'],
   baseDifficulty: 9, minSkill: 5, traceCost: 4,
-  describe: 'Surge the supply. Against a machine already running hot it is a killing blow; against one at spec it is a flicker.',
+  describe: "Surge the supply. Against a machine already running hot it's a killing blow; against one at spec it's a flicker.",
 });
 
 registerNullOperation({

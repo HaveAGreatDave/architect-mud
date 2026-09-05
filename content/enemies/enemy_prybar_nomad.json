@@ -87,7 +87,7 @@
     }
   ],
   "death_message": "The Prybar Nomad goes down still holding the bar, and lands on it.",
-  "description": "Road dust worn in layers, goggles pushed up on a shaved head, and a four-foot wrecking bar carried the way other people carry an umbrella. They are not interested in you. They are interested in the door.",
+  "description": "Road dust worn in layers, goggles pushed up on a shaved head, and a four-foot wrecking bar carried the way other people carry an umbrella. They aren't interested in you. They're interested in the door.",
   "dodge": 4,
   "faction": null,
   "flags": {
@@ -100,7 +100,7 @@
       "\"You stopped. That was the mistake.\"",
       "\"Nothing personal about it.\"",
       "$enemy spits, resets their grip, and goes back to work.",
-      "\"Doors open. That is the whole of what doors do.\""
+      "\"Doors open. That's the whole of what doors do.\""
     ],
     "first_strike_delay_ms": 1200,
     "hijacker": true

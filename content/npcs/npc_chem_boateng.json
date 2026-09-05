@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [
-    "\"Solvent, glass, gas. What you build with it is your ledger, not mine.\"",
+    "\"Solvent, glass, gas. What you build with it's your ledger, not mine.\"",
     "\"Sign the sheet. The sheet keeps us both breathing.\"",
     "\"Wear the mask. I mean it. I like repeat customers.\""
   ],
@@ -161,7 +161,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Cook. Aye.\" He turns the word over like it's been left on his counter without a receipt. \"Whether what I do is cooking is between me and the man upstairs, and he's not returning my calls.\"\n\nHe wipes his hands on the apron. This does not make them cleaner.\n\n\"It's chemistry you're allowed to eat. Same rules: weigh it, don't guess it, and don't open the lid to look at it.\""
+      "text": "\"Cook. Aye.\" He turns the word over like it's been left on his counter without a receipt. \"Whether what I do is cooking is between me and the man upstairs, and he's not returning my calls.\"\n\nHe wipes his hands on the apron. This doesn't make them cleaner.\n\n\"It's chemistry you're allowed to eat. Same rules: weigh it, don't guess it, and don't open the lid to look at it.\""
     },
     "n_meatballs": {
       "_vine": {
@@ -189,7 +189,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Meatballs. Start there. If you cannot roll a meatball you've no business near a smoker.\"\n\n<span class=\"text-dim\">He holds up a hand, thick fingers spread, and counts nothing on it.</span>\n\n\"Meat, egg, crumb. The crumb is not filler. It's the thing that stops it going to rubber, so don't leave it out to feel virtuous about yourself. Work it with your hands until it's one thing. Then stop. Every man I've watched ruin meatballs ruined them by carrying on.\"\n\n\"They're not dinner, mind. That's rather the point of them. They're a thing you've got, for later.\""
+      "text": "\"Meatballs. Start there. If you can't roll a meatball you've no business near a smoker.\"\n\n<span class=\"text-dim\">He holds up a hand, thick fingers spread, and counts nothing on it.</span>\n\n\"Meat, egg, crumb. The crumb isn't filler. It's the thing that stops it going to rubber, so don't leave it out to feel virtuous about yourself. Work it with your hands until it's one thing. Then stop. Every man I've watched ruin meatballs ruined them by carrying on.\"\n\n\"They're not dinner, mind. That's rather the point of them. They're a thing you've got, for later.\""
     },
     "n_more": {
       "_vine": {
@@ -264,7 +264,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Salt, pepper, garlic, brown sugar, cayenne, paprika.\" <span class=\"text-dim\">He says it the way other men say a phone number they've never had to look up.</span> \"That's it. That's the whole conspiracy. Every man selling you a secret blend is selling you those six and a story.\"\n\n\"The salt is not the flavour, it's what carries the flavour in. The sugar isn't there to sweeten it. It's there to burn, and the burning is the bark. Cayenne for the argument. Paprika because we eat with our eyes, apparently, which I've always thought was a poor use of them.\"\n\n\"Mix it till it's one colour. If you can still see the salt, you're not finished and you're kidding yourself.\""
+      "text": "\"Salt, pepper, garlic, brown sugar, cayenne, paprika.\" <span class=\"text-dim\">He says it the way other men say a phone number they've never had to look up.</span> \"That's it. That's the whole conspiracy. Every man selling you a secret blend is selling you those six and a story.\"\n\n\"The salt isn't the flavour, it's what carries the flavour in. The sugar isn't there to sweeten it. It's there to burn, and the burning is the bark. Cayenne for the argument. Paprika because we eat with our eyes, apparently, which I've always thought was a poor use of them.\"\n\n\"Mix it till it's one colour. If you can still see the salt, you're not finished and you're kidding yourself.\""
     },
     "n_rub_barb": {
       "_vine": {
@@ -326,7 +326,7 @@
           "next": "root"
         }
       ],
-      "text": "\"There's ribs: three hours, two hours, one hour, and if you cannot hold three numbers in your head you cannot hold anything. And there's a thing I do with chicken and hot sauce that is, technically, a dip. I'll thank you not to look at me like that.\"\n\n<span class=\"text-dim\">He straightens a jar that was already straight.</span>\n\n\"Another day. I've a delivery coming, and it's gas.\""
+      "text": "\"There's ribs: three hours, two hours, one hour, and if you can't hold three numbers in your head you can't hold anything. And there's a thing I do with chicken and hot sauce that is, technically, a dip. I'll thank you not to look at me like that.\"\n\n<span class=\"text-dim\">He straightens a jar that was already straight.</span>\n\n\"Another day. I've a delivery coming, and it's gas.\""
     },
     "n_teach_chop": {
       "_vine": {
@@ -383,7 +383,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"Again.\" <span class=\"text-dim\">He does not sigh, but the apron does.</span>\n\n\"Inch and a half, scored, mustard, rub, hour and a half in the smoke, sauce, char, off at a hundred and fifty. There. You've had it twice now, which is once more than I got it.\"\n\n\"You're buying your own jar this time.\""
+      "text": "\"Again.\" <span class=\"text-dim\">He doesn't sigh, but the apron does.</span>\n\n\"Inch and a half, scored, mustard, rub, hour and a half in the smoke, sauce, char, off at a hundred and fifty. There. You've had it twice now, which is once more than I got it.\"\n\n\"You're buying your own jar this time.\""
     },
     "n_thanks": {
       "_vine": {
@@ -397,7 +397,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Don't.\" <span class=\"text-dim\">He is already writing something on the sheet that may or may not exist.</span>\n\n\"If it's good you'll know, and if it's bad you'll know sooner. That's the beauty of the thing. Nobody's needing my opinion.\"\n\nA pause. He doesn't look up.\n\n\"Bring me a bit, if it's good.\""
+      "text": "\"Don't.\" <span class=\"text-dim\">He's already writing something on the sheet that may or may not exist.</span>\n\n\"If it's good you'll know, and if it's bad you'll know sooner. That's the beauty of the thing. Nobody's needing my opinion.\"\n\nA pause. He doesn't look up.\n\n\"Bring me a bit, if it's good.\""
     },
     "root": {
       "_vine": {
@@ -421,9 +421,9 @@
       ],
       "text": "\"Bulk's in the back, glass up front, gas is chained by the door. Sign the sheet on your way out.\"\n\n\"You cooking, or buying for somebody who is?\"",
       "text_by_relation": {
-        "close": "<span class=\"text-dim\">He does not look up from the sheet, but the pen stops.</span>\n\n\"There you are. I'd a shoulder on all night and nobody in this building to tell about it.\" He caps the pen. \"That's the state of my life, since you asked. Which you didn't.\"",
+        "close": "<span class=\"text-dim\">He doesn't look up from the sheet, but the pen stops.</span>\n\n\"There you are. I'd a shoulder on all night and nobody in this building to tell about it.\" He caps the pen. \"That's the state of my life, since you asked. Which you didn't.\"",
         "familiar": "\"Aye.\" <span class=\"text-dim\">He has the sheet turned round and facing you before you reach the counter.</span>\n\n\"Glass is where it was. Ask if you're after something that isn't.\"",
-        "known": "\"Bulk's in the back, glass up front. You know where the sheet is.\"\n\n<span class=\"text-dim\">He looks at you a moment longer than the transaction requires, and appears to reach a decision he is not pleased about.</span>\n\n\"Here. You've been in enough times that I've stopped counting, and a man buying that much foil is either cooking or he's up to something. I've chosen to believe the first one.\" He puts both hands flat on the counter. \"So. If you want to be taught something, ask. I'll not push it. I've already found this embarrassing.\""
+        "known": "\"Bulk's in the back, glass up front. You know where the sheet is.\"\n\n<span class=\"text-dim\">He looks at you a moment longer than the transaction requires, and appears to reach a decision he isn't pleased about.</span>\n\n\"Here. You've been in enough times that I've stopped counting, and a man buying that much foil is either cooking or he's up to something. I've chosen to believe the first one.\" He puts both hands flat on the counter. \"So. If you want to be taught something, ask. I'll not push it. I've already found this embarrassing.\""
       }
     },
     "shop": {

@@ -28,7 +28,7 @@
         "next": "flee_act",
         "params": {
           "cooldown_s": 0,
-          "message": "The hymn... the hymn LIED. There is no master. There is nothing!"
+          "message": "The hymn... the hymn LIED. There's no master. There's nothing!"
         },
         "type": "action"
       },
@@ -228,7 +228,7 @@
     "tends the shrine of silent speakers.",
     "thumbs a bead of stripped wire."
   ],
-  "description": "A stooped acolyte in a cassock stiff with candle-wax, a rosary of stripped copper wire looped through their knuckles. They tend a shrine of dead speakers and will not meet your eye, only your throat.",
+  "description": "A stooped acolyte in a cassock stiff with candle-wax, a rosary of stripped copper wire looped through their knuckles. They tend a shrine of dead speakers and won't meet your eye, only your throat.",
   "dialogue_tree": {},
   "faction": "choir",
   "flags": {

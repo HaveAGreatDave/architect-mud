@@ -44,12 +44,12 @@ const GRADES = [
     reactors: 1,
     self: [
       `Something lets go, quietly and without asking, and the day is over.`,
-      `A small betrayal, low down, and warm. You do not need to look to know.`,
+      `A small betrayal, low down, and warm. You don't need to look to know.`,
       `It happens between one breath and the next. No warning. No say in it.`,
-      `Your body files a decision it did not run past you first.`,
+      `Your body files a decision it didn't run past you first.`,
     ],
     room: [
-      `{name} goes very still, and very carefully does not move.`,
+      `{name} goes very still, and very carefully doesn't move.`,
       `Something changes in {name}'s face. Then in the air.`,
       `{name} stops mid-step for no reason anyone can see. The reason arrives shortly.`,
       `{name} adopts the posture of somebody hoping the room will move on.`,
@@ -67,9 +67,9 @@ const GRADES = [
     intensity: 0.7,
     reactors: 2,
     self: [
-      `It goes, all of it, loudly, and there is a full second where you can only stand there and be a witness to yourself.`,
+      `It goes, all of it, loudly, and there's a full second where you can only stand there and be a witness to yourself.`,
       `Your gut cramps once as a courtesy and then empties without further discussion.`,
-      `There is a noise. You made it. It is still going.`,
+      `There's a noise. You made it. It's still going.`,
       `Whatever was holding the line down there has resigned, effective immediately.`,
     ],
     room: [
@@ -93,15 +93,15 @@ const GRADES = [
     reactors: 3,
     self: [
       `Everything goes at once. Everything. You are, briefly, mostly plumbing, and the plumbing has failed.`,
-      `There is no build-up and no negotiation. There is simply a before and an after, and you are standing in the after.`,
-      `It is not an accident so much as an evacuation. Your legs are warm. The floor is warmer.`,
+      `There's no build-up and no negotiation. There's simply a before and an after, and you're standing in the after.`,
+      `It isn't an accident so much as an evacuation. Your legs are warm. The floor is warmer.`,
       `Your body abandons the whole project. You feel it reach your boots.`,
     ],
     room: [
       `{name} comes apart at the seams, catastrophically and at length, and the floor takes most of it.`,
       `Whatever just happened to {name} keeps happening, and the room fills with the news of it.`,
       `{name} loses the argument with their own body, comprehensively, in public.`,
-      `There is a sound like a bag of something being set down too fast, and then {name} is standing in it.`,
+      `There's a sound like a bag of something being set down too fast, and then {name} is standing in it.`,
     ],
     npc: [
       `shouts, "GET OUT! Get out, get OUT —"`,
@@ -199,7 +199,7 @@ export async function cmdSoil(args, raw, player) {
   }
   const needle = (args || []).join(' ').trim().toLowerCase();
   if (!needle) {
-    return { type: 'error', message: 'Usage: <span class="text-dim">soil &lt;player or npc&gt;</span> — they will not enjoy it.' };
+    return { type: 'error', message: 'Usage: <span class="text-dim">soil &lt;player or npc&gt;</span> — they won\'t enjoy it.' };
   }
 
   const found = resolveTarget(player, needle);

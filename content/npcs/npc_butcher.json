@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [],
-  "description": "A vast, unhurried man in an apron you try not to look at too closely, working the killing lane with a cleaver worn thin from sharpening. He sells meat, buys meat, and does not clarify the difference.",
+  "description": "A vast, unhurried man in an apron you try not to look at too closely, working the killing lane with a cleaver worn thin from sharpening. He sells meat, buys meat, and doesn't clarify the difference.",
   "dialogue_tree": {
     "bye": {
       "options": [],

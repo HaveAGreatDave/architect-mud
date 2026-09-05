@@ -396,10 +396,10 @@ export function vendorOffHoursLine(npc) {
 // lines for yet, and it says the one thing true of all of them — it made a sound and
 // it was not words.
 export const ANIMAL_CHITCHAT_LINES = [
-  'makes a short sound at you and does not repeat it.',
+  "makes a short sound at you and doesn't repeat it.",
   'looks up, considers you for a moment, and looks away again.',
   'shifts its weight and watches you without blinking.',
-  'makes a noise that is clearly meant, and clearly not words.',
+  "makes a noise that's clearly meant, and clearly not words.",
 ];
 
 export const DEFAULT_CHITCHAT_LINES = [
@@ -553,7 +553,7 @@ const WOKEN_GRACE_MINS   = 45;
 
 const STAY_ASLEEP_LINES = [
   (n) => `${n} mumbles something shapeless, rolls over, and stays fast asleep.`,
-  (n) => `${n} swats vaguely at the air and does not wake up.`,
+  (n) => `${n} swats vaguely at the air and doesn't wake up.`,
   (n) => `${n} keeps breathing slow and heavy, entirely untroubled by you.`,
   (n) => `${n} shifts, drags the blanket higher, and sleeps straight through it.`,
   (n) => `${n} frowns in their sleep, says one word of a conversation you aren't part of, and is gone again.`,
@@ -2606,7 +2606,7 @@ function warnCommuteBlocked(entity, fromZone, workZone, why) {
   const now = Date.now();
   if (now - (_commuteWarned.get(entity.id) || 0) < COMMUTE_WARN_MS) return;
   _commuteWarned.set(entity.id, now);
-  console.warn(`[ai] ${entity.name} (${entity.id}) cannot reach work: ${fromZone} -> ${workZone} (${why}); home_zone=${entity.home_zone}`);
+  console.warn(`[ai] ${entity.name} (${entity.id}) can't reach work: ${fromZone} -> ${workZone} (${why}); home_zone=${entity.home_zone}`);
 }
 
 // A step the adjacency law refused. Same throttle and same reasoning as the

@@ -9,7 +9,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1e2026",
   "color": "#c9a86a",
-  "description": "The room behind the office, and every depot on the network has one exactly like it. Four cots along the walls with a folded blanket at the foot of each, a television bracketed up in the corner where nobody has to get up to reach it, a fridge that hums, and a steel sink with a strip of mirror over it. Every flat surface has a ring on it. The ones on the windowsill are older than the ones on the table. It is not comfortable and it was never meant to be. It is somewhere to stop, which out here is a different thing and worth more.",
+  "description": "The room behind the office, and every depot on the network has one exactly like it. Four cots along the walls with a folded blanket at the foot of each, a television bracketed up in the corner where nobody has to get up to reach it, a fridge that hums, and a steel sink with a strip of mirror over it. Every flat surface has a ring on it. The ones on the windowsill are older than the ones on the table. It isn't comfortable and it was never meant to be. It's somewhere to stop, which out here is a different thing and worth more.",
   "exits": {
     "west": "zone_yard_lastload"
   },

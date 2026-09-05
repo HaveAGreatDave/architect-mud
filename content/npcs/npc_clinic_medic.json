@@ -197,12 +197,12 @@
       "text": "Sister Adler looks up, already assessing. \"Walk-in. Good; the ones who get carried in are a worse day for everyone.\" She wipes her hands. \"We patch, we don't ask. You want supplies to take with you, or are you bleeding on my vinyl right now?\"",
       "text_by_relation": {
         "close": [
-          "\"There you are.\" She sounds, for half a second, relieved, then it is gone and she is all business. \"Sit down. Let me look at you.\"",
-          "She jerks her chin at the table without breaking stride. \"You know the drill. And you are late.\""
+          "\"There you are.\" She sounds, for half a second, relieved, then it's gone and she's all business. \"Sit down. Let me look at you.\"",
+          "She jerks her chin at the table without breaking stride. \"You know the drill. And you're late.\""
         ],
         "familiar": "She looks up before you have finished coming through the door. \"Where is it this time.\" Not a question. The gloves are already on.",
-        "known": "\"You again.\" She does not stop what she is doing, but she does move a chair out with her foot. \"Sit. Bleed on the vinyl.\"",
-        "wary": "\"You.\" The gloves go on slower than usual. \"Credit up front. Do not make it a conversation.\""
+        "known": "\"You again.\" She doesn't stop what she's doing, but she does move a chair out with her foot. \"Sit. Bleed on the vinyl.\"",
+        "wary": "\"You.\" The gloves go on slower than usual. \"Credit up front. Don't make it a conversation.\""
       }
     },
     "stock": {

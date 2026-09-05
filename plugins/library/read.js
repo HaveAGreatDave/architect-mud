@@ -218,7 +218,7 @@ export async function cmdPage(args, raw, player) {
     // before, not its first — going back should undo the page turn that got you
     // here, whichever kind of turn it was.
     if (pi > 0) return renderPage(player, meta, ci, pi - 1);
-    if (ci <= 0) return { type: 'output', message: `<span class="text-dim">You are at the beginning of ${meta.title}.</span>` };
+    if (ci <= 0) return { type: 'output', message: `<span class="text-dim">You're at the beginning of ${meta.title}.</span>` };
     const prev = await chapter(meta.id, ci - 1);
     return renderPage(player, meta, ci - 1, pagesOf(meta, prev).length - 1);
   }
@@ -240,7 +240,7 @@ export async function cmdChapter(args, raw, player) {
   const ci = await bookmarkOf(player, meta.id);
   const a = (args[0] || '').toLowerCase();
 
-  if (!a) return { type: 'output', message: `<span class="text-dim">You are in chapter ${ci + 1} of ${total}. ${link('contents', 'contents')} lists them.</span>` };
+  if (!a) return { type: 'output', message: `<span class="text-dim">You're in chapter ${ci + 1} of ${total}. ${link('contents', 'contents')} lists them.</span>` };
 
   const n = parseInt(a, 10);
   const target = Number.isFinite(n) ? n - 1

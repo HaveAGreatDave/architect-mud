@@ -1,5 +1,5 @@
 {
-  "description": "Floor to ceiling pigeonholes, one tape to a hole, alphabetised and numbered. In front of each is a little card slot, and in each slot either a blank card, meaning the tape is in, or a card with a name and a date on it in blunt pencil, meaning it is out and when it is due back. About a third of the slots have names in them. Two have names with a line drawn under them, twice.",
+  "description": "Floor to ceiling pigeonholes, one tape to a hole, alphabetised and numbered. In front of each is a card slot holding either a blank card, meaning the tape is in, or a name and a date in blunt pencil, meaning it's out and when it's due. Two of them have names with a line drawn under them, twice.",
   "flags": {
     "click_cmd": "rentals",
     "interactions": [],

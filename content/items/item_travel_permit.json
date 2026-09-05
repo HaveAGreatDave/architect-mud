@@ -1,10 +1,10 @@
 {
-  "description": "A laminated permit stamped by an office that no longer exists, authorising passage it cannot enforce. Still, the right people respect the stamp.",
+  "description": "A laminated permit stamped by an office that no longer exists, authorising passage it can't enforce. Still, the right people respect the stamp.",
   "flags": {},
   "id": "item_travel_permit",
   "name": "travel permit",
   "tags": {
-    "description": "A laminated permit stamped by an office that no longer exists, authorising passage it cannot enforce. Still, the right people respect the stamp.",
+    "description": "A laminated permit stamped by an office that no longer exists, authorising passage it can't enforce. Still, the right people respect the stamp.",
     "document": true,
     "stackable": true
   },

@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "They are barely holding a human shape. Their edges blur, their limbs elongate as they reach, and part of their shoulder is currently inside the doorframe.",
+    "extreme": "They're barely holding a human shape. Their edges blur, their limbs elongate as they reach, and part of their shoulder is currently inside the doorframe.",
     "obvious": "Their flesh sags and firms as they move, and their fingers are longer than they were a minute ago.",
     "subtle": "Their outline seems indistinct at the edges."
   },
@@ -12,7 +12,7 @@
   "conceal_slots": [
     "torso"
   ],
-  "description": "Your density is no longer fixed. You can go soft enough to pour yourself through a gap that should not admit you, and it is as unpleasant as it sounds.",
+  "description": "Your density is no longer fixed. You can go soft enough to pour yourself through a gap that shouldn't admit you, and it's as unpleasant as it sounds.",
   "drawbacks": [
     "Holding a shape is work"
   ],

@@ -15,7 +15,7 @@
     "lock:longwatch": {
       "canHack": false,
       "messages": {
-        "denied": "The back-room door is locked, and Halloran does not offer the key to just anyone.",
+        "denied": "The back-room door is locked, and Halloran doesn't offer the key to just anyone.",
         "lock": "The deadbolt slides home.",
         "unlock": "The deadbolt draws back."
       }

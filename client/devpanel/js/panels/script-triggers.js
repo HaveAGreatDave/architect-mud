@@ -77,7 +77,7 @@ function triggerActorHint() {
   const evt = document.getElementById('f-event')?.value?.trim();
   if (!el) return;
   el.innerHTML = ACTORLESS_EVENTS.has(evt)
-    ? '⚠ This event carries no player — <code>say</code>, "once per player" and player-scope conditions will not apply. World-scope flags still work.'
+    ? '⚠ This event carries no player — <code>say</code>, "once per player" and player-scope conditions won\'t apply. World-scope flags still work.'
     : '';
 }
 

@@ -87,7 +87,7 @@
     }
   ],
   "death_message": "The scrap-picker drops their shiv and folds up over their haul.",
-  "description": "A gaunt scavenger in a cracked gas-mask and too many coats, guarding a sack of salvage like it is a newborn.",
+  "description": "A gaunt scavenger in a cracked gas-mask and too many coats, guarding a sack of salvage like it's a newborn.",
   "dodge": 1,
   "faction": null,
   "flags": {

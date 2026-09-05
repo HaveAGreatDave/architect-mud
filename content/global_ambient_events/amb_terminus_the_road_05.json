@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "amb_terminus_the_road_05",
   "loudness": 1,
-  "message": "The gate does not open. Nothing about it suggests it is going to.",
+  "message": "The gate doesn't open. Nothing about it suggests it's going to.",
   "theme": "terminus_the_road",
   "weight": 100
 }

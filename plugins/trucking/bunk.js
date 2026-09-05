@@ -55,7 +55,7 @@ registerShelterProvider((player) => {
 // those you are is a system you argue with. Read by cmdDrive's own sleep hint.
 export function bunkRefusal(rig) {
   if (!rig) return null;
-  if (!hasBunk(rig.typeId)) return 'There is no bunk in this cab. It is a day truck, and this is a day truck seat.';
-  if (Math.abs(rig.speed || 0) > STOPPED_MPH) return 'Not while it is rolling.';
+  if (!hasBunk(rig.typeId)) return "There's no bunk in this cab. It's a day truck, and this is a day truck seat.";
+  if (Math.abs(rig.speed || 0) > STOPPED_MPH) return "Not while it's rolling.";
   return null;
 }

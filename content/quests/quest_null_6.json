@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "There is a survey crew working the valley above the breach with a repeater on a mast, and it has been there nine days, and everything it hears goes east.\n\nThe Winding Shop has made a spike for it. It is not a bomb and it will not burn the mast down. It will make the repeater deaf and it will make the deafness look like weather.\n\nThrelfall walks you to the door for this one, which she has not done before, and what she says on the step is: \"If somebody sees you do it, it did not work.\"",
+  "description": "There's a survey crew working the valley above the breach with a repeater on a mast, and it has been there nine days, and everything it hears goes east.\n\nThe Winding Shop has made a spike for it. It isn't a bomb and it won't burn the mast down. It'll make the repeater deaf and it'll make the deafness look like weather.\n\nThrelfall walks you to the door for this one, which she hasn't done before, and what she says on the step is: \"If somebody sees you do it, it didn't work.\"",
   "fail_on": [
     {
       "desc": "Somebody saw you at the mast.",

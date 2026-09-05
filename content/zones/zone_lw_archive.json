@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "Floor to ceiling boxes, each one dated by hand, in a room kept dry at some expense. The Watch's real weapon is not the rifles in the entry; it is thirty years of what actually happened, written down where nothing can go back and quietly amend it. Ledgers of names, of prices, of who moved where and when the cameras went blind. Read enough of it and the shape of the machine's lie starts to show.",
+  "description": "Floor to ceiling boxes, each one dated by hand, in a room kept dry at some expense. The Watch's real weapon isn't the rifles in the entry; it's thirty years of what actually happened, written down where nothing can go back and quietly amend it. Ledgers of names, of prices, of who moved where and when the cameras went blind. Read enough of it and the shape of the machine's lie starts to show.",
   "exits": {
     "south": "zone_lw_plot"
   },

@@ -476,13 +476,13 @@ const NAMED_EVENTS = {
       peak: {
         secs: 240,
         line: 'The ion storm breaks overhead — the sky screams white and every hair stands on end.',
-        window: 'The sky goes white in the window frame, once and then again, and the glass sings in it. Whatever else it is, it is not out on the horizon any more.',
-        inside: 'Every screen in the room whites out at once and the walls sing with it. Whatever is out there is directly overhead.',
+        window: "The sky goes white in the window frame, once and then again, and the glass sings in it. Whatever else it is, it isn't out on the horizon any more.",
+        inside: "Every screen in the room whites out at once and the walls sing with it. Whatever is out there's directly overhead.",
       },
       passing: {
         secs: 90,
         line: 'The screaming static bleeds away. The ion storm is passing.',
-        window: 'The white goes out of the window and the glass stops singing. It is moving on.',
+        window: "The white goes out of the window and the glass stops singing. It's moving on.",
         inside: 'The prickle goes out of the air and the lights find their level again.',
       },
     },
@@ -494,13 +494,13 @@ const NAMED_EVENTS = {
       approach: {
         secs: 90,
         line: 'The rain thickens and takes on a yellow, chemical reek. Something is wrong with it.',
-        window: 'The rain on the glass has gone yellow and slow, and it is leaving streaks behind it. Whatever is falling out there, it is not water.',
+        window: "The rain on the glass has gone yellow and slow, and it's leaving streaks behind it. Whatever is falling out there, it isn't water.",
         inside: 'A chemical reek works its way in under the door, sharp enough to taste. Something has changed about the rain.',
       },
       peak: {
         secs: 300,
         line: 'The downpour turns caustic — acid rain, hissing where it lands.',
-        window: 'The glass is running with something that fizzes where it pools on the sill. You are on the right side of it. Stay there.',
+        window: "The glass is running with something that fizzes where it pools on the sill. You're on the right side of it. Stay there.",
         inside: 'The rain on the roof has stopped drumming and started hissing, like something being slowly dissolved. Stay in.',
       },
       passing: {
@@ -529,14 +529,14 @@ const NAMED_EVENTS = {
       approach: {
         secs: 30,
         line: 'The last of the rain walks off east and the light comes back all at once, low and gold and wrong-coloured.',
-        window: 'The rain stops running down the glass. Outside, the light has come back low and gold, and something in it is beginning to bend.',
+        window: "The rain stops running down the glass. Outside, the light has come back low and gold, and something in it's beginning to bend.",
         inside: 'The drumming overhead stops. Whatever light finds its way in has gone warm and strange at the edges.',
       },
       peak: {
         secs: 120,
         line: 'A rainbow stands over the rooftops, whole and shameless, and for a couple of minutes the whole street is lit in colours nothing here was built to hold.',
         window: 'A rainbow stands in the window frame, whole and shameless, and it puts colour across the sill and the floor and your hands.',
-        inside: 'Colour comes in under the door and along the walls, banded and impossible, thrown from something outside you cannot see.',
+        inside: "Colour comes in under the door and along the walls, banded and impossible, thrown from something outside you can't see.",
       },
       passing: {
         secs: 30,
@@ -561,8 +561,8 @@ const NAMED_EVENTS = {
       },
       peak: {
         secs: 180,
-        line: 'Three rainbows stand over the city, one inside the next inside the next, burning clean through the smog like the sky forgot what century it is. People stop walking. Somebody starts crying and does not explain.',
-        window: 'Three rainbows fill the window, one inside the next inside the next, and the room behind you goes to colour with them. You do not look away.',
+        line: "Three rainbows stand over the city, one inside the next inside the next, burning clean through the smog like the sky forgot what century it is. People stop walking. Somebody starts crying and doesn't explain.",
+        window: "Three rainbows fill the window, one inside the next inside the next, and the room behind you goes to colour with them. You don't look away.",
         inside: 'Banded colour floods in from every gap at once, layered three deep and far too bright to be coming from anything ordinary. Whatever is out there, people are shouting about it.',
       },
       passing: {

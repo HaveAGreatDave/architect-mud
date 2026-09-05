@@ -214,7 +214,7 @@ export default async function regress({ check, run, getPlayer }) {
     guests: [{ name: 'Lucky Malone', title: 'a lottery winner', theme: '' }, { name: 'Dr. Vane', title: 'a mad surgeon', theme: '' }],
     title: 'tonight_show_logo', theme: 'tonight_theme',
     pools: {
-      open: ['It is the show!'], tease: ['Tonight, chaos.'], announce_host: ['Here is {host}!'],
+      open: ["It's the show!"], tease: ['Tonight, chaos.'], announce_host: ['Here is {host}!'],
       monologue: ['Traffic was bad.', 'Crime is down.', 'Water is locked up.'],
       guest_intro: ['Welcome {guest}, {title}!'],
       interview: ['How are you, {guest}? >> Great, John.', 'Any regrets? >> None, John.'],
@@ -576,7 +576,7 @@ export default async function regress({ check, run, getPlayer }) {
         'round_intro.lot': ['Order them.'],
         showcase_intro: ['THE SHOWCASE.'],
         prize_copy: ['Tonight: {prize}.'],
-        prompt: ['What is it worth?'],
+        prompt: ["What's it worth?"],
         stall: ['Take your time.'],
         reveal: ['The floor said {guesses}. The card says {price}.'],
         'reveal.lot': ['{guesses}. It goes {order}.'],
@@ -585,7 +585,7 @@ export default async function regress({ check, run, getPlayer }) {
         audience: ['The audience makes a noise.'],
         applause: ['Applause.'],
         commercial: ['Sponsored by ACID COLA.'],
-        signoff: ['That is the last lot.'],
+        signoff: ["That's the last lot."],
         ticker: ['Sold as seen. No returns.'],
       },
     };
@@ -613,7 +613,7 @@ export default async function regress({ check, run, getPlayer }) {
       _test.gameshowPassIndex('ch_gs_pass', 'day1') === 0
       && (_test.gameshowEndPass('ch_gs_pass'), _test.gameshowPassIndex('ch_gs_pass') > 0)
       && _test.gameshowPassIndex('ch_gs_pass', 'a_brand_new_day') === 0,
-      'pass counter did not roll or did not reset');
+      "pass counter didn't roll or didn't reset");
 
     check('gameshow: the episode is presence-gated', g1._requireHost === true, String(g1._requireHost));
     check('gameshow: the episode reaches a spoken line', saysOfG(g1).length > 0, String(saysOfG(g1).length));
@@ -708,7 +708,7 @@ export default async function regress({ check, run, getPlayer }) {
     check('gameshow: an absent subject falls back to retail',
       _test.getGameshowSubject('').id === 'retail' && _test.getGameshowSubject(undefined).id === 'retail', 'no fallback');
     check('gameshow: an UNKNOWN subject falls back to retail rather than throwing',
-      _test.getGameshowSubject('no_such_subject_at_all').id === 'retail', 'unknown subject did not fall back');
+      _test.getGameshowSubject('no_such_subject_at_all').id === 'retail', "unknown subject didn't fall back");
     check('gameshow: a subject id is matched case-insensitively',
       _test.getGameshowSubject('BASIN').id === 'basin', 'case-sensitive lookup');
     check('gameshow: every subject declares a plan of at most four rounds',
@@ -730,7 +730,7 @@ export default async function regress({ check, run, getPlayer }) {
       && basin.score('choice', [{ key: 'a', value: 'c' }], { correct: 'b' }) === null, 'choice scoring wrong');
     check('gameshow: a choice tie goes to whoever answered first',
       basin.score('choice', [{ key: 'first', value: 'b' }, { key: 'second', value: 'b' }], { correct: 'b' })?.key === 'first',
-      'tie did not go to the first answer');
+      "tie didn't go to the first answer");
 
     // The material. These pools are the whole reason the subject is affordable — they
     // read the boot-loaded registries and nothing else.
@@ -740,10 +740,10 @@ export default async function regress({ check, run, getPlayer }) {
     check('gameshow: the basin subject has districts to ask about', districts.length >= 3, String(districts.length));
     check('gameshow: every district question has authored copy behind it',
       districts.every(d => d.name && String(d.blurb).trim()), 'a district reached the pool with no blurb');
-    check('gameshow: only NPC orders are quotable — a player corp is not general knowledge',
+    check("gameshow: only NPC orders are quotable — a player corp isn't general knowledge",
       orders.every(o => o.name && String(o.creed).trim()), 'an order reached the pool with no creed');
     check('gameshow: the material pools are sorted, so an episode is reproducible',
-      districts.every((d, i) => i === 0 || districts[i - 1].id <= d.id), 'district pool is not id-sorted');
+      districts.every((d, i) => i === 0 || districts[i - 1].id <= d.id), "district pool isn't id-sorted");
 
     // THE defect this subject would otherwise ship with: the authored copy was written to
     // be read ABOUT a place, so it very often names it, and a verbatim quote answers its
@@ -859,7 +859,7 @@ export default async function regress({ check, run, getPlayer }) {
       'weather.ahead': ['Tomorrow: {tomorrow}, {tomorrowTemp}. >> Something to dread.'],
       'beat.banner': ['THE BASIN BEAT | STORIES FROM YOUR STREET'],
       'beat.lead': ['First up — {headline}! >> And there it is.'],
-      'runin.blackout': ['{outages} blocks are dark. >> Do not trust the stairwell.'],
+      'runin.blackout': ["{outages} blocks are dark. >> Don't trust the stairwell."],
       'runin.clear': ['Clean run-in today. >> Enjoy it.'],
       'ticker.lead': ['COLDWATER A.M.'],
       signoff: ["That's us. >> Same sunrise."],
@@ -1070,14 +1070,14 @@ export default async function regress({ check, run, getPlayer }) {
   const { canOperateDeck, deckLockError } = _piracyTest;
   check('an admin can operate any deck', canOperateDeck({}, { id: 'p1', role: 'admin' }) === true, 'admin');
   check('the current pirate can operate their seized deck', canOperateDeck({ pirate_owner: 'p1' }, { id: 'p1', role: 'player' }) === true, 'pirate-owner');
-  check('a stranger cannot operate an un-seized deck', canOperateDeck({}, { id: 'p2', role: 'player' }) === false, 'stranger');
+  check("a stranger can't operate an un-seized deck", canOperateDeck({}, { id: 'p2', role: 'player' }) === false, 'stranger');
   // A consumer deck is an appliance, not a transmitter: whoever is in the room works
   // it. Without this a resident can't put a tape in their own machine, and the
   // SPECTER cam patch (which reuses the same gate) would be unreachable.
   check('anyone present can operate a consumer deck', canOperateDeck({ mini_deck: true }, { id: 'p2', role: 'player' }) === true, 'mini-deck');
   check('a consumer deck stays operable even while pirated by someone else',
     canOperateDeck({ mini_deck: true, pirate_owner: 'p1' }, { id: 'p2', role: 'player' }) === true, 'mini-deck+pirate');
-  check('a stranger cannot operate someone else\'s seized deck', canOperateDeck({ pirate_owner: 'p1' }, { id: 'p2', role: 'player' }) === false, 'rival');
+  check('a stranger can\'t operate someone else\'s seized deck', canOperateDeck({ pirate_owner: 'p1' }, { id: 'p2', role: 'player' }) === false, 'rival');
   check('lock error hints to pirate an un-seized deck', /pirate/i.test(deckLockError({}, { id: 'p2', role: 'player' })?.message || ''), 'hint');
   check('an operator gets no lock error', deckLockError({ pirate_owner: 'p1' }, { id: 'p1', role: 'player' }) === null, 'no-error');
 
@@ -1227,17 +1227,17 @@ export default async function regress({ check, run, getPlayer }) {
         _test.sendCatchUp(player.id, cid);
         check('a dead channel replays nothing', got.length === 0, JSON.stringify(got.slice(0, 2)));
 
-        state.lastBeat = { text: 'And we are back.', style: 'raw', programName: 'The Regress Hour', duration: 6, hasGameday: false, graphic: null };
+        state.lastBeat = { text: "And we're back.", style: 'raw', programName: 'The Regress Hour', duration: 6, hasGameday: false, graphic: null };
         _test.sendCatchUp(player.id, cid);
         const beat = got.find(m => m?.type === 'broadcast');
-        check('tuning replays the beat already on air', beat?.message === 'And we are back.', JSON.stringify(got.slice(0, 2)));
-        check('the replay is flagged catchUp (so it is not re-narrated)', beat?.catchUp === true, JSON.stringify(beat));
+        check('tuning replays the beat already on air', beat?.message === "And we're back.", JSON.stringify(got.slice(0, 2)));
+        check("the replay is flagged catchUp (so it isn't re-narrated)", beat?.catchUp === true, JSON.stringify(beat));
         check('the replay carries the program name', beat?.programName === 'The Regress Hour', JSON.stringify(beat));
 
         got.length = 0;
         state.lastBeat = { text: '>> headline <<', style: 'ticker' };
         _test.sendCatchUp(player.id, cid);
-        check('a ticker beat is not replayed', got.length === 0, JSON.stringify(got.slice(0, 2)));
+        check("a ticker beat isn't replayed", got.length === 0, JSON.stringify(got.slice(0, 2)));
 
         // A stale score-bug must never be painted over whatever is on now.
         got.length = 0;
@@ -1245,12 +1245,12 @@ export default async function regress({ check, run, getPlayer }) {
         state.lastScorebug = { overlayType: 'scorebug', sport: 'baseball' };
         state.lastScorebugAt = Date.now() - 10 * 60 * 1000;
         _test.sendCatchUp(player.id, cid);
-        check('a stale score-bug is not replayed', !got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
+        check("a stale score-bug isn't replayed", !got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
         // One gesture can register a viewer two or three times (the client's lock check
         // races the server echo), which used to replay the same line each time.
         got.length = 0;
         _test.sendCatchUp(player.id, cid);
-        check('the same beat is not replayed twice to one viewer', got.length === 0, JSON.stringify(got));
+        check("the same beat isn't replayed twice to one viewer", got.length === 0, JSON.stringify(got));
 
         state.lastScorebugAt = Date.now();
         got.length = 0;
@@ -1298,7 +1298,7 @@ export default async function regress({ check, run, getPlayer }) {
     const bb = {};
     const st2 = { channelId: 'ch_does_not_exist' };
     check('subTokens leaves brace-free text untouched',
-      _test.subTokens('There is nothing on.', st2.channelId, st2, bb) === 'There is nothing on.', 'plain text changed');
+      _test.subTokens("There's nothing on.", st2.channelId, st2, bb) === "There's nothing on.", 'plain text changed');
     check('subTokens leaves an unknown token verbatim',
       _test.subTokens('who makes {mystery}?', st2.channelId, st2, bb) === 'who makes {mystery}?', 'unknown token mangled');
     const out = _test.subTokens('It is {clock}. {viewers} awake.', st2.channelId, st2, bb);
@@ -1359,7 +1359,7 @@ export default async function regress({ check, run, getPlayer }) {
     } };
     check('anyCastPresent is false with no studio zone',
       _test.anyCastPresent(graph, null) === false, 'phantom cast');
-    check('anyCastPresent is false for a zone that does not exist',
+    check("anyCastPresent is false for a zone that doesn't exist",
       _test.anyCastPresent(graph, '__no_such_zone__') === false, 'phantom cast');
 
     // ON AIR OUTRANKS THE TIMETABLE. A cast member the runner is currently putting on
@@ -1375,7 +1375,7 @@ export default async function regress({ check, run, getPlayer }) {
     _test.stampOnAirCast(onAirState, graph, nowFake);
     check('an anchored actor is on shift while their show is on air',
       _test.isOnAirNow(onAirState, 'npc_host', nowFake) === true, 'the cast were let go mid-show');
-    check('someone who is not in the show is not held by it',
+    check("someone who isn't in the show isn't held by it",
       _test.isOnAirNow(onAirState, 'npc_passerby', nowFake) === false, 'a bystander was put on shift');
     check('the hold expires once the channel stops ticking',
       _test.isOnAirNow(onAirState, 'npc_host', nowFake + _test.ON_AIR_CAST_HOLD_MS + 1) === false,
@@ -1458,7 +1458,7 @@ export default async function regress({ check, run, getPlayer }) {
     const anyVoiced = { flags: { delivery_lines: { any: { fumbles: ['— hah —'] } } } };
     let sawAny = false;
     for (let i = 0; i < 80; i++) if (_test.garbleLine(line, 0.9, 'mellow', anyVoiced).includes('— hah —')) sawAny = true;
-    check("an 'any' pool reaches a state it does not name", sawAny, 'the catch-all never fired');
+    check("an 'any' pool reaches a state it doesn't name", sawAny, 'the catch-all never fired');
 
     // The take that never happens. Each state dies its own way, and the pool must
     // never come back empty.
@@ -1492,12 +1492,12 @@ export default async function regress({ check, run, getPlayer }) {
 
     check('a taping is found in its own airtime block',
       A.showingAt(state, 100 * G + 7, G) === talkshow && A.showingAt(state, 100 * G + 4, G) === gameshow,
-      'airSlots did not select the right show');
+      "airSlots didn't select the right show");
     check('no taping outside any show’s block',
       A.showingAt(state, 100 * G + 0, G) === null && A.showingAt(state, 100 * G + 5, G) === null,
       'a pre-recorded rerun was mistaken for a live house');
     check('a pre-recorded playlist never opens a house',
-      A.showingAt({ playlist: [rerun] }, 12345, G) === null, 'clips are not tapings');
+      A.showingAt({ playlist: [rerun] }, 12345, G) === null, "clips aren't tapings");
     check('an acted show with no airSlots is continuous',
       A.showingAt({ playlist: [{ playback_mode: 'talkshow', talkshowScript: {} }] }, 12345, G) !== null,
       'no airSlots should mean every block');
@@ -1505,7 +1505,7 @@ export default async function regress({ check, run, getPlayer }) {
     // The slot IS the date — that is what makes yesterday's pass worthless
     // without a calendar being stored anywhere.
     const slotA = 100 * G + 7, slotB = 101 * G + 7;
-    check('the same block on two days is two different showings', slotA !== slotB, 'slot index is not self-dating');
+    check('the same block on two days is two different showings', slotA !== slotB, "slot index isn't self-dating");
     check('a slot resolves to the in-game calendar date it falls on',
       A.dateForSlot(slotA, G) === new Date(100 * 86400000).toISOString().slice(0, 10)
       && A.dateForSlot(slotB, G) !== A.dateForSlot(slotA, G),
@@ -1514,7 +1514,7 @@ export default async function regress({ check, run, getPlayer }) {
     // The instance key is what stops two passes to two different nights merging
     // into one row and laundering the wrong date onto the survivor.
     check('a stamped pass never stack-merges',
-      rowIsInstanced({ custom_data: { show_pass: { slot: slotA } } }) === true, 'show_pass is not an instance key');
+      rowIsInstanced({ custom_data: { show_pass: { slot: slotA } } }) === true, "show_pass isn't an instance key");
     check('an unstamped pass still stacks normally',
       rowIsInstanced({ custom_data: {} }) === false, 'plain rows should merge');
     check('the SQL merge predicate excludes stamped rows',
@@ -1544,17 +1544,17 @@ export default async function regress({ check, run, getPlayer }) {
         creed: ['Say it with me.'], 'creed.response': ['The flesh was an interval.'],
         'reading.lead': ['Hear what was permitted: {headline}'],
         'reading.text': ['{body}'],
-        'exegesis.prime': ['There is no cruelty in it.'],
+        'exegesis.prime': ["There's no cruelty in it."],
         'exegesis.duc': ['I counted. Fourteen.'],
         'exegesis.halm': ['This is IT.'],
         'exegesis.warning': ['Take this as the tap on the shoulder it is.'],
         exegesis: ['The flesh was only ever an interval.'],
         'interjection.duc': ['Fourteen.'], interjection: ['Hold there a moment.'],
         amen: ['So it routes.'],
-        'testimony.lead': ['We have a witness.'], testimony: ['It does not hurt.'],
+        'testimony.lead': ['We have a witness.'], testimony: ["It doesn't hurt."],
         hymn: ['♪ We were the load. ♪'],
         tithe: ['The Order takes no money at the door.'],
-        homily: ['You have spent this week resenting a thing that does not know your name.'],
+        homily: ["You have spent this week resenting a thing that doesn't know your name."],
         benediction: ['Go now. Be less each day.'],
         signoff: ['This has been The Calm Eye.'],
       },
@@ -1654,7 +1654,7 @@ export default async function regress({ check, run, getPlayer }) {
     check('film: a short picture takes one block', A.filmBlocksNeeded(blockSec * 0.5) === 1, String(A.filmBlocksNeeded(blockSec * 0.5)));
     check('film: a feature reserves as many blocks as its runtime needs',
       A.filmBlocksNeeded(blockSec * 2.4) === 3, String(A.filmBlocksNeeded(blockSec * 2.4)));
-    check('film: a runtime of exactly one block does not over-reserve',
+    check("film: a runtime of exactly one block doesn't over-reserve",
       A.filmBlocksNeeded(blockSec) === 1, String(A.filmBlocksNeeded(blockSec)));
 
     // The run is measured from its STAMPED head, or a multi-block picture restarts from
@@ -1668,7 +1668,7 @@ export default async function regress({ check, run, getPlayer }) {
     ];
     check('film: elapsed in the first block counts from the start of the picture',
       A.filmRunElapsed(run[0], 21 * 3600 + 600) === 600, String(A.filmRunElapsed(run[0], 21 * 3600 + 600)));
-    check('film: the second block does not rewind the picture — the run wraps midnight',
+    check("film: the second block doesn't rewind the picture — the run wraps midnight",
       A.filmRunElapsed(run[1], 600) === BLOCK + 600, String(A.filmRunElapsed(run[1], 600)));
     check('film: the third block keeps counting from the head',
       A.filmRunElapsed(run[2], 3 * 3600 + 600) === 2 * BLOCK + 600, String(A.filmRunElapsed(run[2], 3 * 3600 + 600)));
@@ -1693,7 +1693,7 @@ export default async function regress({ check, run, getPlayer }) {
     // without the runtime check the tail of the screening replays the first act.
     const runtime = 10476;                      // the film's real seconds
     const reserved = A.filmBlocksNeeded(runtime) * blockSec;
-    check('film: reserved blocks exceed the runtime (there is always a tail)',
+    check("film: reserved blocks exceed the runtime (there's always a tail)",
       reserved > runtime, `${reserved}s reserved for ${runtime}s of film`);
     check('film: the tail is smaller than one block',
       reserved - runtime < blockSec, `${Math.round(reserved - runtime)}s tail`);
@@ -2169,7 +2169,7 @@ export default async function regress({ check, run, getPlayer }) {
     {
       const { reservePool, icedRoster, INJURY_MAX_SLOTS } = await import('./sports/hockey.js');
       const reserve = reservePool(teams, players);
-      check('hockey: there is a reserve to call up from', reserve.length > 0, `${reserve.length} spare men`);
+      check("hockey: there's a reserve to call up from", reserve.length > 0, `${reserve.length} spare men`);
       const rostered = new Set();
       for (const t of teams) for (const n of rosterFor(t, teams, players)) rostered.add(n);
       check('hockey: the reserve is nobody\'s first-choice six', reserve.every(n => !rostered.has(n)), 'overlap');
@@ -2179,7 +2179,7 @@ export default async function regress({ check, run, getPlayer }) {
       const base = rosterFor(club, teams, players);
       const dressed = icedRoster(club, teams, players, new Set([base[0], base[3]]));
       check('hockey: a depleted club still ices six', dressed.length === 6, String(dressed.length));
-      check('hockey: the injured men are not dressed', !dressed.some(d => d.name === base[0] || d.name === base[3]), dressed.map(d => d.name).join(','));
+      check("hockey: the injured men aren't dressed", !dressed.some(d => d.name === base[0] || d.name === base[3]), dressed.map(d => d.name).join(','));
       check('hockey: their replacements are marked as call-ups', dressed.filter(d => d.callup).length === 2, JSON.stringify(dressed.filter(d => d.callup)));
       check('hockey: a call-up records who he replaces', dressed.filter(d => d.callup).every(d => d.replacing), 'replacing');
       check('hockey: a healthy club dresses no call-ups',
@@ -2211,7 +2211,7 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey: injuries actually persist', a.callups > 0, `${a.callups} call-ups over 160 slots`);
       check('hockey: an unavailable man never takes the ice', !a.everHurt, 'a hurt man dressed');
       // Balance: an absence only means something while it stays rare.
-      check('hockey: the league does not saturate with injuries', a.peak <= 40, `peak ${a.peak} of ${teams.length * 6}`);
+      check("hockey: the league doesn't saturate with injuries", a.peak <= 40, `peak ${a.peak} of ${teams.length * 6}`);
       const durations = [];
       for (let slot = 0; slot < 200; slot++) {
         const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
@@ -2258,7 +2258,7 @@ export default async function regress({ check, run, getPlayer }) {
     ] });
     const cole = acc.bats.get('Cole');
     check('deadball: every plate appearance counts as a PA', cole.pa === 6, String(cole.pa));
-    check('deadball: a walk is not an at-bat', cole.ab === 4, `ab=${cole.ab} (walk+sacfly must be excluded from 6)`);
+    check("deadball: a walk isn't an at-bat", cole.ab === 4, `ab=${cole.ab} (walk+sacfly must be excluded from 6)`);
     check('deadball: hits count only real hits', cole.hits === 2, String(cole.hits));
     check('deadball: home runs counted', cole.hr === 1, String(cole.hr));
     check('deadball: RBI accumulate across outs too', cole.rbi === 3, String(cole.rbi));
@@ -2523,7 +2523,7 @@ export default async function regress({ check, run, getPlayer }) {
 
     check('call time: called during the run-up', !!S(6 * 3600 - Math.min(lead, 3600) / 2), 'run-up');
     check('call time: not called a whole day early', !S(6 * 3600 - lead - 600), 'too early');
-    check('call time: the open slot is not the call window', !S(6 * 3600), 'at airtime');
+    check("call time: the open slot isn't the call window", !S(6 * 3600), 'at airtime');
     check('call time: somebody else\'s slot never calls you', !A.staffCallSlot(list, 6 * 3600 - 60, 3, 'npc_b'), 'other npc');
 
     // A slot that doesn't air today must not commute its cast: the mask is checked against
@@ -2585,10 +2585,10 @@ export default async function regress({ check, run, getPlayer }) {
         'sportsdesk.hockey': ['{puckLeader} at {puckRecord}. >> On ice.'],
         'sportsdesk.banner': ['SLATE | X'],
         audience: ['All {watching} of you. >> {watching}.'],
-        plug: ['{tonight} at {tonightTime}. >> It is on regardless.'],
+        plug: ["{tonight} at {tonightTime}. >> It's on regardless."],
         'runin.clear': ['Clean boards. >> Write it down.'],
         'runin.banner': ['RUN-IN | X'],
-        signoff: ['That is us. >> Same sunrise.'],
+        signoff: ["That's us. >> Same sunrise."],
         credits: ['SHOW'],
       },
     };
@@ -2633,7 +2633,7 @@ export default async function regress({ check, run, getPlayer }) {
     check('morning: no sport played means no sports desk', !bareWeek.some(t => / at \./.test(t) || /^ at /.test(t)), 'empty table');
     check('morning: nothing on later means no plug', !bareWeek.some(t => t.includes(' at .')), 'empty plug');
     check('morning: the run-in is never dropped', bareWeek.some(t => t.includes('Clean boards')), 'runin always');
-    check('morning: the sign-off is never dropped', bareWeek.some(t => t.includes('That is us')), 'signoff always');
+    check('morning: the sign-off is never dropped', bareWeek.some(t => t.includes("That's us")), 'signoff always');
   }
 
   // ── The shipped Coldwater A.M. content ──────────────────────────────────────
@@ -2867,7 +2867,7 @@ export default async function regress({ check, run, getPlayer }) {
     const src2 = readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8');
     const compile = new Function(`${src2}\n;return compileBsm;`)();
     const cooking = compile(readFileSync(new URL('../../data/scripts/cooking_shit_with_neil.bsm', import.meta.url), 'utf8'));
-    check('location: the script declares where it is shot',
+    check("location: the script declares where it's shot",
       cooking.meta.location === 'zone_stgarneau_basement', cooking.meta.location);
     check('location: ...and that zone exists', !!getZone('zone_stgarneau_basement'));
     check('location: the church basement is reachable from the world',
@@ -2891,7 +2891,7 @@ export default async function regress({ check, run, getPlayer }) {
       _test.uplinkOk(studioState, 'zone_studio_1782953094650') === true);
     check('uplink: the church basement has a portable deck',
       _test.uplinkOk(studioState, 'zone_stgarneau_basement') === true);
-    check('uplink: ...and a room with no deck cannot reach the studio',
+    check("uplink: ...and a room with no deck can't reach the studio",
       _test.uplinkOk(studioState, 'zone_stgarneau_nave') === false);
 
     // ── The keyholder's pre-show act ────────────────────────────────────────
@@ -2946,7 +2946,7 @@ export default async function regress({ check, run, getPlayer }) {
     // is not crew. ⚠ Note the boot-time staffing self-heal DOES merge every anchored
     // actor into npc_staff on a live channel, so the runtime list is longer than this
     // one; what is asserted here is who we deliberately send, not who ends up listed.
-    check('slot: the authored sheet does not dispatch the keyholder',
+    check("slot: the authored sheet doesn't dispatch the keyholder",
       !staff.includes('npc_father_jerome'));
     // ⚠ A crew member who works in more than one building must not carry a fixed
     // work_zone_id: GO_TO_WORK prefers it over the per-slot lookup, so a pinned studio
@@ -2982,15 +2982,15 @@ export default async function regress({ check, run, getPlayer }) {
     // Which is precisely what makes Neil a two-building employee: same channel, same
     // host, two different stages. If these ever resolve to one zone this whole block
     // stops testing anything.
-    check('acted: ...and that is a different room from the basement',
+    check("acted: ...and that's a different room from the basement",
       (studioShow.location_zone_id || chan.studio_zone_id) !== bc.location_zone_id);
     // A recording is not a performance. A drama names its actors with npc_anchor too,
     // so gating one on its cast being awake would take it off the air.
     const recording = JSON.parse(readFileSync('content/media_broadcasts/bc_1782872045373.json', 'utf8'));
-    check('acted: an ordinary broadcast is not acted by default', !recording.acted, String(recording.acted));
+    check("acted: an ordinary broadcast isn't acted by default", !recording.acted, String(recording.acted));
 
-    check('slot: the broadcast knows where it is shot', bc.location_zone_id === 'zone_stgarneau_basement', String(bc.location_zone_id));
-    check('slot: ...and it is the zone the keyholder watches', bc.location_zone_id === act.stage);
+    check("slot: the broadcast knows where it's shot", bc.location_zone_id === 'zone_stgarneau_basement', String(bc.location_zone_id));
+    check("slot: ...and it's the zone the keyholder watches", bc.location_zone_id === act.stage);
     // ⚠ THE CHANNEL NOW HAS A STUDIO, AND THE LOCATION STILL HAS TO WIN.
     //
     // This used to assert the opposite — channel 11 was studio-less, so every stage
@@ -3014,12 +3014,12 @@ export default async function regress({ check, run, getPlayer }) {
     for (const id of ['npc_ksab_droid_1', 'npc_ksab_droid_2']) {
       const d = JSON.parse(readFileSync(`content/npcs/${id}.json`, 'utf8'));
       check(`droid ${id}: is a camera`, !!d.flags?.camera_droid);
-      check(`droid ${id}: lives at the studio it is sent out from`, !!d.home_zone);
+      check(`droid ${id}: lives at the studio it's sent out from`, !!d.home_zone);
       // ⚠ A FIELD UNIT HAS NO FIXED PLACE OF WORK. GO_TO_WORK resolves
       // params → work_zone_id → studio_zone_id → the call sheet, so a pinned zone
       // WINS and the unit can only ever serve one location for the rest of its life.
       check(`droid ${id}: is routed by the call sheet, not pinned`, !d.work_zone_id, String(d.work_zone_id));
-      check(`droid ${id}: ...and its graph does not pin one either`,
+      check(`droid ${id}: ...and its graph doesn't pin one either`,
         !d.behaviour_graph?.nodes?.n_work?.params?.zone_id);
       check(`droid ${id}: walks to work`, d.behaviour_graph?.nodes?.n_work?.action_type === 'GO_TO_WORK');
       // Broadcast staffing runs off the playlist, not vendor_schedule, so a window
@@ -3066,12 +3066,12 @@ export default async function regress({ check, run, getPlayer }) {
       const furn = getZoneFurniture(BASEMENT) || [];
       const deck = furn.find(f => f?.flags?.portable_mediadeck);
       check('transmitter: the basement case is live', _test.portableDeckLive(BASEMENT) === true);
-      check('transmitter: an empty room is not a transmitter',
+      check("transmitter: an empty room isn't a transmitter",
         _test.portableDeckLive('zone_studio_1782953094650') === false);
       // No wired deck at all (or its room blacked out) and the case still answers.
       check('transmitter: a bound portable keeps the channel on air with no wired deck',
         _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [BASEMENT] }) === true);
-      check('transmitter: ...and an unbound channel is not carried by it',
+      check("transmitter: ...and an unbound channel isn't carried by it",
         _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [] }) === false);
       if (deck) {
         deck.flags.deck_off = true;
@@ -3107,7 +3107,7 @@ export default async function regress({ check, run, getPlayer }) {
         check('uplink: ...and the channel loses it',
           _test.portableDeckLive(BASEMENT) === false);
         const r2 = await run('uplink off');
-        check('uplink: switching it off twice is not an error', /already off/i.test(r2?.message || ''), JSON.stringify(r2));
+        check("uplink: switching it off twice isn't an error", /already off/i.test(r2?.message || ''), JSON.stringify(r2));
         await run('uplink on');
         check('uplink: switches it back on', !deckNow()?.flags?.deck_off);
         check('uplink: ...and the channel has it back',
@@ -3167,7 +3167,7 @@ export default async function regress({ check, run, getPlayer }) {
       const before = _test.camerasIn('zone_stgarneau_pantry').length;
       const moved = _test.dispatchDroid('zone_stgarneau_pantry', 'zone_stgarneau_basement', 'CAM — 3 — FOLLOW to the pantry door', fakeState);
       check('dispatch: an uncovered room gets a unit sent to it', moved === true);
-      check('dispatch: ...and it is physically there now',
+      check("dispatch: ...and it's physically there now",
         _test.camerasIn('zone_stgarneau_pantry').length === before + 1,
         String(_test.camerasIn('zone_stgarneau_pantry').length));
       // ⚠ THE NAMED UNIT IS TAKEN FIRST. A script that numbers its cameras is
@@ -3186,7 +3186,7 @@ export default async function regress({ check, run, getPlayer }) {
       // location, it does not send it across the city mid-programme.
       check('dispatch: a room across the city is refused',
         _test.dispatchDroid('zone_asc_shrine_nave', 'zone_stgarneau_basement', 'CAM — 1 — WIDE on nothing', fakeState) === false);
-      check('dispatch: a zone that does not exist is refused',
+      check("dispatch: a zone that doesn't exist is refused",
         _test.dispatchDroid('zone_nonexistent_xyz', 'zone_stgarneau_basement', 'CAM — 1 — WIDE', fakeState) === false);
       check('dispatch: with no crew, nobody is sent',
         _test.dispatchDroid('zone_stgarneau_pantry', 'zone_stgarneau_basement', 'CAM — 1 — WIDE', { playlist: [] }) === false);
@@ -3200,11 +3200,11 @@ export default async function regress({ check, run, getPlayer }) {
       const d = JSON.parse(readFileSync(`content/npcs/${id}.json`, 'utf8'));
       const lines = d.flags?.absent_lines || [];
       check(`absent: ${d.name} has something to say about it`, lines.length >= 3, String(lines.length));
-      check(`absent: ${d.name}'s lines are not blank`, lines.every(l => String(l).trim()));
+      check(`absent: ${d.name}'s lines aren't blank`, lines.every(l => String(l).trim()));
       // ⚠ The token is what makes it about a PERSON rather than about a delay. At
       // least one line each has to name whoever it is they are waiting on.
       check(`absent: ${d.name} names the person`, lines.some(l => l.includes('{missing}')));
-      check(`absent: ${d.name} does not use an em dash`, lines.every(l => !l.includes('—')));
+      check(`absent: ${d.name} doesn't use an em dash`, lines.every(l => !l.includes('—')));
     }
     // Six characters, six reactions: if any two pools share a line, somebody has been
     // copy-pasted and the whole point of authoring them separately is gone.
@@ -3235,7 +3235,7 @@ export default async function regress({ check, run, getPlayer }) {
       check('absent: somebody speaks up', bb.absentSpoke === true);
       const bb2 = { absentSpoke: true };
       _test.absentReaction(graph, 'zone_stgarneau_basement', bb2);
-      check('absent: ...and does not keep saying it', bb2.absentSpoke === true);
+      check("absent: ...and doesn't keep saying it", bb2.absentSpoke === true);
       // An empty stage has nobody in it to react.
       const bb3 = {};
       _test.absentReaction(graph, 'zone_stgarneau_pantry', bb3);

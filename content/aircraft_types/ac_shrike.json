@@ -5,7 +5,7 @@
   "cruise_speed": 2,
   "data": {
     "bombs": 4,
-    "feel": "A dive bomber, and only that. Cranked gull wing, legs in permanent fairings, a glasshouse long enough for two. She is slow and honest in level flight and utterly unremarkable until you push the nose over, at which point the airframe finds the one thing it was built for and the siren in the leg fairings starts to sing about it. Nothing about her is subtle. That is the point: half the effect is on the ground, in the ten seconds before anything lands.",
+    "feel": "A dive bomber, and only that. Cranked gull wing, legs in permanent fairings, a glasshouse long enough for two. She's slow and honest in level flight and utterly unremarkable until you push the nose over, at which point the airframe finds the one thing it was built for and the siren in the leg fairings starts to sing about it. Nothing about her is subtle. Half the effect lands on the people underneath, in the ten seconds before the ordnance does.",
     "gun_mult": 0.6
   },
   "engines": 1,

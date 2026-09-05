@@ -32,25 +32,25 @@ function seasoningNote(raw, ideal, tier) {
   const count = Math.round(raw);
   if (count === ideal) return tier === 'novice' ? 'It tastes like something.' : 'The seasoning is where it should be.';
   const under = count < ideal;
-  if (tier === 'novice') return under ? 'It needs something. You are not sure what.' : 'Something in it is too strong.';
-  if (tier === 'competent') return under ? 'It is flat. It wants seasoning.' : 'It is over-seasoned.';
+  if (tier === 'novice') return under ? "It needs something. You aren't sure what." : "Something in it's too strong.";
+  if (tier === 'competent') return under ? "It's flat. It wants seasoning." : "It's over-seasoned.";
   const by = Math.abs(count - ideal);
   return under
-    ? `It is under-seasoned by about ${by === 1 ? 'one thing' : `${by} things`}.`
+    ? `It's under-seasoned by about ${by === 1 ? 'one thing' : `${by} things`}.`
     : `There is ${by === 1 ? 'one thing' : `${by} things`} too much in it.`;
 }
 
 function timingNote(state, tier) {
   if (tier === 'novice') {
-    if (state === 'raw') return 'It is not there yet.';
+    if (state === 'raw') return "It isn't there yet.";
     if (state === 'peak') return 'It tastes about right.';
     return 'You have left it too long.';
   }
   const MAP = {
     raw: 'Still raw in the middle — it needs longer.',
     peak: 'This is it. Take it off.',
-    over: 'It is past its best and drying out.',
-    burnt: 'It is ruined. There is nothing to save here.',
+    over: "It's past its best and drying out.",
+    burnt: "It's ruined. There's nothing to save here.",
   };
   return MAP[state];
 }
@@ -92,15 +92,15 @@ export function tasteNotes({ session, profile, template, modifierCount, skill = 
 // generic. This is the payoff for the whole quality ladder: nine bands are only
 // worth having if the player can feel the difference between two of them.
 const BAND_FLAVOUR = {
-  poor: 'It is barely food. You get it down and that is the most that can be said.',
-  grim: 'Grim work. You eat it because you are hungry, not because you want to.',
-  acceptable: 'It is fine. It does the job and asks nothing of you.',
+  poor: "It's barely food. You get it down and that's the most that can be said.",
+  grim: "Grim work. You eat it because you're hungry, not because you want to.",
+  acceptable: "It's fine. It does the job and asks nothing of you.",
   decent: 'Decent. Somebody paid a bit of attention to this.',
   good: 'Good — properly good. You slow down a little without meaning to.',
-  'very good': 'Very good. There is a moment near the middle where you stop and notice it.',
+  'very good': "Very good. There's a moment near the middle where you stop and notice it.",
   excellent: 'Excellent. Whoever made this knew exactly what they were doing.',
   superb: 'Superb. You eat the last of it far more slowly than the first.',
-  masterful: 'Masterful. You will think about this later, in a quiet moment, for no reason at all.',
+  masterful: "Masterful. You'll think about this later, in a quiet moment, for no reason at all.",
 };
 
 const DONENESS_FLAVOUR = {

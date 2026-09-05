@@ -196,7 +196,7 @@ registerMoveGate(async ({ player, to }) => {
     if (verdict?.ok) return;
     if (verdict?.message) return { block: true, message: verdict.message };
   }
-  return { block: true, message: 'The rock goes up sheer in front of you. There is no way up it here.' };
+  return { block: true, message: "The rock goes up sheer in front of you. There's no way up it here." };
 }, 'engine:impassable-terrain');
 
 // Water is no longer a wall. Entering a water tile is a SWIM, not a block — the
@@ -250,7 +250,7 @@ function cmdLookSky(player) {
       "You stare at the ceiling. It stares back. Neither of you blink.",
       "It's a ceiling. Flat. Featureless. Deeply unimpressive. You've seen better.",
       "You look up. Ceiling. No sky. This is what happens when you live indoors.",
-      "The ceiling offers no weather information. It is simply there, being a ceiling.",
+      "The ceiling offers no weather information. It's simply there, being a ceiling.",
       "You crane your neck upward. Yep. That's a ceiling alright. Mystery solved.",
       "Sky unavailable in this location. Please proceed to an exit and try again.",
       "A ceiling. Possibly the same ceiling as before. You can't be sure.",
@@ -322,7 +322,7 @@ async function cmdLook(player, targetStr, broadcast) {
   if (targetStr === 'distance' || targetStr === 'out') return cmdLookDistance(player);
   if (!targetStr || targetStr === 'room' || targetStr === 'around') {
     const zone = getZone(player.current_zone);
-    if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
+    if (!zone) return { type:'error', message:"You're nowhere. This is a bug." };
     return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player), ambience: ambienceFor(zone) };
   }
   const inMatch = targetStr.match(/^in\s+(.+)$/i);
@@ -880,7 +880,7 @@ export async function dragFollowers(leaderId, fromZoneId, direction, broadcast) 
 
 function cmdFollow(args, player, broadcast) {
   if (!args.length) {
-    if (!player.following) return { type: 'output', message: 'You are not following anyone.' };
+    if (!player.following) return { type: 'output', message: "You aren't following anyone." };
     player.following = null;
     return { type: 'output', message: 'You stop following.' };
   }
@@ -889,11 +889,11 @@ function cmdFollow(args, player, broadcast) {
   if (!target) return { type: 'error', message: `No player named "${args.join(' ')}" is online.` };
   player.following = target.id;
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} starts following ${target.handle}.` }, player.id);
-  return { type: 'output', message: `You are now following ${target.handle}. Type "follow" with no arguments to stop.` };
+  return { type: 'output', message: `You're now following ${target.handle}. Type "follow" with no arguments to stop.` };
 }
 
 function cmdUnfollow(player, broadcast) {
-  if (!player.following) return { type: 'output', message: 'You are not following anyone.' };
+  if (!player.following) return { type: 'output', message: "You aren't following anyone." };
   player.following = null;
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} stops following.` }, player.id);
   return { type: 'output', message: 'You stop following.' };

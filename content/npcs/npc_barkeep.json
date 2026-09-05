@@ -141,7 +141,7 @@
     "\"Drink's four. The stool's free. The advice is extra.\"",
     "\"That pigeon has been dead longer than you have been drinking. Show some respect.\""
   ],
-  "description": "Runs the Dead Pigeon from behind a slab of reclaimed door laid across two oil drums. Pours with the bored precision of somebody who has heard every sob story twice, and the careful blankness of somebody whose till is not the interesting part of the business.",
+  "description": "Runs the Dead Pigeon from behind a slab of reclaimed door laid across two oil drums. Pours with the bored precision of somebody who has heard every sob story twice, and the careful blankness of somebody whose till isn't the interesting part of the business.",
   "dialogue_tree": {
     "bm_air_already": {
       "_vine": {

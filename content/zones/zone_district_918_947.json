@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "The last hard surface before the map gives up. A weighbridge is set into the road here — two steel plates the width of a rig, worn bright by everything that has crossed them — and a booth beside it on a concrete plinth, with a board above that reads out in numbers a foot high. Somebody is always in the booth. There is nothing else out here for them to look at.\n\nPast the plates the dirt runs south into a rust-stained plain hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "description": "The last hard surface before the map gives up. A weighbridge is set into the road here — two steel plates the width of a rig, worn bright by everything that has crossed them — and a booth beside it on a concrete plinth, with a board above that reads out in numbers a foot high. Somebody is always in the booth. There's nothing else out here for them to look at.\n\nPast the plates the dirt runs south into a rust-stained plain hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
   "exits": {
     "east": "zone_district_919_947",
     "north": "zone_district_918_946",

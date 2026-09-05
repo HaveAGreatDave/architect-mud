@@ -77,7 +77,7 @@ export default async function regress({ check, getPlayer }) {
     try {
       player.current_zone = EMPTY;
       const away = await handler([], 'ascend', player, null);
-      check('ascend falls through anywhere there is no Uplink terminal', away === undefined, JSON.stringify(away));
+      check("ascend falls through anywhere there's no Uplink terminal", away === undefined, JSON.stringify(away));
     } finally {
       player.current_zone = savedZone;
       world.zones.delete(EMPTY);

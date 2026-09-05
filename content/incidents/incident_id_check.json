@@ -1,6 +1,6 @@
 {
   "cooldown_min": 300,
-  "description": "The polite end of the squeeze. Every line the Ascendants say about it is true and none of it is the point.",
+  "description": "The polite end of the squeeze. Everything the Ascendants say about it's true, and it still costs twenty minutes and a name.",
   "duration_min": 90,
   "enabled": 1,
   "flags": {},
@@ -12,7 +12,7 @@
       "do": "ambient",
       "lines": [
         "A marshal checks a face against a tablet, nods, and waves the face on.",
-        "There is a short queue at the corner that nobody joined on purpose.",
+        "There's a short queue at the corner that nobody joined on purpose.",
         "Somebody is explaining, at length and quietly, where they live."
       ]
     },
@@ -22,7 +22,7 @@
     },
     {
       "do": "gossip",
-      "text": "They are checking everybody at the corner in {place}. Bring your account or bring an hour."
+      "text": "They're checking everybody at the corner in {place}. Bring your account or bring an hour."
     }
   ],
   "updated_at": "1787702400",

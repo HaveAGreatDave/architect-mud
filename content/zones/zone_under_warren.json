@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#221c1c",
   "color": "#ae9a8f",
-  "description": "A drowned side-chamber the rats have made their own: a stinking warren of shredded nesting packed into every ledge and pipe-gap, the floor churned to filth. This is the heart of the colony. They do not take kindly to the light, or to you.",
+  "description": "A drowned side-chamber the rats have made their own: a stinking warren of shredded nesting packed into every ledge and pipe-gap, the floor churned to filth. This is the heart of the colony. They don't take kindly to the light, or to you.",
   "exits": {
     "north": "zone_under_flooded"
   },

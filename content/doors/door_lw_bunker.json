@@ -15,7 +15,7 @@
     "lock:longwatch": {
       "canHack": false,
       "messages": {
-        "denied": "The blast door does not know you. It does not move.",
+        "denied": "The blast door doesn't know you. It doesn't move.",
         "lock": "The blast door seats itself with a pneumatic sigh.",
         "unlock": "The blast door unseals and swings inward."
       }

@@ -41,8 +41,8 @@
   ],
   "butcher_difficulty": 8,
   "butcher_table": [],
-  "death_message": "The Field Cull comes apart much more easily than the size of it suggested, and the last of the eyes to close is not looking at you.",
-  "description": "Leaner than the others and much faster, working the open ground outside the wall in a wide slow circuit that is plainly a route.\n\nIt has too many eyes and they are not arranged in any pattern, and they do not blink together, and it can therefore look at the road, the ridge and you at the same time, and is.\n\nIt is not blocking anything. It is counting.",
+  "death_message": "The Field Cull comes apart much more easily than the size of it suggested, and the last of the eyes to close isn't looking at you.",
+  "description": "Leaner than the others and much faster, working the open ground outside the wall in a wide slow circuit that's plainly a route.\n\nIt has too many eyes and they aren't arranged in any pattern, and they don't blink together, and it can therefore look at the road, the ridge and you at the same time, and is.\n\nIt isn't blocking anything. It's counting.",
   "dodge": 14,
   "faction": "ideology_wildblood",
   "flags": {

@@ -95,8 +95,8 @@
     "battle_cries": [
       "$enemy drags its load-bearing limbs across the bone with a wet scrape.",
       "$enemy emits a low tick that climbs into a shriek.",
-      "$enemy unfolds a limb that should not bend that way.",
-      "$enemy screams with a mouth that is mostly other mouths."
+      "$enemy unfolds a limb that shouldn't bend that way.",
+      "$enemy screams with a mouth that's mostly other mouths."
     ],
     "first_strike_delay_ms": 800,
     "radiates": true,

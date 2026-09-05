@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Tace Ambler wants you to walk the outside of the wall. All of it: the north face, round the far side, the south face, and back to her stool in the middle of the road. She said there is nothing to see and that she was not going to pretend otherwise, and she asked you not to ask what it was for, on the grounds that she would only say something she would be embarrassed about later.",
+  "description": "Tace Ambler wants you to walk the outside of the wall. All of it: the north face, round the far side, the south face, and back to her stool in the middle of the road. She said there's nothing to see and that she wasn't going to pretend otherwise, and she asked you not to ask what it was for, on the grounds that she would only say something she would be embarrassed about later.",
   "fail_on": [],
   "id": "quest_terminus_2",
   "meta": {},
@@ -9,7 +9,7 @@
     {
       "desc": "Walk the north face of the wall.",
       "emotes": [
-        "{who} walks the north face with the wall on their right and does not look up at it once.",
+        "{who} walks the north face with the wall on their right and doesn't look up at it once.",
         "{who} counts the courses of block up as far as the light goes and loses count twice."
       ],
       "id": "o_north",
@@ -20,7 +20,7 @@
       "desc": "Walk the far side of the wall.",
       "emotes": [
         "{who} comes round the eastern face, where nobody from the road can see them at all.",
-        "{who} finds a stretch back here that has been repaired with something that is not block."
+        "{who} finds a stretch back here that has been repaired with something that isn't block."
       ],
       "id": "o_east",
       "type": "visit",
@@ -30,7 +30,7 @@
       "desc": "Walk the south face of the wall.",
       "emotes": [
         "{who} works along the south face with the salt throwing the light up under their chin.",
-        "{who} passes a gate on this side that is bricked up to the lintel and was not always."
+        "{who} passes a gate on this side that's bricked up to the lintel and wasn't always."
       ],
       "id": "o_south",
       "type": "visit",
@@ -40,7 +40,7 @@
       "desc": "Go back to Tace Ambler on the road.",
       "emotes": [
         "{who} comes back up the road having gone all the way round, which most people do not.",
-        "{who} is not asked what they saw, and Tace does not look up from the stool."
+        "{who} isn't asked what they saw, and Tace doesn't look up from the stool."
       ],
       "id": "o_back",
       "type": "visit",

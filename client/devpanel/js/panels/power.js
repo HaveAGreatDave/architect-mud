@@ -460,7 +460,7 @@ function _buildingFixLines(result) {
   }
   if (result.needsGenerator.length) {
     for (const b of result.needsGenerator) {
-      lines.push(`⚠️ ${b.buildingName}: could not auto-fix${b.error ? ' — ' + b.error : ''}`);
+      lines.push(`⚠️ ${b.buildingName}: couldn't auto-fix${b.error ? ' — ' + b.error : ''}`);
     }
   }
   if (result.multipleGenerators.length) {

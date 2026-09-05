@@ -20,7 +20,7 @@
         },
         {
           "atSec": 105,
-          "text": "[trip]Someone somewhere is taking all of this seriously and that is the funniest part.[/trip]"
+          "text": "[trip]Someone somewhere is taking all of this seriously and that's the funniest part.[/trip]"
         },
         {
           "atSec": 140,
@@ -51,7 +51,7 @@
       "comeup_scale": 0.5,
       "comeup_seconds": 30,
       "end_message": "<span class=\"msg-system\">The funny drains out. Everything's the same as it was, except your face hurts.</span>",
-      "peak_message": "<span class=\"msg-system\">You are helpless now. The whole grim world is the best joke ever told.</span>",
+      "peak_message": "<span class=\"msg-system\">You're helpless now. The whole grim world is the best joke ever told.</span>",
       "peak_mods": {
         "stat_cool": 2
       },
@@ -70,7 +70,7 @@
       },
       "onset_seconds": 1200,
       "stages": {
-        "easing": "Something small gets a laugh out of you, and it is the first one in a while.",
+        "easing": "Something small gets a laugh out of you, and it's the first one in a while.",
         "onset": "Your face aches along the jaw and up under the cheekbones, and it has nothing to do now.",
         "peak": "The apocalypse is back to being the apocalypse, going on at its ordinary size, hour after hour, with nothing funny in it anywhere.",
         "rising": "Somebody says the line that had you on the floor the last time you took a tab. You hear all of it. None of it lands.",

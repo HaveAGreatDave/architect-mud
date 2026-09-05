@@ -183,7 +183,7 @@ export function fireFault(player, rec, aug) {
   sendToPlayer(player.id, { type: 'output', message: `<span class="text-red">${line}</span>` });
   if (dead) {
     sendToPlayer(player.id, { type: 'output', message:
-      `<span class="outcast-warning">Your ${aug.name} is dead weight now. It is still in you; it is just not doing anything. A surgeon can bring it back.</span>` });
+      `<span class="outcast-warning">Your ${aug.name} is dead weight now. It's still in you; it's just not doing anything. A surgeon can bring it back.</span>` });
   }
 
   // And it takes it out of you. Routed through applyStrikeToPlayer rather than
@@ -250,11 +250,11 @@ export async function cmdOverclock(args, raw, player) {
         + `<span class="${band.cls}">${band.label}</span>  (max ${aug.overclock_max})`);
     }
     if (!lines.length) {
-      return { type: 'error', message: 'Nothing you are carrying under the skin can be pushed past spec.' };
+      return { type: 'error', message: "Nothing you're carrying under the skin can be pushed past spec." };
     }
     return { type: 'output', message:
       `<span class="skills-header">OVERCLOCK</span>\n\n${lines.join('\n')}\n\n`
-      + `<span style="opacity:.7">augment overclock &lt;name&gt; &lt;level&gt; — 0 is spec. Everything above it is yours to answer for.</span>` };
+      + `<span style="opacity:.7">augment overclock &lt;name&gt; &lt;level&gt; — 0 is spec. Everything above it's yours to answer for.</span>` };
   }
 
   const aug = Object.values(cache).find(a =>
@@ -265,14 +265,14 @@ export async function cmdOverclock(args, raw, player) {
 
   const max = Number(aug.overclock_max) || 0;
   if (max <= 0) {
-    return { type: 'error', message: `${aug.name} runs at spec and nowhere else. There is no adjustment to make — the governor is part of the casting.` };
+    return { type: 'error', message: `${aug.name} runs at spec and nowhere else. There's no adjustment to make — the governor is part of the casting.` };
   }
   if (Number(rec.condition ?? 1) <= 0) {
     return { type: 'error', message: `${aug.name} is dead. Get it repaired before you ask anything of it.` };
   }
   if (level == null) level = Math.min(max, (rec.overclock_level || 0) + 1);
   if (level < 0 || level > max) {
-    return { type: 'error', message: `${aug.name} tops out at ${max}. Past that the controller simply refuses, which is the only part of it that is looking after you.` };
+    return { type: 'error', message: `${aug.name} tops out at ${max}. Past that the controller simply refuses, which is the only part of it that's looking after you.` };
   }
 
   const prev = rec.overclock_level || 0;
@@ -287,7 +287,7 @@ export async function cmdOverclock(args, raw, player) {
     return { type: 'output', message: `${aug.name} drops back to spec. The whine falls out of it.` };
   }
   const warn = level >= max
-    ? `\n<span class="text-red">That is everything it has. It will run hot and it will not run long.</span>`
+    ? `\n<span class="text-red">That's everything it has. It'll run hot and it won't run long.</span>`
     : (level > prev ? `\n<span class="outcast-warning">It runs hotter now.</span>` : '');
   return { type: 'output', message:
     `${aug.name} set to <b>${100 + 25 * level}%</b> output.${warn}` };

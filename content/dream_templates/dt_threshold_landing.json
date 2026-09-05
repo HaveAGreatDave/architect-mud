@@ -5,7 +5,7 @@
     "A door closes above, politely, in a house with no upstairs."
   ],
   "cause": "drug",
-  "description": "A stair landing between two flights, both of which go up. The wallpaper is a pattern you knew as a child and cannot now describe. There is a window with the light of a whole day passing through it in the time it takes to look away and back.",
+  "description": "A stair landing between two flights, both of which go up. The wallpaper is a pattern you knew as a child and can't now describe. There's a window with the light of a whole day passing through it in the time it takes to look away and back.",
   "drug_id": "drug_threshold",
   "fx": "crawl",
   "fx_intensity": 0.45,
@@ -16,7 +16,7 @@
       "looks": [
         "A pattern you knew before you had words, so you still have no words for it.",
         "It repeats, and the repeat is slightly longer than the wall.",
-        "It is moving at the speed of a thing that is not moving."
+        "It's moving at the speed of a thing that isn't moving."
       ],
       "name": "the wallpaper"
     },

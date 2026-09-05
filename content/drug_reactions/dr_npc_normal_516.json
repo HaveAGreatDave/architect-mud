@@ -3,8 +3,8 @@
   "id": "dr_npc_normal_516",
   "npc_type": "cop",
   "relation": null,
-  "room_line": "{npc} tells {player} to move along, in the tone that is not a request.",
-  "self_line": "{npc} asks you to move along, in the tone that is not a request.",
+  "room_line": "{npc} tells {player} to move along, in the tone that isn't a request.",
+  "self_line": "{npc} asks you to move along, in the tone that isn't a request.",
   "source": "npc",
   "tone": "normal"
 }

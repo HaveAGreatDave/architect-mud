@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The city bolted a meter to the standpipe in the spring, without asking, and it has been sitting there ticking ever since. Threlfall wants the number off it, written down, in your hand.\n\n\"Not the box. The number.\" She says it the way she says everything, which is once. \"Cobbald will want it before supper and he will want it right.\"\n\nIt is a twenty minute walk and a four second job.",
+  "description": "The city bolted a meter to the standpipe in the spring, without asking, and it has been sitting there ticking ever since. Threlfall wants the number off it, written down, in your hand.\n\n\"Not the box. The number.\" She says it the way she says everything, which is once. \"Cobbald will want it before supper and he'll want it right.\"\n\nIt is a twenty minute walk and a four second job.",
   "fail_on": [
     {
       "desc": "Something stopped working while you were standing next to it.",
@@ -16,7 +16,7 @@
       "emotes": [
         "{who} crouches under the standpipe and finds the window on the meter greasy enough to need a thumb.",
         "{who} copies the figure out twice, because a number carried home wrong is worse than no number.",
-        "{who} notices the seal on the housing is Halcyon and is not even slightly hidden."
+        "{who} notices the seal on the housing is Halcyon and isn't even slightly hidden."
       ],
       "id": "o_read",
       "taskSeconds": 12,

@@ -67,7 +67,7 @@ async function buildScreen(player, screenId, params) {
     return {
       view: 'surveillance', live: false, locked: true, breadcrumb: ['Surveillance'],
       net, tiles: [], alerts: [], links,
-      message: 'SPECTER is not installed. Acquire and use a SPECTER hack-deck program to flash it onto your tablet. Recorded footage is still viewable under Microreels.',
+      message: "SPECTER isn't installed. Acquire and use a SPECTER hack-deck program to flash it onto your tablet. Recorded footage is still viewable under Microreels.",
     };
   }
   const { net: liveNet, tiles, alerts } = await s.hubDataFor(player);

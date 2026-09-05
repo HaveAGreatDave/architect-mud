@@ -3,11 +3,11 @@
   "behaviour_graph": {},
   "chitchat": [
     "If you take something, the slate is by the door.",
-    "Fourth bin along, and it is not where you are looking.",
+    "Fourth bin along, and it isn't where you're looking.",
     "I have two of those and I would like to keep having two.",
     "Write the quantity. Everyone forgets the quantity."
   ],
-  "description": "A wiry person up a set of library steps with a drawer open, checking a count against a card and moving their lips while they do it. The shed behind them is the most orderly room for four hundred miles: fasteners by thread and length, bar stock standing in bins by section, bearings boxed and dated. Nothing is locked. There is a slate by the door with the last four things taken written on it in a small, even hand.",
+  "description": "A wiry person up a set of library steps with a drawer open, checking a count against a card and moving their lips while they do it. The shed behind them is the most orderly room for four hundred miles: fasteners by thread and length, bar stock standing in bins by section, bearings boxed and dated. Nothing is locked. There's a slate by the door with the last four things taken written on it in a small, even hand.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -32,7 +32,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Every line.\" They pat the pocket. \"Thread, length, section, bin, count, and the date it last moved. In a cabinet, on paper, in that handwriting, and there is a second copy in the hall because one copy is not a copy.\"\n\nA small, fierce pride.\n\n\"Ockley won't fit a thread I don't hold. He asks me first.\""
+      "text": "\"Every line.\" They pat the pocket. \"Thread, length, section, bin, count, and the date it last moved. In a cabinet, on paper, in that handwriting, and there's a second copy in the hall because one copy isn't a copy.\"\n\nA small, fierce pride.\n\n\"Ockley won't fit a thread I don't hold. He asks me first.\""
     },
     "locked": {
       "actions": [],
@@ -52,7 +52,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" They close the drawer with a hip. \"There is a slate. You write what you took and your name and the quantity. That is the lock.\"\n\nThey consider the objection you have not made yet.\n\n\"It fails about twice a year, and both times it was somebody who needed the thing at two in the morning and wrote it up at six. A door would not have improved either occasion.\""
+      "text": "\"No.\" They close the drawer with a hip. \"There's a slate. You write what you took and your name and the quantity. That's the lock.\"\n\nThey consider the objection you haven't made yet.\n\n\"It fails about twice a year, and both times it was somebody who needed the thing at two in the morning and wrote it up at six. A door wouldn't have improved either occasion.\""
     },
     "out": {
       "actions": [],
@@ -65,11 +65,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Fine files and lamp oil, and it is not close.\" They are already writing something down. \"Files because everybody is always filing something flat, and oil because the light is oil and always has been.\n\n\"What comes IN most is other people's machines, in pieces, on a cart. We are very good at that.\""
+      "text": "\"Fine files and lamp oil, and it isn't close.\" They're already writing something down. \"Files because everybody is always filing something flat, and oil because the light is oil and always has been.\n\n\"What comes IN most is other people's machines, in pieces, on a cart. We're very good at that.\""
     },
     "root": {
       "actions": [],
-      "first": "They come down two steps and look at you over the drawer. \"You are not looking for anything, you are looking at the shelving.\" A short nod, as though this is a respectable thing to be doing. \"Hobbe Padgett. It is all like this. Ask me for anything and I will have it in under a minute and I will be insufferable about it.\"",
+      "first": "They come down two steps and look at you over the drawer. \"You aren't looking for anything, you're looking at the shelving.\" A short nod, as though this is a respectable thing to be doing. \"Hobbe Padgett. It's all like this. Ask me for anything and I'll have it in under a minute and I'll be insufferable about it.\"",
       "options": [
         {
           "actions": [],
@@ -103,7 +103,7 @@
       "text": "\"Back. The slate is by the door.\"",
       "text_by_relation": {
         "close": "\"Good, you can count for me. Two eyes are worth four hands and I have said that before.\"",
-        "familiar": "They tip the drawer toward you so you can see it is exactly what the card says. \"Look at that. Perfect.\"",
+        "familiar": "They tip the drawer toward you so you can see it's exactly what the card says. \"Look at that. Perfect.\"",
         "known": "\"You know where the slate is.\""
       }
     }

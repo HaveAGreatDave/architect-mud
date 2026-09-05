@@ -135,11 +135,11 @@
     "\"One good seam. That's all a man needs. One good seam.\"",
     "\"You hear that ticking? Course you don't. You get used to it.\""
   ],
-  "description": "A lean, coughing man who works the scrap mesa with a bent rake and a rad-band he stopped looking at weeks ago. He is convinced the seam he's found will make him rich, and he is running out of the time it would take to spend it. He has staked the claim in the name of ELIAS PIKE on four separate rocks, on the theory that one of them might count.",
+  "description": "A lean, coughing man who works the scrap mesa with a bent rake and a rad-band he stopped looking at weeks ago. He's convinced the seam he's found will make him rich, and he's running out of the time it would take to spend it. He has staked the claim in the name of ELIAS PIKE on four separate rocks, on the theory that one of them might count.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He is already raking again, ticking softly to himself."
+      "text": "He's already raking again, ticking softly to himself."
     },
     "root": {
       "options": [

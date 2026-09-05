@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "All right. Then you are talking to nothing, at length, out loud, in a room with a door in it.",
+  "self_line": "All right. Then you're talking to nothing, at length, out loud, in a room with a door in it.",
   "source": "object_reply_denial",
   "tone": "surreal"
 }

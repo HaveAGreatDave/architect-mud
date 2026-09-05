@@ -17,7 +17,7 @@
         },
         {
           "atSec": 220,
-          "text": "[trip]The plateau. Everything is very far off and none of it is urgent.[/trip]"
+          "text": "[trip]The plateau. Everything is very far off and none of it's urgent.[/trip]"
         },
         {
           "atSec": 360,
@@ -43,7 +43,7 @@
     "onset_seconds": 45,
     "overdose": {
       "lethal": true,
-      "message": "Your heart goes somewhere fast and your breathing goes somewhere slow, and the two of them do not meet again."
+      "message": "Your heart goes somewhere fast and your breathing goes somewhere slow, and the two of them don't meet again."
     },
     "take_line": "You drink the whole bottle of {name}, gagging on the sweetness.",
     "tolerance": {
@@ -59,8 +59,8 @@
       "stages": {
         "easing": "The plateau lets you down onto flat ground, and the flat ground holds.",
         "onset": "The distance goes. Everything is at the end of your arms again.",
-        "peak": "Nothing is happening at a remove any more. It is all happening at exactly the range it is happening at, which is here.",
-        "rising": "Sounds arrive on time, at full size, in the room you are in.",
+        "peak": "Nothing is happening at a remove any more. It's all happening at exactly the range it's happening at, which is here.",
+        "rising": "Sounds arrive on time, at full size, in the room you're in.",
         "tail": "Near. Everything is near. You have got most of the way to used to it."
       }
     }

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet. The hum is the only sound down here that is not weather.",
+  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet. The hum is the only sound down here that isn't weather.",
   "exits": {
     "up": "zone_yard_deadleg"
   },

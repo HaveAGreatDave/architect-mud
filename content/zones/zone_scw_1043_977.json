@@ -5,7 +5,7 @@
     "The locked case is opened, something is taken out, and the case is locked again."
   ],
   "ambient_theme": "wasteland",
-  "description": "A shopfront made of four different shopfronts, none of which came from the same building, and a shutter that rolls up into a housing off a truck. Everything about it is salvage and none of it is slapdash. The stock board by the door is written in a careful hand and priced in three currencies.",
+  "description": "A shopfront made of four different shopfronts, none of which came from the same building, and a shutter that rolls up into a housing off a truck. Everything about it's salvage and none of it's slapdash. The stock board by the door is written in a careful hand and priced in three currencies.",
   "exits": {
     "north": "zone_scw_1043_976",
     "south": "zone_thorn_rindles"

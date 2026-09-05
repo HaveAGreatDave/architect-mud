@@ -56,23 +56,23 @@ const HP_FLOOR = 1;
 // remaining duration so a short turn still gets all three.
 
 const EARLY = [
-  `Something under your skin moves that should not be able to move.`,
+  `Something under your skin moves that shouldn't be able to move.`,
   `Your teeth ache. All of them, at the roots, at once.`,
   `You taste metal, and then you taste it more.`,
-  `A deep itch starts somewhere you cannot reach because it is not on the outside.`,
+  `A deep itch starts somewhere you can't reach because it isn't on the outside.`,
 ];
 
 const MIDDLE = [
   `Your bones are hot. You can feel the shape of them, which you never could before.`,
   `Something tears and knits and tears again, and you hear it rather than feel it.`,
   `You go down onto one knee without deciding to.`,
-  `A muscle you do not have a name for cramps and does not stop.`,
-  `You bite down on something to stop the noise you are making.`,
+  `A muscle you don't have a name for cramps and doesn't stop.`,
+  `You bite down on something to stop the noise you're making.`,
 ];
 
 const LATE = [
-  `It is easing. What is left is a kind of ringing exhaustion, everywhere, all at once.`,
-  `Your body has finished arguing with itself. Something won. You are not sure it was you.`,
+  `It's easing. What's left is a kind of ringing exhaustion, everywhere, all at once.`,
+  `Your body has finished arguing with itself. Something won. You aren't sure it was you.`,
   `The pain lets go all at once and leaves you shaking and wringing wet.`,
 ];
 
@@ -172,10 +172,10 @@ on('mutation.gained', ({ player, mutation, expression, source }) => {
   sendToPlayer(live.id, {
     type: 'zone_event',
     message: `\n<span class="rad-warning">${deep
-      ? 'It starts in your spine and goes outward, and it is not survivable-feeling.'
+      ? "It starts in your spine and goes outward, and it isn't survivable-feeling."
       : 'Something goes wrong in you, all at once, and keeps going.'}</span>\n`
       + `<span class="text-dim">You lose ${res.opening} and most of your wind. `
-      + `This will take a while, and you will be no good to anybody while it does.</span>`,
+      + `This will take a while, and you'll be no good to anybody while it does.</span>`,
     player_update: { hp: live.hp, stamina: live.stamina },
   });
 });

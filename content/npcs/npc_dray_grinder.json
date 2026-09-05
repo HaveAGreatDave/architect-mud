@@ -132,10 +132,10 @@
   },
   "chitchat": [
     "leans into the grinder and a fan of sparks goes up the wall.",
-    "\"Four years. He says I am nearly ready. He said that in year two.\"",
+    "\"Four years. He says I'm nearly ready. He said that in year two.\"",
     "\"If it comes in here rusted shut, it goes out open. One way or the other.\""
   ],
-  "description": "The apprentice, permanently grey with grinding dust except for two clean ovals where the goggles sit. She is on her fourth year of a three-year apprenticeship and has stopped mentioning it.",
+  "description": "The apprentice, permanently grey with grinding dust except for two clean ovals where the goggles sit. She's on her fourth year of a three-year apprenticeship and has stopped mentioning it.",
   "dialogue_tree": {
     "bye": {
       "options": [],

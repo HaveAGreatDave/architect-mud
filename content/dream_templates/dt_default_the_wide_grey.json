@@ -5,7 +5,7 @@
     "A direction briefly becomes the obvious one, and then does not."
   ],
   "cause": "drug",
-  "description": "Open, even, no horizon and no need for one. It is not empty; it is unfurnished. Somewhere in it there is a direction that would be worth going, and the not-knowing which is peaceful rather than urgent.",
+  "description": "Open, even, no horizon and no need for one. It isn't empty; it's unfurnished. Somewhere in it there's a direction that would be worth going, and the not-knowing which is peaceful rather than urgent.",
   "drug_id": null,
   "fx": null,
   "fx_intensity": 0.5,
@@ -14,9 +14,9 @@
   "objects": [
     {
       "looks": [
-        "Even, all the way out, with something in it that is not a landmark.",
-        "It has depth. You could not say how you know.",
-        "It is nearer in one direction and that direction moves."
+        "Even, all the way out, with something in it that isn't a landmark.",
+        "It has depth. You couldn't say how you know.",
+        "It's nearer in one direction and that direction moves."
       ],
       "name": "the distance"
     },
@@ -24,7 +24,7 @@
       "looks": [
         "They arrive slightly after you take them.",
         "There are more of them behind you than you have taken.",
-        "They are the only thing here with edges."
+        "They're the only thing here with edges."
       ],
       "name": "your own footsteps"
     }

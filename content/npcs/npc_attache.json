@@ -139,7 +139,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He is already elsewhere in spirit."
+      "text": "He's already elsewhere in spirit."
     },
     "root": {
       "options": [

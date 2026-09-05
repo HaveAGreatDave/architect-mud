@@ -20,8 +20,8 @@
       "comedown_seconds": 300,
       "comeup_scale": 0.4,
       "comeup_seconds": 70,
-      "end_message": "<span class=\"msg-system\">The warmth drains off by degrees, the way a room cools. You are left sitting in the shape of it.</span>",
-      "peak_message": "<span class=\"msg-system\">You settle into it. The world is still going on and it is doing so at a polite distance.</span>",
+      "end_message": "<span class=\"msg-system\">The warmth drains off by degrees, the way a room cools. You're left sitting in the shape of it.</span>",
+      "peak_message": "<span class=\"msg-system\">You settle into it. The world is still going on and it's doing so at a polite distance.</span>",
       "peak_mods": {
         "hp_regen_per_sec": 2,
         "stat_brains": -1,
@@ -47,8 +47,8 @@
       "onset_seconds": 900,
       "stages": {
         "easing": "You get a whole afternoon back. You spend a good part of it deciding whether you have got away with it.",
-        "onset": "You yawn until your jaw clicks, and it is not tiredness, and you know it is not.",
-        "peak": "Your legs will not settle anywhere. You try the bed, the floor, the chair and the floor again, and every one of them is wrong in a way you cannot explain to anybody.",
+        "onset": "You yawn until your jaw clicks, and it isn't tiredness, and you know it's not.",
+        "peak": "Your legs won't settle anywhere. You try the bed, the floor, the chair and the floor again, and every one of them is wrong in a way you can't explain to anybody.",
         "rising": "Cold, then sweating, then cold, and a low ache in both shins that has been there since morning without ever once being sharp enough to name.",
         "tail": "Sleeping. Eating. Upright. And every so often a warm room or a certain smell puts the whole thing in front of you, fully formed, like it was waiting."
       }

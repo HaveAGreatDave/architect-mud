@@ -3,7 +3,7 @@
   "behaviour_graph": {},
   "chitchat": [
     "Two hours. Two more hours.",
-    "You are meant to be scared. Just so you know.",
+    "You're meant to be scared. Just so you know.",
     "It itches. Nobody tells you it itches.",
     "If you see Hale, I have been here the whole time."
   ],
@@ -32,7 +32,7 @@
           "next": "rotten"
         }
       ],
-      "text": "\"It is padded. It is still hot.\" He pulls it off entirely and turns it over to show you, which somewhat undermines the point of it. The inside is quilted rag, stitched down flat at every edge in small even stitches. \"My gran did the lining. She does everybody's. That seam there went last month and I got a lecture about it.\n\nSix hours, twice a week. And you have to do the walk, up and down, so they see you moving. That is the worst bit. Anyone can stand still.\""
+      "text": "\"It's padded. It's still hot.\" He pulls it off entirely and turns it over to show you, which somewhat undermines the point of it. The inside is quilted rag, stitched down flat at every edge in small even stitches. \"My gran did the lining. She does everybody's. That seam there went last month and I got a lecture about it.\n\nSix hours, twice a week. And you have to do the walk, up and down, so they see you moving. That's the worst bit. Anyone can stand still.\""
     },
     "road": {
       "actions": [],
@@ -52,17 +52,17 @@
           "next": "bye"
         }
       ],
-      "text": "\"Before me.\" He says it the way you say a war. \"Gran's, mostly, everyone says.\n\nI hate it. Not the shift, I mean the road. You have to walk down it to get out and it is horrible, and I know exactly who made every bit of it and it is still horrible in the dark.\"\n\nHe kicks the gate frame.\n\n\"But my dad went over the wall at Coldwater and lives in a tenement now with two others and they are all right, and my gran says he only got the choice because nobody has ever come up that road with a rope. So.\"\n\nA shrug. He has plainly had this argument with himself many times and lost it every time.\n\n\"So it is six hours. Twice a week.\""
+      "text": "\"Before me.\" He says it like the name of a war. \"Gran's, mostly, everyone says.\n\nI hate it. Not the shift, I mean the road. You have to walk down it to get out and it's horrible, and I know exactly who made every bit of it and it's still horrible in the dark.\"\n\nHe kicks the gate frame.\n\n\"But my dad went over the wall at Coldwater and lives in a tenement now with two others and they're all right, and my gran says he only got the choice because nobody has ever come up that road with a rope. So.\"\n\nA shrug. He has plainly had this argument with himself many times and lost it every time.\n\n\"So it's six hours. Twice a week.\""
     },
     "root": {
       "actions": [],
-      "first": "He gets the mask halfway down, holds it there, and then gives up entirely and shoves it back onto his head. \"Look, you have already seen my face, so.\" A shrug of magnificent adolescent fatalism. \"Gate is open. Do not go in the beds. That is it, that is the whole speech.\"",
+      "first": "He gets the mask halfway down, holds it there, and then gives up entirely and shoves it back onto his head. \"Look, you have already seen my face, so.\" A shrug of magnificent adolescent fatalism. \"Gate is open. Don't go in the beds. That's it, that's the whole speech.\"",
       "options": [
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You are supposed to have that on.",
+          "label": "You're supposed to have that on.",
           "next": "mask"
         },
         {
@@ -89,9 +89,9 @@
       ],
       "text": "The mask is on top of his head again. \"Gate is open. Not the beds.\"",
       "text_by_relation": {
-        "close": "He brightens up considerably. \"Right, good, talk to me, I am dying here.\"",
-        "familiar": "\"Tell me it is nearly the hour. Lie to me.\"",
-        "known": "\"Oh, it is you.\" He does not even reach for the mask."
+        "close": "He brightens up considerably. \"Right, good, talk to me, I'm dying here.\"",
+        "familiar": "\"Tell me it's nearly the hour. Lie to me.\"",
+        "known": "\"Oh, it's you.\" He doesn't even reach for the mask."
       }
     },
     "rotten": {
@@ -105,7 +105,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It is rotten.\" He is delighted to have this conceded. \"Thank you. Nobody says that. Everybody says it is four hours.\"\n\nHe puts the mask back on his head, wrong way round.\n\n\"I want the tanks. Sill says not until I can do the numbers twice without checking, and I can do them once, so.\""
+      "text": "\"It's rotten.\" He's delighted to have this conceded. \"Thank you. Nobody says that. Everybody says it's four hours.\"\n\nHe puts the mask back on his head, wrong way round.\n\n\"I want the tanks. Sill says not until I can do the numbers twice without checking, and I can do them once, so.\""
     },
     "vurn": {
       "actions": [],
@@ -118,7 +118,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sledge. Sledge Vurn.\" He is unmistakably proud and trying not to be. \"He is in the city. He sends things back sometimes, wire mostly, once a whole pump. Gran will not talk about it and Rindle will, so ask Rindle.\""
+      "text": "\"Sledge. Sledge Vurn.\" He's unmistakably proud and trying not to be. \"He's in the city. He sends things back sometimes, wire mostly, once a whole pump. Gran won't talk about it and Rindle will, so ask Rindle.\""
     }
   },
   "faction": "ideology_wildblood",

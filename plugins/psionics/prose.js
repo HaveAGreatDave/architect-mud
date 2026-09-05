@@ -119,7 +119,7 @@ export function violatesLowRank(line) {
 
 const STRAIN_SELF = {
   low:      null,
-  moderate: 'Something warm runs over your lip. Your hands will not quite hold still.',
+  moderate: "Something warm runs over your lip. Your hands won't quite hold still.",
   high:     'Your ears are wet. The room has gone soft at the edges and the light in it hurts.',
   critical: 'Your legs stop belonging to you.',
   overload: 'Everything goes white, and then nothing at all.',
@@ -128,9 +128,9 @@ const STRAIN_SELF = {
 const STRAIN_ROOM = {
   low:      null,
   moderate: '{name} wipes a nosebleed on the back of a hand.',
-  high:     'There is blood at {name}\'s ears, and {name} is squinting at nothing.',
+  high:     'There\'s blood at {name}\'s ears, and {name} is squinting at nothing.',
   critical: '{name} goes down hard and starts convulsing.',
-  overload: '{name} drops like a cut rope and does not move.',
+  overload: "{name} drops like a cut rope and doesn't move.",
 };
 
 export function strainSelfLine(player) {

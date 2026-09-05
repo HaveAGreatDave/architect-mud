@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1e1810",
   "color": "#d8c4a0",
-  "description": "The shop's back room, and the shop's real purpose. There is a cot, a shortwave set, a rack of clean and cared-for gear, and a paper map of Coldwater Basin marked in a private shorthand. Set into the floor is a wide drain hatch, its cover levered aside: a straight shaft down into the Under, and the Watch's way home. It goes down.",
+  "description": "The shop's back room, and the shop's real purpose. There's a cot, a shortwave set, a rack of clean and cared-for gear, and a paper map of Coldwater Basin marked in a private shorthand. Set into the floor is a wide drain hatch, its cover levered aside: a straight shaft down into the Under, and the Watch's way home. It goes down.",
   "exits": {
     "down": "zone_under_terminus",
     "east": "zone_lw_shop"

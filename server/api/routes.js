@@ -573,7 +573,7 @@ async function apiRegister(body) {
         return {status:201,body:{needsVerification:true}};
       } catch (e) {
         console.error('[register] verification email failed:', e.message);
-        return {status:201,body:{needsVerification:true,emailError:`Account created, but the verification email could not be sent: ${e.message}`}};
+        return {status:201,body:{needsVerification:true,emailError:`Account created, but the verification email couldn't be sent: ${e.message}`}};
       }
     }
     await query('UPDATE players SET email_verified=TRUE WHERE id=$1', [id]);
@@ -838,7 +838,7 @@ async function apiAddRoom(parentZoneId, body) {
   if (!OPPOSITE[direction]) return { status:400, body:{error:`Invalid direction "${direction}"`} };
 
   const { rows: parentRows } = await query('SELECT * FROM zones WHERE id=$1', [parentZoneId]);
-  if (!parentRows.length) return { status:400, body:{error:`Zone ${parentZoneId} does not exist`} };
+  if (!parentRows.length) return { status:400, body:{error:`Zone ${parentZoneId} doesn't exist`} };
   const parent = parentRows[0];
   const parentExits = parent.exits || {};
   if (parentExits[direction]) {
@@ -1272,7 +1272,7 @@ async function apiMoveBuilding(body) {
   if (!facadeId || toX == null || toY == null) return { status: 400, body: { error: 'facadeId, toX and toY are required.' } };
   const facade = getZone(facadeId);
   if (!facade) return { status: 404, body: { error: `No zone "${facadeId}".` } };
-  if (facade.map_id == null || facade.grid_x == null) return { status: 400, body: { error: 'That building is not placed on a map.' } };
+  if (facade.map_id == null || facade.grid_x == null) return { status: 400, body: { error: "That building isn't placed on a map." } };
 
   // Must be a building facade — has an interior map, or is flagged/enterable as one.
   const { rows: mapRows } = await query('SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [facadeId]);
@@ -1706,7 +1706,7 @@ async function rescueDisplacedPlayers(deletedZoneIds) {
 }
 
 export async function apiDeleteZone(id) {
-  if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
+  if (id==='zone_start') return {status:400,body:{error:"Can't delete spawn zone"}};
   try {
     // If deleting an individual interior/apartment room, track its parent so we
     // can clean up the interior map if no rooms remain after deletion.
@@ -2662,7 +2662,7 @@ async function apiStartStudio() {
     });
     child.unref();
   } catch (e) {
-    return { status: 500, body: { error: `Could not start the Studio: ${e.message}` } };
+    return { status: 500, body: { error: `Couldn't start the Studio: ${e.message}` } };
   }
 
   // Poll rather than guess — the caller opens the tab, and a tab opened before
@@ -2671,7 +2671,7 @@ async function apiStartStudio() {
     if (await studioIsUp()) return { status: 200, body: { ok: true, url, started: true } };
     await new Promise(r => setTimeout(r, 250));
   }
-  return { status: 504, body: { error: 'The Studio did not come up in time.' } };
+  return { status: 504, body: { error: "The Studio didn't come up in time." } };
 }
 
 // Aggregated per-author contribution stats (commits/lines/file-changes) for a
@@ -2810,7 +2810,7 @@ async function apiSmitePlayer(id) {
   if (!player) return {status:404,body:{error:'Player not online'}};
 
   const zoneMsg = `<span style="color:#f5e642">⚡ THE SKY TEARS OPEN.</span> A pillar of white fire descends from nowhere and detonates directly on top of <span style="color:#ff3b5c">${handle}</span>. The ground chars. The air smells like burned ambition. <span style="color:#f5e642">${handle} is annihilated.</span>`;
-  const selfMsg = `<span style="color:#f5e642;font-weight:bold">⚡ ⚡ ⚡ THE ARCHITECT HAS NOTICED YOU. ⚡ ⚡ ⚡</span>\n<span style="color:#ff3b5c">A column of divine lightning the width of a building drops out of the sky and hits you so hard the universe briefly forgets you exist. You feel every atom in your body make a personal decision to stop cooperating.</span>\n<span style="color:#f5e642">You are dead. You have been very dead. This is perhaps the deadest anyone has ever been.</span>`;
+  const selfMsg = `<span style="color:#f5e642;font-weight:bold">⚡ ⚡ ⚡ THE ARCHITECT HAS NOTICED YOU. ⚡ ⚡ ⚡</span>\n<span style="color:#ff3b5c">A column of divine lightning the width of a building drops out of the sky and hits you so hard the universe briefly forgets you exist. You feel every atom in your body make a personal decision to stop cooperating.</span>\n<span style="color:#f5e642">You're dead. You have been very dead. This is perhaps the deadest anyone has ever been.</span>`;
 
   broadcastFn(current_zone, {type:'zone_event', message:zoneMsg}, id);
   broadcastFn(null, {type:'output', message:selfMsg}, null, id);
@@ -3024,7 +3024,7 @@ async function apiUpsertAlias(body) {
   const verb  = String(body.verb||'').trim().toLowerCase();
   if (!alias || !verb) return {status:400,body:{error:'alias and verb are required.'}};
   if (/\s/.test(alias) || /\s/.test(verb)) return {status:400,body:{error:'alias and verb must be single words.'}};
-  if (alias === verb) return {status:400,body:{error:'alias and verb cannot be identical.'}};
+  if (alias === verb) return {status:400,body:{error:"alias and verb can't be identical."}};
   try {
     await query(
       `INSERT INTO command_aliases (alias,verb) VALUES ($1,$2)
@@ -3243,7 +3243,7 @@ async function apiBuildApartmentBlock(body) {
   if (unit_count < 1 || unit_count > 6) return { status:400, body:{error:'unit_count must be between 1 and 6 (one per compass direction, max)'} };
 
   const { rows: parentRows } = await query('SELECT * FROM zones WHERE id=$1', [attach_to_zone_id]);
-  if (!parentRows.length) return { status:400, body:{error:`Zone ${attach_to_zone_id} does not exist`} };
+  if (!parentRows.length) return { status:400, body:{error:`Zone ${attach_to_zone_id} doesn't exist`} };
   const parent = parentRows[0];
   const parentExits = parent.exits || {};
   if (parentExits[attach_direction]) {

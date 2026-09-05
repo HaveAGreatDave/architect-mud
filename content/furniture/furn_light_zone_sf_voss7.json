@@ -1,5 +1,5 @@
 {
-  "description": "A caged bulkhead lamp over the door, the kind fitted to stairwells. It lights the whole room because there is not much room to light.",
+  "description": "A caged bulkhead lamp over the door, the kind fitted to stairwells. It lights the whole room because there isn't much room to light.",
   "flags": {
     "interactions": [
       "switch"

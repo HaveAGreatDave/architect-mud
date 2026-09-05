@@ -886,7 +886,7 @@ const LIGHT_GATE = {
 	dim:     { dim: true, line: ["light-dim", "The light is poor here. Details are hard to make out."] },
 	gloomy:  { dim: true, hideItems: true, line: ["light-gloomy", "Gloom hangs thick — you catch shapes and movement, but little detail."] },
 	dark:    { dark: true, line: ["light-dark", "It's very dark. You can barely make out your surroundings."] },
-	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It is nearly black — only the vaguest shapes register."] },
+	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It's nearly black — only the vaguest shapes register."] },
 };
 
 // Compass bearing from a zone to its district landmark, off grid deltas. grid_y
@@ -1008,7 +1008,7 @@ export async function describeZone(zone, player, out = {}) {
 		const { buildings, rooms, plain } = getConnectedDestinations(zone);
 		let darkDesc =
 			`<span class="zone-name">${zone.name}</span>\n` +
-			`<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
+			`<span class="light-level light-dark">It's completely dark here. You can't make out your surroundings.${windowHint}</span>`;
 		if (plain.length) {
 			// In pitch dark you can feel for openings but can't read where they lead.
 			const exitLinks = plain.map((p) => {

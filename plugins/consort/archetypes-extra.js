@@ -36,7 +36,7 @@ export const EXTRA = {
       `moves one chair four inches and the room becomes a room you'd want to sit down in. {They} {do} not mention it.`,
       `"I've stopped costing this out." A pause, mildly appalled at {themself}. "That's what you've done to me."`,
       `"You're doing the jaw thing. Whatever it is, it isn't worth the enamel."`,
-      `has read the thing you left face-down and put it back face-down, and will not raise it unless you do.`,
+      `has read the thing you left face-down and put it back face-down, and won't raise it unless you do.`,
       `"I like the quiet with you in it better than the quiet without. That's the entirety of tonight's declaration."`,
       `catches you looking and holds the look, entirely unhurried, until you're the one who breaks it.`,
       `"Don't tell me about it standing up. Nothing true gets said standing up."`,
@@ -77,7 +77,7 @@ export const EXTRA = {
     ],
     shy: [
       `becomes exquisitely, obviously polite, which is how {they} {do} contempt.`,
-      `"Can I get you something?" It is offered so smoothly the guest doesn't notice being managed toward the door.`,
+      `"Can I get you something?" It's offered so smoothly the guest doesn't notice being managed toward the door.`,
       `turns a page at a volume that has an opinion in it.`,
       `answers one question with three words and lets the fourth one die of exposure.`,
       `checks the time twice, both times where the guest can see it.`,
@@ -172,7 +172,7 @@ export const EXTRA = {
   romantic: {
     devotedTame: [
       `"You've got weather on you. Come here, let me have the cold bit of you first."`,
-      `has been wearing something of yours all day and does not intend to give it back.`,
+      `has been wearing something of yours all day and doesn't intend to give it back.`,
       `"I did the thing where I imagine you coming through the door, and then you did, and now I don't know what to do with my hands."`,
       `steals the seat you were heading for and then holds {their} arms out, entirely unrepentant.`,
       `"I have loved you all day at a very low level, like a radio left on."`,
@@ -222,7 +222,7 @@ export const EXTRA = {
     ],
     shy: [
       `laughs too brightly at nothing and looks to you to end this.`,
-      `takes hold of your sleeve and does not let go for the duration of the visit.`,
+      `takes hold of your sleeve and doesn't let go for the duration of the visit.`,
       `"Hello." It comes out small and goes nowhere.`,
       `sits down beside §other and makes {themself} into the smaller of the two.`,
       `finds a task in the far corner that will take exactly as long as the stranger stays.`,
@@ -316,7 +316,7 @@ export const EXTRA = {
   // ── THE FERAL ─────────────────────────────────────────────────────────────
   feral: {
     devotedTame: [
-      `is eating something with {their} hands over the good table and does not stop when you come in.`,
+      `is eating something with {their} hands over the good table and doesn't stop when you come in.`,
       `"You smell like the docks." A sniff, entirely serious. "And blood. Not yours. Good."`,
       `has moved all the furniture in one corner into a shape that makes sense to {them} alone.`,
       `"I slept by the door. It's the best spot. You don't have a better spot, I checked."`,
@@ -332,7 +332,7 @@ export const EXTRA = {
       `"You're mine. That's not a question, it's just how it is, and I don't need you to say it back."`,
     ],
     devotedHot: [
-      `takes your wrist in {their} teeth, gently, and lets go with a look that is not a question.`,
+      `takes your wrist in {their} teeth, gently, and lets go with a look that isn't a question.`,
       `"I've been circling you all evening. You noticed. Stop making me do the circling."`,
       `shoves the table out of the way rather than walk round it.`,
       `"Say yes and stop talking. Those are one thing. Do them."`,
@@ -353,10 +353,10 @@ export const EXTRA = {
       `paces once, twice, and then comes back and stands too close.`,
       `"I'm being good. I want that noticed. I'm being extremely good right now."`,
       `flexes {their} hands open and shut, over and over, like it helps.`,
-      `bares {their} teeth slightly, which from {them} is not remotely a threat.`,
+      `bares {their} teeth slightly, which from {them} isn't remotely a threat.`,
     ],
     arousedHot: [
-      `hits you like weather and is not remotely sorry about the furniture.`,
+      `hits you like weather and isn't remotely sorry about the furniture.`,
       `"Harder. I'm not going to break. Nothing's ever broken me—"`,
       `has your shirt in both fists and is shaking with it.`,
       `"Mine. Mine. Say it, say it back, say—" and then teeth, and then nothing coherent.`,
@@ -373,12 +373,12 @@ export const EXTRA = {
       `takes the knife off the table before anyone else can, casually, and keeps it in {their} hand.`,
       `smells the air near the newcomer, obviously, and makes no attempt to hide having done it.`,
       `has gone flat and silent, and the room's temperature goes with {them}.`,
-      `does not sit down once while there is a stranger in the room.`,
+      `doesn't sit down once while there's a stranger in the room.`,
     ],
     worried: [
       `licks {their} thumb and wipes the blood back to see how deep it is, which is horrifying and effective.`,
       `"Lie down. Not on the good thing. On me."`,
-      `will not let anyone else near you, including people trying to help.`,
+      `won't let anyone else near you, including people trying to help.`,
       `"I should have been there. I keep saying that. One day you'll let me be there."`,
       `presses hard on the wound and doesn't flinch when you shout about it.`,
       `stays awake the whole night, in the dark, watching the door with your blood still on {their} hands.`,
@@ -404,7 +404,7 @@ export const EXTRA = {
       (d) => `brings ${d}, drinks the first inch, and looks at you like that's how it's always been done.`,
       (d) => `pours ${d}, sniffs it hard, and decides you're allowed it.`,
       (d) => `slams ${d} down in front of you hard enough to make the table jump. "Drink."`,
-      (d) => `pours ${d} into whatever cup was nearest, which is not a glass at all.`,
+      (d) => `pours ${d} into whatever cup was nearest, which isn't a glass at all.`,
       (d) => `pushes ${d} across to you and then sits on the floor at your feet with the bottle.`,
     ],
     pourHot: [
@@ -501,7 +501,7 @@ export const EXTRA = {
       `"Don't take your hand away. That's all I'll ask for."`,
     ],
     arousedHot: [
-      `comes entirely apart, and it is startling how little there was holding it together.`,
+      `comes entirely apart, and it's startling how little there was holding it together.`,
       `"Please— " and then nothing else, for quite a while.`,
       `gives {themself} over so completely that it stops being submission and starts being something else.`,
       `"All of it. Whatever you want. I've never once had to think about the answer—"`,
@@ -513,17 +513,17 @@ export const EXTRA = {
     shy: [
       `folds into perfect stillness and lets the stranger fill the silence badly.`,
       `pours the guest a drink they didn't ask for, which ends more conversations than it starts.`,
-      `"I'm not for meeting." Said kindly. It is nonetheless an ending.`,
+      `"I'm not for meeting." Said kindly. It's nonetheless an ending.`,
       `stands at §other's shoulder like something posted there.`,
       `looks at the newcomer with the patience of someone waiting out weather.`,
       `answers three questions with the same six words and doesn't vary the tone.`,
       `bows {their} head very slightly at the guest and offers not one thing more.`,
-      `busies {their} hands with something small and perfect and does not look up again.`,
+      `busies {their} hands with something small and perfect and doesn't look up again.`,
     ],
     worried: [
       `has the light, the water and the clean cloth laid out in order before {they} {ask} what happened.`,
-      `"Be still. This is not the part where you're brave."`,
-      `works with the concentration of someone performing a rite and does not hurry once.`,
+      `"Be still. This isn't the part where you're brave."`,
+      `works with the concentration of someone performing a rite and doesn't hurry once.`,
       `"I've cleaned worse than this. I want you to hear that and take the comfort in it."`,
       `presses a kiss to your knuckles between one dressing and the next, absently, without breaking rhythm.`,
       `"I won't ask you to stop going out. I'd only be asking you to be someone else."`,
@@ -539,7 +539,7 @@ export const EXTRA = {
     ],
     missLong: [
       `"I found I was talking to the room. Not to you. To the room. That was the day I noticed it had gone on too long."`,
-      `"I kept every observance. Every one. And on the fourth night I sat down and could not think of a single reason for any of them."`,
+      `"I kept every observance. Every one. And on the fourth night I sat down and couldn't think of a single reason for any of them."`,
       `"Whatever kept you, I'd rather have you late than have you explained."`,
       `"I want to be composed about this and I find that I can't be, and I'd like you to see that."`,
       `"Don't apologise. Sit down. Let me look at you until it stops feeling like a story I made up."`,
@@ -668,7 +668,7 @@ export const EXTRA = {
     worried: [
       `"Don't be clever. Don't be brave. Sit down and be a patient like everybody else."`,
       `"If you die I'm keeping all your things and I'll be very tasteless about it, so don't."`,
-      `has the medkit out and {their} hands are not steady and {they} won't let you comment on it.`,
+      `has the medkit out and {their} hands aren't steady and {they} won't let you comment on it.`,
       `"I'm going to yell at you when this is closed. I'm holding the yelling. It's building."`,
       `works in complete silence, which is the loudest {they} have ever been.`,
       `"You promised me a boring life. You've been lying to me for months."`,
@@ -782,7 +782,7 @@ export const EXTRA = {
     ],
     arousedTame: [
       `has gone very warm and very still, and the stillness is now a different kind entirely.`,
-      `"That." Just that. It is apparently the whole sentence.`,
+      `"That." Just that. It's apparently the whole sentence.`,
       `closes {their} eyes, which {they} almost never do, and doesn't open them.`,
       `is breathing in a way you've not heard from {them} in months of quiet.`,
       `"I don't have a word for this feeling. I've looked."`,
@@ -813,7 +813,7 @@ export const EXTRA = {
     worried: [
       `has the wound cleaned before you've explained anything about it.`,
       `"You should have come home. You know the way. You always know the way."`,
-      `"This one will scar. I'll know where it is in the dark. I'll want to know where it is in the dark."`,
+      `"This one will scar. I'll know where it's in the dark. I'll want to know where it's in the dark."`,
       `works silently, and once, very briefly, {their} hands stop and have to be restarted.`,
       `"I've done this before. Not for you. I don't know for who."`,
       `won't put the light out afterwards, which is new.`,
@@ -927,10 +927,10 @@ export const EXTRA = {
     ],
     arousedTame: [
       `opens {their} mouth for a punchline and nothing whatsoever comes out.`,
-      `"Nope. Gone. All of it. There is nothing in here but static."`,
+      `"Nope. Gone. All of it. There's nothing in here but static."`,
       `laughs, and it's the wrong laugh — smaller and much more honest.`,
       `"Don't tell anyone I went quiet. It'd ruin me professionally."`,
-      `has both hands over {their} face and is talking through them and none of it is a bit.`,
+      `has both hands over {their} face and is talking through them and none of it's a bit.`,
       `"Okay so — hm. Yeah. Words are hard now. That's new."`,
       `swallows a joke halfway out and just breathes instead.`,
       `"I'd do a callback here but I've forgotten the setup and my own name."`,
@@ -988,7 +988,7 @@ export const EXTRA = {
       (d) => `presents ${d} with a bow that goes on far too long.`,
     ],
     pourHot: [
-      (d) => `pours ${d}, takes a mouthful, and passes it over with a look that is not funny at all.`,
+      (d) => `pours ${d}, takes a mouthful, and passes it over with a look that isn't funny at all.`,
       (d) => `brings ${d} and sits on the arm of your chair. "Table service. Extremely handsy staff. Terrible reviews."`,
       (d) => `pours ${d} and drinks it {themself}, entirely, and says the punchline is that {they} {is} the drink.`,
       (d) => `hands over ${d} and then straddles the argument about whether the drink was the point.`,
@@ -1091,13 +1091,13 @@ export const EXTRA = {
       `is theorising out loud right up until {they} {is} very much not.`,
     ],
     shy: [
-      `raises the book to a height that is clearly defensive.`,
+      `raises the book to a height that's clearly defensive.`,
       `gives the guest three correct facts and no conversation whatsoever.`,
       `"I'm in the middle of something." {They} {has} been in the middle of something for two hours.`,
       `moves {their} papers to §other's end of the table and stands over them.`,
       `answers a friendly question so literally that the conversation dies of it.`,
       `watches the stranger with open, unhelpful curiosity and shares none of the conclusions.`,
-      `takes notes. Visibly. About the guest. It is not subtle and isn't meant to be.`,
+      `takes notes. Visibly. About the guest. It isn't subtle and isn't meant to be.`,
       `"I'd rather not be interviewed by someone I haven't read anything about."`,
     ],
     worried: [
@@ -1107,7 +1107,7 @@ export const EXTRA = {
       `"I'm going to need to know what did this. Later. In detail. So I can read about it."`,
       `is white to the lips and completely competent and won't be told to sit down.`,
       `"Blood loss is arithmetic. That's all it is. Arithmetic." {They} {say} it like a rope {they}'re holding.`,
-      `cleans everything twice, which is not necessary and is entirely about {them}.`,
+      `cleans everything twice, which isn't necessary and is entirely about {them}.`,
       `afterwards, sits with the book open on the same page for a very long time without reading it.`,
     ],
     missShort: [
@@ -1221,7 +1221,7 @@ export const EXTRA = {
       `is holding the edge of the table and hasn't noticed doing it.`,
       `"That's — yes. Keep that."`,
       `closes {their} eyes and lets the expression finally do something.`,
-      `"I'm not going to make a sound. That's not a challenge. It's just the way I am." It is now a challenge.`,
+      `"I'm not going to make a sound. That's not a challenge. It's just the way I am." It's now a challenge.`,
       `breathes out unevenly and looks briefly annoyed about the unevenness.`,
       `takes hold of your wrist and doesn't let it go anywhere.`,
     ],
@@ -1242,7 +1242,7 @@ export const EXTRA = {
       `checks that §other has an exit and then loses interest in the whole event.`,
       `"You'll want to talk to whoever brought you." Said without looking up.`,
       `waits out the small talk with the patience of a locked door.`,
-      `does not offer the guest a drink, which in this house is a whole verdict.`,
+      `doesn't offer the guest a drink, which in this house is a whole verdict.`,
       `has already worked out how long this will take and is visibly running the clock.`,
     ],
     worried: [
@@ -1253,7 +1253,7 @@ export const EXTRA = {
       `washes {their} hands afterwards for slightly too long and doesn't discuss it.`,
       `"I'd have noticed within the day. Don't make me find out that way."`,
       `sits by the bed all night with the lamp on low and is gone from the chair before you wake.`,
-      `"Bring the name home next time." Flat. "I'm not sentimental. I am thorough."`,
+      `"Bring the name home next time." Flat. "I'm not sentimental. I'm thorough."`,
     ],
     missShort: [
       `"You were out. The place was quiet. Both facts, no relation implied."`,
@@ -1266,7 +1266,7 @@ export const EXTRA = {
       `"Four days. The rate doesn't pause. I've been billing you to be alone in a nice room."`,
       `"You could have sent something. One line. I'm not owed it, I'd have liked it."`,
       `"I'd got used to a shape of week. It went. That's all that happened."`,
-      `is standing at the window when you come in, which is not where {they} sit, and never comments on it.`,
+      `is standing at the window when you come in, which isn't where {they} sit, and never comments on it.`,
       `"Right." A very long pause. "...I'd stopped expecting the door. That took some doing."`,
     ],
     pourTame: [
@@ -1392,7 +1392,7 @@ export const EXTRA = {
     ],
     worried: [
       `screams once, briefly, and then is completely, shockingly practical.`,
-      `"Do not die in front of me. I'll be unbearable. I'll be unbearable FOREVER."`,
+      `"Don't die in front of me. I'll be unbearable. I'll be unbearable FOREVER."`,
       `ruins something expensive using it as a bandage and never mentions the cost.`,
       `"Look at me. At me. That's it. Keep those eyes here."`,
       `talks nonstop while working — nonsense, gossip, old stories — because the quiet is unsurvivable.`,
@@ -1487,7 +1487,7 @@ export const EXTRA = {
       `"I did the drills today. There's nobody to do them with. I did them anyway."`,
       `"I don't miss it." A pause. "I miss knowing what I was for. Then you come in and that's answered."`,
       `hands you a cup of something hot without a word and takes the chair facing the door.`,
-      `"The old outfit had a word for a night like this. Quiet. That was the word. We were not creative people."`,
+      `"The old outfit had a word for a night like this. Quiet. That was the word. We weren't creative people."`,
       `sits down beside you and puts a hand on the back of your neck, briefly, checking you're solid.`,
       `"There's a bag packed by the door. There's always a bag packed by the door. Ignore it."`,
     ],
@@ -1572,7 +1572,7 @@ export const EXTRA = {
       (d) => `hands you ${d} and doesn't move away, so drinking it happens against {them}.`,
       (d) => `pours ${d}, drinks {theirs} in one, and looks at you steadily until you understand.`,
       (d) => `sets ${d} down untouched. "Later. Come here first."`,
-      (d) => `brings ${d} and takes your wrist to steady the glass, which it did not need.`,
+      (d) => `brings ${d} and takes your wrist to steady the glass, which it didn't need.`,
     ],
     talkKeeper: [
       `"Ask me about the old work. Not the bad night — anything else. There was a lot of it that was just weather and boredom."`,

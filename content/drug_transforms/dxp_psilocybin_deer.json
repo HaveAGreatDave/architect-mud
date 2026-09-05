@@ -4,7 +4,7 @@
     "Did you hear that, outside?",
     "Why are none of you running?"
   ],
-  "description": "A deer, upright, filling more of the room vertically than anything ought to, balanced with no apparent effort at all. It is looking at you with the whole of its attention and it is not frightened, which is the wrong way round.",
+  "description": "A deer, upright, filling more of the room vertically than anything ought to, balanced with no apparent effort at all. It's looking at you with the whole of its attention and it isn't frightened, which is the wrong way round.",
   "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} lowers its head almost to yours and raises it again.",
@@ -23,7 +23,7 @@
   "name": "a deer standing on its hind legs",
   "says": [
     "I can stand like this for as long as I want to.",
-    "You are between me and the way out. It is fine.",
+    "You're between me and the way out. It's fine.",
     "Nothing in here has ever hurt me."
   ],
   "scope": "person"

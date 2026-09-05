@@ -91,7 +91,7 @@ function ensurePackStyles() {
   .cp-pack-body { position:absolute; inset:0; border-radius:8px; overflow:hidden;
     background:linear-gradient(148deg,#12212e 0%,#20455c 18%,#7fd8e8 33%,#2a5f7a 44%,#123044 58%,#6b52a8 72%,#2b2352 84%,#101a2a 100%);
     box-shadow:0 26px 60px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(255,255,255,0.16), inset 0 0 40px rgba(0,0,0,0.5); }
-  /* The holographic sweep: a hard specular band raked across the foil. It is the
+  /* The holographic sweep: a hard specular band raked across the foil. It's the
      single cue that says "this is foil, not paper" before anything moves. */
   .cp-pack-body::after { content:''; position:absolute; inset:-60%;
     background:linear-gradient(74deg, transparent 38%, rgba(255,255,255,0.72) 47%, rgba(190,255,255,0.9) 50%, rgba(255,255,255,0.6) 53%, transparent 62%);
@@ -103,7 +103,7 @@ function ensurePackStyles() {
   .cp-pack-sub { font-size:9px; letter-spacing:3px; color:rgba(230,245,255,0.75); }
   .cp-pack-count { margin-top:14px; font-size:10px; letter-spacing:2px; color:rgba(255,255,255,0.6);
     border-top:1px solid rgba(255,255,255,0.22); border-bottom:1px solid rgba(255,255,255,0.22); padding:5px 12px; }
-  /* Scored seam — the thing you are about to tear, so it is drawn as a real
+  /* Scored seam — the thing you're about to tear, so it's drawn as a real
      feature of the object rather than implied by the animation. */
   .cp-pack-seam { position:absolute; left:0; right:0; top:26px; height:12px; z-index:3;
     background:repeating-linear-gradient(90deg, rgba(255,255,255,0.5) 0 5px, transparent 5px 10px);
@@ -192,7 +192,7 @@ function ensurePackStyles() {
   .cp-dupe-tag { color:#c07b3a; }
 
   /* A PLAYER card is somebody real. It gets a banner no NPC card can earn — the
-     asymmetry is the point of the whole system, so it is stated on screen. */
+     asymmetry is the point of the whole system, so it's stated on screen. */
   .cp-player-banner { position:absolute; top:-30px; left:50%; transform:translateX(-50%) scale(.7);
     white-space:nowrap; font-size:10px; letter-spacing:4px; font-weight:700; padding:4px 14px; border-radius:3px;
     color:#04121a; background:linear-gradient(90deg,#7fe8ff,#fff,#7fe8ff); opacity:0;
@@ -218,7 +218,7 @@ function ensurePackStyles() {
     30%,50%,70%{transform:translateX(calc(-7px * var(--cp-shake,0)))}
     40%,60%{transform:translateX(calc(7px * var(--cp-shake,0)))} }
 
-  /* Shockwave — a ring thrown off the card at the instant it turns. It is the
+  /* Shockwave — a ring thrown off the card at the instant it turns. It's the
      single cheapest thing that makes a flip feel like an EVENT rather than a
      transition, and it scales with the rank because it borrows --cp-glow. */
   .cp-ring { position:absolute; left:50%; top:50%; width:220px; height:220px; margin:-110px 0 0 -110px;
@@ -229,7 +229,7 @@ function ensurePackStyles() {
     100%{opacity:0; transform:scale(2.6)} }
 
   /* Shine — a hard specular band raked across the FACE just after it lands, the
-     same cue the sealed foil uses. It is what says the card is a printed,
+     same cue the sealed foil uses. It's what says the card is a printed,
      laminated object and not a panel of text. */
   .cp-shine { position:absolute; inset:0; pointer-events:none; z-index:8; overflow:hidden; border-radius:12px; }
   .cp-shine i { position:absolute; inset:-70%;
@@ -318,7 +318,7 @@ function ensurePackStyles() {
   @keyframes cp-lit-sweep { from{transform:translateX(-115%)} to{transform:translateX(115%)} }
 
   /* Corona — epic and up. A slow rotating fan BEHIND everything that outlives the
-     burst, so a big pull keeps radiating for as long as it is on screen. */
+     burst, so a big pull keeps radiating for as long as it's on screen. */
   .cp-stage.corona::before { content:''; position:absolute; left:50%; top:46%; width:150vmax; height:150vmax;
     margin:-75vmax 0 0 -75vmax; pointer-events:none; z-index:-2; opacity:.22; mix-blend-mode:screen;
     background:conic-gradient(from 0deg, transparent 0deg, var(--cp-accent,#fff) 14deg, transparent 28deg,
@@ -357,7 +357,7 @@ function ensurePackStyles() {
   .cp-sum-grid { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; overflow-y:auto; padding:4px; }
   /* Each card in the wall is a door back into that card, so it has to LOOK like
      one: it lifts under the pointer and says READ. A grid of tiles that can be
-     clicked but never suggest it is a feature nobody finds. */
+     clicked but never suggest it's a feature nobody finds. */
   .cp-sum-card { position:relative; width:118px; border-radius:7px; padding:8px; cursor:pointer;
     background:linear-gradient(170deg,#0c141c,#141d28);
     border:1px solid color-mix(in srgb, var(--c,#8b98a8) 60%, transparent);
@@ -390,11 +390,11 @@ function ensurePackStyles() {
      game is a screen you read; this one is a box you buy something out of, and
      the whole appeal of a card machine is watching the sleeve fall. So: painted
      steel, a lit marquee, product on real coils behind glass, a catch paddle, a
-     belt, a chute and a flap that gets hit. No scanlines — there is no tube
+     belt, a chute and a flap that gets hit. No scanlines — there's no tube
      here, the glass is glass, and a scanline over a shelf of merchandise reads
      as a bug.
 
-     THE GLASS IS THE WHOLE ILLUSION, so it is built the way real glass reads
+     THE GLASS IS THE WHOLE ILLUSION, so it's built the way real glass reads
      rather than as one sheen: an inner bevel where the pane meets the frame, a
      tinted body that darkens with depth, a broad raked specular, a second
      tighter highlight along the top edge, drifting room reflection, and dirt —
@@ -453,7 +453,7 @@ function ensurePackStyles() {
      bottom, where the cabinet's own shadow falls behind it. */
   .vm-pane-tint { background:linear-gradient(184deg, rgba(150,225,255,0.055), rgba(10,30,45,0.10) 55%, rgba(0,0,0,0.30));
     box-shadow:inset 0 0 40px rgba(0,0,0,0.55); }
-  /* The broad raked specular — the single strongest "there is a sheet in front
+  /* The broad raked specular — the single strongest "there's a sheet in front
      of this" cue. It drifts, very slowly, so the pane never looks printed on. */
   .vm-pane-sheen { background:linear-gradient(108deg, transparent 0 26%, rgba(210,240,255,0.16) 33%,
       rgba(210,240,255,0.05) 39%, transparent 47%, transparent 66%, rgba(200,235,255,0.07) 71%, transparent 78%);

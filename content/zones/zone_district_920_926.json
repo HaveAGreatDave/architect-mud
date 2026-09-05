@@ -3,7 +3,7 @@
   "ambient_theme": "forest",
   "bg_color": "#16241a",
   "color": "#6ab04c",
-  "description": "A shallow scald in the rock holding water that has no business being that colour, fed by something under the ground that nobody has ever found the top of. The rim is crusted white. Bones in the shallows, small ones, gone the same shade as the crust. This is not a holy place and nothing has been left here on purpose. It is simply where the ground leaks, and the Wildblood who pass through here fill nothing from it and camp upwind.",
+  "description": "A shallow scald in the rock holding water that has no business being that colour, fed by something under the ground that nobody has ever found the top of. The rim is crusted white. Bones in the shallows, small ones, gone the same shade as the crust. This isn't a holy place and nothing has been left here on purpose. It's simply where the ground leaks, and the Wildblood who pass through here fill nothing from it and camp upwind.",
   "exits": {
     "east": "zone_district_921_926",
     "north": "zone_district_920_925",

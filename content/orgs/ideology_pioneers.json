@@ -2,7 +2,7 @@
   "color": "#E0576B",
   "description": "The old world is a corpse and the Pioneers refuse to keep it on life support. No steel salvation, no mutant rebirth, no retreat into the mind: just ordinary people, hands and grit, walking past the last streetlight to build something that was never here. Their legend isn't a stronger body or a sharper edge; it's a settlement where there was ruin, a road where there was none, a name the next generation will actually remember. Their greatest are known by the map and not the mirror: a waystation that bears their name, a route the caravans still run, a township that outlived its founder and never once doubted it had the right to exist.",
   "flags": {
-    "creed": "The next civilization won't be found. It will be built.",
+    "creed": "The next civilization won't be found. It'll be built.",
     "expansion": true,
     "path": "human",
     "reader": {

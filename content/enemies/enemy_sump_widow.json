@@ -128,15 +128,15 @@
       "weight": 25
     }
   ],
-  "death_message": "The Widow's legs draw in one by one until she is a fist, and then the sump takes her back with a sound like a drain finally clearing.",
-  "description": "The deep marsh has one resident and this is it. Bigger than the shed it could not fit inside, jointed wrong in about four places, and coated in the same brown film as everything else down here so that the first thing you notice is usually the smell. The gulpers do not go where she is. That should have been the hint.",
+  "death_message": "The Widow's legs draw in one by one until she's a fist, and then the sump takes her back with a sound like a drain finally clearing.",
+  "description": "The deep marsh has one resident and this is it. Bigger than the shed it couldn't fit inside, jointed wrong in about four places, and coated in the same brown film as everything else down here so that the first thing you notice is usually the smell. The gulpers don't go where she is. That should have been the hint.",
   "dodge": 4,
   "faction": null,
   "flags": {
     "attacks_npcs": true,
     "battle_cries": [
       "$enemy rises out of the sump, and keeps rising.",
-      "$enemy does not hurry. Nothing about this requires hurrying.",
+      "$enemy doesn't hurry. Nothing about this requires hurrying.",
       "$enemy folds a limb around $player, testing, the way you would check fruit."
     ],
     "first_strike_delay_ms": 600

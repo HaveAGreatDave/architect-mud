@@ -215,8 +215,8 @@ export class HoldemGame {
   // Returns { ok, error, events: [] } where events are narration strings.
   handleAction(playerId, action, amount = 0) {
     const idx = this.seats.findIndex(s => s.playerId === playerId);
-    if (idx < 0) return { ok: false, error: 'You are not at the table.' };
-    if (idx !== this.actionIdx) return { ok: false, error: 'It is not your turn.' };
+    if (idx < 0) return { ok: false, error: "You aren't at the table." };
+    if (idx !== this.actionIdx) return { ok: false, error: "It isn't your turn." };
     const seat = this.seats[idx];
     if (seat.folded) return { ok: false, error: 'You have already folded.' };
 

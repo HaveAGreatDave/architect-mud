@@ -1,10 +1,10 @@
 {
-  "description": "A palm-sized emitter on a lanyard, meant to be worn against the sternum. It does not hide you. It makes every machine that looks at you slightly less sure it saw anything worth writing down.",
+  "description": "A palm-sized emitter on a lanyard, meant to be worn against the sternum. It doesn't hide you. It makes every machine that looks at you slightly less sure it saw anything worth writing down.",
   "flags": {},
   "id": "item_null_scrambler",
   "name": "scrambler",
   "tags": {
-    "description": "A palm-sized emitter on a lanyard, meant to be worn against the sternum. It does not hide you. It makes every machine that looks at you slightly less sure it saw anything worth writing down.",
+    "description": "A palm-sized emitter on a lanyard, meant to be worn against the sternum. It doesn't hide you. It makes every machine that looks at you slightly less sure it saw anything worth writing down.",
     "electronic": true,
     "misc": true,
     "null_device": true,

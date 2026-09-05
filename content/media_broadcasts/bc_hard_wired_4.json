@@ -48,7 +48,7 @@
         },
         "next": "bsm_13",
         "style": "verbatim",
-        "text": "Delphine Voss says, \"Who is it.\"",
+        "text": "Delphine Voss says, \"Who's it.\"",
         "type": "say"
       },
       "bsm_13": {
@@ -107,7 +107,7 @@
         },
         "next": "bsm_19",
         "style": "narration",
-        "text": "She opens the door. CRUZ MANDIBLE stands there holding a wrench the size of an argument.\nHe is wet. It is not raining in the corridor. Nobody addresses this.",
+        "text": "She opens the door. CRUZ MANDIBLE stands there holding a wrench the size of an argument.\nHe is wet. It isn't raining in the corridor. Nobody addresses this.",
         "type": "say"
       },
       "bsm_19": {
@@ -409,7 +409,7 @@
         },
         "next": "bsm_46",
         "style": "narration",
-        "text": "They both reach into the wall. Their fingers meet somewhere in the dark on a fitting neither\nof them can see. There is a long, meaningful silence. Somewhere, a pipe groans.",
+        "text": "They both reach into the wall. Their fingers meet somewhere in the dark on a fitting neither\nof them can see. There's a long, meaningful silence. Somewhere, a pipe groans.",
         "type": "say"
       },
       "bsm_46": {
@@ -487,7 +487,7 @@
         },
         "next": "bsm_53",
         "song": "",
-        "text": "A saxophone begins, uninvited, from somewhere below the floor. It will not stop for the\nremainder of the picture. The composer was paid in full.",
+        "text": "A saxophone begins, uninvited, from somewhere below the floor. It won't stop for the\nremainder of the picture. The composer was paid in full.",
         "type": "music"
       },
       "bsm_53": {
@@ -529,7 +529,7 @@
         },
         "next": "bsm_57",
         "style": "narration",
-        "text": "in the history of the Basin. We are legally unable to show you any of it.",
+        "text": "in the history of the Basin. We're legally unable to show you any of it.",
         "type": "say"
       },
       "bsm_57": {
@@ -716,7 +716,7 @@
         },
         "next": "bsm_73",
         "style": "narration",
-        "text": "The door opens. GRETA VOSS-VOSS stands in it. She is dressed for a funeral. Her own, as it\nhappens. She was buried in this.",
+        "text": "The door opens. GRETA VOSS-VOSS stands in it. She's dressed for a funeral. Her own, as it\nhappens. She was buried in this.",
         "type": "say"
       },
       "bsm_73": {
@@ -795,7 +795,7 @@
         },
         "next": "bsm_9",
         "style": "narration",
-        "text": "freight elevator, which we are contractually obliged to remind you was NOT Cruz's fault.",
+        "text": "freight elevator, which we're contractually obliged to remind you was NOT Cruz's fault.",
         "type": "say"
       },
       "bsm_80": {
@@ -824,7 +824,7 @@
         },
         "next": "bsm_83",
         "style": "narration",
-        "text": "CRUZ slowly sits up. He looks at his wrench. He looks at the two women. He looks at the\nceiling, where the building is definitely listening. He is a professional, and this is a\nservice call, and there is a form for this.",
+        "text": "CRUZ slowly sits up. He looks at his wrench. He looks at the two women. He looks at the\nceiling, where the building is definitely listening. He's a professional, and this is a\nservice call, and there's a form for this.",
         "type": "say"
       },
       "bsm_83": {

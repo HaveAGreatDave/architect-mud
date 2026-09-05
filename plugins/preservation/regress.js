@@ -116,7 +116,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('first evaluation writes a checkpoint', !!firstCheckpointAt, row.custom_data);
 
     await ensureFreshnessCurrent(row, player);
-    check('a second immediate call with no elapsed time does not rewrite the in-memory checkpoint', row.custom_data?.freshness?.checkpointAt === firstCheckpointAt, row.custom_data);
+    check("a second immediate call with no elapsed time doesn't rewrite the in-memory checkpoint", row.custom_data?.freshness?.checkpointAt === firstCheckpointAt, row.custom_data);
 
     row = await rowFor();
     check('the DB reflects only the first write, not a second', row.custom_data?.freshness?.checkpointAt === firstCheckpointAt, row.custom_data);

@@ -6,7 +6,7 @@
     "Somebody comes in, stands, says nothing at all, and leaves."
   ],
   "ambient_theme": "indoors",
-  "description": "A cool room with a stone bier down the middle of it and a shelf of folded linen. A book lies open on a lectern: every name, in order, going back to a first entry that is not the first person to die here but the first one they had the paper to write down.\n\nThe last three entries are in the same hand as the first forty. That is not possible and nobody in the compound appears to have noticed.",
+  "description": "A cool room with a stone bier down the middle of it and a shelf of folded linen. A book lies open on a lectern: every name, in order, going back to a first entry that isn't the first person to die here but the first one they had the paper to write down.\n\nThe last three entries are in the same hand as the first forty. That isn't possible and nobody in the compound appears to have noticed.",
   "exits": {
     "down": "zone_util_zone_exo_quiet",
     "south": "zone_terminus_1216_947"

@@ -5,7 +5,7 @@
     "The walls come in and go out at the rate of a slow breath."
   ],
   "cause": "drug",
-  "description": "One second, laid out end to end so you can walk down it. It is long. Every part of it is the same second and the parts are all different, and at the end of it is the beginning of it and you have been along here before, at this pace, several times.",
+  "description": "One second, laid out end to end so you can walk down it. It's long. Every part of it's the same second and the parts are all different, and at the end of it's the beginning of it and you have been along here before, at this pace, several times.",
   "drug_id": "drug_nitrous",
   "fx": "swim",
   "fx_intensity": 0.9,
@@ -14,8 +14,8 @@
   "objects": [
     {
       "looks": [
-        "Walkable. Long. It has a middle and you are past it.",
-        "It is the second you are in. There is no other one on offer.",
+        "Walkable. Long. It has a middle and you're past it.",
+        "It's the second you're in. There's no other one on offer.",
         "The far end and the near end are the same end."
       ],
       "name": "the second"
@@ -24,7 +24,7 @@
       "looks": [
         "You have done this stretch before, at this speed, in this direction.",
         "Each one has been identical and each one has been worth it.",
-        "The count is available to you and you do not take it."
+        "The count is available to you and you don't take it."
       ],
       "name": "the repeats"
     }

@@ -4,7 +4,7 @@
   "npc_type": "dealer",
   "relation": null,
   "room_line": "{npc} asks {player} if they want the usual.",
-  "self_line": "{npc} asks if you want the usual, which is somehow the worst question.",
+  "self_line": "{npc} asks if you want the usual, and there's no good way to answer it.",
   "source": "npc",
   "tone": "normal"
 }

@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "I will keep that. I keep most things.",
+  "self_line": "I'll keep that. I keep most things.",
   "source": "object_reply_answer",
   "tone": "surreal"
 }

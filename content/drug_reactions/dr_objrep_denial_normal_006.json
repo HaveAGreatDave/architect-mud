@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Well, that is one way to talk to somebody.",
+  "self_line": "Well, that's one way to talk to somebody.",
   "source": "object_reply_denial",
   "tone": "normal"
 }

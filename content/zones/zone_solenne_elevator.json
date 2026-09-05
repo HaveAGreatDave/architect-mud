@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2c38",
   "color": "#eae1cf",
-  "description": "The car is a jewel-box of mirror-bronze and hand-rubbed walnut, a bench of oxblood leather along the back wall and a single orchid on a shelf that is replaced before it can ever wilt. A brushed panel of lit buttons glows beside the door, and a small screen overhead reads SOLENNE and the car's drifting position. Step <b>out</b> to return to the Grand Lobby.",
+  "description": "The car is a jewel-box of mirror-bronze and hand-rubbed walnut, a bench of oxblood leather along the back wall and a single orchid on a shelf that's replaced before it can ever wilt. A brushed panel of lit buttons glows beside the door, and a small screen overhead reads SOLENNE and the car's drifting position. Step <b>out</b> to return to the Grand Lobby.",
   "exits": {
     "out": "zone_solenne_lobby",
     "up": [

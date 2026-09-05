@@ -103,7 +103,7 @@ const HOME_TUTORIAL = `<span style="color:var(--accent)">◈ HOLOLOCK BOUND ◈<
 
 Your HoloLock is now bound to your biometric signature. Here's what that means:
 
-<span style="color:var(--yellow)">While you are offline or sleeping in this room:</span>
+<span style="color:var(--yellow)">While you're offline or sleeping in this room:</span>
   • A <span style="color:var(--cyan)">quantum forcefield</span> activates around the unit, visible to anyone present.
   • All doors to this room lock automatically and become <span style="color:var(--red)">unhackable</span>.
   • No one can attack or loot you while the field is active.
@@ -205,7 +205,7 @@ export async function activateForcefield(player, broadcastFn) {
 			`<span style="color:var(--cyan)">◈ HoloLock engaged. A quantum forcefield seals the unit around you. Sleep easy.</span>`,
 			`<span style="color:var(--cyan)">◈ Forcefield active. The HoloLock hums softly as the barrier locks into place. You're sealed in.</span>`,
 			`<span style="color:var(--cyan)">◈ Quantum barrier established. Your HoloLock pulses once and goes steady. Nobody's getting in.</span>`,
-			`<span style="color:var(--cyan)">◈ HoloLock online. The air shimmers as the forcefield closes around you. You are protected.</span>`,
+			`<span style="color:var(--cyan)">◈ HoloLock online. The air shimmers as the forcefield closes around you. You're protected.</span>`,
 			`<span style="color:var(--cyan)">◈ Barrier up. Your HoloLock seals the unit tight. The world outside can wait.</span>`,
 		];
 		const ownerMsg = FORCEFIELD_UP_OWNER[Math.floor(Math.random() * FORCEFIELD_UP_OWNER.length)];
@@ -219,7 +219,7 @@ const FORCEFIELD_DOWN_BYSTANDER = [
 	(handle) => `<span style="color:var(--cyan)">The field around ${handle}'s unit collapses with a sharp crack. The HoloLock dims to black. The door is just a door again.</span>`,
 	(handle) => `<span style="color:var(--cyan)">A low whine drops in pitch and cuts out. The quantum barrier sealing ${handle}'s unit unravels — threads of blue light dissolving into nothing.</span>`,
 	(handle) => `<span style="color:var(--cyan)">The shimmer around ${handle}'s door snaps off like a switch being thrown. The HoloLock's pulse slows, steadies, and goes dark.</span>`,
-	(handle) => `<span style="color:var(--cyan)">Static crackles across the surface of the field protecting ${handle}'s unit, then — silence. The glow dies. Whatever was in there is awake again.</span>`,
+	(handle) => `<span style="color:var(--cyan)">Static crackles across the surface of the field protecting ${handle}'s unit, then — silence. The glow dies. Whatever was in there's awake again.</span>`,
 	(handle) => `<span style="color:var(--cyan)">${handle}'s HoloLock shudders once, twice, then goes cold. The forcefield peels back like a heat-haze and is gone.</span>`,
 ];
 
@@ -517,7 +517,7 @@ export function playerControlsDoorApartment(player, door) {
 export async function cmdRent(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
-		return { type: "error", message: "There is nothing to rent here." };
+		return { type: "error", message: "There's nothing to rent here." };
 
 	const resident = await getNpcResidence(zone.id);
 	if (resident)
@@ -564,7 +564,7 @@ export async function cmdRent(player) {
 	const nextDueStr = rentDue ? formatGameDate(rentDue) : 'next rent cycle';
 	return {
 		type: "rent",
-		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
+		message: `Congratulations — you're the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
 
@@ -635,14 +635,14 @@ export async function cmdPrepay(player, args) {
 	const dueStr = next ? formatGameDate(next) : 'the next cycle';
 	return {
 		type: "output",
-		message: `Paid <span style="color:var(--yellow)">${total}₵</span> up front on <span style="color:var(--accent)">${zone.name}</span> — ${cycles} ${cycles === 1 ? 'cycle' : 'cycles'}, ${daysBought} days.\n\n<span class="text-dim">Rent now due:</span> ${dueStr}\n<span class="text-dim">On hand:</span> ${player.credits}₵\n\n<span class="text-dim">Paid rent is not refundable. Give the unit up before then and the remaining days go with it.</span>`,
+		message: `Paid <span style="color:var(--yellow)">${total}₵</span> up front on <span style="color:var(--accent)">${zone.name}</span> — ${cycles} ${cycles === 1 ? 'cycle' : 'cycles'}, ${daysBought} days.\n\n<span class="text-dim">Rent now due:</span> ${dueStr}\n<span class="text-dim">On hand:</span> ${player.credits}₵\n\n<span class="text-dim">Paid rent isn't refundable. Give the unit up before then and the remaining days go with it.</span>`,
 	};
 }
 
 export async function cmdUnrent(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
-		return { type: "error", message: "There is nothing to unrent here." };
+		return { type: "error", message: "There's nothing to unrent here." };
 
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id)
@@ -664,7 +664,7 @@ export async function cmdUnrent(player) {
 	const due = ymd(apt.rent_due_date);
 	const daysLeft = (today && due) ? Math.max(0, gameDaysBetween(today, due)) : 0;
 	const forfeited = daysLeft > RENT_PERIOD_DAYS
-		? `\n<span style="color:var(--red)">Forfeited:</span> ${daysLeft} days already paid for. That money does not come back.`
+		? `\n<span style="color:var(--red)">Forfeited:</span> ${daysLeft} days already paid for. That money doesn't come back.`
 		: '';
 
 	await releaseApartment(apt, zone.id);
@@ -705,7 +705,7 @@ export async function releaseCorpHq(zoneId) {
 export async function cmdLockDoor(player, wantLocked) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
-		return { type: "error", message: "There is no door to lock here." };
+		return { type: "error", message: "There's no door to lock here." };
 
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id)
@@ -764,7 +764,7 @@ export async function cmdLockDoor(player, wantLocked) {
 export async function cmdUpgradeLock(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
-		return { type: "error", message: "There is no lock to upgrade here." };
+		return { type: "error", message: "There's no lock to upgrade here." };
 
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id)
@@ -800,7 +800,7 @@ export async function cmdUpgradeLock(player) {
 export async function cmdPickLock(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
-		return { type: "error", message: "There is no lock here to pick." };
+		return { type: "error", message: "There's no lock here to pick." };
 
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id)
@@ -920,7 +920,7 @@ export function getSleepEligibility(player, zone) {
 // `light` is the only difference, and it's read wherever recovery is applied.
 export async function cmdDoze(player, broadcastFn) {
 	if (player.sleeping) {
-		return { type: 'error', message: 'You are already down. (Send any other command to get up.)' };
+		return { type: 'error', message: "You're already down. (Send any other command to get up.)" };
 	}
 	const res = await cmdSleep(player, broadcastFn, { light: true });
 	if (player.sleeping) {
@@ -942,7 +942,7 @@ export async function cmdSleep(player, broadcastFn, opts = {}) {
 		return {
 			type: "error",
 			message:
-				"You are already asleep. (Send any other command to wake up.)",
+				"You're already asleep. (Send any other command to wake up.)",
 		};
 
 	// You cannot lie down on a live stimulant. Asked of the drug system rather
@@ -951,12 +951,12 @@ export async function cmdSleep(player, broadcastFn, opts = {}) {
 		return {
 			type: "error",
 			message:
-				"You lie down, and your heart makes it clear that is not happening. Whatever you took is still driving.",
+				"You lie down, and your heart makes it clear that isn't happening. Whatever you took is still driving.",
 		};
 
 	const zone = getZone(player.current_zone);
 	if (!zone)
-		return { type: "error", message: "You are nowhere. This is a bug." };
+		return { type: "error", message: "You're nowhere. This is a bug." };
 
 	const elig = getSleepEligibility(player, zone);
 	if (!elig.canSleep) {
@@ -1155,7 +1155,7 @@ export async function tickSleep(player, broadcastFn) {
 			addPlayerToZone(player.id, entry);
 			broadcastFn(null, {
 				type: 'output',
-				message: `<span style="color:var(--cyan)">The room you were in stops being the room you are in.</span>\n<span class="text-dim">You can move. You are fairly sure you are asleep. (Look around. You will wake when you wake, or ${teachVerb('wake')} yourself out of it.)</span>`,
+				message: `<span style="color:var(--cyan)">The room you were in stops being the room you're in.</span>\n<span class="text-dim">You can move. You're fairly sure you're asleep. (Look around. You'll wake when you wake, or ${teachVerb('wake')} yourself out of it.)</span>`,
 			}, null, player.id);
 			broadcastFn(null, { type: 'sleep_state', sleeping: true, dreaming: true }, null, player.id);
 			pushDreamFx(player, broadcastFn);
@@ -1212,8 +1212,8 @@ export async function tickSleep(player, broadcastFn) {
 		applyEffect(player, 'rested', WELL_RESTED_TICKS);
 		broadcastFn(null, {
 			type: 'output',
-			message: '<span style="color:var(--green)">◈ You are fully rested — healed, clear-headed, and out of fatigue.</span>\n'
-				+ '<span class="text-dim">You are still asleep. <strong>wake up</strong> whenever you like.</span>',
+			message: '<span style="color:var(--green)">◈ You\'re fully rested — healed, clear-headed, and out of fatigue.</span>\n'
+				+ '<span class="text-dim">You\'re still asleep. <strong>wake up</strong> whenever you like.</span>',
 		}, null, player.id);
 	}
 
@@ -1222,9 +1222,9 @@ export async function tickSleep(player, broadcastFn) {
 		// there are five ways for sleep to end and every one has to do this.
 		wakeFromDream(player);
 		const reason = frozeOut
-			? `<span style="color:var(--cyan)">You wake up shivering hard enough to hurt. You cannot feel your hands. Whatever you were sleeping in, it is not enough.</span>`
+			? `<span style="color:var(--cyan)">You wake up shivering hard enough to hurt. You can't feel your hands. Whatever you were sleeping in, it isn't enough.</span>`
 			: bakedOut
-			? `<span style="color:var(--orange)">You wake up soaked in sweat, heart going like a hammer. It is far too hot to be lying here.</span>`
+			? `<span style="color:var(--orange)">You wake up soaked in sweat, heart going like a hammer. It's far too hot to be lying here.</span>`
 			: alarmRang
 			? `<span style="color:var(--yellow)">⏰ Your tablet chimes. ${hhmm(player.sleeping.alarmAt)}. You get up.</span>`
 			: runningOnEmpty

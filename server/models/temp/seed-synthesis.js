@@ -22,7 +22,7 @@ import { query, getClient } from '../db.js';
 const ITEMS = [
   { id: 'item_precursor_stim',   name: 'Stimulant Precursor',   desc: 'A jar of volatile crystalline precursor. Cook feedstock for uppers.', value: 70,  tags: { reagent: true } },
   { id: 'item_precursor_opioid', name: 'Opioid Base Paste',     desc: 'A tar-dark paste that smells of poppies and industrial solvent.',    value: 90,  tags: { reagent: true } },
-  { id: 'item_reagent_psycho',   name: 'Psychoactive Extract',  desc: 'A vial of oily extract that shifts colour when you are not looking.',  value: 110, tags: { reagent: true } },
+  { id: 'item_reagent_psycho',   name: 'Psychoactive Extract',  desc: "A vial of oily extract that shifts colour when you aren't looking.",  value: 110, tags: { reagent: true } },
   { id: 'item_solvent',          name: 'Reagent Solvent',       desc: 'Generic cutting solvent. Cheap, nasty, essential.',                    value: 25,  tags: { reagent: true } },
   { id: 'item_catalyst',        name: 'Reaction Catalyst',      desc: 'A sealed ampoule of catalyst. Makes the hard cooks possible.',         value: 140, tags: { reagent: true } },
   { id: 'item_stabilizer',      name: 'Compound Stabilizer',    desc: 'A vial of molecular stabilizer — the only thing that keeps a spliced compound from tearing itself apart.', value: 220, tags: { reagent: true } },

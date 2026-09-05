@@ -1,10 +1,10 @@
 {
-  "description": "Industrial over-ear cups on a sprung steel band, the foam gone yellow and compressed to the shape of somebody else's head. Rated for a rivet line. The world arrives through them as a distant argument you are not part of.",
+  "description": "Industrial over-ear cups on a sprung steel band, the foam gone yellow and compressed to the shape of somebody else's head. Rated for a rivet line. The world arrives through them as a distant argument you aren't part of.",
   "flags": {},
   "id": "item_ear_defenders",
   "name": "ear defenders",
   "tags": {
-    "description": "Industrial over-ear cups on a sprung steel band, the foam gone yellow and compressed to the shape of somebody else's head. Rated for a rivet line. The world arrives through them as a distant argument you are not part of.",
+    "description": "Industrial over-ear cups on a sprung steel band, the foam gone yellow and compressed to the shape of somebody else's head. Rated for a rivet line. The world arrives through them as a distant argument you aren't part of.",
     "misc": true,
     "sense_damp": {
       "hearing": -2

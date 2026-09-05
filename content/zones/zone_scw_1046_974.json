@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Rows of growing beds under a low canopy of fine mesh and stretched plastic, the whole run of it sloped to shed rain off to the side rather than through. Beans up strings. Something leafy in flats. It is not much and it is fiercely defended: a hand-painted board at the row end reads THIS IS NOT A SHORTCUT.",
+  "description": "Rows of growing beds under a low canopy of fine mesh and stretched plastic, the whole run of it sloped to shed rain off to the side rather than through. Beans up strings. Something leafy in flats. It isn't much and it's fiercely defended: a hand-painted board at the row end reads THIS IS NOT A SHORTCUT.",
   "exits": {
     "east": "zone_scw_1047_974",
     "north": "zone_scw_1046_973",

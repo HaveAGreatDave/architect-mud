@@ -126,8 +126,8 @@
       ],
       "atbat.tripleplay": [
         "Ground ball to the left side and — they got one, they got two, THEY GOT THREE. Triple play. {batter} into a triple play. I have called this game eleven years and I have never said that sentence.",
-        "THREE. That is three outs on one pitch. {batter} hit into a triple play and the {team} bench does not know where to look. Nobody move. I need a minute.",
-        "Around the horn — third, second, first, all of it, all at once. Triple play on {batter}. The inning is over and it never really started. {pitcher} just walks off like it's nothing. It is not nothing.",
+        "THREE. That's three outs on one pitch. {batter} hit into a triple play and the {team} bench doesn't know where to look. Nobody move. I need a minute.",
+        "Around the horn — third, second, first, all of it, all at once. Triple play on {batter}. The inning is over and it never really started. {pitcher} just walks off like it's nothing. It isn't nothing.",
         "{batter} rolls one into the teeth of it and they turn a TRIPLE play. Folks, whatever you paid to get in here, you're square with the house. Inning over."
       ],
       "atbat.walk": [
@@ -142,7 +142,7 @@
         "{pitcher} out there on the mound looking like a man who owes money to everyone in this stadium. Which, in fairness, he might.",
         "The grounds crew tried to reseed the infield last spring. It came up brown and angry and now they just rake it and apologize.",
         "I'm told the record for longest game at this park is fourteen hours. Seven people finished it. Two of them on purpose.",
-        "Somebody in the bleachers just took their shirt off. It is nine degrees out. I'm not going to editorialize, but I have concerns.",
+        "Somebody in the bleachers just took their shirt off. It's nine degrees out. I'm not going to editorialize, but I have concerns.",
         "Weather's holding, which around here means the acid's only a light drizzle. Bring an umbrella, lose an umbrella. That's the deal.",
         "They sell a hot dog here called the Widowmaker. It comes with a waiver. I've had three.",
         "Little-known stat: no left-handed batter has hit safely at this park after sundown since the lights started flickering. Draw your own conclusions.",
@@ -150,7 +150,7 @@
         "Quiet moment out here. Good time to mention the bathrooms are out of order. All of them. Have been since the last administration.",
         "You know, my ex-wife loved this game. Sat right there in section nine. Section nine is a crater now. Life comes at you fast.",
         "Ballpark organist is playing something in a minor key again. He only knows the one song. It's about drowning.",
-        "Vendor just walked past selling something he called \"meat adjacent.\" I did not follow up. I value what's left of me.",
+        "Vendor just walked past selling something he called \"meat adjacent.\" I didn't follow up. I value what's left of me.",
         "The stadium clock froze at 6:66 four years ago and honestly it's never once been wrong about the mood.",
         "Somewhere out past the outfield wall a dog is howling in perfect rhythm with the crowd. Nobody brought a dog.",
         "They retired a number here once. Not for a player. For a guy who survived a full season in the cheap seats. Brave soul."
@@ -208,7 +208,7 @@
         "Bases loaded, and {batter} demolishes it! Grand slam! Four come around for the {team}!"
       ],
       "hr.solo": [
-        "{batter} turns on one and it is GONE! A solo shot, no doubt about it, and {team} tack on a run!",
+        "{batter} turns on one and it's GONE! A solo shot, no doubt about it, and {team} tack on a run!",
         "SWING and a long drive by {batter}... see ya! Solo homer, over the wall for the {team}!",
         "{batter} launches it into the dark. Solo bomb. One run in for the {team}."
       ],

@@ -5,7 +5,7 @@
     "Something is written down at the far end of the surface."
   ],
   "cause": "drug",
-  "description": "The parts you are made of, laid out in a good order on a clean surface, and counted. They are all here. Somebody has done this properly and the count came out right and there is no urgency about putting them back.",
+  "description": "The parts you're made of, laid out in a good order on a clean surface, and counted. They're all here. Somebody has done this properly and the count came out right and there's no urgency about putting them back.",
   "drug_id": "drug_khole",
   "fx": "tunnel",
   "fx_intensity": 0.8,
@@ -15,8 +15,8 @@
     {
       "looks": [
         "Yours. In order. Numbered.",
-        "You recognise the use of each one and cannot recall operating any of them.",
-        "There is one you have no account for, and it is grouped with the others."
+        "You recognise the use of each one and can't recall operating any of them.",
+        "There's one you have no account for, and it's grouped with the others."
       ],
       "name": "the parts"
     },

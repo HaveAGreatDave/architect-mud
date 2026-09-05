@@ -5,7 +5,7 @@
     "Somebody a few flights up is climbing at your rate."
   ],
   "cause": "drug",
-  "description": "A flight of stairs done in the material everything institutional is done in, going up, with a landing, and a flight going up from the landing. You are climbing at a good rate. The landings arrive at regular intervals and each has a window in it with the same weather.",
+  "description": "A flight of stairs done in the material everything institutional is done in, going up, with a landing, and a flight going up from the landing. You're climbing at a good rate. The landings arrive at regular intervals and each has a window in it with the same weather.",
   "drug_id": "drug_dxm",
   "fx": "static",
   "fx_intensity": 0.55,
@@ -16,7 +16,7 @@
       "looks": [
         "Concrete, with the nosings worn pale in the middle by other people.",
         "Twelve to a flight, all the way up, checkable and checked.",
-        "They go down as well. You have not been down them."
+        "They go down as well. You haven't been down them."
       ],
       "name": "the stairs"
     },

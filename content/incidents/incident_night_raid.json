@@ -1,6 +1,6 @@
 {
   "cooldown_min": 2880,
-  "description": "Wildblood incursion. Fires off the night clock with nothing local required, which is what stops it reading as the city's own trouble coming to a head. ⚠ The street gets the direction right and the wire gets it wrong: they come UP, out of the Under, which was theirs before the Basin was poured over it. The perimeter genuinely was not breached. It was also never the way in.",
+  "description": "Wildblood incursion. Fires off the night clock with nothing local required, which is what stops it reading as the city's own trouble coming to a head. ⚠ The street gets the direction right and the wire gets it wrong: they come UP, out of the Under, which was theirs before the Basin was poured over it. The perimeter genuinely wasn't breached. It was also never the way in.",
   "duration_min": 45,
   "enabled": 1,
   "flags": {
@@ -25,7 +25,7 @@
       "do": "ambient",
       "lines": [
         "The street is empty the way a street gets when everybody made the same decision at the same moment.",
-        "There is a smear up the wall at head height that is not paint and has not dried.",
+        "There's a smear up the wall at head height that isn't paint and hasn't dried.",
         "Somebody's shopping is all over the pavement and nobody has come back for it."
       ]
     },
@@ -35,7 +35,7 @@
     },
     {
       "do": "news",
-      "text": "A localised public-order event toward {place} has been resolved — the Basin perimeter was not breached at any point and there is no evidence of external involvement."
+      "text": "A localised public-order event toward {place} has been resolved — the Basin perimeter wasn't breached at any point and there's no evidence of external involvement."
     }
   ],
   "updated_at": "1788307200",

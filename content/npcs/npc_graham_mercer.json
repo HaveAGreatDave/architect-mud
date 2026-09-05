@@ -39,8 +39,8 @@
   "faction": null,
   "flags": {
     "absent_lines": [
-      "\"For the record, and it will be needed: {missing} is not in the building.\"",
-      "\"I am required to fill. I am not required to be interesting while I fill.\"",
+      "\"For the record, and it'll be needed: {missing} isn't in the building.\"",
+      "\"I'm required to fill. I'm not required to be interesting while I fill.\"",
       "checks the run of show, finds it unchanged, and checks it again.",
       "\"Nineteen years, and this is the fourth time. I could name the other three.\""
     ],
@@ -80,7 +80,7 @@
           "The guest can hear you, John."
         ],
         "late": [
-          "They are sat in the chair. Right now. Listening to you describe the chair."
+          "They're sat in the chair. Right now. Listening to you describe the chair."
         ],
         "recover": [
           "Introduce them. Please just introduce them."
@@ -91,7 +91,7 @@
         "Nineteen years, John. This is in the bottom four.",
         "The band has stopped playing. They do that when they can hear what I can hear.",
         "I'd like this next part timestamped, please. Whatever it turns out to be.",
-        "Somewhere a lawyer just woke up and does not know why."
+        "Somewhere a lawyer just woke up and doesn't know why."
       ],
       "live": {
         "early": [
@@ -109,7 +109,7 @@
           "Careful, John."
         ],
         "late": [
-          "I'd like it noted that I did not ask, and that he answered anyway."
+          "I'd like it noted that I didn't ask, and that he answered anyway."
         ],
         "recover": [
           "Different show. Different show, John. This one has a guest in it."
@@ -125,7 +125,7 @@
       },
       "ratings": {
         "late": [
-          "You are not supposed to discuss the numbers. That was the entire instruction."
+          "You aren't supposed to discuss the numbers. That was the entire instruction."
         ],
         "recover": [
           "The booth is now standing on the desk. Break. Now."

@@ -108,7 +108,7 @@ function npcClothingLine(npc, viewer) {
 export async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
   const p = rows[0];
-  if (!p) return { type:'error', message:'Could not load stats.' };
+  if (!p) return { type:'error', message:"Couldn't load stats." };
   const { total, net } = await getNetXp(player.id);
 
   const playerSkills = await getPlayerSkills(player.id);
@@ -318,7 +318,7 @@ const STAIN_DESCS = {
       (item) => `Their ${item} is shit stained. You weren't prepared for this. Nobody warned you.`,
       (item) => `Their ${item} is shit stained. Something that can't be taken back.`,
       (item) => `Their ${item} is shit stained. You maintain eye contact. You say nothing.`,
-      (item) => `There is a shit stain on their ${item} that recontextualizes everything about this encounter.`,
+      (item) => `There's a shit stain on their ${item} that recontextualizes everything about this encounter.`,
     ],
   },
   ejaculate: {
@@ -483,7 +483,7 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
       ? [
           `You have nothing on. Not a thread. You are, in the technical sense, naked.`,
           `You're wearing exactly nothing. It's a look. A bold one.`,
-          `You are completely undressed. Whether that's a statement or an oversight isn't clear.`,
+          `You're completely undressed. Whether that's a statement or an oversight isn't clear.`,
         ]
       : [
           `${handle} is wearing nothing. Absolutely nothing. You respect the commitment.`,
@@ -512,11 +512,11 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   if (bodyPieces.length) {
-    sentences.push(cap(`${subject('is wearing', 'they are wearing', 'you are wearing')} ${bodyPieces.join(', ')}.`));
+    sentences.push(cap(`${subject('is wearing', "they're wearing", "you're wearing")} ${bodyPieces.join(', ')}.`));
   }
 
   if (weapon) {
-    sentences.push(cap(`${subject('is carrying', 'they are carrying', 'you are carrying')} ${withArticle(weapon.name)}.`));
+    sentences.push(cap(`${subject('is carrying', "they're carrying", "you're carrying")} ${withArticle(weapon.name)}.`));
   }
 
   if (accessories.length) {
@@ -538,7 +538,7 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
 // state and class capacity. Absent/0 amount reads as empty.
 function describeFill(customData, capacity) {
   const amount = customData?.fluid_amount || 0;
-  if (amount <= 0 || !capacity) return 'It is empty.';
+  if (amount <= 0 || !capacity) return "It's empty.";
   const fluid = customData?.fluid_type || 'fluid';
   const pct = (amount / capacity) * 100;
   let level;
@@ -565,7 +565,7 @@ function itemActionVerbs(it) {
 async function cmdExamine(targetStr, player, broadcast) {
   if (!targetStr || targetStr === 'room') {
     const zone = getZone(player.current_zone);
-    if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
+    if (!zone) return { type:'error', message:"You're nowhere. This is a bug." };
     return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(player.current_zone, 8, player) };
   }
 
@@ -953,7 +953,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     }
     const figure = presenceAt(player.current_zone);
     if (figure && figure.name.toLowerCase().includes(t)) {
-      const look = figure.looks.length ? figure.looks[Math.floor(Math.random() * figure.looks.length)] : 'You cannot afterwards say what it was.';
+      const look = figure.looks.length ? figure.looks[Math.floor(Math.random() * figure.looks.length)] : "You can't afterwards say what it was.";
       return { type: 'examine', message: `${titleCaseName(figure.name)}\n${look}` };
     }
   }
@@ -1029,7 +1029,7 @@ async function cmdExamine(targetStr, player, broadcast) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
         const line = tell === 'sleeping'
           ? `${c.handle} is asleep on ${where}.`
-          : `${c.handle} is upright and not here. The eyes are open and pointed at nothing, and whatever they are seeing, it is not this room.`;
+          : `${c.handle} is upright and not here. The eyes are open and pointed at nothing, and whatever they're seeing, it isn't this room.`;
         const lootLink = `<span class="action-link" data-action="loot" data-target="${escAttr(c.handle)}" title="Loot ${escAttr(c.handle)}">loot</span>`;
         return { type:'examine', message: app + `\n<span class="text-dim">(${line})</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${stealLink}  ${attackLink}` };
       }
@@ -1128,7 +1128,7 @@ async function cmdSpawnEnemy(args, player, broadcast) {
   const [enemyId, zoneArg] = args;
   if (!enemyId) return { type: 'error', message: 'Usage: spawnenemy <enemy_id> [zone_id|here]' };
   const zoneId = (!zoneArg || zoneArg === 'here') ? player.current_zone : zoneArg;
-  if (!world.zones.get(zoneId)) return { type: 'error', message: `Zone "${zoneId}" is not loaded.` };
+  if (!world.zones.get(zoneId)) return { type: 'error', message: `Zone "${zoneId}" isn't loaded.` };
   const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [enemyId]);
   if (!rows.length) return { type: 'error', message: `No enemy template "${enemyId}".` };
   const instance = spawnEnemySync(rows[0], zoneId);
@@ -1626,7 +1626,7 @@ const STAIN_SMELLS = {
 };
 
 const AIR_SMELLS = {
-  fart:  { source: 'feces', lines: ['a fart, recent and unclaimed', 'somebody has farted, and not subtly', 'a wall of flatulence that has not finished with the room'] },
+  fart:  { source: 'feces', lines: ['a fart, recent and unclaimed', 'somebody has farted, and not subtly', "a wall of flatulence that hasn't finished with the room"] },
   smoke: { source: 'burning', lines: ['smoke', 'smoke, thick enough to taste', 'enough smoke to sting'] },
 };
 
@@ -1655,7 +1655,7 @@ function creatureSmells(zone, player, acuity) {
   }
   for (const c of [...others, ...npcs]) {
     if (c.covered_in_blood || (c.hp != null && c.hp_max && c.hp / c.hp_max < 0.35)) {
-      out.push({ text: acuity >= 2 ? `blood, fresh, and it is coming off somebody standing here` : `blood somewhere close`, strength: 6, source: 'blood' });
+      out.push({ text: acuity >= 2 ? `blood, fresh, and it's coming off somebody standing here` : `blood somewhere close`, strength: 6, source: 'blood' });
       break;
     }
   }
@@ -1701,8 +1701,8 @@ function creatureSmells(zone, player, acuity) {
   if (enemies.length) {
     out.push({
       text: acuity >= 2 && enemies.length === 1
-        ? `something that is not a person, and it is close — ${enemies[0].name}`
-        : enemies.length > 2 ? `rank animal musk, several of them, and this is their room` : `something rank and alive that is not a person`,
+        ? `something that isn't a person, and it's close — ${enemies[0].name}`
+        : enemies.length > 2 ? `rank animal musk, several of them, and this is their room` : `something rank and alive that isn't a person`,
       strength: 4 + Math.min(3, enemies.length),
     });
   }
@@ -1856,7 +1856,7 @@ export async function cmdListen(args, raw, player) {
     if (bodies) found.push({ zoneId, dist, strength: (bodies > 3 ? 7 : 4) - dist,
       text: bodies > 3 ? `a lot of people moving about` : bodies > 1 ? `people talking, more than one` : `somebody moving quietly` });
     if (beasts) found.push({ zoneId, dist, strength: 6 - dist, source: 'beast',
-      text: beasts > 2 ? `several things moving that do not move like people` : `something moving wrong — too heavy, too low` });
+      text: beasts > 2 ? `several things moving that don't move like people` : `something moving wrong — too heavy, too low` });
 
     // THE CHEAP QUERY. Bodies are already in memory, so those are free above —
     // but asking every plugin what a zone sounds like is a fan-out, and paying
@@ -1941,7 +1941,7 @@ async function cmdAttune(args, raw, player) {
   player._senseSecond = second;
   await setFlags(player, [[DOMINANT_FLAG, want], [SECOND_FLAG, second || '']]);
   return { type: 'output', message: current
-    ? `It takes a while, and it is not pleasant. When it clears, your ${want} is the loud one and your ${second} has stepped back.`
+    ? `It takes a while, and it isn't pleasant. When it clears, your ${want} is the loud one and your ${second} has stepped back.`
     : `You stop trying to notice everything, and start noticing one thing. Your ${want} comes forward.` };
 }
 

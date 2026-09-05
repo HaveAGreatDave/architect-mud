@@ -4,11 +4,11 @@
     "How long have you had yours?",
     "Do you think anybody is coming to take it?"
   ],
-  "description": "A person bent under a weight that is not there. Everything about how they are standing is correct for a great load across the shoulders, and the air above them is empty, and they are managing.",
+  "description": "A person bent under a weight that isn't there. Everything about how they're standing is correct for a great load across the shoulders, and the air above them is empty, and they're managing.",
   "drug_id": "drug_mescaline",
   "emotes": [
     "{it} adjusts its grip on nothing and braces again.",
-    "{it} lets out a long breath and does not straighten up.",
+    "{it} lets out a long breath and doesn't straighten up.",
     "{it} takes one step, and takes a moment before the next."
   ],
   "fx": null,
@@ -22,9 +22,9 @@
   "matches": null,
   "name": "somebody carrying something enormous",
   "says": [
-    "It is not heavy. It is only constant.",
+    "It isn't heavy. It's only constant.",
     "I could put it down. I have thought about it.",
-    "You are carrying one too. Yours is just newer."
+    "You're carrying one too. Yours is just newer."
   ],
   "scope": "person"
 }

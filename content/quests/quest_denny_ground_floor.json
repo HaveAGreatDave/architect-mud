@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Denny Corliss has a quota. He will not use the word quota. He will use the word opportunity, and he will use it eleven times before you have finished agreeing to anything.\n\nThe pitch, as far as anyone can follow it: Franchise onboarding does not want your money. Franchise onboarding wants to see the model work. So Denny fronts you a hundred out of his own float, you go and be an economy for an afternoon, and the numbers go up on a card table on Ironside.\n\n\"Buy something. Sell three somethings. Move eight hundred through the town.\" He fans a brochure he does not hand over. \"That's not work. That's proof of concept. Work is what happens after.\"\n\nHe is not lying to you. That is the unsettling part. He has simply been lied to first, very thoroughly, and has decided to be cheerful about it.",
+  "description": "Denny Corliss has a quota. He won't use the word quota. He'll use the word opportunity, and he'll use it eleven times before you have finished agreeing to anything.\n\nThe pitch, as far as anyone can follow it: Franchise onboarding doesn't want your money. Franchise onboarding wants to see the model work. So Denny fronts you a hundred out of his own float, you go and be an economy for an afternoon, and the numbers go up on a card table on Ironside.\n\n\"Buy something. Sell three somethings. Move eight hundred through the town.\" He fans a brochure he doesn't hand over. \"That's not work. That's proof of concept. Work is what happens after.\"\n\nHe isn't lying to you. That's the unsettling part. He has simply been lied to first, very thoroughly, and has decided to be cheerful about it.",
   "fail_on": [],
   "id": "quest_denny_ground_floor",
   "meta": {},
@@ -17,9 +17,9 @@
     },
     {
       "count": 3,
-      "desc": "Move three units. Any three. Denny is not precious about it.",
+      "desc": "Move three units. Any three. Denny isn't precious about it.",
       "emotes": [
-        "{who} sells a stranger something they will regret by Thursday.",
+        "{who} sells a stranger something they'll regret by Thursday.",
         "{who} closes a sale and feels a small green blazer growing somewhere inside them."
       ],
       "id": "o1",

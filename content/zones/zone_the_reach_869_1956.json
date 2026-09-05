@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The lane behind the storefronts, which is where the town does the parts of its business it does not put a sign on. Crates stacked against the back walls, a cable run pinned up with fencing staples, a slop of grey water finding its own way downhill. It smells of hot metal and yesterday's cooking.",
+  "description": "The lane behind the storefronts, which is where the town does the parts of its business it doesn't put a sign on. Crates stacked against the back walls, a cable run pinned up with fencing staples, a slop of grey water finding its own way downhill. It smells of hot metal and yesterday's cooking.",
   "exits": {
     "north": "zone_the_reach_869_1955",
     "south": "zone_the_reach_869_1957",

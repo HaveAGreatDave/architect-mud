@@ -5,7 +5,7 @@
     "A sound comes down from above and is a normal sound."
   ],
   "cause": "drug",
-  "description": "A level surface at a height, reached by a climb you do not have, with another level surface above it. This one is where you are. It is broad and unremarkable and it goes to the edges, and the next one up is the same and is occupied.",
+  "description": "A level surface at a height, reached by a climb you don't have, with another level surface above it. This one is where you are. It's broad and unremarkable and it goes to the edges, and the next one up is the same and is occupied.",
   "drug_id": "drug_dxm",
   "fx": "tunnel",
   "fx_intensity": 0.65,
@@ -14,8 +14,8 @@
   "objects": [
     {
       "looks": [
-        "Flat. Even. It goes out to a horizon that is an edge.",
-        "You have been up here for some time and have not walked its width.",
+        "Flat. Even. It goes out to a horizon that's an edge.",
+        "You have been up here for some time and haven't walked its width.",
         "The floor is a floor. Somebody laid it."
       ],
       "name": "this level"
@@ -23,7 +23,7 @@
     {
       "looks": [
         "The same as this one, from underneath.",
-        "There is somebody on it. There is somebody on the one above that.",
+        "There's somebody on it. There's somebody on the one above that.",
         "No stair between them, and everyone got up there."
       ],
       "name": "the level above"

@@ -353,7 +353,7 @@ async function claimTeach(player) {
 }
 
 function teachLine() {
-  return `<span class="ambient">Whatever you hang in here, it will remember as a set. ${teachVerb('outfits', 'outfits')} lists the looks you've saved — and you can build a new one by dressing the doll when the doors are open.</span>`;
+  return `<span class="ambient">Whatever you hang in here, it'll remember as a set. ${teachVerb('outfits', 'outfits')} lists the looks you've saved — and you can build a new one by dressing the doll when the doors are open.</span>`;
 }
 
 // Examine path: the prose teaches the verb, and the wardrobe's own link up in the
@@ -433,7 +433,7 @@ async function cmdOutfit(args, raw, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   const rest = args.slice(1).join(' ').trim();
   const wardrobe = await resolveWardrobe(player, null);
-  if (wardrobe === 'ambiguous') return { type: 'error', message: 'There is more than one wardrobe here — open the one you mean.' };
+  if (wardrobe === 'ambiguous') return { type: 'error', message: "There's more than one wardrobe here — open the one you mean." };
   if (!wardrobe) return { type: 'error', message: "There's no wardrobe here." };
 
   if (!sub || sub === 'list') return listOutfits(player, wardrobe);
@@ -527,7 +527,7 @@ async function cmdOutfitDelId(args, raw, player) {
 async function cmdDress(args, raw, player, broadcast) {
   const name = args.join(' ').trim();
   const wardrobe = await resolveWardrobe(player, null);
-  if (wardrobe === 'ambiguous') return { type: 'error', message: 'There is more than one wardrobe here — open the one you mean.' };
+  if (wardrobe === 'ambiguous') return { type: 'error', message: "There's more than one wardrobe here — open the one you mean." };
   if (!wardrobe) return { type: 'error', message: "There's no wardrobe here to dress from." };
   if (!name) {
     const rows = await loadOutfits(player.id, wardrobe.id);

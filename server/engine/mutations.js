@@ -1039,7 +1039,7 @@ export function getCustodianOutcastResponse(zone, player) {
   }
   return {
     hostile: false,
-    message: `\n<span class="outcast-warning">Custodian staff eye you and step back. One mutters into a radio. You are not welcome here, and everyone has made sure you know it.</span>`,
+    message: `\n<span class="outcast-warning">Custodian staff eye you and step back. One mutters into a radio. You aren't welcome here, and everyone has made sure you know it.</span>`,
   };
 }
 

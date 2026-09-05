@@ -277,7 +277,7 @@ function ensureStyles() {
        the same gesture that adds the dashboard.
        NB: this whole sheet is a TEMPLATE LITERAL — never put a backtick in a comment
        here. One in this very block closed the string early, the rest of the sheet
-       parsed as JavaScript, and ensureStyles threw "no is not defined" at runtime.
+       parsed as JavaScript, and ensureStyles threw "no isn't defined" at runtime.
        A node --check passes anyway, because the result is still valid JS — so the only
        symptom is the tablet silently refusing to open. */
     /* The chassis is sized in rem, so the DEVICE grows with the type scale instead
@@ -329,10 +329,10 @@ function ensureStyles() {
 
        So the tablet drives the same element off a full-height BACKGROUND instead
        of a transform: the band is a fraction of the screen and the travel is in
-       percentages, which is exactly the screen's height whatever that is today —
+       percentages, which is exactly the screen's height whatever that's today —
        no pixel constant, no JS measuring, no resize handler.
 
-       It is also much fainter (0.5 → 0.14) and slower. At half opacity a bright
+       It's also much fainter (0.5 → 0.14) and slower. At half opacity a bright
        bar crossing text every 4 seconds pulls the eye off whatever you were
        reading, and the tablet is the one CRT in the game you READ rather than
        watch. Faint enough to register as glass, not as motion. */
@@ -389,7 +389,7 @@ function ensureStyles() {
       margin:0 -13px 9px; padding:5px 13px 7px;
       border-bottom:1px solid var(--tos-line, var(--border));
     }
-    /* The clock is the one thing that must never go — it is the tablet telling
+    /* The clock is the one thing that must never go — it's the tablet telling
        you the time, which is half of why anyone opens it. */
     #tablet-os-overlay .tos-hdr-right { position:relative; z-index:9; }
 
@@ -692,7 +692,7 @@ function ensureStyles() {
        target is marked, applied once on release. Live reflow meant every tile you
        dragged past jumped out of the way, so the layout you were aiming at kept
        changing under the pointer.
-       A TILE swap outlines the tile it will trade places with; a whole GROUP box still
+       A TILE swap outlines the tile it'll trade places with; a whole GROUP box still
        inserts (swapping a 2x3 box with one tile has no sensible meaning), so it keeps
        the before/after bar. */
     #tablet-os-overlay .tos-drop-swap { outline:2px dashed var(--mg-accent); outline-offset:-3px;
@@ -872,8 +872,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tile-stashed:hover { opacity:.85; }
 
     /* ── Mobile / short-viewport safety ────────────────────────────────────────
-       The tablet is the half of the game you cannot reach by typing, so it has to
-       work on a phone. Two independent triggers, because they are different
+       The tablet is the half of the game you can't reach by typing, so it has to
+       work on a phone. Two independent triggers, because they're different
        problems: data-density="compact" is the client's own mobile layout (set by
        main.js and used by the rest of this sheet), while the max-height query
        catches a laptop in a short window, where a fixed 820px chassis would push
@@ -900,7 +900,7 @@ function ensureStyles() {
     html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:0.9375rem; }
     html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:16px; height:16px; }
     html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:0.4688rem; }
-    /* Toolbar keeps its labels (they are what make the icons legible to a newcomer)
+    /* Toolbar keeps its labels (they're what make the icons legible to a newcomer)
        but gives up padding; the widget cards go single-file so nothing is squeezed
        to an unreadable width. */
     html[data-density="compact"] #tablet-os-overlay .tos-hbar-btn { padding:4px 2px 3px; }
@@ -1020,7 +1020,7 @@ function ensureStyles() {
       border-radius:10px; border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:0 12px 34px rgba(0,0,0,.55); }
     /* The stash listing takes the whole screen: with the default sixteen out, there
-       are ~20 apps in here, and at the home grid's 4 columns that is five rows of
+       are ~20 apps in here, and at the home grid's 4 columns that's five rows of
        full-size tiles — guaranteed to scroll. So this card is as wide as the tablet
        and its tiles are denser, which fits the whole stash in view. The group-naming
        sheet keeps the narrow default; only this one opts in. */
@@ -1160,7 +1160,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cal-has .tos-cal-ev { color:var(--tos-fg); }
     #tablet-os-overlay .tos-cal-more { color:var(--mg-accent); margin-left:2px; font-weight:bold; }
     /* Dots move to the TOP-RIGHT corner so the text below has the cell to itself, and
-       they are twice the size with a glow — a 4px dot on a dark cell was invisible at
+       they're twice the size with a glow — a 4px dot on a dark cell was invisible at
        a glance, which is the one thing a calendar marker has to be. */
     #tablet-os-overlay .tos-cal-dots { position:absolute; top:3px; right:3px; left:auto; display:flex; gap:2px; justify-content:flex-end; }
     #tablet-os-overlay .tos-cal-dot { width:7px; height:7px; border-radius:50%; background:var(--mg-accent);
@@ -1288,7 +1288,7 @@ function ensureStyles() {
     /* The reader. Prose does the story; this is the furniture around it. */
     #tablet-os-overlay .tos-comic { max-width:58ch; }
     #tablet-os-overlay .tos-comic .tos-cm-panel { margin:0 0 1.05em; }
-    /* A caption is the narrator's own voice, and in a comic it is in a box. */
+    /* A caption is the narrator's own voice, and in a comic it's in a box. */
     #tablet-os-overlay .tos-comic .tos-cm-cap { margin:0 0 1.15em; padding:9px 12px;
       border:1px solid color-mix(in srgb, var(--mg-accent) 40%, var(--tos-border));
       border-left-width:3px; border-radius:2px; background:color-mix(in srgb, var(--mg-accent) 7%, transparent);
@@ -1794,7 +1794,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-dis { display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px 12px 18px; }
     #tablet-os-overlay .tos-dis-lede { font-size:0.6875rem; color:var(--tos-fg-dim); text-align:center; max-width:300px; line-height:1.6; }
     /* No max-width, deliberately. Discord's widget ellipsis-clips member names to ITS container,
-       and we cannot restyle a cross-origin iframe — so the only lever on a name reading "a...." is
+       and we can't restyle a cross-origin iframe — so the only lever on a name reading "a...." is
        giving the frame the full width of the tablet page. */
     #tablet-os-overlay .tos-dis-frame { width:100%; min-height:420px; height:52vh; border:0; border-radius:8px;
       background:var(--tos-surface-lo); color-scheme:dark;
@@ -2140,7 +2140,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ginv-drop:hover { color:var(--mg-accent); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
     /* ⇧ wear/wield · ⇩ take off. Brighter than ⤓ and always legible rather than
        hover-revealed, because putting kit ON is the thing you came to this list to do —
-       dropping it is the destructive one that should stay quiet. */
+       dropping it's the destructive one that should stay quiet. */
     #tablet-os-overlay .tos-ginv-eqbtn { flex:0 0 auto; cursor:pointer; font-size:0.8125rem; line-height:1; padding:2px 6px; border-radius:4px;
       color:color-mix(in srgb, var(--mg-accent) 82%, #fff); background:color-mix(in srgb, var(--mg-accent) 10%, transparent);
       border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent); transition:color .12s, border-color .12s, background .12s; }
@@ -2232,7 +2232,7 @@ function ensureStyles() {
        left two thirds of the screen empty and scrolled the MOTD — an ascii-art
        banner drawn to be looked at all at once — inside a letterbox at the top.
        Same construction as the TV view: the BODY is the full-height flex column (a
-       plain block cannot be flexed by its parent, see the note there) and the log
+       plain block can't be flexed by its parent, see the note there) and the log
        is what grows, with min-height:0 so it may shrink below its content and
        scroll internally rather than pushing the input row off the bottom. */
     #tablet-os-overlay .tos-body.tos-chat-view { box-sizing:border-box; height:100%; display:flex; flex-direction:column; }
@@ -2387,14 +2387,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile:hover { filter:brightness(1.2); }
     /* THE DANGER RAIL IS GONE, AND SO IS THE READING IT CAME FROM.
        It was 'box-shadow: inset 3px 0 0 <tier colour>' — a bar down the LEFT edge of
-       every tile above 'safe'. On a street that is a handful of tiles and reads as an
-       accent; across the Wildlands it is every tile in the region, because 'zoneDanger'
+       every tile above 'safe'. On a street that's a handful of tiles and reads as an
+       accent; across the Wildlands it's every tile in the region, because 'zoneDanger'
        buckets off the max threat of a zone's spawn templates and the whole of the
        wilds spawns something. 3,471 tiles each wearing a red column turned an open
        region into a lattice of red lines, over multiple terrains, with nothing on the
        map to explain it — and the sidebar minimap, which never drew danger at all,
        rendered the same ground perfectly.
-       The tile inspector's "Danger" row went with it. A player is not told a
+       The tile inspector's "Danger" row went with it. A player isn't told a
        numeric threat tier for a patch of ground; they find out by being there. */
     #tablet-os-overlay .tos-map-tile.unreach { opacity:.4; }
     /* Perimeter wall (mirrors the sidebar minimap .mm-curtain/.mm-gate/.mm-glacis): the
@@ -2413,7 +2413,7 @@ function ensureStyles() {
        border-radius would nick the ends on top of that. Zeroing both is what closes
        the line; box-sizing keeps the tile the same size, and losing the separator on
        64 wall tiles is the point rather than a cost.
-       ONE box-shadow and four variables, because box-shadow does not accumulate across
+       ONE box-shadow and four variables, because box-shadow doesn't accumulate across
        rules: a corner carries two face classes and would otherwise keep only whichever
        rule came last, i.e. half an L. Unset faces resolve to a transparent zero-size
        shadow — a bare "0 0" is a real black one. On a pseudo-element because the tile's
@@ -2425,7 +2425,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.tos-cw-s { --cw-s:inset 0 -2px 0 0 var(--cw-ink); }
     #tablet-os-overlay .tos-map-tile.tos-cw-w { --cw-w:inset 2px 0 0 0 var(--cw-ink); }
     /* The gate is the same wall with a hole in it: two stubs and a gap, which
-       box-shadow cannot express and a gradient can. Same 32%/68% split the canvas
+       box-shadow can't express and a gradient can. Same 32%/68% split the canvas
        renderer uses, so the two screens put the door in the same place. */
     #tablet-os-overlay .tos-map-tile.tos-cw-gate { --cw-ink:transparent; --cw-gate:#aef0ff; }
     #tablet-os-overlay .tos-map-tile.tos-cw-gate::before { background-repeat:no-repeat; background-image:var(--cw-h,none),var(--cw-v,none); background-position:var(--cw-hp,top),var(--cw-vp,left); background-size:100% 2px,2px 100%; }
@@ -2673,7 +2673,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-phys { font-size:.88em; opacity:.7; margin-top:4px; letter-spacing:.02em; }
     #tablet-os-overlay .tos-bliss-note { font-size:.88em; opacity:.72; margin-top:5px; }
     /* The price is set as a plate, not a sentence: the figure large, the unit
-       under it small and uppercase. It is the one number a register is for. */
+       under it small and uppercase. It's the one number a register is for. */
     #tablet-os-overlay .tos-bliss-rate { text-align:right; margin-top:8px; padding-top:6px;
       border-top:1px solid var(--bl-ink); }
     #tablet-os-overlay .tos-bliss-ratefig { display:block; font-size:1.15em; font-weight:700; line-height:1.1; }
@@ -2827,7 +2827,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-aff.drug::before { background:#8f6fd0; }
     #tablet-os-overlay .tos-vt-affname { font-size:0.8125rem; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
     #tablet-os-overlay .tos-vt-affdet { font-size:0.7188rem; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
-    /* Paper doll. The figure is deliberately crude — it is a diagnostic readout
+    /* Paper doll. The figure is deliberately crude — it's a diagnostic readout
        on a cheap medical suite, not an anatomy plate. Colour carries everything. */
     #tablet-os-overlay .tos-vt-doll { display:flex; align-items:center; gap:16px; padding:6px 4px 10px;
       border:1px solid var(--border); background:var(--tos-surface-lo); margin-bottom:10px; }
@@ -2976,8 +2976,8 @@ function ensureStyles() {
 
     /* ── Binder ────────────────────────────────────────────────────────────
        Shelves of cards with the gaps drawn in. The empty sleeve is the load-
-       bearing element: it is what a collection feels like from the inside, and
-       it is deliberately anonymous — a named gap would be a shopping list. */
+       bearing element: it's what a collection feels like from the inside, and
+       it's deliberately anonymous — a named gap would be a shopping list. */
     #tablet-os-overlay .tos-bnd-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
     #tablet-os-overlay .tos-bnd-app { font-size:1rem; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
@@ -6769,7 +6769,7 @@ function renderCorpMapDetail(d) {
     ? `<div class="tos-row"><span>Assets</span><span>${c.assets.map(a => `${a.type === 'extractor' ? '⛏' : '⌖'} ${esc(a.type)} L${a.level}`).join(' · ')}${c.defense ? ` · def ${c.defense}` : ''}</span></div>`
     : '';
   const artery = Array.isArray(t.artery) && t.artery.length ? `<div class="tos-row"><span>On</span><span>${t.artery.map(esc).join(' · ')}</span></div>` : '';
-  return `<div class="tos-detail-name" style="font-size:0.9375rem">${esc(t.name)}</div><div class="tos-detail-desc">${t.isCurrent ? '◉ you are here · ' : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
+  return `<div class="tos-detail-name" style="font-size:0.9375rem">${esc(t.name)}</div><div class="tos-detail-desc">${t.isCurrent ? "◉ you're here · " : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
 }
 
 // ── Map app ──────────────────────────────────────────────────────────────────
@@ -6837,10 +6837,10 @@ function renderCodexShelf(d) {
     <div class="tos-cx-hero">
       <div class="tos-cx-hero-eyebrow">Architect Public Record</div>
       <div class="tos-cx-hero-title">CODEX</div>
-      <div class="tos-cx-hero-sub">What the world is. What you are becoming in it.</div>
+      <div class="tos-cx-hero-sub">What the world is. What you're becoming in it.</div>
     </div>
     <div class="tos-cx-shelf">${tiles}</div>
-    <p class="tos-cx-foot">Entries accrue as you learn them. The record is not complete, and has never claimed to be.</p>
+    <p class="tos-cx-foot">Entries accrue as you learn them. The record isn't complete, and has never claimed to be.</p>
   </div>`;
 }
 
@@ -7136,7 +7136,7 @@ function renderIdeoOverview(d, accent) {
     + (emerging.length ? `<div class="tos-ideo-substand">Emerging orders · not yet active in the Basin</div>${emerging.map(row).join('')}` : '');
   const lean = d.overview.leanName
     ? `You lean toward <b style="color:${d.overview.leanColor};text-shadow:0 0 12px ${d.overview.leanColor}80">${esc(d.overview.leanName)}</b>.`
-    : 'You have not yet taken a side.';
+    : "You haven't yet taken a side.";
   return `<div class="tos-ideo-page">
     <div class="tos-ideo-lbl">Alignment field</div>
     <div class="tos-ideo-panel">${renderIdeoRadial(d, accent)}<div class="tos-ideo-lean">${lean}</div></div>
@@ -7184,7 +7184,7 @@ function renderIdeoOrder(o, d, accent) {
     <div class="tos-ideo-panel">${renderIdeoField(d, o.id, accent)}</div>
     ${o.expansion
       ? `<div class="tos-ideo-lbl">Standing</div>
-    <div class="tos-ideo-panel"><p class="tos-ideo-note tos-ideo-dim">This order has not yet surfaced in the Basin — you cannot take up standing with it yet. Consider this a preview of a road that is coming.</p></div>`
+    <div class="tos-ideo-panel"><p class="tos-ideo-note tos-ideo-dim">This order hasn't yet surfaced in the Basin — you can't take up standing with it yet. Consider this a preview of a road that's coming.</p></div>`
       : `<div class="tos-ideo-lbl">Your standing</div>
     <div class="tos-ideo-panel">
       <div class="tos-ideo-shead"><span class="rp" style="color:${o.color}">${o.rep >= 0 ? '+' : ''}${o.rep}</span><span class="nx">${nxt}</span></div>
@@ -7486,7 +7486,7 @@ function renderHealthAfflictions(list) {
 function renderHealthApothecary(d) {
   const items = d.remedies || [];
   if (!items.length) {
-    return `<div class="tos-vt-clear">You are carrying nothing medicinal.<br><span>The city does not hand it out.</span></div>`;
+    return `<div class="tos-vt-clear">You're carrying nothing medicinal.<br><span>The city doesn't hand it out.</span></div>`;
   }
   const SECTIONS = [
     ['medical', 'Medical'],
@@ -7511,7 +7511,7 @@ function renderHealthApothecary(d) {
 // already decided you know arrive here — an unlearned value is null, never a
 // number the client is trusted to hide.
 function renderLearned(l) {
-  if (!l || !l.mask) return '<div class="tos-vt-subload">You took it. You could not tell you what it did.</div>';
+  if (!l || !l.mask) return '<div class="tos-vt-subload">You took it. You couldn\'t tell you what it did.</div>';
   const rows = [];
   if (l.effects && Object.keys(l.effects).length) {
     const mods = Object.entries(l.effects)
@@ -7682,7 +7682,7 @@ function renderAccolades(d) {
       <div class="tos-acc-foot"><span>${e.at ? esc(tosStamp(e.at)) : ''}</span><span class="xp">+1 XP</span></div>
     </div>`).join('');
 
-  const empty = `<div class="tos-acc-empty">Your file is empty.<br><span>That is not the same as clean.</span></div>`;
+  const empty = `<div class="tos-acc-empty">Your file is empty.<br><span>That isn't the same as clean.</span></div>`;
 
   return `
     <div class="tos-acc-head">
@@ -7912,7 +7912,7 @@ function renderBlissArrangement(d) {
       <div class="tos-bliss-note">${esc(e.tier.note)}</div>
       ${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment — one more and the placement is collected.</div>` : ''}
       <div class="tos-actions"><button class="tos-btn" data-act-id="release" data-act-app="bliss" data-act-params="${esc(e.id)}"
-        data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This cannot be undone.">Release</button></div>`}
+        data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This can't be undone.">Release</button></div>`}
     </div>`;
   }).join('');
 
@@ -7972,7 +7972,7 @@ function journeyDepth(nodes, cur) {
 function renderJourneyMap(d) {
   const nodes = d.nodes || [];
   const cur = nodes.find(n => n.is_current);
-  if (!cur) return `<div class="tos-empty">◈ NO SIGNAL — you are off the grid, out in the void.</div>`;
+  if (!cur) return `<div class="tos-empty">◈ NO SIGNAL — you're off the grid, out in the void.</div>`;
   const ahead = journeyAhead(nodes, cur);
   const substrate = JOURNEY_SUBSTRATE[cur.terrain] || 'TRACKLESS WASTE';
   const back = cur.void_detour ? 'east' : 'north', fwd = cur.void_detour ? null : 'south';
@@ -8339,7 +8339,7 @@ function renderMapDetail(d) {
   // good thing to point an aircraft at -- that is most of the reason to own one.
   let note = '';
   const walk = [];
-  if (t.isCurrent) note = `<div class="tos-map-note">◉ You are here.</div>`;
+  if (t.isCurrent) note = `<div class="tos-map-note">◉ You're here.</div>`;
   else if (t.reachable === false) note = `<div class="tos-map-note">No route to here from where you stand.</div>`;
   else if (isDest) walk.push(['auto', isAutoWalking() ? '■ Stop Auto-walk' : '🏃 Auto-walk here']);
   else walk.push(['route', '🧭 Route here']);
@@ -9268,7 +9268,7 @@ function renderSurveillance(d) {
         // Only offered when there is a consumer deck in the room to take the feed —
         // the app never advertises an output that isn't plugged in.
         ...(d.deckHere ? [{ id: 'cast', label: d.deckCam === focus.id ? `Unpatch ${d.deckHere}` : `Patch → ${d.deckHere}` }] : []),
-        { id: 'destruct', label: 'Self-Destruct', confirm: 'Fry this device where it sits? It is destroyed, not recovered.' },
+        { id: 'destruct', label: 'Self-Destruct', confirm: "Fry this device where it sits? It's destroyed, not recovered." },
       ], focus.id)}
     </div>` : '';
 
@@ -9872,7 +9872,7 @@ function renderDeadhead(d) {
 let _tvView = null;
 
 function renderTv(d) {
-  // Off the grid there is no broadcast to receive at all — no station, no tuner,
+  // Off the grid there's no broadcast to receive at all — no station, no tuner,
   // just dead air. Short-circuits before the shared TV view is ever built, so
   // mountTabletTv finds no .tos-tv-set and never opens a portable tuner out here.
   if (isOnCrossing()) {
@@ -10084,7 +10084,7 @@ function renderBody() {
     const sheet = d.sheet
       ? `<pre class="tos-poster">${esc((d.sheet.lines || []).join('\n'))}</pre>`
       : '';
-    // Paper out on YOU leads, because it is the one thing on this screen you did
+    // Paper out on YOU leads, because it's the one thing on this screen you did
     // not choose to look up and the one thing that can get you killed.
     const alarm = (!d.sheet && d.onMe)
       ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">✱ ${d.onMe === 1 ? 'A contract is' : `${d.onMe} contracts are`} out on you, worth ${money(d.onMeTotal)}. No name on the sheet.</div>`
@@ -10129,7 +10129,7 @@ function renderBody() {
   }
   if (d.view === 'reel') {
     const reelActions = d.reel?.id
-      ? renderActions(d.appId, [{ id: 'delete', label: '🗑 Destroy Reel', confirm: 'Permanently destroy this microreel? This cannot be undone.' }], d.reel.id)
+      ? renderActions(d.appId, [{ id: 'delete', label: '🗑 Destroy Reel', confirm: "Permanently destroy this microreel? This can't be undone." }], d.reel.id)
       : '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderReel(d)}
@@ -11681,7 +11681,7 @@ export function openTabletToMap(arg) {
 }
 
 // If the tablet is open on the Map app, silently re-fetch it at the current zoom so
-// the "you are here" marker + window follow the player as they move (the replacement
+// the "you're here" marker + window follow the player as they move (the replacement
 // for the retired popup's refreshMapIfOpen). Returns whether it refreshed.
 export function refreshTabletMapIfOpen() {
   if (_overlay && _overlay.isConnected && _data?.appId === 'map' && _data?.view === 'map') {
@@ -11731,7 +11731,7 @@ export function openTabletToChat() {
 }
 
 // Open Chat already on one conversation. The CB's set uses this: pressing it in the cab has to
-// land you on the channel you are TUNED to, not on whichever tab was last selected — a radio that
+// land you on the channel you're TUNED to, not on whichever tab was last selected — a radio that
 // opened somebody else's conversation would be a fault. `_chatTab` is set before the nav because
 // renderChat picks its own default only when the selection is missing or stale.
 export function openTabletToChatTab(key) {
@@ -12100,7 +12100,7 @@ function fkRespond(cmd, push, openMini) {
   } else if (first === 'look' || first === 'l') {
     fkRoomLook(push);
   } else if (first === 'inventory' || first === 'i' || first === 'inv') {
-    push('<span class="tos-fk-label">You are carrying:</span> a dented tablet, half a synth-noodle, '
+    push('<span class="tos-fk-label">You\'re carrying:</span> a dented tablet, half a synth-noodle, '
        + '<span class="tos-fk-furn">a rusted pipe</span>, ₵10,555, and a bad feeling.', 'tos-fk-desc');
   } else if (first === 'gear') {
     push('<span class="tos-fk-label">Worn:</span> a stained longcoat, cracked goggles, one good boot.', 'tos-fk-desc');
@@ -12119,7 +12119,7 @@ function fkRespond(cmd, push, openMini) {
   } else if (first === 'help') {
     push('Try: look, north, inv, gear, stats, who, tablet, quit. (It\'s a demo. Be gentle.)', 'tos-fk-sys');
   } else if (first === 'quit' || first === 'logout' || first === 'exit') {
-    push('There is no escape. You are already inside the tablet, inside the game, inside the tablet.', 'tos-fk-sys');
+    push("There's no escape. You're already inside the tablet, inside the game, inside the tablet.", 'tos-fk-sys');
   } else {
     push(`You can't "${esc(first)}" here — and honestly, this is a game inside a tablet inside a game. Cut it some slack.`, 'tos-fk-amb');
   }

@@ -7,7 +7,7 @@
   "fx_intensity": 0.35,
   "id": "dxw_default_weather",
   "looks": [
-    "It is falling a fraction too slowly, and correcting when you look at it directly.",
+    "It's falling a fraction too slowly, and correcting when you look at it directly.",
     "The wind changes direction to stay behind you.",
     "It has stopped, briefly, everywhere except immediately around you."
   ],

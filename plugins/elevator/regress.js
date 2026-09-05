@@ -134,7 +134,7 @@ export default async function regress({ run, check, getPlayer }) {
       p._elevatorAt = { n: parkedFloor.n, zone: parkedFloor.zone, car: car.id, label: parkedFloor.label };
       const already = await _test.matchBareFloor([], String(parkedFloor.n), p, () => {});
       setBroadcast(savedBc2);
-      check('pressing your own floor is not an error', already?.type === 'output', `${already?.type}: ${already?.message}`);
+      check("pressing your own floor isn't an error", already?.type === 'output', `${already?.type}: ${already?.message}`);
       check('pressing your own floor signals the open doors',
         doors.some((d) => d.targetId === p.id && d.zone === parkedFloor.zone && d.floor === parkedFloor.n),
         JSON.stringify(doors));

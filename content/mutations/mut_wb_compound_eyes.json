@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "Two great domed compound eyes take up most of their face, a thousand facets each, and there is nowhere in the room they are not looking.",
+    "extreme": "Two great domed compound eyes take up most of their face, a thousand facets each, and there's nowhere in the room they aren't looking.",
     "obvious": "Their eyes have gone to clustered facets, dark and geometric, and they track you without turning their head.",
     "subtle": "Their eyes catch the light in too many places at once."
   },
@@ -14,7 +14,7 @@
   ],
   "description": "Your eyes have divided into clustered facets. You see almost everything at once, and none of it the way you used to.",
   "drawbacks": [
-    "People cannot hold eye contact with you"
+    "People can't hold eye contact with you"
   ],
   "effects": {
     "acuity_sight": 4,

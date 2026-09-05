@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Whether I am real is a question you are asking me. Think about the shape of that.",
+  "self_line": "Whether I'm real is a question you're asking me. Think about the shape of that.",
   "source": "object_reply_denial",
   "tone": "surreal"
 }

@@ -6,20 +6,20 @@ import { query } from '../../models/db.js';
 import { adjustSanity } from '../condition.js';
 
 const HAUNT_MESSAGES = [
-  'An icy breath curls across your neck. There is nobody there.',
+  "An icy breath curls across your neck. There's nobody there.",
   'The shadows shift at the edge of your vision. Something ancient regards you with interest.',
   'A chill passes through your body from the inside out. The air tastes of static and old graves.',
-  'The hairs on the back of your neck stand up. The feeling of being watched does not pass.',
+  "The hairs on the back of your neck stand up. The feeling of being watched doesn't pass.",
   'Something invisible drifts through you. For one terrible moment you forget your own name.',
   'Your reflection blinks a half-second too late.',
-  'The temperature drops three degrees. The warmth does not return.',
+  "The temperature drops three degrees. The warmth doesn't return.",
   'You hear your name spoken softly, just once, in a voice you don\'t recognise. Nobody is there.',
 ];
 
 const GHOST_LIGHT_ON_MESSAGES = [
   'The lights come on by themselves. Nobody touched the switch.',
-  'A light flickers to life. The switch did not move.',
-  'The room brightens without warning. There is no one near the fixture.',
+  "A light flickers to life. The switch didn't move.",
+  "The room brightens without warning. There's no one near the fixture.",
   'Something turns the light on. The switch clicks on its own.',
   'The bulb comes on. An invisible hand must have found the switch in the dark.',
   'Light fills the room, sudden and unexplained.',
@@ -43,7 +43,7 @@ const GHOST_AMBIENT_MESSAGES = [
   'An inexplicable chill settles over the area.',
   'You feel briefly, intensely observed. The feeling passes.',
   'The air pressure changes for just a moment, then returns to normal.',
-  'Something brushes past you. There is nothing there.',
+  "Something brushes past you. There's nothing there.",
   'A low, sourceless sound — less heard than felt — moves through the room.',
   'The light flickers almost imperceptibly.',
   'The silence thickens for a moment before easing.',
@@ -57,11 +57,11 @@ const GHOST_AMBIENT_MESSAGES = [
 const GHOST_DRAIN_MESSAGES = [
   'The air turns to ice. Every light in the room dies at once, as though something unseen has reached into the walls and squeezed. Darkness pours in.',
   'A pressure builds — silent, immense, wrong. The power bleeds away like water down a drain, and the room drops into black.',
-  'Something you cannot see draws a long, slow breath. The lights gutter, dim, and go out together. The dark that follows feels occupied.',
+  "Something you can't see draws a long, slow breath. The lights gutter, dim, and go out together. The dark that follows feels occupied.",
   'The bulbs flare too bright, then burst into darkness all at once. No hand was near the switches. The cold stays behind.',
   'An unseen presence closes around the room\'s power and pulls. Filaments die one by one until nothing is left but the black and the certainty of being watched.',
-  'The lights bow, as if in fear, and then surrender. Blackness floods the space. You are not alone in it.',
-  'A cold weight settles over everything. The power gutters out from somewhere behind the walls, and the darkness that rushes in is not empty.',
+  "The lights bow, as if in fear, and then surrender. Blackness floods the space. You aren't alone in it.",
+  "A cold weight settles over everything. The power gutters out from somewhere behind the walls, and the darkness that rushes in isn't empty.",
 ];
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -140,7 +140,7 @@ export async function cmdGhostPowerDrain(session, broadcast) {
 
 export async function cmdGhostHaunt(targetHandle, session, broadcast) {
   const target = getAllLivePlayers().find(p => p.handle.toLowerCase() === targetHandle.toLowerCase());
-  if (!target) return { type: 'ghost_error', message: `${targetHandle} is not online.` };
+  if (!target) return { type: 'ghost_error', message: `${targetHandle} isn't online.` };
   const hauntMsg = HAUNT_MESSAGES[Math.floor(Math.random() * HAUNT_MESSAGES.length)];
   broadcast(null, { type: 'ambient', message: `<span style="color:#9f7aea;font-style:italic">${hauntMsg}</span>` }, null, target.id);
   // Resist FIRST, then persist what actually landed. Writing the raw -10 to the

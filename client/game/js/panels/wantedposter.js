@@ -142,7 +142,7 @@ export function openWantedPoster(msg) {
     <div aria-hidden="true">
       <div class="wp-kicker">by private contract</div>
       <div class="wp-word">WANTED</div>
-      <div class="wp-sub">alive is not required</div>
+      <div class="wp-sub">alive isn't required</div>
       <hr class="wp-rule">
       <div class="wp-name">${esc(p.target).toUpperCase()}</div>
       <hr class="wp-rule">

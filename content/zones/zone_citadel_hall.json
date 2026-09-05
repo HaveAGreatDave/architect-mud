@@ -12,7 +12,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2f3034",
   "color": "#ede8dc",
-  "description": "A hall built to make people feel small, and it works. Veined white marble goes up the walls to a coffered ceiling four storeys overhead, and every sound you make comes back at you a half-second later, cleaner. There are no chairs. There is nowhere to wait, because Citadel does not want you to wait; it wants you to transact and leave. Two cash terminals sit recessed in stone alcoves, their orange fascias the only colour in the room. At the far end, behind a marble counter with no gap in it anywhere, a chest-high machine of enamel and brushed steel swivels to face whoever comes through the doors. A guard in a charcoal coat stands where the floor is worn faintly grey, which tells you how many years he has stood exactly there. Beyond him the marble stops and a slab of armoured steel begins.",
+  "description": "A hall built to make people feel small, and it works. Veined white marble goes up the walls to a coffered ceiling four storeys overhead, and every sound you make comes back at you a half-second later, cleaner. There are no chairs. There's nowhere to wait, because Citadel doesn't want you to wait; it wants you to transact and leave. Two cash terminals sit recessed in stone alcoves, their orange fascias the only colour in the room. At the far end, behind a marble counter with no gap in it anywhere, a chest-high machine of enamel and brushed steel swivels to face whoever comes through the doors. A guard in a charcoal coat stands where the floor is worn faintly grey, which tells you how many years he has stood exactly there. Beyond him the marble stops and a slab of armoured steel begins.",
   "exits": {
     "north": "zone_citadel_vestibule",
     "south": "zone_district_921_911"
@@ -24,7 +24,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that is more information than you want.",
+      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that's more information than you want.",
       "light": 0.7,
       "name": "the high window",
       "visibility": 0.75

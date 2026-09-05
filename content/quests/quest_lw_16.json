@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Pike is standing up.\n\nHe has been at the blast door since before the Watch had a name for itself, and he is not ill and he is not leaving, and he has decided that a door one man has sat at for eleven years is a door with one man between it and everybody.\n\nThe stool is going to somebody. He would like it to go to somebody who has already sat it once and did not find it interesting.",
+  "description": "Pike is standing up.\n\nHe has been at the blast door since before the Watch had a name for itself, and he isn't ill and he isn't leaving, and he has decided that a door one man has sat at for eleven years is a door with one man between it and everybody.\n\nThe stool is going to somebody. He would like it to go to somebody who has already sat it once and didn't find it interesting.",
   "fail_on": [],
   "id": "quest_lw_16",
   "meta": {},
@@ -10,8 +10,8 @@
       "desc": "Take the door. Not for an hour this time.",
       "emotes": [
         "{who} sits down at the blast door with Pike standing behind them, which is worse than sitting alone.",
-        "{who} listens to the hour noise and does not look round at him.",
-        "{who} hears him go back down the spine at some point and does not hear when.",
+        "{who} listens to the hour noise and doesn't look round at him.",
+        "{who} hears him go back down the spine at some point and doesn't hear when.",
         "{who} sits a door that nothing has ever come through, and understands the eleven years from the inside of about the second hour."
       ],
       "id": "o_take",
@@ -20,7 +20,7 @@
       "zone": "zone_lw_entry"
     },
     {
-      "desc": "Find Pike afterwards. He will be in the commons, which is new.",
+      "desc": "Find Pike afterwards. He'll be in the commons, which is new.",
       "id": "o_pike",
       "requires": [
         "o_take"

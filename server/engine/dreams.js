@@ -43,31 +43,31 @@ const maybe = (p) => Math.random() < p;
 
 const SETTINGS = [
   { t: 'a corridor that keeps arriving at itself' },
-  { t: 'a room you are certain you grew up in, though you did not' },
+  { t: "a room you're certain you grew up in, though you did not" },
   { t: 'the street outside, emptied of everything but signage' },
   { t: 'a stairwell going down considerably further than the building allows' },
   { t: 'somebody else’s kitchen, mid-meal, no one present' },
   { t: 'a waiting room with no door and a working clock' },
-  { t: 'the inside of a vehicle that is not moving and never was' },
+  { t: "the inside of a vehicle that isn't moving and never was" },
   { t: 'a market at an hour it has never been open' },
-  { t: 'a rooftop, in weather that is not tonight’s weather' },
+  { t: "a rooftop, in weather that isn't tonight’s weather" },
   { t: 'a flooded floor of a building you half know' },
-  { t: 'a place with no floor, which does not seem to matter' },
+  { t: "a place with no floor, which doesn't seem to matter" },
   { t: 'a corridor of identical doors, all very slightly ajar', min: 0, max: 60 },
   { t: 'the inside of a machine large enough to stand up in', min: 0, max: 45 },
   { t: 'a room made of the sound of a room', min: 0, max: 25 },
 ];
 
 const SUBJECTS = [
-  { t: 'a man whose face you cannot afterwards describe' },
-  { t: 'a dog that is patiently waiting for you to understand something' },
+  { t: "a man whose face you can't afterwards describe" },
+  { t: "a dog that's patiently waiting for you to understand something" },
   { t: 'your own hands' },
-  { t: 'a meal laid out for somebody who is not coming' },
+  { t: "a meal laid out for somebody who isn't coming" },
   { t: 'a queue of people, all facing away' },
   { t: 'a child holding a piece of paper' },
   { t: 'an old woman counting something under her breath' },
   { t: 'a light left on in a window' },
-  { t: 'a door you are not going to open' },
+  { t: "a door you aren't going to open" },
   { t: 'a telephone that has been ringing the whole time' },
   { t: 'something under a sheet, roughly your size', min: 0, max: 55 },
   { t: 'a version of yourself, doing your job, badly', min: 0, max: 55 },
@@ -78,29 +78,29 @@ const EVENTS = [
   { t: 'explains something enormously important, very slowly' },
   { t: 'asks you a question you have already answered' },
   { t: 'is waiting for you, and has been for some time' },
-  { t: 'apologises, repeatedly, for something you cannot place' },
-  { t: 'goes about its business and does not acknowledge you at all' },
+  { t: "apologises, repeatedly, for something you can't place" },
+  { t: "goes about its business and doesn't acknowledge you at all" },
   { t: 'shows you the same thing three times, as though it changes' },
-  { t: 'is trying to leave, and cannot work out how' },
+  { t: "is trying to leave, and can't work out how" },
   { t: 'says your name with enormous tenderness' },
-  { t: 'begins to laugh, and does not stop when it should' },
+  { t: "begins to laugh, and doesn't stop when it should" },
   { t: 'turns to face you, which you had been dreading', min: 0, max: 55 },
-  { t: 'stops what it is doing and looks directly at you, unsurprised', min: 0, max: 30 },
+  { t: "stops what it's doing and looks directly at you, unsurprised", min: 0, max: 30 },
   { t: 'asks you to hold still', min: 0, max: 25 },
 ];
 
 const WRONGNESS = [
-  { t: 'You are not troubled by any of this at the time.' },
-  { t: 'You know, throughout, that you are late for something.' },
+  { t: "You aren't troubled by any of this at the time." },
+  { t: "You know, throughout, that you're late for something." },
   { t: 'The light is coming from the wrong direction the entire time.' },
-  { t: 'You cannot make yourself speak above a whisper.' },
-  { t: 'It is all happening slightly too slowly.' },
-  { t: 'You are aware of being watched by the room itself.' },
+  { t: "You can't make yourself speak above a whisper." },
+  { t: "It's all happening slightly too slowly." },
+  { t: "You're aware of being watched by the room itself." },
   { t: 'Everyone else seems to have been told what this is about.' },
-  { t: 'You keep almost remembering that you are asleep.' },
-  { t: 'You are certain you have done all of this before, in this order.', min: 0, max: 60 },
-  { t: 'You cannot find your own hands to check them.', min: 0, max: 40 },
-  { t: 'Something in the dream is aware that you will wake up, and is pacing itself.', min: 0, max: 25 },
+  { t: "You keep almost remembering that you're asleep." },
+  { t: "You're certain you have done all of this before, in this order.", min: 0, max: 60 },
+  { t: "You can't find your own hands to check them.", min: 0, max: 40 },
+  { t: "Something in the dream is aware that you'll wake up, and is pacing itself.", min: 0, max: 25 },
 ];
 
 const usable = (list, sanityPct) =>
@@ -113,9 +113,9 @@ const usable = (list, sanityPct) =>
 function tetherSubject(tether = {}) {
   const options = [];
   if (tether.zone)   options.push(`${tether.zone}, rebuilt slightly wrong`);
-  if (tether.npc)    options.push(`${tether.npc}, who should not be here`);
+  if (tether.npc)    options.push(`${tether.npc}, who shouldn't be here`);
   if (tether.item)   options.push(`your ${tether.item}, much heavier than it is`);
-  if (tether.killed) options.push(`${tether.killed}, who is not angry about it, which is worse`);
+  if (tether.killed) options.push(`${tether.killed}, who isn't angry about it, which is worse`);
   return options.length ? pick(options) : null;
 }
 
@@ -143,7 +143,7 @@ export function composeDream(sanityPct = 100, tether = {}, extra = []) {
 
   const opener = pick([
     `You dream of ${setting.t}.`,
-    `You are in ${setting.t}.`,
+    `You're in ${setting.t}.`,
     `The dream is ${setting.t}.`,
   ]);
   // The wrongness line is the punchline, so it doesn't always fire — a dream

@@ -119,7 +119,7 @@ async function cmdInsure(args, raw, player) {
   if (!craft) return { type: 'emote', message: `No aircraft of yours by "${want}". Type <b>insure</b> for the list.` };
   const value = craft.price_buy;
   const premium = quotePremium(value, paid);
-  if ((player.credits || 0) < premium) return { type: 'emote', message: `The premium on the ${craft.tname} is ${premium}₵ — you're short. Halcyon does not do instalments.` };
+  if ((player.credits || 0) < premium) return { type: 'emote', message: `The premium on the ${craft.tname} is ${premium}₵ — you're short. Halcyon doesn't do instalments.` };
 
   player.credits -= premium;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
@@ -228,7 +228,7 @@ on('flight.crashed', async ({ aircraftId, ownerId, pilotId, typeId, typeName, re
       if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">📄 <b>HALCYON ASSURANCE — LIABILITY:</b> we settled <b>${covered}₵</b> of ${who} on your behalf${overflow > 0 ? `; the <b>${overflow}₵</b> over your ${LIABILITY_LIMIT}₵ limit is yours` : ''}. <span class="text-dim">The lawsuit, and the wanted level, remain your own.</span></span>` });
     } else {
       const paid = await chargePilot(pilotId, liabilityBill);
-      if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">⚖ <b>THIRD-PARTY LIABILITY:</b> uninsured, you are personally liable for <b>${liabilityBill}₵</b> of ${who}. <b>${paid}₵</b> has been garnished. <span class="text-dim">Halcyon would have covered most of it.</span></span>` });
+      if (pilotId && getLivePlayer(pilotId)) sendToPlayer(pilotId, { type: 'output', message: `<span class="msg-system">⚖ <b>THIRD-PARTY LIABILITY:</b> uninsured, you're personally liable for <b>${liabilityBill}₵</b> of ${who}. <b>${paid}₵</b> has been garnished. <span class="text-dim">Halcyon would have covered most of it.</span></span>` });
     }
   }
 
@@ -250,7 +250,7 @@ on('flight.crashed', async ({ aircraftId, ownerId, pilotId, typeId, typeName, re
     covered: `📄 <b>HALCYON ASSURANCE:</b> we're sorry for the loss of your ${craft}. Covered peril — a claim is open for <b>${payout}₵</b> (we keep the ${deductible}₵ excess and the wreck). <span class="text-dim">Come in to the claims desk to settle.</span>`,
     pilot_error: `📄 <b>HALCYON ASSURANCE:</b> our assessors ruled <b>pilot error</b> on the ${craft}, so cover is reduced. A claim is open for <b>${payout}₵</b> — half the standard settlement, less your excess. <span class="text-dim">Fly it, don't wear it. Settle at the claims desk.</span>`,
     excluded_nofly: `📄 <b>HALCYON ASSURANCE:</b> the ${craft} was lost in <b>restricted airspace</b> — an excluded, illegal flight. The claim is <b>denied</b> and the policy is void. <span class="text-dim">We did read the black box.</span>`,
-    excluded_fraud: `📄 <b>HALCYON ASSURANCE:</b> a total loss this soon after binding cover is... convenient. The claim is <b>denied</b> pending an investigation that will outlast your patience. <span class="text-dim">Halcyon was not born yesterday.</span>`,
+    excluded_fraud: `📄 <b>HALCYON ASSURANCE:</b> a total loss this soon after binding cover is... convenient. The claim is <b>denied</b> pending an investigation that will outlast your patience. <span class="text-dim">Halcyon wasn't born yesterday.</span>`,
     excluded_impaired: `📄 <b>HALCYON ASSURANCE:</b> the tox panel came back — you were flying <b>impaired</b>. Operating an aircraft under the influence voids your cover outright. The claim is <b>denied</b> and the policy is void. <span class="text-dim">Fly sober, or fly uninsured.</span>`,
   }[verdict];
   sendToPlayer(ownerId, { type: 'output', message: `<span class="msg-system">${msg}</span>` });

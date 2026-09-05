@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Blown sand, collected in the lee of the rock and combed into long ridges that shift over each other and hiss when the wind gets under them. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "Blown sand, collected in the lee of the rock and combed into long ridges that shift over each other and hiss when the wind gets under them. Off toward the middle of the country there's a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
   "exits": {
     "east": "zone_terminus_1225_955",
     "north": "zone_terminus_1224_954",

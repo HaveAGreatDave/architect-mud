@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The tableland wall runs north and south without a break, except here, where it does not. A seam of shattered rock steps back off the face in ledges the width of a boot, and somebody has been up it: the holds are scoured pale. There is a way up somewhere, the country keeps telling you. This is it.",
+  "description": "The tableland wall runs north and south without a break, except here, where it does not. A seam of shattered rock steps back off the face in ledges the width of a boot, and somebody has been up it: the holds are scoured pale. There's a way up somewhere, the country keeps telling you. This is it.",
   "exits": {
     "east": "zone_terminus_1217_923",
     "north": "zone_terminus_1216_922",

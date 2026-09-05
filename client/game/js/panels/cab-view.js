@@ -133,32 +133,32 @@ const kitFor = (p) => CAB_KIT[p?.tier] || CAB_KIT[1];
 // two keys out of eleven. This table is the legend the ? card renders, and it is written as data so
 // that adding a control without telling anybody about it takes a deliberate omission.
 const CONTROLS = [
-  ['Drag the wheel', 'Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead — the middle button does too, if that is the hand you have — and the scroll wheel dollies it.'],
+  ['Drag the wheel', "Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead — the middle button does too, if that's the hand you have — and the scroll wheel dollies it."],
   ['X / C or ← →', 'Steer. X and C are the flight sim rudder keys, so the hand that flies already knows them; the arrows do the same thing. One full turn of the wheel is full lock.'],
   ['Centre boss', 'The horn. Press the middle of the wheel.'],
-  ['GPS screen', 'Tap it. The map is the road you are actually on; tapping opens the fork, with the distance and whether your tank reaches. Picking one runs the ordinary route command, so it obeys the same rules typing it would.'],
-  ['Lever', 'The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you are actually in.'],
+  ['GPS screen', "Tap it. The map is the road you're actually on; tapping opens the fork, with the distance and whether your tank reaches. Picking one runs the ordinary route command, so it obeys the same rules typing it would."],
+  ['Lever', "The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you're actually in."],
   ['LO / HI', 'Range. The box is a four-by-two: the same four slots are gears 1-4 in LO and 5-8 in HI, and changing range in gear takes four ratios with it.'],
   ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
   ['Z', 'Service brakes. They heat, and hot brakes fade.'],
-  ['SPACE / CLUTCH', 'Clutch. Held — or TAP the pedal to latch it in, which is how you shift with one hand on a mouse. The box is not synchronised: a gear only goes in with the clutch in, and trying it without grinds the box into neutral. It is also how you restart a stalled engine.'],
-  ['J / JAKE', 'Engine brake. Held. Free retardation on a descent — it does not heat the drums.'],
+  ['SPACE / CLUTCH', "Clutch. Held — or TAP the pedal to latch it in, which is how you shift with one hand on a mouse. The box isn't synchronised: a gear only goes in with the clutch in, and trying it without grinds the box into neutral. It's also how you restart a stalled engine."],
+  ['J / JAKE', "Engine brake. Held. Free retardation on a descent — it doesn't heat the drums."],
   ['↑ ↓', 'Shift up / down, on the same cluster the wheel is on: ← → steers, ↑ ↓ works the box.'],
   ['. and ,', 'Shift up / down, the other way round. Gear 0 is neutral.'],
   ['K / KEY', 'The ignition. Off stops the engine; on cranks it, and it only catches with the clutch in or the box in neutral — same rule as restarting a stall.'],
-  ['M / AUTO', 'Automatic shifting. It works the clutch and the lever for you and you can watch it do it — the stick goes out through neutral and into the slot, the pedal goes in and comes up. It never chooses reverse, and it has no authority you do not: it can lug the engine and it can be fluffed, because it is a hand on the same controls.'],
-  ['G / CRUISE', 'Cruise control. Locks the speed you are doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear.'],
+  ['M / AUTO', "Automatic shifting. It works the clutch and the lever for you and you can watch it do it — the stick goes out through neutral and into the slot, the pedal goes in and comes up. It never chooses reverse, and it has no authority you do not: it can lug the engine and it can be fluffed, because it's a hand on the same controls."],
+  ['G / CRUISE', "Cruise control. Locks the speed you're doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear."],
   ['/', 'Splitter — half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
   ['H', 'Air horn. The room hears it.'],
   ['L / LAMPS', 'Headlights. They default on, because a rig runs lit — switching them off is a thing you chose, and other drivers see your actual lamps.'],
-  ['I / CAB', 'The dome lamp over your head. Off, the panel lamps stay lit and everything else in the cab goes dark, which is what a night shift looks like from the seat; there is still enough of the dash to find a knob by.'],
+  ['I / CAB', "The dome lamp over your head. Off, the panel lamps stay lit and everything else in the cab goes dark, which is what a night shift looks like from the seat; there's still enough of the dash to find a knob by."],
   ['W / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting — off, intermittent, low, high.'],
-  ['Q / E / S', 'Look left, right, and over your shoulder. Held — you look, then you come back. There is no dash behind the side glass, so the view out of it is clear.'],
+  ['Q / E / S', "Look left, right, and over your shoulder. Held — you look, then you come back. There's no dash behind the side glass, so the view out of it's clear."],
   // The whole map is the flight sim's now — see the sync note in the key handler.
   ['V', 'External view — a chase camera behind the rig, on the same key the cockpit uses. Dolly right in and it settles flat to the road so you can see ahead of you; you can still orbit right round at any distance. (F still works.)'],
-  ['Y / LATCH', 'The cab door latches. They start OPEN, which is what makes the button worth finding: stop on the corridor beside somebody with their hand out and they will let themselves into the passenger seat. Locked, nobody gets in and you pick people up on purpose with pickup. It is remembered per truck.'],
-  ['T / GALLEY', 'What is in the cab to eat or drink, with your food and water bars over it. Every row runs the ordinary eat or drink command, so it does exactly what typing would — this is a flap, not a second way to eat.'],
+  ['Y / LATCH', "The cab door latches. They start OPEN, which is what makes the button worth finding: stop on the corridor beside somebody with their hand out and they will let themselves into the passenger seat. Locked, nobody gets in and you pick people up on purpose with pickup. It's remembered per truck."],
+  ['T / GALLEY', "What's in the cab to eat or drink, with your food and water bars over it. Every row runs the ordinary eat or drink command, so it does exactly what typing would — this is a flap, not a second way to eat."],
   ['D', 'Damage. Four bars — engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
   ['⛶ / ⊟', 'Fullscreen, or hide the text panel for more road.'],
 ];
@@ -171,7 +171,7 @@ const CONTROLS = [
 const DMG_PARTS = [
   { key: 'engine',  short: 'ENG', label: 'ENGINE',  note: 'pull' },
   { key: 'wheels',  short: 'WHL', label: 'WHEELS',  note: 'grip and stopping' },
-  { key: 'body',    short: 'BDY', label: 'BODY',    note: 'what it is worth' },
+  { key: 'body',    short: 'BDY', label: 'BODY',    note: "what it's worth" },
   { key: 'trailer', short: 'TRL', label: 'TRAILER', note: 'the box behind you' },
 ];
 
@@ -311,17 +311,17 @@ export function openCab(ctx = {}) {
       ${windshieldHTML(id, kit.label)}
       <!-- ── THE GLASS CHROME, AND WHAT IT IS FOR ────────────────────────────
            THE CORNER IS THE SYSTEM CORNER. Every panel in this client puts the same things in the
-           top right and nothing else: how big the picture is, which camera it is from, and where
-           the legend lives — fullscreen, hide-panel, view, help. That is a consistent place
+           top right and nothing else: how big the picture is, which camera it's from, and where
+           the legend lives — fullscreen, hide-panel, view, help. That's a consistent place
            precisely because its contents are consistent, and a player who has flown already knows
-           what is up there without reading it.
+           what's up there without reading it.
            ⚠ SO THE LATCH AND THE GALLEY ARE NOT UP HERE ANY MORE. They were, on the argument that
            the dash is the truck and neither the doors nor a bunk full of sandwiches is a thing the
-           truck has — true, and beside the point. They are not things the SCREEN has either, which
-           is what this corner is for: everything else in it changes how you are LOOKING at the cab,
+           truck has — true, and beside the point. They aren't things the SCREEN has either, which
+           is what this corner is for: everything else in it changes how you're LOOKING at the cab,
            and those two reach into the cab and operate it. Two controls in a row of window
-           furniture read as window furniture. They are switches on the panel now, in the cab group
-           beside the radio — see THE CAB'S OWN GROUP down on the shelf. The classes did not change,
+           furniture read as window furniture. They're switches on the panel now, in the cab group
+           beside the radio — see THE CAB'S OWN GROUP down on the shelf. The classes didn't change,
            so the Y and T keys, the click handlers and paintLatch all still find them. -->
       <div class="cab-chrome">
         <button class="cab-cbtn cab-viewbtn" title="external / cab view (F)">◎ EXT</button>
@@ -329,7 +329,7 @@ export function openCab(ctx = {}) {
              can get lost on. Same glyph the flight sim's orbit reset uses. -->
         <button class="cab-cbtn cab-orbitreset" title="point the camera back down the road" hidden>⟲</button>
         <button class="cab-cbtn cab-helpbtn" title="controls (?)">?</button>
-        <!-- HIDE-PANEL THEN FULLSCREEN, in that order — they are one ladder and it should read as
+        <!-- HIDE-PANEL THEN FULLSCREEN, in that order — they're one ladder and it should read as
              one, with the biggest rung at the end of the row nearest the corner. The flight sim
              puts fullscreen first for historical reasons; this is the order that matches what the
              two buttons actually do to each other (fullscreen supersedes hide-panel). -->
@@ -347,17 +347,17 @@ export function openCab(ctx = {}) {
         <div class="cab-dmg-full" hidden></div>
       </div>
       <!-- ── THE FUEL GAUGE ON THE GLASS ──────────────────────────────────────
-           The dash already has a fuel dial, and it is not enough on its own for the two moments
-           that matter. In the EXTERNAL view there is no dash at all — drawCabInterior is gated on
+           The dash already has a fuel dial, and it isn't enough on its own for the two moments
+           that matter. In the EXTERNAL view there's no dash at all — drawCabInterior is gated on
            'not external' inside the renderer — so a driver orbiting the rig has no fuel reading of
            any kind at all. And
-           while the handle is down, the thing you are watching is a needle creeping across a
+           while the handle is down, the thing you're watching is a needle creeping across a
            40-pixel dial with a number changing on a button somewhere else.
            So: one gauge, on the view rather than on the truck, shown in BOTH views. Always up
            outside the cab (nothing else there reads out anything); in the cab it comes up when
-           there is something to watch — at a pump, or when the tank is low enough to be a decision.
-           It is HTML rather than a second canvas instrument deliberately: it inherits the theme,
-           it can be read aloud, and it does not need the renderer to know it exists. -->
+           there's something to watch — at a pump, or when the tank is low enough to be a decision.
+           It's HTML rather than a second canvas instrument deliberately: it inherits the theme,
+           it can be read aloud, and it doesn't need the renderer to know it exists. -->
       <div class="cab-fuel" hidden role="group" aria-label="Fuel">
         <div class="cab-fuel-top"><span class="cab-fuel-lb">FUEL</span><span class="cab-fuel-pct">--</span></div>
         <div class="cab-fuel-bar"><i class="cab-fuel-fill"></i><i class="cab-fuel-warn"></i></div>
@@ -369,10 +369,10 @@ export function openCab(ctx = {}) {
            damage strip covers the TRUCK, the fuel gauge covers the TANK, and the person in the
            seat had no readout at all. A driver could die of thirst looking at a full set of
            instruments.
-           Two rungs, and the split is deliberate. AMBER is early — it appears while there is still
+           Two rungs, and the split is deliberate. AMBER is early — it appears while there's still
            road left to do something about it, which is the whole point of a warning. RED is when
-           the resource-tick is actually taking HP, and it flashes, because at that point it is no
-           longer information, it is an interruption.
+           the resource-tick is actually taking HP, and it flashes, because at that point it's no
+           longer information, it's an interruption.
            It reads 'HUNGER'/'THIRST' rather than a percentage on purpose: a number on the glass is
            something you monitor, and a word is something you act on. The bars, for anyone who
            wants the number, are in the galley. -->
@@ -390,7 +390,7 @@ export function openCab(ctx = {}) {
       </div>
       <!-- SOMEBODY ON THE SHOULDER. The figure is drawn out on the road by the renderer; this is
            the part that survives you looking somewhere else for four seconds. It stands while they
-           are in front of you and goes the moment they are aboard or behind you, and the button
+           are in front of you and goes the moment they're aboard or behind you, and the button
            sends the plain 'pickup' verb — including for the fugitive, whose sleeper/trailer choice
            is the VERB's to ask, not this panel's to pre-empt. -->
       <div class="cab-hitchalert" hidden role="status"></div>
@@ -400,11 +400,11 @@ export function openCab(ctx = {}) {
       <!-- ── THE GPS, WHICH IS A LITTLE TABLET ────────────────────────────────
            It was one screen that did one thing: tap the dash unit, get a route picker. But a
            screen in a dash is a screen, and a driver who wants to know what the truck's condition
-           is should not have to leave the windscreen to find out — the damage was already a payload
-           the cab receives and a panel the cab renders, so it is an APP on this thing rather than a
+           is shouldn't have to leave the windscreen to find out — the damage was already a payload
+           the cab receives and a panel the cab renders, so it's an APP on this thing rather than a
            second surface with its own way in.
            And it POPS OUT. A 5-inch unit painted into the dash is the right size when you are
-           driving and the wrong size when you are reading it, so the same panel detaches into a
+           driving and the wrong size when you're reading it, so the same panel detaches into a
            floating window you can put where you like and drag around. Same DOM, same renderers,
            one class — a second copy for the popped-out state is a second copy to keep in step. -->
       <div class="cab-routes" hidden>
@@ -427,7 +427,7 @@ export function openCab(ctx = {}) {
       <button class="cab-focustag" title="click here (or the windscreen) to give the keyboard back to the cab">⌨ KEYS: CAB</button>
       <div class="cab-controls">
         <!-- ── THE COLUMN ──────────────────────────────────────────────────────
-             THERE IS NO WHEEL DOWN HERE ANY MORE, and that is the change. There were two: a canvas
+             THERE IS NO WHEEL DOWN HERE ANY MORE, and that's the change. There were two: a canvas
              widget on this shelf that you turned, and an arc of rim painted up on the glass for the
              look of it — two wheels in one cab, and the one in front of the driver was the picture.
              The scene draws the real one now (drawCabWheel in windshield.js) and you turn it by
@@ -442,9 +442,9 @@ export function openCab(ctx = {}) {
 
         <!-- ── THE RECORD ──────────────────────────────────────────────────────
              The instruments moved onto the painted dash, where a dash is. These are the same
-             numbers in words, and they are kept — VISUALLY hidden, never removed — because they
+             numbers in words, and they're kept — VISUALLY hidden, never removed — because they
              are what a screen reader reads and what the log rung of the display ladder has always
-             had. A canvas gauge is not an accessible instrument; a canvas gauge WITH this behind
+             had. A canvas gauge isn't an accessible instrument; a canvas gauge WITH this behind
              it is. The frame loop writes them exactly as it always did. -->
         <div class="cab-col cab-col-digital cab-sr">
           <div class="cab-gauges">
@@ -458,9 +458,9 @@ export function openCab(ctx = {}) {
 
         <!-- ── THE GATE ────────────────────────────────────────────────────────
              AN H, BECAUSE THE BOX IS A 4×2. Every truck in the fleet runs eight forward ratios
-             (flight-model TYPES: 'gears' is nine long, index 0 being neutral), and eight is not a
-             ladder you climb — it is four slots in an H with a RANGE lever that does them twice.
-             That is what a real range-change box is and it is why the shifter is a tree rather than
+             (flight-model TYPES: 'gears' is nine long, index 0 being neutral), and eight isn't a
+             ladder you climb — it's four slots in an H with a RANGE lever that does them twice.
+             That's what a real range-change box is and it's why the shifter is a tree rather than
              a line: LO gives you 1-4 in the four slots, HI gives you 5-8 in the same four, and your
              hand learns one shape instead of eight positions.
              The lever it replaces was a THROW — drag up, it clunks one gear, springs back. Honest
@@ -470,10 +470,10 @@ export function openCab(ctx = {}) {
              are in, which is most of what a gearstick is for.
              Reverse has its own dogleg, as it does on the real thing, and neutral is the crossgate
              everything passes through.
-             ⚠ EVERY SLOT IS A REAL BUTTON, and that is what let the ▲▼ pair go. They existed only
+             ⚠ EVERY SLOT IS A REAL BUTTON, and that's what let the ▲▼ pair go. They existed only
              because a lever you can work solely by dragging is a lever a keyboard user does not
              have — so the answer was never a second control beside it, it was making the lever
-             itself operable. Tab to a slot and press it and you are in that gear; the drag is now
+             itself operable. Tab to a slot and press it and you're in that gear; the drag is now
              the shortcut rather than the only way in. -->
         <div class="cab-col cab-col-gate">
           <div class="cab-gate" role="group" aria-label="Gear lever">
@@ -483,19 +483,19 @@ export function openCab(ctx = {}) {
             <i class="cab-gate-rail cab-rail-rev"></i>
             ${CAB_GATE.map((g, i) => `<button class="cab-slot" data-gi="${i}" style="left:${g.x * 100}%;top:${g.y * 100}%"></button>`).join('')}
             <!-- ── THE STICK ────────────────────────────────────────────────
-                 ⚠ THE LEVER COMES UP OUT OF THE SLOT IT IS IN, and that is the whole of this
+                 ⚠ THE LEVER COMES UP OUT OF THE SLOT IT IS IN, and that's the whole of this
                  element. The first version drew the shaft from a fixed pivot BELOW the plate up to
                  the knob, on the theory that a gear lever comes through the floor — true of the
-                 real object, and wrong for this picture, because the picture is not a side view of
-                 a cab. It is a small isometric plate seen from above and in front, so the only
-                 thing that can be "below" it is the edge of the panel: what you actually got was a
+                 real object, and wrong for this picture, because the picture isn't a side view of
+                 a cab. It's a small isometric plate seen from above and in front, so the only
+                 thing that can be "below" it's the edge of the panel: what you actually got was a
                  rod running off the bottom of the frame that grew and shrank as you moved through
                  the gate, which reads as a pointer to the knob rather than as the knob's own stem.
                  Now the base of the stick IS the slot position. The whole assembly — collar, rod,
                  knob — translates as one object, so the lever passes THROUGH the gate the way a
-                 real one passes through its slot, at a fixed length and a fixed lean. There is no
+                 real one passes through its slot, at a fixed length and a fixed lean. There's no
                  geometry left to solve: nothing measures a rect, nothing stretches, and the knob
-                 can never disagree with the stick about which gear it is in because it is bolted
+                 can never disagree with the stick about which gear it's in because it's bolted
                  to the top of it. -->
             <div class="cab-lever" title="Throw the lever into a slot, or press one. The collar doubles the four slots into eight gears.">
               <i class="cab-boot" aria-hidden="true"></i>
@@ -503,12 +503,12 @@ export function openCab(ctx = {}) {
             </div>
           </div>
           <!-- THE KNOB COLLARS. On a real range-change box both of these live ON the shift knob
-               under your thumb, never as a position you put the lever in — so they are two small
+               under your thumb, never as a position you put the lever in — so they're two small
                switches beside the gate rather than two more keys in a row of keys. -->
           <div class="cab-collars" role="group" aria-label="Gearbox collars">
             <button class="cab-btn cab-range" aria-label="Range" title="Range collar — LO is gears 1-4, HI is 5-8"><i class="cab-rangeic">${svgIcon('range')}</i><b>LO</b><em>RANGE</em></button>
             <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/) — half a gear"><b>${svgIcon('split')}</b><em>SPLIT</em></button>
-            <!-- AUTO. Not an automatic gearbox — there is no such truck in this fleet. It is a
+            <!-- AUTO. Not an automatic gearbox — there's no such truck in this fleet. It's a
                  hand on the same lever and the same pedal, and you can watch it work: the stick
                  goes through neutral, the clutch goes in, the gear goes home. Which is the point
                  of showing it rather than swapping the number silently — a driver who leaves it on
@@ -516,7 +516,7 @@ export function openCab(ctx = {}) {
                  where second is.
                  ⚠ IT SITS WITH THE GEARBOX, NOT ON THE DASH. It began life among the rockers with
                  the horn and the wipers, which is where a switch goes on a real truck and exactly
-                 the wrong place here: everything else that decides which gear you are in — the
+                 the wrong place here: everything else that decides which gear you're in — the
                  gate, the range collar, the splitter — is in this group, and the one control that
                  does all three of those jobs for you was across the cab from them. The class is
                  unchanged, so the M key, the click handler and the lamp painter all still find it. -->
@@ -525,18 +525,18 @@ export function openCab(ctx = {}) {
                  never chooses reverse for you (which way a truck is pointed when it moves is the
                  one decision that stays with the person who can see out of the window), so a driver
                  who has left AUTO on has no hand on the lever and no way into it. The R key always
-                 worked; a key is not a control you can find with a mouse.
+                 worked; a key isn't a control you can find with a mouse.
                  It runs the SAME shift sequence the automatic uses, which is what makes it neutral
                  first and reverse second rather than a gear change nobody watched happen: the
-                 clutch goes in, the stick comes out to neutral, there is a pause you can see, and
+                 clutch goes in, the stick comes out to neutral, there's a pause you can see, and
                  then it goes across. Pressing it again brings it back to neutral. -->
             <button class="cab-btn cab-rocker cab-revbtn" aria-pressed="false" aria-label="Reverse" title="Reverse (R) — clutch in, through neutral, into reverse. Only at a standstill. Press again for neutral."><i></i><u><span>REV</span></u></button>
           </div>
         </div>
 
         <!-- ── THE COLUMN STALK ────────────────────────────────────────────────
-             WIPERS ARE NOT A DASH SWITCH. On every truck ever built they are a stalk on the
-             steering column, and the reason that matters is not authenticity for its own sake — it
+             WIPERS ARE NOT A DASH SWITCH. On every truck ever built they're a stalk on the
+             steering column, and the reason that matters isn't authenticity for its own sake — it
              is that a stalk tells you its state by WHERE IT IS POINTING, from the corner of your
              eye, without a lamp or a word. A rocker can only say on or off; this has four
              positions and wears them.
@@ -559,22 +559,22 @@ export function openCab(ctx = {}) {
         <div class="cab-col cab-col-switch">
           <div class="cab-rockers" role="group" aria-label="Dash switches">
             <!-- ── THE KEY ────────────────────────────────────────────────────
-                 A truck you cannot switch OFF is a truck that is always on, and every other
+                 A truck you can't switch OFF is a truck that's always on, and every other
                  system in this cab is built around the engine being a thing with a state:
-                 the lifters' wash says it is running, the stall says it stopped, the depot
+                 the lifters' wash says it's running, the stall says it stopped, the depot
                  lets you sit in it. The only thing missing was the driver's own decision.
-                 It is a KEY BARREL rather than a rocker — the one control on the panel you
+                 It's a KEY BARREL rather than a rocker — the one control on the panel you
                  turn instead of press — and it routes through the same 'starter' input the
-                 stall restart uses, so there is exactly one way an engine comes back to
+                 stall restart uses, so there's exactly one way an engine comes back to
                  life and both of them are it. -->
-            <!-- ⚠ THE ONE CONTROL IN THE CAB THAT IS NOT A SWITCH, and it is worth the extra
+            <!-- ⚠ THE ONE CONTROL IN THE CAB THAT IS NOT A SWITCH, and it's worth the extra
                  markup. Everything on this panel is a rocker with a lamp, which is right for a
                  Jake or a set of wipers and wrong for the ignition: a key is the only thing here
-                 you TURN, it is the first thing you touch and the last, and as a rocker it read as
-                 one more toggle in a row of toggles. So it is a barrel with a blade in it, and it
+                 you TURN, it's the first thing you touch and the last, and as a rocker it read as
+                 one more toggle in a row of toggles. So it's a barrel with a blade in it, and it
                  rotates — OFF, ON, and held round to START against a spring, exactly like the
-                 thing it is a picture of. Held is not decoration either: the starter runs for as
-                 long as you hold it (see startCrank), so a rig that does not catch first time is
+                 thing it's a picture of. Held isn't decoration either: the starter runs for as
+                 long as you hold it (see startCrank), so a rig that doesn't catch first time is
                  cranked until it does, which is what the model's 'input.starter' always wanted and
                  the 900ms timer was standing in for. (⚠ SINGLE QUOTES: this comment is inside a
                  template literal, and a backtick here ends the string mid-sentence — see the
@@ -584,19 +584,19 @@ export function openCab(ctx = {}) {
               <u><span>KEY</span></u>
             </div>
 
-            <!-- THE JAKE is a rocker rather than a pedal, because that is what it is in the cab:
-                 a switch on the dash you flick on for a descent. It is still HELD (see hold()). -->
+            <!-- THE JAKE is a rocker rather than a pedal, because that's what it's in the cab:
+                 a switch on the dash you flick on for a descent. It's still HELD (see hold()). -->
             <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (J) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
 
             <!-- THE HORN. A VERB ('horn', plugins/trucking) rather than a local sound, because the
-                 whole point of a horn is that the room hears it and you are not the room. -->
+                 whole point of a horn is that the room hears it and you aren't the room. -->
             <button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
 
             <!-- ── THE HEADLIGHTS ──────────────────────────────────────────────
                  A LATCHING rocker, and the reason it exists at all is that the lamps used to be
                  a lie the renderer told on the driver's behalf: 'landingLight' was hardcoded true
-                 and the beam appeared whenever the renderer decided it was dark enough. That is a
-                 sensible default and it is not a control — there was no way to drive dark, no way
+                 and the beam appeared whenever the renderer decided it was dark enough. That's a
+                 sensible default and it isn't a control — there was no way to drive dark, no way
                  to forget your lights, and nothing on the panel that said whether they were on.
 
                  It DEFAULTS ON, because a rig runs lit and the old behaviour is the one nobody
@@ -608,65 +608,65 @@ export function openCab(ctx = {}) {
               title="Headlights (L) — beam on the road ahead. Other drivers see them."><i></i><u><span>LAMPS</span></u></button>
 
             <!-- THE DOME LAMP. The other light switch, and the one that points inward: it lights
-                 the CAB, not the road, and it is deliberately next to the headlights because a hand
+                 the CAB, not the road, and it's deliberately next to the headlights because a hand
                  reaching for one is usually deciding between the two.
 
                  It defaults ON, and switching it off is the interesting state rather than a
                  penalty: the panel lamps are a separate circuit on a truck and they stay lit, so a
                  dark cab is a cab where the only thing you can see is the instruments, glowing on a
-                 board you can still just make out. That is what a night shift looks like from the
-                 seat, and it is why the flood over the vinyl is wound DOWN rather than off (see
+                 board you can still just make out. That's what a night shift looks like from the
+                 seat, and it's why the flood over the vinyl is wound DOWN rather than off (see
                  THE DOME LAMP in windshield.js). Purely local, like the headlights — but unlike
-                 them it is not on the telemetry packet, because nobody outside the cab can see it. -->
+                 them it isn't on the telemetry packet, because nobody outside the cab can see it. -->
             <button class="cab-btn cab-rocker cab-dome on" aria-label="Cab light" aria-pressed="true"
               title="Cab light (I) — the dome lamp over your head. Switched off, the panel still glows and the rest of the dash goes dark."><i></i><u><span>CAB</span></u></button>
 
             <!-- CRUISE. A LATCHING switch, not a held one, and the only rocker on this panel whose
-                 label is a NUMBER when it is on: what a driver wants back off cruise control is
-                 confirmation of the speed it took, and the lamp alone cannot say that. -->
-            <!-- HITCH. The one control in this cab that is not always there: it appears when the fifth
-                 wheel is actually under a pin and names the box it would take, and it is gone the
+                 label is a NUMBER when it's on: what a driver wants back off cruise control is
+                 confirmation of the speed it took, and the lamp alone can't say that. -->
+            <!-- HITCH. The one control in this cab that isn't always there: it appears when the fifth
+                 wheel is actually under a pin and names the box it would take, and it's gone the
                  rest of the time. A permanently visible button that answers "not here" is a button
-                 you learn to ignore; one that only exists when it will work is an instrument.
-                 ⚠ It is a HINT, never an authority — pressing it runs the ordinary 'hitch' verb,
+                 you learn to ignore; one that only exists when it'll work is an instrument.
+                 ⚠ It's a HINT, never an authority — pressing it runs the ordinary 'hitch' verb,
                  which re-checks distance, angle and speed for itself.
 
                  IT IS NOT A ROCKER, because the thing a driver actually operates to take or drop a
-                 box is not a switch: it is the RED OCTAGONAL TRAILER AIR SUPPLY KNOB, the one
-                 push-pull control on a truck dash that is shaped differently from everything around
+                 box isn't a switch: it's the RED OCTAGONAL TRAILER AIR SUPPLY KNOB, the one
+                 push-pull control on a truck dash that's shaped differently from everything around
                  it so a hand finds it without looking. Push it in and the trailer has air and is
                  yours; pull it out and the box stays where it is. So the knob's own state is the
-                 rig's state, and the word stamped on it is what your hand does next — which is why
+                 rig's state, and the word stamped on it's what your hand does next — which is why
                  the legend reads PUSH and PULL rather than HITCH and DROP. -->
             <button class="cab-btn cab-hitchbtn" hidden aria-label="Trailer air supply" title="Back under the trailer and couple (hitch)"><i></i><b class="cab-knobface"><s></s><em>PUSH</em></b><u><span>TRAILER AIR</span></u></button>
 
-            <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you are doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
+            <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you're doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
 
-            <!-- THE PARK BRAKE, and it is a KNOB because that is what it is on a truck: a big
+            <!-- THE PARK BRAKE, and it's a KNOB because that's what it's on a truck: a big
                  yellow diamond you pull out and push in, next to the trailer's red one. It is
                  shaped like the trailer air valve above for exactly that reason — a hand finds
-                 both of them without looking, and they are the same gesture. Spring brakes hold
+                 both of them without looking, and they're the same gesture. Spring brakes hold
                  the rig with no air and no engine, which is why this is the one control that still
                  does something with the key off. -->
-            <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it will not let you pull away. Pull it with the key off and the rig stopped and you climb down."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
+            <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it won't let you pull away. Pull it with the key off and the rig stopped and you climb down."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
 
-            <!-- EXIT CAB. Not a control on the truck — the door. It is disabled until the spring
-                 brakes are set and the rig is stopped, so it is a legible sequence rather than a
+            <!-- EXIT CAB. Not a control on the truck — the door. It's disabled until the spring
+                 brakes are set and the rig is stopped, so it's a legible sequence rather than a
                  rule you get told off by: the button lights when you have finished parking. It
                  sends the same 'park' verb the knob does, which is what closes this panel and hands
                  the room back. -->
             <button class="cab-btn cab-exitbtn" disabled aria-label="Exit cab" title="Exit cab — climb down. Set the park brake at a standstill first."><i></i><u><span>EXIT CAB</span></u></button>
 
-            <!-- THE PUMP HANDLE. Hidden until the server says there is a pump under the nose — the
+            <!-- THE PUMP HANDLE. Hidden until the server says there's a pump under the nose — the
                  same 'a control appears because the world affords it' rule the trailer air valve
                  follows, and for the same reason: a dead button on the panel everywhere else in
                  the world is worse than no button.
 
-                 IT IS HELD, and that is the entire design. A driver who wants twenty credits of
-                 diesel because that is what they have takes it by letting go, which is what a
+                 IT IS HELD, and that's the entire design. A driver who wants twenty credits of
+                 diesel because that's what they have takes it by letting go, which is what a
                  pump handle is FOR — the alternative was a dialog asking how much, and nobody has
                  ever wanted a form in a truck. The readout is the running total in credits, so the
-                 number you are watching is the number you are about to pay; it stops climbing when
+                 number you're watching is the number you're about to pay; it stops climbing when
                  the tank is full or the money runs out, and the handle clicks off exactly there. -->
             <button class="cab-btn cab-pumpbtn" hidden aria-label="Fuel pump — hold to fill" title="Fuel — HOLD the handle. It fills while you hold it and charges you when you let go; it clicks off when the tank is full or you have spent what you have."><i></i><b class="cab-knobface cab-pumpface"><s></s><em class="cab-pumpread">FUEL</em></b><u><span>PUMP</span></u></button>
 
@@ -674,13 +674,13 @@ export function openCab(ctx = {}) {
 
           <!-- ── THE CAB'S OWN GROUP ──────────────────────────────────────────
                The radio, the door latches and the galley flap, on one line under the switches.
-               The split is the honest one and it is worth keeping legible: the rockers above are
+               The split is the honest one and it's worth keeping legible: the rockers above are
                the TRUCK — the key, the engine brake, the lamps, the valves — and this row is the
-               CAB, the room you are sitting in. A radio is bolted to the roof of it, the doors are
+               CAB, the room you're sitting in. A radio is bolted to the roof of it, the doors are
                either side of you, and the food is behind the seat.
                ⚠ THE LATCH IS A STATE READOUT AS MUCH AS A SWITCH. The failure it exists to prevent
-               is a driver who does not know the door beside them is open, so the word on the paddle
-               says what the doors ARE and the tell-tale above it lights when they are shut — which
+               is a driver who doesn't know the door beside them is open, so the word on the paddle
+               says what the doors ARE and the tell-tale above it lights when they're shut — which
                is exactly what every other switch on this panel already does, and is the reason it
                reads as a control here and read as a caption up in the corner. -->
           <div class="cab-cabrow">
@@ -690,16 +690,16 @@ export function openCab(ctx = {}) {
             ${cbRadioHTML()}
             <div class="cab-cabctl" role="group" aria-label="Cab">
               <button class="cab-btn cab-rocker cab-latchbtn" aria-pressed="false" aria-label="Cab doors unlocked" title="cab door latches (Y)"><i></i><u><span>OPEN</span></u></button>
-              <!-- THE GALLEY FLAP. It is here at all because a haul is long, hunger and thirst run
+              <!-- THE GALLEY FLAP. It's here at all because a haul is long, hunger and thirst run
                    for the whole of it, and the only surface that could answer "what have I got" was
                    the tablet — which meant stopping and leaving the glass. Every row it opens sends
                    the ordinary eat/drink verb; nothing is eaten by a path that only exists in a
                    cab. -->
-              <button class="cab-btn cab-rocker cab-galleybtn" aria-label="Galley" title="what is in the cab to eat or drink (T)"><i></i><u><span>GALLEY</span></u></button>
+              <button class="cab-btn cab-rocker cab-galleybtn" aria-label="Galley" title="what's in the cab to eat or drink (T)"><i></i><u><span>GALLEY</span></u></button>
             </div>
           </div>
           <!-- LOOKING OFF THE NOSE. The flight sim's Q/E/S, and deliberately the same three keys: a
-               truck has exactly the same problem an aircraft does (you cannot see behind you) and a
+               truck has exactly the same problem an aircraft does (you can't see behind you) and a
                player who has flown already has the habit. HELD, not toggled, for the reason a
                shoulder-check is held — you look, you come back. -->
           <div class="cab-look cab-touch" role="group" aria-label="Look">
@@ -2119,7 +2119,7 @@ export function openCab(ctx = {}) {
       // the room. Loaded here it cannot run before the log exists, because nothing can turn a key
       // in a cab that has not been drawn yet.
       import('../render.js').then((r) => r.appendHtml(
-        'The starter churns and the engine will not catch — the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.',
+        "The starter churns and the engine won't catch — the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.",
         'msg-system')).catch(() => { /* the gate plate already said it — the log line is the second surface, not the only one */ });
       // The starter still turns: refusing to crank at all would be a second invisible rule on top
       // of the first, and the churn is the sound that makes the message make sense.
@@ -2574,7 +2574,7 @@ export function openCab(ctx = {}) {
       const el = body(); if (!el) return;
       const R = st.routes;
       if (!R || !R.dests?.length) {
-        el.innerHTML = '<div class="cab-routes-none">One road out of here, and you are on it.</div>';
+        el.innerHTML = '<div class="cab-routes-none">One road out of here, and you\'re on it.</div>';
         return;
       }
       const rows = R.dests.map((d) => {
@@ -2588,7 +2588,7 @@ export function openCab(ctx = {}) {
       // rather than a decision about the player: past the junction there is nothing to choose.
       const foot = R.forkAhead
         ? '<div class="cab-routes-ft">The fork is still ahead.</div>'
-        : '<div class="cab-routes-ft warn">The fork is behind you — this is the road you are on.</div>';
+        : '<div class="cab-routes-ft warn">The fork is behind you — this is the road you\'re on.</div>';
       el.innerHTML = `${R.origin ? `<div class="cab-routes-hd">out of ${esc(R.origin)}</div>` : ''}${rows}${foot}`;
     }
     st.renderRoutePicker = renderRoutePicker;
@@ -3218,7 +3218,7 @@ const HITCH_LOOK = {
   mechanic: 'Somebody sitting on a toolbox, back to the wind.',
   local: 'A man in a coat two sizes too big, watching the road.',
   chancer: 'Somebody young, a bag held between their feet.',
-  fugitive: 'A thin figure who has not looked at the road behind them once.',
+  fugitive: "A thin figure who hasn't looked at the road behind them once.",
 };
 function paintHitchAlert(st) {
   const el = st?.container?.querySelector('.cab-hitchalert');
@@ -3239,7 +3239,7 @@ function paintHitchAlert(st) {
   el.innerHTML = '<b>ON THE SHOULDER</b>'
     + '<span>' + (HITCH_LOOK[hh.kind] || 'Somebody with a hand out.') + '</span>'
     + '<em>' + (st.locked
-        ? 'Doors latched. Stopping is not enough — pick them up if you mean to.'
+        ? "Doors latched. Stopping isn't enough — pick them up if you mean to."
         : 'Doors are open. Stop for a moment and they will get in by themselves.') + '</em>'
     + '<button class="cab-hitch-go">PICK UP</button>';
 }
@@ -4249,7 +4249,7 @@ function ensureCabStyles() {
   .cab-controls{justify-content:space-between;align-items:flex-end}
   .cab-col-wheel{order:-1}
   /* THE RECORD, kept and not shown. The standard visually-hidden clip: it stays in the accessibility
-     tree, it is still written by the frame loop, and it takes no space away from the road. */
+     tree, it's still written by the frame loop, and it takes no space away from the road. */
   .cab-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
     clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
   /* \`touch-action:none\` is what makes the glass STEERABLE on a touch screen rather than a thing
@@ -4262,7 +4262,7 @@ function ensureCabStyles() {
   .cab-readout{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1}
   /* THE SHELF IS THE SAME ROOM AS THE GLASS. \`--cab-glow\` is set on the wrap from the same
      CAB_TRIM entry the renderer paints the dash with, so the numbers under the windscreen are lit
-     by the truck you are actually in rather than by one amber that every rung shared. */
+     by the truck you're actually in rather than by one amber that every rung shared. */
   .cab-readout b{font-size:22px;color:var(--cab-glow,#e8c07a);font-variant-numeric:tabular-nums}
   .cab-readout span{font-size:9px;letter-spacing:.14em;color:#7c848f}
   .cab-gps-canvas{display:block;width:100%;height:auto;background:#0d1014;border-radius:6px;
@@ -4281,7 +4281,7 @@ function ensureCabStyles() {
      Three rubber-faced slabs on a footwell floor, in a truck's own order — clutch, brake,
      throttle, left to right. The perspective is one \`rotateX\` on a shared parent: they are
      hinged at the TOP and rake away from you, so pressing one pushes it down and away, which is
-     the motion a foot makes. It is a transform on a button; the input path is the same hold()
+     the motion a foot makes. It's a transform on a button; the input path is the same hold()
      that bound the four words this replaces.
      A pedal that only looked like a pedal would be a costume, so the throttle is deliberately the
      tallest and furthest right, the brake the widest (you stand on it), and the clutch the one
@@ -4312,15 +4312,15 @@ function ensureCabStyles() {
      A milled H-plate with a lever in it. Two variables move the knob and nothing else does:
      '--gx'/'--gy', the position in the plate's own 0..1 space, written by the drag handler while a
      hand is on it and by paintGate off the CURRENT GEAR the rest of the time. So the lever's
-     position and the gear it selected can never disagree — there is no second copy of where the
+     position and the gear it selected can never disagree — there's no second copy of where the
      lever is, and a shift from a key moves the knob too.
      Every dimension below is a fraction of '--gw'/'--gh', so the rails, the engraved numbers and the
      knob all track one pair of numbers when the gate resizes for touch. */
-  /* The shifter is the biggest thing on the shelf, because it is the biggest thing in the cab —
+  /* The shifter is the biggest thing on the shelf, because it's the biggest thing in the cab —
      a range-change lever is a foot of steel you move with your whole forearm, not a thumb control. */
   /* THE PLATE IS BRUSHED METAL, not a dark rectangle. Three cheap layers do it: fine vertical
      striations (the brush), a broad diagonal sheen (the light coming in the windscreen), and the
-     base tone underneath. Nothing here is an image and nothing animates — it is the difference
+     base tone underneath. Nothing here is an image and nothing animates — it's the difference
      between a control drawn on a panel and a control MADE of something, which is the whole ask. */
   .cab-gate{--gw:168px;--gh:104px;position:relative;width:var(--gw);height:var(--gh);border-radius:5px;
     background:
@@ -4328,18 +4328,18 @@ function ensureCabStyles() {
       linear-gradient(114deg,rgba(255,255,255,.075) 0%,rgba(255,255,255,0) 34%,rgba(255,255,255,.04) 62%,rgba(255,255,255,0) 100%),
       linear-gradient(#20252c,#0c0f13);
     border:1px solid #333a43;
-    /* ⚠ NOT 'overflow:hidden'. A gear lever STANDS PROUD of its gate — that is what a lever is —
-       and the knob sits a stick above whichever slot it is in, so for the top row (1 and 3) it was
+    /* ⚠ NOT 'overflow:hidden'. A gear lever STANDS PROUD of its gate — that's what a lever is —
+       and the knob sits a stick above whichever slot it's in, so for the top row (1 and 3) it was
        being sliced off by the edge of the plate: a half-knob welded to the frame. Clipping the one
-       part of the control you are meant to grab is worse than letting it overhang, and there is
+       part of the control you're meant to grab is worse than letting it overhang, and there is
        nothing else here that needs containing now that the stick no longer runs off the bottom.
        '.cab-col-gate' reserves the headroom so the overhang lands on the shelf, not on the glass. */
     overflow:visible;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55);
     touch-action:none;cursor:pointer}
   /* A MISSED SHIFT, ON THE PLATE. The sound is the message — this is the part you catch out of the
-     corner of an eye while you are busy, so it is one hard red pulse and a word, not a panel. The
-     word stops appearing after the third grind (see 'grind'): by then it is not news. */
+     corner of an eye while you're busy, so it's one hard red pulse and a word, not a panel. The
+     word stops appearing after the third grind (see 'grind'): by then it isn't news. */
   .cab-gate.grind{box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55),
     0 0 0 1px rgba(226,92,72,.85), 0 0 16px -2px rgba(226,92,72,.6);
     animation:cab-grind 380ms steps(2) 1}
@@ -4355,7 +4355,7 @@ function ensureCabStyles() {
   .cab-gate::before{content:'';position:absolute;left:5px;top:5px;width:5px;height:5px;border-radius:50%;
     background:radial-gradient(circle at 40% 35%,#79838f,#2a3038 70%,#0a0d10);
     /* The other three screws are copies of this one — a box-shadow is the cheapest way to repeat a
-       drawn object, and four pseudo-elements is not a thing CSS has. */
+       drawn object, and four pseudo-elements isn't a thing CSS has. */
     box-shadow:calc(var(--gw) - 20px) 0 0 0 #2a3038, 0 calc(var(--gh) - 20px) 0 0 #2a3038,
       calc(var(--gw) - 20px) calc(var(--gh) - 20px) 0 0 #2a3038;
     pointer-events:none}
@@ -4374,7 +4374,7 @@ function ensureCabStyles() {
   /* ── THE SLOTS ─────────────────────────────────────────────────────────────
      Real buttons, positioned from the same table the hit-test reads, which is what makes the plate
      keyboard-operable and what let the ▲▼ pair go. The number milled into the plate IS the target:
-     there is no separate legend that could end up somewhere the button is not. */
+     there's no separate legend that could end up somewhere the button is not. */
   .cab-slot{position:absolute;transform:translate(-50%,-50%);width:26px;height:22px;padding:0;
     background:none;border:0;border-radius:4px;cursor:pointer;
     font:700 11px/1 inherit;color:rgba(163,176,192,.85);
@@ -4384,7 +4384,7 @@ function ensureCabStyles() {
   .cab-slot.on{color:var(--cab-glow,#e8c07a);
     text-shadow:0 0 8px var(--cab-glow,#e8c07a), 0 1px 0 rgba(0,0,0,.9)}
   .cab-slot:focus-visible{outline:2px solid #e8c07a;outline-offset:1px}
-  /* The collars sit beside the gate, small, because on the real box they are thumb switches on the
+  /* The collars sit beside the gate, small, because on the real box they're thumb switches on the
      knob rather than controls in their own right. */
   .cab-collars{display:flex;gap:6px;margin-top:5px;justify-content:center}
   .cab-collars .cab-btn{min-width:46px;min-height:38px}
@@ -4396,7 +4396,7 @@ function ensureCabStyles() {
      One coordinate system for the plate, or the lever and the gate it lives in disagree. */
   /* ⚠ THE LEVER IS A POINT, AND THE POINT IS WHERE IT MEETS THE SLOT. Zero-sized on purpose: the
      collar, the rod and the knob all hang off it, so moving the lever is one translation of one
-     object and there is nothing that can arrive a frame late or a pixel out. Everything visible
+     object and there's nothing that can arrive a frame late or a pixel out. Everything visible
      overflows it, which is why it needs no width — a box here would only be a second opinion about
      where the knob is. */
   .cab-lever{position:absolute;left:calc(var(--gx,.38) * 100%);top:calc(var(--gy,.5) * 100%);
@@ -4405,7 +4405,7 @@ function ensureCabStyles() {
     transition:left .14s cubic-bezier(.2,.8,.3,1), top .14s cubic-bezier(.2,.8,.3,1)}
   /* No easing while a hand is on it: a knob that lags the finger is a knob that feels broken. */
   .cab-lever.on{transition:none;cursor:grabbing;z-index:2}
-  /* In a gear the gate's own range does not offer — you shifted into 6 with a key while the lever
+  /* In a gear the gate's own range doesn't offer — you shifted into 6 with a key while the lever
      was in the LO half. The plate says so rather than the knob lying about where it is. */
   .cab-gate-off .cab-gate-marks{color:rgba(216,162,78,.75)}
   /* ── THE STICK, THE COLLAR AND THE KNOB ─────────────────────────────────────
@@ -4417,8 +4417,8 @@ function ensureCabStyles() {
      ⚠ Draw order is collar → rod → knob and it matters: the rod has to come up out of the collar,
      and the knob has to sit on the rod's end cap.
      The rod's LENGTH AND LEAN ARE CONSTANTS. They were solved per-frame from a rect while the stick
-     was a line drawn to an off-plate pivot; with the base riding the slot there is nothing left to
-     solve, and a constant is also the honest answer — a gear lever does not telescope. */
+     was a line drawn to an off-plate pivot; with the base riding the slot there's nothing left to
+     solve, and a constant is also the honest answer — a gear lever doesn't telescope. */
   .cab-boot{position:absolute;left:-11px;top:-5px;width:22px;height:10px;
     border-radius:50%;pointer-events:none;z-index:1;
     background:radial-gradient(60% 70% at 50% 24%,#2b3038,#12151a 62%,#05070a);
@@ -4443,7 +4443,7 @@ function ensureCabStyles() {
     border:1px solid #4b5763;
     box-shadow:0 4px 9px -3px #000, inset 0 1px 0 rgba(255,255,255,.22), inset 0 -3px 6px rgba(0,0,0,.55)}
   /* The specular hit. A separate element rather than another gradient stop, because a highlight
-     that is part of the fill scales with the ball and a real one does not. */
+     that's part of the fill scales with the ball and a real one does not. */
   .cab-lever b.cab-knob s{position:absolute;left:22%;top:16%;width:34%;height:26%;border-radius:50%;
     background:linear-gradient(160deg,rgba(255,255,255,.55),rgba(255,255,255,0));
     filter:blur(.4px)}
@@ -4466,7 +4466,7 @@ function ensureCabStyles() {
      what it looks like and where the 'on' class lands. */
   /* A SWITCH IS A BEZEL WITH A PADDLE IN IT, and the paddle is a separate element because it has
      to move independently of the housing — the bezel is screwed to the dash, the paddle pivots.
-     The tell-tale is the third piece and it is drilled into the BEZEL, above the paddle, the way a
+     The tell-tale is the third piece and it's drilled into the BEZEL, above the paddle, the way a
      lamp is on a real switch panel rather than printed on the thing that moves. */
   /* IT WRAPS. Eleven switches is a long row on a 1280 pane and this shelf is the one surface here
      that must never scroll — so the panel folds onto a second line rather than shoving the pedals
@@ -4482,7 +4482,7 @@ function ensureCabStyles() {
   .cab-btn.cab-rocker i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
     box-shadow:inset 0 0 3px #000, 0 1px 0 rgba(255,255,255,.05)}
   /* THE PADDLE. Hinged at the top: the upper half catches the light and the lower half falls into
-     shadow, which is the whole read of a rocker that is currently OFF. Pressed, that gradient
+     shadow, which is the whole read of a rocker that's currently OFF. Pressed, that gradient
      inverts and the legend sinks — the switch is standing proud at the bottom instead of the top. */
   .cab-btn.cab-rocker u{display:block;width:100%;padding:5px 3px 6px;border-radius:2px;text-decoration:none;
     background:linear-gradient(#39424d 0%,#2a323b 46%,#1b2128 47%,#141a20 100%);
@@ -4505,9 +4505,9 @@ function ensureCabStyles() {
      job: a truck dash is a field of grey rectangles, and the two air valves are deliberately shaped
      and coloured so a hand finds them at night without the eyes leaving the road. Copying that is
      most of why this reads as a cab control rather than a web button.
-     It is built as a KNOB ON A COLLAR rather than a flat octagon: the collar is the bezel screwed to
+     It's built as a KNOB ON A COLLAR rather than a flat octagon: the collar is the bezel screwed to
      the dash, the octagon is the part that travels, and the whole read of the control is how far the
-     octagon is standing out of the collar. Pushed home it is flush and dark; pulled out it stands
+     octagon is standing out of the collar. Pushed home it's flush and dark; pulled out it stands
      proud on a lit stem with a shadow under it. */
   .cab-btn.cab-hitchbtn{gap:3px;min-width:52px;padding:4px 4px 5px;border-radius:4px;
     background:linear-gradient(#171b20,#0e1216);border:1px solid #2b333c;
@@ -4576,7 +4576,7 @@ function ensureCabStyles() {
   .cab-btn.cab-parkbtn i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
     box-shadow:inset 0 1px 2px rgba(0,0,0,.8)}
   /* SET: standing proud of the dash with the brakes on — the state you want visible from the far
-     side of the cab, because pulling away against it is the mistake this control exists to make
+     side of the cab, because pulling away against it's the mistake this control exists to make
      possible. */
   .cab-btn.cab-parkbtn.on b.cab-knobface{background-color:#d8a41e;transform:translateY(-2px);
     box-shadow:0 4px 6px -2px rgba(0,0,0,.85), inset 0 -2px 4px rgba(0,0,0,.35),
@@ -4590,10 +4590,10 @@ function ensureCabStyles() {
   /* ── THE PUMP HANDLE ───────────────────────────────────────────────────────
      Not a knob and deliberately not shaped like one — the two knobs on this panel are BRAKES, and
      a control that takes money must not be findable by the same shape as the control that stops
-     the truck. So it is a wide flat trigger with a readout window in it, which is what a pump is:
-     a grip and a number. The face is the meter, so it is monospaced and wide enough for '9999₵'
+     the truck. So it's a wide flat trigger with a readout window in it, which is what a pump is:
+     a grip and a number. The face is the meter, so it's monospaced and wide enough for '9999₵'
      without the housing changing size mid-pour (a button that grows while you hold it reads as
-     broken). Sodium orange, because that is the colour of every forecourt in this game. */
+     broken). Sodium orange, because that's the colour of every forecourt in this game. */
   .cab-btn.cab-pumpbtn{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:58px}
   .cab-btn.cab-pumpbtn::before{display:none}          /* it has its own lamp */
   .cab-btn.cab-pumpbtn b.cab-pumpface{position:relative;display:flex;align-items:center;
@@ -4627,7 +4627,7 @@ function ensureCabStyles() {
      A lock barrel with a blade in it, and the blade ROTATES: '--keyrot' is written by paintKey and
      is the only thing that moves. Three stops, and the barrel's own face carries the ticks, so the
      angle is readable as a POSITION rather than as an amount of tilt.
-     ⚠ The blade turns; the housing does not. That is the whole illusion, and putting the transform
+     ⚠ The blade turns; the housing does not. That's the whole illusion, and putting the transform
      on the button instead would rotate the collar with it and read as the dash coming loose. */
   .cab-key{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px}
   .cab-keybarrel{position:relative;width:30px;height:30px;padding:0;border-radius:50%;
@@ -4635,7 +4635,7 @@ function ensureCabStyles() {
     border:1px solid #454e5a;cursor:pointer;touch-action:none;
     box-shadow:0 3px 7px -3px #000, inset 0 1px 0 rgba(255,255,255,.12)}
   /* The escutcheon's tick marks — OFF, ON, START, at the three angles KEY_DEG names. Drawn as one
-     conic gradient rather than three elements: they are paint on a plate, not parts. */
+     conic gradient rather than three elements: they're paint on a plate, not parts. */
   .cab-keybarrel::before{content:'';position:absolute;inset:-4px;border-radius:50%;pointer-events:none;
     background:conic-gradient(from -4deg,rgba(190,204,220,.55) 0deg 3deg,transparent 3deg 34deg,
       rgba(190,204,220,.55) 34deg 37deg,transparent 37deg 70deg,
@@ -4654,8 +4654,8 @@ function ensureCabStyles() {
   .cab-keybarrel b{width:12px;height:9px;border-radius:2px 2px 5px 5px;margin-top:9px;
     background:linear-gradient(#8e9aa8,#454e5a);box-shadow:0 1px 2px rgba(0,0,0,.7)}
   .cab-keybarrel.on{border-color:#4e9a5c;box-shadow:0 3px 7px -3px #000, 0 0 8px rgba(78,154,92,.35), inset 0 1px 0 rgba(255,255,255,.12)}
-  /* CRANKING is the one state with a colour, because it is the one state that is temporary and that
-     you are actively holding — the dash's way of saying the starter is turning. */
+  /* CRANKING is the one state with a colour, because it's the one state that's temporary and that
+     you're actively holding — the dash's way of saying the starter is turning. */
   .cab-keybarrel.cranking{border-color:#e0a05a;box-shadow:0 0 12px rgba(224,160,90,.55)}
   .cab-keybarrel:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
 
@@ -4678,7 +4678,7 @@ function ensureCabStyles() {
     text-shadow:0 0 9px rgba(232,192,122,.55)}
   /* OFF IS A DARK SET, not a hidden one. The controls stay exactly where they were and stay
      operable — the way back on is the same switch, and a panel that vanishes when you turn it off
-     is a panel you cannot turn on. */
+     is a panel you can't turn on. */
   .cab-cb.off .cab-cb-chan{color:#3a444e;text-shadow:none}
   .cab-cb.off .cab-cb-pointer{background:#3a444e;box-shadow:none}
   /* THE KNOB. 300 degrees of travel like a real detented dial, leaving a dead sector at the
@@ -4698,8 +4698,8 @@ function ensureCabStyles() {
   @media (max-width:900px){ .cab-cb{flex-wrap:wrap;justify-content:center;max-width:104px} }
 
   /* ── THE ROUTE PICKER ──────────────────────────────────────────────────────
-     Over the glass, anchored to the right where the screen it belongs to is. It is a panel rather
-     than something drawn on the canvas because it is a LIST OF BUTTONS — tab order, focus rings and
+     Over the glass, anchored to the right where the screen it belongs to is. It's a panel rather
+     than something drawn on the canvas because it's a LIST OF BUTTONS — tab order, focus rings and
      a screen reader all come free from being real elements, and none of them would exist on a
      canvas hit-test. */
   .cab-routes{position:absolute;right:10px;bottom:calc(var(--cab-shelf,0px) + 40px);z-index:6;min-width:210px;max-width:44%;
@@ -4708,9 +4708,9 @@ function ensureCabStyles() {
   .cab-routes-hd{font:700 9px/1 inherit;letter-spacing:.14em;color:var(--cab-glow,#e8c07a);
     padding:2px 3px 6px}
   /* ── THE GPS UNIT'S CHROME ────────────────────────────────────────────────
-     A dash screen is a bezel with a strip of buttons along the top, so that is what this is: tabs
+     A dash screen is a bezel with a strip of buttons along the top, so that's what this is: tabs
      on the left, the two window controls on the right, and a body under it that each app paints.
-     The header doubles as the drag handle once the unit is popped out — which is why it is a real
+     The header doubles as the drag handle once the unit is popped out — which is why it's a real
      bar with padding rather than a row of floating buttons. */
   .cab-gps-hd{display:flex;align-items:center;gap:6px;margin:-2px -2px 6px;padding:3px 3px 5px;
     border-bottom:1px solid #29323c}
@@ -4722,8 +4722,8 @@ function ensureCabStyles() {
   .cab-gps-pop,.cab-gps-x{background:none;border:0;cursor:pointer;color:#8b97a6;font:700 12px/1 inherit;padding:2px 4px}
   .cab-gps-pop:hover,.cab-gps-x:hover{color:#eaf1f8}
   .cab-gps-body{max-height:min(52vh,420px);overflow:auto}
-  /* POPPED OUT. Fixed rather than absolute, so it is free of the windscreen's box and can be put
-     anywhere on the page; wider, because the whole reason to pop it out is that you are reading it
+  /* POPPED OUT. Fixed rather than absolute, so it's free of the windscreen's box and can be put
+     anywhere on the page; wider, because the whole reason to pop it out is that you're reading it
      rather than glancing at it. The drag handle gets the cursor that says so. */
   .cab-routes.cab-gps-out{position:fixed;right:auto;bottom:auto;min-width:340px;max-width:min(560px,92vw);
     z-index:60;box-shadow:0 22px 60px -18px #000,0 0 0 1px #46525f}
@@ -4737,7 +4737,7 @@ function ensureCabStyles() {
   .cab-route-d{display:block;font-size:10px;color:#8b95a2;letter-spacing:.04em;margin-top:2px}
   .cab-route i{display:block;font-size:9px;color:#8fe0a0;font-style:normal;margin-top:3px}
   .cab-route.on{border-color:#8fe0a0}
-  /* Shown, never hidden: the fuel judgement is the driver's to make, and a row that is missing is
+  /* Shown, never hidden: the fuel judgement is the driver's to make, and a row that's missing is
      a mystery where a row that says why is information. */
   .cab-route.r-thin .cab-route-d{color:#d8a24e}
   .cab-route.r-far .cab-route-d{color:#d2603f}
@@ -4747,16 +4747,16 @@ function ensureCabStyles() {
   .cab-route:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
 
   /* ── WHO HAS THE KEYBOARD ──────────────────────────────────────────────────
-     Bottom-right of the glass, quiet while it is right and loud the moment it is not — because
-     the failure it exists for is silent by nature: keys going into a text box you are not
+     Bottom-right of the glass, quiet while it's right and loud the moment it's not — because
+     the failure it exists for is silent by nature: keys going into a text box you're not
      looking at. */
   /* ⚠ EVERY BOTTOM-ANCHORED OVERLAY MEASURES FROM THE SHELF, NOT FROM THE PANE. These are children
      of .cab-wrap, and .cab-wrap is the glass AND the shelf — so a plain 'bottom:8px' put the focus
      tag and the damage strip on top of the gear collars and the pedals. It was invisible for as
      long as fullscreen overrode both of them to the TOP of the screen; with the shelf back in the
-     flow there is nothing overriding anything, so the offset has to be real.
+     flow there's nothing overriding anything, so the offset has to be real.
      '--cab-shelf' is the shelf's measured height, written by a ResizeObserver in openCab (see THE
-     SHELF'S OWN HEIGHT). It has a 0px fallback, so a cab whose observer has not fired yet lands
+     SHELF'S OWN HEIGHT). It has a 0px fallback, so a cab whose observer hasn't fired yet lands
      exactly where it used to rather than nowhere. */
   .cab-focustag{position:absolute;right:8px;bottom:calc(var(--cab-shelf,0px) + 8px);z-index:5;cursor:pointer;
     background:rgba(6,10,14,.72);border:1px solid #2f3944;color:#6f7883;
@@ -4765,7 +4765,7 @@ function ensureCabStyles() {
     animation:cab-keys-warn 1.4s ease-in-out infinite}
   .cab-focustag:hover{color:#dfe8f2;border-color:#5c6672}
   @keyframes cab-keys-warn{0%,100%{box-shadow:0 0 0 0 rgba(216,162,78,0)}50%{box-shadow:0 0 0 3px rgba(216,162,78,.28)}}
-  /* Steering with a hand on the road. The cursor is the whole affordance — there is no widget
+  /* Steering with a hand on the road. The cursor is the whole affordance — there's no widget
      here to hint at one. */
   .cab-wrap .ws-wrap{cursor:grab}
   .cab-wrap.cab-ext .ws-wrap{cursor:move}
@@ -4782,8 +4782,8 @@ function ensureCabStyles() {
   /* ── A KEY, INDIVIDUALLY HOUSED ─────────────────────────────────────────────
      Modelled on a real truck control box: every function is its own moulded key in its own bezel,
      with a TELL-TALE STRIP across the top, a pictogram, and the word underneath. The strip is what
-     makes a panel of these readable at a glance — you are not reading twelve labels, you are
-     looking for the one that is lit — and it is why each key needs its own housing rather than
+     makes a panel of these readable at a glance — you aren't reading twelve labels, you are
+     looking for the one that's lit — and it's why each key needs its own housing rather than
      being one cell of a shared strip.
      'gap' is deliberately generous and the housing deliberately dark: on the reference, what reads
      as quality is the BLACK BETWEEN the keys as much as the keys themselves. */
@@ -4808,7 +4808,7 @@ function ensureCabStyles() {
   .cab-btn b svg{width:18px;height:18px;display:block;color:#cbd6e3}
   .cab-btn.on b svg{color:#fff}
   /* The range collar shows BOTH — the little ladder says what the control is, the word says which
-     way it is set, because LO and HI are the two states you must never have to guess between. */
+     way it's set, because LO and HI are the two states you must never have to guess between. */
   .cab-rangeic{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:14px;height:14px;
     color:#7d8794;opacity:.9}
   .cab-rangeic svg{width:100%;height:100%;display:block}
@@ -4819,7 +4819,7 @@ function ensureCabStyles() {
   .cab-btn em{display:block;font:700 7px/1 inherit;font-style:normal;letter-spacing:.11em;
     color:#aab5c2;text-shadow:0 1px 0 rgba(0,0,0,.9)}
   .cab-btn:hover{filter:brightness(1.12)}
-  /* Pressed: the key goes down onto its own shadow, which is what the 0 2px 0 under it is for. */
+  /* Pressed: the key goes down onto its own shadow, which is what the 0 2px 0 under it's for. */
   .cab-btn:active{transform:translateY(2px);
     box-shadow:inset 0 2px 5px rgba(0,0,0,.6), 0 0 0 #06090c}
   .cab-btn.on::before{background:var(--key,#e8c07a);
@@ -4839,7 +4839,7 @@ function ensureCabStyles() {
   .cab-wipe{--key:#6fa8d0}
   /* ── THE COLUMN STALK ───────────────────────────────────────────────────────
      A boss on the column and an arm off it, and the ARM'S ANGLE IS THE STATE: --pos steps 0..3 and
-     the arm swings 14° a detent. That is the whole reason this is a stalk rather than a fourth
+     the arm swings 14° a detent. That's the whole reason this is a stalk rather than a fourth
      rocker — a rocker can say on or off, and this says which of four without a lamp or a word,
      which is exactly how you read one at 60mph without looking at it.
      The word underneath is there anyway, because "slightly further round than it was" is not
@@ -4875,7 +4875,7 @@ function ensureCabStyles() {
   .cab-horn{--key:#e0b45a}
   .cab-rev,.cab-revbtn{--key:#d2603f}
   /* The door, shaped like the park knob's label plate so it reads as part of that cluster. Amber,
-     because it is the end of the sequence the amber knob starts. */
+     because it's the end of the sequence the amber knob starts. */
   .cab-exitbtn{--key:#d8a41e;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px}
   .cab-exitbtn i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
     box-shadow:inset 0 1px 2px rgba(0,0,0,.6)}
@@ -4889,12 +4889,12 @@ function ensureCabStyles() {
   .cab-splitbtn{--key:#8fe0a0}
   .cab-lookl,.cab-lookr,.cab-lookb{--key:#8fa4bc}
   /* ⚠ AND THEY ARE GONE IN THE CHASE VIEW, because out there they do nothing. PORT/STBD/BACK turn
-     your HEAD — they swing the view yaw from the seat, and the exterior camera is not in the seat,
+     your HEAD — they swing the view yaw from the seat, and the exterior camera isn't in the seat,
      so pressing one from outside the truck is a control that answers with nothing. A dead button is
      worse than an absent one: it reads as broken rather than as inapplicable.
      'display:none' rather than a disabled attribute or an opacity knock-down, deliberately — this
-     is not a control you are temporarily barred from (which is what the EXIT CAB button's disabled
-     state means, and that distinction is worth keeping legible), it is a control that does not
+     isn't a control you're temporarily barred from (which is what the EXIT CAB button's disabled
+     state means, and that distinction is worth keeping legible), it's a control that does not
      belong to this view at all. It also takes them out of the tab order, which is the whole reason
      not to fake it with opacity. '.cab-ext' is already toggled on the wrap by the view switch, so
      this follows the existing state and adds no second source of truth. */
@@ -4947,8 +4947,8 @@ function ensureCabStyles() {
   .cab-t3 .cab-btn,.cab-t3 .cab-gate{background:#241a13;border-color:#5a4028;color:#e6d3b6}
   .cab-t3 .cab-pedal{border-color:#5a4028}
   .cab-t3 .cab-readout span{color:#9c8a72}
-  /* Touch: the controls get BIGGER on a small screen rather than smaller, because that is the one
-     place they are the only way in — the wheel shrinks to make room for them, not the reverse. */
+  /* Touch: the controls get BIGGER on a small screen rather than smaller, because that's the one
+     place they're the only way in — the wheel shrinks to make room for them, not the reverse. */
   @media (max-width:700px){
     .cab-readout b{font-size:17px}
     .cab-controls{flex-wrap:wrap;gap:8px}
@@ -4956,28 +4956,28 @@ function ensureCabStyles() {
     .cab-pedal{width:48px;height:56px}
     .cab-brake{width:54px}
     .cab-throttle{height:62px}
-    /* The gate gets BIGGER on touch, not smaller — it is six targets in one plate and on a phone
-       it is the only way to shift at all. One pair of variables moves the rails, the marks and the
-       knob together, because they are all expressed as fractions of it. */
+    /* The gate gets BIGGER on touch, not smaller — it's six targets in one plate and on a phone
+       it's the only way to shift at all. One pair of variables moves the rails, the marks and the
+       knob together, because they're all expressed as fractions of it. */
     .cab-gate{--gw:186px;--gh:118px}
     .cab-lever{width:26px;height:26px;margin:-13px 0 0 -13px}
   }
   @media (pointer:coarse){ .cab-btn{min-width:44px;min-height:44px} .cab-pedal{min-width:46px} }
   /* ── THE COMPACT CAB ───────────────────────────────────────────────────────
      THE GLASS GETS THE PANE BACK. Read the note by CAB_COMPACT_MQ at the top of this file for why
-     the gearbox is not down here; this is the layout half of it.
+     the gearbox isn't down here; this is the layout half of it.
      The rule above ("the controls get BIGGER on a small screen") is still right and is why this
-     does not simply shrink everything: a 44px target stays a 44px target. What changes is HOW MANY
+     doesn't simply shrink everything: a 44px target stays a 44px target. What changes is HOW MANY
      of them there are. */
   @media ${CAB_COMPACT_MQ}{
     /* ⚠ THE FIX IS THE SHELF'S HEIGHT, NOT A SHARE OF THE PANE. Two wrong versions came before
        this one and both were about dividing the pane up. \`.cab-controls\` is \`flex:0 0 auto\` and
-       the glass is \`flex:1 1 auto\` — so the glass ALREADY gets everything the shelf does not take,
+       the glass is \`flex:1 1 auto\` — so the glass ALREADY gets everything the shelf doesn't take,
        automatically, and the reason it was getting nothing is simply that the shelf's natural
        height was bigger than the pane. Make the shelf small and the road comes back on its own,
        at every pane size, with no arithmetic.
        So: a \`max-height\` on the shelf clips the park brake (the wrap is \`overflow:hidden\`), and a
-       50% floor on the glass clips whatever the shelf could not fit in the other half — which was
+       50% floor on the glass clips whatever the shelf couldn't fit in the other half — which was
        the mirrors, measured. The floor stays, low, as a SAFETY NET for a very short pane, never as
        the allocator. Measured at 375×520: shelf 286, glass 234 (45%); on a 700px pane the same
        shelf leaves the road 59%. */
@@ -4993,7 +4993,7 @@ function ensureCabStyles() {
        ⚠ THE COLUMN STAYS, ONLY THE BOX GOES. Hiding \`.cab-col-gate\` outright is the obvious line
        and it takes REVERSE with it — the rev button is a collar switch and lives in that column
        beside the range and the splitter. The result looks completely right and is a truck that
-       cannot back up, which is the one thing the automatic will never do for you. Caught by
+       can't back up, which is the one thing the automatic will never do for you. Caught by
        measuring, not by reading. */
     .cab-col-gate .cab-gate,.cab-range,.cab-splitbtn,.cab-auto,.cab-clutch{display:none !important}
     /* The column's \`padding:34px 0 16px\` is headroom for the knob standing up out of the plate.
@@ -5001,31 +5001,31 @@ function ensureCabStyles() {
     .cab-col-gate{order:1;padding:0}
     /* THE SECOND ROW OF THINGS THAT ARE NOT DRIVING. The CB set, the galley flap and the door
        latches are all real controls and none of them is needed to move a truck; on a pane this
-       size they were the difference between a road and no road. They are hidden here ONLY — the
+       size they were the difference between a road and no road. They're hidden here ONLY — the
        verbs behind them (cb, eat, drink, the Y latch) are untouched and still work from the
        command bar, which is the thing a phone actually has plenty of. */
     .cab-cabrow{display:none !important}
     /* The mirrors stay: on a touch screen these three buttons are the ONLY way to look off the
-       nose, and a driver who cannot shoulder-check cannot merge. They just get tighter. */
+       nose, and a driver who can't shoulder-check can't merge. They just get tighter. */
     .cab-look{gap:4px}
     .cab-look .cab-btn em{display:none}
     /* ⚠ THE SWITCH PANEL MUST WRAP INSIDE THE PANE, and \`max-width:none\` is how I first broke
-       that. The rockers are a wrapping row with a \`max-width\` on them; lifting it did not make
+       that. The rockers are a wrapping row with a \`max-width\` on them; lifting it didn't make
        them fit, it let them lay out 781px wide in a 375px viewport — so the shelf stopped being
        one wrapped row of groups and became four stacked ones, and the pedals fell off the bottom.
        The column is given the full width to wrap WITHIN instead. \`min-width:0\` is the other half:
-       a flex item defaults to \`min-width:auto\` and will not shrink below its content. */
+       a flex item defaults to \`min-width:auto\` and won't shrink below its content. */
     .cab-col-switch{flex:1 1 100%;min-width:0}
     .cab-rockers{gap:4px;max-width:100%}
     /* The dome lamp and cruise are the two switches on this panel that no leg needs — one lights
-       the cab and one holds a speed your thumb can hold. They are the difference between two rows
+       the cab and one holds a speed your thumb can hold. They're the difference between two rows
        of switches and three. Both keep their keys (I and G) and both are back the moment the pane
        is wide enough to hold them. */
     .cab-dome,.cab-cruise{display:none !important}
     /* THE KNOBS SET THE ROW HEIGHT, and there are three of them — trailer air, park, and the pump
        handle. At 30px the octagon plus its legend is a 75px button and two rows of switches cost
-       150px on a screen that has 250 to spend. The silhouette is a clip-path, so it is honest at
-       22px too; that is the whole reason it was drawn as one. */
+       150px on a screen that has 250 to spend. The silhouette is a clip-path, so it's honest at
+       22px too; that's the whole reason it was drawn as one. */
     .cab-btn.cab-hitchbtn b.cab-knobface{width:22px;height:22px}
     .cab-rockers .cab-btn{padding-top:3px;padding-bottom:3px}
     .cab-rockers .cab-btn u span{font-size:9px}
@@ -5037,9 +5037,9 @@ function ensureCabStyles() {
     .cab-controls{column-gap:6px}
     .cab-pedals{gap:6px}
     .cab-pedal{width:48px;height:56px}
-    /* The wiper stalk stays — it is the only way to clear the screen in weather and there is no W
+    /* The wiper stalk stays — it's the only way to clear the screen in weather and there's no W
        key on a phone — but it lies down. The mount and the swing are what make it read as a stalk
-       on a dash with room for one; here it is a control that has to earn its 44 pixels. */
+       on a dash with room for one; here it's a control that has to earn its 44 pixels. */
     .cab-col-stalk .cab-stalk{width:auto;height:44px;min-width:52px}
     .cab-stalk-mount{display:none}
   }
@@ -5052,7 +5052,7 @@ function ensureCabStyles() {
      ⚠ HIDDEN, NOT DELETED, and hidden by POINTER rather than by width — a small window on a
      desktop still has a keyboard, and a tablet in landscape still does not. */
   @media (hover:hover) and (pointer:fine){ .cab-touch{display:none !important} }
-  /* ⚠ EXCEPT IN THE CHASE VIEW, where they are the only way in. Out there the wheel is not on
+  /* ⚠ EXCEPT IN THE CHASE VIEW, where they're the only way in. Out there the wheel isn't on
      screen to drag, the painted dash is behind the camera, and a pointer drag means ORBIT — so a
      desktop driver in the external view has no pointer route to steering at all. The controls a
      cockpit made redundant stop being redundant the moment you leave the cockpit. */
@@ -5109,12 +5109,12 @@ function ensureCabStyles() {
      dash is where every instrument in this cab lives, and the strip of buttons was lying straight
      across them. The gearbox sat on the tachometer, the pedals sat on the air gauges, and the one
      mode a driver plays the whole haul in was the one mode where nothing could be read.
-     Two things could not both be true: the shelf is over the glass, and the shelf is clear of the
-     gauges. There is no arrangement of the groups that fixes it either — the instrument row runs
+     Two things couldn't both be true: the shelf is over the glass, and the shelf is clear of the
+     gauges. There's no arrangement of the groups that fixes it either — the instrument row runs
      the FULL width of the dash by design (see ONE INSTRUMENT ROW in windshield.js), so anything on
      the strip is on top of something.
      So the shelf is a shelf in every mode. The glass gets the rest of the screen, which is still
-     far more road than the windowed pane ever gave it, and the canvas being shorter is not lost
+     far more road than the windowed pane ever gave it, and the canvas being shorter isn't lost
      dash — the painted dash is a FRACTION of the canvas, so it shrinks with it and stays whole.
      The only thing fullscreen gives up is the last inch of sky. */
   body.cab-fullscreen .cab-wrap > .ws-wrap{border-radius:0}
@@ -5124,13 +5124,13 @@ function ensureCabStyles() {
      when everything is fine, and the pips carry the colour so a bad one is
      visible without reading anything. */
   /* The glass fuel gauge. Top-left, opposite the chrome buttons and clear of the damage strip in
-     the bottom corner. Fixed width so the needle does not jog as the digits change width. */
+     the bottom corner. Fixed width so the needle doesn't jog as the digits change width. */
   /* ── THE WARNING BAND ────────────────────────────────────────────────────
      Top centre, over the road rather than beside it, because this is the one thing on the glass
-     that is not a reading — it is an interruption, and a driver watching the vanishing point has
+     that isn't a reading — it's an interruption, and a driver watching the vanishing point has
      to catch it without looking anywhere.
      Amber is steady and red PULSES. The pulse is the difference between "sort this out at the next
-     stop" and "this is taking HP right now", and it is why the amber rung does not move at all:
+     stop" and "this is taking HP right now", and it's why the amber rung doesn't move at all:
      movement is the whole signal, so spending it early leaves nothing to escalate to.
      'prefers-reduced-motion' drops the animation and keeps the colour, which is the same trade the
      rest of this client makes — the information is in the red, the urgency is in the flash, and
@@ -5146,9 +5146,9 @@ function ensureCabStyles() {
   @media (prefers-reduced-motion: reduce){.cab-vitband.bad{animation:none}}
 
   /* ── THE GALLEY FLAP ─────────────────────────────────────────────────────
-     Right-hand side, clear of the fuel gauge (top left) and the damage strip. It is the one panel
-     on this glass you are meant to READ rather than glance at, so it gets a real width and its own
-     scroll — and it is capped in height so a driver with forty tins does not lose the windscreen. */
+     Right-hand side, clear of the fuel gauge (top left) and the damage strip. It's the one panel
+     on this glass you're meant to READ rather than glance at, so it gets a real width and its own
+     scroll — and it's capped in height so a driver with forty tins doesn't lose the windscreen. */
   .cab-galley{position:absolute;right:6px;top:40px;z-index:6;width:224px;
     max-height:calc(100% - var(--cab-shelf,0px) - 52px);
     display:flex;flex-direction:column;
@@ -5160,7 +5160,7 @@ function ensureCabStyles() {
      the galleyAsked stamp is a real bug that was fixed for a symptom this one line owned.
      Every other flap on this glass already carries the same line (.cab-help, .cab-dmg-full); the
      galley is the one that grew a display and never got it. A panel here that sets a display needs
-     this, and there is no way to have one without the other. */
+     this, and there's no way to have one without the other. */
   .cab-galley[hidden]{display:none}
   .cab-galley-hd{display:flex;justify-content:space-between;align-items:center;
     padding:4px 6px;border-bottom:1px solid #2b3540;letter-spacing:.14em;color:#dfe8f0}
@@ -5189,9 +5189,9 @@ function ensureCabStyles() {
   .cab-galley-item > em{font-style:normal;color:#6b7887;font-size:9px}
 
   /* ── SOMEBODY ON THE SHOULDER ────────────────────────────────────────────
-     Bottom centre, above the dash lip: out of the vanishing point (which is where you are looking
+     Bottom centre, above the dash lip: out of the vanishing point (which is where you're looking
      for THEM) and out of the top band's way, which may be up at the same time. It stays put while
-     they are ahead of you rather than fading on a timer — the thing it is fixing is a notification
+     they're ahead of you rather than fading on a timer — the thing it's fixing is a notification
      that came and went before a driver looked up. */
   .cab-hitchalert{position:absolute;left:50%;bottom:calc(var(--cab-shelf,0px) + 10px);transform:translateX(-50%);z-index:6;
     max-width:340px;padding:6px 10px;text-align:center;
@@ -5207,7 +5207,7 @@ function ensureCabStyles() {
   /* The latch reads out a STATE, so the two look different at a glance rather than differing only
      by a word — an open door is the dim, unremarkable default and a locked one is lit. GREEN rather
      than the trim amber, because every other tell-tale on this panel means "this is running" and
-     this one means "you are shut in", which is the one lamp up here that is reassurance.
+     this one means "you're shut in", which is the one lamp up here that's reassurance.
      ⚠ IT HAS TO REACH THE PADDLE AND THE BULB, not the button. As a chrome pill the latch was one
      element and a colour on it was the whole control; a rocker is a bezel with a legend inside it,
      and '.cab-btn.cab-rocker.on span' would outrank a rule on the outside of that. */
@@ -5243,7 +5243,7 @@ function ensureCabStyles() {
   @keyframes cab-dmg-pulse{0%,100%{box-shadow:0 0 0 0 rgba(210,96,63,0)}50%{box-shadow:0 0 0 3px rgba(210,96,63,.3)}}
   .cab-pip{position:relative;display:flex;flex-direction:column-reverse;align-items:center;
     width:16px;height:26px;background:#12161b;border-radius:2px;overflow:hidden}
-  /* The fill is bottom-anchored, so a bar that is going down LOOKS like it is going down. */
+  /* The fill is bottom-anchored, so a bar that's going down LOOKS like it's going down. */
   .cab-pip em{display:block;width:100%;background:#5f8f6a}
   .cab-pip b{position:absolute;bottom:1px;font:600 7px/1 inherit;letter-spacing:.04em;
     color:#dfe8f2;text-shadow:0 1px 2px #000}
@@ -5264,12 +5264,12 @@ function ensureCabStyles() {
   .cab-dmg-bar.b-ailing i{background:#c07038}
   .cab-dmg-bar.b-derelict i{background:#c04a3a}
   .cab-dmg-row b{font-variant-numeric:tabular-nums;font-size:11px;text-align:right}
-  /* The note wraps under its row rather than squeezing the bar — it is the part you read once. */
+  /* The note wraps under its row rather than squeezing the bar — it's the part you read once. */
   .cab-dmg-note{grid-column:2 / -1;font-size:9px;color:#6f7883;margin-top:-2px}
   .cab-dmg-foot{margin:8px 0 0;font-size:10px;color:#78828e;line-height:1.5}
 
   /* The controls card. It sits over the glass rather than in the dash, because
-     it is not part of the truck — and it closes on any click, so it can never be
+     it isn't part of the truck — and it closes on any click, so it can never be
      the thing between a driver and a brake pedal. */
   .cab-help{position:absolute;inset:8px 8px auto 8px;z-index:6;max-height:calc(100% - var(--cab-shelf,0px) - 16px);
     overflow:auto;background:rgba(6,9,13,.94);border:1px solid #3a4550;border-radius:6px;

@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "Say it once more, slower, and I will have it properly.",
+  "self_line": "Say it once more, slower, and I'll have it properly.",
   "source": "object_reply_answer",
   "tone": "surreal"
 }

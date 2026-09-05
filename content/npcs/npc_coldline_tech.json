@@ -132,14 +132,14 @@
   },
   "chitchat": [
     "puts a palm flat against a door and listens to the compressor behind it.",
-    "\"Number nine is singing. When they sing, they are dying.\"",
+    "\"Number nine is singing. When they sing, they're dying.\"",
     "\"Two degrees is the whole business. Two degrees is my entire life.\""
   ],
   "description": "The reefer technician, a heavyset man who lives inside a corridor of frozen doors and talks to the compressors more than to the staff. He can name a fault from the noise alone, which he does, loudly, to nobody.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Aye. Mind your fingers on the seals, they will take skin.\""
+      "text": "\"Aye. Mind your fingers on the seals, they'll take skin.\""
     },
     "root": {
       "options": [
@@ -148,7 +148,7 @@
           "next": "bye"
         }
       ],
-      "text": "Mostyn steps out of the corridor in a roll of white fog. \"If you are the engineer, you are late. If you are not, you are standing in a walkway.\""
+      "text": "Mostyn steps out of the corridor in a roll of white fog. \"If you're the engineer, you're late. If you're not, you're standing in a walkway.\""
     }
   },
   "faction": null,

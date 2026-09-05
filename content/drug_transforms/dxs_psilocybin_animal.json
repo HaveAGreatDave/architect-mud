@@ -15,14 +15,14 @@
   "id": "dxs_psilocybin_animal",
   "looks": [
     "The antlers are in velvet, and the velvet is torn on one side and hanging.",
-    "It is steaming. The room is not cold enough for anything to steam.",
-    "It has planted all four feet and is not going to be moved by anything you have on you."
+    "It's steaming. The room isn't cold enough for anything to steam.",
+    "It has planted all four feet and isn't going to be moved by anything you have on you."
   ],
   "matches": null,
   "name": "a stag standing in the middle of the room",
   "says": [
     "I came a long way to stand here.",
-    "Do not get behind me."
+    "Don't get behind me."
   ],
   "scope": "spawn"
 }

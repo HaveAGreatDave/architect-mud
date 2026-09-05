@@ -11,7 +11,7 @@
         "type": "say"
       },
       "f2": {
-        "text": "A server does not ask. A server never asks any more.",
+        "text": "A server doesn't ask. A server never asks any more.",
         "type": "say"
       },
       "fix": {
@@ -60,7 +60,7 @@
         "type": "say"
       },
       "r2": {
-        "text": "A table is found. It was always there. It is now yours.",
+        "text": "A table is found. It was always there. It's now yours.",
         "type": "say"
       },
       "reg": {
@@ -81,11 +81,11 @@
         "type": "random"
       },
       "s0": {
-        "text": "The staff arrange themselves so that you are always in someone's peripheral vision and never in anyone's way.",
+        "text": "The staff arrange themselves so that you're always in someone's peripheral vision and never in anyone's way.",
         "type": "say"
       },
       "s1": {
-        "text": "A server asks if you are meeting somebody. The question is doing a great deal of work.",
+        "text": "A server asks if you're meeting somebody. The question is doing a great deal of work.",
         "type": "say"
       },
       "s2": {

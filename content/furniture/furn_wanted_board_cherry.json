@@ -1,6 +1,14 @@
 {
-  "description": "The Cherry Pit's board is behind the bar rather than out on the floor, angled so it can be read from two stools and nowhere else, which was a decision somebody made and has never explained. The paper on it is newer than the Grind House's and there is less of it — this room settles most of its business before anything reaches a printer. What does get printed here tends to carry a larger number. A coin slot sits under a small brass plate that once said something else entirely and now says nothing at all, the letters worn off by thumbs, and the sheets go up crooked because whoever staples them is generally holding a drink.",
+  "description": "A Severance 400 bolted to the wall: coin slot and thermal printer up top, an amber screen of open contracts, a round stainless port by your knees with a scale behind it. PAYABLE ON DELIVERY. DO NOT INSERT LIVING TISSUE. This one is looked after, wiped down every shift. Nobody will say who does it.",
   "flags": {
+    "receptacle": {
+      "accept": "The port cycles smoothly, the way a serviced machine does. A soft double click behind the inner door, then nothing.",
+      "dark": "The port is locked solid. The terminal has gone dark, and whatever is in it's staying in it.",
+      "darkPost": "The terminal is dark. No printer, no sheet, and nobody here is writing one by hand.",
+      "empty": "A contract pays on delivery, and the port stays shut for anyone arriving without one.",
+      "noun": "the port",
+      "room": "{handle} crouches at the terminal behind the bar. It pays out {amount} in clean notes, and the bartender finds something to do at the other end of the room."
+    },
     "wanted_board": true
   },
   "hp": null,
@@ -8,9 +16,9 @@
   "id": "furn_wanted_board_cherry",
   "light_type": null,
   "lumen_output": null,
-  "name": "WANTED board",
+  "name": "bounty terminal",
   "object_type": "decoration",
-  "power_draw_kw": null,
+  "power_draw_kw": 0.02,
   "price": 0,
   "zone_id": "zone_mq_cherry_floor"
 }

@@ -11,7 +11,7 @@
     "Somebody has painted the rock. Not with paint."
   ],
   "ambient_theme": "wasteland",
-  "description": "The last of the stakes, and the worst of them, set close enough together here that the road runs through a corridor of them. Drone hulls, split open and splayed on frames. Something that was a Custodian unit, upside down. The wind moves it all slightly. Ahead the thorn wall goes across the whole horizon and there is a gap in it with light coming through.",
+  "description": "The last of the stakes, and the worst of them, set close enough together here that the road runs through a corridor of them. Drone hulls, split open and splayed on frames. Something that was a Custodian unit, upside down. The wind moves it all slightly. Ahead the thorn wall goes across the whole horizon and there's a gap in it with light coming through.",
   "exits": {
     "east": "zone_scw_1047_967",
     "north": "zone_scw_1046_966",

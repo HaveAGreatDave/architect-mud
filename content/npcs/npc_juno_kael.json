@@ -177,7 +177,7 @@
           "next": "looking"
         },
         {
-          "label": "What is this place?",
+          "label": "What's this place?",
           "next": "what_is_this"
         },
         {

@@ -4,7 +4,7 @@
     "Did the first one of me already ask you this?",
     "Are you keeping up?"
   ],
-  "description": "A person, and then the same person again a moment later, doing what the first one already did. Both of them are here. Neither is a copy, and the gap between them is not closing.",
+  "description": "A person, and then the same person again a moment later, doing what the first one already did. Both of them are here. Neither is a copy, and the gap between them isn't closing.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} raises a hand, and raises it again shortly afterwards.",
@@ -17,14 +17,14 @@
   "looks": [
     "The lag is about a second and is extremely consistent, which is worse than if it wandered.",
     "Their mouth finishes a word some time after you have heard it.",
-    "When they stand still the two of them agree, and it is nearly restful."
+    "When they stand still the two of them agree, and it's nearly restful."
   ],
   "matches": null,
   "name": "somebody running slightly behind themselves",
   "says": [
-    "You are hearing the front of me.",
-    "I get there. It is only a matter of when.",
-    "Do not wait up."
+    "You're hearing the front of me.",
+    "I get there. It's only a matter of when.",
+    "Don't wait up."
   ],
   "scope": "person"
 }

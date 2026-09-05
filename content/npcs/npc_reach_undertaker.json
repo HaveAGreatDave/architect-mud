@@ -62,7 +62,7 @@
       },
       "options": [
         {
-          "label": "What is it you actually do here?",
+          "label": "What's it you actually do here?",
           "next": "work"
         },
         {
@@ -82,7 +82,7 @@
         }
       ],
       "text": [
-        "Hollis looks up from the bench, sets down what he is holding, and waits. He does not fill the silence for you."
+        "Hollis looks up from the bench, sets down what he's holding, and waits. He doesn't fill the silence for you."
       ],
       "text_by_relation": {
         "first": [

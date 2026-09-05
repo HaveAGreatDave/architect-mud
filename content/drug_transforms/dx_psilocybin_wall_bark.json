@@ -16,15 +16,15 @@
   "fx_intensity": 0.5,
   "id": "dx_psilocybin_wall_bark",
   "looks": [
-    "The fissures run vertically, wide enough to get your fingers into, and there is something moving deep in one of them.",
-    "It is warmer than the room. Put a palm flat on it and you can feel it working, very slowly, somewhere behind the bark.",
+    "The fissures run vertically, wide enough to get your fingers into, and there's something moving deep in one of them.",
+    "It's warmer than the room. Put a palm flat on it and you can feel it working, very slowly, somewhere behind the bark.",
     "Names have been cut into it at about shoulder height. None of them are people you know. One of them is nearly yours."
   ],
   "matches": "wall",
   "name": "the side of an enormous tree",
   "says": [
-    "I was here when this was a field. I will manage.",
-    "Do not lean on that part. It is newer than it looks.",
+    "I was here when this was a field. I'll manage.",
+    "Don't lean on that part. It's newer than it looks.",
     "The roof is mine. So is the floor, further down than you think."
   ],
   "scope": "object"

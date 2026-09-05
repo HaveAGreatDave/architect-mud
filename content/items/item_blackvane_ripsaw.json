@@ -1,5 +1,5 @@
 {
-  "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It does not cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it is enormously, stupidly loud, and people run.",
+  "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It doesn't cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it's enormously, stupidly loud, and people run.",
   "flags": {},
   "id": "item_blackvane_ripsaw",
   "name": "Blackvane Ripsaw chainblade",
@@ -10,7 +10,7 @@
         "min": 10
       },
       "damage_type": "kinetic",
-      "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It does not cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it is enormously, stupidly loud, and people run.",
+      "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It doesn't cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it's enormously, stupidly loud, and people run.",
       "min_skill": {
         "blades": 6
       },
@@ -24,7 +24,7 @@
       "min": 10
     },
     "damage_type": "kinetic",
-    "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It does not cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it is enormously, stupidly loud, and people run.",
+    "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It doesn't cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it's enormously, stupidly loud, and people run.",
     "min_skill": {
       "blades": 6
     },

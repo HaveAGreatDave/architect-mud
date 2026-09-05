@@ -42,7 +42,7 @@ function introText() {
     `  <span class="text-dim">·</span> Old words are <b>underlined</b> — tap one for a plain-English gloss.`,
     `  <span class="text-dim">·</span> It remembers where you stopped, in every book, separately.`,
     ``,
-    `<span class="ambient">Marrowby does not look up. "It's not lending if it comes back the same night. Take your time."</span>`,
+    `<span class="ambient">Marrowby doesn't look up. "It's not lending if it comes back the same night. Take your time."</span>`,
   ].join('\n');
 }
 
@@ -143,7 +143,7 @@ async function onFurnitureDescribe(furniture, player) {
   if (!furniture?.flags?.lending_terminal) return undefined;
   if (await getFlag('player', UNLOCK_FLAG, player)) return undefined;
   pointAt(player.id, 'examine', furniture.name);
-  return `<span class="ambient">There is a tablet-shaped slot in the top, worn bright. ${teachVerb('scan', 'scan')} it and the terminal installs the <b>LIBRARY</b> app on your tablet — every book on these shelves, yours to read anywhere.</span>`;
+  return `<span class="ambient">There's a tablet-shaped slot in the top, worn bright. ${teachVerb('scan', 'scan')} it and the terminal installs the <b>LIBRARY</b> app on your tablet — every book on these shelves, yours to read anywhere.</span>`;
 }
 
 export const specializedActions = [

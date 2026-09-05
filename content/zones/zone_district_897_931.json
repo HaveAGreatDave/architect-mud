@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#3f5c3a",
-  "description": "The wood thins out into iron-stained reed again, the last trunks standing apart like people who have decided not to go any further east. Behind you it is green and close. Ahead it is the flats, and you can see for a mile, and everything can see you.",
+  "description": "The wood thins out into iron-stained reed again, the last trunks standing apart like people who have decided not to go any further east. Behind you it's green and close. Ahead it's the flats, and you can see for a mile, and everything can see you.",
   "exits": {
     "east": "zone_district_898_931",
     "north": "zone_district_897_930",

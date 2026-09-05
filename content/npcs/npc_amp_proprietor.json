@@ -133,29 +133,29 @@
   "chitchat": [
     "holds a board up under the magnifier lamp and breathes solder smoke out of the side of his mouth.",
     "\"Everything on that wall works. Define works.\"",
-    "\"No refunds, no exceptions. The third one is not a joke and I will not be taking questions.\"",
-    "\"You want it cheaper, argue. That is the price mechanism in here.\"",
+    "\"No refunds, no exceptions. The third one isn't a joke and I won't be taking questions.\"",
+    "\"You want it cheaper, argue. That's the price mechanism in here.\"",
     "\"I can fix that. I said fix, not restore. Different words, different money.\""
   ],
-  "description": "A narrow, patient man welded to a stool behind the bench, working under a magnifier lamp with a soldering iron he never quite sets down. He prices by argument and wins most of them, and there is a sign behind his head that he will point at rather than repeat.",
+  "description": "A narrow, patient man welded to a stool behind the bench, working under a magnifier lamp with a soldering iron he never quite sets down. He prices by argument and wins most of them, and there's a sign behind his head that he'll point at rather than repeat.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Mm. Mind the cable on the floor, it is live more often than it should be.\""
+      "text": "\"Mm. Mind the cable on the floor, it's live more often than it should be.\""
     },
     "exorcism": {
       "options": [
         {
-          "label": "You are not going to tell me, are you.",
+          "label": "You aren't going to tell me, are you.",
           "next": "bye"
         }
       ],
-      "text": "Skene does not look up from the board. \"A woman brought a slate in. It was doing a thing. I fixed the thing.\" <span class=\"text-dim\">He sets the iron down, which he does not do.</span> \"Then it did the thing again, in my shop, at two in the morning, with me in it. The sign went up the following week and the sign is the whole of what I have to say about it.\""
+      "text": "Skene doesn't look up from the board. \"A woman brought a slate in. It was doing a thing. I fixed the thing.\" <span class=\"text-dim\">He sets the iron down, which he doesn't do.</span> \"Then it did the thing again, in my shop, at two in the morning, with me in it. The sign went up the following week and the sign is the whole of what I have to say about it.\""
     },
     "root": {
       "options": [
         {
-          "label": "What is with the exorcisms line on the sign?",
+          "label": "What's with the exorcisms line on the sign?",
           "next": "exorcism"
         },
         {
@@ -163,7 +163,7 @@
           "next": "bye"
         }
       ],
-      "text": "The magnifier lamp swings your way before he does. \"Everything on the wall is salvage and everything on the wall is priced by argument, so open with a number and we will find out how far apart we are.\""
+      "text": "The magnifier lamp swings your way before he does. \"Everything on the wall is salvage and everything on the wall is priced by argument, so open with a number and we'll find out how far apart we are.\""
     }
   },
   "faction": null,

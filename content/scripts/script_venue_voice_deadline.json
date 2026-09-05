@@ -11,7 +11,7 @@
         "type": "say"
       },
       "f2": {
-        "text": "Someone introduces you to a stranger with a job title you have never held and do not correct.",
+        "text": "Someone introduces you to a stranger with a job title you have never held and don't correct.",
         "type": "say"
       },
       "fix": {
@@ -52,7 +52,7 @@
         "type": "condition"
       },
       "r0": {
-        "text": "A producer you have never met greets you by a name that is nearly yours and moves on, satisfied.",
+        "text": "A producer you have never met greets you by a name that's nearly yours and moves on, satisfied.",
         "type": "say"
       },
       "r1": {
@@ -81,11 +81,11 @@
         "type": "random"
       },
       "s0": {
-        "text": "The drink-printer notices you before any of the people do, and it is only being polite because it is a machine.",
+        "text": "The drink-printer notices you before any of the people do, and it's only being polite because it's a machine.",
         "type": "say"
       },
       "s1": {
-        "text": "Someone glances up, decides you are not talent, and returns to a conversation about a show nobody is making.",
+        "text": "Someone glances up, decides you aren't talent, and returns to a conversation about a show nobody is making.",
         "type": "say"
       },
       "s2": {

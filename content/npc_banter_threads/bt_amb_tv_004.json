@@ -3,9 +3,9 @@
   "id": "bt_amb_tv_004",
   "lines": [
     "\"You actually watch {tv_program}?\"",
-    "\"I have it on. There is a difference.\"",
+    "\"I have it on. There's a difference.\"",
     "\"You know the theme tune.\"",
-    "\"Everyone knows the theme tune. That is what a theme tune is for.\""
+    "\"Everyone knows the theme tune. That's what a theme tune is for.\""
   ],
   "personality": null,
   "sort_order": 513

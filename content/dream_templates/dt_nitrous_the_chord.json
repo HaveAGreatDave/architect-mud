@@ -14,16 +14,16 @@
   "objects": [
     {
       "looks": [
-        "Held. Big. You are somewhere in the middle of the voicing.",
-        "It contains a note you would not have put in and it is the reason it works.",
-        "It is going somewhere. It has been going there for a while and is not late."
+        "Held. Big. You're somewhere in the middle of the voicing.",
+        "It contains a note you wouldn't have put in and it's the reason it works.",
+        "It's going somewhere. It has been going there for a while and isn't late."
       ],
       "name": "the chord"
     },
     {
       "looks": [
         "Inside the sound, which is the correct arrangement.",
-        "It is the shape the chord needs and it changes when the chord does.",
+        "It's the shape the chord needs and it changes when the chord does.",
         "The walls are at the distance the sound says they are."
       ],
       "name": "the room"

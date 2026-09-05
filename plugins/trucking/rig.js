@@ -78,7 +78,7 @@ export const BANDS = [
   { at: 0.85, key: 'sound',    label: 'Sound',     text: 'Tight. Nothing on it needs a hand.' },
   { at: 0.65, key: 'worked',   label: 'Worked',    text: 'Used, and honest about it. Everything still does what it should.' },
   { at: 0.40, key: 'tired',    label: 'Tired',     text: 'Down on power, and the brakes want a longer run at it.' },
-  { at: 0.18, key: 'ailing',   label: 'Ailing',    text: 'Smoking under load. It will get you there, probably.' },
+  { at: 0.18, key: 'ailing',   label: 'Ailing',    text: "Smoking under load. It'll get you there, probably." },
   { at: 0.00, key: 'derelict', label: 'Derelict',  text: 'It starts when it feels like it, and it stops when it decides to.' },
 ];
 export const bandOf = (c) => BANDS.find(b => (c ?? 1) >= b.at) || BANDS[BANDS.length - 1];
@@ -190,10 +190,10 @@ export const startTrouble = (condition) => (condition ?? 1) < 0.18 && Math.rando
 //     a driver who has had enough can climb down and walk: the drive IS the crossing, so leaving
 //     the truck finishes the journey on foot exactly as it always has.
 export const BREAKDOWNS = {
-  hose:   { label: 'a coolant hose', broke: 'Something lets go under the cab with a bang, and the mirrors fill with white. The temperature needle is already off the top of its arc.', fixed: 'You get a clamp round the split and enough water back in her to matter. It will do. It will not do forever.' },
-  lifter: { label: 'a lifter pod', broke: 'The nearside drops half a foot and stays there, and the whole rig slews as the pod under it stops holding anything up. The emitter band is dark.', fixed: 'You get the pod cycling again — it comes up ragged, and it is holding, and you have stopped asking for more than that.' },
-  fuel:   { label: 'the fuel line', broke: 'She surges, catches, surges again, and quits. Somewhere between the tank and the motor there is air where there should be diesel.', fixed: 'You bleed the line by hand until the air stops coming through, and she catches on the fourth turn.' },
-  turbo:  { label: 'the turbo', broke: 'A shriek from behind the cab climbs somewhere it should never reach and then stops dead. Everything after that is very quiet and very slow.', fixed: 'You cannot fix a turbo on a shoulder. You can strap it, blank it off, and drive the rest of it on what is left of the motor.' },
+  hose:   { label: 'a coolant hose', broke: 'Something lets go under the cab with a bang, and the mirrors fill with white. The temperature needle is already off the top of its arc.', fixed: "You get a clamp round the split and enough water back in her to matter. It'll do. It won't do forever." },
+  lifter: { label: 'a lifter pod', broke: 'The nearside drops half a foot and stays there, and the whole rig slews as the pod under it stops holding anything up. The emitter band is dark.', fixed: "You get the pod cycling again — it comes up ragged, and it's holding, and you have stopped asking for more than that." },
+  fuel:   { label: 'the fuel line', broke: "She surges, catches, surges again, and quits. Somewhere between the tank and the motor there's air where there should be diesel.", fixed: 'You bleed the line by hand until the air stops coming through, and she catches on the fourth turn.' },
+  turbo:  { label: 'the turbo', broke: "A shriek from behind the cab climbs somewhere it should never reach and then stops dead. Everything after that's very quiet and very slow.", fixed: "You can't fix a turbo on a shoulder. You can strap it, blank it off, and drive the rest of it on what's left of the motor." },
   brakes: { label: 'a brake line', broke: 'The pedal goes soft, then goes to the floor. Air is getting out somewhere and the whole system knows it.', fixed: 'You cap off the line that was leaking. You have fewer brakes than you started with, and you have brakes.' },
 };
 const BREAK_KEYS = Object.keys(BREAKDOWNS);

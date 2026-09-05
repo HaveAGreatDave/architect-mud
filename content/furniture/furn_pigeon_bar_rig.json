@@ -1,8 +1,10 @@
 {
-  "description": "A squat chrome machine bolted to the back bar, hissing gently to itself between orders. The drip tray has not been emptied since anyone can remember.",
+  "description": "A squat chrome machine bolted to the back bar, hissing gently to itself between orders. A spring-loaded tube of paper cups is clamped to its flank, so nobody has to ask anybody for one. The drip tray hasn't been emptied since anyone can remember.",
   "flags": {
-    "aliases": "rig,espresso,coffee machine",
-    "brew_tier": "barista"
+    "aliases": "rig,espresso,coffee machine,cup dispenser,cups",
+    "brew_tier": "barista",
+    "vends": "item_paper_cup",
+    "vend_line": "The tube clunks and drops a paper cup into your hand, still warm from the machine it lives against."
   },
   "hp": null,
   "hp_max": null,

@@ -12,7 +12,7 @@
   ],
   "behaviour_graph": {},
   "chitchat": [],
-  "description": "Neve Calder is small, precise, and entirely unbothered by anyone's opinion of her, including yours. She came out to the Reach with a balance, a case of reagents, and no explanation, and she has given the same number to a warlord and to a kid with a jar of dirt. Her hands are stained to the second knuckle in colours that do not wash out and she has stopped noticing.",
+  "description": "Neve Calder is small, precise, and entirely unbothered by anyone's opinion of her, including yours. She came out to the Reach with a balance, a case of reagents, and no explanation, and she has given the same number to a warlord and to a kid with a jar of dirt. Her hands are stained to the second knuckle in colours that don't wash out and she has stopped noticing.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -51,7 +51,7 @@
         }
       ],
       "text": [
-        "\"Whoever is holding the jar. Flat rate, same for everyone, no discounts and no favours, which is the entire reason this works.\"",
+        "\"Whoever is holding the jar. Flat rate, same for everyone, no discounts and no favours, and the Reach keeps coming back on account of it.\"",
         "\"The day I grade high for a friend is the day my number is worth nothing and I go back to wherever it was I came from.\""
       ]
     },
@@ -86,7 +86,7 @@
       ],
       "text_by_relation": {
         "first": [
-          "A small woman behind the counter finishes writing a number, underlines it, and only then looks up. \"Calder. I grade what people bring in, I do not buy it, and I do not remember faces on purpose.\" She taps the counter. \"So. Are you bringing me something?\""
+          "A small woman behind the counter finishes writing a number, underlines it, and only then looks up. \"Calder. I grade what people bring in, I don't buy it, and I don't remember faces on purpose.\" She taps the counter. \"So. Are you bringing me something?\""
         ],
         "known": [
           "\"You again.\" She sounds almost pleased about it. \"Go on then.\""
@@ -105,8 +105,8 @@
         }
       ],
       "text": [
-        "\"Because out here nobody has ever asked me for a licence.\" She goes back to the balance. \"And because the trade needs one honest instrument standing in the middle of it or it eats itself inside a year.\"",
-        "\"That is not sentiment. That is just what happens.\""
+        "\"Because out here nobody has asked me for a licence.\" She goes back to the balance. \"And because the trade needs one honest instrument standing in the middle of it or it eats itself inside a year.\"",
+        "\"That isn't sentiment. That's just what happens.\""
       ]
     }
   },

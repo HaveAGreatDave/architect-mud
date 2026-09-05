@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#20231a",
-  "description": "The gutted bus the whole camp is built against, seats out, floor swept, bedrolls in rows down what used to be the aisle. This is where the camp's people sleep and where Ma Cinder keeps the things she will not sell at any price: water filters, the good pot, and a shoebox nobody is allowed to open.",
+  "description": "The gutted bus the whole camp is built against, seats out, floor swept, bedrolls in rows down what used to be the aisle. This is where the camp's people sleep and where Ma Cinder keeps the things she won't sell at any price: water filters, the good pot, and a shoebox nobody is allowed to open.",
   "exits": {
     "west": "zone_giardia_shop"
   },

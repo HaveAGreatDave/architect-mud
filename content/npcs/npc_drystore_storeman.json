@@ -132,14 +132,14 @@
   },
   "chitchat": [
     "runs the pallet jack down an aisle and parks it square with the racking.",
-    "\"Dry, level and swept. That is the whole job, and most people cannot do it.\"",
-    "\"Every crew in the Yards has had a go at holding this place. I am still here.\""
+    "\"Dry, level and swept. That's the whole job, and most people can't do it.\"",
+    "\"Every crew in the Yards has had a go at holding this place. I'm still here.\""
   ],
-  "description": "The storeman, who keeps a dry store so tidy it makes people nervous and sweeps the deck twice a shift whether it needs it or not. He is proud of a building that contains flour, and he is right to be.",
+  "description": "The storeman, who keeps a dry store so tidy it makes people nervous and sweeps the deck twice a shift whether it needs it or not. He's proud of a building that contains flour, and he's right to be.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Right. Don't cut the corner by the racking, it is swept.\""
+      "text": "\"Right. Don't cut the corner by the racking, it's swept.\""
     },
     "root": {
       "options": [
@@ -148,7 +148,7 @@
           "next": "bye"
         }
       ],
-      "text": "Kite parks the pallet jack and leans on the handle. \"It is a dry store. There is nothing in here worth your while unless you eat, and everybody eats, so let us find out.\""
+      "text": "Kite parks the pallet jack and leans on the handle. \"It's a dry store. There's nothing in here worth your while unless you eat, and everybody eats, so let's find out.\""
     }
   },
   "faction": null,

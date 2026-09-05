@@ -67,14 +67,14 @@ export default async function regress({ check }) {
   check('an unset layer defaults to outerwear', layerRank({ tags: { slot: 'torso' } }) === layerRank(coat), 'defaults');
   check('a covering garment reports every slot it sits over',
     slotsOf(suit).join(',') === 'torso,legs', slotsOf(suit).join(','));
-  check('weapon_hand and accessory are not coverage',
+  check("weapon_hand and accessory aren't coverage",
     slotsOf({ tags: { slot: 'accessory' } }).length === 0, 'no body slots');
 
   // THE HEADLINE FIX: the old model wet every garment at the same rate simultaneously, so
   // a slicker over a shirt left the shirt exactly as soaked as no slicker at all.
   const bare = stackFlux([shirt], 10, () => 0);
   const under = stackFlux([slicker, shirt], 10, () => 0);
-  check('a waterproof shell actually shields what is under it',
+  check("a waterproof shell actually shields what's under it",
     under.arrivals.get(shirt) < bare.arrivals.get(shirt) * 0.2,
     `${under.arrivals.get(shirt)} vs ${bare.arrivals.get(shirt)}`);
   check('the outermost layer still takes the full weather',
@@ -111,7 +111,7 @@ export default async function regress({ check }) {
   // body in freezing rain took the full −15 exposure penalty and NONE of the ×2 wet multiplier
   // that the cold tick applies. Stripping off was a way to shrug off a storm.
   const rain = { isPrecipitating: true, wettingRate: rainWettingRate(0.6), dryRate: 2 };
-  check('bare skin gets wet in the rain (it is not permanently dry)',
+  check("bare skin gets wet in the rain (it isn't permanently dry)",
     skinWetnessStep(0, rain) > 0, String(skinWetnessStep(0, rain)));
   check('bare skin wets at the same rate cloth does',
     skinWetnessStep(0, rain) === rain.wettingRate, `${skinWetnessStep(0, rain)} vs ${rain.wettingRate}`);
@@ -151,7 +151,7 @@ export default async function regress({ check }) {
   // tick's wet multiplier, which is exactly why there is no second cooling model.
   const cold = { id: 'douse-regress-2', wetness: 0, body_temp_c: 36.2 };
   await applyTopical(cold, { fluid: 'water', potency: 1 });
-  check('a dousing does not chill an already-cold body on contact',
+  check("a dousing doesn't chill an already-cold body on contact",
     cold.body_temp_c === 36.2, String(cold.body_temp_c));
 
   // The wetting pass answers absorption's question too: how much of it got past

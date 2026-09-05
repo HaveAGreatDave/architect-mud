@@ -6,7 +6,7 @@
   ],
   "clone_inheritance": "all",
   "conceal_slots": [],
-  "description": "You can eat almost anything. Food poisoning is no longer a concern. What is a concern is what you now find appetizing.",
+  "description": "You can eat almost anything. Food poisoning is no longer a concern. What's a concern is what you now find appetizing.",
   "drawbacks": [],
   "effects": {
     "disease_resistance": 0.25,

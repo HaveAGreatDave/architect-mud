@@ -104,7 +104,7 @@
         },
         "next": "bsm_18",
         "style": "narration",
-        "text": "The cupboard with the meter in it is behind the bed. It is always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
+        "text": "The cupboard with the meter in it's behind the bed. It's always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
         "type": "say"
       },
       "bsm_18": {
@@ -183,7 +183,7 @@
         },
         "next": "bsm_25",
         "style": "narration",
-        "text": "There is a moment in every apartment where the reading stops being about the reading.",
+        "text": "There's a moment in every apartment where the reading stops being about the reading.",
         "type": "say"
       },
       "bsm_25": {
@@ -312,7 +312,7 @@
         },
         "next": "bsm_36",
         "style": "narration",
-        "text": "DELF answers the door barefoot, holding a notebook the way other men hold a shield, and wearing a bathrobe that is losing an argument with gravity.",
+        "text": "DELF answers the door barefoot, holding a notebook the way other men hold a shield, and wearing a bathrobe that's losing an argument with gravity.",
         "type": "say"
       },
       "bsm_36": {
@@ -392,7 +392,7 @@
         },
         "next": "bsm_43",
         "style": "narration",
-        "text": "He reads her a stanza anyway. It is very bad. The picture lets it run in full, which is the closest this film ever comes to cruelty.",
+        "text": "He reads her a stanza anyway. It's very bad. The picture lets it run in full, which is the closest this film ever comes to cruelty.",
         "type": "say"
       },
       "bsm_43": {
@@ -579,7 +579,7 @@
         },
         "next": "bsm_60",
         "style": "narration",
-        "text": "REEL FIVE IS TAPED OVER. Eleven seconds of a soap opera, a woman shouting the word \"GERALD\", and then we are back, in a different room, with somebody's belt already on the floor.",
+        "text": "REEL FIVE IS TAPED OVER. Eleven seconds of a soap opera, a woman shouting the word \"GERALD\", and then we're back, in a different room, with somebody's belt already on the floor.",
         "type": "say"
       },
       "bsm_6": {
@@ -589,7 +589,7 @@
         },
         "next": "bsm_7",
         "style": "narration",
-        "text": "Rain on a lobby window. A woman in a grey utility coverall signs a clipboard she is not looking at, and the pen leaves a mark like a signature on something more binding.",
+        "text": "Rain on a lobby window. A woman in a grey utility coverall signs a clipboard she isn't looking at, and the pen leaves a mark like a signature on something more binding.",
         "type": "say"
       },
       "bsm_60": {
@@ -636,7 +636,7 @@
         },
         "next": "bsm_64",
         "style": "narration",
-        "text": "MR CORVUS has an office with no window and a desk with no papers on it, which in Coldwater means he is either very unimportant or the most dangerous man in the building.",
+        "text": "MR CORVUS has an office with no window and a desk with no papers on it, which in Coldwater means he's either very unimportant or the most dangerous man in the building.",
         "type": "say"
       },
       "bsm_64": {
@@ -676,7 +676,7 @@
         },
         "next": "bsm_68",
         "style": "narration",
-        "text": "He slides a folder across the desk. She does not open it. The green fade eats the corner of the frame.",
+        "text": "He slides a folder across the desk. She doesn't open it. The green fade eats the corner of the frame.",
         "type": "say"
       },
       "bsm_68": {
@@ -686,7 +686,7 @@
         },
         "next": "bsm_69",
         "style": "verbatim",
-        "text": "Mr. Corvus says, \"There is a column on this form for irregular access.\"",
+        "text": "Mr. Corvus says, \"There's a column on this form for irregular access.\"",
         "type": "say"
       },
       "bsm_69": {
@@ -736,7 +736,7 @@
         },
         "next": "bsm_73",
         "style": "narration",
-        "text": "He tells her. It takes him a while, and the picture wisely stays on her face for all of it, and her face does not move once.",
+        "text": "He tells her. It takes him a while, and the picture wisely stays on her face for all of it, and her face doesn't move once.",
         "type": "say"
       },
       "bsm_73": {
@@ -826,7 +826,7 @@
         },
         "next": "bsm_81",
         "style": "narration",
-        "text": "What follows was cut in three districts, restored badly twice, and is the entire reason this tape is not sold in shops. The transfer flares white. Somebody is laughing. It is not Mr. Corvus.",
+        "text": "What follows was cut in three districts, restored badly twice, and no shop in the Basin will carry the tape. The transfer flares white. Somebody is laughing. It isn't Mr. Corvus.",
         "type": "say"
       },
       "bsm_81": {
@@ -901,7 +901,7 @@
         },
         "next": "bsm_88",
         "style": "narration",
-        "text": "CASSIA takes her torch and her clipboard and starts up the stairs. Four hundred and eleven doors to go. The camera does not follow her, because the camera has learned some manners.",
+        "text": "CASSIA takes her torch and her clipboard and starts up the stairs. Four hundred and eleven doors to go. The camera doesn't follow her, because the camera has learned some manners.",
         "type": "say"
       },
       "bsm_88": {
@@ -1064,7 +1064,7 @@
   "message_interval": 5,
   "messages": [
     "The print is a fourth-generation dub. Every fade goes green, and somebody has recorded eleven seconds of a soap opera over the top of the fifth reel, which is honestly an improvement.",
-    "Rain on a lobby window. A woman in a grey utility coverall signs a clipboard she is not looking at, and the pen leaves a mark like a signature on something more binding.",
+    "Rain on a lobby window. A woman in a grey utility coverall signs a clipboard she isn't looking at, and the pen leaves a mark like a signature on something more binding.",
     "They gave me a torch, a clipboard, and a master key to four hundred and twelve doors.",
     "Nobody at Utilities ever asked what I did with the other three hundred and ninety.",
     "Cassia Wick says, \"Meter reader. It's not the job people think it is.\"",
@@ -1073,27 +1073,27 @@
     "Mrs. Okonjo says, \"You're the one from the letters.\"",
     "Cassia Wick says, \"I'm the one from the meter, ma'am. The letters come from a different building.\"",
     "Mrs. Okonjo says, \"Come in, then. Read whatever you like.\"",
-    "The cupboard with the meter in it is behind the bed. It is always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
+    "The cupboard with the meter in it's behind the bed. It's always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
     "Cassia Wick says, \"You're using four times what a single occupant uses.\"",
     "Mrs. Okonjo says, \"I run hot.\"",
     "Cassia Wick says, \"Ma'am, this dial hasn't stopped since March.\"",
     "Mrs. Okonjo says, \"Neither have I, dear.\"",
     "She sits on the edge of the bed. CASSIA kneels to the meter, which puts her at a height the director holds for eleven full seconds without a single line of dialogue.",
-    "There is a moment in every apartment where the reading stops being about the reading.",
+    "There's a moment in every apartment where the reading stops being about the reading.",
     "Mine took four seconds. Hers had been waiting since March.",
     "Later. The meter is still ticking. Nobody has looked at it.",
     "Mrs. Okonjo says, \"Will you have to put that in the report?\"",
     "Cassia Wick says, \"I'll put down that the unit was drawing heavily and the tenant was cooperative.\"",
     "Mrs. Okonjo says, \"Was I?\"",
     "Cassia Wick says, \"Twice.\"",
-    "DELF answers the door barefoot, holding a notebook the way other men hold a shield, and wearing a bathrobe that is losing an argument with gravity.",
+    "DELF answers the door barefoot, holding a notebook the way other men hold a shield, and wearing a bathrobe that's losing an argument with gravity.",
     "Delf says, \"You're not going to believe this, but I was writing about you.\"",
     "Cassia Wick says, \"I'd believe it. Everybody in this building is writing about somebody.\"",
     "Delf says, \"It's called \"The Woman Who Reads What We Use.\"\"",
     "Cassia Wick says, \"Is it long?\"",
     "Delf says, \"It's nine pages.\"",
     "Cassia Wick says, \"That's a no, then.\"",
-    "He reads her a stanza anyway. It is very bad. The picture lets it run in full, which is the closest this film ever comes to cruelty.",
+    "He reads her a stanza anyway. It's very bad. The picture lets it run in full, which is the closest this film ever comes to cruelty.",
     "Delf says, \"\"You come with your torch / into the dark of my cupboard / and you take a number from me / and you write it down.\"\"",
     "Cassia Wick says, \"That's the job, yes.\"",
     "Delf says, \"It's a metaphor.\"",
@@ -1106,29 +1106,29 @@
     "Cassia Wick says, \"The part with no pages.\"",
     "CASSIA sits on the landing writing up her clipboard by torchlight. She writes: 19-A: NEGLIGIBLE DRAW. TENANT ADVISED.",
     "Cassia Wick says, \"Advised.\"",
-    "REEL FIVE IS TAPED OVER. Eleven seconds of a soap opera, a woman shouting the word \"GERALD\", and then we are back, in a different room, with somebody's belt already on the floor.",
-    "MR CORVUS has an office with no window and a desk with no papers on it, which in Coldwater means he is either very unimportant or the most dangerous man in the building.",
+    "REEL FIVE IS TAPED OVER. Eleven seconds of a soap opera, a woman shouting the word \"GERALD\", and then we're back, in a different room, with somebody's belt already on the floor.",
+    "MR CORVUS has an office with no window and a desk with no papers on it, which in Coldwater means he's either very unimportant or the most dangerous man in the building.",
     "Mr. Corvus says, \"Four hundred and twelve units, Miss Wick. Your route posts the highest satisfaction figures in the district.\"",
     "Cassia Wick says, \"People like knowing where they stand.\"",
     "Mr. Corvus says, \"People like a great deal more than that, apparently.\"",
-    "He slides a folder across the desk. She does not open it. The green fade eats the corner of the frame.",
-    "Mr. Corvus says, \"There is a column on this form for irregular access.\"",
+    "He slides a folder across the desk. She doesn't open it. The green fade eats the corner of the frame.",
+    "Mr. Corvus says, \"There's a column on this form for irregular access.\"",
     "Cassia Wick says, \"There's a column for everything. That's the trouble with the form.\"",
     "Mr. Corvus says, \"I could make it go away.\"",
     "Cassia Wick says, \"And what would that cost me, Mr. Corvus?\"",
-    "He tells her. It takes him a while, and the picture wisely stays on her face for all of it, and her face does not move once.",
+    "He tells her. It takes him a while, and the picture wisely stays on her face for all of it, and her face doesn't move once.",
     "Cassia Wick says, \"Stand up.\"",
     "Mr. Corvus says, \"I beg your...\"",
     "Cassia Wick says, \"Stand up and read your own meter.\"",
     "She turns his desk lamp around. Behind him, set into the wall, is his unit's dial. It has been running flat out, all night, every night, for two years: a building's worth of draw going into one windowless room nobody is ever invited into.",
     "Everybody in Coldwater is consuming something.",
     "The only real sin is doing it off somebody else's line.",
-    "What follows was cut in three districts, restored badly twice, and is the entire reason this tape is not sold in shops. The transfer flares white. Somebody is laughing. It is not Mr. Corvus.",
+    "What follows was cut in three districts, restored badly twice, and no shop in the Basin will carry the tape. The transfer flares white. Somebody is laughing. It isn't Mr. Corvus.",
     "A new notice on the board: UTILITIES COMPLIANCE: POSITION VACANT. Someone has drawn a circle on it, worn flat on one side.",
     "Bev Trask says, \"They're saying you got him transferred.\"",
     "Cassia Wick says, \"I got him metered.\"",
     "Bev Trask says, \"Same thing, in this town.\"",
-    "CASSIA takes her torch and her clipboard and starts up the stairs. Four hundred and eleven doors to go. The camera does not follow her, because the camera has learned some manners.",
+    "CASSIA takes her torch and her clipboard and starts up the stairs. Four hundred and eleven doors to go. The camera doesn't follow her, because the camera has learned some manners.",
     "Tuesdays, twelfth floor.",
     "Bring a torch. Bring a clipboard.",
     "Don't bring anybody with you."

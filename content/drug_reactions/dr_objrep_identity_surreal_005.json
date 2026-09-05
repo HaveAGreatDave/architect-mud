@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "I was part of the building. The building has not noticed I am missing.",
+  "self_line": "I was part of the building. The building hasn't noticed I'm missing.",
   "source": "object_reply_identity",
   "tone": "surreal"
 }

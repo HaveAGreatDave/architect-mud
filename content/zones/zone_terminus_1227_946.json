@@ -5,7 +5,7 @@
     "Somebody wipes a rag round a fitting that was already clean."
   ],
   "ambient_theme": "outdoors",
-  "description": "A shed with a stack, and from the stack a thin haze that is the only smoke anywhere in the compound. It is the one machine these people keep and it is kept better than anything else here, which is a sentence somebody inside would rather you did not write down.",
+  "description": "A shed with a stack, and from the stack a thin haze that's the only smoke anywhere in the compound. It's the one machine these people keep and it's kept better than anything else here, which is a sentence somebody inside would rather you didn't write down.",
   "exits": {
     "east": "zone_terminus_1228_946",
     "west": "zone_exo_charge"

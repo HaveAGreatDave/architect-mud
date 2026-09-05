@@ -50,14 +50,14 @@ const CAM_KEY = 'chessCam3d';
 const PROFILES = {
 	p: [[0.30, 0], [0.31, 0.04], [0.25, 0.09], [0.16, 0.13], [0.13, 0.34], [0.20, 0.40],
 		[0.20, 0.44], [0.13, 0.48], [0.17, 0.56], [0.19, 0.64], [0.15, 0.72], [0.00, 0.80]],
-	r: [[0.34, 0], [0.35, 0.05], [0.28, 0.11], [0.22, 0.16], [0.20, 0.55], [0.24, 0.62],
-		[0.30, 0.68], [0.31, 0.80]],
+	r: [[0.34, 0], [0.35, 0.05], [0.29, 0.11], [0.26, 0.16], [0.26, 0.62], [0.30, 0.68],
+		[0.32, 0.72], [0.32, 0.80]],
 	b: [[0.32, 0], [0.33, 0.05], [0.26, 0.10], [0.17, 0.15], [0.14, 0.38], [0.22, 0.45],
 		[0.22, 0.49], [0.13, 0.53], [0.19, 0.62], [0.17, 0.74], [0.10, 0.82], [0.06, 0.86],
 		[0.09, 0.90], [0.00, 0.95]],
 	n: [[0.33, 0], [0.34, 0.05], [0.27, 0.11], [0.22, 0.16], [0.20, 0.32], [0.18, 0.36]],
-	q: [[0.36, 0], [0.37, 0.05], [0.30, 0.11], [0.19, 0.17], [0.15, 0.50], [0.24, 0.58],
-		[0.24, 0.62], [0.16, 0.66], [0.20, 0.78], [0.30, 0.92], [0.31, 0.98]],
+	q: [[0.34, 0], [0.35, 0.05], [0.28, 0.11], [0.17, 0.17], [0.13, 0.52], [0.21, 0.60],
+		[0.21, 0.64], [0.12, 0.68], [0.13, 0.84], [0.21, 0.92], [0.25, 0.96]],
 	k: [[0.36, 0], [0.37, 0.05], [0.30, 0.11], [0.20, 0.17], [0.16, 0.52], [0.25, 0.60],
 		[0.25, 0.64], [0.17, 0.68], [0.22, 0.80], [0.30, 0.94], [0.31, 1.00]],
 };
@@ -708,22 +708,58 @@ function seamInk(rgb) {
 // Rook battlements — six blocks around the rim.
 function merlons(pc, face, rgb, base) {
 	const cx = pc.x + 0.5, cy = pc.y + 0.5;
-	const r = 0.31, h0 = 0.80, h1 = 0.96, w = 0.10;
+	const r = 0.32, h0 = 0.80, h1 = 0.94, w = 0.14;
 	for (let i = 0; i < 6; i++) {
 		const t = (i / 6) * Math.PI * 2;
 		box(face, rgb, cx + Math.cos(t) * (r - w / 2), cy + Math.sin(t) * (r - w / 2), base + h0, base + h1, w, w, t);
 	}
 }
 
-// Queen's coronet — eight points around a ring, plus the ball on top.
+// Queen's coronet — six spikes leaning outward off a narrow chalice, with an orb
+// standing clear above them. SPIKES, not blocks, and that is the whole point of
+// the piece: the rook already wears a ring of little cubes on a flared crown, so
+// a queen wearing the same ring at a different height IS a rook at board scale,
+// where the silhouette is all you get.
 function coronet(pc, face, rgb, base) {
 	const cx = pc.x + 0.5, cy = pc.y + 0.5;
-	for (let i = 0; i < 8; i++) {
-		const t = (i / 8) * Math.PI * 2;
-		box(face, rgb, cx + Math.cos(t) * 0.27, cy + Math.sin(t) * 0.27, base + 0.98, base + 1.12, 0.08, 0.08, t);
+	for (let i = 0; i < 6; i++) {
+		const t = (i / 6) * Math.PI * 2;
+		spike(face, rgb, cx + Math.cos(t) * 0.20, cy + Math.sin(t) * 0.20, base + 0.94, base + 1.20, 0.09, t, 0.10);
 	}
-	for (const [r, h] of [[0.09, 1.00], [0.11, 1.06], [0.07, 1.12]]) {
-		face(discPts(cx, cy, r, base + h), shade(rgb, [0, 0, 1]));
+	// The orb, as its own short lathe rather than a stack of flat discs — it has to
+	// read as a ball from a low camera, and a disc seen edge-on does not.
+	const orb = [[0.00, 1.02], [0.07, 1.06], [0.10, 1.13], [0.09, 1.20], [0.00, 1.26]];
+	for (let i = 0; i < orb.length - 1; i++) {
+		const [r0, h0] = orb[i], [r1, h1] = orb[i + 1];
+		const dr = r1 - r0, dh = h1 - h0;
+		for (let j = 0; j < RADIAL; j++) {
+			const t0 = (j / RADIAL) * Math.PI * 2, t1 = ((j + 1) / RADIAL) * Math.PI * 2;
+			const tm = (t0 + t1) / 2;
+			const n = norm([Math.cos(tm) * dh, Math.sin(tm) * dh, -dr]);
+			face([
+				[cx + Math.cos(t0) * r0, cy + Math.sin(t0) * r0, base + h0],
+				[cx + Math.cos(t1) * r0, cy + Math.sin(t1) * r0, base + h0],
+				[cx + Math.cos(t1) * r1, cy + Math.sin(t1) * r1, base + h1],
+				[cx + Math.cos(t0) * r1, cy + Math.sin(t0) * r1, base + h1],
+			], shade(rgb, n));
+		}
+	}
+}
+
+// A four-sided pyramid, yaw-rotated about its own centre and leaning outward by
+// `lean` along its local radial axis.
+function spike(face, rgb, cx, cy, z0, z1, w, rot, lean = 0) {
+	const c = Math.cos(rot), s = Math.sin(rot);
+	const pt = (u, v, z) => [cx + u * c - v * s, cy + u * s + v * c, z];
+	const h = w / 2;
+	const b = [pt(-h, -h, z0), pt(h, -h, z0), pt(h, h, z0), pt(-h, h, z0)];
+	const apex = pt(lean, 0, z1);
+	for (let i = 0; i < 4; i++) {
+		const p0 = b[i], p1 = b[(i + 1) % 4];
+		const n = norm(cross(
+			[p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]],
+			[apex[0] - p0[0], apex[1] - p0[1], apex[2] - p0[2]]));
+		face([p0, p1, apex], shade(rgb, n));
 	}
 }
 

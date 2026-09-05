@@ -31,7 +31,7 @@ export const GROUND = {
       'Waist-high scrub the colour of old newspaper, growing in rows it was never planted in.',
       'Thorn catches at your legs with the patience of something that has all week. The wind moves through it and sounds like a crowd a long way off.',
       'Grey brush to the horizon, and every third bush is dead and still standing, holding its shape out of habit.',
-      'Something has been through here recently and low to the ground. The scrub is bent one way and has not sprung back.',
+      "Something has been through here recently and low to the ground. The scrub is bent one way and hasn't sprung back.",
     ],
   },
   ash: {
@@ -49,16 +49,16 @@ export const GROUND = {
       'Red stone, iron-stained and flaking, standing in low shelves that all lean the same way.',
       'Rusted wreckage juts from the dust like the bones of something that died mid-crawl.',
       'The rock here is the colour of a bad scab and comes away in your hand if you lean on it.',
-      'Every surface is oxide red and every shadow is black, and there is nothing in between anywhere you look.',
+      "Every surface is oxide red and every shadow is black, and there's nothing in between anywhere you look.",
     ],
   },
   marsh: {
     names: ['A Dead Wash', 'The Seep', 'Sourwater', 'The Suck', 'Rotgut Flat', 'The Standing Damp'],
     descs: [
       'Standing water with a skin on it, and the skin is the wrong colour for water.',
-      'The ground breathes when you step on it. Something under the surface accommodates your weight and does not like it.',
-      'A dry wash that is not dry, choked with wind-scoured debris and the smell of old rot.',
-      'Reeds, or what is left of reeds, standing in a broth that has been reducing since before the Handoff.',
+      "The ground breathes when you step on it. Something under the surface accommodates your weight and doesn't like it.",
+      "A dry wash that isn't dry, choked with wind-scoured debris and the smell of old rot.",
+      "Reeds, or what's left of reeds, standing in a broth that has been reducing since before the Handoff.",
     ],
   },
   hardpan: {
@@ -75,17 +75,17 @@ export const GROUND = {
     descs: [
       'The salt flat throws the light back so hard that for a moment the sky is the darker half.',
       'White crust that crunches like frost and burns like it too, once it gets into a crack in your boot.',
-      'Your own footprints go grey against the white and stay that way. So do the ones already here, which are not yours.',
-      'Nothing has grown here in living memory and the ground is not sorry about it.',
+      "Your own footprints go grey against the white and stay that way. So do the ones already here, which aren't yours.",
+      "Nothing has grown here in living memory and the ground isn't sorry about it.",
     ],
   },
   gravel: {
     names: ['The Rattle', 'Shingle Reach', 'Loose Country', 'The Ballast', 'Gritwash', 'The Skidding'],
     descs: [
       'Loose stone that slides out from under you and announces every step to everything within a quarter mile.',
-      'Gravel graded flat by water that has not run here for a century, still holding the shape of the current.',
-      'Every stone is the same size, which is not something nature usually bothers to arrange.',
-      'The ground rattles and resettles behind you, so it always sounds like there is somebody a step back.',
+      "Gravel graded flat by water that hasn't run here for a century, still holding the shape of the current.",
+      "Every stone is the same size, which isn't something nature usually bothers to arrange.",
+      "The ground rattles and resettles behind you, so it always sounds like there's somebody a step back.",
     ],
   },
   sand: {
@@ -101,9 +101,9 @@ export const GROUND = {
     names: ['The High Table', 'Overlook', 'The Bench', 'Skyfloor', 'The Long Roof', 'Topside'],
     descs: [
       'The top of the mesa, flat as a table and utterly exposed. You can see a very long way, and be seen from all of it.',
-      'Up here the wind has nothing to break it and works on you steadily, like it is being paid by the hour.',
+      "Up here the wind has nothing to break it and works on you steadily, like it's being paid by the hour.",
       'Bare stone, scoured clean, with the whole country laid out below and the road a thin scratch across the middle of it.',
-      'Nothing grows on the roof of the world. Whatever came up here came up for a reason and did not stay.',
+      "Nothing grows on the roof of the world. Whatever came up here came up for a reason and didn't stay.",
     ],
   },
 };
@@ -140,9 +140,9 @@ export const FEATURES = [
   // ⚠ The first two carry over from the old DETOUR_NAMES list verbatim. A detour draws from this
   // pool now, so dropping them would have quietly retired two rooms players have already walked.
   { id: 'wreck_buried',   kind: 'salvage', name: 'A Half-Buried Wreck',
-    desc: 'Wreckage juts from the dust off the line, the kind of place that swallows the desperate and, sometimes, rewards them. No telling which until you are in it.' },
+    desc: "Wreckage juts from the dust off the line, the kind of place that swallows the desperate and, sometimes, rewards them. No telling which until you're in it." },
   { id: 'wreck_cache',    kind: 'salvage', name: "A Scavenger's Cache",
-    desc: 'Something went down out here long ago and was never picked clean. Or it was, and what picked it is still around.' },
+    desc: "Something went down out here long ago and was never picked clean. Or it was, and what picked it's still around." },
   { id: 'wreck_hauler',   kind: 'salvage', name: 'A Downed Hauler',
     desc: 'A rig on its side with the trailer folded most of the way round to meet the cab. Long stripped, but nobody ever gets all of it.' },
   { id: 'wreck_convoy',   kind: 'salvage', name: 'A Picked-Over Convoy',
@@ -154,7 +154,7 @@ export const FEATURES = [
   { id: 'wreck_relay',    kind: 'salvage', name: 'A Toppled Relay Mast',
     desc: 'Two hundred feet of lattice lying across the country like a dropped comb, still bolted to a slab that came up with it.' },
   { id: 'wreck_spill',    kind: 'salvage', name: 'A Cargo Spill',
-    desc: 'Crates burst across half an acre. Most are empty. The ones that are not have been left for a reason you cannot see yet.' },
+    desc: "Crates burst across half an acre. Most are empty. The ones that aren't have been left for a reason you can't see yet." },
   { id: 'wreck_rig',      kind: 'salvage', name: 'A Sunken Rig', terrains: ['marsh'],
     desc: 'Something big went into the soft ground here at speed and only the top third argued about it.' },
   { id: 'wreck_scoured',  kind: 'salvage', name: 'A Wind-Scoured Ruin', terrains: ['sand', 'alkali', 'hardpan'],
@@ -162,7 +162,7 @@ export const FEATURES = [
 
   // ── respite ────────────────────────────────────────────────────────────────
   { id: 'spring_hot',     kind: 'respite', name: 'A Hot Spring',
-    desc: 'Water coming up out of the rock at a temperature that has no business out here, steaming in a basin somebody has lined with flat stones. Somebody who has not been back in a while.',
+    desc: "Water coming up out of the rock at a temperature that has no business out here, steaming in a basin somebody has lined with flat stones. Somebody who hasn't been back in a while.",
     flags: { water_source: true } },
   { id: 'spring_vent',    kind: 'respite', name: 'The Steam Vent', terrains: ['redrock', 'plateau', 'gravel'],
     desc: 'A crack in the ground breathing warm and wet, and a ring of stones around it where people have sat. The stones are worn smooth on top.',
@@ -176,10 +176,10 @@ export const FEATURES = [
 
   // ── water ──────────────────────────────────────────────────────────────────
   { id: 'water_cistern',  kind: 'water', name: 'A Cistern',
-    desc: 'A concrete tank sunk to its lip, lid askew, a foot of water in the bottom that is only mostly the wrong colour.',
+    desc: "A concrete tank sunk to its lip, lid askew, a foot of water in the bottom that's only mostly the wrong colour.",
     flags: { water_source: true } },
   { id: 'water_catch',    kind: 'water', name: 'A Rain Catch',
-    desc: 'A tarp strung between four posts and funnelled into a drum. Whoever rigged it knew what they were doing and is not here.',
+    desc: "A tarp strung between four posts and funnelled into a drum. Whoever rigged it knew what they were doing and isn't here.",
     flags: { water_source: true } },
   { id: 'water_drip',     kind: 'water', name: 'The Dripline', terrains: ['redrock', 'plateau'],
     desc: 'Water comes off an overhang one drop at a time into a hollow it has been cutting for longer than there have been people to watch it.',
@@ -187,7 +187,7 @@ export const FEATURES = [
 
   // ── shelter ────────────────────────────────────────────────────────────────
   { id: 'shelter_culvert', kind: 'shelter', name: 'A Culvert',
-    desc: 'A concrete pipe wide enough to sit up in, running under a road that is no longer above it.' },
+    desc: "A concrete pipe wide enough to sit up in, running under a road that's no longer above it." },
   { id: 'shelter_turret',  kind: 'shelter', name: "The Turret's Shadow",
     desc: 'An automated gun on a mast, long dead, its housing throwing the only shade for miles. It tracks you anyway, slowly, out of whatever it has instead of habit.' },
   { id: 'shelter_hang',    kind: 'shelter', name: 'An Overhang', terrains: ['redrock', 'plateau', 'gravel'],
@@ -200,11 +200,11 @@ export const FEATURES = [
   { id: 'hazard_sink',    kind: 'hazard', name: 'The Sinkhole Ground', terrains: ['hardpan', 'alkali', 'marsh'],
     desc: 'The crust here rings hollow and there are holes in it the size of a truck, with nothing at the bottom of them that you can see.' },
   { id: 'hazard_mines',   kind: 'hazard', name: 'A Minefield',
-    desc: 'Somebody fenced this once. The fence is down and the reason for it is not, and there is a line of small neat craters where a previous walker found that out.' },
+    desc: "Somebody fenced this once. The fence is down and the reason for it's not, and there's a line of small neat craters where a previous walker found that out." },
   { id: 'hazard_gas',     kind: 'hazard', name: 'A Gas Seep', terrains: ['marsh', 'gravel', 'redrock'],
     desc: 'The air here is heavier than air. It pools in the low ground and it has no smell at all, which is the problem with it.' },
   { id: 'hazard_glass',   kind: 'hazard', name: 'The Glass Scar',
-    desc: 'A strip of fused ground running dead straight for half a mile, edges still sharp. Something came down here at a shallow angle and did not stop.',
+    desc: "A strip of fused ground running dead straight for half a mile, edges still sharp. Something came down here at a shallow angle and didn't stop.",
     flags: { radiation: 18 } },
   { id: 'hazard_sniper',  kind: 'hazard', name: "The Sniper's Shadow", terrains: ['plateau', 'redrock', 'gravel'],
     desc: 'Open ground with high ground over it, and four bodies out in the middle spaced about as far apart as a person can run.' },
@@ -213,15 +213,15 @@ export const FEATURES = [
   { id: 'mark_hubcaps',   kind: 'marker', name: 'A Hubcap Shrine',
     desc: 'Two hundred hubcaps wired to a mast in rings, biggest at the bottom. It turns in the wind and makes a noise like a till. Nobody is claiming responsibility.' },
   { id: 'mark_complaint', kind: 'marker', name: 'The Complaint Board',
-    desc: 'A noticeboard on two posts, in the middle of absolutely nothing, with eleven laminated complaints pinned to it about the conduct of a crossing committee that has not met since before the Handoff. Three are replies. One is a reply to a reply.' },
+    desc: "A noticeboard on two posts, in the middle of absolutely nothing, with eleven laminated complaints pinned to it about the conduct of a crossing committee that hasn't met since before the Handoff. Three are replies. One is a reply to a reply." },
   { id: 'mark_boots',     kind: 'marker', name: 'The Line of Boots',
     desc: 'Forty pairs of boots set out along a fence wire in a neat row, toes all one way. Somebody has kept the row straight.' },
   { id: 'mark_sign',      kind: 'marker', name: 'A Sign for Somewhere Gone',
-    desc: 'A highway sign face-down in the dust with the name of a town on it. The town is not on any map you have seen and the sign is a hundred miles from any road.' },
+    desc: "A highway sign face-down in the dust with the name of a town on it. The town isn't on any map you have seen and the sign is a hundred miles from any road." },
   { id: 'mark_milepost',  kind: 'marker', name: 'A Milepost',
     desc: 'A post with a number cut into it, and under the number, scratched later by a different hand: NOT FROM HERE. IT IS FURTHER.' },
   { id: 'mark_chair',     kind: 'marker', name: 'The Chair',
-    desc: 'An office chair, upright, facing away from the road, in perfect condition. The dust around it is undisturbed for six feet in every direction.' },
+    desc: "An office chair, upright, facing away from the road, in perfect condition. The dust around it's undisturbed for six feet in every direction." },
 ];
 
 // ── THE WAYSIDE ──────────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ export const WAYSIDE = {
   descs: [
     'Four tents in a huddle off the shoulder, guyed against a wind that clearly gets worse than this. A water barrel on a pallet, a firepit ringed with stones, and a crossing sign at the roadside with the foot path worn away from it in both directions.',
     'A camp, of sorts: canvas over a frame, a drum of water with a tin cup wired to it so nobody walks off with the cup, and a fire that somebody banked rather than put out. The sign at the road is hand-lettered and the lettering has been gone over twice.',
-    'Tents pitched close for the windbreak, none of them matching. There is a barrel, there is a firepit, and there is a post at the roadside with a crossbar on it, and the ground around all three is beaten flat by feet rather than by anything with wheels.',
+    "Tents pitched close for the windbreak, none of them matching. There's a barrel, there's a firepit, and there's a post at the roadside with a crossbar on it, and the ground around all three is beaten flat by feet rather than by anything with wheels.",
     'Somebody set this up to be taken down again. Poles, canvas, a water drum, a ring of blackened stones, and the path coming in off the country to meet the road right here and nowhere else along it.',
   ],
 };

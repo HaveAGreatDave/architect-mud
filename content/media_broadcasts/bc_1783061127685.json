@@ -110,10 +110,10 @@
         "Dex Rime. The sky told me, I told you. The rest is yours."
       ],
       "sky.acid": [
-        "Acid. Not rain with a bad attitude. Acid, and it will go through a coat and then through you.",
-        "{day} runs caustic. Sealed rainwear or four walls. There is no third answer.",
+        "Acid. Not rain with a bad attitude. Acid, and it'll go through a coat and then through you.",
+        "{day} runs caustic. Sealed rainwear or four walls. There's no third answer.",
         "The sky's gone yellow and it means it. {precip}% chance of the worst kind of wet.",
-        "Caustic day. Sealed gear only. A hood is not a plan, and a jacket is not a hood.",
+        "Caustic day. Sealed gear only. A hood isn't a plan, and a jacket isn't a hood.",
         "Acid falling at {precip}%. It gets in the seams first. Check your seams."
       ],
       "sky.blizzard": [
@@ -121,7 +121,7 @@
         "Whiteout conditions. If you can read this, you're indoors, and you should stay that way.",
         "{day}: blizzard. This one kills the unprepared. Don't audition.",
         "Blizzard. {wind} km/h of snow going sideways at {temp} degrees. This is a stay-put day.",
-        "Full whiteout. You will not find your way, and it will not wait for you to try."
+        "Full whiteout. You won't find your way, and it won't wait for you to try."
       ],
       "sky.clear": [
         "Clear skies. Enjoy the exposure while the atmosphere pretends to be your friend.",
@@ -233,7 +233,7 @@
       "temp.scorching": [
         "{temp} degrees. Scorching. This is heatstroke weather. Treat the sun as hostile.",
         "{temp}. That's not summer, that's an oven with a schedule. Stay inside if you can.",
-        "{temp}. That is a hostile number. Midday isn't survivable in the open for long.",
+        "{temp}. That's a hostile number. Midday isn't survivable in the open for long.",
         "{temp} degrees. The city holds it all night. Indoors will be worse than out by two in the morning."
       ],
       "temp.warm": [
@@ -269,7 +269,7 @@
       "trend.steady": [
         "Steady as a flatline the whole week, same grey, same grind. Consistency, at least.",
         "No real change ahead. The sky's found its rut and it's staying in it.",
-        "Same sky all week. The Basin at its most reliable, which is not a compliment."
+        "Same sky all week. The Basin at its most reliable, which isn't a compliment."
       ],
       "trend.warming": [
         "Trend's upward: {loTemp} today crawling toward {hiTemp} by week's end. Make of that what you will.",
@@ -285,7 +285,7 @@
       "warn.blizzard": [
         "⚠ Severe: {day} is a killer. Thermal gear or a will. Your call.",
         "⚠ Blizzard warning, {day}. {feels}-degree windchill. This one takes stragglers.",
-        "⚠ {day} is whiteout with a {feels} windchill. Do not travel. There's no errand worth it."
+        "⚠ {day} is whiteout with a {feels} windchill. Don't travel. There's no errand worth it."
       ],
       "warn.cold": [
         "⚠ Bundle up {day}. {temp} degrees will stop your heart if the muggers don't.",
@@ -310,7 +310,7 @@
       "warn.storm": [
         "⚠ Storm warning for {day}. Lightning, wind, and a grid that may not hold. Stay in.",
         "⚠ {day} brings the whole storm. Charge what you can now; power's not promised.",
-        "⚠ {day}: storm cells, {wind} km/h, and a grid I would not rely on. Charge it tonight."
+        "⚠ {day}: storm cells, {wind} km/h, and a grid I wouldn't rely on. Charge it tonight."
       ],
       "warn.wind": [
         "⚠ Wind warning for {day}: {wind} km/h. Stay off the rooftops and away from the glass.",

@@ -1,10 +1,10 @@
 {
-  "description": "Dark, bitter, and totally unwilling to dissolve in anything that is not already hot.",
+  "description": "Dark, bitter, and totally unwilling to dissolve in anything that isn't already hot.",
   "flags": {},
   "id": "item_cocoa_powder",
   "name": "cocoa powder",
   "tags": {
-    "description": "Dark, bitter, and totally unwilling to dissolve in anything that is not already hot.",
+    "description": "Dark, bitter, and totally unwilling to dissolve in anything that isn't already hot.",
     "drink_noun": "cocoa",
     "drink_profile": "cocoa_base",
     "pour_units": 12,

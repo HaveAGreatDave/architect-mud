@@ -337,7 +337,7 @@ function tagValueError(def, v) {
     case 'list':    return Array.isArray(v) ? null : 'should be a JSON array';
     case 'object':  return (v && typeof v === 'object' && !Array.isArray(v)) ? null : 'should be a JSON object';
     case 'text':    return typeof v === 'string' ? null : 'should be text';
-    case 'enum':    return (def.options || []).includes(v) ? null : `is not one of ${(def.options || []).join('/')}`;
+    case 'enum':    return (def.options || []).includes(v) ? null : `isn't one of ${(def.options || []).join('/')}`;
     case 'range':   return (v && typeof v === 'object' && _isNum(v.min) && _isNum(v.max)) ? null : 'is missing min/max';
     case 'hot':     return (v && typeof v === 'object' && _isNum(v.amount) && _isNum(v.duration_seconds)) ? null : 'is missing amount/duration';
     case 'statmap': return (v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(_isNum)) ? null : 'has non-numeric values';
@@ -370,7 +370,7 @@ function validateItem(item) {
     value = 0;
   }
   if (item.tags !== null && item.tags !== undefined && !tagsIsObject) {
-    problems.push({ msg: 'Tags is not a valid object', fix: 'reset to empty' });
+    problems.push({ msg: "Tags isn't a valid object", fix: 'reset to empty' });
   }
 
   // Own-tag scan: drop unknown or malformed tags (itemOwnTags already strips

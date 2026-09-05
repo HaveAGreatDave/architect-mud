@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#9a7d4a",
-  "description": "A gatehouse hut beside the Gate Road, one tile short of the South Gate, positioned so that everything walking out and everything dragging itself back in goes past the window. A brass hanging-scale is bolted to the frame outside, big enough to weigh a person, and the pan swings gently whether or not there is wind. THUMB ON THE SCALE is burned into the lintel.",
+  "description": "A gatehouse hut beside the Gate Road, one tile short of the South Gate, positioned so that everything walking out and everything dragging itself back in goes past the window. A brass hanging-scale is bolted to the frame outside, big enough to weigh a person, and the pan swings gently whether or not there's wind. THUMB ON THE SCALE is burned into the lintel.",
   "exits": {
     "east": "zone_thumb_shop",
     "west": "zone_district_918_918"

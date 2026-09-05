@@ -2,9 +2,9 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Boots at the back, smallest to largest, do not rearrange them.",
-    "I will take scrap, wire, glass, and anything that is not leaking.",
-    "No credit. There is a list. You are not on the list.",
+    "Boots at the back, smallest to largest, don't rearrange them.",
+    "I'll take scrap, wire, glass, and anything that isn't leaking.",
+    "No credit. There's a list. You aren't on the list.",
     "If you want the good jerky you have to ask for the good jerky."
   ],
   "description": "A small sharp woman behind a counter made from the bed of a truck, doing three things at once and losing at none of them. She has the particular expression of a shopkeeper working out what you can afford before you have finished saying hello, and no apparent intention of holding it against you.",
@@ -12,7 +12,7 @@
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Jar goes back on the counter when you are done with it.\""
+      "text": "\"Jar goes back on the counter when you're done with it.\""
     },
     "list": {
       "actions": [],
@@ -32,7 +32,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Eleven names.\" She does not look at it. \"It is not a debt list, it is the opposite of a debt list. It is who does not have to ask.\n\nKesh is on it because she is up to her arms in the tanks at four in the morning and does not think to eat. Vane is on it because his hands are gone. Ossa is on it because he is fifteen and eats like a fire.\"\n\nA shrug. \"It comes back. It always comes back. Usually as something I did not want, in a quantity I cannot store.\""
+      "text": "\"Eleven names.\" She doesn't look at it. \"It isn't a debt list, it's the opposite of a debt list. It's who doesn't have to ask.\n\nKesh is on it because she's up to her arms in the tanks at four in the morning and doesn't think to eat. Vane is on it because his hands are gone. Ossa is on it because he's fifteen and eats like a fire.\"\n\nA shrug. \"It comes back. It always comes back. Usually as something I didn't want, in a quantity I can't store.\""
     },
     "outsiders": {
       "actions": [],
@@ -52,11 +52,11 @@
           "next": "shop"
         }
       ],
-      "text": "\"When they come. They mostly do not.\" A dry look. \"They get as far as the poles and they have a good long think and they go home, which is the poles working exactly as intended, so I can hardly complain about it and I do, constantly.\n\nYou got past them. So either you are stupid or you are broke. Both is common.\""
+      "text": "\"When they come. They mostly do not.\" A dry look. \"They get as far as the poles and they have a good long think and they go home, which is the poles working exactly as intended, so I can hardly complain about it and I do, constantly.\n\nYou got past them. So either you're stupid or you're broke. Both is common.\""
     },
     "root": {
       "actions": [],
-      "first": "\"You will be wanting water, and you are not having the tank water, you are having a jar of it like everybody else.\" She is already reaching for one. \"Rindle. This is mine. What else.\"",
+      "first": "\"You'll be wanting water, and you aren't having the tank water, you're having a jar of it like everybody else.\" She's already reaching for one. \"Rindle. This is mine. What else.\"",
       "options": [
         {
           "actions": [],
@@ -90,8 +90,8 @@
       "text": "\"Back again. What.\"",
       "text_by_relation": {
         "close": "\"Sit on the crate, you look wrecked.\" The jar arrives without being ordered or charged for.",
-        "familiar": "\"There is a pair of boots come in your size. I put them by. Do not make me regret it.\"",
-        "known": "\"Jar?\" She is already reaching for one."
+        "familiar": "\"There's a pair of boots come in your size. I put them by. Don't make me regret it.\"",
+        "known": "\"Jar?\" She's already reaching for one."
       }
     },
     "shop": {
@@ -102,7 +102,7 @@
         }
       ],
       "options": [],
-      "text": "\"Go on then. Do not handle the glass.\""
+      "text": "\"Go on then. Don't handle the glass.\""
     },
     "which": {
       "actions": [],
@@ -115,7 +115,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I think you are still standing there talking to me instead of looking at the boots, so you are not shopping, you are gawping.\" She is not unkind about it. \"Gawp cheaper. There is a bench.\""
+      "text": "\"I think you're still standing there talking to me instead of looking at the boots, so you aren't shopping, you're gawping.\" She isn't unkind about it. \"Gawp cheaper. There's a bench.\""
     }
   },
   "faction": "ideology_wildblood",

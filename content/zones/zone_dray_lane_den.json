@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A gap behind a stack of pallets where the wall of the bonded store doesn't quite meet the wall of the chem supplier. Dry, out of the wind, and warm along one side where a duct runs through. There is a nest of shredded pallet-wrap here, flattened in the middle, and a small collection of bottle caps that has clearly been curated. No door, no way in, no way out. Nothing with hands has ever been in here.",
+  "description": "A gap behind a stack of pallets where the wall of the bonded store doesn't quite meet the wall of the chem supplier. Dry, out of the wind, and warm along one side where a duct runs through. There's a nest of shredded pallet-wrap here, flattened in the middle, and a small collection of bottle caps that has clearly been curated. No door, no way in, no way out. Nothing with hands has ever been in here.",
   "exits": {},
   "flags": {
     "floor": "concrete",

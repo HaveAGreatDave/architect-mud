@@ -8,7 +8,7 @@
   ],
   "ambient_theme": "city",
   "bg_color": "#3d3128",
-  "description": "Bales of crushed car in rows two and three high, stacked with the crane's rough sense of level and gone the deep orange-brown of old iron that has stopped pretending. Between them: aisles wide enough for one person and a wheelbarrow. Everything drips. The ground is a compacted crust of glass, rust flake and forty years of dropped bolts, and it crunches with every step in a way that means you are never anywhere quietly. Overhead the grabber crane hangs open on its cable, jaws apart, waiting. Back <b>east</b> to the shack.",
+  "description": "Bales of crushed car in rows two and three high, stacked with the crane's rough sense of level and gone the deep orange-brown of old iron that has stopped pretending. Between them: aisles wide enough for one person and a wheelbarrow. Everything drips. The ground is a compacted crust of glass, rust flake and forty years of dropped bolts, and it crunches with every step in a way that means you're never anywhere quietly. Overhead the grabber crane hangs open on its cable, jaws apart, waiting. Back <b>east</b> to the shack.",
   "exits": {
     "east": "zone_junkyard_shack"
   },

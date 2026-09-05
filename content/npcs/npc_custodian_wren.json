@@ -3,13 +3,13 @@
   "behaviour_graph": {},
   "chitchat": [
     "notes your arrival on a clipboard without looking up.",
-    "\"You are not on the approved-access list. I'll require a reason. In writing.\""
+    "\"You aren't on the approved-access list. I'll require a reason. In writing.\""
   ],
   "description": "Adjunct Wren has a form for everything and a pen that never runs dry. She logs each visitor to the ruins in triplicate and issues citations for infractions no one else can see. Cross her and the paperwork becomes eternal.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Your visit has been logged.\" She is already ruling a fresh line."
+      "text": "\"Your visit has been logged.\" She's already ruling a fresh line."
     },
     "company": {
       "actions": [
@@ -28,7 +28,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Meridian Continuity Group. Facilities and Heritage, Coldwater sub-district.\" She recites it like a prayer, and it is one. \"Before you ask: no, I have never met anyone from head office. No, I do not know where head office is. My wages arrive. My requisitions are approved, most of them, and the rejections come back with notes, which is how I know someone reads them.\" A thin, genuine pride. \"Somebody up there is still doing the work. I find that comforting. Most people find it upsetting, and I have never understood why.\""
+      "text": "\"Meridian Continuity Group. Facilities and Heritage, Coldwater sub-district.\" She recites it like a prayer, and it's one. \"Before you ask: no, I have never met anyone from head office. No, I don't know where head office is. My wages arrive. My requisitions are approved, most of them, and the rejections come back with notes, which is how I know someone reads them.\" A thin, genuine pride. \"Somebody up there's still doing the work. I find that comforting. Most people find it upsetting, and I have never understood why.\""
     },
     "insane": {
       "options": [
@@ -37,12 +37,12 @@
           "next": "company"
         }
       ],
-      "text": "\"It is procedure.\" She says the word the way other people say a family name. \"Everyone finds it funny until they need something filed. Then they find out that a filing is the only thing left in this basin that anyone still honours. Not the law. Not the borders. The paperwork held.\" The pen stops. \"Do you know how much did not hold?\""
+      "text": "\"It's procedure.\" She says the word the way other people say a family name. \"Everyone finds it funny until they need something filed. Then they find out that a filing is the only thing left in this basin that anyone still honours. Not the law. Not the borders. The paperwork held.\" The pen stops. \"Do you know how much didn't hold?\""
     },
     "issuer": {
       "options": [
         {
-          "label": "That is insane.",
+          "label": "That's insane.",
           "next": "insane"
         },
         {
@@ -50,7 +50,7 @@
           "next": "company"
         }
       ],
-      "text": "\"The permits office.\" A beat. \"The permits office is in the second sub-level of a building that is no longer there. This does not affect the requirement.\" She underlines something. \"I want to be very clear that I am not being obstructive. The requirement predates the building. It will outlast the building. It is, in that sense, the more real of the two.\""
+      "text": "\"The permits office.\" A beat. \"The permits office is in the second sub-level of a building that's no longer there. This doesn't affect the requirement.\" She underlines something. \"I want to be very clear that I'm not being obstructive. The requirement predates the building. It'll outlast the building. It is, in that sense, the more real of the two.\""
     },
     "nobody": {
       "options": [
@@ -76,7 +76,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Name.\" She does not look up. The pen is already moving. \"Purpose of visit. Duration of stay. If you are here to loot the ruins, I need that in section four, not section two. Section two is for salvage, and salvage requires a permit you do not have.\""
+      "text": "\"Name.\" She doesn't look up. The pen is already moving. \"Purpose of visit. Duration of stay. If you're here to loot the ruins, I need that in section four, not section two. Section two is for salvage, and salvage requires a permit you don't have.\""
     }
   },
   "faction": null,

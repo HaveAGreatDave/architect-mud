@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Standing water in a shallow depression, held up by a hardpan that will not drink. A rainbow sits on the surface and does not move when the wind does.",
+  "description": "Standing water in a shallow depression, held up by a hardpan that won't drink. A rainbow sits on the surface and doesn't move when the wind does.",
   "exits": {
     "east": "zone_the_reach_882_1964",
     "north": "zone_the_reach_881_1963",

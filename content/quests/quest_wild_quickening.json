@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "There is a pool east of the wall that the Wildblood do not drink from and do not fence off. The Chorus says you should go and stand in it. She has said what it will cost and she has not softened any of it.",
+  "description": "There's a pool east of the wall that the Wildblood don't drink from and don't fence off. The Chorus says you should go and stand in it. She has said what it'll cost and she hasn't softened any of it.",
   "fail_on": [],
   "id": "quest_wild_quickening",
   "meta": {},
@@ -10,7 +10,7 @@
       "desc": "Go into the Quickening Pool and stay in it",
       "emotes": [
         "{who} walks out into the pool until it takes their weight, and then stops fighting it.",
-        "{who} is told once more what it will cost, in the same voice, with nothing taken out of it.",
+        "{who} is told once more what it'll cost, in the same voice, with nothing taken out of it.",
         "{who} finds the water is warmer than the air and stops being able to tell where the edge of it is."
       ],
       "id": "o0",

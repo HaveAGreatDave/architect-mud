@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#c67a86",
-  "description": "The tent is gone and the frame it stood on is still pegged out. In the middle of it is a stone slab, scrubbed, with a drain cut into one end and a shallow gutter worked around three sides. It has been rained on for a long time and it is still the cleanest thing for a mile.",
+  "description": "The tent is gone and the frame it stood on is still pegged out. In the middle of it's a stone slab, scrubbed, with a drain cut into one end and a shallow gutter worked around three sides. It has been rained on for a long time and it's still the cleanest thing for a mile.",
   "exits": {
     "east": "zone_district_921_925",
     "north": "zone_district_920_924",

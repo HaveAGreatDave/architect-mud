@@ -17,7 +17,7 @@ export default async function regress({ check }) {
     _test.resolveLine('"{program}. Again."', beat()) === '"DEADBALL LIVE. Again."',
     _test.resolveLine('"{program}. Again."', beat()));
   check('fills {station}',
-    _test.resolveLine('"That is {station} all over."', beat()) === '"That is KSAB-TV all over."',
+    _test.resolveLine('"That\'s {station} all over."', beat()) === '"That\'s KSAB-TV all over."',
     'station');
   check('rejects a line whose token has no value',
     _test.resolveLine('"{program}. Again."', beat({ programName: null })) === null,

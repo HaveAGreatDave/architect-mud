@@ -1818,7 +1818,7 @@ export function reconcileNpcMembership({ quiet = false } = {}) {
     zone.npcs.add(id);
     repaired++;
     if (!quiet) {
-      console.warn(`[world] npc membership drift repaired: ${npc.name || id} thinks it is in ${zid} but was missing from its npc set — some path set zone_id without moveNpcToZone()`);
+      console.warn(`[world] npc membership drift repaired: ${npc.name || id} thinks it's in ${zid} but was missing from its npc set — some path set zone_id without moveNpcToZone()`);
     }
   }
   return repaired;

@@ -5,7 +5,7 @@
     "Something in the room settles, at length."
   ],
   "cause": "drug",
-  "description": "A chair in the middle of an ordinary evening, and getting out of it is a project you have deferred. Everything you need is within reach of somebody who was willing to reach. The television is off and the room is doing all of the work.",
+  "description": "A chair in the middle of an ordinary evening, and getting out of it's a project you have deferred. Everything you need is within reach of somebody who was willing to reach. The television is off and the room is doing all of the work.",
   "drug_id": "drug_dxm",
   "fx": "ash",
   "fx_intensity": 0.2,
@@ -15,19 +15,19 @@
     {
       "looks": [
         "It has taken your shape and it has no plans.",
-        "Standing up out of it is a sequence of about nine separate things.",
-        "It is not comfortable exactly. It has been agreed with."
+        "Standing up out of it's a sequence of about nine separate things.",
+        "It isn't comfortable exactly. It has been agreed with."
       ],
       "name": "the chair"
     },
     {
       "looks": [
         "It carries on being an evening without any help from you.",
-        "Everything in it is four feet further away than it was.",
-        "It will still be doing this in an hour. So will you."
+        "Everything in it's four feet further away than it was.",
+        "It'll still be doing this in an hour. So will you."
       ],
       "name": "the room"
     }
   ],
-  "weather": "It is the temperature of a room somebody heated hours ago and then left."
+  "weather": "It's the temperature of a room somebody heated hours ago and then left."
 }

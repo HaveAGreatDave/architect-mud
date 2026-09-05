@@ -1,11 +1,11 @@
 {
   "ambient": [
     "A layer at the edge lifts a little and lies back down.",
-    "Something crosses the surface above and does not go over the side.",
+    "Something crosses the surface above and doesn't go over the side.",
     "The edge continues away from you in both directions, at the same thickness."
   ],
   "cause": "drug",
-  "description": "The world here is a surface with a thickness, and you have got to the side of it. The thickness is about the width of a hand. Everything is painted on the top and it is painted well and the edge shows the layers, and you can count them, and there are more than there should be.",
+  "description": "The world here is a surface with a thickness, and you have got to the side of it. The thickness is about the width of a hand. Everything is painted on the top and it's painted well and the edge shows the layers, and you can count them, and there are more than there should be.",
   "drug_id": "drug_salvia",
   "fx": "crawl",
   "fx_intensity": 0.8,
@@ -15,8 +15,8 @@
     {
       "looks": [
         "Layers. Pressed. Each one a whole world done in a very thin coat.",
-        "You count eleven and lose the count and it is more than eleven.",
-        "The top one is the one you have been living on and it is the thinnest."
+        "You count eleven and lose the count and it's more than eleven.",
+        "The top one is the one you have been living on and it's the thinnest."
       ],
       "name": "the edge"
     },

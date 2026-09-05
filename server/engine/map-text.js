@@ -53,7 +53,7 @@ export function renderMapBriefing(player) {
   // called from a command handler where a player always exists, but it is also the
   // sort of pure helper that gets called from a test or a tool with less around it.
   const here = player?.current_zone ? getZone(player.current_zone) : null;
-  if (!here) return 'You are nowhere the map knows about.';
+  if (!here) return "You're nowhere the map knows about.";
 
   const nodes = getMinimapData(player.current_zone, 4, player) || [];
   const me = nodes.find(n => n.id === player.current_zone);

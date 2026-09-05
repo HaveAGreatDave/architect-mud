@@ -1,11 +1,11 @@
 {
   "ambient": [
     "Your tongue finds the gap. The gap is filled.",
-    "Somebody asks if you are all right, in passing, and accepts your answer.",
+    "Somebody asks if you're all right, in passing, and accepts your answer.",
     "You put another one in your pocket with the others, which is a lot now."
   ],
   "cause": "dream",
-  "description": "One of your teeth comes out into your hand, cleanly, with no blood and no pain, and there is another one behind it. That one comes out too. You are somewhere public and managing this quietly and the supply is holding.",
+  "description": "One of your teeth comes out into your hand, cleanly, with no blood and no pain, and there's another one behind it. That one comes out too. You're somewhere public and managing this quietly and the supply is holding.",
   "drug_id": null,
   "fx": "none",
   "fx_intensity": 0.3,
@@ -16,7 +16,7 @@
       "looks": [
         "Clean. Whole. Rooted, all of them, which is the part that stays with you.",
         "A handful. More than the number of teeth.",
-        "They are yours. You could match every one of them to its place."
+        "They're yours. You could match every one of them to its place."
       ],
       "name": "the teeth"
     },
@@ -24,7 +24,7 @@
       "looks": [
         "Not looking. Getting on with it.",
         "One of them has clocked it and has decided not to make it a thing.",
-        "They are people you see most days, and this is most days."
+        "They're people you see most days, and this is most days."
       ],
       "name": "the people nearby"
     }

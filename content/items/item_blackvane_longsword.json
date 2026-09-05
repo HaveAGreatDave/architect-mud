@@ -1,5 +1,5 @@
 {
-  "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It is lighter than it looks and it does not forgive a bad grip, but in a hand that knows what it is doing it is the best thing in this room by a distance the price only partly explains.",
+  "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It's lighter than it looks and it doesn't forgive a bad grip, but in a hand that knows what it's doing it's the best thing in this room by a distance the price only partly explains.",
   "flags": {},
   "id": "item_blackvane_longsword",
   "name": "Blackvane longsword",
@@ -10,7 +10,7 @@
         "min": 9
       },
       "damage_type": "edged",
-      "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It is lighter than it looks and it does not forgive a bad grip, but in a hand that knows what it is doing it is the best thing in this room by a distance the price only partly explains.",
+      "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It's lighter than it looks and it doesn't forgive a bad grip, but in a hand that knows what it's doing it's the best thing in this room by a distance the price only partly explains.",
       "min_skill": {
         "blades": 5
       },
@@ -24,7 +24,7 @@
       "min": 9
     },
     "damage_type": "edged",
-    "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It is lighter than it looks and it does not forgive a bad grip, but in a hand that knows what it is doing it is the best thing in this room by a distance the price only partly explains.",
+    "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It's lighter than it looks and it doesn't forgive a bad grip, but in a hand that knows what it's doing it's the best thing in this room by a distance the price only partly explains.",
     "min_skill": {
       "blades": 5
     },

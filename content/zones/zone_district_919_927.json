@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#a8b56a",
-  "description": "The trail thins to a game-track running southeast, out into flat blasted country that goes to the horizon and keeps going. This is the road to The Scarletwastes: four days on foot if the weather holds, which out there it does not, and the rain past the second day eats through a coat and then through you. There is a cairn at the trailhead with a lamp on it, sheltered, and the lamp has oil in it, and somebody comes out this far to fill it. Far off to the southeast the horizon carries a dark line that does not behave like a ridge.",
+  "description": "The trail thins to a game-track running southeast, out into flat blasted country that goes to the horizon and keeps going. This is the road to The Scarletwastes: four days on foot if the weather holds, which out there it does not, and the rain past the second day eats through a coat and then through you. There's a cairn at the trailhead with a lamp on it, sheltered, and the lamp has oil in it, and somebody comes out this far to fill it. Far off to the southeast the horizon carries a dark line that doesn't behave like a ridge.",
   "exits": {
     "east": "zone_district_920_927",
     "north": "zone_district_919_926",

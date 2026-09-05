@@ -6,14 +6,14 @@
   ],
   "cause": "drug",
   "departures": [
-    "They leave. They are still leaving.",
-    "They go out, and the going out finishes after they are gone.",
-    "They are elsewhere, and then they stop being here."
+    "They leave. They're still leaving.",
+    "They go out, and the going out finishes after they're gone.",
+    "They're elsewhere, and then they stop being here."
   ],
   "drug_id": "drug_dxm",
   "id": "dp_dxm_the_one_behind",
   "looks": [
-    "They are doing what they did. They are keeping up well.",
+    "They're doing what they did. They're keeping up well.",
     "Their face arrives after the rest of them and is the same face.",
     "They match you. The gap between you is the same gap as everything else.",
     "They speak, and the speaking is exactly as late as it should be."

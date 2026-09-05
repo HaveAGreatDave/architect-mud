@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Dead timber, standing. Whatever killed them did it to all of them in the same season, because they are all the same shade of grey and every one of them still has its shape. The ground between is packed ash and it takes a print.",
+  "description": "Dead timber, standing. Whatever killed them did it to all of them in the same season, because they're all the same shade of grey and every one of them still has its shape. The ground between is packed ash and it takes a print.",
   "exits": {
     "east": "zone_dw_798_960",
     "north": "zone_dw_797_959",

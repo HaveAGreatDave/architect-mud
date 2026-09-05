@@ -134,7 +134,7 @@ async function initRegistrationsToggle() {
     try {
       await push(toggle.checked, next);
       toast('Registration notice saved ✓');
-    } catch(e) { toast('Could not save notice', true); }
+    } catch(e) { toast("Couldn't save notice", true); }
   });
 }
 
@@ -174,7 +174,7 @@ function renderDbMeter(meter, playerCount) {
   document.getElementById('ws-db-item').title =
     `DB round trips in the last complete minute: ${rate}\n` +
     `${playerCount} online → ${perPlayer.toFixed(1)} per player/min\n` +
-    `(a rate with nobody online means a tick is not idle-gated)\n\n` +
+    `(a rate with nobody online means a tick isn't idle-gated)\n\n` +
     `Heaviest statements since boot (${meter.total} total)` +
     (meter.keysCapped ? ' — key table full, list may be partial' : '') +
     `:\n${top}`;
@@ -206,7 +206,7 @@ function startWorldStatePolling() {
 async function openGhostMode() {
   if (!devPlayerId) { toast('Not logged in', true); return; }
   const zones = await API('/zones');
-  if (!Array.isArray(zones) || !zones.length) { toast('Could not load zones', true); return; }
+  if (!Array.isArray(zones) || !zones.length) { toast("Couldn't load zones", true); return; }
 
   const modal = document.getElementById('ghost-modal');
   const select = document.getElementById('ghost-zone-select');

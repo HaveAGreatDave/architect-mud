@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#3a3026",
   "color": "#c9a86a",
-  "description": "The face of Salvage Rites. A chain-link gate on a rolling track, topped with wire that has caught more carrier bags than intruders, and a hand-painted board wired to it: SALVAGE RITES · WE BUY ANYTHING · WE ASK NOTHING · CASH, NOT FEELINGS. Beyond the mesh: rust-coloured bales of crushed car stacked in uneven rows, and the yellow arm of a grabber crane standing over them like it is presiding. The gate is open. It is always open. There is nothing in there worth stealing that you could carry.",
+  "description": "The face of Salvage Rites. A chain-link gate on a rolling track, topped with wire that has caught more carrier bags than intruders, and a hand-painted board wired to it: SALVAGE RITES · WE BUY ANYTHING · WE ASK NOTHING · CASH, NOT FEELINGS. Beyond the mesh: rust-coloured bales of crushed car stacked in uneven rows, and the yellow arm of a grabber crane standing over them like it's presiding. The gate is open. It's always open. There's nothing in there worth stealing that you could carry.",
   "exits": {
     "east": "zone_district_919_906",
     "west": "zone_junkyard_shack"

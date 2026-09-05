@@ -27,7 +27,7 @@ registerLockType('hololock', {
     messages: {
       lock:   'The hololock hums as it engages.',
       unlock: 'The hololock disengages with a soft click.',
-      denied: 'The hololock does not recognize your credentials.',
+      denied: "The hololock doesn't recognize your credentials.",
     },
   },
   authFn: async (lockTag, door, player) => {
@@ -77,7 +77,7 @@ registerLockType('longwatch', {
     messages: {
       lock:   'The blast door seats itself with a pneumatic sigh.',
       unlock: 'The blast door unseals and swings inward.',
-      denied: 'The blast door does not know you. It does not move.',
+      denied: "The blast door doesn't know you. It doesn't move.",
     },
   },
   authFn: async (lockTag, door, player) => {

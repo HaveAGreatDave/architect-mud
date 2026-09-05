@@ -23,7 +23,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Go on in. You are safe here.\" He settles back onto his stool."
+      "text": "\"Go on in. You're safe here.\" He settles back onto his stool."
     },
     "door": {
       "options": [
@@ -32,7 +32,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"That door opens for people the Watch have squared with. You are standing inside it, so that is you now.\"\n\nHe nods at the dark beyond.\n\n\"Out there the machine has eyes in every wire. In here it has nothing. No cameras, no police, no record you were ever in this room. Heat on you? Sit a while. It cools faster down here than anywhere in the Basin.\"\n\n\"That is the whole point of the place.\"\n\nThen he tips the mug at the wall behind the stove, where somebody has scratched a column of names into the brick. It is not a short column, and there is a great deal of brick left under it.\n\n\"And that is the cost of the place. We do not keep them on a screen. A screen can be switched off by somebody who never met them.\"\n\n\"You eaten?\""
+      "text": "\"That door opens for people the Watch have squared with. You're standing inside it, so that's you now.\"\n\nHe nods at the dark beyond.\n\n\"Out there the machine has eyes in every wire. In here it has nothing. Nothing in here has eyes. No police, no record you were ever in this room. Heat on you? Sit a while. It cools faster down here than anywhere in the Basin.\"\n\n\"That's what the place buys you.\"\n\nThen he tips the mug at the wall behind the stove, where somebody has scratched a column of names into the brick. It isn't a short column, and there's a great deal of brick left under it.\n\n\"And that's what it costs. We don't keep them on a screen. A screen can be switched off by somebody who never met them.\"\n\n\"You eaten?\""
     },
     "kept": {
       "options": [
@@ -41,7 +41,7 @@
           "next": "bye"
         }
       ],
-      "text": "Pike nods at the stool as you pass. He did not use to."
+      "text": "Pike nods at the stool as you pass. He didn't use to."
     },
     "l11_done": {
       "_vine": {
@@ -69,7 +69,7 @@
           "next": "bye"
         }
       ],
-      "text": "He comes back with two mugs and hands you one, which is the entire ceremony.\n\n\"You checked the seam.\" He settles onto the stool the way a building settles. \"Twice. I watched you do it the second time on the way back down the spine, and then I stood in the dark for a bit rather than come round the corner, which is a stupid thing for a grown man to do.\""
+      "text": "He comes back with two mugs and hands you one without a word about it.\n\n\"You checked the seam.\" He settles onto the stool the way a building settles. \"Twice. I watched you do it the second time on the way back down the spine, and then I stood in the dark for a bit rather than come round the corner, which is a stupid thing for a grown man to do.\""
     },
     "l11_offer": {
       "_vine": {
@@ -100,7 +100,7 @@
           "next": "bye"
         }
       ],
-      "text": "He lifts the mug, finds it empty, and looks at it as though it has done something.\n\n\"Take the door for an hour.\" He says it like it is about the mug. \"Nothing comes through it. Nothing has come through it in eleven years.\""
+      "text": "He lifts the mug, finds it empty, and looks at it as though it has done something.\n\n\"Take the door for an hour.\" He says it like it's about the mug. \"Nothing comes through it. Nothing has come through it in eleven years.\""
     },
     "l11_take": {
       "_vine": {
@@ -122,7 +122,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Seam at the hinge side, twice an hour, and it makes a noise about as often and the noise is nothing.\" He is up, and he is bigger standing. \"Do not get up.\""
+      "text": "\"Seam at the hinge side, twice an hour, and it makes a noise about as often and the noise is nothing.\" He's up, and he's bigger standing. \"Don't get up.\""
     },
     "l11_why": {
       "_vine": {
@@ -146,7 +146,7 @@
           "next": "bye"
         }
       ],
-      "text": "He puts the mug down.\n\n\"No.\" A long pause, and he does not fill it with anything. \"It is a stool and a door and it is not difficult, and the reason I have never asked is that I could not think of anybody I wanted to be sitting there while I was not.\""
+      "text": "He puts the mug down.\n\n\"No.\" A long pause, and he doesn't fill it with anything. \"It's a stool and a door and it isn't difficult, and the reason I have never asked is that I couldn't think of anybody I wanted to be sitting there while I was not.\""
     },
     "l16_done": {
       "_vine": {
@@ -179,7 +179,7 @@
           "next": "bye"
         }
       ],
-      "text": "He is in the commons, at a table, with a mug and nothing to do, and it is the strangest thing you have ever seen down here.\n\n\"Second hour.\" Pike does not look up. \"That is when it gets you. First hour you are proud of yourself. Second hour you work out that nothing is going to happen, and that nothing is going to happen tomorrow, and that this is the job.\"\n\nHe pushes the second mug across. \"Everybody who has ever sat that door has worked that out in the second hour. There have been two of us.\""
+      "text": "He's in the commons, at a table, with a mug and nothing to do, and it's the strangest thing you have ever seen down here.\n\n\"Second hour.\" Pike doesn't look up. \"That's when it gets you. First hour you're proud of yourself. Second hour you work out that nothing is going to happen, and that nothing is going to happen tomorrow, and that this is the job.\"\n\nHe pushes the second mug across. \"Everybody who has ever sat that door has worked that out in the second hour. There have been two of us.\""
     },
     "l16_offer": {
       "_vine": {
@@ -192,14 +192,14 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will take it.",
+          "label": "I'll take it.",
           "next": "l16_take"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You are not ill.",
+          "label": "You aren't ill.",
           "next": "l16_why"
         },
         {
@@ -210,7 +210,7 @@
           "next": "bye"
         }
       ],
-      "text": "He is standing up when you come round the corner, and he stays standing, and the stool is behind him and empty.\n\n\"Eleven years.\" Pike says it like a weight he is putting down deliberately rather than dropping. \"A door one man has sat at for eleven years is a door with one man between it and everybody. That is not a watch. That is a habit with a beard on it.\"\n\n\"It goes to somebody who has sat it once and did not find it interesting.\""
+      "text": "He's standing up when you come round the corner, and he stays standing, and the stool is behind him and empty.\n\n\"Eleven years.\" Pike says it like a weight he's putting down deliberately rather than dropping. \"A door one man has sat at for eleven years is a door with one man between it and everybody. That isn't a watch. That's a habit with a beard on it.\"\n\n\"It goes to somebody who has sat it once and didn't find it interesting.\""
     },
     "l16_take": {
       "_vine": {
@@ -232,7 +232,7 @@
           "next": "bye"
         }
       ],
-      "text": "He does not hand you anything, because there is nothing to hand over, which by now you know is the point.\n\n\"I will stand behind you for the first hour and it will be worse than sitting it alone.\" He almost smiles. \"Then I will go, and you will not hear me go, and that is the bit I have been looking forward to.\""
+      "text": "He doesn't hand you anything, because there's nothing to hand over, and by now you know better than to expect anything.\n\n\"I'll stand behind you for the first hour and it'll be worse than sitting it alone.\" He almost smiles. \"Then I'll go, and you won't hear me go, and that's the bit I have been looking forward to.\""
     },
     "l16_why": {
       "_vine": {
@@ -245,7 +245,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will take it.",
+          "label": "I'll take it.",
           "next": "l16_take"
         },
         {
@@ -256,7 +256,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I am not ill and I am not leaving and I will be down the spine every day of my life.\" He is very calm about it. \"I am seventy-one. The Watch has one door and one man who knows it, and if the man goes down the stairs wrong on a Tuesday the Watch has one door and nobody.\"\n\n\"I should have done this four years ago. I did not, because I liked it.\""
+      "text": "\"I'm not ill and I'm not leaving and I'll be down the spine every day of my life.\" He's very calm about it. \"I'm seventy-one. The Watch has one door and one man who knows it, and if the man goes down the stairs wrong on a Tuesday the Watch has one door and nobody.\"\n\n\"I should have done this four years ago. I did not, because I liked it.\""
     },
     "rite_accept": {
       "actions": [
@@ -271,7 +271,7 @@
           "next": "bye"
         }
       ],
-      "text": "He stands, stretches something that clicks, and takes the mug off you rather than handing it over.\n\n\"I will keep this warm.\""
+      "text": "He stands, stretches something that clicks, and takes the mug off you rather than handing it over.\n\n\"I'll keep this warm.\""
     },
     "rite_charge": {
       "_vine": {
@@ -289,7 +289,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The Quartermaster has one on the counter. She has had one on the counter since the day you walked in, and she will not look at you while you pick it up, and you are not to hold that against her.\"\n\n\"You wire it, and you set the fuse yourself, and the fuse is the only part of this that is nobody's business but yours. Short and you are running. Long and somebody finds it.\""
+      "text": "\"The Quartermaster has one on the counter. She has had one on the counter since the day you walked in, and she won't look at you while you pick it up, and you aren't to hold that against her.\"\n\n\"You wire it, and you set the fuse yourself, and the fuse is the only part of this that's nobody's business but yours. Short and you're running. Long and somebody finds it.\""
     },
     "rite_offer": {
       "options": [
@@ -306,7 +306,7 @@
           "next": "bye"
         }
       ],
-      "text": "Pike puts the mug down, which you have not seen him do.\n\n\"There is one job this place does that is not watching. It comes round about once every four years. I have been on this door for eleven.\"\n\nHe tells you the rest of it flatly, in order.\n\n\"The vats. Not the Spire, not the man at the top, not the money. The vats, because that is where they keep the thing they are actually selling, and every single person who has ever said yes to them said yes to that room. Bring the colonnade down.\"\n\n\"The woman at the gate will be at the gate. Ives. She has spent six years putting a price on our people and she is very good at it, and she is the reason two of the names on that wall are on that wall.\"\n\nHe is careful with the next part.\n\n\"You walk past her. She will have something to say and you will want to answer it, and neither of those matters. What matters is that you do not stop. Taking people out of the world is not what we are for. Still being here is what we are for.\"\n\nHe looks at you properly for the first time in all of this.\n\n\"Then come home. That is not decoration. Three of us have done this and one came back.\""
+      "text": "Pike puts the mug down, which you haven't seen him do.\n\n\"There's one job this place does that isn't watching. It comes round about once every four years. I have been on this door for eleven.\"\n\nHe tells you the rest of it flatly, in order.\n\n\"The vats. Not the Spire, not the man at the top, not the money. The vats, because that's where they keep the thing they're actually selling, and every single person who has ever said yes to them said yes to that room. Bring the colonnade down.\"\n\n\"The woman at the gate will be at the gate. Ives. She has spent six years putting a price on our people and she's very good at it, and she's the reason two of the names on that wall are on that wall.\"\n\nHe is careful with the next part.\n\n\"You walk past her. She'll have something to say and you'll want to answer it, and neither of those matters. What matters is that you don't stop. Taking people out of the world isn't what we're for. Still being here is what we're for.\"\n\nHe looks at you properly for the first time in all of this.\n\n\"Then come home. That isn't decoration. Three of us have done this and one came back.\""
     },
     "rite_report": {
       "actions": [
@@ -321,7 +321,7 @@
           "next": "bye"
         }
       ],
-      "text": "Pike is on the stool when you come down the stair, which means he has been on it the whole time, which means he did not sleep either.\n\nHe looks at the state of you. He looks at the door behind you. Then he looks back down the Outfall, out of habit, and asks the only question the Watch has ever asked anybody.\n\n\"Anything?\"\n\nAnd you tell him: no. Nothing behind you. Nothing following.\n\nHe nods once and moves along the bench to make room."
+      "text": "Pike is on the stool when you come down the stair, which means he has been on it the whole time, which means he didn't sleep either.\n\nHe looks at the state of you. He looks at the door behind you. Then he looks back down the Outfall, out of habit, and asks the only question the Watch has ever asked anybody.\n\n\"Anything?\"\n\nAnd you tell him: no. Nothing behind you. Nothing following.\n\nHe nods once and moves along the bench to make room."
     },
     "root": {
       "options": [
@@ -387,7 +387,7 @@
             }
           ],
           "enabled": true,
-          "label": "You are standing up.",
+          "label": "You're standing up.",
           "next": "l16_offer"
         },
         {
@@ -416,7 +416,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the Outfall?",
+          "label": "What's the Outfall?",
           "next": "what_wash"
         },
         {
@@ -523,7 +523,7 @@
           "next": "bye"
         }
       ],
-      "text": "The big man lifts his mug in greeting without getting up.\n\n\"Welcome in. Pike.\" He tips his head at the sealed door behind you. \"You got past that, so you are one of ours, which means you can finally put your back to a wall and mean it.\"\n\n\"Warm stove through in the commons.\""
+      "text": "The big man lifts his mug in greeting without getting up.\n\n\"Welcome in. Pike.\" He tips his head at the sealed door behind you. \"You got past that, so you're one of ours, which means you can finally put your back to a wall and mean it.\"\n\n\"Warm stove through in the commons.\""
     },
     "sit_accept": {
       "actions": [
@@ -538,12 +538,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"Do not open the door. If something comes down the Outfall you watch it come, and you write the time, and you do not open the door.\""
+      "text": "\"Don't open the door. If something comes down the Outfall you watch it come, and you write the time, and you don't open the door.\""
     },
     "sit_offer": {
       "options": [
         {
-          "label": "I will take a turn.",
+          "label": "I'll take a turn.",
           "next": "sit_accept"
         },
         {
@@ -551,7 +551,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Somebody has to sit the Blind while somebody else sleeps.\" He says it like it is Tuesday.\n\n\"Mirror looks down the Outfall. Shortwave talks to itself. The whole of the job is that you are there, and you are awake.\"\n\n\"I have sat it about ten thousand times. I will not thank you for it, and neither will anybody else, and that is not rudeness. It is that somebody sitting there is the ordinary state of things, and you do not thank the ordinary state of things.\""
+      "text": "\"Somebody has to sit the Blind while somebody else sleeps.\" He says it like it's Tuesday.\n\n\"Mirror looks down the Outfall. Shortwave talks to itself. The whole of the job is that you're there, and you're awake.\"\n\n\"I have sat it about ten thousand times. I won't thank you for it, and neither will anybody else, and that isn't rudeness. It's that somebody sitting there's the ordinary state of things, and you don't thank the ordinary state of things.\""
     },
     "sit_report": {
       "actions": [
@@ -571,11 +571,11 @@
     "teach": {
       "options": [
         {
-          "label": "I will come and stand, then.",
+          "label": "I'll come and stand, then.",
           "next": "bye"
         }
       ],
-      "text": "\"Teach.\" Pike considers the mug rather than you.\n\n\"I can show you two things and they are the same thing twice. How to stand for a long time without it costing you anything, and how to breathe while you do it.\"\n\nHe shifts on the stool, which is the most he has moved since you came in.\n\n\"That is not modesty. Everybody who has ever lasted down here started with those two, and most of what comes after is people dressing them up. `train body`, or `train breath`. Bring the rest of it to somebody who has seen more than a door.\""
+      "text": "\"Teach.\" Pike considers the mug rather than you.\n\n\"I can show you two things and they're the same thing twice. How to stand for a long time without it costing you anything, and how to breathe while you do it.\"\n\nHe shifts on the stool, which is the most he has moved since you came in.\n\n\"That isn't modesty. Everybody who has ever lasted down here started with those two, and most of what comes after is people dressing them up. `train body`, or `train breath`. Bring the rest of it to somebody who has seen more than a door.\""
     },
     "what_wash": {
       "_vine": {
@@ -588,7 +588,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is the room at the bottom of it?",
+          "label": "What's the room at the bottom of it?",
           "next": "what_wash_room"
         },
         {
@@ -599,7 +599,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The Outfall is the channel you just walked down. Storm drain, originally. It runs a quarter mile off the Meltwater outfall and it comes out at our door, and there is no other way in.\"\n\nHe tips the mug at the mirror over the shelf.\n\n\"That is angled down the length of it. Anybody coming to us is in the open for four minutes before they arrive, and I have four minutes to decide about them. It is the only advantage we have got and it is the whole reason we are here and not somewhere more comfortable.\"\n\n\"When it rains hard it runs, so you go the long way. It has drowned two of us.\""
+      "text": "\"The Outfall is the channel you just walked down. Storm drain, originally. It runs a quarter mile off the Meltwater outfall and it comes out at our door, and there's no other way in.\"\n\nHe tips the mug at the mirror over the shelf.\n\n\"That's angled down the length of it. Anybody coming to us is in the open for four minutes before they arrive, and I have four minutes to decide about them. It's the only advantage we have got and it's the whole reason we're here and not somewhere more comfortable.\"\n\n\"When it rains hard it runs, so you go the long way. It has drowned two of us.\""
     },
     "what_wash_room": {
       "_vine": {
@@ -616,7 +616,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"That is the lockers. Everything that can be listened to goes in one before you come any further in. Tablet, chip, anything with a cell in it. There is a locker with your name on it now, and it is lead-lined, and that is not decoration.\"\n\n\"Then somebody checks you for chrome. With calipers, not by asking.\"\n\n\"Nobody enjoys it. Nobody skips it either.\""
+      "text": "\"That's the lockers. Everything that can be listened to goes in one before you come any further in. Tablet, chip, anything with a cell in it. There's a locker with your name on it now, and it's lead-lined, and that isn't decoration.\"\n\n\"Then somebody checks you for chrome. With calipers, not by asking.\"\n\n\"Nobody enjoys it. Nobody skips it either.\""
     }
   },
   "faction": "ideology_long_watch",

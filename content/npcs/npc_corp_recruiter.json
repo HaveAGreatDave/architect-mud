@@ -15,7 +15,7 @@
         "action_type": "EMOTE",
         "next": "loop",
         "params": {
-          "message": "fans a brochure at a passerby who does not slow down, and keeps smiling anyway."
+          "message": "fans a brochure at a passerby who doesn't slow down, and keeps smiling anyway."
         },
         "type": "action"
       },
@@ -148,7 +148,7 @@
           "text": "\"You did warn me.\""
         }
       ],
-      "text": "\"McCracken said yes,\" Denny says. He says it twice more, to himself, in different tones, testing whether it is still true each time. \"Nineteen months I have walked past that man.\" He pays you properly, from a tin, and the tin has more in it than the float ever did. \"You're above somebody now. That's the part they don't warn you about. It's worse.\""
+      "text": "\"McCracken said yes,\" Denny says. He says it twice more, to himself, in different tones, testing whether it's still true each time. \"Nineteen months I have walked past that man.\" He pays you properly, from a tin, and the tin has more in it than the float ever did. \"You're above somebody now. That's the part they don't warn you about. It's worse.\""
     },
     "dq_offer": {
       "options": [
@@ -172,7 +172,7 @@
           "text": "\"Not today.\""
         }
       ],
-      "text": "The smile does not change but something behind it leans forward. \"Okay. Okay okay okay. You're asking, which means you're already halfway.\" He counts a hundred out of a float that is visibly most of what he has and puts it in front of you without letting go of it yet. \"Buy something. Sell three somethings. Push eight hundred through this town in an afternoon. That's it. That's the whole ask. Franchise doesn't want proof you're good, they want proof the MODEL is good, and the model is good, kid, the model is beautiful.\" He lets go of the money. \"Bring me the numbers.\""
+      "text": "The smile doesn't change but something behind it leans forward. \"Okay. Okay okay okay. You're asking, which means you're already halfway.\" He counts a hundred out of a float that's visibly most of what he has and puts it in front of you without letting go of it yet. \"Buy something. Sell three somethings. Push eight hundred through this town in an afternoon. That's it. That's the whole ask. Franchise doesn't want proof you're good, they want proof the MODEL is good, and the model is good, kid, the model is beautiful.\" He lets go of the money. \"Bring me the numbers.\""
     },
     "dq_pyramid": {
       "options": [
@@ -206,7 +206,7 @@
           "text": "\"Just pay me, Denny.\""
         }
       ],
-      "text": "He reads the numbers off you like a man reading a letter from home, lips moving, twice. Then he sits down on the folding chair for the first time all week.\n\n\"That works,\" he says quietly. \"That actually works.\" He looks up, and the sales voice is not in it. \"So here's where I have to be honest with you, and I don't get to do this much. You can take the money and walk, and it's good money, and I'll still wave at you on the street. Or you can sign, and you go on the ladder under me, and then it's not an afternoon any more.\""
+      "text": "He reads the numbers off you like a man reading a letter from home, lips moving, twice. Then he sits down on the folding chair for the first time all week.\n\n\"That works,\" he says quietly. \"That actually works.\" He looks up, and the sales voice isn't in it. \"So here's where I have to be honest with you, and I don't get to do this much. You can take the money and walk, and it's good money, and I'll still wave at you on the street. Or you can sign, and you go on the ladder under me, and then it's not an afternoon any more.\""
     },
     "dq_signed": {
       "actions": [
@@ -239,7 +239,7 @@
           "text": "\"HANG IN THERE.\""
         }
       ],
-      "text": "He produces a form from somewhere in the blazer. There is a cartoon of a ladder on it and every rung is smiling. He watches you sign it with an expression that is not triumph and is not quite guilt, and hands you a cap. \"Corporate identity,\" he says. \"Don't look at me like that. Nobody picks their own.\""
+      "text": "He produces a form from somewhere in the blazer. There's a cartoon of a ladder on it and every rung is smiling. He watches you sign it with an expression that isn't triumph and isn't quite guilt, and hands you a cap. \"Corporate identity,\" he says. \"Don't look at me like that. Nobody picks their own.\""
     },
     "found": {
       "options": [

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#26292e",
   "color": "#cdb489",
-  "description": "The bonded floor: aisle after aisle of shrink-wrapped pallets under customs seals, a caged clerk's office in one corner, your breath misting in the cold sodium light. Whatever a corp holds here, the city officially cannot see.",
+  "description": "The bonded floor: aisle after aisle of shrink-wrapped pallets under customs seals, a caged clerk's office in one corner, your breath misting in the cold sodium light. Whatever a corp holds here, the city officially can't see.",
   "exits": {
     "north": "zone_bunk_bonded",
     "south": "zone_district_922_907"
@@ -20,7 +20,7 @@
       "yard": "zone_district_922_908"
     },
     "window": {
-      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that is more information than you want.",
+      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that's more information than you want.",
       "light": 0.7,
       "name": "the high window",
       "visibility": 0.75

@@ -13,7 +13,7 @@
         },
         {
           "atSec": 20,
-          "text": "[trip]You are being turned. You have edges now, and someone is checking them.[/trip]"
+          "text": "[trip]You're being turned. You have edges now, and someone is checking them.[/trip]"
         },
         {
           "atSec": 34,
@@ -35,11 +35,11 @@
     "instant": {
       "sanity": -8
     },
-    "onset_message": "<span class=\"msg-system\">You are not a person any more. You are a surface, or an edge, or a length of something, and you are being turned.</span>",
+    "onset_message": "<span class=\"msg-system\">You aren't a person any more. You're a surface, or an edge, or a length of something, and you're being turned.</span>",
     "onset_seconds": 4,
     "overdose": {
       "lethal": false,
-      "message": "You take far too much and spend a bad four minutes convinced you are a garden fence. It passes. It always passes."
+      "message": "You take far too much and spend a bad four minutes convinced you're a garden fence. It passes. It always passes."
     },
     "take_line": "You pack a bowl of {name} and burn it hot.",
     "tolerance": {

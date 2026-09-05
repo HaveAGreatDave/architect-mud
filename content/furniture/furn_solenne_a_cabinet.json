@@ -1,5 +1,5 @@
 {
-  "description": "Soft-close doors above the counter, holding whatever the last tenant did not take with them.",
+  "description": "Soft-close doors above the counter, holding whatever the last tenant didn't take with them.",
   "flags": {
     "aliases": "cabinet,cupboard",
     "container": 60000,

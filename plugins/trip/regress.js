@@ -17,7 +17,7 @@ export default async function regress({ run, check, getPlayer }) {
   addPhantom(p.id, {
     id: 'ph_regress_person_' + p.id, name: 'a gaunt man in a hospital gown', kind: 'person',
     hp: 10, hp_max: 10, zone: p.current_zone,
-    look: 'He stands too still and does not blink.',
+    look: "He stands too still and doesn't blink.",
     talk: 'The gaunt man only watches, and smiles a little.',
   });
   addPhantom(p.id, {
@@ -48,7 +48,7 @@ export default async function regress({ run, check, getPlayer }) {
   // examine returns the phantom's own description, routed through the plugin
   // intercept ahead of the real cmdExamine.
   r = await run('examine gaunt');
-  check('examine returns the phantom look', /does not blink/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 120));
+  check('examine returns the phantom look', /doesn't blink/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 120));
 
   // talk gets the uncanny non-response, not a dialogue tree.
   r = await run('talk gaunt');
@@ -57,7 +57,7 @@ export default async function regress({ run, check, getPlayer }) {
   // A target that matches nothing real AND no phantom falls through to the
   // engine — the plugin must not swallow it.
   r = await run('examine nonesuch_xyz');
-  check('non-phantom examine falls through', !/does not blink/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 120));
+  check('non-phantom examine falls through', !/doesn't blink/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 120));
 
   // The reveal: attacking a phantom whiffs and removes it from the registry.
   r = await run('attack dog');
@@ -92,7 +92,7 @@ export default async function regress({ run, check, getPlayer }) {
       name: 'a sleeping lion',
       description: 'A lion is asleep across the room, flanks rising and falling.',
       looks: ['One ear tracks you around the room. Nothing else moves.'],
-      says: ['Lie down if you are going to.'],
+      says: ["Lie down if you're going to."],
       emotes: ['{it} yawns, jaw cracking, and resettles.'],
       asks: ['Are you getting in or not?'],
     });
@@ -107,17 +107,17 @@ export default async function regress({ run, check, getPlayer }) {
     // The real name must NOT come back — not the transform, and not the bed.
     const realWord = String(piece.name).split(/\s+/).pop();
     r = await run(`examine ${realWord}`);
-    check('...while the thing it used to be is not there any more',
+    check("...while the thing it used to be isn't there any more",
       !new RegExp(piece.description?.slice(0, 25) || '__none__').test(r?.message || ''),
       JSON.stringify(r?.message)?.slice(0, 140));
 
     // The forgery has to wear the SAME markup a real NPC's speech wears — same
     // check the sanity plugin's voices make, and for the same reason.
     const { _speechLine, _fillTokens, _theOf } = await import('./index.js');
-    const line = _speechLine('a sleeping lion', 'says', 'Lie down if you are going to.');
+    const line = _speechLine('a sleeping lion', 'says', "Lie down if you're going to.");
     check('a thing speaks in the same wrapper an NPC does', /^<span class="speech-line">/.test(line), line);
     check('...with the standard attribution and quotes',
-      /A sleeping lion says, "Lie down if you are going to\."/.test(line), line);
+      /A sleeping lion says, "Lie down if you're going to\."/.test(line), line);
     check('...and never announces itself as a hallucination',
       !/without a mouth|hallucinat|pretend/i.test(line), line);
     check('{it} fills with the subject form of the new name',
@@ -145,10 +145,10 @@ export default async function regress({ run, check, getPlayer }) {
     // ⚠ Never `_realName`: for an NPC that field is also the talk target, and
     // for furniture it is what callers act on. A fading piece is fully itself.
     check('...on _morphFrom, never _realName', shown._realName === undefined, String(shown._realName));
-    check('...and is not transformed any more', shown._transformed === undefined);
+    check("...and isn't transformed any more", shown._transformed === undefined);
 
     r = await run('examine lion');
-    check('...and the lion is not there any more',
+    check("...and the lion isn't there any more",
       !/One ear tracks you/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 120));
 
     // Re-dressing mid-trip is NOT a comedown. A fade surviving it would animate a
@@ -194,7 +194,7 @@ export default async function regress({ run, check, getPlayer }) {
     // exist, and would let a griefer hide behind a third party's trip.
     check('...but the HANDLE is untouched, so they stay addressable',
       seenP.handle === 'Marla', String(seenP.handle));
-    check('...and the live player object was not mutated',
+    check("...and the live player object wasn't mutated",
       victim._seenAs === undefined && victim.handle === 'Marla');
 
     // Nobody else's view is affected.
@@ -202,7 +202,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('another viewer sees the real person', otherView._seenAs === undefined);
 
     // You are never your own hallucination.
-    check('a viewer cannot be transformed into themselves',
+    check("a viewer can't be transformed into themselves",
       addPlayerTransform(p.id, p.id, { name: 'a heron' }) === null);
     check('...and no such entry is stored', !getPlayerTransform(p.id, p.id));
 
@@ -242,7 +242,7 @@ export default async function regress({ run, check, getPlayer }) {
       name: 'a sleeping lion',
       description: 'A lion is asleep across the room.',
       looks: ['One ear tracks you around the room.'],
-      says: ['Lie down if you are going to.'],
+      says: ["Lie down if you're going to."],
       emotes: ['{it} yawns and resettles.'],
       asks: ['Are you getting in or not?'],
     });

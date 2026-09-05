@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A fan of scree run out from a notch in the cliff above, sorted by nothing but weight: the big pieces at the bottom, the grit at the top, and a channel down the middle of it where the water goes when there is water.",
+  "description": "A fan of scree run out from a notch in the cliff above, sorted by nothing but weight: the big pieces at the bottom, the grit at the top, and a channel down the middle of it where the water goes when there's water.",
   "exits": {
     "east": "zone_scw_1019_957",
     "north": "zone_scw_1018_956",

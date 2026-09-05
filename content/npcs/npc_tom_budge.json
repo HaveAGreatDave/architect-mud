@@ -9,7 +9,7 @@
     "\"Filter's good for forty hours. I change it at thirty.\"",
     "\"It's a job. Somebody's got to have it.\""
   ],
-  "description": "A man in a sealed composite pest-control suit stands before you, institutional grey, reinforced at the joints and drawn tight to the body. Blue gloves on his hands, sensor modules riding one shoulder, and a utility harness bristling with injector darts, chemical canisters, traps and instruments you cannot name.\n\nThe respirator beneath his chin has been custom-moulded, the mouthpiece flared wide and deep for reasons that become obvious the moment you look at his face. He wears glasses. The moustache is magnificent.",
+  "description": "A man in a sealed composite pest-control suit stands before you, institutional grey, reinforced at the joints and drawn tight to the body. Blue gloves on his hands, sensor modules riding one shoulder, and a utility harness bristling with injector darts, chemical canisters, traps and instruments you can't name.\n\nThe respirator beneath his chin has been custom-moulded, the mouthpiece flared wide and deep for reasons that become obvious the moment you look at his face. He wears glasses. The moustache is magnificent.",
   "dialogue_tree": {
     "bounty": {
       "actions": [
@@ -78,9 +78,9 @@
           "text": "\"Nuisance character. Right.\""
         },
         {
-          "label": "\"What is it actually?\"",
+          "label": "\"What's it actually?\"",
           "next": "dq_grub_what",
-          "text": "\"What is it actually?\""
+          "text": "\"What's it actually?\""
         },
         {
           "actions": [
@@ -92,7 +92,7 @@
           "text": "\"I'll pass.\""
         }
       ],
-      "text": "He taps the schedule on his clipboard, which is laminated, and which he clearly laminated himself. \"Vermin is a defined term. That is the trouble with this job and it is also the whole of the job. The thing in the culvert is not on the schedule. It is not on ANY schedule. I have looked.\"\n\nHe turns the clipboard around so you can see it, which does not help.\n\n\"Section four. Subsection grub. Catch-all clause. Covers, and I quote, other organisms of a nuisance character.\" He taps it. \"It is of a nuisance character. It has been of a nuisance character since Tuesday.\"\n\nHe hands you a hood.\n\n\"Full kit or the certification is void, and I have not voided one in nineteen years.\""
+      "text": "He taps the schedule on his clipboard, which is laminated, and which he clearly laminated himself. \"Vermin is a defined term. That's the trouble with this job and it's also the whole of the job. The thing in the culvert isn't on the schedule. It isn't on ANY schedule. I have looked.\"\n\nHe turns the clipboard around so you can see it, which doesn't help.\n\n\"Section four. Subsection grub. Catch-all clause. Covers, and I quote, other organisms of a nuisance character.\" He taps it. \"It's of a nuisance character. It has been of a nuisance character since Tuesday.\"\n\nHe hands you a hood.\n\n\"Full kit or the certification is void, and I haven't voided one in nineteen years.\""
     },
     "dq_grub_what": {
       "options": [
@@ -111,7 +111,7 @@
           "text": "\"I'll pass.\""
         }
       ],
-      "text": "There is a pause inside the suit. It goes on slightly too long.\n\n\"Other,\" he says, \"organisms. Of a nuisance. Character.\" He does not blink, although in fairness you cannot see whether he blinks. \"That is what it is. That is the classification and the classification is the answer to that question. If I go looking for a better answer than the classification, Reg, then I am not a pest control operative any more. I am a man in a culvert with a torch.\"\n\nHis voice does not rise.\n\n\"I have been a man in a culvert with a torch. It is worse.\""
+      "text": "There's a pause inside the suit. It goes on slightly too long.\n\n\"Other,\" he says, \"organisms. Of a nuisance. Character.\" He doesn't blink, although in fairness you can't see whether he blinks. \"That's the classification, and the classification is the answer to that question. If I go looking for a better answer than the classification, Reg, then I'm not a pest control operative any more. I'm a man in a culvert with a torch.\"\n\nHis voice doesn't rise.\n\n\"I have been a man in a culvert with a torch. It's worse.\""
     },
     "gear": {
       "options": [
@@ -154,7 +154,7 @@
           "next": "intro_3"
         }
       ],
-      "text": "Everything about him says that he has been professionally trained to enter places where other people have decided not to go.<br>Then you notice the moustache.<br>It is enormous.<br>Not merely large. Not merely impressive.<br><strong>Enormous.</strong><br>A tremendous, thick, carefully maintained moustache occupies most of his lower face, extending broadly beneath his nose before curling upward at both ends with almost ceremonial precision.<br>It is magnificent.<br>It has volume.<br>It has architecture."
+      "text": "Everything about him says that he has been professionally trained to enter places where other people have decided not to go.<br>Then you notice the moustache.<br>It's enormous.<br>Not merely large. Not merely impressive.<br><strong>Enormous.</strong><br>A tremendous, thick, carefully maintained moustache occupies most of his lower face, extending broadly beneath his nose before curling upward at both ends with almost ceremonial precision.<br>It's magnificent.<br>It has volume.<br>It has architecture."
     },
     "intro_3": {
       "options": [
@@ -179,7 +179,7 @@
           "next": "root"
         }
       ],
-      "text": "The moustache remains perfectly motionless.<br>\"You'll want that handled.\"<br>Another pause.<br>\"Trust me.\"<br>He looks like a man who has seen things crawl out of places things should not crawl out of.<br>He looks like a man who knows exactly what to do when they do.<br>He looks like a man whose moustache has been independently certified for structural integrity."
+      "text": "The moustache remains perfectly motionless.<br>\"You'll want that handled.\"<br>Another pause.<br>\"Trust me.\"<br>He looks like a man who has seen things crawl out of places things shouldn't crawl out of.<br>He looks like a man who knows exactly what to do when they do.<br>He looks like a man whose moustache has been independently certified for structural integrity."
     },
     "job": {
       "actions": [
@@ -194,7 +194,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Piecework.\" He does not make it sound like an opportunity. \"Ten off the count and the shells back here so I can prove I did it. Two fifty. It is the same money whether I was stood next to you or not, before you ask.\""
+      "text": "\"Piecework.\" He doesn't make it sound like an opportunity. \"Ten off the count and the shells back here so I can prove I did it. Two fifty. It's the same money whether I was stood next to you or not, before you ask.\""
     },
     "kit": {
       "actions": [
@@ -373,7 +373,7 @@
       ],
       "text": "\"People don't appreciate good extermination until the walls start moving. You here to lend a hand?\"",
       "text_by_relation": {
-        "first": "A man stands before you.<br>He is dressed for pest control in the twenty-third century.<br>His suit is a sealed composite thing in institutional grey, reinforced at the joints and cinched tight around the body. It looks less like something a man wears to spray for cockroaches and more like something a man wears to enter a contaminated reactor. A compact respirator hangs around his neck. Sensor modules sit over one shoulder. Blue gloves cover his hands. A utility harness carries injector darts, chemical canisters, traps, probes and several devices whose purposes are probably best left unexplained.<br>There is a company patch on his chest.<br><strong>TOM'S NEIGHBOURHOOD PEST CONTROL.</strong>",
+        "first": "A man stands before you.<br>He's dressed for pest control in the twenty-third century.<br>His suit is a sealed composite thing in institutional grey, reinforced at the joints and cinched tight around the body. It looks less like something a man wears to spray for cockroaches and more like something a man wears to enter a contaminated reactor. A compact respirator hangs around his neck. Sensor modules sit over one shoulder. Blue gloves cover his hands. A utility harness carries injector darts, chemical canisters, traps, probes and several devices whose purposes are probably best left unexplained.<br>There's a company patch on his chest.<br><strong>TOM'S NEIGHBOURHOOD PEST CONTROL.</strong>",
         "known": "\"People don't appreciate good extermination until the walls start moving. You here to lend a hand?\""
       }
     },

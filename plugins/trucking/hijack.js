@@ -147,7 +147,7 @@ export async function playerHijack(player, nameHint) {
   if (!victim) return null;
   if (player._inCab) return { type: 'error', message: 'Not from in here. You would have to get out first.' };
   if (!cabIsOpenTo(victim)) {
-    return { type: 'error', message: `${victim.handle}'s rig is still rolling. You are not getting a hand to a moving truck.` };
+    return { type: 'error', message: `${victim.handle}'s rig is still rolling. You aren't getting a hand to a moving truck.` };
   }
   // A contest, and the driver's side of it is real: they are braced against the door with the
   // advantage of being the one holding it. Brawn against Brawn, with the defender favoured — the
@@ -159,7 +159,7 @@ export async function playerHijack(player, nameHint) {
   if (margin <= 0) {
     sendToZone(player.current_zone, { type: 'zone_event',
       message: `<b>${player.handle}</b> wrenches at the cab door and it holds.`, refresh: false }, player.id);
-    return { type: 'success', message: 'You get a hand to the door and it does not give. They know you are out here now.' };
+    return { type: 'success', message: "You get a hand to the door and it doesn't give. They know you're out here now." };
   }
   dragOut(victim, null, { attackerName: `<b>${player.handle}</b>` });
   return { type: 'success', message: `You get the door open and haul ${victim.handle} out onto the road.` };

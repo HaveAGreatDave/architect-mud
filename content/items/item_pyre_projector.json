@@ -1,5 +1,5 @@
 {
-  "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that is mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
+  "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle that's mostly heat shielding. The gauge is analogue, because a needle can be read through smoke. Stencilled down the tank: VULCAN ORDNANCE PYRE-3. Scratched into the paint under it: IT DOES NOT KNOW WHAT YOU MEANT.",
   "flags": {},
   "id": "item_pyre_projector",
   "name": "Vulcan Ordnance PYRE-3 incineration projector",
@@ -12,7 +12,7 @@
         "min": 5
       },
       "damage_type": "fire",
-      "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that is mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
+      "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that's mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
       "dry_message": "The igniter cracks on nothing and the nozzle coughs a thin unlit mist across the floor.",
       "min_skill": {
         "firearms": 5
@@ -33,7 +33,7 @@
       "min": 5
     },
     "damage_type": "fire",
-    "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that is mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
+    "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that's mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
     "dry_message": "The igniter cracks on nothing and the nozzle coughs a thin unlit mist across the floor.",
     "min_skill": {
       "firearms": 5

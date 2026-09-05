@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "A line you did not write completes itself sensibly.",
+    "A line you didn't write completes itself sensibly.",
     "The message is marked as read.",
     "Somewhere the other person begins a reply and stops."
   ],
   "cause": "dream",
-  "description": "Something has to be sent and you are composing it. Each sentence is right as you write it. You read the whole thing back and it is a different message, addressed correctly, in your voice, about something else, and the thing you need to say has to be put in again.",
+  "description": "Something has to be sent and you're composing it. Each sentence is right as you write it. You read the whole thing back and it's a different message, addressed correctly, in your voice, about something else, and the thing you need to say has to be put in again.",
   "drug_id": null,
   "fx": "static",
   "fx_intensity": 0.5,
@@ -15,7 +15,7 @@
     {
       "looks": [
         "Four paragraphs. Clear. Yours. Not it.",
-        "The one word that matters is in there and it is doing a different job.",
+        "The one word that matters is in there and it's doing a different job.",
         "You have said this well. You have said this well several times."
       ],
       "name": "the message"

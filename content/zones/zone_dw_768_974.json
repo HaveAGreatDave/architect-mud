@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A long steel bench under a window, laid out for close work: a vice, a rack of files graded fine to coarse, an oil stone, a tray. Somebody is sitting at it with their sleeve rolled to the shoulder and their arm off at the elbow, and the arm is in the vice with the forearm plate open. They are cleaning a track in it with a bristle brush, without looking, the way you clean something you know. What they are talking to you about is the water rota, which they think is unfair, at length, with examples.",
+  "description": "A long steel bench under a window, laid out for close work: a vice, a rack of files graded fine to coarse, an oil stone, a tray. Somebody is sitting at it with their sleeve rolled to the shoulder and their arm off at the elbow, and the arm is in the vice with the forearm plate open. They're cleaning a track in it with a bristle brush, without looking, the way you clean something you know. What they're talking to you about is the water rota, which they think is unfair, at length, with examples.",
   "exits": {
     "east": "zone_dw_769_974",
     "north": "zone_dw_768_973",

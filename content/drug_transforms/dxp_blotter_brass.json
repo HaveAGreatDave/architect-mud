@@ -4,7 +4,7 @@
     "Which of these faces did you want?",
     "How many of me can you see?"
   ],
-  "description": "A figure of articulated brass stands here at exactly human size, every plate sliding over its neighbour in a slow constant rearrangement, with a face that is very nearly a face and is being polite about the difference.",
+  "description": "A figure of articulated brass stands here at exactly human size, every plate sliding over its neighbour in a slow constant rearrangement, with a face that's very nearly a face and is being polite about the difference.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} refolds one hand into a different, better hand.",
@@ -15,16 +15,16 @@
   "fx_intensity": 0.5,
   "id": "dxp_blotter_brass",
   "looks": [
-    "The plates never stop moving and never once catch. It is beautiful, and after a while it is a lot.",
+    "The plates never stop moving and never once catch. It's beautiful, and after a while it's a lot.",
     "Where the eyes should be there are two apertures that iris smaller when they settle on you.",
     "It ticks. It has been ticking since you came in and you only just started hearing it."
   ],
   "matches": null,
   "name": "a person made of moving brass",
   "says": [
-    "I am running a little ahead. It will even out.",
+    "I'm running a little ahead. It'll even out.",
     "This is the version of me you can see.",
-    "There is no inside. I have checked, repeatedly."
+    "There's no inside. I have checked, repeatedly."
   ],
   "scope": "person"
 }

@@ -718,7 +718,7 @@ export const PARTS = {
   part_engine_hotsection: { slot: 'engine', tier: 2, price: 4200, item: 'part_engine_hotsection',
     name: 'Hot-Section Turbine', kg: 12,
     cruiseMult: 1.15, burnMult: 1.14, heatMult: 1.22, boostRange: 0.5,
-    blurb: 'Race-shop internals and a turbine section that runs at temperatures the manual calls a fire. It is very fast and it is always angry.' },
+    blurb: "Race-shop internals and a turbine section that runs at temperatures the manual calls a fire. It's very fast and it's always angry." },
 
   // AVIONICS — instrument grade. Buys you precision (dial travel) and a machine
   // that is harder to lose the picture in.
@@ -727,7 +727,7 @@ export const PARTS = {
     blurb: 'One flat panel where six shaking dials used to be. You can actually see what she is doing.' },
   part_avionics_inertial: { slot: 'avionics', tier: 2, price: 3600, item: 'part_avionics_inertial',
     name: 'Inertial Reference Suite', kg: 6, rangeBonus: 0.5, avionics: 2,
-    blurb: 'A sealed platform that knows where it is without asking anyone. Hardened, shielded, and utterly unbothered by weather.' },
+    blurb: "A sealed platform that knows where it's without asking anyone. Hardened, shielded, and utterly unbothered by weather." },
 
   // TANKAGE — range, paid for in payload.
   part_tank_aux: { slot: 'fuel', tier: 1, price: 900, item: 'part_tank_aux',
@@ -740,10 +740,10 @@ export const PARTS = {
   // STRUCTURE — one of two answers. Spar set buys payload; plate buys survival.
   part_frame_spar: { slot: 'frame', tier: 1, price: 1600, item: 'part_frame_spar',
     name: 'Reinforced Spar Set', kg: 9, towMult: 1.25, cgRange: 0.3,
-    blurb: 'Doubled spar caps and new wing-root fittings. She will carry more, and she will not complain about where you put it.' },
+    blurb: "Doubled spar caps and new wing-root fittings. She will carry more, and she won't complain about where you put it." },
   part_frame_plate: { slot: 'frame', tier: 2, price: 3400, item: 'part_frame_plate',
     name: 'Bolt-On Armour Plate', kg: 16, soak: 0.35, cruiseMult: 0.94, handling: 1.2,
-    blurb: 'Composite plate over the tub, the tanks and the pilot. Every gram of it is in the wrong place aerodynamically and every gram of it has been earned.' },
+    blurb: "Composite plate over the tub, the tanks and the pilot. Every gram of it's in the wrong place aerodynamically and every gram of it has been earned." },
 
   // HARDPOINTS — the mounts themselves. Legality is contextual (the airspace
   // decides), so owning and fitting these is not in itself a crime.
@@ -1937,7 +1937,7 @@ export async function parkAt(live, zoneId) {
     getZone(occZone)?.players.add(pid);
     closeHud(pid);
     out(pid, occZone === zoneId
-      ? `<span class="text-dim">You are down at ${z?.name || 'the field'}.</span>`
+      ? `<span class="text-dim">You're down at ${z?.name || 'the field'}.</span>`
       : `<span class="text-dim">You taxi into the hangar at ${z?.name || 'the field'}, cut the engine, and climb out.</span>`);
     // Setting foot on the ground is an arrival — fire the event so zone.entered
     // consumers (first-visit lore, and the Echelon's board check that smites an
@@ -2009,8 +2009,8 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
     detach(p, { restore: true });
     p.current_zone = wreckZone;
     out(pid, byPlayer
-      ? '<span class="text-red">Rounds find something vital — the controls go dead and the world tips up. There is a noise, and then nothing.</span>'
-      : '<span class="text-red">The ground comes up to meet you. There is a noise, and then there is nothing.</span>');
+      ? '<span class="text-red">Rounds find something vital — the controls go dead and the world tips up. There\'s a noise, and then nothing.</span>'
+      : '<span class="text-red">The ground comes up to meet you. There\'s a noise, and then there\'s nothing.</span>');
     await handlePlayerDeath(p, byPlayer || null, { type: reason, label });
   }
   if (byPlayer) {

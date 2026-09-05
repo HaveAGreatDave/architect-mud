@@ -57,8 +57,10 @@ import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { getLivePlayer, getAllLivePlayers, getZoneFurniture } from '../../server/engine/world.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { hasTag } from '../../server/engine/tags.js';
+import { getPowerMap } from '../../server/engine/environment.js';
 import { escAttr } from '../../server/engine/text.js';
 import { buildPoster, posterBlock, posterRow, money, listOf, escHtml } from './poster.js';
+import { receptacleOf, line as recLine } from './receptacle.js';
 import './tablet-app.js';
 
 // ── tunables ──────────────────────────────────────────────────────────────────
@@ -74,6 +76,19 @@ const HEAD_ITEM = 'item_bounty_head';
 // `bulletin` board (the leaderboard) also carries sheets, because a board in a
 // world with two kinds of board is a board players will stand at the wrong one of.
 const BOARD_TAGS = ['wanted_board', 'bulletin'];
+
+// A board is a MACHINE — a coin slot and a thermal printer on the way in, a
+// receptacle and a scale on the way out — so it needs power like any other one.
+// Paper is still paper, though: READING a board never checks this, because the
+// sheets stay stapled to it when the lights go out. Only the two operations that
+// need the machinery to move are gated.
+//
+// Zones with no generator assigned are absent from the map and treated as
+// powered, which is the same reading plugins/atm uses.
+function boardPowered(zoneId) {
+  const z = getPowerMap().find(e => e.zoneId === zoneId);
+  return !z || z.status === 'powered' || z.status === 'overloaded';
+}
 
 // ── in-memory mirror of the open rows ─────────────────────────────────────────
 const openBounties = new Map();          // id -> row
@@ -112,8 +127,18 @@ loadBounties().catch(() => {});
 // ── boards ────────────────────────────────────────────────────────────────────
 // A board is furniture, and the room's furniture is already in memory — this was
 // a round trip on every bounty verb to ask what is standing in the room.
+// Words that mean "the thing in this room that does bounties" rather than naming
+// a particular one. A player typing `read board` at a machine called a bounty
+// terminal is not being ambiguous, and making them get the furniture name right
+// would be the room punishing them for a rename nobody told them about.
+const GENERIC_NOUNS = new Set([
+  'board', 'boards', 'terminal', 'bounty terminal', 'wanted board', 'bounty board',
+  'machine', 'kiosk', 'bounty', 'wanted', 'sheet', 'sheets', 'contracts',
+]);
+
 function boardHere(zoneId, name = '') {
-  const needle = name.toLowerCase();
+  const raw = String(name || '').trim().toLowerCase();
+  const needle = GENERIC_NOUNS.has(raw) ? '' : raw;
   return getZoneFurniture(zoneId).find(f =>
     (!needle || (f.name || '').toLowerCase().includes(needle)) &&
     BOARD_TAGS.some(t => hasTag(f, t))
@@ -127,7 +152,7 @@ function boardHere(zoneId, name = '') {
 const sub = (word) =>
   `<span class="action-link verb-teach" data-action="bounty" data-target="${escAttr(word)}" title="bounty ${escAttr(word)}">bounty ${word}</span>`;
 
-const NO_BOARD = `You need to be standing at a board for that. Contracts are posted and paid at a board — that is the only part of this business anybody insists on.`;
+const NO_BOARD = `You need to be standing at a board for that. Contracts are posted and paid at a board — that's the only part of this business anybody insists on.`;
 
 // ── posting ───────────────────────────────────────────────────────────────────
 
@@ -152,6 +177,9 @@ async function resolveTarget(name) {
 async function postBounty(player, targetName, amount, note, broadcast) {
   const board = boardHere(player.current_zone);
   if (!board) return { type: 'error', message: NO_BOARD };
+  // A sheet has to be printed before it can be stapled up.
+  if (!boardPowered(player.current_zone))
+    return { type: 'error', message: recLine(receptacleOf(board), 'darkPost') };
 
   if (!Number.isFinite(amount) || amount < MIN_BOUNTY)
     return { type: 'error', message: `The minimum contract is ${money(MIN_BOUNTY)}. Anything less and nobody crosses the street for it.` };
@@ -160,7 +188,7 @@ async function postBounty(player, targetName, amount, note, broadcast) {
   if (!target)
     return { type: 'error', message: `Nobody by the name "${targetName}" is on file. Contracts need the handle spelled the way they spell it.` };
   if (String(target.id) === String(player.id))
-    return { type: 'error', message: `You can't post a contract on yourself. The board has seen it tried; the board is not interested.` };
+    return { type: 'error', message: `You can't post a contract on yourself. The board has seen it tried; the board isn't interested.` };
 
   // The cut comes off the top and is disclosed in the confirmation, so the
   // number on the sheet is the number the hunter is actually paid. A poster
@@ -171,7 +199,7 @@ async function postBounty(player, targetName, amount, note, broadcast) {
   if (escrow < 1) return { type: 'error', message: `That doesn't survive the house cut.` };
 
   if (!await adjustCredits(player, -amount, undefined, 'bounty:post'))
-    return { type: 'error', message: `You're ${money(amount - (player.credits || 0))} short. Contracts are paid up front — the board does not run a tab.` };
+    return { type: 'error', message: `You're ${money(amount - (player.credits || 0))} short. Contracts are paid up front — the board doesn't run a tab.` };
 
   const now = Date.now();
   const row = {
@@ -240,8 +268,8 @@ async function mintHead(victim, killer) {
     taken_at: Date.now(),
     name: `${victim.handle}'s head`,
     description: `The head of ${victim.handle}, taken off the body and wrapped without ceremony in whatever was to hand. `
-      + `It is worth ${money(total)} to the right board and nothing whatsoever anywhere else. `
-      + `It does not keep. Nobody will look at you the same way while you are carrying it.`,
+      + `It's worth ${money(total)} to the right board and nothing whatsoever anywhere else. `
+      + `It doesn't keep. Nobody will look at you the same way while you're carrying it.`,
   };
 
   // Into the CORPSE, not the killer's pack. This is the decision the whole
@@ -264,7 +292,7 @@ async function mintHead(victim, killer) {
 
   sendToPlayer(killer.id, {
     type: 'output',
-    message: `<span class="text-warning">There is paper out on ${escHtml(victim.handle)} — ${money(total)} of it.</span>\n`
+    message: `<span class="text-warning">There's paper out on ${escHtml(victim.handle)} — ${money(total)} of it.</span>\n`
       + (rows[0]
         ? `<span class="text-dim">You do what the contract asks. The head goes into the corpse's kit; take it, and take it to a board (${teachVerb('redeem')}). Anyone can carry it in — including whoever gets it off you.</span>`
         : `<span class="text-dim">You take what the contract asks for, and it goes straight into your kit. A board will pay for it (${teachVerb('redeem')}).</span>`),
@@ -275,13 +303,16 @@ async function mintHead(victim, killer) {
 async function cmdRedeem(args, raw, player, broadcast) {
   const board = boardHere(player.current_zone);
   if (!board) return { type: 'error', message: NO_BOARD };
+  const rec = receptacleOf(board);
+  if (!boardPowered(player.current_zone))
+    return { type: 'error', message: recLine(rec, 'dark') };
 
   const { rows: heads } = await query(
     `SELECT id, custom_data FROM player_inventory
       WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL`,
     [player.id, HEAD_ITEM]);
   if (!heads.length)
-    return { type: 'error', message: `You've nothing to hand in. A contract pays on delivery, and delivery means the head, in your hands, at this board.` };
+    return { type: 'error', message: `You've nothing to hand in. ${recLine(rec, 'empty')}` };
 
   const want = args.join(' ').trim().toLowerCase();
   const picked = want
@@ -298,7 +329,7 @@ async function cmdRedeem(args, raw, player, broadcast) {
     // You cannot cash in your own head. It should not be possible to be holding
     // it, but looting your own corpse is a thing this game lets you do.
     if (victimId === String(player.id)) {
-      out.push(`The board will not pay you for your own head. It does note, drily, that you tried.`);
+      out.push(`The board won't pay you for your own head. It does note, drily, that you tried.`);
       continue;
     }
     const contracts = bountiesOn(victimId);
@@ -306,6 +337,7 @@ async function cmdRedeem(args, raw, player, broadcast) {
       out.push(`<span class="text-dim">Nothing outstanding on ${escHtml(cd.victim_handle || 'them')} any more — the sheet came down. You're holding a head nobody is buying.</span>`);
       continue;
     }
+    out.push(`<span class="text-dim">${recLine(rec, 'accept')}</span>`);
     for (const row of contracts) await settleClaim(row, player, broadcast, out);
     paid += contracts.reduce((a, c) => a + c.amount, 0);
     await query('DELETE FROM player_inventory WHERE id=$1', [head.id]).catch(() => {});
@@ -314,7 +346,7 @@ async function cmdRedeem(args, raw, player, broadcast) {
   if (paid > 0) {
     broadcast(player.current_zone, {
       type: 'zone_event',
-      message: `${player.handle} puts something down on ${board.name}'s counter, and the board counts out ${money(paid)} without asking a single question about it.`,
+      message: recLine(rec, 'room', { handle: player.handle, amount: money(paid) }),
     }, player.id);
   }
   return { type: 'output', message: out.join('\n') || 'Nothing to collect.' };
@@ -431,9 +463,9 @@ async function unmaskBounty(player, name) {
 
   return {
     type: 'output',
-    message: `You pay ${money(cost)} into a slot that does not print a receipt, and a single line comes back.\n`
+    message: `You pay ${money(cost)} into a slot that doesn't print a receipt, and a single line comes back.\n`
       + `<span class="text-danger">The contract on you was posted by <b>${escHtml(row.backer_handle)}</b>.</span>\n`
-      + `<span class="text-dim">The board does not tell them you asked. That part is up to you.</span>`,
+      + `<span class="text-dim">The board doesn't tell them you asked. That part is up to you.</span>`,
   };
 }
 
@@ -449,7 +481,7 @@ const HELP = [
   `  <b>bounty unmask</b>                   pay to learn who paid for you`,
   `  ${teachVerb('redeem')}                       hand a head in at a board`,
   ``,
-  `<span class="text-dim">A kill on somebody with paper out leaves a head with the body. Bring the head to a board and the board pays whoever is holding it — which does not have to be the person who took it.</span>`,
+  `<span class="text-dim">A kill on somebody with paper out leaves a head with the body. Bring the head to a board and the board pays whoever is holding it — which doesn't have to be the person who took it.</span>`,
 ].join('\n');
 
 async function cmdBounty(args, raw, player, broadcast) {
@@ -494,7 +526,7 @@ function listing(player, list) {
   }
 
   if (onMe.length) {
-    lines.push(``, `<span class="text-danger">► ${onMe.length === 1 ? 'There is a sheet up with your name on it' : `There are ${onMe.length} sheets up with your name on them`}: ${money(totalOn(player.id))} in total.</span>`);
+    lines.push(``, `<span class="text-danger">► ${onMe.length === 1 ? "There's a sheet up with your name on it" : `There are ${onMe.length} sheets up with your name on them`}: ${money(totalOn(player.id))} in total.</span>`);
     lines.push(`<span class="text-dim">${sub('unmask')} to pay for a name.</span>`);
   }
   if (mine.length) {
@@ -519,16 +551,32 @@ function present(player, poster, { lead = '', trail = '' } = {}) {
 
 // ── the board itself ──────────────────────────────────────────────────────────
 export const hooks = {
-  // A board says how much paper is on it before you read it. A player who never
+  // A board says how much work is on it before you read it. A player who never
   // types `bounty` still finds out this system exists by walking past one.
+  //
+  // ⚠ TWO KINDS OF FURNITURE COME THROUGH HERE. A `wanted_board` is a Severance
+  // terminal — a screen and a receptacle — and a `bulletin` board is cork and
+  // staples. One line describing stapled paper on a machine that holds no paper
+  // was the whole reason this branched.
   'furniture.describe': async (f) => {
     if (!f || !BOARD_TAGS.some(t => hasTag(f, t))) return undefined;
+    const machine = hasTag(f, 'wanted_board');
+    const rec = receptacleOf(f);
+    if (machine && !boardPowered(f.zone_id))
+      return `<span class="text-dim">${escHtml(recLine(rec, 'dark'))}</span>`;
     const n = openBounties.size;
-    if (!n) return `<span class="text-dim">A few staples and the torn corners of older sheets. Nothing current. (${teachVerb('bounty')})</span>`;
+    if (!n) return machine
+      ? `<span class="text-dim">The screen cycles an empty list and starts again. No contracts open. (${teachVerb('bounty')})</span>`
+      : `<span class="text-dim">A few staples and the torn corners of older sheets. Nothing current. (${teachVerb('bounty')})</span>`;
     const top = openList()[0];
-    return `<span class="text-warning">${n === 1 ? 'One sheet' : `${n} sheets`} of fresh WANTED paper, stapled over each other`
-      + ` — the top one wants ${escHtml(top.target_handle)} and is offering ${money(top.amount)}.</span>`
-      + `\n<span class="text-dim">${teachVerb('bounty')} to read the board · <b>bounty &lt;name&gt; &lt;amount&gt;</b> to add one · ${teachVerb('redeem')} to collect.</span>`;
+    const head = machine
+      ? `The screen is working through ${n === 1 ? 'a single contract' : `${n} open contracts`}`
+        + `. The one showing wants ${escHtml(top.target_handle)}, for ${money(top.amount)}.`
+      : `${n === 1 ? 'One sheet' : `${n} sheets`} of fresh WANTED paper, stapled over each other`
+        + `. The top one wants ${escHtml(top.target_handle)}, for ${money(top.amount)}.`;
+    return `<span class="text-warning">${head}</span>`
+      + `\n<span class="text-dim">${teachVerb('bounty')} to read it · <b>bounty &lt;name&gt; &lt;amount&gt;</b> to add one`
+      + `${machine ? ` · ${teachVerb('redeem')} at ${escHtml(rec.noun)} to collect` : ''}.</span>`;
   },
 };
 

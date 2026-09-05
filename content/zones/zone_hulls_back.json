@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#1b2224",
-  "description": "A plank loft over a long steam box that hasn't been fired in years, its lid warped open like something crawled out. Timber is stacked by the wall in lengths and grades, labelled for a boat that will not be built. A cot in the corner says he doesn't always go home.",
+  "description": "A plank loft over a long steam box that hasn't been fired in years, its lid warped open like something crawled out. Timber is stacked by the wall in lengths and grades, labelled for a boat that won't be built. A cot in the corner says he doesn't always go home.",
   "exits": {
     "east": "zone_hulls_shop"
   },

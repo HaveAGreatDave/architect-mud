@@ -77,8 +77,8 @@
   ],
   "butcher_difficulty": 3,
   "butcher_table": [],
-  "death_message": "The weeping mutant sits down in its own puddle and does not get up.",
-  "description": "A stooped thing that will not stop leaking. Clear fluid runs from its eyes, its ears and a dozen splits along its arms, and it goes where the sound is because it stopped being able to see some time ago. It is not fast and it is not strong. There are simply always more of them.",
+  "death_message": "The weeping mutant sits down in its own puddle and doesn't get up.",
+  "description": "A stooped thing that won't stop leaking. Clear fluid runs from its eyes, its ears and a dozen splits along its arms, and it goes where the sound is because it stopped being able to see some time ago. It isn't fast and it isn't strong. There are simply always more of them.",
   "dodge": 1,
   "faction": null,
   "flags": {

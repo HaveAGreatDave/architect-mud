@@ -137,7 +137,7 @@
     "\"No, I don't want to know where you got it. Third column's for things I find interesting, and you're not.\"",
     "\"Copper's up. Copper's always up. Copper is the only honest man I know.\""
   ],
-  "description": "A small, wide woman in her sixties built along the general lines of the bales outside, with forearms that end in hands you would not want closing on anything of yours. Grey hair cut short with what were almost certainly the tin snips on the counter. One lens of her glasses is scratched to frost and she has never once been observed looking through it. She weighs everything twice, once on the scales and once by hefting it, and it is the second weight she writes down.",
+  "description": "A small, wide woman in her sixties built along the general lines of the bales outside, with forearms that end in hands you wouldn't want closing on anything of yours. Grey hair cut short with what were almost certainly the tin snips on the counter. One lens of her glasses is scratched to frost and she has never once been observed looking through it. She weighs everything twice, once on the scales and once by hefting it, and it's the second weight she writes down.",
   "dialogue_tree": {
     "buy": {
       "options": [
@@ -163,7 +163,7 @@
           "next": "crane"
         }
       ],
-      "text": "\"That's the entire trick, yes.\" Very dry. \"<b>sell</b> whatever it is, and I'll give you a number. You won't like the number. Nobody likes the number. The number is correct.\""
+      "text": "\"That's it, yes.\" Very dry. \"<b>sell</b> whatever it is, and I'll give you a number. You won't like the number. Nobody likes the number. The number is correct.\""
     },
     "bye": {
       "options": [],
@@ -176,7 +176,7 @@
           "next": "crane2"
         },
         {
-          "label": "\"What is this place?\"",
+          "label": "\"What's this place?\"",
           "next": "what"
         }
       ],
@@ -189,7 +189,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Every day. Twice, if the delivery's awkward.\" She finally sets the pen down. \"There is a moment, when you've got four tonnes of somebody's whole life in the jaws and you're swinging it up onto row six, where the entire yard goes quiet and you can hear the cable working.\" A beat. \"I'll be doing that when I die. Probably in the specific sense.\""
+      "text": "\"Every day. Twice, if the delivery's awkward.\" She finally sets the pen down. \"There's a moment, when you've got four tonnes of somebody's whole life in the jaws and you're swinging it up onto row six, where the entire yard goes quiet and you can hear the cable working.\" A beat. \"I'll be doing that when I die. Probably in the specific sense.\""
     },
     "ledger": {
       "options": [
@@ -202,7 +202,7 @@
           "next": "ledger2"
         }
       ],
-      "text": "For the first time she looks up properly, over the frosted lens, with the eye that works. \"Provenance,\" she says. \"Where a thing came from, on the rare occasion that's worth writing down.\" The pen does not move. \"I don't ask. People tell me anyway. People always tell me anyway, and then they stand exactly where you're standing and ask what the third column's for.\""
+      "text": "For the first time she looks up properly, over the frosted lens, with the eye that works. \"Provenance,\" she says. \"Where a thing came from, on the rare occasion that's worth writing down.\" The pen doesn't move. \"I don't ask. People tell me anyway. People always tell me anyway, and then they stand exactly where you're standing and ask what the third column's for.\""
     },
     "ledger2": {
       "options": [
@@ -211,7 +211,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Me.\" She turns the page back over. \"And, twice, a gentleman from Precinct 9 with a warrant and a very poor understanding of my handwriting.\" The ghost of something crosses her face and leaves. \"He got a name out of it. It was the wrong name. I did not correct him, because I was not asked, and because the right name was a customer.\""
+      "text": "\"Me.\" She turns the page back over. \"And, twice, a gentleman from Precinct 9 with a warrant and a very poor understanding of my handwriting.\" The ghost of something crosses her face and leaves. \"He got a name out of it. It was the wrong name. I didn't correct him, because I wasn't asked, and because the right name was a customer.\""
     },
     "root": {
       "options": [
@@ -220,7 +220,7 @@
           "next": "buy"
         },
         {
-          "label": "\"What is this place?\"",
+          "label": "\"What's this place?\"",
           "next": "what"
         },
         {

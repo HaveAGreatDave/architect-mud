@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that from here does not appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that from here doesn't appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left. Off toward the middle of the country there's a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
   "exits": {
     "east": "zone_terminus_1208_940",
     "north": "zone_terminus_1207_939",

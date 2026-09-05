@@ -15,7 +15,7 @@
     "lock:keycardlock": {
       "keyItemId": "item_voltage_vip_band",
       "messages": {
-        "denied": "The doorman's hand finds your chest without hurry. \"Band or booth, friend. No band, no stairs.\" The rope does not move.",
+        "denied": "The doorman's hand finds your chest without hurry. \"Band or booth, friend. No band, no stairs.\" The rope doesn't move.",
         "lock": "The doorman unclips the rope from the far post and lets it fall across the stair.",
         "unlock": "The reader on the post glows a soft gold at your wristband and the doorman steps aside. \"Upstairs. Enjoy.\""
       }

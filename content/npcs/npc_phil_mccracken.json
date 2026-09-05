@@ -33,12 +33,12 @@
   "chitchat": [
     "checks a running order nobody else has read.",
     "writes a time on the back of his hand and looks at the door.",
-    "\"It goes out at eight whether it is ready or not. That is the whole job.\"",
+    "\"It goes out at eight whether it's ready or not. That's the whole job.\"",
     "straightens something that was already straight, then puts it back crooked so it looks lived in.",
     "\"I have never once been thanked on air. I keep a note of it. Not a grudge. A note.\"",
     "listens to something in an earpiece, closes his eyes briefly, and says nothing."
   ],
-  "description": "A man in a pressed shirt with a lanyard he has never once been asked for, holding a clipboard against his chest like a shield. He has the specific alertness of somebody who is always four minutes from a problem, and the resting face of somebody who has already solved it and been thanked by nobody.",
+  "description": "A man in a pressed shirt with a lanyard he has never once been asked for, holding a clipboard against his chest like a shield. He has the specific alertness of somebody who's always four minutes from a problem, and the resting face of somebody who has already solved it and been thanked by nobody.",
   "dialogue_tree": {
     "billing": {
       "options": [
@@ -51,7 +51,7 @@
           "next": "root"
         }
       ],
-      "text": "\"That was mine,\" he says. \"My idea. I thought it read as clean. No name, no ego, just PRODUCER, like the old shows.\" He looks at the middle distance for slightly too long. \"Turns out a word can't be thanked. A word can't be hired by somebody else. I had a name and I gave it away for a font.\""
+      "text": "\"That was mine,\" he says. \"My idea. I thought it read as clean. Drop the name, drop the ego, just PRODUCER, like the old shows.\" He looks at the middle distance for slightly too long. \"Turns out a word can't be thanked. A word can't be hired by somebody else. I had a name and I gave it away for a font.\""
     },
     "building": {
       "options": [
@@ -64,12 +64,12 @@
           "next": "gotrid"
         }
       ],
-      "text": "\"He did.\" Phil says it straight away, with no argument in it at all. \"After the marriage went, Neil was on sofas the better part of a year, and one of those sofas was Nguyen's. Basement flat under a laundromat. I have never once said otherwise and I never will.\" He turns a page over. \"You are standing in it, by the way.\""
+      "text": "\"He did.\" Phil says it straight away, with no argument in it at all. \"After the marriage went, Neil was on sofas the better part of a year, and one of those sofas was Nguyen's. Basement flat under a laundromat. I have never once said otherwise and I never will.\" He turns a page over. \"You're standing in it, by the way.\""
     },
     "change": {
       "options": [
         {
-          "label": "I will ask you again after a good one.",
+          "label": "I'll ask you again after a good one.",
           "next": "root"
         }
       ],
@@ -87,7 +87,7 @@
           "text": "\"I'll tell him.\""
         }
       ],
-      "text": "He reads the brochure. Then he reads it again, slower, the way you read something that has your own name in it.\n\n\"I've had this lanyard eleven years,\" he says. \"Nobody has ever asked to see it. Not once. Not security, not the desk, nobody.\" He touches it. \"I kept turning up because I couldn't work out how to stop turning up.\"\n\nHe folds the brochure into a pocket that already has a pen in it.\n\n\"Tell Corliss yes. Tell him I said yes properly, out loud, with a witness, because I want it to have happened.\""
+      "text": "He reads the brochure. Then he reads it again, slower, the way you read something that has your own name in it.\n\n\"I've had this lanyard eleven years,\" he says. \"Nobody has asked to see it. Not once. Not security, not the desk, nobody.\" He touches it. \"I kept turning up because I couldn't work out how to stop turning up.\"\n\nHe folds the brochure into a pocket that already has a pen in it.\n\n\"Tell Corliss yes. Tell him I said yes properly, out loud, with a witness, because I want it to have happened.\""
     },
     "else": {
       "options": [
@@ -96,7 +96,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I could produce something else,\" he agrees, pleasantly. \"Nothing else in this city goes out live at eight o'clock with a man who genuinely does not know what he is about to say.\" A small, real shrug. \"I like the not knowing. It's the only part of my week that isn't a schedule.\""
+      "text": "\"I could produce something else,\" he agrees, pleasantly. \"Nothing else in this city goes out live at eight o'clock with a man who genuinely doesn't know what he's about to say.\" A small, real shrug. \"I like the not knowing. It's the only part of my week that isn't a schedule.\""
     },
     "gotrid": {
       "options": [
@@ -104,7 +104,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That is a hard way to treat the man who housed him.",
+          "label": "That's a hard way to treat the man who housed him.",
           "next": "hard"
         },
         {
@@ -112,7 +112,7 @@
           "next": "nevertook"
         }
       ],
-      "text": "\"I made it uncomfortable,\" he says, and does not dress it up. \"I put things in front of Neil at the right hours. I let a couple of arguments run that I could have cut. Nothing I said was untrue — that's the part I'd want you to check. I just chose the ten minutes.\" He puts the clipboard down for the first time. \"And then the credits rolled and there it was. Producer, Captain Nguyen. Still there. Nineteen weeks after he stopped coming down the stairs.\""
+      "text": "\"I made it uncomfortable,\" he says, and doesn't dress it up. \"I put things in front of Neil at the right hours. I let a couple of arguments run that I could have cut. Nothing I said was untrue — that's the part I'd want you to check. I just chose the ten minutes.\" He puts the clipboard down for the first time. \"And then the credits rolled and there it was. Producer, Captain Nguyen. Still there. Nineteen weeks after he stopped coming down the stairs.\""
     },
     "hard": {
       "options": [
@@ -148,7 +148,7 @@
     "nevertook": {
       "options": [
         {
-          "label": "And you are still here.",
+          "label": "And you're still here.",
           "next": "root"
         }
       ],
@@ -168,7 +168,7 @@
       "text": "\"He was a lovely man and he was killing us,\" Phil says. \"He wasn't crew. He wasn't staff. He wasn't anything at all — he was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
     },
     "root": {
-      "first": "\"You're not crew,\" he says, not unkindly, checking a clipboard he does not need to check. \"Doesn't matter. Nobody's crew. I'm Phil. I produce the programme, which tonight means I am the programme's entire crew, its legal department and its cleaner.\" He offers a hand. \"Don't touch the board.\"",
+      "first": "\"You're not crew,\" he says, not unkindly, checking a clipboard he doesn't need to check. \"Doesn't matter. Nobody's crew. I'm Phil. I produce the programme, which tonight means I'm the programme's entire crew, its legal department and its cleaner.\" He offers a hand. \"Don't touch the board.\"",
       "options": [
         {
           "label": "Who actually runs this show?",
@@ -243,16 +243,16 @@
           "next": "root"
         }
       ],
-      "text": "\"Down to the pull-string on the bulb,\" Phil says, and for the first time there is something like pride in it. \"Neil described it once, at four in the morning, for about ninety minutes. I had it built. The laundromat overhead is a sound cue and we recorded it in the actual street, because he said it wouldn't be right otherwise.\" He looks at the corner where the stool is. \"It is the best thing I have ever made and I do not think one viewer has ever noticed it is a room.\""
+      "text": "\"Down to the pull-string on the bulb,\" Phil says, and for the first time there's something like pride in it. \"Neil described it once, at four in the morning, for about ninety minutes. I had it built. The laundromat overhead is a sound cue and we recorded it in the actual street, because he said it wouldn't be right otherwise.\" He looks at the corner where the stool is. \"It's the best thing I have ever made and I don't think one viewer has ever noticed it's a room.\""
     }
   },
   "faction": null,
   "flags": {
     "absent_lines": [
       "writes the time on the back of his hand and looks at the door.",
-      "\"We can hold four minutes. After four minutes it is a different programme.\"",
+      "\"We can hold four minutes. After four minutes it's a different programme.\"",
       "\"Has anybody actually heard from {missing}, or are we all just assuming.\"",
-      "sets the clipboard down, which he does not do, and rubs his eyes with two fingers.",
+      "sets the clipboard down, which he doesn't do, and rubs his eyes with two fingers.",
       "\"I have never once missed one of these. Not one. In nineteen weeks.\""
     ],
     "clothing_layers": [
@@ -304,9 +304,9 @@
         "Get to the point. Please get to the point.",
         "We're live. You know we're live?",
         "Neil. Neil. Look at me. The sheet.",
-        "We are forty seconds into this and you've gone.",
+        "We're forty seconds into this and you've gone.",
         "Neil. Running order.",
-        "We are eleven minutes in and we have done one item.",
+        "We're eleven minutes in and we have done one item.",
         "I've got the board, I've got the feed, and I've got you. Two of those are behaving."
       ],
       "hortons": {
@@ -328,7 +328,7 @@
         ],
         "late": [
           "That's on me. I thought you'd appreciate the levity.",
-          "Do not finish that sentence. I am asking you as your producer."
+          "Don't finish that sentence. I'm asking you as your producer."
         ],
         "recover": [
           "Brother. Next item, brother."
@@ -336,20 +336,20 @@
       },
       "late": [
         "You're doing the thing. You said to tell you when you're doing the thing.",
-        "I am cutting your mic. I am going to do it.",
-        "You are going to get us kicked off public access. We need this.",
+        "I'm cutting your mic. I'm going to do it.",
+        "You're going to get us kicked off public access. We need this.",
         "Jesus christ, man, we talked about this exact thing.",
         "THAT'S NOT HELPING!",
-        "That is the licence. You understand that is the actual licence you are holding.",
-        "I am writing the time down. Not as a threat. As a record.",
-        "Every week I let one of these run and every week it is the wrong one."
+        "That's the licence. You understand that's the actual licence you're holding.",
+        "I'm writing the time down. Not as a threat. As a record.",
+        "Every week I let one of these run and every week it's the wrong one."
       ],
       "nguyen": {
         "early": [
           "Four minutes to the break, Neil."
         ],
         "late": [
-          "We are running long. That is all I have on that.",
+          "We're running long. That's all I have on that.",
           "I've got a running order and a transmitter. Those are my two subjects."
         ],
         "recover": [
@@ -375,7 +375,7 @@
         "And now a word from our sponsor. Say it. Say the words.",
         "Number two on the list. There were ten. You said ten.",
         "Right, we're back in the room. From the top of that page.",
-        "From the top of the page. I will cue you.",
+        "From the top of the page. I'll cue you.",
         "Sponsor. Then the list. In that order, and then you can say whatever you want."
       ],
       "theone": {
@@ -383,9 +383,9 @@
           "Good. Keep not saying it."
         ],
         "late": [
-          "You are saying it. This is you saying it.",
+          "You're saying it. This is you saying it.",
           "That's not a fact. You've said it like a fact and it isn't one.",
-          "I am going to cut the feed. I have the button right here."
+          "I'm going to cut the feed. I have the button right here."
         ],
         "recover": [
           "And now a word from our sponsor. NOW, Neil."

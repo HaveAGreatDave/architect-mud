@@ -247,7 +247,7 @@ function searchForSeams({ zoneId, margin }) {
   return {
     found: true,
     priority: 200,
-    message: `There's a seam in the panelling that isn't a seam. ${disguise.name} is not as deep as the wall behind it.`,
+    message: `There's a seam in the panelling that isn't a seam. ${disguise.name} isn't as deep as the wall behind it.`,
   };
 }
 

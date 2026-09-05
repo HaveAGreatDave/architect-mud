@@ -2,9 +2,9 @@
   "enabled": true,
   "id": "bt_amb_chatty_050",
   "lines": [
-    "\"I am not gossiping.\"",
-    "\"You are gossiping.\"",
-    "\"I am providing context.\"",
+    "\"I'm not gossiping.\"",
+    "\"You're gossiping.\"",
+    "\"I'm providing context.\"",
     "\"Provide it quieter, then.\""
   ],
   "personality": "chatty",

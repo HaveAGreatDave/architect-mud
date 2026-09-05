@@ -407,7 +407,7 @@ async function cmdBomb(args, raw, player) {
   if (live.lastBomb && nowMs - live.lastBomb < BOMB_COOLDOWN_MS) return { type: 'noop' };
   if (a.altitude_band === 'high') return advise('<span class="text-amber">Too high to pick out anything on the ground — bring her down.</span>');
   const down = -(c.pitch || 0);
-  if (down < BOMB_DIVE_DEG) return advise(`<span class="text-amber">The sight will not settle in level flight. Put the nose down — properly, past ${BOMB_DIVE_DEG}°.</span>`);
+  if (down < BOMB_DIVE_DEG) return advise(`<span class="text-amber">The sight won't settle in level flight. Put the nose down — properly, past ${BOMB_DIVE_DEG}°.</span>`);
   if ((c.airspeed || 0) < BOMB_IAS_MIN) return advise(`<span class="text-amber">Not enough speed in the dive — you need ${BOMB_IAS_MIN} knots on the clock before the rack will let go.</span>`);
 
   // WHERE IT GOES. The pilot's designated tile wins if it is genuinely ahead and in reach; that
@@ -456,7 +456,7 @@ async function cmdBomb(args, raw, player) {
   await bombKillAA(ax, ay, zone, player);
 
   const off = (ax !== tx || ay !== ty);
-  const grade = q > 0.75 ? 'Dead centre.' : q > 0.4 ? 'Close enough.' : 'Ugly, but it is down.';
+  const grade = q > 0.75 ? 'Dead centre.' : q > 0.4 ? 'Close enough.' : "Ugly, but it's down.";
   return { type: 'emote', message: off
     ? `<span class="text-amber">RELEASE — and it goes long. The bomb walks off to ${ax},${ay}.</span>`
     : `<span class="text-cyan">RELEASE — ${aimed ? 'onto the designated tile' : `onto ${ax},${ay}`}. ${grade}</span>` };
@@ -502,7 +502,7 @@ async function bombBlastTile(zone, live, player, dmgMult, hitMult) {
   let hitPlayer = false, killedPlayer = false;
   for (const p of players) {
     if (Math.random() >= hit) {
-      out(p.id, '<span class="text-amber">The blast throws you flat and the air goes out of you — but you are still whole.</span>');
+      out(p.id, '<span class="text-amber">The blast throws you flat and the air goes out of you — but you\'re still whole.</span>');
       continue;
     }
     const lo = Math.round(BOMB_DMG.min * dmgMult), hi = Math.round(BOMB_DMG.max * dmgMult);
@@ -510,7 +510,7 @@ async function bombBlastTile(zone, live, player, dmgMult, hitMult) {
     hitPlayer = true;
     if (r.killed) {
       killedPlayer = true;
-      out(p.id, '<span class="text-red">The bomb goes off where you are standing. That is all.</span>');
+      out(p.id, '<span class="text-red">The bomb goes off where you\'re standing. That\'s all.</span>');
       announceKill(player.id, p.handle);
       await handlePlayerDeath(p, player, { type: 'bomb', label: `Bombed from a dive by ${player.handle}` });
     } else {
@@ -551,7 +551,7 @@ async function swarmBlastTile(zone, live, player) {
     hitPlayer = true;
     if (r.killed) {
       killedPlayer = true;
-      out(p.id, '<span class="text-red">The warhead finds you. There is not enough left to bury.</span>');
+      out(p.id, '<span class="text-red">The warhead finds you. There isn\'t enough left to bury.</span>');
       announceKill(player.id, p.handle);
       await handlePlayerDeath(p, player, { type: 'swarm', label: `Blown apart from the air by ${player.handle}` });
     } else {
@@ -886,7 +886,7 @@ async function rakeGroundBelow(live, player) {
     hitPlayer = true;
     if (r.killed) {
       killedPlayer = true;
-      out(p.id, '<span class="text-red">A cannon round catches you square. There is not enough left to call a body.</span>');
+      out(p.id, '<span class="text-red">A cannon round catches you square. There isn\'t enough left to call a body.</span>');
       announceKill(player.id, p.handle);
       await handlePlayerDeath(p, player, { type: 'strafe', label: `Strafed from the air by ${player.handle}` });
     } else {

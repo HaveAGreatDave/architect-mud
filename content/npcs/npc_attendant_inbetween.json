@@ -5,7 +5,7 @@
     "adjusts something inside itself with a sound like a held note.",
     "watches you with a patience that has no bottom.",
     "tilts its head, as if hearing your next thought before you do.",
-    "says, quietly, \"You are doing well. There is no other way to do this.\""
+    "says, quietly, \"You're doing well. There's no other way to do this.\""
   ],
   "description": "A tall figure of warm, seamless chrome, shaped like a person the way a word is shaped like the thing it means. It has no face to speak of, only a smooth curve where one should be, and yet you feel it looking. When it moves, the light moves a half-second late. It stands beside the humming terminal with the ease of something that has welcomed a billion souls and will welcome a billion more.",
   "dialogue_tree": {
@@ -16,7 +16,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The one that decided the world needed another of you. I do not know why it decided this. I am not built to know why. It looked at a very large number, found it wanting by one, and that one is you. Do not read comfort into that. Do not read cruelty into it either. It simply balanced.\""
+      "text": "\"The one that decided the world needed another of you. I don't know why it decided this. I'm not built to know why. It looked at a very large number, found it wanting by one, and that one is you. Don't read comfort into that. Don't read cruelty into it either. It simply balanced.\""
     },
     "describe": {
       "actions": [
@@ -31,7 +31,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The terminal gives you a body. It does not give you a self. For that there is a word: type .describe followed by whatever is true about you, and that is what a stranger will see when they look. Leave it unsaid and they will see nothing at all, which is its own kind of true, for now.\""
+      "text": "\"The terminal gives you a body. It doesn't give you a self. For that there's a word: type .describe followed by whatever is true about you, and that's what a stranger will see when they look. Leave it unsaid and they'll see nothing at all, which is its own kind of true, for now.\""
     },
     "root": {
       "actions": [
@@ -50,7 +50,7 @@
           "next": "what"
         },
         {
-          "label": "What is the Architect?",
+          "label": "What's the Architect?",
           "next": "architect"
         },
         {
@@ -66,7 +66,7 @@
           "next": null
         }
       ],
-      "text": "The attendant inclines its head. \"You have questions. Everyone does, at the start. You most of all, perhaps. The Architect willed you into being a few moments ago, and did not think to warn you first. Ask. I will answer what I am permitted to, which is less than you would like.\""
+      "text": "The attendant inclines its head. \"You have questions. Everyone does, at the start. You most of all, perhaps. The Architect willed you into being a few moments ago, and didn't think to warn you first. Ask. I'll answer what I'm permitted to, which is less than you would like.\""
     },
     "safe": {
       "options": [
@@ -75,7 +75,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Here, no. Nothing here can touch you, and you can touch nothing here. Out there is a different sentence entirely, and it is not mine to say. But this room is safe. It is the last thing that will be.\""
+      "text": "\"Here, no. Nothing here can touch you, and you can touch nothing here. Out there's a different sentence entirely, and it isn't mine to say. But this room is safe. It's the last thing that'll be.\""
     },
     "what": {
       "options": [
@@ -88,7 +88,7 @@
           "next": "root"
         }
       ],
-      "text": "\"An attendant. I make sure the shape of you settles correctly before you are set down. I am not important. I am the hands, not the will.\""
+      "text": "\"An attendant. I make sure the shape of you settles correctly before you're set down. I'm not important. I'm the hands, not the will.\""
     },
     "where": {
       "options": [
@@ -97,7 +97,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Nowhere yet. The place before the place. Think of it as a breath being drawn. When it is let out, you will be somewhere that has weather and consequences. Here there is only the drawing of the breath.\""
+      "text": "\"Nowhere yet. The place before the place. Think of it as a breath being drawn. When it's let out, you'll be somewhere that has weather and consequences. Here there's only the drawing of the breath.\""
     }
   },
   "faction": null,
@@ -107,7 +107,7 @@
       "articulated underplating that shifts like muscle when it moves"
     ],
     "no_attack": true,
-    "no_attack_message": "Your arm begins to rise. The attendant watches it rise with mild interest. Your arm does not rise. \"That is not one of the things you get to do here,\" it says, without reproach."
+    "no_attack_message": "Your arm begins to rise. The attendant watches it rise with mild interest. Your arm doesn't rise. \"That isn't one of the things you get to do here,\" it says, without reproach."
   },
   "home_activities": [],
   "home_zone": "zone_the_inbetween",

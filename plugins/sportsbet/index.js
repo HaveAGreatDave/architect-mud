@@ -104,7 +104,7 @@ async function cmdWager(args, raw, player, broadcast) {
   if (amount <= 0) return { type: 'error', message: 'Wager a positive amount.' };
 
   const game = currentGame();
-  if (!game) return { type: 'error', message: "There is no game on the air right now — nothing to bet on." };
+  if (!game) return { type: 'error', message: "There's no game on the air right now — nothing to bet on." };
   const myTeam = pickTeam(team, game);
   if (!myTeam) return { type: 'error', message: `Pick a side: ${game.away} or ${game.home}.` };
 
@@ -141,7 +141,7 @@ async function cmdTakeWager(args, raw, player, broadcast) {
   if (!live || live.gameId !== offer.game.gameId) { clearOffer(player.id); return { type: 'error', message: 'That game is over — the wager lapsed.' }; }
 
   const proposer = getLivePlayer(offer.fromId);
-  if (!proposer) { clearOffer(player.id); return { type: 'error', message: 'Whoever offered that is gone.' }; }
+  if (!proposer) { clearOffer(player.id); return { type: 'error', message: "Whoever offered that's gone." }; }
   clearOffer(player.id);
 
   const g = offer.game;

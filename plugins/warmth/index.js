@@ -123,7 +123,7 @@ export const hooks = {
     const minutes = Number(rx.minutes) || 0;
     if (!(degrees > 0 && minutes > 0)) return undefined;
     applyWarmth(player, degrees, minutes);
-    return 'It takes a moment, and then it is genuinely, surprisingly hot.';
+    return "It takes a moment, and then it's genuinely, surprisingly hot.";
   },
 };
 

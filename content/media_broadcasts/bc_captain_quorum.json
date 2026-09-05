@@ -82,7 +82,7 @@
         },
         "next": "bsm_16",
         "style": "narration",
-        "text": "A man stands up. He is the only person in the hall shot in close-up, which in a Directorate picture is not a compliment.",
+        "text": "A man stands up. He's the only person in the hall shot in close-up, which in a Directorate picture isn't a compliment.",
         "type": "say"
       },
       "bsm_16": {
@@ -141,7 +141,7 @@
         },
         "next": "bsm_21",
         "style": "narration",
-        "text": "Twenty-one seconds. There is a stopwatch on the print and the Directorate was proud of it.",
+        "text": "Twenty-one seconds. There's a stopwatch on the print and the Directorate was proud of it.",
         "type": "say"
       },
       "bsm_21": {
@@ -249,7 +249,7 @@
         },
         "next": "bsm_4",
         "style": "ambient",
-        "text": "♪ A brass fanfare in municipal green. Six bars. It will be back. ♪",
+        "text": "♪ A brass fanfare in municipal green. Six bars. It'll be back. ♪",
         "type": "say"
       },
       "bsm_30": {
@@ -301,7 +301,7 @@
         },
         "next": "bsm_35",
         "style": "narration",
-        "text": "REEL TWO IS DAMAGED on every surviving print, always at the same place, which the collectors' consensus holds is not a coincidence and the archivists' consensus holds is a bad splice. Both parties have written at length.",
+        "text": "REEL TWO IS DAMAGED on every surviving print, always at the same place, which the collectors' consensus holds isn't a coincidence and the archivists' consensus holds is a bad splice. Both parties have written at length.",
         "type": "say"
       },
       "bsm_35": {
@@ -348,7 +348,7 @@
         },
         "next": "bsm_39",
         "style": "narration",
-        "text": "The hall is dark except for the dais. QUORUM is alone at the lectern with the gavel in front of him and does not pick it up.",
+        "text": "The hall is dark except for the dais. QUORUM is alone at the lectern with the gavel in front of him and doesn't pick it up.",
         "type": "say"
       },
       "bsm_39": {
@@ -368,7 +368,7 @@
         },
         "next": "bsm_5",
         "style": "narration",
-        "text": "The print is immaculate. That is the first thing anybody notices and the last thing anybody forgets: eighty years on, this stock is better than anything the basin has made since, and the greens are still green.",
+        "text": "The print is immaculate. That's the first thing anybody notices and the last thing anybody forgets: eighty years on, this stock is better than anything the basin has made since, and the greens are still green.",
         "type": "say"
       },
       "bsm_40": {
@@ -408,7 +408,7 @@
         },
         "next": "bsm_44",
         "style": "narration",
-        "text": "He straightens his sash. The costume department made four of those and this is the last one, and it is visibly the last one.",
+        "text": "He straightens his sash. The costume department made four of those and this is the last one, and it's visibly the last one.",
         "type": "say"
       },
       "bsm_44": {
@@ -448,7 +448,7 @@
         },
         "next": "bsm_48",
         "style": "narration",
-        "text": "He picks up the gavel. The Directorate's animation unit put a starburst behind this shot and it is the single most expensive frame in the picture.",
+        "text": "He picks up the gavel. The Directorate's animation unit put a starburst behind this shot and it's the single most expensive frame in the picture.",
         "type": "say"
       },
       "bsm_48": {
@@ -589,7 +589,7 @@
         },
         "next": "bsm_8",
         "style": "narration",
-        "text": "The Directorate produced eleven of these. Nine are lost. This is not one of the good ones.",
+        "text": "The Directorate produced eleven of these. Nine are lost. This isn't one of the good ones.",
         "type": "say"
       },
       "bsm_8": {
@@ -655,7 +655,7 @@
   "category": "film",
   "channel_id": "ch_7_1782953079593",
   "created_by": null,
-  "description": "A pre-Collapse civic morale feature about a man whose superpower is procedure. The stock is better than anything printed since and the politics have not aged so much as fossilised.",
+  "description": "A pre-Collapse civic morale feature about a man whose superpower is procedure. The stock is better than anything printed since and the politics haven't aged so much as fossilised.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {

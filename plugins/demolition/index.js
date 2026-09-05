@@ -123,7 +123,7 @@ async function cmdBreach(args, raw, player) {
   const [targetHint, chargeHint] = words.split(/\s+with\s+/i);
 
   const candidates = demolishableIn(player.current_zone);
-  if (!candidates.length) return { type: 'error', message: 'There is nothing here worth wiring a charge to.' };
+  if (!candidates.length) return { type: 'error', message: "There's nothing here worth wiring a charge to." };
 
   const r = siftResolve(targetHint, candidates, { verb: 'breach' });
   if (r.type === 'none') return { type: 'error', message: `You can't wire a charge to "${targetHint}".` };
@@ -135,12 +135,12 @@ async function cmdBreach(args, raw, player) {
 
   const already = [...liveCharges.values()].find(c => c.targetId === target.id);
   if (already) {
-    return { type: 'error', message: `There is already a charge on the ${target.name}, counting down from ${secsLeft(already)}.` };
+    return { type: 'error', message: `There's already a charge on the ${target.name}, counting down from ${secsLeft(already)}.` };
   }
 
   const charge = await findCharge(player, chargeHint);
   if (!charge) {
-    return { type: 'error', message: 'You are not carrying anything that would do it. You want a breaching charge.' };
+    return { type: 'error', message: "You aren't carrying anything that would do it. You want a breaching charge." };
   }
 
   const chargeId = nextId();
@@ -177,7 +177,7 @@ async function cmdBreachResolve(args, raw, player) {
     // there is no version of this game where a bad roll on a menu kills you with
     // no warning and nothing to do about it.
     await consumeOne(pending.chargeRow);
-    return { type: 'error', message: 'The detonator will not seat. You strip the leads and the charge is scrap.' };
+    return { type: 'error', message: "The detonator won't seat. You strip the leads and the charge is scrap." };
   }
 
   await consumeOne(pending.chargeRow);
@@ -216,7 +216,7 @@ async function cmdDefuse(args, raw, player) {
 
   const left = secsLeft(named);
   if (left <= DEFUSE_FLOOR_S) {
-    return { type: 'error', message: `<span class="text-red">There is no time. Run.</span>` };
+    return { type: 'error', message: `<span class="text-red">There's no time. Run.</span>` };
   }
 
   pendingDefuse.set(player.id, { chargeId: named.id, ts: Date.now() });
@@ -249,7 +249,7 @@ async function cmdDefuseResolve(args, raw, player) {
     // threat; cutting the wrong lead simply means you are still standing there
     // with it ticking, which is punishment enough and stays legible.
     await awardSkillUse(player.id, 'science', -2);
-    return { type: 'error', message: `Wrong lead. The count does not stop. <b>${secsLeft(charge)} seconds.</b>` };
+    return { type: 'error', message: `Wrong lead. The count doesn't stop. <b>${secsLeft(charge)} seconds.</b>` };
   }
 
   liveCharges.delete(chargeId);

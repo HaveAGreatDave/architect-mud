@@ -4,12 +4,12 @@
   "chitchat": [
     "This is as far as the road goes for you.",
     "You can sit if you like. I have got the stool but the rock is fine.",
-    "I am not going to tell you and you are not going to guess.",
-    "It is a long way back. Drink something before you start.",
+    "I'm not going to tell you and you aren't going to guess.",
+    "It's a long way back. Drink something before you start.",
     "No. Sorry. Genuinely, sorry, and still no.",
     "People do get in. Not many, and never the ones who ask."
   ],
-  "description": "She has set a folding stool in the middle of the road and is sitting on it with her hands on her knees, facing west, which is to say facing you and facing the whole of the rest of the world at the same time. No weapon. No badge. A water bottle, a hat, and an entirely settled expression.\n\nShe stands up as you come, and it is not a challenge, it is manners.",
+  "description": "She has set a folding stool in the middle of the road and is sitting on it with her hands on her knees, facing west, which is to say facing you and facing the whole of the rest of the world at the same time. No weapon. No badge. A water bottle, a hat, and an entirely settled expression.\n\nShe stands up as you come, and it isn't a challenge, it's manners.",
   "dialogue_tree": {
     "allowed": {
       "actions": [],
@@ -43,7 +43,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Everything except through. Trade with Stannard, he is straight and he will not cheat you. Fuel up. Sleep on the flats, nobody will touch you. Walk the whole wall if you want, and people do, and I have never once minded.\"\n\n\"And then go home, or do not. That part is yours.\""
+      "text": "\"Everything except through. Trade with Stannard, he's straight and he won't cheat you. Fuel up. Sleep on the flats, nobody will touch you. Walk the whole wall if you want, and people do, and I have never once minded.\"\n\n\"And then go home, or do not. That part is yours.\""
     },
     "bye": {
       "actions": [],
@@ -57,7 +57,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is in there?",
+          "label": "What's in there?",
           "next": "inside"
         },
         {
@@ -75,7 +75,7 @@
           "next": "bye"
         }
       ],
-      "text": "She thinks about that one, which she has not done with any of the others.\n\n\"Nobody, mostly. Nobody comes. Twice a season somebody like you comes, and once a year somebody comes with a truck and a proposal.\" A pause. \"The wall is not for keeping people out. It is for making the question be asked at the gate instead of in the middle of the yard.\"\n\n\"You are asking it at the gate. That is the wall working.\""
+      "text": "She thinks about that one, which she hasn't done with any of the others.\n\n\"Nobody, mostly. Nobody comes. Twice a season somebody like you comes, and once a year somebody comes with a truck and a proposal.\" A pause. \"The wall isn't for keeping people out. It's for making the question be asked at the gate instead of in the middle of the yard.\"\n\n\"You're asking it at the gate. That's the wall working.\""
     },
     "inside": {
       "actions": [],
@@ -102,11 +102,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"People.\"\n\nShe lets that sit for exactly as long as it takes you to decide it is a joke, and then says, \"That was not me being clever. That is the answer. There are people in there, and they are doing what people do, and none of it is any of your business.\"\n\n\"I know what you have decided it is. Everyone decides. You will be wrong in a way I would find quite funny, and I am still not going to tell you.\""
+      "text": "\"People.\"\n\nShe lets that sit for exactly as long as it takes you to decide it's a joke, and then says, \"That wasn't me being clever. That's the answer. There are people in there, and they're doing what people do, and none of it's any of your business.\"\n\n\"I know what you have decided it is. Everyone decides. You'll be wrong in a way I would find quite funny, and I'm still not going to tell you.\""
     },
     "root": {
       "actions": [],
-      "first": "\"Morning.\" She says it before you are quite in earshot, which you decide not to think about. \"You have come a long way, so I will be quick and I will be honest with you. You do not belong here, and I am not going to explain that, and I am not going to move.\"\n\n\"How long have you been walking?\"",
+      "first": "\"Morning.\" She says it before you're quite in earshot, which you decide not to think about. \"You have come a long way, so I'll be quick and I'll be honest with you. You don't belong here, and I'm not going to explain that, and I'm not going to move.\"\n\n\"How long have you been walking?\"",
       "options": [
         {
           "actions": [],
@@ -154,7 +154,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is in there?",
+          "label": "What's in there?",
           "next": "inside"
         },
         {
@@ -214,9 +214,9 @@
       ],
       "text": "\"Still no.\"",
       "text_by_relation": {
-        "close": "\"You again.\" She moves the stool six inches so there is room to stand out of the sun. \"Still no. You know that. Sit down anyway.\"",
+        "close": "\"You again.\" She moves the stool six inches so there's room to stand out of the sun. \"Still no. You know that. Sit down anyway.\"",
         "familiar": "\"You.\" She nods at the rock beside the stool. \"Still no.\"",
-        "known": "\"Back again.\" She does not sound surprised, or bothered. \"Still no.\""
+        "known": "\"Back again.\" She doesn't sound surprised, or bothered. \"Still no.\""
       }
     },
     "stool": {
@@ -230,7 +230,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will sit.",
+          "label": "I'll sit.",
           "next": "stool_take"
         },
         {
@@ -248,7 +248,7 @@
           "next": "bye"
         }
       ],
-      "text": "She looks at you for a while, then at the stool, then west again.\n\n\"I sleep on Tuesdays. Three hours, in the shed, and for three hours there is nobody in this road.\" A pause. \"There has been nobody in this road on a Tuesday for four years and nothing has happened, and I would still rather there was somebody in it.\""
+      "text": "She looks at you for a while, then at the stool, then west again.\n\n\"I sleep on Tuesdays. Three hours, in the shed, and for three hours there's nobody in this road.\" A pause. \"There has been nobody in this road on a Tuesday for four years and nothing has happened, and I would still rather there was somebody in it.\""
     },
     "stool_done": {
       "_vine": {
@@ -287,7 +287,7 @@
           "next": "bye"
         }
       ],
-      "text": "She comes back down the road at the hour she said, sits, and takes the west off you without any ceremony about it.\n\n\"You did not get up.\" She settles her hands on her knees. \"Two of the last four did. One of them went and looked at the wall, which is the one thing out here that will still be there in an hour.\""
+      "text": "She comes back down the road at the hour she said, sits, and takes the west off you without any ceremony about it.\n\n\"You didn't get up.\" She settles her hands on her knees. \"Two of the last four did. One of them went and looked at the wall, which is the one thing out here that'll still be there in an hour.\""
     },
     "stool_nothing": {
       "_vine": {
@@ -304,7 +304,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing came.\" She faces west. \"That is the result. It is the result every time and it is still the result because somebody was sitting here.\""
+      "text": "\"Nothing came.\" She faces west. \"That's the result. It's the result every time and it's still the result because somebody was sitting here.\""
     },
     "stool_take": {
       "_vine": {
@@ -326,7 +326,7 @@
           "next": "bye"
         }
       ],
-      "text": "She stands, folds nothing, and hands you nothing, because there is nothing to hand over.\n\n\"Face west. If somebody comes, say no. If they keep coming, say no again.\" She is already walking. \"Do not get up.\""
+      "text": "She stands, folds nothing, and hands you nothing, because there's nothing to hand over.\n\n\"Face west. If somebody comes, say no. If they keep coming, say no again.\" She's already walking. \"Don't get up.\""
     },
     "stool_what": {
       "_vine": {
@@ -339,7 +339,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will sit.",
+          "label": "I'll sit.",
           "next": "stool_take"
         },
         {
@@ -350,7 +350,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing.\" She says it without any weight at all. \"You could not stop a determined child. That is not what the stool is for.\"\n\n\"The stool is so that anybody coming up that road sees somebody sitting in it. That is the whole of the work and it is harder than it sounds, because there is nothing to do and you have to keep doing it.\""
+      "text": "\"Nothing.\" She says it without any weight at all. \"You couldn't stop a determined child. That isn't what the stool is for.\"\n\n\"The stool is so that anybody coming up that road sees somebody sitting in it. That's the whole of the work and it's harder than it sounds, because there's nothing to do and you have to keep doing it.\""
     },
     "work": {
       "actions": [],
@@ -375,7 +375,7 @@
           "next": "bye"
         }
       ],
-      "text": "She looks at you for a while.\n\n\"Stannard says you took his box to the gate and brought the empty back and did not open it. He tells me that about one person in nine.\"\n\nShe stands, and stretches, and points north with her chin.\n\n\"Walk the wall. All of it, the whole way round, the north corner and the far side and the south, and come back here. It is about two hours and there is nothing to see and I am not going to pretend otherwise.\"\n\n\"Do not ask me what it is for. I would only say something I would have to be embarrassed about later.\""
+      "text": "She looks at you for a while.\n\n\"Stannard says you took his box to the gate and brought the empty back and didn't open it. He tells me that about one person in nine.\"\n\nShe stands, and stretches, and points north with her chin.\n\n\"Walk the wall. All of it, the whole way round, the north corner and the far side and the south, and come back here. It's about two hours and there's nothing to see and I'm not going to pretend otherwise.\"\n\n\"Don't ask me what it's for. I would only say something I would have to be embarrassed about later.\""
     },
     "work_done": {
       "actions": [
@@ -399,7 +399,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You did the whole thing.\" It is not a question. \"Most people cut the north corner. There is a scree slope and it is genuinely horrible and everybody cuts it.\"\n\nShe looks at your boots, and then at you, and something in her settles.\n\n\"All right. That is that done. Go and stand at the gate a while.\"\n\n\"No, I am not telling you why.\""
+      "text": "\"You did the whole thing.\" It isn't a question. \"Most people cut the north corner. There's a scree slope and it's genuinely horrible and everybody cuts it.\"\n\nShe looks at your boots, and then at you, and something in her settles.\n\n\"All right. That's that done. Go and stand at the gate a while.\"\n\n\"No, I'm not telling you why.\""
     },
     "work_take": {
       "actions": [],
@@ -412,7 +412,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Good. Keep the wall on your right the whole way and you cannot get it wrong.\"\n\nShe sits back down and faces west again, at the world."
+      "text": "\"Good. Keep the wall on your right the whole way and you can't get it wrong.\"\n\nShe sits back down and faces west again, at the world."
     }
   },
   "faction": "ideology_exodus",

@@ -392,7 +392,7 @@ export function validateProfiles(profiles = PROFILES) {
           prev = l.at;
           if (l.risk !== undefined && (!Number.isFinite(l.risk) || l.risk < 0 || l.risk > 1)) errors.push(`${at('doneness')} "${l.name}" risk must be 0..1 — got ${l.risk}`);
         }
-        if (!levels.some(l => l.name === p.doneness.default)) errors.push(`${at('doneness.default')} "${p.doneness.default}" is not one of the levels`);
+        if (!levels.some(l => l.name === p.doneness.default)) errors.push(`${at('doneness.default')} "${p.doneness.default}" isn't one of the levels`);
         // The default is the food cooked as the rest of the system assumes —
         // shifting it off 1.0 would silently retune every duration in the game.
         const def = levels.find(l => l.name === p.doneness.default);
@@ -402,7 +402,7 @@ export function validateProfiles(profiles = PROFILES) {
 
     const t = p.targets || {};
     for (const state of ['raw', 'peak', 'over', 'burnt']) {
-      if (!QUALITY_BANDS.includes(t[state])) errors.push(`${at(`targets.${state}`)} is not a quality band — got ${t[state]}`);
+      if (!QUALITY_BANDS.includes(t[state])) errors.push(`${at(`targets.${state}`)} isn't a quality band — got ${t[state]}`);
     }
     if (errors.length) continue; // the comparisons below assume valid bands
 

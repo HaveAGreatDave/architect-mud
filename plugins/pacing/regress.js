@@ -30,13 +30,13 @@ export default async function regress({ run, check, getPlayer }) {
   // Old enough → passes immediately (no queue).
   p._lastStepAt = Date.now() - (_test.WALK_COOLDOWN_MS + 50);
   check('cadence passes after cooldown elapses', cadenceGate({ player: p, direction: 'north', opts: {} }) === undefined);
-  check('a ready step does not enqueue', (p._moveQueue?.length || 0) === 0);
+  check("a ready step doesn't enqueue", (p._moveQueue?.length || 0) === 0);
 
   // ── Drained + system steps skip the queue entirely ─────────────────────────
   p._lastStepAt = Date.now();
-  check('drained step (_pacingDrain) is not re-queued',
+  check("drained step (_pacingDrain) isn't re-queued",
     cadenceGate({ player: p, direction: 'north', opts: { _pacingDrain: true } }) === undefined);
-  check('bypassEncumbrance step is not queued',
+  check("bypassEncumbrance step isn't queued",
     cadenceGate({ player: p, direction: 'north', opts: { bypassEncumbrance: true } }) === undefined);
   check('neither exempt step enqueued anything', (p._moveQueue?.length || 0) === 0);
 

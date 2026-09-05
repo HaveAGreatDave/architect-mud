@@ -135,7 +135,7 @@
     "\"Up here, the weather is a rumour and so is everyone else.\"",
     "\"A member once asked me the time. I told them it was whatever they preferred.\""
   ],
-  "description": "A poised, unreadable bartender who runs Altitude Sickness's floor like a chess clock. She remembers every drink, every debt, and every indiscretion, and files them all somewhere you will never reach.",
+  "description": "A poised, unreadable bartender who runs Altitude Sickness's floor like a chess clock. She remembers every drink, every debt, and every indiscretion, and files them all somewhere you'll never reach.",
   "dialogue_tree": {
     "accepted": {
       "actions": [

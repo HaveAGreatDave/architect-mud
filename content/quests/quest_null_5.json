@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A crate came down the road to the Stores with a Halcyon stencil on the side of it, and Padgett has not opened it, because Padgett opens nothing that has not been counted first.\n\nStrip it. Count what is in it. The stencil goes in the forge.\n\n\"The parts are ours now and they were somebody's before, and both of those are true and only one of them is any use,\" Threlfall says. \"Burn the half that is no use.\"",
+  "description": "A crate came down the road to the Stores with a Halcyon stencil on the side of it, and Padgett hasn't opened it, because Padgett opens nothing that hasn't been counted first.\n\nStrip it. Count what's in it. The stencil goes in the forge.\n\n\"The parts are ours now and they were somebody's before, and both of those are true and only one of them is any use,\" Threlfall says. \"Burn the half that's no use.\"",
   "fail_on": [
     {
       "desc": "You sold what came out of the crate.",
@@ -13,7 +13,7 @@
   "objectives": [
     {
       "count": 1,
-      "desc": "Strip the crate at the Stores and take out what is in it.",
+      "desc": "Strip the crate at the Stores and take out what's in it.",
       "id": "o_strip",
       "item_id": "item_relay_node",
       "type": "retrieve",
@@ -23,7 +23,7 @@
       "desc": "Put the stencilled panel in the forge.",
       "emotes": [
         "{who} feeds the stencilled board in edge-first and watches the name go before the wood does.",
-        "{who} waits by the forge door until there is nothing left worth reading."
+        "{who} waits by the forge door until there's nothing left worth reading."
       ],
       "id": "o_burn",
       "requires": [

@@ -4,7 +4,7 @@
     "Shall I show you the rate?",
     "Have you dropped something?"
   ],
-  "description": "A polished brass funnel set into the floor, turning inward and downward in a spiral that keeps its proportion the whole way and does not appear to bottom out anywhere you can see.",
+  "description": "A polished brass funnel set into the floor, turning inward and downward in a spiral that keeps its proportion the whole way and doesn't appear to bottom out anywhere you can see.",
   "drug_id": "drug_blotter",
   "emotes": [
     "{it} turns one full revolution and everything on it moves inward a step.",
@@ -16,7 +16,7 @@
   "id": "dx_blotter_toilet_spiral",
   "looks": [
     "Every turn is the same shape as the last one and smaller by the same amount, exactly.",
-    "The spiral is turning slowly, or the light on it is. You cannot settle which.",
+    "The spiral is turning slowly, or the light on it is. You can't settle which.",
     "Dropping something in, you never hear it stop."
   ],
   "matches": "toilet",
@@ -24,7 +24,7 @@
   "says": [
     "It goes down at the same rate forever.",
     "Nothing arrives. It only continues.",
-    "Do not lean over it for long."
+    "Don't lean over it for long."
   ],
   "scope": "object"
 }

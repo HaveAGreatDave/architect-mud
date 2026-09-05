@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#6a9a4a",
-  "description": "A grocery in the loosest post-Collapse sense: three aisles of dented cans, vac-packed protein bricks, and produce grown under lamps somewhere and trucked in still faintly warm. RATION NINE, the sign says, though there is no Ration One through Eight that anyone can name. Fluorescent tubes hum over shelves stocked with the grim staples of survival and, incongruously, a rack of gum by the register. A camera and a clerk track your hands with equal suspicion.",
+  "description": "A grocery in the loosest post-Collapse sense: three aisles of dented cans, vac-packed protein bricks, and produce grown under lamps somewhere and trucked in still faintly warm. RATION NINE, the sign says, though there's no Ration One through Eight that anyone can name. Fluorescent tubes hum over shelves stocked with the grim staples of survival and, incongruously, a rack of gum by the register. A camera and a clerk track your hands with equal suspicion.",
   "exits": {
     "north": "zone_mq_grocery_stock",
     "west": "zone_district_920_908"
@@ -20,7 +20,7 @@
     "is_interior": true,
     "terrain": "grass",
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

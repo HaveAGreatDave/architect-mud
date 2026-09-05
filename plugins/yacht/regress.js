@@ -47,7 +47,7 @@ export default async function regress({ run, check, getPlayer }) {
   const foyer = getZone('zone_echelon_foyer');       // a real yacht zone (loaded from DB)
   check('echelon foyer loaded', !!foyer?.flags?.yacht, `foyer=${!!foyer}`);
 
-  check('non-admin is not invited', (await isInvited(p)) === false);
+  check("non-admin isn't invited", (await isInvited(p)) === false);
 
   // The owner (Cyd) — and ONLY the owner or an invited player — is approved. An admin
   // who is not Cyd and not on the list is NOT approved: no access, no minimap boat.
@@ -57,9 +57,9 @@ export default async function regress({ run, check, getPlayer }) {
   check('a non-Cyd admin is NOT approved', (await isInvited(plainAdmin)) === false);
 
   // Minimap visibility: hidden from a non-invitee AND from a non-Cyd admin; shown to the owner.
-  check('non-invitee does not see the yacht on the minimap', seesYacht(p) === false);
-  check('null viewer does not see the yacht', seesYacht(null) === false);
-  check('a non-Cyd admin does not see the yacht', seesYacht(plainAdmin) === false);
+  check("non-invitee doesn't see the yacht on the minimap", seesYacht(p) === false);
+  check("null viewer doesn't see the yacht", seesYacht(null) === false);
+  check("a non-Cyd admin doesn't see the yacht", seesYacht(plainAdmin) === false);
   check('the owner sees the yacht on the minimap', seesYacht(owner) === true);
 
   let g = await runMoveGates({ player: p, from: outside, to: foyer, direction: 'in' });

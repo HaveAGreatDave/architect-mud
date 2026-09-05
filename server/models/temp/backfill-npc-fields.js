@@ -196,7 +196,7 @@ async function main() {
 
   // ── Report ──────────────────────────────────────────────────────────────────
 
-  console.log('── 1. Empty behaviour_graph (NPC does not tick at all) ──────────────────');
+  console.log("── 1. Empty behaviour_graph (NPC doesn't tick at all) ──────────────────");
   if (!fixes.emptyGraph.length) {
     console.log('   ✓ None.');
   } else {

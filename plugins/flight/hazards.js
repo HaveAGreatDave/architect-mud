@@ -110,7 +110,7 @@ export async function rollHazards(live) {
   // considerably worse. Self-clearing, so it ends without a verb.
   if (!live.hazard && empActive() && Math.random() < 0.5) {
     live.hazard = { type: 'EMP', stage: 0 };
-    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. You are flying this thing by eye and by feel.</span>');
+    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. You\'re flying this thing by eye and by feel.</span>');
     return;
   }
 
@@ -204,7 +204,7 @@ async function cmdEject(args, raw, player, broadcast) {
   } else {
     const p = getLivePlayer(player.id);
     if (p) { p.hp = Math.max(0, Math.floor((p.hp || 0) * 0.15) - 10); }
-    out(player.id, '<span class="text-red">You bail with no chute. The ground is not merciful.</span>');
+    out(player.id, '<span class="text-red">You bail with no chute. The ground isn\'t merciful.</span>');
     const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
     if (p && p.hp <= 0) await handlePlayerDeath(p, null, { type: 'fall', label: 'Bailed out without a parachute' });
   }

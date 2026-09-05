@@ -5,7 +5,7 @@
   "name": "Arc Light",
   "tags": {
     "consumable": true,
-    "description": "The VIP pour, and it does not appear on any menu you can reach from the floor. Aged rye, a cordial of rare bitter citrus, and a float of edible gold leaf that catches the private light and holds it. It is served with the unspoken understanding that if you have to ask what's in it, you are on the wrong side of the rope.",
+    "description": "The VIP pour, and it doesn't appear on any menu you can reach from the floor. Aged rye, a cordial of rare bitter citrus, and a float of edible gold leaf that catches the private light and holds it. It's served with the unspoken understanding that if you have to ask what's in it, you're on the wrong side of the rope.",
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.5,

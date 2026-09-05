@@ -1,5 +1,5 @@
 {
-  "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It does not jam. It has never jammed. Somewhere under the rust of the old world there is a warehouse of these still waiting to not jam.",
+  "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It doesn't jam. It has never jammed. Somewhere under the rust of the old world there's a warehouse of these still waiting to not jam.",
   "flags": {},
   "id": "item_ferris_model9",
   "name": "Ferris Model 9 service pistol",
@@ -10,7 +10,7 @@
         "min": 7
       },
       "damage_type": "kinetic",
-      "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It does not jam. It has never jammed. Somewhere under the rust of the old world there is a warehouse of these still waiting to not jam.",
+      "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It doesn't jam. It has never jammed. Somewhere under the rust of the old world there's a warehouse of these still waiting to not jam.",
       "min_skill": {
         "firearms": 2
       }
@@ -23,7 +23,7 @@
       "min": 7
     },
     "damage_type": "kinetic",
-    "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It does not jam. It has never jammed. Somewhere under the rust of the old world there is a warehouse of these still waiting to not jam.",
+    "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It doesn't jam. It has never jammed. Somewhere under the rust of the old world there's a warehouse of these still waiting to not jam.",
     "min_skill": {
       "firearms": 2
     },

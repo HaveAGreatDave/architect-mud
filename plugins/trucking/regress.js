@@ -95,7 +95,7 @@ export default async function regress({ run, check, getPlayer }) {
   // spellings land on the same handler. Half the people who want this will type the other one.
   {
     const noTruck = await run('horn');
-    check('the horn refuses when there is nothing here to sound one on',
+    check("the horn refuses when there's nothing here to sound one on",
       /nothing here|nothing parked/i.test(noTruck?.message || ''), noTruck?.message?.slice(0, 60));
     const alias = await run('honk');
     check('…and `honk` is the same verb, not an unknown command',
@@ -205,9 +205,9 @@ export default async function regress({ run, check, getPlayer }) {
     // These probe ACROSS the road at the mid point, and they have to be taken along the road's own
     // normal rather than along +x — the road is a curve now and "sideways" is only occasionally east.
     const across = (s, t) => { const p = corridorPos(a, s, t); return corridorAt(a, Math.round(p.x), Math.round(p.y)); };
-    check('just off the pavement there is still ground to drive on',
+    check("just off the pavement there's still ground to drive on",
       across(a.L / 2, CORRIDOR_R + 2) !== null);
-    check('…and it is NOT road, so the surface is the punishment',
+    check("…and it's NOT road, so the surface is the punishment",
       across(a.L / 2, CORRIDOR_R + 2)?.flags.terrain !== 'road');
     check('past the off-road limit is open air, not a wall',
       across(a.L / 2, OFFROAD_R + 4) === null);
@@ -397,7 +397,7 @@ export default async function regress({ run, check, getPlayer }) {
     // 1. THE TRUNK IS THE SAME ROAD WHETHER OR NOT YOU KNOW ABOUT THE OTHER LIMBS. This is what
     // makes `switchLimb` a change of mind rather than a teleport, and adding siblings must not have
     // perturbed it — the trunk is seeded without the destination precisely so it cannot.
-    check('the plan does not move the road it describes',
+    check("the plan doesn't move the road it describes",
       JSON.stringify(r.legs) === JSON.stringify(bare.legs));
     check('a route with no plan has no siblings and no signs',
       bare.branches.length === 0 && bare.signs.length === 0);
@@ -405,7 +405,7 @@ export default async function regress({ run, check, getPlayer }) {
       r.branches.map(b => b.key).sort().join(',') === 'deadwater,exodus');
     check('…and each of those is a whole road of its own length',
       r.branches.every(b => b.route.L === b.route.nodes * TILES_PER_ROOM));
-    check('a sibling does not recurse into siblings of its own',
+    check("a sibling doesn't recurse into siblings of its own",
       r.branches.every(b => b.route.branches.length === 0));
 
     // 2. THE OTHER ROAD IS ACTUALLY THERE, past the fork, where it is a different road. Before this
@@ -417,7 +417,7 @@ export default async function regress({ run, check, getPlayer }) {
       if (!c) continue;
       if (c.flags.corridor_branch) branchTiles++; else ours++;
     }
-    check('past the junction the road you did not take is still out there', branchTiles > 200, branchTiles);
+    check("past the junction the road you didn't take is still out there", branchTiles > 200, branchTiles);
     check('…and it never outranks the road under your wheels', ours > branchTiles);
 
     // 3. ⚠ A SIBLING'S CELL CARRIES NO ODOMETER. `corridor_s` and `corridor_node` are the two
@@ -435,7 +435,7 @@ export default async function regress({ run, check, getPlayer }) {
     // 4. THE BOARDS. One at the gate, one before the junction, one on the approach to each bend.
     check('the road puts up signs at all', r.signs.length >= 3, r.signs.length);
     check('the first board is at the gate, where the road names itself', r.signs[0].kind === 'gate');
-    check('there is a board on the approach to the junction',
+    check("there's a board on the approach to the junction",
       r.signs.some(g => g.kind === 'fork' && g.s < r.trunkL));
     check('no two boards are close enough to read as one repeated board',
       r.signs.every((g, i) => i === 0 || g.s - r.signs[i - 1].s >= 40));
@@ -498,7 +498,7 @@ export default async function regress({ run, check, getPlayer }) {
     // of you, including a hard turn at a fork.
     const behind = (row) => (row.a | 0) === 3 || (row.a | 0) === 4 || (row.a | 0) === 5;
     const leadsAhead = (rows) => rows.length < 2 || !behind(rows[0]) || rows.every(behind);
-    check('a board leads with the destination you are driving toward', r.signs.every(g => leadsAhead(g.rows)));
+    check("a board leads with the destination you're driving toward", r.signs.every(g => leadsAhead(g.rows)));
 
     // ── THE SIDEBAR MAP'S HIGHWAY WINDOW ───────────────────────────────────────
     // The sidebar minimap eats zone NODES and the cab GPS eats derived surface CELLS, so out on a
@@ -699,7 +699,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('…and so does its back face', r.signs.every(g => leadsAhead(g.back)));
     // The one that would have caught the report: on a two-way road the two faces must not open
     // with the same name, or turning round changes nothing about what the board tells you.
-    check('…so the two faces do not open with the same place',
+    check("…so the two faces don't open with the same place",
       r.signs.some(g => g.rows.length > 1 && g.back.length > 1 && g.rows[0].n !== g.back[0].n));
     check('…and every back arrow is one of the eight too',
       r.signs.every(g => g.back.every(row => ARROW_WORDS[row.a] !== undefined)));
@@ -767,7 +767,7 @@ export default async function regress({ run, check, getPlayer }) {
       const w = surfaceAt(sx, sy);
       check('…but never the ground beside it, where the world has placed some',
         !w || at(sx, sy)?.id === w.id, String(at(sx, sy)?.id));
-      check('…and the corridor did claim that tile, so the case is not vacuous',
+      check("…and the corridor did claim that tile, so the case isn't vacuous",
         !!corridorAt(r, sx, sy) && !isCarriageway(corridorAt(r, sx, sy)));
       // …and the filler still stands where the world places nothing, or the rule would have traded
       // a painted-out basin for a road running through featureless air.
@@ -840,7 +840,7 @@ export default async function regress({ run, check, getPlayer }) {
           all.push({ a, b, d2: (a.x - b.x) ** 2 + (a.y - b.y) ** 2 });
         }
         all.sort((p, q) => p.d2 - q.d2);
-        check('…and it is the pair of exits that actually face each other',
+        check("…and it's the pair of exits that actually face each other",
           pair.from.id === all[0].a.id && pair.to.id === all[0].b.id);
         // ⚠ UNORDERED. Asking from the other end must name the same two tiles, or the road between
         // two towns is two roads again — which is the whole of what phase 1 is for.
@@ -955,7 +955,7 @@ export default async function regress({ run, check, getPlayer }) {
       }
       check('the pilot and the driver see the same tarmac, tile for tile',
         tested > 0 && agreed === tested, bad || `${agreed}/${tested} tiles`);
-      check('…and where several roads share a spoke, it is still road under the plane',
+      check("…and where several roads share a spoke, it's still road under the plane",
         !sharedBad, sharedBad || `${shared} shared tile(s) all road`);
 
       // ⚠ AND IT IS STILL NOT PLACED GROUND. `regionGates` finds a road mouth by testing that the
@@ -964,7 +964,7 @@ export default async function regress({ run, check, getPlayer }) {
       // only entrance, while looking exactly like this feature working.
       const mid = corridorPos(pre, pre.L / 2, 0);
       const mx = Math.round(mid.x), my = Math.round(mid.y);
-      check('…over ground the placed world still says is not there', surfaceAt(mx, my) === null);
+      check("…over ground the placed world still says isn't there", surfaceAt(mx, my) === null);
       check('…so the gates the road hangs off still exist', regionGates(VOIDKEY).length > 0);
       {
         // ⚠ THE ZONE, NOT THE SURFACE CELL. `surfaceAt` hands back a light `{id,name,flags,danger}`
@@ -1067,7 +1067,7 @@ export default async function regress({ run, check, getPlayer }) {
     ] };
     const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, plan, { x0: 918, y0: 947, x1: 910, y1: 1042 });
     const sib = r.branches?.[0];
-    check('a route carries the limb it did not take', !!sib, String(r.branches?.length));
+    check("a route carries the limb it didn't take", !!sib, String(r.branches?.length));
     if (sib) {
       // A point on the sibling's own centreline past the junction — somewhere a driver who steered
       // across at the fork and kept going would actually be.
@@ -1083,11 +1083,11 @@ export default async function regress({ run, check, getPlayer }) {
         // the game does not think we are on). Both are the same bug from different distances.
         if (!ours || Math.abs(ours.t) > pavedAt(r, ours.s)) onSib = { p, s, ours, theirs };
       }
-      check('there is tarmac on the far limb that our own road does not hold us on', !!onSib);
+      check("there's tarmac on the far limb that our own road doesn't hold us on", !!onSib);
       if (onSib) {
         check('…the wheels are squarely on the sibling\'s carriageway there',
           Math.abs(onSib.theirs.t) <= pavedAt(sib.route, onSib.theirs.s), onSib.theirs.t.toFixed(2));
-        check('…and that is exactly what used to bog you, or drive you down the wrong road',
+        check("…and that's exactly what used to bog you, or drive you down the wrong road",
           !onSib.ours || Math.abs(onSib.ours.t) > pavedAt(r, onSib.ours.s),
           onSib.ours ? `verge t=${onSib.ours.t.toFixed(1)}` : 'no fix at all — a bog');
       }
@@ -1160,7 +1160,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('…and its start is the other road\'s end',
       Math.hypot(corridorPos(R, 0, 0).x - corridorPos(J, J.L, 0).x,
         corridorPos(R, 0, 0).y - corridorPos(J, J.L, 0).y) < 0.01);
-    check('…and it is the SAME tarmac, not a similar road', (() => {
+    check("…and it's the SAME tarmac, not a similar road", (() => {
       for (let s = 5; s < J.L - 5; s += 17) {
         const p = corridorPos(J, s, 0), q = corridorPos(R, R.L - s, 0);
         if (Math.hypot(p.x - q.x, p.y - q.y) > 0.02) return false;
@@ -1319,7 +1319,7 @@ export default async function regress({ run, check, getPlayer }) {
           // ⚠ ON THE VERGE. The thing marking a junction must never be a thing you drive into: the
           // sweep collides against anything solid, and a landmark you hit at the one place you are
           // choosing a road is the worst possible place to put an obstacle.
-          check('…clear of the tarmac and the shoulder, so it is never something you hit',
+          check("…clear of the tarmac and the shoulder, so it's never something you hit",
             road.junctions.every((j) => {
               const hit = corridorLocate(road, j.x, j.y);
               return hit && Math.abs(hit.t) > pavedAt(road, hit.s) + 1.0;
@@ -1396,7 +1396,7 @@ export default async function regress({ run, check, getPlayer }) {
     reconcileTruck(rig, { s: 99999, t: 0, hdg: 180, spd: 68, x: away.x, y: away.y }, 1000);
     check('a client teleporting down the road gets clamped to what a second could cover',
       rig.s <= topTilesPerSec() * 1 + 0.001, rig.s.toFixed(3));
-    check('…and that is a real distance, not zero', rig.s > 0.5, rig.s.toFixed(3));
+    check("…and that's a real distance, not zero", rig.s > 0.5, rig.s.toFixed(3));
     // The client cannot buy road by inflating the odometer field either: park it back at the start
     // and claim a huge `s` — the position is what counts, and the position says otherwise.
     // NOTE: timestamps below must ASCEND. reconcileTruck has a cadence guard (MIN_SYNC_MS) that
@@ -1457,7 +1457,7 @@ export default async function regress({ run, check, getPlayer }) {
       reconcileTruck(dry, { s: 40, t: 0, hdg: 180, spd: 60, x: p1.x, y: p1.y }, 1000);
       check('running the tank out stops the truck', dry.dry === true && dry.speed === 0,
         `dry=${dry.dry} speed=${dry.speed}`);
-      check('…and it does not quietly refill itself', dry.fuel === 0, dry.fuel);
+      check("…and it doesn't quietly refill itself", dry.fuel === 0, dry.fuel);
       const p2 = corridorPos(r2, 80, 0);
       reconcileTruck(dry, { s: 80, t: 0, hdg: 180, spd: 60, x: p2.x, y: p2.y }, 2000);
       check('…and stays stopped however fast the client claims to be going', dry.speed === 0, dry.speed);
@@ -1482,7 +1482,7 @@ export default async function regress({ run, check, getPlayer }) {
     for (let t = 0; t <= CORRIDOR_R && firstShoulder === null; t += 0.1) {
       if (surfaceUnder(mk(200, t)) === 'shoulder') firstShoulder = t;
     }
-    check('there is a shoulder between the tarmac and the verge', firstShoulder !== null, firstShoulder);
+    check("there's a shoulder between the tarmac and the verge", firstShoulder !== null, firstShoulder);
     check('the verge classifies as offroad', surfaceUnder(mk(200, 5)) === 'offroad');
     check('beyond the corridor classifies as offroad', surfaceUnder({ route, x: 9e5, y: 9e5 }) === 'offroad');
     for (const name of ['road', 'shoulder', 'offroad']) {
@@ -1549,7 +1549,7 @@ export default async function regress({ run, check, getPlayer }) {
     // can idle along at a third of the speed the gear is geared for, which is a stall in anything.
     const crawl = createTruckState(p); crawl.gear = 2; crawl.speed = 6;
     for (let i = 0; i < 300; i++) step(crawl, { throttle: 0.15, brake: 0, steer: 0, surface: 'road' }, p, 1 / 60);
-    check('crawling at parking speed does not stall', crawl.stalled === false, crawl.speed.toFixed(1));
+    check("crawling at parking speed doesn't stall", crawl.stalled === false, crawl.speed.toFixed(1));
 
     // The Jake is only worth a lever if it out-brakes coasting in the same gear.
     const coastTo = (jake) => {
@@ -1599,12 +1599,12 @@ export default async function regress({ run, check, getPlayer }) {
     // Hitching is a stopped, lined-up act — and the MODEL says so, not the verb, so the rule the
     // player feels and the rule the server enforces cannot drift apart.
     const rolling = createTruckState(p); rolling.speed = 30;
-    check('you cannot hitch at speed', truckHitch(rolling, p) === false && !rolling.hitched);
+    check("you can't hitch at speed", truckHitch(rolling, p) === false && !rolling.hitched);
     const still = createTruckState(p);
     check('you can hitch stopped', truckHitch(still, p) === true && still.hitched);
     check('a fresh trailer starts straight behind you', still.phi === 0);
     still.speed = 30;
-    check('you cannot drop a trailer at speed', truckUnhitch(still) === null && still.hitched);
+    check("you can't drop a trailer at speed", truckUnhitch(still) === null && still.hitched);
     still.speed = 0;
     check('you can drop it stopped, and it remembers its weight',
       truckUnhitch(still)?.kg === p.trailerKg && !still.hitched);
@@ -1631,7 +1631,7 @@ export default async function regress({ run, check, getPlayer }) {
     // at zero — which is exactly what a wrongly-signed constraint looks like from the outside.
     const turn = run(mk(0), { throttle: 0.6, steer: 0.35, auto: 1 }, 10);
     check('the trailer takes up an angle in a steady turn', Math.abs(turn.phi) > 3, turn.phi.toFixed(1));
-    check('…and does not fold doing something ordinary', Math.abs(turn.phi) < 55, turn.phi.toFixed(1));
+    check("…and doesn't fold doing something ordinary", Math.abs(turn.phi) < 55, turn.phi.toFixed(1));
     check('…and never passes the physical limit', Math.abs(turn.phi) <= 88.001, turn.phi.toFixed(1));
 
     // REVERSE. Two things: it must actually go backwards loaded (reverse borrows first gear, is
@@ -1751,7 +1751,7 @@ export default async function regress({ run, check, getPlayer }) {
       const bare = { playerId: player.id, trailer: null, cargo: null };
       await hydrateFromTruck(bare, await getTruck(truck.id, player.id));
       check('hydrating from the truck row puts the trailer back on the pin', bare.trailer?.id === box.id);
-      check('…and it is the truck you own, not a generic rig', bare.truckId === truck.id && !!bare.params);
+      check("…and it's the truck you own, not a generic rig", bare.truckId === truck.id && !!bare.params);
 
       // AND THE LOAD RIDES WITH IT, because cargo lives on the trailer row — a restored box that
       // dropped its freight would be the same bug one step quieter.
@@ -1762,7 +1762,7 @@ export default async function regress({ run, check, getPlayer }) {
 
       // ⚠ AND A HITCHED BOX IS IN NO YARD, which is why forgetting the read looked like a deletion
       // rather than like a rig that had simply been built wrong.
-      check('a towed box stands in no yard, so it cannot be found by looking for it',
+      check("a towed box stands in no yard, so it can't be found by looking for it",
         !(await trailersAt(Z)).some(t => t.id === box.id));
     } finally {
       if (box) await query('DELETE FROM trailers WHERE id = $1', [box.id]).catch(() => {});
@@ -1812,14 +1812,14 @@ export default async function regress({ run, check, getPlayer }) {
         !!after && !after.towedBy, after?.towedBy || 'off the pin');
       check('…onto the concrete of the yard it was sold in, where it can be found again',
         after?.parkedZone === D, after?.parkedZone);
-      check('…so looking for what is standing here finds it',
+      check("…so looking for what's standing here finds it",
         (await trailersAt(D)).some(t => t.id === box.id));
 
       // The whole point of the drop: it is an ORDINARY trailer again. Through the verb, not through
       // `sellTrailer` — the orphan's other half was that both branches of the sale could not reach
       // it, and a helper call would prove the easy half and skip the one that failed.
       const gone = await run(`yard sell ${box.id}`);
-      check('…and it is a box you can now actually get rid of', /Sold/i.test(gone?.message || ''), gone?.message?.slice(0, 60));
+      check("…and it's a box you can now actually get rid of", /Sold/i.test(gone?.message || ''), gone?.message?.slice(0, 60));
       check('…which really left the table', !await getTrailer(box.id));
     } finally {
       if (box) await query('DELETE FROM trailers WHERE id = $1', [box.id]).catch(() => {});
@@ -1884,25 +1884,25 @@ export default async function regress({ run, check, getPlayer }) {
         // person and no trailer was never inspected by anything.
         const bob = { ...seat('fugitive', false), trailer: null };
         await afterDrive(player, bob, zone);
-        check('…and bobtail too, where there is nothing to weigh at all', bob.rider === null);
+        check("…and bobtail too, where there's nothing to weigh at all", bob.rider === null);
 
         // A lift is not a crime. Three of the four kinds are ordinary people and a check that took
         // everybody would make them unpickable on any lawful road for a reason nobody could name.
         const lift = seat('mechanic', false);
         await afterDrive(player, lift, zone);
-        check('giving an ordinary person a lift is not a crime', lift.rider !== null);
+        check("giving an ordinary person a lift isn't a crime", lift.rider !== null);
 
         // THE TRAILER RIDER IS THE SCALE'S, NOT THE CAB CHECK'S. They are caught as eighty kilos
         // that are not on the paper — the right answer, reached without anybody knowing what the
         // eighty kilos is, which is the entire point of the building.
         const boxed = seat('fugitive', true);
         await afterDrive(player, boxed, zone);
-        check('somebody in the box is not found by looking in the cab', boxed.rider !== null);
+        check("somebody in the box isn't found by looking in the cab", boxed.rider !== null);
 
         // …and a lawless region runs neither law.
         const free = seat('fugitive', false);
         await afterDrive(player, free, world.zones.get(LAWLESS));
-        check('a lawless region does not look in the cab either', free.rider !== null);
+        check("a lawless region doesn't look in the cab either", free.rider !== null);
         clearCustoms(player.id);
       }
 
@@ -1959,7 +1959,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('…nor within sight of the far town', at(7) === null);
     let found = 0;
     for (let n = 0; n < 8; n++) if (at(n)) found++;
-    check('the road is not lined with them', found <= 3, `${found} of 8 nodes`);
+    check("the road isn't lined with them", found <= 3, `${found} of 8 nodes`);
     check('every hitcher is one of the authored kinds',
       [...Array(8).keys()].every(n => !at(n) || HITCHER_KINDS.some(k => k.id === at(n).id)));
     // The fugitive is the one that closes the design: a person in the box is weight the scale sees.
@@ -1978,7 +1978,7 @@ export default async function regress({ run, check, getPlayer }) {
       // passenger, so the first tick only STARTS the clock and nothing happens until you have
       // genuinely stood still.
       const r1 = mk();
-      check('slowing down is not stopping — the first tick only starts the clock',
+      check("slowing down isn't stopping — the first tick only starts the clock",
         tryDoorBoard(r1, who, T0) === null && r1.rider === null);
       check('…and a moment later is still not long enough',
         tryDoorBoard(r1, who, T0 + 1500) === null);
@@ -1989,8 +1989,8 @@ export default async function regress({ run, check, getPlayer }) {
       // latch would quietly become a way to smuggle a person without ever deciding to — the
       // weighbridge would start finding people the driver never chose to hide.
       check('…into the SEAT, never the trailer', r1.rider.inTrailer === false);
-      check('…and it is recorded as uninvited', r1.rider.invited === false);
-      check('…and the stretch is spent, so they do not reappear behind you',
+      check("…and it's recorded as uninvited", r1.rider.invited === false);
+      check("…and the stretch is spent, so they don't reappear behind you",
         r1.hitchDone?.has(3) === true);
 
       // The latch is the whole point of the feature.
@@ -2053,7 +2053,7 @@ export default async function regress({ run, check, getPlayer }) {
     }
     // …AND WHICH ROAD YOU ARE ON IS PART OF IT. Two corridors in the same week met identical people
     // on identically numbered stretches, because the road's identity never reached the hash.
-    check('two different roads do not have the same people on them',
+    check("two different roads don't have the same people on them",
       [...Array(8).keys()].some(n2 => JSON.stringify(hitcherAt(route, n2, 8))
         !== JSON.stringify(hitcherAt(corridorFor(VOIDKEY, 'slagworks', 4242, 8), n2, 8))));
 
@@ -2113,7 +2113,7 @@ export default async function regress({ run, check, getPlayer }) {
 
       // ⚠ UNSIGNED, exactly as signsBetween is. `s` runs back down too (see retreat), and a driver
       // coming back at somebody is closing on them just the same.
-      check('somebody you are driving back toward is still somebody ahead of you',
+      check("somebody you're driving back toward is still somebody ahead of you",
         hitcherAhead(route, hs + 20, 8, 60)?.node === node);
 
       // ── THE CALLS THEMSELVES ─────────────────────────────────────────────────
@@ -2134,14 +2134,14 @@ export default async function regress({ run, check, getPlayer }) {
       const armed = (at = hs - 200) => { const r = mk(at); saidAt(r, at); return r; };
 
       const rig = armed();
-      check('nothing is said about a road you cannot see the end of', saidAt(rig, hs - 61) === '');
+      check("nothing is said about a road you can't see the end of", saidAt(rig, hs - 61) === '');
 
       const first = saidAt(rig, hs - 60);
       check('the first call comes twenty miles out', /20 miles/.test(first), first.slice(0, 90));
       // ⚠ A DISTANCE IS THE FEATURE. Every complaint this answers is "I could not slow down in
       // time", and a warning with no number in it is not something a driver can plan against.
       check('…and it carries one at all', /\d+ mile/.test(first));
-      check('…and does not repeat itself for the next forty tiles',
+      check("…and doesn't repeat itself for the next forty tiles",
         saidAt(rig, hs - 40) === '' && saidAt(rig, hs - 19) === '');
 
       const mid = saidAt(rig, hs - 18);
@@ -2159,7 +2159,7 @@ export default async function regress({ run, check, getPlayer }) {
         /2 miles/.test(both) && !/20 miles/.test(both), both.slice(0, 90));
 
       // Nothing to warn about: the seat is full, or that stretch is already spent.
-      check('a driver who already has one aboard is not told about them again',
+      check("a driver who already has one aboard isn't told about them again",
         saidAt(armed(), hs - 60) !== ''
         && saidAt(Object.assign(armed(), { rider: { id: 'local' } }), hs - 60) === '');
       check('…nor on a stretch already spent',
@@ -2190,7 +2190,7 @@ export default async function regress({ run, check, getPlayer }) {
       docks.every(d => d.grid_x != null && d.grid_y != null));
     // Spread matters: six docks on one street is a manoeuvre, not a drive.
     const streets = new Set(docks.map(d => d.name));
-    check('…and they are spread across the city, so a local run is a DRIVE', streets.size >= 3,
+    check("…and they're spread across the city, so a local run is a DRIVE", streets.size >= 3,
       [...streets].join(', '));
 
     // The board has to actually offer them, and pay local money for them. If in-town work paid
@@ -2198,7 +2198,7 @@ export default async function regress({ run, check, getPlayer }) {
     const depot = truckTest.allDepots().find(d => d.flags?.region_id === 'region_coldwater');
     if (depot) {
       const board = truckTest.boardFor(depot.id);
-      check('a city board offers work that does not leave town', board.some(b => b.local),
+      check("a city board offers work that doesn't leave town", board.some(b => b.local),
         board.map(b => `${b.toName}${b.local ? '*' : ''}`).join(', '));
       const local = board.filter(b => b.local), far = board.filter(b => b.crosses);
       if (local.length && far.length) {
@@ -2206,7 +2206,7 @@ export default async function regress({ run, check, getPlayer }) {
           Math.max(...far.map(b => b.pay)) > Math.max(...local.map(b => b.pay)) * 3,
           `local ${Math.max(...local.map(b => b.pay))} vs waste ${Math.max(...far.map(b => b.pay))}`);
       }
-      check('…and a local job names the street, because that is how you find it',
+      check("…and a local job names the street, because that's how you find it",
         local.every(b => !!b.where), JSON.stringify(local.map(b => b.where)));
       // Delivery needed NO new code — a contract keys on a zone id, so a dock was a destination for
       // free. This case exists to keep it that way.
@@ -2285,7 +2285,7 @@ export default async function regress({ run, check, getPlayer }) {
     const yard = world.zones.get('zone_district_922_908');
     check('the Coldwater depot is inside a building you walk into',
       !!bay?.flags?.truck_depot && !!bay.flags.is_interior, bay?.flags?.is_interior);
-    check('…and it names a yard that is a drivable street tile',
+    check("…and it names a yard that's a drivable street tile",
       world.zones.get(bay?.flags?.truck_depot?.yard)?.flags?.terrain === 'road', bay?.flags?.truck_depot?.yard);
     check('…which is NOT a solid building facade you would collide with',
       !yard?.flags?.building_type, yard?.flags?.building_type);
@@ -2337,7 +2337,7 @@ export default async function regress({ run, check, getPlayer }) {
         `${spot?.zone?.id} (fromShed=${spot?.fromShed})`);
       // Without this the truck spawns in solid mass and cannot move a foot in any direction —
       // `groundObstructionAt`'s only hole is a tile marked `bay`, and it is derived from this flag.
-      check('…on a tile authored drive-through, or it is parked inside a wall',
+      check("…on a tile authored drive-through, or it's parked inside a wall",
         spot?.zone?.flags?.vehicle_bay === true, spot?.zone?.flags?.vehicle_bay);
       // FACING THE YARD, not merely "some direction". The heading is derived from the facade's
       // `entrance`, so this proves the two agree: point the truck that way and it reaches the
@@ -2401,11 +2401,11 @@ export default async function regress({ run, check, getPlayer }) {
         bays.map((b) => { const k = truckTest.bunkFrom(b); return k && `${b.id}:${k.dir}`; }).filter(Boolean).join(' '));
       // ⚠ NOT A CONSTANT. If this ever comes back true for every depot, somebody has quietly made
       // the door a fixed direction and the odd one out has stopped working.
-      check('…and they are not all the same direction, which is why it is derived',
+      check("…and they aren't all the same direction, which is why it's derived",
         new Set(found.map((k) => k.dir)).size > 1, [...new Set(found.map((k) => k.dir))].join(' '));
       // A bunkroom is not a depot: walking into one has to CLOSE the panel rather than keep it up,
       // which is what the zone.entered handler already does for anything outside the place.
-      check('…and a bunkroom is not itself part of the depot, so the screen comes down in there',
+      check("…and a bunkroom isn't itself part of the depot, so the screen comes down in there",
         bunks.every((z) => !truckTest.depotFrom(z.id)), bunks.map((z) => z.id).join(' '));
     }
 
@@ -2466,7 +2466,7 @@ export default async function regress({ run, check, getPlayer }) {
   {
     // A driver reads as a driver. Posture is engine state, so this names no system and fixes
     // `flying` for free — a pilot sat on a ramp had the same problem.
-    check('somebody behind the wheel does not read as a pedestrian',
+    check("somebody behind the wheel doesn't read as a pedestrian",
       bodyTell({ posture: 'driving' }, 'zone_x') === 'behind the wheel');
     check('…and neither does a pilot', bodyTell({ posture: 'flying' }, 'zone_x') === 'in the cockpit');
     check('…while somebody just standing there still reads as nothing',
@@ -2517,7 +2517,7 @@ export default async function regress({ run, check, getPlayer }) {
     // every other class in aircraft3d.js has wings, so without this a truck relayed to a pilot
     // would have rendered as an aeroplane sliding along the road.
     const mesh = aircraftFaces('truck', 1, false);
-    check('there is a truck mesh, not an aeroplane standing in for one', mesh.length > 20, mesh.length);
+    check("there's a truck mesh, not an aeroplane standing in for one", mesh.length > 20, mesh.length);
     check('…with a windscreen and wheels, so the silhouette reads',
       mesh.some(f => f.role === 'glass') && mesh.some(f => f.role === 'gear'));
 
@@ -2615,7 +2615,7 @@ export default async function regress({ run, check, getPlayer }) {
     // bounded — a driver on a shoulder in the dark must not be rolling dice forever.
     check('a roadside fix gets more likely every time you fail it',
       fixOdds(0, 1) > fixOdds(0, 0) && fixOdds(0, 4) >= 1, `${fixOdds(0, 0).toFixed(2)} → ${fixOdds(0, 4).toFixed(2)}`);
-    check('…and skill helps, but is not what saves you', fixOdds(60, 0) > fixOdds(0, 0));
+    check("…and skill helps, but isn't what saves you", fixOdds(60, 0) > fixOdds(0, 0));
     check('every breakdown has prose and a name for what let go',
       Object.values(BREAKDOWNS).every(b => b.label && b.broke && b.fixed), Object.keys(BREAKDOWNS).join(','));
     // A fix buys DISTANCE, not health — otherwise a spanner in a waste replaces the bench.
@@ -2651,7 +2651,7 @@ export default async function regress({ run, check, getPlayer }) {
     // for switchLimb, and it is derived here rather than asserted in a comment.
     const sMid = Math.floor(a.trunkL * 0.5);
     const pa = corridorPos(a, sMid, 0), pb = corridorPos(b, sMid, 0);
-    check('so a rig on the trunk is in the same place whichever limb it is aimed at',
+    check("so a rig on the trunk is in the same place whichever limb it's aimed at",
       Math.abs(pa.x - pb.x) < 1e-9 && Math.abs(pa.y - pb.y) < 1e-9, `${pa.x},${pa.y} / ${pb.x},${pb.y}`);
     check('the fork is still ahead in the middle of the trunk, and behind past it',
       atOrBeforeFork({ leg: 'corridor', route: a, s: sMid }) && !atOrBeforeFork({ leg: 'corridor', route: a, s: a.trunkL + 50 }));
@@ -2684,14 +2684,14 @@ export default async function regress({ run, check, getPlayer }) {
       check('the road knows where the foot trail runs', named > 0, `${named}/${sampled}`);
       // A path is a continuous thing. Rounding-based placement produced runs of misses on the bends;
       // a tolerance band should never leave more than a couple of probes unhit in a row.
-      check('…and it does not go missing round the bends', longestGap <= 3, `longest gap ${longestGap}`);
+      check("…and it doesn't go missing round the bends", longestGap <= 3, `longest gap ${longestGap}`);
       check('…on the great majority of the route', named / Math.max(1, sampled) > 0.8,
         `${((named / Math.max(1, sampled)) * 100).toFixed(0)}%`);
       // ⚠ AND IT IS NOT THE ROAD. Naming a band must not have made it drivable or paved: the trail
       // keeps the verge's own terrain, so `surfaceUnder` still charges verge physics for it.
       const p0 = corridorPos(tr, 40, trailOffsetOn(tr, 40));
       const trailCell = corridorAt(tr, Math.round(p0.x), Math.round(p0.y));
-      check('…and the trail is not tarmac', trailCell?.flags?.terrain !== 'road', trailCell?.flags?.terrain);
+      check("…and the trail isn't tarmac", trailCell?.flags?.terrain !== 'road', trailCell?.flags?.terrain);
 
       // ── A WAYSIDE IS WHERE THE TWO ROUTES ARE THE SAME PLACE ────────────────
       // Not a seeded landmark. The path comes IN to the road every WAYSIDE_EVERY tiles, which is why
@@ -2776,7 +2776,7 @@ export default async function regress({ run, check, getPlayer }) {
       driveToZone(drv, rig, dest);
       check('a passenger is carried when the truck moves', pax.current_zone === dest, pax.current_zone);
       check('…and is actually in the destination zone', world.zones.get(dest)?.players?.has(PAX));
-      check('…and is not left in the one it drove out of', !world.zones.get(paxZone)?.players?.has(PAX));
+      check("…and isn't left in the one it drove out of", !world.zones.get(paxZone)?.players?.has(PAX));
     }
 
     // ⚠ AND EVERYBODY IS LET GO OF. Parking, a tow, a recovery and a driver logging out all come
@@ -2838,7 +2838,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('the road goes round more of it than a straight line would',
         windows > 0 && sumRoad < sumStraight * 0.85,
         `road ${(sumRoad / Math.max(1, windows) * 100).toFixed(1)}% vs straight ${(sumStraight / Math.max(1, windows) * 100).toFixed(1)}%`);
-      check('…and it is better in most weeks rather than on average by luck',
+      check("…and it's better in most weeks rather than on average by luck",
         wins >= Math.ceil(windows * 0.75), `${wins}/${windows}`);
 
       // ── THE TRAIL IS A REAL PATH, AND IT IS NOT A SHORTCUT ────────────────
@@ -2871,7 +2871,7 @@ export default async function regress({ run, check, getPlayer }) {
             t ? `spine ${t.L.toFixed(0)} vs road ${rd.L.toFixed(0)}` : 'none');
           check('taking the cuts beats the drive', best < rd.L,
             `best walk ${best.toFixed(0)} vs road ${rd.L.toFixed(0)} (${open.length} cuts open)`);
-          check('…and the road is longer than the straight line it could not take',
+          check("…and the road is longer than the straight line it couldn't take",
             rd.L > Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0) * 1.08,
             `x${(rd.L / Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0)).toFixed(2)}`);
           // ⚠ AND BOTH WAYS ALWAYS EXIST. A cut that replaced the spine would make being refused on it
@@ -2912,9 +2912,9 @@ export default async function regress({ run, check, getPlayer }) {
     const w = addWreck(route, { s: 300, what: 'A dead Krell Barrow', who: 'Somebody' });
     check('a wreck lands on the verge, not on the road', w && Math.abs(w.off) >= 3 && Math.abs(w.off) <= route.R, w?.off);
     const cell = corridorAt(route, ...Object.values(corridorPos(route, 300, w.side * w.off)).slice(0, 2));
-    check('…and it is really there in the world the renderer reads',
+    check("…and it's really there in the world the renderer reads",
       cell?.flags?.wreck === true && cell.flags.building_type, JSON.stringify(cell?.flags?.building_name));
-    check('two rigs do not pile up on the same spot', addWreck(route, { s: 302, what: 'x' }) === null);
+    check("two rigs don't pile up on the same spot", addWreck(route, { s: 302, what: 'x' }) === null);
     check('the CB warns about it BEFORE you reach it, never after',
       wreckAhead(route, 200)?.s === 300 && wreckAhead(route, 400) === null);
     for (let i = 0; i < 40; i++) addWreck(route, { s: 600 + i * 20, what: 'A dead thing' });
@@ -2962,7 +2962,7 @@ export default async function regress({ run, check, getPlayer }) {
     const oneDead = overall({ engine: 1, wheels: 0, body: 1 });
     check('one destroyed component reads as a destroyed truck, not as two-thirds of one',
       oneDead < 0.45, oneDead);
-    check('…and it is strictly worse than the mean would have been', oneDead < 2 / 3);
+    check("…and it's strictly worse than the mean would have been", oneDead < 2 / 3);
 
     // Miles never dent panels. The body bar is a history of impacts and nothing else, and if
     // distance ever leaks into it the component stops meaning anything.
@@ -2971,7 +2971,7 @@ export default async function regress({ run, check, getPlayer }) {
     const vergeSplit = wearSplit(0.01, { surface: 'offroad' });
     check('the verge is a tyre bill — wheels wear far harder off the tarmac',
       vergeSplit.wheels > roadSplit.wheels * 3, `${vergeSplit.wheels} vs ${roadSplit.wheels}`);
-    check('…and the engine does not care what it is rolling over',
+    check("…and the engine doesn't care what it's rolling over",
       Math.abs(vergeSplit.engine - roadSplit.engine) < 1e-9);
 
     // Impacts land where the truck was hit, and every area costs the SAME total — which is what
@@ -3008,7 +3008,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a truck at the bottom of the bar breaks on the next tile, every time',
       breakChance(1, { condition: 0 }) === 1 && breakChance(1, { condition: TERMINAL_CONDITION }) === 1);
     check('…and a healthy one never does', breakChance(500, { condition: 0.9 }) === 0);
-    check('…and standing still cannot break anything', breakChance(0, { condition: 0 }) === 0);
+    check("…and standing still can't break anything", breakChance(0, { condition: 0 }) === 0);
     check('the terminal gate agrees with the roll', isTerminal(0) && !isTerminal(0.5));
 
     // `applyDamage` is the only writer, and the headline number must always follow the parts it is
@@ -3027,7 +3027,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('…and a laden box pays more for the same mistake', grindSplit(3).engine > g.engine);
     // The multiplier is clamped at both ends: a client cannot report itself into a free grind, and
     // a hitched trailer cannot turn one into a write-off.
-    check('…within bounds, whatever it is handed', grindSplit(1e6).engine === grindSplit(4).engine
+    check("…within bounds, whatever it's handed", grindSplit(1e6).engine === grindSplit(4).engine
       && grindSplit(0).engine === grindSplit(0.25).engine);
   }
 
@@ -3042,7 +3042,7 @@ export default async function regress({ run, check, getPlayer }) {
     const t = { dmg: { engine: 0.8, wheels: 0.7, body: 0.9 }, condition: 0.74, grime: 0 };
     const before = overall(t.dmg);
     for (let i = 0; i < 400; i++) accrueGrime(t, 1, { surface: 'offroad' });
-    check('filth never moves the condition of the truck — it is cosmetic, and that is load-bearing',
+    check("filth never moves the condition of the truck — it's cosmetic, and that's load-bearing",
       Math.abs(overall(t.dmg) - before) < 1e-9 && Math.abs((t.condition ?? 1) - 0.74) < 1e-9);
     check('…and it does saturate, rather than climbing forever', t.grime === 1);
 
@@ -3068,7 +3068,7 @@ export default async function regress({ run, check, getPlayer }) {
     // a shed while somebody reads a job board is not getting dirty, because nothing is happening.
     const parked = { grime: 0.3 };
     accrueGrime(parked, 0, { surface: 'offroad' });
-    check('a truck that has not moved does not get dirty', parked.grime === 0.3);
+    check("a truck that hasn't moved doesn't get dirty", parked.grime === 0.3);
 
     // The bands, and the price that hangs off them.
     check('a clean truck is CLEAN and a buried one is BURIED',
@@ -3085,7 +3085,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a clean truck renders EXACTLY the paint it was sprayed with (the no-op invariant)',
       clean.base === paint.base && clean.trim === paint.trim && clean.finish === 'gloss' && clean.chrome === 1);
     check('a filthy one does not', filthy.base !== paint.base && filthy.trim !== paint.trim);
-    check('…but it is still red under there, not brown-on-brown with every other truck',
+    check("…but it's still red under there, not brown-on-brown with every other truck",
       filthy.base !== filthy.trim && parseInt(filthy.base.slice(1, 3), 16) > parseInt(filthy.base.slice(3, 5), 16));
     check('the brightwork dies and the LAMPS do not — a lamp is light coming out',
       filthy.glow === paint.glow && filthy.chrome < 0.5);
@@ -3186,7 +3186,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // THE LIGHT IS LIGHT, NOT GEOMETRY (the rule written on `pod()`), and only the fitting that was
     // bought lights up.
-    check('underglow adds lamp stations only when it is fitted',
+    check("underglow adds lamp stations only when it's fitted",
       (vehicleLamps('truck', 'hauler^ug').neon || []).length > 0 && (vehicleLamps('truck', 'hauler').neon || []).length === 0);
     check('…and a beacon is one station, not a set', !!vehicleLamps('truck', 'hauler^bc').beacon && !vehicleLamps('truck', 'hauler').beacon);
     check('a fitted truck lights its headlamps in exactly the same places',
@@ -3271,7 +3271,7 @@ export default async function regress({ run, check, getPlayer }) {
         /roadtest/.test(unrated?.message || ''), unrated?.message?.slice(0, 45));
       await setFlag('player', roadTest.LICENSE_FLAG, '1', player);
       const broke = await run('drive');
-      check('you cannot drive without owning a truck',
+      check("you can't drive without owning a truck",
         /don't own a truck/i.test(broke?.message || ''), broke?.message?.slice(0, 45));
 
       const yard = await run('yard');
@@ -3285,7 +3285,7 @@ export default async function regress({ run, check, getPlayer }) {
       // numbers: the cheap truck must NOT get home on one tank and the dear one must.
       const ONE_WAY = 495, ROUND = ONE_WAY * 2;
       const byPrice = [...(yard?.stock || [])].sort((a, b) => a.price - b.price);
-      check('the cheapest truck cannot round-trip on one tank',
+      check("the cheapest truck can't round-trip on one tank",
         byPrice[0] && byPrice[0].tank < ROUND, `${byPrice[0]?.name} ${byPrice[0]?.tank}`);
       check('…but it does reach the far side with fuel to spare',
         byPrice[0] && byPrice[0].tank > ONE_WAY * 1.1, `${byPrice[0]?.tank} vs ${ONE_WAY}`);
@@ -3328,7 +3328,7 @@ export default async function regress({ run, check, getPlayer }) {
         both.every(r => (ask?.message || '').includes(`drive ${r.id}`) || /drive scrapper|drive continental/i.test(ask?.message || '')),
         (ask?.message || '').slice(0, 120));
       const wrong = await run('drive tanker');
-      check('…and a name that is nothing of yours says so instead of taking the nearest',
+      check("…and a name that's nothing of yours says so instead of taking the nearest",
         !rigOf(player) && /answers to/i.test(wrong?.message || ''), wrong?.message?.slice(0, 45));
       const picked = await run('drive scrapper');
       check('…while naming one takes THAT one', rigOf(player)?.typeId === 'scrapper', rigOf(player)?.typeId);
@@ -3380,7 +3380,7 @@ export default async function regress({ run, check, getPlayer }) {
       const room = await truckTest.describeDepot(world.zones.get(player.current_zone), player);
       check('a truck parked in the yard is a link that climbs into it',
         new RegExp(`data-cmd="drive ${tA}"`).test(room || ''), (room || '').slice(-150));
-      check('…and never an examine this plugin cannot answer',
+      check("…and never an examine this plugin can't answer",
         !/data-cmd="examine /.test(room || ''), (room || '').slice(-150));
       const stranger = await truckTest.describeDepot(world.zones.get(player.current_zone), { id: 'p_nobody' });
       check("…while somebody else's rig is named without a button that could only refuse",
@@ -3405,7 +3405,7 @@ export default async function regress({ run, check, getPlayer }) {
         await query('UPDATE trucks SET depot_zone=$1 WHERE id=$2', [away?.id || null, truckId]);
 
         const denied = await run('drive');
-        check('a truck parked elsewhere cannot be driven from here',
+        check("a truck parked elsewhere can't be driven from here",
           !rigOf(player) && /not here|another yard|parked at/i.test(denied?.message || ''), denied?.message?.slice(0, 50));
 
         player.credits = 60;
@@ -3424,7 +3424,7 @@ export default async function regress({ run, check, getPlayer }) {
         check('…and the rig is standing in this yard now', home.rows[0]?.depot_zone === player.current_zone,
           `${home.rows[0]?.depot_zone} vs ${player.current_zone}`);
         const again = await run(`yard recall ${truckId}`);
-        check('…and fetching one that is already here is refused, not billed twice',
+        check("…and fetching one that's already here is refused, not billed twice",
           /already standing here/i.test(again?.message || ''), again?.message?.slice(0, 40));
         player.credits = 40000 - TYPES.continental.price;
       }
@@ -3453,7 +3453,7 @@ export default async function regress({ run, check, getPlayer }) {
       // was driven at high noon under a clear sky. Nothing threw and nothing looked broken; the
       // world simply had no nights in it from behind a wheel. Absence is the whole failure mode
       // here, so it is asserted as presence rather than as a value.
-      check('…and what time it is out there, so the cab is not stuck at noon', cab?.hour != null,
+      check("…and what time it's out there, so the cab isn't stuck at noon", cab?.hour != null,
         `hour=${cab?.hour}`);
       check('…and the weather, so rain reaches the windscreen', !!cab?.weather, `weather=${cab?.weather}`);
       check('…and tonight\'s moon, in phase with every other canopy in the world',
@@ -3481,7 +3481,7 @@ export default async function regress({ run, check, getPlayer }) {
       // shelf with nothing to do on the only occasion anybody reaches for it. The cab seeds its own
       // sim from this bit, so if it stops reaching the wire the browser silently goes back to
       // mounting a running truck and no other check in this suite would notice.
-      check('…with the engine OFF, because you have not turned the key yet', rig?.engineOn === false, rig?.engineOn);
+      check("…with the engine OFF, because you haven't turned the key yet", rig?.engineOn === false, rig?.engineOn);
       check('…and the cab is told so, or it seeds itself running', cabContext(rig).engineOn === false);
 
       // ── THE HORN ───────────────────────────────────────────────────────────
@@ -3507,10 +3507,10 @@ export default async function regress({ run, check, getPlayer }) {
           TRUCK_TYPES.every(t => (HORN[t.id]?.gain ?? 0) >= 0.3),
           TRUCK_TYPES.map(t => `${t.id}:${HORN[t.id]?.gain}`).join(' '));
       }
-      check('…and it is the truck you actually bought',
+      check("…and it's the truck you actually bought",
         rig?.typeId === 'continental' && rig?.type?.kg === 6200, `${rig?.typeId} ${rig?.type?.kg}kg`);
       check('…on the CITY leg, on real world tiles', rig?.leg === 'city', rig?.leg);
-      check('…and it is not on a crossing yet', !player._crossing);
+      check("…and it isn't on a crossing yet", !player._crossing);
 
       // Phase 2: cargo needs a trailer. Taking the load bobtail must FAIL, and that refusal is
       // itself the case worth having — it is the only thing making bobtail a real state.
@@ -3522,7 +3522,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('the board carries work that leaves town as well as work that does not',
         slots.some(b => b.crosses), slots.map(b => b.toName).join(', '));
       const bobtail = await run(`haul ${crossSlot}`);
-      check('you cannot take freight bobtail', !rig?.cargo && /bobtail/i.test(bobtail?.message || ''), bobtail?.message?.slice(0, 40));
+      check("you can't take freight bobtail", !rig?.cargo && /bobtail/i.test(bobtail?.message || ''), bobtail?.message?.slice(0, 40));
       // Phase 2.9: a trailer is a ROW you have to own and that has to be standing here. Buying one
       // is part of the loop now, not a formality the suite can skip.
       const gotBox = await run('yard buy box');
@@ -3534,12 +3534,12 @@ export default async function regress({ run, check, getPlayer }) {
       const stock = (await trailersAt(player.current_zone)).find(t => t.ownerId === player.id);
       check('a bought trailer is stood on the hardstand at a pose you can drive to', posed(stock),
         stock ? `${stock.x},${stock.y} @${stock.heading}` : 'nothing standing');
-      check('…and it stays on the tile it is parked in, or `hitch` could never reach it',
+      check("…and it stays on the tile it's parked in, or `hitch` could never reach it",
         !!stock && Math.abs(stock.x - Math.round(stock.x)) <= 0.5 && Math.abs(stock.y - Math.round(stock.y)) <= 0.5,
         `${stock?.x},${stock?.y}`);
       // The truck is still in the shed doorway where `drive` put it, which is not under the pin.
       const across = await run('hitch');
-      check('…so you cannot couple to it from across the yard', !rig?.trailer, across?.message?.slice(0, 60));
+      check("…so you can't couple to it from across the yard", !rig?.trailer, across?.message?.slice(0, 60));
       // Back under it: the pose IS the coupling point, so standing on it squares every test.
       rig.x = stock.x; rig.y = stock.y; rig.heading = stock.heading; rig.speed = 0;
       const hitched = await run('hitch');
@@ -3558,7 +3558,7 @@ export default async function regress({ run, check, getPlayer }) {
       player._lastStepAt = 0;
       const wasIn = player.current_zone;
       const walked = await run('east');
-      check('a driver cannot walk out of the cab by accident',
+      check("a driver can't walk out of the cab by accident",
         /behind the wheel/i.test(walked?.message || ''), walked?.message?.slice(0, 50));
       check('…and stays where the truck is', player.current_zone === wasIn, player.current_zone);
 
@@ -3566,7 +3566,7 @@ export default async function regress({ run, check, getPlayer }) {
       // not open over a truck cab.
       player._lastStepAt = 0;
       const offRim = await run('south');
-      check('a driver cannot open a void muster by stepping off the rim',
+      check("a driver can't open a void muster by stepping off the rim",
         offRim?.type !== 'voidwalk_staging' && !voidTest.playerStaging.has(player.id), offRim?.type);
 
       // Drive NORTH off the rim. In the city leg an off-map position is the rim, and the rim is
@@ -3582,7 +3582,7 @@ export default async function regress({ run, check, getPlayer }) {
       // — and it means the whole network can be built, proven, wired, and silently not used, with a
       // green suite the entire time. This is the case that would notice. Three segments: the spoke
       // out, the middle, the spoke in.
-      check('…and it is a NETWORK road — spoke, middle, spoke — not the old one-piece wander',
+      check("…and it's a NETWORK road — spoke, middle, spoke — not the old one-piece wander",
         rig.route?.segments?.length === 3, `${rig.route?.segments?.length ?? 'no'} segments`);
       check('…whose first segment is the shared spoke, so the fork happens at the interchange',
         rig.route.trunkL > 20 && Math.abs(rig.route.trunkL - rig.route.segments[0].L) < 1e-6,
@@ -3622,7 +3622,7 @@ export default async function regress({ run, check, getPlayer }) {
           `${t?.depot_zone} vs ${roomBefore}`);
         // Truthiness, not `== null`: the lot is cleared by writing a ZERO fee (fleet.js
         // recoverTruck) and every reader in this plugin treats 0 and NULL as the same state.
-        check('void park: …and stopping on purpose is not abandonment, so nothing impounds it',
+        check("void park: …and stopping on purpose isn't abandonment, so nothing impounds it",
           !t?.impound_fee, String(t?.impound_fee));
         check('void park: …but it names a real yard to be recovered to', !!t?.void_home, t?.void_home);
 
@@ -3690,7 +3690,7 @@ export default async function regress({ run, check, getPlayer }) {
             opts.forkAhead === atOrBeforeFork(rig), `${opts.forkAhead} vs ${atOrBeforeFork(rig)}`);
           // …and the cab payload carries the same object, or the screen has nothing to draw.
           const cab = cabContext(rig, {});
-          check('routes: the cab payload carries them, so the screen and the verb cannot disagree',
+          check("routes: the cab payload carries them, so the screen and the verb can't disagree",
             !!cab.routes?.dests?.length && cab.routes.dests.length === opts.dests.length,
             JSON.stringify(cab.routes && { n: cab.routes.dests?.length }));
         }
@@ -3841,7 +3841,7 @@ export default async function regress({ run, check, getPlayer }) {
       ignition(true);
       rg.speed = 24;
       const refused = await run('park');
-      check('you cannot step out of a moving truck', rigs.has(player.id), refused?.message?.slice(0, 40));
+      check("you can't step out of a moving truck", rigs.has(player.id), refused?.message?.slice(0, 40));
       check('…and it says to stop it first', /rolling|stand/i.test(refused?.message || ''), refused?.message);
       rg.speed = 0;
       const out = await run('park');
@@ -3884,7 +3884,7 @@ export default async function regress({ run, check, getPlayer }) {
       const panelNow = footPanel?.type === 'truck_depot' ? footPanel : await run('yard');
       check('the panel says this yard can take a load, standing on foot',
         panelNow?.canLoad === true && !panelNow?.driving, `canLoad=${panelNow?.canLoad} driving=${panelNow?.driving}`);
-      check('…and shows the load that is on the deck, which on foot it never used to',
+      check("…and shows the load that's on the deck, which on foot it never used to",
         !!panelNow?.cargo, panelNow?.cargo?.name || 'no cargo on the panel');
       // …AND NAMES THE BOARD ROW IT CAME OFF. Without this the freight screen has no way to tell
       // which of the four rows it is already carrying, so it redrew a live Take it on all of them
@@ -4028,7 +4028,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('…and a scratched truck still pulls and stops like a clean one',
       scuffed.thrustMax > clean.thrustMax * 0.93 && scuffed.brake > clean.brake * 0.93,
       `${scuffed.thrustMax.toFixed(2)} vs ${clean.thrustMax.toFixed(2)}`);
-    check('an engine cannot be carried, and the other two can',
+    check("an engine can't be carried, and the other two can",
       PART_ITEMS.engine.carry === false && PART_ITEMS.wheels.carry && PART_ITEMS.body.carry,
       JSON.stringify(Object.fromEntries(Object.entries(PART_ITEMS).map(([k, v]) => [k, v.carry]))));
     // Three targeted repairs must come to one whole one, or there is arbitrage in one direction.
@@ -4071,13 +4071,13 @@ export default async function regress({ run, check, getPlayer }) {
     // pin. A round tolerance says yes to it, and that is what this case exists to catch.
     const flank = hitchReach(at(10, 10 + HITCH_ACROSS * 2, 90), box);
     check('…but standing alongside it does not, however close', !flank.ok, 'coupled from the flank');
-    check('…and it is refused for being off the centreline, not for distance',
+    check("…and it's refused for being off the centreline, not for distance",
       flank.why === 'across', flank.why);
     check('…nor can you couple from behind the pin, inside the box',
       !hitchReach(at(9.4, 10, 90), box).ok, 'coupled from inside the trailer');
 
     const unplaced = { id: 't2', name: 'yard stock', x: null, y: null, heading: null, ratedKg: 2200 };
-    check('a trailer with no pose is not drawable', !posed(unplaced), 'claimed a position it has not got');
+    check("a trailer with no pose isn't drawable", !posed(unplaced), "claimed a position it hasn't got");
     check('…but is still hitchable, so nothing already in the world is stranded',
       hitchReach(at(999, 999, 0), unplaced).ok, 'an existing trailer became unreachable');
 
@@ -4088,7 +4088,7 @@ export default async function regress({ run, check, getPlayer }) {
     // may land on the same spot, or a second purchase is invisible inside the first and both answer
     // to one pin.
     const bays = stockSlots(40, 70, 180, true);
-    check('stock stands inside the tile it is parked in',
+    check("stock stands inside the tile it's parked in",
       bays.every(p => Math.abs(p.x - 40) <= 0.5 && Math.abs(p.y - 70) <= 0.5),
       bays.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
     // ⚠ THE SAME SIDE OF THE LANE, fore and aft of each other. The painted bays are all on ONE side;
@@ -4152,8 +4152,8 @@ export default async function regress({ run, check, getPlayer }) {
       // Repainting is guarded on the OWNER: a box standing in a public yard is somebody's, and a
       // spray gun is not a claim on it.
       check('you can repaint your own box', await paintTrailer(painted.id, me.id, '#123f6b'));
-      check('…and not a box that is not yours', !(await paintTrailer(painted.id, 'someone_else', '#000000')));
-      check('…and the repaint is what is read back', boxColour(await getTrailer(painted.id)) === '#123f6b');
+      check("…and not a box that isn't yours", !(await paintTrailer(painted.id, 'someone_else', '#000000')));
+      check("…and the repaint is what's read back", boxColour(await getTrailer(painted.id)) === '#123f6b');
       await query('DELETE FROM trailers WHERE id = ANY($1)', [[painted.id, bare.id]]).catch(() => {});
     }
   }
@@ -4177,7 +4177,7 @@ export default async function regress({ run, check, getPlayer }) {
         trailerResale({ ...box, condition: 0 }) > 0 && trailerResale({ ...box, condition: 0 }) < worth);
       // ⚠ GUARDED ON THE OWNER AND ON BEING PARKED. Selling a box off somebody else's fifth wheel
       // is the race hitchTrailer already refuses, stated from the other side.
-      check('a box that is not yours cannot be sold', !(await sellTrailer(box.id, 'someone_else')));
+      check("a box that isn't yours can't be sold", !(await sellTrailer(box.id, 'someone_else')));
       check('you can sell your own', await sellTrailer(box.id, me.id));
       // ⚠ AND A BOX ON THE PIN IS STILL IN THE YARD. `sellTrailer` refuses a towed row on purpose —
       // it is the race `hitchTrailer` refuses from the other side — so the VERB drops it first and
@@ -4185,10 +4185,10 @@ export default async function regress({ run, check, getPlayer }) {
       // it is what makes the two-step safe.
       const hooked = await buyTrailer(me.id, 'box', ctx.yard.id, null, null);
       await hitchTrailer(hooked.id, 'truck_probe', ctx.yard.id);
-      check('a box on a fifth wheel cannot be sold out from under it', !(await sellTrailer(hooked.id, me.id)));
+      check("a box on a fifth wheel can't be sold out from under it", !(await sellTrailer(hooked.id, me.id)));
       await dropTrailer(hooked.id, ctx.yard.id, null);
-      check('…and can be, the moment it is dropped', await sellTrailer(hooked.id, me.id));
-      check('…and it is gone', !(await getTrailer(box.id)));
+      check("…and can be, the moment it's dropped", await sellTrailer(hooked.id, me.id));
+      check("…and it's gone", !(await getTrailer(box.id)));
     }
   }
 
@@ -4207,7 +4207,7 @@ export default async function regress({ run, check, getPlayer }) {
     const me = getPlayer();
     const depotZone = truckTest.allDepots().find(d => truckTest.depotFrom(d.id)?.yard?.grid_x != null);
     const ctx = depotZone ? truckTest.depotFrom(depotZone.id) : null;
-    check('there is a depot with a drivable yard to stand a box in', !!ctx?.yard, depotZone?.id || 'no depot');
+    check("there's a depot with a drivable yard to stand a box in", !!ctx?.yard, depotZone?.id || 'no depot');
     if (ctx?.yard) {
       // The legacy shape, made deliberately: parked in the room behind the door, with no place.
       const lost = await buyTrailer(me.id, 'reefer', ctx.bay.id, null);
@@ -4310,9 +4310,9 @@ export default async function regress({ run, check, getPlayer }) {
       // A set that is OFF is not a listener, which is the check that stops the radio quietly
       // becoming a broadcast to everybody who ever mounted a truck.
       rig.cbOff = true;
-      check('a set that is off hears nothing', cbAudience(rig) === 0, String(cbAudience(rig)));
+      check("a set that's off hears nothing", cbAudience(rig) === 0, String(cbAudience(rig)));
       const refused = cbTransmit(player, rig, 'anybody out there');
-      check('…and cannot transmit either', refused?.type === 'error', String(refused?.type));
+      check("…and can't transmit either", refused?.type === 'error', String(refused?.type));
       rig.cbOff = false;
 
       // The limiter is a real gate, not a decoration: two lines back to back must not both go.
@@ -4320,7 +4320,7 @@ export default async function regress({ run, check, getPlayer }) {
       const first = cbTransmit(player, rig, 'first');
       const second = cbTransmit(player, rig, 'second');
       check('a transmission goes out', first?.type === 'noop', String(first?.type));
-      check('…and the mic will not key twice in a second', second?.type === 'error', String(second?.type));
+      check("…and the mic won't key twice in a second", second?.type === 'error', String(second?.type));
 
       // HTML in a player's mouth stays in the player's mouth. This is the only place the radio
       // takes arbitrary text and puts it on somebody else's screen.
@@ -4330,13 +4330,13 @@ export default async function regress({ run, check, getPlayer }) {
       setBroadcast((_zone, m) => { if (m?.type === 'cb_msg') sent.push(m); });
       cbTransmit(player, rig, '<img src=x onerror=alert(1)>');
       setBroadcast(savedBc4);
-      check('a transmission cannot carry markup',
+      check("a transmission can't carry markup",
         sent.length === 1 && !/<img/.test(sent[0].message) && /&lt;img/.test(sent[0].message),
         JSON.stringify(sent[0]?.message));
       check('…and the sender hears their own set', sent[0]?.self === true, String(sent[0]?.self));
 
       const status = cbStatus(player, rig);
-      check('the status line names the channel it is on', /channel <b>19<\/b>/.test(status.message), status.message);
+      check("the status line names the channel it's on", /channel <b>19<\/b>/.test(status.message), status.message);
       check('…and carries the state the cab paints from', status.cb?.chan === 19 && status.cb?.on === true, JSON.stringify(status.cb));
     } finally {
       if (savedRig) rigs.set(player.id, savedRig); else rigs.delete(player.id);
@@ -4373,7 +4373,7 @@ export default async function regress({ run, check, getPlayer }) {
       Math.abs(greedy.take - 0.1) < 1e-9, JSON.stringify(greedy));
     check('…a broke driver at a pump buys nothing and is charged nothing',
       pumpClamp(0, 0.1, 1).cost === 0, JSON.stringify(pumpClamp(0, 0.1, 1)));
-    check('…and a garbage amount from the client cannot go negative',
+    check("…and a garbage amount from the client can't go negative",
       pumpClamp(9999, 0.5, -3).take === 0 && pumpClamp(9999, 0.5, NaN).take > 0);
   }
 
@@ -4419,8 +4419,8 @@ export default async function regress({ run, check, getPlayer }) {
       player.current_zone = STREET; addPlayerToZone(player.id, STREET);
       setLivePlayer(player.id, player);
       const nowhere = await run('fuel');
-      check('…while a street with no pump on it still says you are not driving anything',
-        /not driving anything/i.test(nowhere?.message || ''), nowhere?.message?.slice(0, 50));
+      check("…while a street with no pump on it still says you aren't driving anything",
+        /n't driving anything/i.test(nowhere?.message || ''), nowhere?.message?.slice(0, 50));
     } finally {
       await query('DELETE FROM trucks WHERE id=$1', [tid]).catch(() => {});
       removePlayerFromZone(player.id, player.current_zone);
@@ -4485,7 +4485,7 @@ export default async function regress({ run, check, getPlayer }) {
     // Three keys now, not two — `cust` carries the player's own three picks — and the assertion is
     // still the same one: whatever arrives, what comes out is EXACTLY this set and never a ladder key.
     const dirty = sanitizeTrim({ mat: 'wood', col: 'walnut', dials: 2, band: true, lamps: 5 }, {});
-    check('a trim is a fixed set of keys and cannot smuggle instruments',
+    check("a trim is a fixed set of keys and can't smuggle instruments",
       Object.keys(dirty).sort().join(',') === 'col,cust,mat');
 
     // An unrecognised argument falls back to what the truck ALREADY had, never to a default —
@@ -4518,19 +4518,19 @@ export default async function regress({ run, check, getPlayer }) {
     // The two refusals. A colour that is not a colour, and a mix with a hole in it — either would
     // reach the renderer as an undefined in a gradient string, which draws a cab with holes in it.
     check('a mix wants real colours', !isTrimHex('teal') && !isTrimHex('#fff') && isTrimHex('#4A1F2E'));
-    check('a partial mix is not a mix', sanitizeCustomTrim({ panel: '#4a1f2e' }, {}) === null && customColourway({ panel: '#4a1f2e' }) === null);
+    check("a partial mix isn't a mix", sanitizeCustomTrim({ panel: '#4a1f2e' }, {}) === null && customColourway({ panel: '#4a1f2e' }) === null);
     check('…but it completes itself from the one already stored',
       sanitizeCustomTrim({ needle: '#8fe0a0' }, MIX)?.panel === MIX.panel);
     // ⚠ 'custom' IS NOT A CATALOGUE KEY AND MUST NEVER LOOK LIKE ONE. It is only a colourway while
     // there are three picks behind it; a row that says custom with nothing to mix from has to fall
     // back to what the cab was wearing, or it renders as slate on a truck nobody repainted.
-    check('custom is not in the swatch book', !isDashColourway(CUSTOM_COL));
+    check("custom isn't in the swatch book", !isDashColourway(CUSTOM_COL));
     check('a mix survives a round trip', sanitizeTrim({ col: CUSTOM_COL, cust: MIX }, {}).col === CUSTOM_COL);
     check('custom with nothing behind it keeps the fitted colourway',
       sanitizeTrim({ col: CUSTOM_COL }, { col: 'moss', mat: 'vinyl' }).col === 'moss');
     // The mix is KEPT while a swatch is worn, so trying oxblood does not throw away the colour you
     // spent five minutes on — that is the whole reason `rig trim custom` has a way back.
-    check('picking a swatch does not delete your mix',
+    check("picking a swatch doesn't delete your mix",
       sanitizeTrim({ col: 'moss' }, { col: CUSTOM_COL, cust: MIX }).cust?.panel === MIX.panel);
   }
   // ── THE BOOTH ──────────────────────────────────────────────────────────────
@@ -4570,9 +4570,9 @@ export default async function regress({ run, check, getPlayer }) {
     // ⚠ `stripes` IS A REAL PATTERN — the AIRFRAME one. The two vocabularies share words (the fleet
     // has `stripe`, the airframes have `stripes`; `candy` is both a paint job and a finish coat),
     // which is exactly why the verb's grammar is named rather than inferred from the catalogues.
-    check('an airframe pattern is not a truck paint job', junk.flash === 'scallop');
-    check('a finish that is not a finish keeps the coat', junk.finish === 'candy');
-    check('nose art is not door art', junk.art === 'wolf');
+    check("an airframe pattern isn't a truck paint job", junk.flash === 'scallop');
+    check("a finish that isn't a finish keeps the coat", junk.finish === 'candy');
+    check("nose art isn't door art", junk.art === 'wolf');
   }
   {
     // Every scheme on the panel has to expand into a paint that survives sanitising unchanged.
@@ -4767,7 +4767,7 @@ export default async function regress({ run, check, getPlayer }) {
       await isLicensedDriver(player, { fleetOf: noFleet }));
     rides.delete(player.id);
     player.role = 'admin';
-    check('licence: admins are rated, as they are for aircraft',
+    check("licence: admins are rated, as they're for aircraft",
       await isLicensedDriver(player, { fleetOf: noFleet }));
     player.role = wasRole;
     await clearFlag('player', roadTest.LICENSE_FLAG, player).catch(() => {});

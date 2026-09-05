@@ -1,7 +1,7 @@
 {
   "appearance": {
     "extreme": "Their left hand is a blackened dead thing on the end of a living arm. The rot has reached the elbow and stopped there, for now.",
-    "obvious": "Their left hand is dead, grey-black to the wrist, and does not move quite in time with the rest of them.",
+    "obvious": "Their left hand is dead, grey-black to the wrist, and doesn't move quite in time with the rest of them.",
     "subtle": "The skin of their left hand is grey and dry."
   },
   "blocks_slots": [],
@@ -14,7 +14,7 @@
   ],
   "description": "One hand has darkened and hardened. Melee attacks cause bleeding. You can't wear gloves.",
   "drawbacks": [
-    "Cannot equip gloves"
+    "Can't equip gloves"
   ],
   "effects": {
     "social_penalty": 0.3,

@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Oracle-9 has asked you to go back to the quiet room and sit in it again. That is the entire instruction. She was very clear that nothing is going to happen, that nothing happened last time, and that this is not a test. She was clear about it three times, which is twice more than a person is usually clear about anything.",
+  "description": "Oracle-9 has asked you to go back to the quiet room and sit in it again. That's the entire instruction. She was very clear that nothing is going to happen, that nothing happened last time, and that this isn't a test. She was clear about it three times, which is twice more than a person is usually clear about anything.",
   "fail_on": [],
   "id": "quest_exo_3",
   "meta": {},
@@ -9,9 +9,9 @@
     {
       "desc": "Go back to the quiet room. Sit in it again. Nothing is going to happen.",
       "emotes": [
-        "{who} settles into the dark for the second time, and this time does not wait for anything.",
+        "{who} settles into the dark for the second time, and this time doesn't wait for anything.",
         "{who} takes the same spot on the floor as last time without looking for it.",
-        "{who} notices the room is the same and that they are not, and puts that down to the walk."
+        "{who} notices the room is the same and that they're not, and puts that down to the walk."
       ],
       "id": "o_again",
       "type": "visit",

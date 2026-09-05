@@ -33,7 +33,7 @@ export default async function regress({ run, check }) {
     !_test.matches({ ...base, lines: ['{npc} ties a bootlace.'] }, zone, 'day', 'clear'), null);
   check('match: tokenless line unaffected',
     _test.matches({ ...base, lines: ['A rivet gun stutters overhead.'] }, zone, 'day', 'clear'), null);
-  check('match: a routine with no lines at all does not throw',
+  check("match: a routine with no lines at all doesn't throw",
     _test.matches(base, zone, 'day', 'clear'), null);
 
   // ── Street-zone opt-in gate ──
@@ -60,7 +60,7 @@ export default async function regress({ run, check }) {
     const pools = [...MEAL, ...DRINK, ...TIDY];
     check('home: every scene has at least two beats', pools.every(s => s.length >= 2), `${pools.length} scenes`);
     check('home: every beat names the NPC', pools.every(s => s.every(l => l.includes('{npc}'))));
-    check('home: no beat leaves a {thing} the pools cannot fill',
+    check("home: no beat leaves a {thing} the pools can't fill",
       [...MEAL, ...DRINK].every(s => s.filter(l => l.includes('{thing}')).length >= 1));
     check('home: TIDY needs no {thing}', TIDY.every(s => s.every(l => !l.includes('{thing}'))));
     check('home: a meal noun comes off the dish catalogue', typeof pickMeal() === 'string' && pickMeal().length > 0);
@@ -72,17 +72,17 @@ export default async function regress({ run, check }) {
     // in their own bed could be narrated frying eggs.
     const { isBusyBeingUnconscious: down } = _home;
     check('home: an awake NPC is available', down({ _ai: {}, posture: 'standing' }) === false);
-    check('home: a sleeping NPC does not cook', down({ _ai: { homeSleeping: true } }) === true);
-    check('home: an NPC dosed out does not cook', down({ _ai: { dosedOut: true } }) === true);
-    check('home: anyone lying down does not cook', down({ _ai: {}, posture: 'lying' }) === true);
+    check("home: a sleeping NPC doesn't cook", down({ _ai: { homeSleeping: true } }) === true);
+    check("home: an NPC dosed out doesn't cook", down({ _ai: { dosedOut: true } }) === true);
+    check("home: anyone lying down doesn't cook", down({ _ai: {}, posture: 'lying' }) === true);
 
     // A kitchen, not a counter. 110 of the cast have their own workplace as
     // home_zone; without the dwelling test they cooked a meal on the shop floor.
     check('home: a rentable unit is a dwelling', isDwellingZone({ flags: { is_apartment: true } }) === true);
     check('home: an authored dwelling is a dwelling', isDwellingZone({ flags: { is_dwelling: true } }) === true);
-    check('home: a shop floor is not a dwelling', isDwellingZone({ flags: { is_interior: true, is_building: true } }) === false);
-    check('home: a street tile is not a dwelling', isDwellingZone({ flags: { street_life: true } }) === false);
-    check('home: a missing zone is not a dwelling', isDwellingZone(null) === false && isDwellingZone({}) === false);
+    check("home: a shop floor isn't a dwelling", isDwellingZone({ flags: { is_interior: true, is_building: true } }) === false);
+    check("home: a street tile isn't a dwelling", isDwellingZone({ flags: { street_life: true } }) === false);
+    check("home: a missing zone isn't a dwelling", isDwellingZone(null) === false && isDwellingZone({}) === false);
   }
 
   // ── The bathroom trip ──
@@ -161,7 +161,7 @@ export default async function regress({ run, check }) {
     world.zones.set(flatId, { id: flatId, name: 'Flat', flags: { is_apartment: true }, exits: { south: zoneId }, npcs: new Set(), enemies: new Set(), players: new Set() });
 
     const stranger = { id: 'p_stranger', handle: 'Stranger', role: 'player', _relations: new Map() };
-    check('evict: a stranger does not belong', belongsHere(stranger, npc, zoneId) === false);
+    check("evict: a stranger doesn't belong", belongsHere(stranger, npc, zoneId) === false);
     check('evict: an admin is never thrown out',
       belongsHere({ ...stranger, role: 'admin' }, npc, zoneId) === true);
     // A regular is the relations substrate showing up in a doorway.
@@ -170,10 +170,10 @@ export default async function regress({ run, check }) {
     check('evict: a regular is walked out, not thrown out', belongsHere(regular, npc, zoneId) === true);
     const hated = { id: 'p_hated', handle: 'Hated', role: 'player',
       _relations: new Map([[npc.id, { familiarity: 60, warmth: -80 }]]) };
-    check('evict: knowing you well and hating you is not belonging',
+    check("evict: knowing you well and hating you isn't belonging",
       belongsHere(hated, npc, zoneId) === false);
     // An eviction must never be a way to win a fight.
-    check('evict: someone you are fighting is not teleported away',
+    check("evict: someone you're fighting isn't teleported away",
       belongsHere({ ...stranger, combatTargetId: npc.id }, npc, zoneId) === true);
 
     check('evict: the way out prefers a room nobody lives in', wayOutOf(zoneId) === hallId, wayOutOf(zoneId));

@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "extreme": "The air bends slightly above their shoulders. Snow does not settle on them, and standing close is like standing near a stove.",
-    "obvious": "Heat comes off them in the cold like off an engine. They are in shirtsleeves and comfortable.",
-    "subtle": "They are running warm, and there is a sheen of sweat on them in a cold room."
+    "extreme": "The air bends slightly above their shoulders. Snow doesn't settle on them, and standing close is like standing near a stove.",
+    "obvious": "Heat comes off them in the cold like off an engine. They're in shirtsleeves and comfortable.",
+    "subtle": "They're running warm, and there's a sheen of sweat on them in a cold room."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -12,9 +12,9 @@
   "conceal_slots": [
     "torso"
   ],
-  "description": "You run hot. Genuinely hot, all the time, burning through food to do it. The cold cannot touch you and the heat nearly kills you.",
+  "description": "You run hot. Genuinely hot, all the time, burning through food to do it. The cold can't touch you and the heat nearly kills you.",
   "drawbacks": [
-    "You are always hungry",
+    "You're always hungry",
     "Heat is unbearable"
   ],
   "effects": {

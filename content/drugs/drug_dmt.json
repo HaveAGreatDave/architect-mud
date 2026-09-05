@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0,
-  "description": "A waxy white-orange resin. Fifteen minutes, and you will be told something you cannot bring back.",
+  "description": "A waxy white-orange resin. Fifteen minutes, and you'll be told something you can't bring back.",
   "duration_seconds": 150,
   "effects": {
     "comeon_message": "<span class=\"msg-system\">The smoke is foul and the room is already peeling.</span>",
@@ -13,7 +13,7 @@
         },
         {
           "atSec": 18,
-          "text": "[trip]You break through. There is a space here and it has been arranged.[/trip]"
+          "text": "[trip]You break through. There's a space here and it has been arranged.[/trip]"
         },
         {
           "atSec": 36,
@@ -21,7 +21,7 @@
         },
         {
           "atSec": 60,
-          "text": "[trip]You are being told something enormous. You will not be permitted to keep it.[/trip]"
+          "text": "[trip]You're being told something enormous. You won't be permitted to keep it.[/trip]"
         },
         {
           "atSec": 90,
@@ -39,7 +39,7 @@
     "instant": {
       "sanity": -8
     },
-    "onset_message": "<span class=\"msg-system\">The wall opens like a curtain drawn by professionals, and on the other side something turns and says: oh, it is you.</span>",
+    "onset_message": "<span class=\"msg-system\">The wall opens like a curtain drawn by professionals, and on the other side something turns and says: oh, it's you.</span>",
     "onset_seconds": 3,
     "overdose": {
       "lethal": false,

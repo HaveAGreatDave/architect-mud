@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Boot marks in the sand of the wash, drifted at the edges but not gone. Somebody came through this way recently and was not in a hurry.",
+  "description": "Boot marks in the sand of the wash, drifted at the edges but not gone. Somebody came through this way recently and wasn't in a hurry.",
   "exits": {
     "east": "zone_the_reach_870_1963",
     "north": "zone_the_reach_869_1962",

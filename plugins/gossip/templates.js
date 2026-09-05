@@ -50,7 +50,7 @@ export const TEMPLATES = {
     renderYou: (v) => pick([
       `"You're the one they want, aren't you — ${v.label}. Cameras got your good side and all." <span class="text-dim">They edge back a step.</span>`,
       `"I'd not stand so close to me if I were you. Heat's out for you over ${v.label}."`,
-      `"Big fan of your work. ${v.label}, right out in the open. Bold." <span class="text-dim">They do not mean it kindly.</span>`,
+      `"Big fan of your work. ${v.label}, right out in the open. Bold." <span class="text-dim">They don't mean it kindly.</span>`,
     ]),
   },
   poker_win: {
@@ -203,7 +203,7 @@ export const TEMPLATES = {
       `"Pallet went missing off the apron. Not stolen — missing. There's a difference out here and nobody wants to say what it is."`,
       `"Fella came through asking questions with the wrong accent. Cass sent him back up before he got his boots dusty."`,
       `"They say the city's tightening the scans again. Good for us. Everything that can't go by road comes by us."`,
-      `"Someone's been cutting the raws before they leave the Reach. If that's true, whoever it is won't be flying long."`,
+      `"Someone's been cutting the raws before they leave the Reach. If that's true, whoever it's won't be flying long."`,
       `"Nobody's flown the long run east in a month. Either the buyer's dead or the buyer's law. Same thing, mostly."`,
     ]),
   },

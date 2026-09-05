@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "The install theatre: a single reclining chair under a corolla of folded arms, everything mirrored so you can watch what they do. This is where the first chrome goes in, and where, they tell you gently, the flesh-rot of any mutation gets scraped out first, because chrome does not share a body with the old evolution.",
+  "description": "The install theatre: a single reclining chair under a corolla of folded arms, everything mirrored so you can watch what they do. This is where the first chrome goes in, and where, they tell you gently, the flesh-rot of any mutation gets scraped out first, because chrome doesn't share a body with the old evolution.",
   "exits": {
     "out": "zone_asc_clinic_consult"
   },

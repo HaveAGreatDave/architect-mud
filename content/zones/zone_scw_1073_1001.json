@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The rock goes up in one piece, banded red on red, too high to see the top of from underneath and too sheer to argue with. It runs away in both directions along the same line and does not offer anything that could be called a way up.",
+  "description": "The rock goes up in one piece, banded red on red, too high to see the top of from underneath and too sheer to argue with. It runs away in both directions along the same line and doesn't offer anything that could be called a way up.",
   "exits": {
     "east": "zone_scw_1074_1001",
     "north": "zone_scw_1073_1000",

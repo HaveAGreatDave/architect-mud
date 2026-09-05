@@ -139,7 +139,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "She is already three doors down and mid-sentence with someone else."
+      "text": "She's already three doors down and mid-sentence with someone else."
     },
     "root": {
       "options": [

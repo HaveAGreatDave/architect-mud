@@ -86,10 +86,10 @@ function warning(bill) {
   return [
     '<span class="rad-warning">THE PURIFIER</span>',
     '',
-    `It will take ${list} out of you. Permanently. There is no undoing it and nothing is given back.`,
-    'It is going to hurt more than anything has hurt you so far.',
+    `It'll take ${list} out of you. Permanently. There's no undoing it and nothing is given back.`,
+    "It's going to hurt more than anything has hurt you so far.",
     '',
-    '<span class="ambient">Type it again within two minutes if that is what you want.</span>',
+    '<span class="ambient">Type it again within two minutes if that\'s what you want.</span>',
   ].join('<br>');
 }
 
@@ -144,8 +144,8 @@ async function run(player, bill, broadcast) {
   }
 
   sendToPlayer(player.id, { type: 'output', message: [
-    '<span class="dmg-taken">It finds everything in you that was not yours to begin with, and it takes its time.</span>',
-    '<span class="dmg-taken">You are aware of every separate place it is working. All of them at once.</span>',
+    '<span class="dmg-taken">It finds everything in you that wasn\'t yours to begin with, and it takes its time.</span>',
+    '<span class="dmg-taken">You\'re aware of every separate place it\'s working. All of them at once.</span>',
   ].join('<br>') });
 
   adjustSanity(player, -20, 'the Purifier');
@@ -173,7 +173,7 @@ async function run(player, bill, broadcast) {
 
   return { type: 'output', message: [
     took.length
-      ? `<span class="ambient">It took ${took.join(' and ')}. You are only what you were born with now.</span>`
+      ? `<span class="ambient">It took ${took.join(' and ')}. You're only what you were born with now.</span>`
       : '<span class="ambient">There was nothing in you to take. It checks anyway, thoroughly.</span>',
     '',
     '<span class="hdr">AWAKENED</span>',

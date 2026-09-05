@@ -1,5 +1,5 @@
 {
-  "description": "Three tiers of mismatched glassware behind the bar, arranged by a logic only Sully understands. Everything on it is clean and none of it matches.",
+  "description": "Three tiers of mismatched glassware behind the bar, arranged by a logic only Sully understands. Everything on it's clean and none of it matches.",
   "flags": {
     "aliases": "shelf,back shelf,glassware",
     "container": 40000,

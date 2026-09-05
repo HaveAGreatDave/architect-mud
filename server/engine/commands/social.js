@@ -140,7 +140,7 @@ async function cmdReply(args, player, broadcast) {
   if (!Number.isInteger(n) || n < 1 || n > talk.options.length) {
     return { type:'error', message: talk.options.length
       ? `Reply with a number from 1 to ${talk.options.length}. (\`reply\` on its own repeats what they said.)`
-      : 'There is nothing to reply to. (endtalk)' };
+      : "There's nothing to reply to. (endtalk)" };
   }
   const opt = talk.options[n - 1];
 
@@ -326,7 +326,7 @@ async function cmdPet(targetStr, player, broadcast) {
     }
     target._threatLevel = (target._threatLevel || 0) + 3;
     broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} reaches out to pet ${target.name}. Bad idea.` }, player.id);
-    return { type: 'output', message: `You reach out to pet ${target.name}. It does not appreciate this.` };
+    return { type: 'output', message: `You reach out to pet ${target.name}. It doesn't appreciate this.` };
   }
 
   // Let a plugin claim this one before the wholesome default (same shape as the

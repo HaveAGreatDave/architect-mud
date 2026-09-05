@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A shelf of higher rock with a good long view south to the wall and the gap in it. Up under the overhang, where the shadow sits all day, somebody has built a hide: netting over a frame, dressed with rock and dead scrub, and done well enough that you are past it before you see it. There is a lens in there catching the light. Nothing moves. Whoever is inside has watched you the whole way up and has decided to go on doing nothing, and there is a second set of ruts leading away north that are much fresher than the first.",
+  "description": "A shelf of higher rock with a good long view south to the wall and the gap in it. Up under the overhang, where the shadow sits all day, somebody has built a hide: netting over a frame, dressed with rock and dead scrub, and done well enough that you're past it before you see it. There's a lens in there catching the light. Nothing moves. Whoever is inside has watched you the whole way up and has decided to go on doing nothing, and there's a second set of ruts leading away north that are much fresher than the first.",
   "exits": {
     "east": "zone_scw_1042_961",
     "north": "zone_scw_1041_960",

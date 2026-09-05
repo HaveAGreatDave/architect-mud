@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A long shed of corrugated sheet, painted the colour of the rock so it barely reads as a building at all. One roller door stands high enough and wide enough to take something with a box behind it, and the concrete apron in front of it is scored with the arcs of everything that has ever backed up to it. A hand-lettered board by the door lists what is wanted and what is paid, and a second board underneath it, in the same hand, lists what will not be bought at any price.",
+  "description": "A long shed of corrugated sheet, painted the colour of the rock so it barely reads as a building at all. One roller door stands high enough and wide enough to take something with a box behind it, and the concrete apron in front of it's scored with the arcs of everything that has ever backed up to it. A hand-lettered board by the door lists what's wanted and what's paid, and a second board underneath it, in the same hand, lists what won't be bought at any price.",
   "exits": {
     "north": "zone_yard_roadhead",
     "south": "zone_terminus_1202_940"

@@ -219,7 +219,7 @@ function renderTagsPanel(data) {
     document.getElementById('tag-supertag-section').innerHTML = `
       <div style="padding:12px;overflow-x:auto;border-top:1px solid var(--border);margin-top:12px">
         <h3 style="margin:0 0 4px">Supertags</h3>
-        <div class="zone-subsection-note" style="margin-bottom:10px">Bundles of tags applied as a unit, e.g. a <code>weapon</code> supertag carrying its slot and combat tags. Applying one to an item is a one-time template: it pre-fills that item's own editable tag fields with the supertag's defaults. Editing a supertag here only changes future applications — it does not touch items already stamped with it.</div>
+        <div class="zone-subsection-note" style="margin-bottom:10px">Bundles of tags applied as a unit, e.g. a <code>weapon</code> supertag carrying its slot and combat tags. Applying one to an item is a one-time template: it pre-fills that item's own editable tag fields with the supertag's defaults. Editing a supertag here only changes future applications — it doesn't touch items already stamped with it.</div>
         <div style="margin-bottom:10px">
           <button class="action-btn success" onclick="superShowAdd()">+ New Supertag</button>
         </div>

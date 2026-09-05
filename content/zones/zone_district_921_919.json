@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There is no way through but the South Gate.",
+  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
   "exits": {
     "east": "zone_district_922_919",
     "north": "zone_district_921_918",

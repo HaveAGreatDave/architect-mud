@@ -26,7 +26,7 @@ export default async function regress({ run, check, getPlayer }) {
     p.current_zone = aptId;
     r = await run('home');
     check('home in your own apartment binds it', p.home_zone === aptId, `home_zone=${p.home_zone}`);
-    check('binding does not start a walk', !p.goingHome, `goingHome=${p.goingHome}`);
+    check("binding doesn't start a walk", !p.goingHome, `goingHome=${p.goingHome}`);
 
     // Home set, standing elsewhere → routes to the walk-home branch (no path
     // between the two disconnected test zones, so it reports that).

@@ -1,12 +1,12 @@
 {
-  "description": "A wide-bladed kitchen knife ground down narrow by decades of sharpening, the edge a shallow crescent now. It does not care whether what it's parting was ever in a kitchen.",
+  "description": "A wide-bladed kitchen knife ground down narrow by decades of sharpening, the edge a shallow crescent now. It doesn't care whether what it's parting was ever in a kitchen.",
   "flags": {},
   "id": "item_kitchen_knife",
   "name": "kitchen knife",
   "tags": {
     "butchering": true,
     "can_chop": true,
-    "description": "A wide-bladed kitchen knife ground down narrow by decades of sharpening, the edge a shallow crescent now. It does not care whether what it's parting was ever in a kitchen.",
+    "description": "A wide-bladed kitchen knife ground down narrow by decades of sharpening, the edge a shallow crescent now. It doesn't care whether what it's parting was ever in a kitchen.",
     "unique": true,
     "utensil": true
   },

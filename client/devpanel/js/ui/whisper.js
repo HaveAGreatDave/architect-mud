@@ -660,7 +660,7 @@ function _scrollToBottom() {
 async function _openWhisperByHandle(handle) {
   await _fetchOnline();
   const found = _onlinePlayers.find(p => p.handle.toLowerCase() === handle.toLowerCase());
-  if (!found) { toast(`"${handle}" is not online.`, true); return; }
+  if (!found) { toast(`"${handle}" isn't online.`, true); return; }
   openWhisper(found.id, found.handle);
 }
 
@@ -706,7 +706,7 @@ async function _sendMessage() {
   // DM — use cached player ID from when the tab was opened, fall back to online list
   const convo = _getConvo(_activeTab);
   const pid = convo.playerId || _onlinePlayers.find(p => p.handle === _activeTab)?.id;
-  if (!pid) { toast(`${_activeTab} is not online.`, true); return; }
+  if (!pid) { toast(`${_activeTab} isn't online.`, true); return; }
   const r = await API(`/players/${pid}/whisper`, 'POST', { message: msg });
   if (r?.error) { toast(r.error, true); return; }
   convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });

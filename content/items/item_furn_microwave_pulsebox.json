@@ -1,5 +1,5 @@
 {
-  "description": "A beige counter-top box with HOBLINE PULSEBOX embossed on the door and a dial that only reliably distinguishes between not enough and far too much. The turntable motor works, which the previous owner clearly considered the selling point. It hums at a pitch that gets into your teeth, and it will make anything you own warm, and nothing you own good.",
+  "description": "A beige counter-top box with HOBLINE PULSEBOX embossed on the door and a dial that only reliably distinguishes between not enough and far too much. The turntable motor works. It hums at a pitch that gets into your teeth, and it'll make anything warm and nothing good.",
   "flags": {
     "appliance_grade": "consumer",
     "interactions": [
@@ -12,7 +12,7 @@
   "name": "Hobline Pulsebox",
   "tags": {
     "appliance_grade": "consumer",
-    "description": "A beige counter-top box with HOBLINE PULSEBOX embossed on the door and a dial that only reliably distinguishes between not enough and far too much. The turntable motor works, which the previous owner clearly considered the selling point. It hums at a pitch that gets into your teeth, and it will make anything you own warm, and nothing you own good.",
+    "description": "A beige counter-top box with HOBLINE PULSEBOX embossed on the door and a dial that only reliably distinguishes between not enough and far too much. The turntable motor works, which the previous owner clearly considered the selling point. It hums at a pitch that gets into your teeth, and it'll make anything you own warm, and nothing you own good.",
     "microwave": true
   },
   "type": "furniture",

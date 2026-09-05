@@ -15,15 +15,15 @@
   "fx_intensity": 0.5,
   "id": "dxp_mescaline_pilgrim",
   "looks": [
-    "The dust is in the creases of their face and in the weave of the coat and it is not city dust.",
-    "The bundle is tied with a knot you have never seen and would not be able to undo.",
-    "They are looking at you as though they expected you and are checking you against a description."
+    "The dust is in the creases of their face and in the weave of the coat and it isn't city dust.",
+    "The bundle is tied with a knot you have never seen and wouldn't be able to undo.",
+    "They're looking at you as though they expected you and are checking you against a description."
   ],
   "matches": null,
   "name": "a pilgrim covered in road dust",
   "says": [
     "I have come a long way to be in this room.",
-    "You are the third today. It is not a large number.",
+    "You're the third today. It isn't a large number.",
     "Nothing is required of you. I would say if it were."
   ],
   "scope": "person"

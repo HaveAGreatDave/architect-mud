@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The road in wants doing. The poles rot at the base, the wire goes, and what is on them comes down in the wind and has to go back up.\n\nIt is four hours in the wet and eight in the dry, and it is a rotten job, and it is done because it works.\n\nTake the wire. Take the ladder. Bracken Hale will meet you at the second bend.",
+  "description": "The road in wants doing. The poles rot at the base, the wire goes, and what's on them comes down in the wind and has to go back up.\n\nIt is four hours in the wet and eight in the dry, and it's a rotten job, and it's done because it works.\n\nTake the wire. Take the ladder. Bracken Hale will meet you at the second bend.",
   "fail_on": [],
   "id": "quest_wild_poles",
   "meta": {},
@@ -20,7 +20,7 @@
         "{who} digs out a pole base that has gone to black porridge and packs it with stone.",
         "{who} rewires a crossbar in the rain and drops the pliers twice.",
         "{who} takes down what the wind brought down, and puts it back up, and straightens it.",
-        "{who} works four hours on the road and nobody who passes says one word about what is on the poles."
+        "{who} works four hours on the road and nobody who passes says one word about what's on the poles."
       ],
       "id": "o_road",
       "requires": [

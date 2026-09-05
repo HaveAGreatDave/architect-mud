@@ -17,7 +17,7 @@
       },
       {
         "npc": "self",
-        "text": "\"You have got one more day in you, and you are going in the tray, and nobody will ever know.\""
+        "text": "\"You have got one more day in you, and you're going in the tray, and nobody will ever know.\""
       }
     ],
     [
@@ -27,7 +27,7 @@
       },
       {
         "npc": "self",
-        "text": "\"That is nine now. Eleven hundred written and nine worth the walk.\""
+        "text": "\"That's nine now. Eleven hundred written and nine worth the walk.\""
       }
     ],
     [
@@ -58,7 +58,7 @@
         "action_type": "EMOTE",
         "next": "n_step_up",
         "params": {
-          "message": "wipes her hands down the apron, takes it off, and hangs it on the oven rail like it is a good coat."
+          "message": "wipes her hands down the apron, takes it off, and hangs it on the oven rail like it's a good coat."
         },
         "type": "action"
       },
@@ -177,7 +177,7 @@
         "next": "n_wait2",
         "params": {
           "cooldown_s": 300,
-          "message": "\"There is a hole in the sky where the satellites were, and I still hang the washing out.\""
+          "message": "\"There's a hole in the sky where the satellites were, and I still hang the washing out.\""
         },
         "type": "action"
       },
@@ -256,10 +256,10 @@
   "chitchat": [
     "\"Wash your hands. I can hear that you did not.\"",
     "lifts the corner of a foil sheet, looks underneath, and puts it back without comment.",
-    "\"Corner piece goes to whoever has been standing longest. That is not a rule, it is just correct.\"",
-    "\"Twelve, and the first one is nothing if you have not got twelve. Do not make a speech about it.\"",
+    "\"Corner piece goes to whoever has been standing longest. That isn't a rule, it's just correct.\"",
+    "\"Twelve, and the first one is nothing if you haven't got twelve. Don't make a speech about it.\"",
     "writes something small on the back of a delivery invoice and puts it away in the apron.",
-    "\"There is bread from yesterday and it is better than the bread from today. I do not make the rules, I eat them.\"",
+    "\"There's bread from yesterday and it's better than the bread from today. I don't make the rules, I eat them.\"",
     "\"Seven o clock. Somebody reach up and turn that set up, my hands are wet.\"",
     "stops with a tray on her hip and watches the set behind the bar for about eight seconds, then carries on.",
     "checks the oven, shuts the door, and shuts it again properly."
@@ -289,7 +289,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"John Akerson.\" <span class=\"text-dim\">Something happens to her face that has nothing whatsoever to do with cooking.</span>\n\n\"That voice, sugar. It is like somebody laying a coat over your shoulders before you had worked out you were cold.\"\n\n\"And the rest of him is no hardship either, let me tell you. Shoulders on that man. A jaw you could strike a match on. The grey coming in at the sides has done him nothing but favours, which is not fair, and I gave up asking for fair a long time ago. When he laughs and puts his hand flat on that desk, I have to go and find something urgent in the oven.\"\n\n<span class=\"text-dim\">She hears herself, and is not troubled by it in the slightest.</span>\n\n\"Now I know exactly how I sound. Woman my age, up to her elbows in a sink, gone soft over a fella on a television with the chairs already up on the tables. Honey, I have been ridiculous about lesser men than that one and never regretted a minute of the practice.\"\n\n\"If he came through that door I would drop a full tray and I would not be one bit sorry. And if any of these animals tells you I said so, they are lying, and they will be eating last.\""
+      "text": "\"John Akerson.\" <span class=\"text-dim\">Something happens to her face that has nothing whatsoever to do with cooking.</span>\n\n\"That voice, sugar. It's like somebody laying a coat over your shoulders before you had worked out you were cold.\"\n\n\"And the rest of him is no hardship either, let me tell you. Shoulders on that man. A jaw you could strike a match on. The grey coming in at the sides has done him nothing but favours, which isn't fair, and I gave up asking for fair a long time ago. When he laughs and puts his hand flat on that desk, I have to go and find something urgent in the oven.\"\n\n<span class=\"text-dim\">She hears herself, and isn't troubled by it in the slightest.</span>\n\n\"Now I know exactly how I sound. Woman my age, up to her elbows in a sink, gone soft over a fella on a television with the chairs already up on the tables. Honey, I have been ridiculous about lesser men than that one and never regretted a minute of the practice.\"\n\n\"If he came through that door I would drop a full tray and I wouldn't be one bit sorry. And if any of these animals tells you I said so, they're lying, and they'll be eating last.\""
     },
     "n_akerson2": {
       "_vine": {
@@ -302,7 +302,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"I know where he lives.\" <span class=\"text-dim\">She goes back to the pan with slightly more attention than the pan requires.</span>\n\n\"I am aware of how that sounds coming out of me, and I have never once gone up there, and I am not going to. A man like that should be met over a plate, in his own time, by somebody who is not standing in his lobby explaining herself to a doorman.\"\n\n\"Anyway. He would have the macaroni. They all have the macaroni.\""
+      "text": "\"I know where he lives.\" <span class=\"text-dim\">She goes back to the pan with slightly more attention than the pan requires.</span>\n\n\"I'm aware of how that sounds coming out of me, and I have never once gone up there, and I'm not going to. A man like that should be met over a plate, in his own time, by somebody who isn't standing in his lobby explaining herself to a doorman.\"\n\n\"Anyway. He would have the macaroni. They all have the macaroni.\""
     },
     "n_before": {
       "_vine": {
@@ -319,7 +319,7 @@
           "next": "root"
         }
       ],
-      "text": "<span class=\"text-dim\">She keeps scraping. The pause runs slightly longer than a pause.</span>\n\n\"There was a woman on the evening slot at KSAB about a hundred years ago, in a wig about this tall, with a half hour on a Thursday and a band that got paid late.\" <span class=\"text-dim\">One shoulder goes up and comes down.</span> \"There is a tape of it somewhere. I have not seen it. I am told the sound is poor.\"\n\n\"She was a cook then too, sugar. That is the part nobody puts in the story. The half hour paid for the wigs. The kitchen paid for everything else.\""
+      "text": "<span class=\"text-dim\">She keeps scraping. The pause runs slightly longer than a pause.</span>\n\n\"There was a woman on the evening slot at KSAB about a hundred years ago, in a wig about this tall, with a half hour on a Thursday and a band that got paid late.\" <span class=\"text-dim\">One shoulder goes up and comes down.</span> \"There's a tape of it somewhere. I haven't seen it. I'm told the sound is poor.\"\n\n\"She was a cook then too, sugar. That's the part nobody puts in the story. The half hour paid for the wigs. The kitchen paid for everything else.\""
     },
     "n_books": {
       "_vine": {
@@ -328,11 +328,11 @@
       },
       "options": [
         {
-          "label": "That is decent of you.",
+          "label": "That's decent of you.",
           "next": "n_thanks"
         }
       ],
-      "text": "\"I buy books.\" <span class=\"text-dim\">She says it like a confession.</span> \"There is a woman up at the Lending Library keeps a shelf for me and does not put my name on it, because a name on a shelf turns a book into a lecture.\"\n\n\"Nobody in this city is short of opinions. Everybody is short of the reading that makes an opinion worth having. So they eat, and they take one, and if it comes back it comes back.\"\n\n\"Most of them come back. That is the part that gets me.\""
+      "text": "\"I buy books.\" <span class=\"text-dim\">She says it like a confession.</span> \"There's a woman up at the Lending Library keeps a shelf for me and doesn't put my name on it, because a name on a shelf turns a book into a lecture.\"\n\n\"Nobody in this city is short of opinions. Everybody is short of the reading that makes an opinion worth having. So they eat, and they take one, and if it comes back it comes back.\"\n\n\"Most of them come back. That's the part that gets me.\""
     },
     "n_dream": {
       "_vine": {
@@ -345,15 +345,15 @@
           "next": "n_dream2"
         },
         {
-          "label": "Who is on the desk these days?",
+          "label": "Who's on the desk these days?",
           "next": "n_akerson"
         },
         {
-          "label": "That is a good dream.",
+          "label": "That's a good dream.",
           "next": "n_thanks"
         }
       ],
-      "text": "\"The Tonight Show.\" <span class=\"text-dim\">She says it flat, the way you say a thing you have said in your own head ten thousand times and out loud about twice.</span>\n\n\"Not a spot on some local hour. The proper one, with the band and the curtain and the desk. You come out from the left, and the band takes your key without being told it because they have had the chart since Tuesday, and you do your three minutes. And then he says your name, and you go and sit down on that couch like somebody who was invited.\"\n\n\"That is the whole of it. Forty years, unchanged, and it is a small dream, and I have never once managed to want a different one instead.\"\n\n<span class=\"text-dim\">She nods at the set behind the bar without looking at it.</span>\n\n\"Channel seven, seven o clock. I have it on most nights. The regulars think that is for them.\""
+      "text": "\"The Tonight Show.\" <span class=\"text-dim\">She says it flat, the way you say a thing you have said in your own head ten thousand times and out loud about twice.</span>\n\n\"Not a spot on some local hour. The proper one, with the band and the curtain and the desk. You come out from the left, and the band takes your key without being told it because they have had the chart since Tuesday, and you do your three minutes. And then he says your name, and you go and sit down on that couch like somebody who was invited.\"\n\n\"Forty years, unchanged, and it's a small dream, and I have never once managed to want a different one instead.\"\n\n<span class=\"text-dim\">She nods at the set behind the bar without looking at it.</span>\n\n\"Channel seven, seven o clock. I have it on most nights. The regulars think that's for them.\""
     },
     "n_dream2": {
       "_vine": {
@@ -362,15 +362,15 @@
       },
       "options": [
         {
-          "label": "Who is on the desk these days?",
+          "label": "Who's on the desk these days?",
           "next": "n_akerson"
         },
         {
-          "label": "I will hold you to it.",
+          "label": "I'll hold you to it.",
           "next": "n_thanks"
         }
       ],
-      "text": "\"I might, at that.\" <span class=\"text-dim\">She says it lightly, the way you agree with the weather, and goes on working.</span> \"I am four foot eleven in the wig, I am the wrong side of fifty and I smell of fryer at all times, including at funerals. None of that has ever once stopped anybody they book.\"\n\n\"They had a man on who declared his flat a sovereign country. They had the woman who does the talking for a vending machine that has killed forty people. So I am not going to stand here and tell you it could not happen, because I have watched that couch for thirty years and the bar is not high, it is just far away.\"\n\n\"I have sent them a tape twice. It is no trouble to send another one.\" <span class=\"text-dim\">She almost smiles at the pan.</span> \"Meanwhile there are people to feed and I am the one who feeds them, and that is a good day, sugar. That is genuinely a good day.\"\n\n\"But if anybody off that show ever comes through that door, I will have the guitar out from under this bar before the man has got his coat off. And I would like that on the record.\""
+      "text": "\"I might, at that.\" <span class=\"text-dim\">She says it lightly, the way you agree with the weather, and goes on working.</span> \"I'm four foot eleven in the wig, I'm the wrong side of fifty and I smell of fryer at all times, including at funerals. None of that has ever once stopped anybody they book.\"\n\n\"They had a man on who declared his flat a sovereign country. They had the woman who does the talking for a vending machine that has killed forty people. So I'm not going to stand here and tell you it couldn't happen, because I have watched that couch for thirty years and the bar isn't high, it's just far away.\"\n\n\"I have sent them a tape twice. It's no trouble to send another one.\" <span class=\"text-dim\">She almost smiles at the pan.</span> \"Meanwhile there are people to feed and I'm the one who feeds them, and that's a good day, sugar. That's genuinely a good day.\"\n\n\"But if anybody off that show ever comes through that door, I'll have the guitar out from under this bar before the man has got his coat off. And I would like that on the record.\""
     },
     "n_food": {
       "_vine": {
@@ -379,7 +379,7 @@
       },
       "options": [
         {
-          "label": "Who is Jolene?",
+          "label": "Who's Jolene?",
           "next": "n_name"
         },
         {
@@ -395,7 +395,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Macaroni. It is Tuesday, and it is macaroni on a Tuesday, and it has been for nine years.\" <span class=\"text-dim\">She lifts the corner of a foil sheet on a tray the size of a door.</span>\n\n\"There is a fry-up if you want to insult me, and bread that was yesterday and is honestly the better for it. Anything past that, you are describing a restaurant, and this is a bar with a cook in it.\""
+      "text": "\"Macaroni. It's Tuesday, and it's macaroni on a Tuesday, and it has been for nine years.\" <span class=\"text-dim\">She lifts the corner of a foil sheet on a tray the size of a door.</span>\n\n\"There's a fry-up if you want to insult me, and bread that was yesterday and is honestly the better for it. Anything past that, you're describing a restaurant, and this is a bar with a cook in it.\""
     },
     "n_free": {
       "_vine": {
@@ -412,7 +412,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"Twelve, and the first one is nothing if you have not got twelve.\" <span class=\"text-dim\">She says it fast and flat, a line she has had to say ten thousand times and has got tired of hearing herself perform.</span>\n\n\"And before you ask me how I tell. I do not. Anybody who says the words gets the plate, and about one in nine of them is at it, and one in nine is a cheaper price than making the other eight ask twice.\"\n\n\"Now. Corner or middle. The corner has the crust, the middle has the give, and there are people in this room who have stopped speaking over it.\""
+      "text": "\"Twelve, and the first one is nothing if you haven't got twelve.\" <span class=\"text-dim\">She says it fast and flat, a line she has had to say ten thousand times and has got tired of hearing herself perform.</span>\n\n\"And before you ask me how I tell. I do not. Anybody who says the words gets the plate, and about one in nine of them is at it, and one in nine is a cheaper price than making the other eight ask twice.\"\n\n\"Now. Corner or middle. The corner has the crust, the middle has the give, and there are people in this room who have stopped speaking over it.\""
     },
     "n_hair": {
       "_vine": {
@@ -421,7 +421,7 @@
       },
       "options": [
         {
-          "label": "Then what is the job?",
+          "label": "Then what's the job?",
           "next": "n_hair2"
         },
         {
@@ -429,7 +429,7 @@
           "next": "n_hair2"
         }
       ],
-      "text": "\"It is, honey, and I made it on purpose.\" <span class=\"text-dim\">She pats it without looking, the way you reassure a dog.</span>\n\n\"This is Roberta. There are four of her and three are drying. You have got a face on like you were about to be polite about it, so let me save you the trouble. Yes it is a wig, no it is not fooling anybody, and that was never the job.\""
+      "text": "\"It is, honey, and I made it on purpose.\" <span class=\"text-dim\">She pats it without looking, the way you reassure a dog.</span>\n\n\"This is Roberta. There are four of her and three are drying. You have got a face on like you were about to be polite about it, so let me save you the trouble. Yes it's a wig, no it isn't fooling anybody, and that was never the job.\""
     },
     "n_hair2": {
       "_vine": {
@@ -438,7 +438,7 @@
       },
       "options": [
         {
-          "label": "That is the most honest thing I have heard all week.",
+          "label": "That's the most honest thing I have heard all week.",
           "next": "n_thanks"
         },
         {
@@ -446,7 +446,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The job is that you can find me.\" <span class=\"text-dim\">She goes back to the pass.</span> \"Room full of grey coats and one big blonde ridiculous thing at the end of the bar. Somebody who has not eaten in two days has about that much deciding left in them, and I would rather they spent it walking at me than working out which of us to ask.\"\n\n\"It is also a kitchen wig, which nobody thinks about. Real hair over a fryer smells like a house fire by Thursday. This one goes on a block and gets washed. Two hours and a good mirror, and I have never once been embarrassed about it. Everybody in this basin is wearing something, sugar. Mine just takes pins.\""
+      "text": "\"The job is that you can find me.\" <span class=\"text-dim\">She goes back to the pass.</span> \"Room full of grey coats and one big blonde ridiculous thing at the end of the bar. Somebody who hasn't eaten in two days has about that much deciding left in them, and I would rather they spent it walking at me than working out which of us to ask.\"\n\n\"It's also a kitchen wig, which nobody thinks about. Real hair over a fryer smells like a house fire by Thursday. This one goes on a block and gets washed. Two hours and a good mirror, and I have never once been embarrassed about it. Everybody in this basin is wearing something, sugar. Mine just takes pins.\""
     },
     "n_help": {
       "_vine": {
@@ -472,7 +472,7 @@
           "next": "root"
         }
       ],
-      "text": "\"You can, and here is the whole of the training.\" <span class=\"text-dim\">She points with the spoon: the sink, then the trays, then the room.</span> \"Wash your hands. Carry it flat. Do not ask anybody a single question about themselves.\"\n\n\"That last one is the job, sugar. Anybody can carry a tray. Not everybody can stand there and not want the story.\""
+      "text": "\"You can, and here is the whole of the training.\" <span class=\"text-dim\">She points with the spoon: the sink, then the trays, then the room.</span> \"Wash your hands. Carry it flat. Don't ask anybody a single question about themselves.\"\n\n\"That last one is the job, sugar. Anybody can carry a tray. Not everybody can stand there and not want the story.\""
     },
     "n_mac": {
       "_vine": {
@@ -505,7 +505,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Now you have got me on the actual job, and I will stand here and bore you flat about it.\" <span class=\"text-dim\">The spoon goes down for the first time in the conversation.</span>\n\n\"Macaroni and cheese is poor food that got above itself, and it should have. It is a box of elbows and whatever cheese did not survive the week, and done properly it will make a grown docker go quiet and put his fork down between bites, which is the only review I have ever wanted.\""
+      "text": "\"Now you have got me on the actual job, and I'll stand here and bore you flat about it.\" <span class=\"text-dim\">The spoon goes down for the first time in the conversation.</span>\n\n\"Macaroni and cheese is poor food that got above itself, and it should have. It's a box of elbows and whatever cheese didn't survive the week, and done properly it'll make a grown docker go quiet and put his fork down between bites, which is the only review I have ever wanted.\""
     },
     "n_mac_again": {
       "_vine": {
@@ -528,7 +528,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"Butter the tray. Elbows boiled short and drained. Eggs into the milk with mustard, salt and melted butter. Three cheeses mixed together first. Layered, not stirred. Custard through it, cheese on top, moderate oven until it browns. Ten minutes standing.\" <span class=\"text-dim\">She rattles it off without looking up, the way other people give a door code.</span>\n\n\"There. Twice now. If it went wrong the first time it was the ten minutes. It is always the ten minutes, and I am not going to be nice about it a third go.\"\n\n\"And you are buying your own cheese this time.\""
+      "text": "\"Butter the tray. Elbows boiled short and drained. Eggs into the milk with mustard, salt and melted butter. Three cheeses mixed together first. Layered, not stirred. Custard through it, cheese on top, moderate oven until it browns. Ten minutes standing.\" <span class=\"text-dim\">She rattles it off without looking up, the way other people give a door code.</span>\n\n\"There. Twice now. If it went wrong the first time it was the ten minutes. It's always the ten minutes, and I'm not going to be nice about it a third go.\"\n\n\"And you're buying your own cheese this time.\""
     },
     "n_mac_teach": {
       "_vine": {
@@ -575,7 +575,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"Three cheeses. Not one, and do not stand there telling me one is nearly three.\" <span class=\"text-dim\">She holds up fingers as she goes, and the fingers are the only part of her that hurries.</span> \"A sharp one for the argument, a soft one for the pull, and one of those orange bricks that is legally not cheese, because it melts smooth and the other two will not. Every snob who has laughed at me over the brick has come back for a second square.\"\n\n\"Butter the tray before you do one other thing. Corners and all. That is the difference between serving it and chiselling it out.\"\n\n\"Then a pot of water at the tap, salted like you mean it, and a slug of oil in. Elbows in, and you take them out early. Seven minutes, while they have still got fight in them, and drain them. They have most of an hour in that oven ahead of them, and soft macaroni is a thing you did on purpose.\"\n\n\"Eggs beaten into the milk while that is going. Mustard powder and salt through it, the butter melted in last, and a spoon of cream if the week has been kind. You will not taste the mustard, sugar. It is not in there to be tasted, it is in there to wake the cheese up. That custard is the whole trick. It is what makes it cut into squares instead of running off the spoon like a soup with ideas.\"\n\n\"All three cheeses mixed together in a bowl before a scrap of it goes near the tray, or somebody gets a square that is only the cheap one.\"\n\n\"Now layer it, in halves. Elbows, cheese, elbows. Do not stir it into one thing, honey, the layers are the entire point. Custard down through it slow, until it comes up level. Last of the cheese over the top.\"\n\n\"Moderate oven, forty minutes, until the top browns and the middle quits wobbling. And then you let it stand ten minutes, which is harder than every other step laid end to end, and it is the one everybody skips, and it is exactly why theirs runs off the plate.\"\n\n<span class=\"text-dim\">She pushes a box and a block across the pass and has turned back to the oven before you can get a hand up.</span>\n\n\"Take those. You are not making it out of air and good intentions.\""
+      "text": "\"Three cheeses. Not one, and don't stand there telling me one is nearly three.\" <span class=\"text-dim\">She holds up fingers as she goes, and the fingers are the only part of her that hurries.</span> \"A sharp one for the argument, a soft one for the pull, and one of those orange bricks that's legally not cheese, because it melts smooth and the other two will not. Every snob who has laughed at me over the brick has come back for a second square.\"\n\n\"Butter the tray before you do one other thing. Corners and all. Miss them and you'll be chiselling it out of the tray.\"\n\n\"Then a pot of water at the tap, salted like you mean it, and a slug of oil in. Elbows in, and you take them out early. Seven minutes, while they have still got fight in them, and drain them. They have most of an hour in that oven ahead of them, and soft macaroni is a thing you did on purpose.\"\n\n\"Eggs beaten into the milk while that's going. Mustard powder and salt through it, the butter melted in last, and a spoon of cream if the week has been kind. You won't taste the mustard, sugar. It isn't in there to be tasted, it's in there to wake the cheese up. That custard is what makes it cut into squares instead of running off the spoon like a soup with ideas.\"\n\n\"All three cheeses mixed together in a bowl before a scrap of it goes near the tray, or somebody gets a square that's only the cheap one.\"\n\n\"Now layer it, in halves. Elbows, cheese, elbows. Don't stir it into one thing, honey, keep the layers separate. Custard down through it slow, until it comes up level. Last of the cheese over the top.\"\n\n\"Moderate oven, forty minutes, until the top browns and the middle quits wobbling. And then you let it stand ten minutes, which is harder than every other step laid end to end, and it's the one everybody skips, and it's exactly why theirs runs off the plate.\"\n\n<span class=\"text-dim\">She pushes a box and a block across the pass and has turned back to the oven before you can get a hand up.</span>\n\n\"Take those. You aren't making it out of air and good intentions.\""
     },
     "n_name": {
       "_vine": {
@@ -593,7 +593,7 @@
           "next": "n_why"
         },
         {
-          "label": "That is a good reason.",
+          "label": "That's a good reason.",
           "next": "n_thanks"
         },
         {
@@ -601,7 +601,7 @@
           "next": "n_food"
         }
       ],
-      "text": "\"After the woman who had this kitchen before I did.\" <span class=\"text-dim\">She does not look up at the sign. She has not looked up at that sign in years.</span>\n\n\"Everybody in here assumes it is a song, or a girl somebody lost, and I have stopped correcting them because the truth is duller and better. Jolene fed this street for thirty-one years out of a room four steps wide, and when she went there was nothing with her name on it anywhere in this city. So I put it over the door and I have never once thought about taking it down.\"\n\n\"The apostrophe burnt out in 63 and I have left it. She would have found that funnier than I do.\""
+      "text": "\"After the woman who had this kitchen before I did.\" <span class=\"text-dim\">She doesn't look up at the sign. She hasn't looked up at that sign in years.</span>\n\n\"Everybody in here assumes it's a song, or a girl somebody lost, and I have stopped correcting them because the truth is duller and better. Jolene fed this street for thirty-one years out of a room four steps wide, and when she went there was nothing with her name on it anywhere in this city. So I put it over the door and I have never once thought about taking it down.\"\n\n\"The apostrophe burnt out in 63 and I have left it. She would have found that funnier than I do.\""
     },
     "n_songs": {
       "_vine": {
@@ -619,11 +619,11 @@
           "next": "n_tapes"
         },
         {
-          "label": "Nine is not bad.",
+          "label": "Nine isn't bad.",
           "next": "n_thanks"
         }
       ],
-      "text": "\"Mine. Written on the backs of the ration invoices, which is the only paper this building has a surplus of.\" <span class=\"text-dim\">She pulls one out of the apron to prove it. There is a verse down the side of a delivery schedule for tinned milk.</span>\n\n\"Eleven hundred of them, near enough. Most are bad, and that is not modesty, that is arithmetic. Write eleven hundred of anything and about nine are worth the walk.\"\n\n\"But they are mine. Every one. Nobody has a claim on a single line of it, and there is a reason I say it that way.\""
+      "text": "\"Mine. Written on the backs of the ration invoices, because this building has more of those than it has paper.\" <span class=\"text-dim\">She pulls one out of the apron to prove it. There's a verse down the side of a delivery schedule for tinned milk.</span>\n\n\"Eleven hundred of them, near enough. Most are bad, and that isn't modesty, that's arithmetic. Write eleven hundred of anything and about nine are worth the walk.\"\n\n\"But they're mine. Every one. Nobody has a claim on a single line of it, and there's a reason I say it that way.\""
     },
     "n_stage": {
       "_vine": {
@@ -632,11 +632,11 @@
       },
       "options": [
         {
-          "label": "You are wasted in a kitchen.",
+          "label": "You're wasted in a kitchen.",
           "next": "n_stage2"
         },
         {
-          "label": "Twenty minutes is not much.",
+          "label": "Twenty minutes isn't much.",
           "next": "n_stage2"
         },
         {
@@ -644,7 +644,7 @@
           "next": "n_songs"
         }
       ],
-      "text": "\"I do, and it is the best twenty minutes of my week, and I will not be talked out of saying so.\" <span class=\"text-dim\">She is delighted you asked. She does not stop scraping, but she is delighted.</span>\n\n\"Late on, when the tray is out and there is nobody left needing feeding, the apron comes off and I do three. My own, mostly. Then it goes back on and I am at the oven before the knot is done, because the oven does not care what I have just been doing.\"\n\n\"Do not go planning your evening round it, sugar. It happens when it happens.\""
+      "text": "\"I do, and it's the best twenty minutes of my week, and I won't be talked out of saying so.\" <span class=\"text-dim\">She's delighted you asked. She doesn't stop scraping, but she's delighted.</span>\n\n\"Late on, when the tray is out and there's nobody left needing feeding, the apron comes off and I do three. My own, mostly. Then it goes back on and I'm at the oven before the knot is done, because the oven doesn't care what I have just been doing.\"\n\n\"Don't go planning your evening round it, sugar. It happens when it happens.\""
     },
     "n_stage2": {
       "_vine": {
@@ -665,7 +665,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Oh, now.\" <span class=\"text-dim\">She waves that away with the spoon, pleased and entirely unbothered.</span> \"Nobody is wasted who is feeding people. I love the work, honey. Forty of them fed and not one of them thinking about it, which is the whole art of the thing: if they notice the food, something has gone wrong somewhere.\"\n\n<span class=\"text-dim\">She turns a wrist over to show two shiny old burns across the inside of it, and turns it straight back.</span>\n\n\"I have been good at this since I was nineteen and I will be good at it when I cannot stand up straight. It was just never the first thing, and I have made my peace with that so thoroughly that people find it disappointing. You can love the second thing your whole life. Most do. Ask anybody in this room what they meant to be and then watch how fast they answer.\""
+      "text": "\"Oh, now.\" <span class=\"text-dim\">She waves that away with the spoon, pleased and entirely unbothered.</span> \"Nobody is wasted who's feeding people. I love the work, honey. Forty of them fed and not one of them thinking about it. If they notice the food, something has gone wrong somewhere.\"\n\n<span class=\"text-dim\">She turns a wrist over to show two shiny old burns across the inside of it, and turns it straight back.</span>\n\n\"I have been good at this since I was nineteen and I'll be good at it when I can't stand up straight. It was just never the first thing, and I have made my peace with that so thoroughly that people find it disappointing. You can love the second thing your whole life. Most do. Ask anybody in this room what they meant to be and then watch how fast they answer.\""
     },
     "n_tapes": {
       "_vine": {
@@ -682,7 +682,7 @@
           "next": "n_mac"
         }
       ],
-      "text": "\"Because a man in a good coat owns the tape and I own the song, and everybody who explained the difference to me at the time was lying.\" <span class=\"text-dim\">She is not angry about it. She sounds like somebody describing the weather in a country she left.</span>\n\n\"He can run that half hour every night until the sun gives out and he will not make a chip on it, because nobody remembers a Thursday. And every time somebody hums the chorus in a queue, that is mine, and there is no coat in this city clever enough to get at it.\"\n\n\"So here is the only advice I have that is worth what you paid. Whatever you make, keep the words. They will always come for the tape. Let them have the tape.\""
+      "text": "\"Because a man in a good coat owns the tape and I own the song, and everybody who explained the difference to me at the time was lying.\" <span class=\"text-dim\">She isn't angry about it. She sounds like somebody describing the weather in a country she left.</span>\n\n\"He can run that half hour every night until the sun gives out and he won't make a chip on it, because nobody remembers a Thursday. And every time somebody hums the chorus in a queue, that's mine, and there's no coat in this city clever enough to get at it.\"\n\n\"So here is the only advice I have that's worth what you paid. Whatever you make, keep the words. They'll always come for the tape. Let them have the tape.\""
     },
     "n_thanks": {
       "_vine": {
@@ -695,7 +695,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Go on, then.\" <span class=\"text-dim\">The spoon is already back in the pan.</span>\n\n\"And eat something before you go out that door. I have never once been wrong about who needs feeding, and I am not starting with you.\""
+      "text": "\"Go on, then.\" <span class=\"text-dim\">The spoon is already back in the pan.</span>\n\n\"And eat something before you go out that door. I have never once been wrong about who needs feeding, and I'm not starting with you.\""
     },
     "n_who": {
       "_vine": {
@@ -717,7 +717,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Everybody, eventually.\" <span class=\"text-dim\">She counts them off on the spoon.</span> \"Dock crews coming off nights, who eat like it is a job. Two women from the laundry who have never once spoken to each other in here and are perfectly friendly out on the step. A man who comes in the coat of a job he has not had in four years, and buttons it.\"\n\n\"And the kids, in the afternoon, before the drinking starts. Those I sit with.\""
+      "text": "\"Everybody, eventually.\" <span class=\"text-dim\">She counts them off on the spoon.</span> \"Dock crews coming off nights, who eat like it's a job. Two women from the laundry who have never once spoken to each other in here and are perfectly friendly out on the step. A man who comes in the coat of a job he hasn't had in four years, and buttons it.\"\n\n\"And the kids, in the afternoon, before the drinking starts. Those I sit with.\""
     },
     "n_why": {
       "_vine": {
@@ -726,11 +726,11 @@
       },
       "options": [
         {
-          "label": "I will make it properly.",
+          "label": "I'll make it properly.",
           "next": "n_thanks"
         }
       ],
-      "text": "\"Because a recipe you keep to yourself dies in the room with you, and I have watched that happen to a better cook than me.\" <span class=\"text-dim\">She wipes the pass down in one long pass of the cloth.</span>\n\n\"Jolene made a fish pie people in this street talked about for years afterwards and nobody has ever made since, because she held onto it. Thought it was the one thing she had that could not be taken off her. And she was right. And then it went anyway, because that is what a held thing does.\"\n\n\"Songs you keep. Recipes you hand out. It took me a while to learn which was which, and I had it the wrong way round for about ten years.\""
+      "text": "\"Because a recipe you keep to yourself dies in the room with you, and I have watched that happen to a better cook than me.\" <span class=\"text-dim\">She wipes the pass down in one long pass of the cloth.</span>\n\n\"Jolene made a fish pie people in this street talked about for years afterwards and nobody has ever made since, because she held onto it. Thought it was the one thing she had that couldn't be taken off her. And she was right. And then it went anyway, because that's what a held thing does.\"\n\n\"Songs you keep. Recipes you hand out. It took me a while to learn which was which, and I had it the wrong way round for about ten years.\""
     },
     "root": {
       "_vine": {
@@ -739,7 +739,7 @@
       },
       "options": [
         {
-          "label": "What is on tonight?",
+          "label": "What's on tonight?",
           "next": "n_food"
         },
         {
@@ -779,10 +779,10 @@
       ],
       "text": "\"Kitchen shuts when the tray is out and not one minute before it.\" <span class=\"text-dim\">She says it to the pass rather than to you, and goes on scraping.</span>\n\n\"Have you eaten today, or are you going to lie to me about it?\"",
       "text_by_relation": {
-        "close": "<span class=\"text-dim\">She is singing something quiet at the extractor hood when you come in, and she does not stop, she just changes who it is aimed at.</span>\n\n\"Now there is a face.\" <span class=\"text-dim\">The spoon goes down. That is the whole ceremony.</span> \"Sit. You are eating. We are not discussing it.\"",
-        "familiar": "\"In, in, mind the wet.\" <span class=\"text-dim\">She has a plate down on the pass before you have said anything at all.</span>\n\n\"You have got a look on you. That is either money or a woman, and I have got supper for one of those.\"",
-        "first": "A short, wide woman in a platinum wig you could see from the road is working the pass at the end of the bar, and she has clocked you before the door has shut.\n\n\"Well, hello.\" <span class=\"text-dim\">She looks you over once, fast, the way you look at a pan.</span> \"You are either hungry or you are thirsty, and I can do you both, though only one of them is my department.\"\n\n\"Molly Darton. Two syllables each, and neither of them was on my birth certificate, so do not go looking. Sit anywhere that is not the stage.\"",
-        "known": "\"There you are.\" <span class=\"text-dim\">She taps the spoon twice on the rim of the pan, which is apparently how she punctuates.</span> \"I put a corner piece by for you. Do not tell this room, they are animals.\""
+        "close": "<span class=\"text-dim\">She's singing something quiet at the extractor hood when you come in, and she doesn't stop, she just changes who it's aimed at.</span>\n\n\"Now there's a face.\" <span class=\"text-dim\">The spoon goes down. That's the whole ceremony.</span> \"Sit. You're eating. We aren't discussing it.\"",
+        "familiar": "\"In, in, mind the wet.\" <span class=\"text-dim\">She has a plate down on the pass before you have said anything at all.</span>\n\n\"You have got a look on you. That's either money or a woman, and I have got supper for one of those.\"",
+        "first": "A short, wide woman in a platinum wig you could see from the road is working the pass at the end of the bar, and she has clocked you before the door has shut.\n\n\"Well, hello.\" <span class=\"text-dim\">She looks you over once, fast, and evidently reaches a verdict.</span> \"You're either hungry or you're thirsty, and I can do you both, though only one of them is my department.\"\n\n\"Molly Darton. Two syllables each, and neither of them was on my birth certificate, so don't go looking. Sit anywhere that isn't the stage.\"",
+        "known": "\"There you are.\" <span class=\"text-dim\">She taps the spoon twice on the rim of the pan, which is apparently how she punctuates.</span> \"I put a corner piece by for you. Don't tell this room, they're animals.\""
       }
     },
     "shop": {
@@ -802,7 +802,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Food is mine, drink is whatever is still standing behind me. Cash, and no, you cannot run a tab, three people ruined that for everybody in 61.\""
+      "text": "\"Food is mine, drink is whatever is still standing behind me. Cash, and no, you can't run a tab, three people ruined that for everybody in 61.\""
     }
   },
   "faction": null,

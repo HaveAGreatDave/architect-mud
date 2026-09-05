@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The east end of the street, where the boardwalk stops and the motel throws its porch light out over the dirt whether anyone is coming or not. Someone has scratched a tally into the corner post, hundreds of marks, and then scratched most of it out again. The scrub starts eight feet away and does not care that the town is here.",
+  "description": "The east end of the street, where the boardwalk stops and the motel throws its porch light out over the dirt whether anyone is coming or not. Someone has scratched a tally into the corner post, hundreds of marks, and then scratched most of it out again. The scrub starts eight feet away and doesn't care that the town is here.",
   "exits": {
     "east": "zone_the_reach_874_1955",
     "north": "zone_the_reach_873_1954",

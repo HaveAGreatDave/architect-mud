@@ -134,7 +134,7 @@ export default async function regress({ check, getPlayer }) {
     check(`${type} is benign`, p.benign === true);
     check(`${type} carries no severity`, p.severity === 0, `${p.severity}`);
   }
-  check('a storm is not benign', heroEventPresentation('ion_storm').benign === false);
+  check("a storm isn't benign", heroEventPresentation('ion_storm').benign === false);
 
   // ── Every phase is written from BOTH vantages ──────────────────────────────
   // The announce is a thing you are LOOKING AT, and it used to go to everybody —
@@ -232,7 +232,7 @@ export default async function regress({ check, getPlayer }) {
   check('bare skin has no acid cover', p.acidCover === 0);
 
   await recomputeInsulation(p, [coat]);
-  check('ordinary clothing is not acid cover', p.acidCover === 0, 'any torso layer must not count as protection');
+  check("ordinary clothing isn't acid cover", p.acidCover === 0, 'any torso layer must not count as protection');
 
   await recomputeInsulation(p, [slicker]);
   check('a slicker alone is partial cover', p.acidCover > 0 && p.acidCover < 1, `${p.acidCover}`);

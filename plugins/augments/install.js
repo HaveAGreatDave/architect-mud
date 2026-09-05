@@ -128,18 +128,18 @@ export function bandFor(margin) {
  */
 const BAND_LINES = {
   licensed: {
-    flawless: name => `${name} works without hurrying and without a wasted movement: a low room, cool light, somebody whose whole job is watching your numbers. You are under before you have finished being nervous, and up before the anaesthetic has finished being interesting. It seats like it grew there.`,
+    flawless: name => `${name} works without hurrying and without a wasted movement: a low room, cool light, somebody whose whole job is watching your numbers. You're under before you have finished being nervous, and up before the anaesthetic has finished being interesting. It seats like it grew there.`,
     clean:    name => `${name} does clean work in a clean room. You wake to a warm blanket and a glass of water already poured, and the soreness has been anticipated and medicated before you noticed it was coming.`,
-    sound:    name => `${name} takes longer than the estimate and says so, which is itself a kind of service. It is in, it works, and somebody sits with you until the shaking stops.`,
-    rough:    name => `${name} goes back in a second time, and the room gets quieter in the way expensive rooms do when something is not going to plan. It is seated. It is not seated WELL, and everyone present knows it.`,
-    botched:  name => `${name} steps back too early and does not meet your eye. There is a form to sign. The language on it is beautiful and it says, at length, that nothing here was anybody's fault. Something in there is not sitting square, and it never will.`,
+    sound:    name => `${name} takes longer than the estimate and says so, which is itself a kind of service. It's in, it works, and somebody sits with you until the shaking stops.`,
+    rough:    name => `${name} goes back in a second time, and the room gets quieter in the way expensive rooms do when something isn't going to plan. It's seated. It isn't seated WELL, and everyone present knows it.`,
+    botched:  name => `${name} steps back too early and doesn't meet your eye. There's a form to sign. The language on it's beautiful and it says, at length, that nothing here was anybody's fault. Something in there isn't sitting square, and it never will.`,
   },
   unlicensed: {
-    flawless: name => `${name} does it on a folding table under a work lamp, humming, and does it perfectly. Some hands do not need a building around them.`,
+    flawless: name => `${name} does it on a folding table under a work lamp, humming, and does it perfectly. Some hands don't need a building around them.`,
     clean:    name => `${name} works fast and talks the whole way through, which turns out to be the anaesthetic. Cleaner than the room deserved.`,
-    sound:    name => `${name} gets it in. It is in, it works, and you were awake for a good deal more of that than you wanted to be.`,
-    rough:    name => `${name} swears twice and goes back in with the same tool. It is seated. It is not seated WELL.`,
-    botched:  name => `${name} stops, looks at it, and shrugs, an actual shrug, in front of you. Something in there is not sitting square, and it never will. There is no form to sign because there is no one to sign it to.`,
+    sound:    name => `${name} gets it in. It's in, it works, and you were awake for a good deal more of that than you wanted to be.`,
+    rough:    name => `${name} swears twice and goes back in with the same tool. It's seated. It isn't seated WELL.`,
+    botched:  name => `${name} stops, looks at it, and shrugs, an actual shrug, in front of you. Something in there isn't sitting square, and it never will. There's no form to sign because there's no one to sign it to.`,
   },
 };
 
@@ -218,7 +218,7 @@ export async function installAugment(rest, player) {
     // "Not this one yet" means keep climbing; "not any of this yet" means you
     // have not joined, and a player who conflates them wastes a week.
     return { type: 'error', message: pieceRank <= floorRank
-      ? `Chrome is not something you buy your way into. The Ascendants fit their own, `
+      ? `Chrome isn't something you buy your way into. The Ascendants fit their own, `
         + `and nobody here knows you well enough to open you up. Do their work first.`
       : `${aug.name} is reserved for those the Ascendants trust (${gate?.label || 'higher standing'}). Raise your standing first.` };
   }
@@ -229,8 +229,8 @@ export async function installAugment(rest, player) {
   // going to buy. Same reasoning as mastery checking the metal before the
   // vouching, and it is why this sits above the surgeon and the quote.
   if (Number(await getFlag('player', ASC_ARC_FLAG, player)) < MIN_ARC_SLOT) {
-    return { type: 'error', message: 'The theatre is not open to you. The Ascendants fit their own, and finishing what they asked of you is what makes you one.'
-      + '\n<span class="text-dim">"Come back when it is done. I will not ask you twice, and I will not ask you for anything else either."</span>' };
+    return { type: 'error', message: "The theatre isn't open to you. The Ascendants fit their own, and finishing what they asked of you is what makes you one."
+      + '\n<span class="text-dim">"Come back when it\'s done. I won\'t ask you twice, and I won\'t ask you for anything else either."</span>' };
   }
 
   // The hardware itself must be in your hands. This is the whole point of the
@@ -276,12 +276,12 @@ export async function installAugment(rest, player) {
       pendingFirst.set(player.id, Date.now());
       return { type: 'output', message: [
         '<span class="hdr">THE FIRST ONE</span>',
-        `<span class="ambient">${surgeon.name} has the piece in one hand and has not started yet.</span>`,
+        `<span class="ambient">${surgeon.name} has the piece in one hand and hasn't started yet.</span>`,
         '',
-        '<span class="dmg-taken">This is the one that cannot be undone.</span>',
-        '<span class="text-dim">The hardware itself comes out again; anyone licensed can pull it. What does not come out is that you were opened. The flesh path shuts today, whatever you are carrying in it burns off on the table, and the orders who care about that will know inside a minute of meeting you.</span>',
-        '<span class="text-dim">The Watch will teach you nothing after this. The Wildblood will not have you. Your standing with the Ascendants stops being a thing you can lose, and stops being a thing you can put down.</span>',
-        '<span class="text-dim">One way back, and it is the Exodus taking out everything Halcyon ever put in.</span>',
+        '<span class="dmg-taken">This is the one that can\'t be undone.</span>',
+        '<span class="text-dim">The hardware itself comes out again; anyone licensed can pull it. What doesn\'t come out is that you were opened. The flesh path shuts today, whatever you\'re carrying in it burns off on the table, and the orders who care about that will know inside a minute of meeting you.</span>',
+        '<span class="text-dim">The Watch will teach you nothing after this. The Wildblood won\'t have you. Your standing with the Ascendants stops being a thing you can lose, and stops being a thing you can put down.</span>',
+        '<span class="text-dim">One way back, and it\'s the Exodus taking out everything Halcyon ever put in.</span>',
         '',
         `<span class="text-dim">\`augment install ${aug.name.toLowerCase()}\` again within thirty seconds to go through with it.</span>`,
       ].join('<br>') };
@@ -305,10 +305,10 @@ export async function installAugment(rest, player) {
       });
     }
     const line = aug.failure_messages?.dead
-      || `${aug.name} comes apart under the light. Whatever it was, it is scrap now.`;
+      || `${aug.name} comes apart under the light. Whatever it was, it's scrap now.`;
     return { type: 'error', message:
       `<span class="text-red">${line}</span>\n`
-      + `${surgeon.name} does not look at you. ₵${cost} is gone and so is the hardware.` };
+      + `${surgeon.name} doesn't look at you. ₵${cost} is gone and so is the hardware.` };
   }
 
   const band = complicated && margin >= INSTALL_BANDS[3].min
@@ -352,7 +352,7 @@ export async function installAugment(rest, player) {
   if (wasFirst) {
     await setFlag('player', 'chromed_ever', '1', player);
     const n = await burnAllMutations(player);
-    if (n) burnLine = `\n<span style="opacity:.8">The needle finds the old flesh-code and overwrites it. ${n} mutation${n > 1 ? 's' : ''} slough away. Chrome and mutation cannot share a body.</span>`;
+    if (n) burnLine = `\n<span style="opacity:.8">The needle finds the old flesh-code and overwrites it. ${n} mutation${n > 1 ? 's' : ''} slough away. Chrome and mutation can't share a body.</span>`;
   }
 
   await dispatchAction({ type: 'ADJUST_PATH', actor: player, params: { path: 'machine', delta: PATH_GAIN } });
@@ -372,7 +372,7 @@ export async function installAugment(rest, player) {
   });
 
   const capNote = band.id === 'botched'
-    ? `\n<span class="text-red">It will never tune past ${BOTCHED_CALIBRATION_CAP}%. That is not something a better technician can fix.</span>`
+    ? `\n<span class="text-red">It'll never tune past ${BOTCHED_CALIBRATION_CAP}%. That isn't something a better technician can fix.</span>`
     : '';
   return { type: 'augments', message:
     `${bandLine(band.id, surgeon)(surgeon.name)}\n\n`
@@ -435,10 +435,10 @@ export async function removeAugment(rest, player) {
     await giveItemRow(player.id, aug.item_id, { condition: rec.condition * band.keep });
     back = band.id === 'clean'
       ? `\n${aug.name} goes into a tray, still worth something.`
-      : `\n${aug.name} comes out in worse shape than it went in. It will need work before anybody fits it again.`;
+      : `\n${aug.name} comes out in worse shape than it went in. It'll need work before anybody fits it again.`;
   } else if (aug.salvage_item_id) {
     await giveItemRow(player.id, aug.salvage_item_id, { condition: 0.2, customData: { ruined: true, from_augment: aug.id } });
-    back = `\n<span class="text-red">${surgeon.name} gets it out of you in pieces. It is scrap.</span>`;
+    back = `\n<span class="text-red">${surgeon.name} gets it out of you in pieces. It's scrap.</span>`;
   }
 
   // The machine-path nudge reverses; the standing you burned with the human
@@ -496,7 +496,7 @@ export async function repairAugment(rest, player) {
   return { type: 'output', message:
     `${surgeon.name} opens you up and works. ₵${cost}.\n`
     + `<span class="zone-name">${aug.name}</span> — condition ${Math.round(before * 100)}% → <b>${Math.round(rec.condition * 100)}%</b> (${band?.label || band?.id}).\n`
-    + `<span style="opacity:.7">Calibration is untouched. Physically sound is not the same as tuned.</span>` };
+    + `<span style="opacity:.7">Calibration is untouched. Physically sound isn't the same as tuned.</span>` };
 }
 
 // --- the quote, before you commit ------------------------------------------
@@ -520,7 +520,7 @@ export async function quoteInstall(rest, player) {
   const itemCondition = row ? (row.condition == null ? 1 : Number(row.condition)) : 1;
 
   let msg = `<span class="skills-header">FITTING — ${aug.name.toUpperCase()}</span>\n\n`;
-  if (!row) msg += `<span class="outcast-warning">You are not carrying the hardware. These are prices, not appointments.</span>\n\n`;
+  if (!row) msg += `<span class="outcast-warning">You aren't carrying the hardware. These are prices, not appointments.</span>\n\n`;
   // Sorted best-hands-first. A quote sheet is a sales document and the house
   // always leads with the thing it would rather you bought.
   for (const s of [...all].sort((a, b) => b.skill - a.skill)) {
@@ -542,6 +542,6 @@ export async function quoteInstall(rest, player) {
         +  `  Fee: <span class="credits">₵${cost}</span>\n\n`;
   }
   msg += `<span style="opacity:.7">augment install ${aug.name} with &lt;name&gt;</span>\n`
-      +  `<span style="opacity:.55">The fee buys the attempt, not the outcome. It is taken either way.</span>`;
+      +  `<span style="opacity:.55">The fee buys the attempt, not the outcome. It's taken either way.</span>`;
   return { type: 'output', message: msg };
 }

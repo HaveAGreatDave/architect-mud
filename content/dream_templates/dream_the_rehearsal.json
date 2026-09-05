@@ -1,11 +1,11 @@
 {
   "ambient": [
     "A cue comes round and passes.",
-    "Somebody in the wings mouths something helpful and it is not words.",
-    "The audience settles the way an audience settles when it is going well."
+    "Somebody in the wings mouths something helpful and it isn't words.",
+    "The audience settles the way an audience settles when it's going well."
   ],
   "cause": "dream",
-  "description": "A stage, mid-run, and you are on. The others are doing it well and have done it many times. Your part is substantial. They pause where your lines go and then carry on generously, covering, in a way that is becoming its own performance.",
+  "description": "A stage, mid-run, and you're on. The others are doing it well and have done it many times. Your part is substantial. They pause where your lines go and then carry on generously, covering, in a way that's becoming its own performance.",
   "drug_id": null,
   "fx": "fog",
   "fx_intensity": 0.5,
@@ -15,8 +15,8 @@
     {
       "looks": [
         "Word perfect. They have been carrying this section for a while.",
-        "One of them takes your line and gives it a reading you would not have chosen.",
-        "They are pleased to see you and have not broken character to be."
+        "One of them takes your line and gives it a reading you wouldn't have chosen.",
+        "They're pleased to see you and haven't broken character to be."
       ],
       "name": "the others"
     },

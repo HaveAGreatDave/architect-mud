@@ -1,5 +1,5 @@
 {
   "id": "dtt_npc_042",
   "kind": "npc",
-  "line": "You have been apologising to {value} for some time, and you cannot hear what you are saying."
+  "line": "You have been apologising to {value} for some time, and you can't hear what you're saying."
 }

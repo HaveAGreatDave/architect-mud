@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#24211c",
   "color": "#c9a86a",
-  "description": "Inside, it is one room and most of it is floor. A pit with a plank over it, a bench down one wall under a rack of things that were taken off something and never went back on, and a paraffin heater nobody lights. The freight board is a sheet of ply with nails in it. Prices are chalked on the ply itself, rubbed out and rewritten so many times the board is grey.",
+  "description": "Inside, it's one room and most of it's floor. A pit with a plank over it, a bench down one wall under a rack of things that were taken off something and never went back on, and a paraffin heater nobody lights. The freight board is a sheet of ply with nails in it. Prices are chalked on the ply itself, rubbed out and rewritten so many times the board is grey.",
   "exits": {
     "down": "zone_util_zone_yard_lastload",
     "east": "zone_bunk_lastload",

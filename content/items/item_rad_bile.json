@@ -1,10 +1,10 @@
 {
-  "description": "Drawn off something that had been eating the ash field for years. It is faintly warm and it is faintly lit, and the chem trade will take all of it you can carry.",
+  "description": "Drawn off something that had been eating the ash field for years. It's faintly warm and it's faintly lit, and the chem trade will take all of it you can carry.",
   "flags": {},
   "id": "item_rad_bile",
   "name": "flask of rad bile",
   "tags": {
-    "description": "Drawn off something that had been eating the ash field for years. It is faintly warm and it is faintly lit, and the chem trade will take all of it you can carry.",
+    "description": "Drawn off something that had been eating the ash field for years. It's faintly warm and it's faintly lit, and the chem trade will take all of it you can carry.",
     "reagent": true,
     "stackable": true
   },

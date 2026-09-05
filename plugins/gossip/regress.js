@@ -30,7 +30,7 @@ export default async function regress({ run, check, getPlayer }) {
   // planted rumours never coalesce — each is a distinct claim
   pool.plant({ text: 'same lie', zoneId: 'zone_ctest', truth: 0.5, subjectName: 'x' });
   pool.plant({ text: 'same lie', zoneId: 'zone_ctest', truth: 0.5, subjectName: 'x' });
-  check('planted rumours do not coalesce', pool.all().filter(i => i.category === 'rumor' && i.vars?.text === 'same lie').length === 2, 'two plants → two items');
+  check("planted rumours don't coalesce", pool.all().filter(i => i.category === 'rumor' && i.vars?.text === 'same lie').length === 2, 'two plants → two items');
 
   // weather gossip is capped at 5 concurrent items (distinct areas, so no coalescing)
   for (let i = 0; i < 6; i++) pool.addItem({ templateKey: 'storm', category: 'world', heat: 0.45, capGroup: 'weather', zoneId: `zone_w${i}`, coalesceKey: `storm|area${i}` });

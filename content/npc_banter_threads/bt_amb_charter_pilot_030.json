@@ -2,10 +2,10 @@
   "enabled": true,
   "id": "bt_amb_charter_pilot_030",
   "lines": [
-    "\"Ever had a passenger ask if it is safe?\"",
+    "\"Ever had a passenger ask if it's safe?\"",
     "\"Every single flight.\"",
     "\"What do you tell them?\"",
-    "\"I tell them I am on it too. That does most of the work.\""
+    "\"I tell them I'm on it too. That does most of the work.\""
   ],
   "personality": "charter_pilot",
   "sort_order": 429

@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A room inside a room: fine copper mesh floor to ceiling, doubled at the seams, with a bench in the middle and a bonded strap running to a driven earth rod. This is the only place in the Long Watch where a networked thing is ever switched on, and it is switched on for as long as the job takes and not one second more. A cracked tablet lies on the bench with its back off, waiting for somebody willing to look at it.",
+  "description": "A room inside a room: fine copper mesh floor to ceiling, doubled at the seams, with a bench in the middle and a bonded strap running to a driven earth rod. This is the only place in the Long Watch where a networked thing is ever switched on, and it's switched on for as long as the job takes and not one second more. A cracked tablet lies on the bench with its back off, waiting for somebody willing to look at it.",
   "exits": {
     "south": "zone_lw_spine"
   },

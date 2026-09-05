@@ -1,11 +1,11 @@
 {
-  "description": "Wide, deep, and glazed dark inside so you cannot see the bottom coming. That is a mercy and a design choice.",
+  "description": "Wide, deep, and glazed dark inside so you can't see the bottom coming. That's a mercy and a design choice.",
   "flags": {},
   "id": "item_ramen_bowl",
   "name": "ramen bowl",
   "tags": {
     "container": 2200,
-    "description": "Wide, deep, and glazed dark inside so you cannot see the bottom coming. That is a mercy and a design choice.",
+    "description": "Wide, deep, and glazed dark inside so you can't see the bottom coming. That's a mercy and a design choice.",
     "heat_distribution": 0.3,
     "heat_retention": 0.45,
     "unique": true,

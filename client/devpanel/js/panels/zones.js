@@ -1025,8 +1025,8 @@ async function saveZone(existing) {
     for (const row of document.querySelectorAll('#zone-tags .tag-row')) {
       const v = readZoneTag(row);
       // A tristate set to "— inherit" reads back undefined and must DROP its key,
-      // so the tile falls through to the terrain preset. `false` is not undefined
-      // and deliberately survives — that is the override.
+      // so the tile falls through to the terrain preset. `false` isn't undefined
+      // and deliberately survives — that's the override.
       if (v === undefined) delete flags[row.dataset.tag];
       else flags[row.dataset.tag] = v;
     }
@@ -1291,4 +1291,4 @@ function updateColorPreview() {
 
 // Map layout edits (piece moves, connections) persist immediately through the
 // staging-aware API() — each change lands in the Changes panel for review and
-// publish. There is no separate map-publish step, so nothing to guard.
+// publish. There's no separate map-publish step, so nothing to guard.

@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A tiled room with a run of lead-lined lockers along one wall, each with a name chalked on the door, and a drain in the middle of the floor. Anything that can be listened to goes in a locker before you go any further in: tablet, chip, anything with a cell in it. There is a hose fed from somewhere upstream and a mirror bolted at eye height, and beside the mirror a set of calipers and a probe, because the Watch check for chrome and they do not take your word for it.",
+  "description": "A tiled room with a run of lead-lined lockers along one wall, each with a name chalked on the door, and a drain in the middle of the floor. Anything that can be listened to goes in a locker before you go any further in: tablet, chip, anything with a cell in it. There's a hose fed from somewhere upstream and a mirror bolted at eye height, and beside the mirror a set of calipers and a probe, because the Watch check for chrome and they don't take your word for it.",
   "exits": {
     "east": "zone_lw_blind",
     "west": "zone_lw_sally"

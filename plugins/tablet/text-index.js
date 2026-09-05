@@ -82,6 +82,6 @@ export async function buildTextIndex(player) {
   }
 
   msg += '\n\n<span class="text-dim">Anything not listed with a verb is a screen; '
-       + '`tabletnav &lt;app&gt;` still opens it, but it will not read well here.</span>';
+       + "`tabletnav &lt;app&gt;` still opens it, but it won't read well here.</span>";
   return { type: 'help', message: msg };
 }

@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "They are wearing hide instead of skin. It creases rather than folds, and the rain beads and runs off them like off a tarpaulin.",
+    "extreme": "They're wearing hide instead of skin. It creases rather than folds, and the rain beads and runs off them like off a tarpaulin.",
     "obvious": "Their skin is thick and leathery, creased into plates at the elbows and across the back of the neck.",
     "subtle": "Their forearms have a dull, hide-like sheen where the skin has thickened."
   },
@@ -17,7 +17,7 @@
   ],
   "description": "Your skin has gone thick and leathery, hide more than skin. Rain stops mattering. So does most of what you touch.",
   "drawbacks": [
-    "Everything feels like it is through a glove"
+    "Everything feels like it's through a glove"
   ],
   "effects": {
     "acuity_smell": -1,

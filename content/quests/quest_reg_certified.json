@@ -6,7 +6,7 @@
     ]
   },
   "category": null,
-  "description": "The apron says CERTIFIED SURVIVOR. It has said that for years. Nobody has ever asked Reg Naylor who certified him, which is fortunate, because the honest answer is a laminating machine in the Office of Permitted Suffering and a fee that has gone up twice since.\n\nReg would like you to have one too. Not out of kindness. Out of a slowly forming suspicion that if only one man in the Yards holds the certificate, the certificate is worthless, and Reg has been holding it for eleven years.\n\n\"Window's nine to eleven,\" he says. \"Not nine to eleven when you get there. Nine to eleven when THEY say. Take money. Take more than you think.\"\n\nHe does not mention that the certificate certifies nothing, and neither does the office, and neither, afterwards, will you.",
+  "description": "The apron says CERTIFIED SURVIVOR. It has said that for years. Nobody in the Yards has asked Reg Naylor who certified him, which is fortunate, because the honest answer is a laminating machine in the Office of Permitted Suffering and a fee that has gone up twice since.\n\nReg would like you to have one too. Not out of kindness. Out of a slowly forming suspicion that if only one man in the Yards holds the certificate, the certificate is worthless, and Reg has been holding it for eleven years.\n\n\"Window's nine to eleven,\" he says. \"Not nine to eleven when you get there. Nine to eleven when THEY say. Take money. Take more than you think.\"\n\nHe doesn't mention that the certificate certifies nothing, and neither does the office, and neither, afterwards, will you.",
   "fail_on": [],
   "id": "quest_reg_certified",
   "meta": {},
@@ -25,7 +25,7 @@
     },
     {
       "count": 1,
-      "desc": "Pay the lamination fee. It is not called a fee on the form.",
+      "desc": "Pay the lamination fee. It isn't called a fee on the form.",
       "emotes": [
         "{who} pays for a piece of plastic and receives a receipt for a different piece of plastic."
       ],
@@ -36,7 +36,7 @@
       "type": "buy"
     },
     {
-      "desc": "Show Reg. He will want to hold it.",
+      "desc": "Show Reg. He'll want to hold it.",
       "emotes": [
         "{who} lets Reg Naylor turn the card over twice in the light, saying nothing at all."
       ],

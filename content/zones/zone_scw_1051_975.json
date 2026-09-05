@@ -5,7 +5,7 @@
     "A hand is squeezed twice, which means yes."
   ],
   "ambient_theme": "wasteland",
-  "description": "A long building set slightly apart, with wide doors and a ramp instead of a step, and a run of shutters that open the whole south wall to the light on a good day. There is a bench outside with a view of the yard and it is never empty.",
+  "description": "A long building set slightly apart, with wide doors and a ramp instead of a step, and a run of shutters that open the whole south wall to the light on a good day. There's a bench outside with a view of the yard and it's never empty.",
   "exits": {
     "north": "zone_thorn_kept",
     "south": "zone_scw_1051_976"

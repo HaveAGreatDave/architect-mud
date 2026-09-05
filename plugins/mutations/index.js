@@ -39,9 +39,9 @@ on('player.respawn', async ({ player }) => {
   if (!lost.length) return;
   sendToPlayer(player.id, {
     type: 'zone_event',
-    message: `\n<span class="msg-system">Something did not come back with you. `
+    message: `\n<span class="msg-system">Something didn't come back with you. `
       + `${lost.map(m => m.name).join(', ')}: gone, as though it had never been. `
-      + `You cannot decide whether to be glad.</span>`,
+      + `You can't decide whether to be glad.</span>`,
   });
 });
 
@@ -85,7 +85,7 @@ function cmdMutations(args, raw, player) {
 
   const vis = visibilityOf(player);
   if (vis === 'obvious' || vis === 'extreme') {
-    msg += `<span class="msg-error">People can tell. In Custodian country that is a problem before it is anything else.</span>\n`;
+    msg += `<span class="msg-error">People can tell. In Custodian country that's a problem before it's anything else.</span>\n`;
   }
   return { type: 'mutations', message: msg };
 }
@@ -101,7 +101,7 @@ function section(title, list, player) {
     // to tell you your hands have claws on them. A clinic will name it.
     if (!entry.diagnosed) {
       out += `\n  <span class="hit-part">Something unnamed</span> — ${band}\n`;
-      out += `    <span class="text-dim">You can feel that it is there and you have no idea what it is. `
+      out += `    <span class="text-dim">You can feel that it's there and you have no idea what it is. `
            + `A physician could tell you.</span>\n`;
       continue;
     }
@@ -149,7 +149,7 @@ export const hooks = {
           `\n<span class="rad-warning">⚠ SOMETHING HAS CHANGED: ${m.name}</span>\n` +
           `${m.description || ''}\n` +
           `It has taken hold ${band === 'total' ? 'completely' : `${band}ly`.replace('mildly', 'mildly')} (${got.expression}%). ` +
-          `${got.visibility === 'hidden' ? 'Nobody would know to look at you.' : 'You will want to think about what you wear.'}\n`,
+          `${got.visibility === 'hidden' ? 'Nobody would know to look at you.' : "You'll want to think about what you wear."}\n`,
       }, null, playerId);
     }
   },
@@ -177,7 +177,7 @@ export const hooks = {
       if (entry.certain === false) {
         // Caught on acuity alone, through clothing. Hedge — naming it would
         // give away more than the observer actually has.
-        lines.push(`<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} is not quite right, under the cloth.</span>`);
+        lines.push(`<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite right, under the cloth.</span>`);
       } else {
         lines.push(`<span class="mutation-tag">${text}</span>`);
       }
@@ -205,7 +205,7 @@ export const hooks = {
 export function mutationRefusal(npc, player) {
   if (visibilityOf(player) !== 'extreme') return null;
   const name = npc?.name || 'The shopkeeper';
-  return `${name} looks at you, and keeps looking, and does not move toward the counter. "I'm going to ask you to leave."`;
+  return `${name} looks at you, and keeps looking, and doesn't move toward the counter. "I'm going to ask you to leave."`;
 }
 
 /** The warning line the gear screen shows for a garment this body can't take. */
@@ -247,7 +247,7 @@ registerAction({
         type: 'error',
         message: result.reason === 'nothing_left'
           ? 'You hold it and wait, and your body has nothing left to become. Whatever this was for, it has already happened to you.'
-          : 'Something is wrong with it. Nothing happens, and that is somehow worse.',
+          : "Something is wrong with it. Nothing happens, and that's somehow worse.",
       };
     }
 
@@ -256,8 +256,8 @@ registerAction({
       type: 'mutation_gained',
       consumed: true,
       message:
-        `<span class="rad-warning">You drink it, and for a while you are not sure you are still there.</span>\n\n`
-        + `When you come back, there is more of you than there was.\n\n`
+        `<span class="rad-warning">You drink it, and for a while you aren't sure you're still there.</span>\n\n`
+        + `When you come back, there's more of you than there was.\n\n`
         + `<span class="hit-part">${m.name}</span> at ${result.expression}%. ${m.description}\n`,
     };
   },
@@ -319,9 +319,9 @@ registerAction({
 // Why a body refuses the mutagen, said the way the world would say it. Never
 // names rep, flags or Inner Circle: the mechanism is the Wildblood's to explain.
 const REFUSAL = {
-  chromed: 'You get it to your lips and your body will not take it. Whatever the chrome did to you, it closed this door behind it.',
-  no_rep: 'You hold the flask and cannot make yourself open it. This was not given to you. Drinking it would be theft of something that is not really a thing.',
-  no_ritual: 'You raise it, and stop. You have not been under. Whatever this does, it does it to people who have already been taken apart once, and you have not.',
+  chromed: "You get it to your lips and your body won't take it. Whatever the chrome did to you, it closed this door behind it.",
+  no_rep: "You hold the flask and can't make yourself open it. This wasn't given to you. Drinking it would be theft of something that isn't really a thing.",
+  no_ritual: "You raise it, and stop. You haven't been under. Whatever this does, it does it to people who have already been taken apart once, and you have not.",
   no_player: 'Nothing happens.',
 };
 
@@ -354,8 +354,8 @@ registerEquipGate(({ player, item }) => {
   return {
     block: true,
     message: `You get it as far as your ${bodyWordFor(c.slot)} and stop. `
-      + `<span class="msg-error">${c.mutation.name} will not go through it.</span> `
-      + `The ${item?.name || 'garment'} is not the problem. You are a different shape than it was cut for.`,
+      + `<span class="msg-error">${c.mutation.name} won't go through it.</span> `
+      + `The ${item?.name || 'garment'} isn't the problem. You're a different shape than it was cut for.`,
   };
 }, 'mutations');
 

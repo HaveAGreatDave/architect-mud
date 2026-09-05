@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2a2721",
-  "description": "Floor to ceiling in small drawers, each one hand-labelled in a script that stopped being legible around the letter M. Rope on spools, blades under glass, a wall of hand tools hung on pegs in size order. The whole room smells of oil and hot metal, and there is a running argument in chalk on the back wall about whether a thing counts as fixed if it only works when you hold it.",
+  "description": "Floor to ceiling in small drawers, each one hand-labelled in a script that stopped being legible around the letter M. Rope on spools, blades under glass, a wall of hand tools hung on pegs in size order. The whole room smells of oil and hot metal, and there's a running argument in chalk on the back wall about whether a thing counts as fixed if it only works when you hold it.",
   "exits": {
     "down": "zone_util_zone_bolt_shop",
     "east": "zone_bolt_yard",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

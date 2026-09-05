@@ -4,9 +4,9 @@
   "chitchat": [
     "runs a white glove along a broken rail and studies the dust with quiet disappointment.",
     "\"The Architect maintains. We merely file the paperwork.\"",
-    "\"This district is under Custodial care. Kindly do not deface the ruins.\""
+    "\"This district is under Custodial care. Kindly don't deface the ruins.\""
   ],
-  "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral: reverently, and with a clipboard. He believes the Architect maintains all things and that a Custodian's only duty is to keep an honest record of what it maintained, so that somebody will know what was here. He will explain this to you at length, whether or not you asked.",
+  "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral: reverently, and with a clipboard. He believes the Architect maintains all things and that a Custodian's only duty is to keep an honest record of what it maintained, so that somebody will know what was here. He'll explain this to you at length, whether or not you asked.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {

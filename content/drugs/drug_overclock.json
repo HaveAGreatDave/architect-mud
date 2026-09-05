@@ -20,7 +20,7 @@
       "comeup_scale": 0.5,
       "comeup_seconds": 12,
       "end_message": "<span class=\"msg-system\">The clock drops back to baseline. Your skull throbs where the heat pooled.</span>",
-      "peak_message": "<span class=\"msg-system\">You are thinking in parallel now, a dozen threads, all of them screaming.</span>",
+      "peak_message": "<span class=\"msg-system\">You're thinking in parallel now, a dozen threads, all of them screaming.</span>",
       "peak_mods": {
         "hp_max": 10,
         "sanity_regen_per_sec": -1,
@@ -46,7 +46,7 @@
         "easing": "They start queuing again. Slowly, and in the wrong order.",
         "onset": "The lace goes quiet. Not off. Quiet, the way a fan you had stopped hearing stops.",
         "peak": "Every thought you had parked comes back at once and there are far too many to hold and none of them will wait their turn.",
-        "rising": "You reach for a thing you know and it is not there for about a second, and the second is very long.",
+        "rising": "You reach for a thing you know and it isn't there for about a second, and the second is very long.",
         "tail": "You think at the speed you were issued with. You keep catching yourself waiting for the other one."
       }
     }

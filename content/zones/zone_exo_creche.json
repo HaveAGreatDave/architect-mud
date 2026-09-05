@@ -7,7 +7,7 @@
     "A drawing is held up for approval to nobody in particular and gets it anyway."
   ],
   "ambient_theme": "indoors",
-  "description": "Low benches, a slate wall, chalk in a tin, and a row of pegs at knee height with a coat on each. There are eleven children in here and the room is not loud.\n\nThey are drawing. Several of them are drawing the same thing, which is a shape with a great many straight lines going up out of it, and none of them are looking at each other's work.",
+  "description": "Low benches, a slate wall, chalk in a tin, and a row of pegs at knee height with a coat on each. There are eleven children in here and the room isn't loud.\n\nThey are drawing. Several of them are drawing the same thing, which is a shape with a great many straight lines going up out of it, and none of them are looking at each other's work.",
   "exits": {
     "down": "zone_util_zone_exo_creche",
     "east": "zone_terminus_1219_935"

@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "They are a different shape from one week to the next. Right now they are pale and thick-hided and shedding, and next week they will not be.",
+    "extreme": "They're a different shape from one week to the next. Right now they're pale and thick-hided and shedding, and next week they won't be.",
     "obvious": "Their skin has visibly changed texture across the exposed parts, thickened where the weather has been at it.",
     "subtle": "Their skin looks slightly different from the last time you saw them."
   },
@@ -12,9 +12,9 @@
   "conceal_slots": [
     "torso"
   ],
-  "description": "Your body has started solving problems on its own. Whatever is trying to kill you today, you are a little more resistant to it by evening.",
+  "description": "Your body has started solving problems on its own. Whatever is trying to kill you today, you're a little more resistant to it by evening.",
   "drawbacks": [
-    "It is always eating"
+    "It's always eating"
   ],
   "effects": {
     "cold_resistance": 0.35,

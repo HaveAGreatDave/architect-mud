@@ -446,7 +446,7 @@ export async function doForgotPassword() {
   const username = document.getElementById('forgot-username').value.trim();
   const msgEl = document.getElementById('forgot-message');
   const btn   = document.getElementById('forgot-submit');
-  if (!email) { msgEl.textContent = 'That email address is not associated with that username.'; msgEl.style.color = 'var(--red)'; return; }
+  if (!email) { msgEl.textContent = "That email address isn't associated with that username."; msgEl.style.color = 'var(--red)'; return; }
   btn.disabled = true;
   btn.textContent = 'Sending...';
   try {
@@ -475,7 +475,7 @@ export async function doResetPassword(token) {
   const pw2   = document.getElementById('reset-password-confirm').value;
   const errEl = document.getElementById('reset-error');
   const btn   = document.getElementById('reset-submit');
-  if (!pw || pw !== pw2) { errEl.textContent = 'Passwords do not match.'; errEl.style.color = 'var(--red)'; return; }
+  if (!pw || pw !== pw2) { errEl.textContent = "Passwords don't match."; errEl.style.color = 'var(--red)'; return; }
   btn.disabled = true;
   btn.textContent = 'Saving...';
   try {
@@ -528,13 +528,13 @@ const COLD_START_LINES = [
   'Waking the night shift.',
   'Counting the dead.',
   'Pulling your file.',
-  'Checking the weather. You will not like it.',
+  "Checking the weather. You won't like it.",
   'Turning the streetlights back on.',
   'Your seat is still warm.',
   'Paperwork.',
-  'Making sure you are not already inside.',
+  "Making sure you aren't already inside.",
   'Putting the rooms back.',
-  'Reading the record. It is long.',
+  "Reading the record. It's long.",
   'Warming up the Basin.',
   'Lights coming up.',
 ];

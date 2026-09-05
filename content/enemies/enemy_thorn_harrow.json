@@ -45,7 +45,7 @@
   "butcher_difficulty": 8,
   "butcher_table": [],
   "death_message": "The Road Harrow folds up along its length, which takes a while, and the coil of wire rolls out of its hand and away down the road.",
-  "description": "It walks the trophy road between the stakes, up and back, up and back, and it has been doing it for as long as anybody has watched.\n\nSomething has gone wrong with it in the direction of length. The spine is too long and carried too low, so it moves at a hunch on four points and rises onto two when it wants to look at something, and it is looking at something now.\n\nThe skulls wired to the stakes have been re-wired recently, and it is carrying the wire.",
+  "description": "It walks the trophy road between the stakes, up and back, up and back, and it has been doing it for as long as anybody has watched.\n\nSomething has gone wrong with it in the direction of length. The spine is too long and carried too low, so it moves at a hunch on four points and rises onto two when it wants to look at something, and it's looking at something now.\n\nThe skulls wired to the stakes have been re-wired recently, and it's carrying the wire.",
   "dodge": 11,
   "faction": "ideology_wildblood",
   "flags": {
@@ -54,7 +54,7 @@
       "The Road Harrow rises onto two points and stays there.",
       "The Road Harrow goes back to its wire.",
       "A bone flute somewhere up the road sounds four notes in a row and stops.",
-      "The Road Harrow has closed about a third of the distance and you did not see it do that."
+      "The Road Harrow has closed about a third of the distance and you didn't see it do that."
     ],
     "first_strike_delay_ms": 0
   },

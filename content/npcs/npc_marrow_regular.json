@@ -131,11 +131,11 @@
     }
   },
   "chitchat": [
-    "Georgi nods at you like you are expected, which is unsettling the first time.",
+    "Georgi nods at you like you're expected, which is unsettling the first time.",
     "\"Steam's good today,\" he says, to nobody. \"Steam's good.\"",
     "He greets a passing woman by name. She greets him back without breaking stride, and both of them look better for it."
   ],
-  "description": "A man who has stood outside the noodle counter every day for as long as anyone can remember, eating nothing, waiting for nobody in particular, and greeting most of the street by name. He is not lost and he is not begging. He simply decided some years ago that this is where he would be.",
+  "description": "A man who has stood outside the noodle counter every day for as long as anyone can remember, eating nothing, waiting for nobody in particular, and greeting most of the street by name. He isn't lost and he isn't begging. He simply decided some years ago that this is where he would be.",
   "dialogue_tree": {
     "bye": {
       "options": [],

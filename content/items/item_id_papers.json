@@ -1,10 +1,10 @@
 {
-  "description": "A folded sheaf of identity documents, watermarked and largely fictional. Proof, of a sort, that you are a person the city agrees to acknowledge.",
+  "description": "A folded sheaf of identity documents, watermarked and largely fictional. Proof, of a sort, that you're a person the city agrees to acknowledge.",
   "flags": {},
   "id": "item_id_papers",
   "name": "citizen papers",
   "tags": {
-    "description": "A folded sheaf of identity documents, watermarked and largely fictional. Proof, of a sort, that you are a person the city agrees to acknowledge.",
+    "description": "A folded sheaf of identity documents, watermarked and largely fictional. Proof, of a sort, that you're a person the city agrees to acknowledge.",
     "document": true,
     "stackable": true
   },

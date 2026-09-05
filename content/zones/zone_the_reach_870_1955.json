@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The broad part of the street, wide enough to turn a rig in, which is exactly why it is wide. False fronts stand along the north side in a row, each one a storey taller than the shed behind it, all of them lying about the same thing. Somebody has swept a patch of the hardpan smooth and left a folding chair on it, facing west, for the evening.",
+  "description": "The broad part of the street, wide enough to turn a rig in, which is exactly why it's wide. False fronts stand along the north side in a row, each one a storey taller than the shed behind it, all of them lying about the same thing. Somebody has swept a patch of the hardpan smooth and left a folding chair on it, facing west, for the evening.",
   "exits": {
     "east": "zone_the_reach_871_1955",
     "north": "zone_the_reach_870_1954",

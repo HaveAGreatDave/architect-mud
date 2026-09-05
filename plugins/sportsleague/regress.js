@@ -51,7 +51,7 @@ export default async function regress({ run, check }) {
   check('hockey table has an OTL column', /OTL/.test(hTable) && /PTS/.test(hTable), hTable);
   check('hockey table shows points, not pct', hTable.includes('20') && !/\.\d{3}/.test(hTable), hTable);
   check('hockey table shows goal diff', hTable.includes('+13') && hTable.includes('-33'), hTable);
-  check('hockey empty table names the CPhL', /CPhL has not dropped a puck/i.test(_test.formatStandings([], 'hockey')), 'empty');
+  check('hockey empty table names the CPhL', /CPhL hasn't dropped a puck/i.test(_test.formatStandings([], 'hockey')), 'empty');
   check('baseball table is unchanged by the split', /COLDWATER LEAGUE/.test(_test.formatStandings([
     { team: 'Vellum Vultures', wins: 12, losses: 5, runs_for: 88, runs_against: 61 },
   ], 'baseball')), 'baseball head');

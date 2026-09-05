@@ -452,10 +452,10 @@ function _isPlainConfig(c) { return c && typeof c === 'object' && !Array.isArray
 // Returns a short problem string, or null if it looks well-formed.
 function _configProblem(cfg) {
   if (cfg == null) return null; // empty config is legal (pure defaults)
-  if (!_isPlainConfig(cfg)) return 'config is not an object';
-  if (cfg.adsr != null && !_isPlainConfig(cfg.adsr)) return 'adsr is not an object';
-  if (cfg.filter != null && !_isPlainConfig(cfg.filter)) return 'filter is not an object';
-  if (cfg.layers != null && !Array.isArray(cfg.layers)) return 'layers is not an array';
+  if (!_isPlainConfig(cfg)) return "config isn't an object";
+  if (cfg.adsr != null && !_isPlainConfig(cfg.adsr)) return "adsr isn't an object";
+  if (cfg.filter != null && !_isPlainConfig(cfg.filter)) return "filter isn't an object";
+  if (cfg.layers != null && !Array.isArray(cfg.layers)) return "layers isn't an array";
   return null;
 }
 

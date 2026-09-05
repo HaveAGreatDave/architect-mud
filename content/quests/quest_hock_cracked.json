@@ -3,7 +3,7 @@
     "quest_sloat_sealed"
   ],
   "category": null,
-  "description": "Hock deals in objects. Sloat, four streets over, deals in the idea of objects. Hock has views about this and expresses them by not expressing them, which takes him about four minutes.\n\n\"Sealed,\" he says eventually. \"A sealed thing is a rumour. I do not buy rumours. Bring me three, crack them, and I will pay you for what is actually in your hand.\"\n\nHe knows Sloat wants the same three sleeves intact. He knows you cannot serve both. He does not make anything of it, and the not making anything of it is the most pointed thing in the shop.",
+  "description": "Hock deals in objects. Sloat, four streets over, deals in the idea of objects. Hock has views about this and expresses them by not expressing them, which takes him about four minutes.\n\n\"Sealed,\" he says eventually. \"A sealed thing is a rumour. I don't buy rumours. Bring me three, crack them, and I'll pay you for what's actually in your hand.\"\n\nHe knows Sloat wants the same three sleeves intact. He knows you can't serve both. He doesn't make anything of it, and the not making anything of it's the most pointed thing in the shop.",
   "fail_on": [],
   "id": "quest_hock_cracked",
   "meta": {},
@@ -21,7 +21,7 @@
     },
     {
       "count": 1,
-      "desc": "Open them, then sell Hock something that is now a fact rather than a rumour.",
+      "desc": "Open them, then sell Hock something that's now a fact rather than a rumour.",
       "emotes": [
         "{who} puts a card on the mesh and watches a loupe come down on it."
       ],

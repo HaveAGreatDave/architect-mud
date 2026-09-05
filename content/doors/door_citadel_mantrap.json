@@ -17,7 +17,7 @@
       "difficulty": 6,
       "messages": {
         "denied": "The reader takes your credentials, considers them, and declines to elaborate.",
-        "hackFail": "The mantrap lock rejects the sequence and logs the attempt somewhere you cannot reach.",
+        "hackFail": "The mantrap lock rejects the sequence and logs the attempt somewhere you can't reach.",
         "hackSuccess": "The mantrap lock drops its challenge and the outer slab breathes open.",
         "lock": "The mantrap door seats itself with a pneumatic thump.",
         "unlock": "The mantrap door unseals, one bolt at a time, in no hurry at all."

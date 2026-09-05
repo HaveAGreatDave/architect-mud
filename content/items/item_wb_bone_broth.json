@@ -5,7 +5,7 @@
   "name": "bone broth",
   "tags": {
     "consumable": true,
-    "description": "A bowl of the Long Fire's big pot. It is very good and nobody will tell you what is in it.",
+    "description": "A bowl of the Long Fire's big pot. It's very good and nobody will tell you what's in it.",
     "restore_hp": 6,
     "restore_hunger": 34,
     "stackable": true

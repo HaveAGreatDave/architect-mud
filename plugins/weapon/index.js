@@ -773,7 +773,7 @@ export async function cmdFlee(arg, player, broadcast) {
 	let direction = (arg || '').trim().toLowerCase();
 	if (!direction) {
 		const exits = allExits(getZone(player.current_zone));
-		if (!exits.length) return { type: 'error', message: 'There is nowhere to run.' };
+		if (!exits.length) return { type: 'error', message: "There's nowhere to run." };
 		direction = exits[Math.floor(Math.random() * exits.length)].dir;
 	}
 	const { cmdMove } = await import('../../server/engine/commands/movement.js');

@@ -1,10 +1,10 @@
 {
   "asks": [
-    "Did you wash your hands? It is not a rule. It is only usual.",
+    "Did you wash your hands? It isn't a rule. It's only usual.",
     "Do you know whose place this was?",
     "Would you take the salt, or leave it for whoever is after you?"
   ],
-  "description": "A slab of pale stone stands where the table was, laid with a folded cloth, a shallow dish, and a small heap of salt. Everything on it is in the only place it could be.",
+  "description": "A slab of pale stone stands where the table was, laid with a folded cloth, a shallow dish, and a small heap of salt. Everything on it's in the only place it could be.",
   "drug_id": "drug_mescaline",
   "emotes": [
     "The dish on {it} rings once, faintly, though nothing has touched it.",
@@ -17,15 +17,15 @@
   "id": "dx_mescaline_table_altar",
   "looks": [
     "The fold in the cloth has been like that since before the stone. Nobody folded it this morning.",
-    "The dish holds a finger of dark liquid that has not evaporated and is not going to.",
+    "The dish holds a finger of dark liquid that hasn't evaporated and isn't going to.",
     "The salt is heaped in a low cone with a single fingermark taken out of the side of it."
   ],
   "matches": "table",
   "name": "a stone altar, laid",
   "says": [
     "Sit. It has been ready a long time.",
-    "It is not a shrine. It is only that everything is where it should be.",
-    "Nothing is required of you. That is what the salt is for."
+    "It isn't a shrine. It's only that everything is where it should be.",
+    "Nothing is required of you. The salt has seen to it."
   ],
   "scope": "object"
 }

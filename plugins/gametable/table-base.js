@@ -113,7 +113,7 @@ export class TableBase {
   // Returns { ok, error, seatIdx }. A buy-in of 0 is a free table: no credits move.
   async joinTable(player, preferredSeat = null) {
     if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
-    if (this.seatedIndex(player.id) >= 0) return { ok: false, error: 'You are already seated.' };
+    if (this.seatedIndex(player.id) >= 0) return { ok: false, error: "You're already seated." };
     if (this.openSeats() === 0) return { ok: false, error: 'No seats available.' };
 
     const buyIn = this.buyInFor(player);

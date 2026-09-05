@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Stand on the plate at the Gate and let the Warden read you.\n\nIt takes four seconds and there is no needle, no form and no fee. At the end of it you exist — as a file, as a projection, as a set of numbers about how likely you are to be alive in a year, and Halcyon has an opinion about that number for the first time.\n\nNothing is asked of you. That is not a trick; it is the product. Everything the Ascendants do rests on the fact that being known by them is free and being unknown by them is expensive, and they have never once had to explain that to anybody twice.",
+  "description": "Stand on the plate at the Gate and let the Warden read you.\n\nIt takes four seconds and there's no needle, no form and no fee. At the end of it you exist — as a file, as a projection, as a set of numbers about how likely you're to be alive in a year, and Halcyon has an opinion about that number for the first time.\n\nNothing is asked of you. That isn't a trick; it's the product. Everything the Ascendants do rests on the fact that being known by them is free and being unknown by them is expensive, and they have never once had to explain that to anybody twice.",
   "fail_on": [],
   "id": "quest_asc_2",
   "meta": {},
@@ -11,7 +11,7 @@
       "emotes": [
         "{who} steps onto the plate and the scanline goes over them like weather.",
         "{who} is measured, priced, and filed, in about the time it takes to be looked at.",
-        "{who} steps off, and something in a building four streets away now has a view about how long they will live."
+        "{who} steps off, and something in a building four streets away now has a view about how long they'll live."
       ],
       "id": "o0",
       "taskSeconds": 5,

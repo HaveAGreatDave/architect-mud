@@ -9,7 +9,7 @@
     "restore_hunger": 30,
     "restore_sanity": 2,
     "stackable": true,
-    "use_message": "It is sweet, and there are actual sugar crystals in it that crunch, and it tastes like a cake somebody made badly with love. For a few seconds it works. Then you notice the dispenser is in a shop next to a building where they grow people, and that somebody sat in a meeting and decided a clone's first day should taste like a party."
+    "use_message": "It's sweet, and there are actual sugar crystals in it that crunch, and it tastes like a cake somebody made badly with love. For a few seconds it works. Then you notice the dispenser is in a shop next to a building where they grow people, and that somebody sat in a meeting and decided a clone's first day should taste like a party."
   },
   "type": "consumable",
   "value": 1,

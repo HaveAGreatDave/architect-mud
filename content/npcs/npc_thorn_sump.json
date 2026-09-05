@@ -2,13 +2,13 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Do not stand there, you are in my light. I do not use it. Stand there anyway.",
+    "Don't stand there, you're in my light. I don't use it. Stand there anyway.",
     "A thousand bowls. Maybe two.",
-    "Red glaze is for the jars. Do not pick those up.",
+    "Red glaze is for the jars. Don't pick those up.",
     "Everything breaks. I make more.",
-    "By feel. I have not looked at the wheel in years."
+    "By feel. I haven't looked at the wheel in years."
   ],
-  "description": "At the wheel, and he has hands like Tallow's, three bends to a finger, and where hers flow over an incision his flow over clay. He works faster than looks possible and does not watch what he is doing.\n\nEverything the Thornwarren eats off came off this wheel. Every piece has a thumbprint pressed into the foot ring. They are all his thumbprint. Nobody has ever mentioned it to him.",
+  "description": "At the wheel, and he has hands like Tallow's, three bends to a finger, and where hers flow over an incision his flow over clay. He works faster than looks possible and doesn't watch what he's doing.\n\nEverything the Thornwarren eats off came off this wheel. Every piece has a thumbprint pressed into the foot ring. They're all his thumbprint. Nobody has ever mentioned it to him.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -22,7 +22,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You are not watching what you are doing.",
+          "label": "You aren't watching what you're doing.",
           "next": "speed"
         },
         {
@@ -33,11 +33,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Tallow.\"\n\nThe wheel goes.\n\n\"Flasks live in felt for nine years. Glass takes the cold badly and metal takes it worse. These do not care.\" He lifts one off the wheel without looking at it. \"Thicker in the shoulder than they look. Nine of them a month, every month, and about six survive the firing, and I have got a stack of eleven hundred going back to before I was born.\"\n\nHe sets it on the board.\n\n\"If this kiln stops, the whole thing stops. Not the pots. The other thing.\""
+      "text": "\"Tallow.\"\n\nThe wheel goes.\n\n\"Flasks live in felt for nine years. Glass takes the cold badly and metal takes it worse. These don't care.\" He lifts one off the wheel without looking at it. \"Thicker in the shoulder than they look. Nine of them a month, every month, and about six survive the firing, and I have got a stack of eleven hundred going back to before I was born.\"\n\nHe sets it on the board.\n\n\"If this kiln stops, the whole thing stops. Not the pots. The other thing.\""
     },
     "root": {
       "actions": [],
-      "first": "\"Mind the boards.\" The wheel does not stop. \"Everything on them is wet and everything on them is somebody's.\"",
+      "first": "\"Mind the boards.\" The wheel doesn't stop. \"Everything on them is wet and everything on them is somebody's.\"",
       "options": [
         {
           "actions": [],
@@ -50,7 +50,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "You are not watching what you are doing.",
+          "label": "You aren't watching what you're doing.",
           "next": "speed"
         },
         {
@@ -63,7 +63,7 @@
       ],
       "text": "\"Mind the boards.\"",
       "text_by_relation": {
-        "close": "There is a mug on the bench that is glazed better than the rest and has your initial cut into the foot, and he has never said anything about it.",
+        "close": "There's a mug on the bench that's glazed better than the rest and has your initial cut into the foot, and he has never said anything about it.",
         "familiar": "He pushes a stool out with his foot without stopping the wheel.",
         "known": "\"You. Mind the boards.\""
       }
@@ -86,7 +86,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\"\n\nHe centres another lump and opens it.\n\n\"I stopped about fifteen years ago. It is better this way. Hands know it.\"\n\nA pause, and then, unexpectedly, he does look up.\n\n\"There was a man came out here from a Basin works once, buying. Watched me for an hour. Offered me a job and a room and a name on the door and the whole of it.\" Back to the wheel. \"Then he went and looked at the paperwork and came back and said he was sorry and it was not up to him.\"\n\n\"He was sorry, actually. You could tell. Did not help.\""
+      "text": "\"No.\"\n\nHe centres another lump and opens it.\n\n\"I stopped about fifteen years ago. It's better this way. Hands know it.\"\n\nA pause, and then, unexpectedly, he does look up.\n\n\"There was a man came out here from a Basin works once, buying. Watched me for an hour. Offered me a job and a room and a name on the door and the whole of it.\" Back to the wheel. \"Then he went and looked at the paperwork and came back and said he was sorry and it wasn't up to him.\"\n\n\"He was sorry, actually. You could tell. Didn't help.\""
     }
   },
   "faction": "ideology_wildblood",

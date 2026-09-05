@@ -13,11 +13,11 @@
         },
         {
           "atSec": 30,
-          "text": "[trip]There is a bee in the back of your skull and it has been there for years.[/trip]"
+          "text": "[trip]There's a bee in the back of your skull and it has been there for years.[/trip]"
         },
         {
           "atSec": 65,
-          "text": "[trip]You lose the thread of your own sentence. You were not saying it out loud anyway.[/trip]"
+          "text": "[trip]You lose the thread of your own sentence. You weren't saying it out loud anyway.[/trip]"
         },
         {
           "atSec": 85,
@@ -62,7 +62,7 @@
       },
       "onset_seconds": 1200,
       "stages": {
-        "easing": "The pressure lets off. Some of what it was pressing on does not come back.",
+        "easing": "The pressure lets off. Some of what it was pressing on doesn't come back.",
         "onset": "The taste comes back first, at the back of the teeth, out of nowhere.",
         "peak": "Your head is packed tight and you have read the same line four times without any of it arriving.",
         "rising": "Your hands are unsteady enough to be a problem with small screws.",

@@ -1,6 +1,6 @@
 {
   "appearance": {
-    "extreme": "Their flesh crawls constantly, closing and reforming. Something opened them earlier today and there is no mark left to say where.",
+    "extreme": "Their flesh crawls constantly, closing and reforming. Something opened them earlier today and there's no mark left to say where.",
     "obvious": "A fresh wound on their forearm is knitting shut as you look at it, pink and working.",
     "subtle": "A cut on their hand is already closing."
   },
@@ -12,7 +12,7 @@
   "conceal_slots": [
     "torso"
   ],
-  "description": "Your body has stopped accepting damage as permanent. Wounds close while you watch, and the process is not pleasant to be inside.",
+  "description": "Your body has stopped accepting damage as permanent. Wounds close while you watch, and the process isn't pleasant to be inside.",
   "drawbacks": [
     "Healing hurts more than the wound"
   ],

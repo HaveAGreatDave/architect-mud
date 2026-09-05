@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#f2d9a8",
-  "description": "A vault the length of a cathedral, and the only room in Ascendant hands that is warm. The tanks stand four storeys in ranked colonnades of glass and brushed gold, each one lit from within, so the whole hall glows the deep amber of light held behind a hand. Somewhere high above, water moves. Attendants cross the floor in soft shoes, unhurried, carrying warmed towels toward a tank that has begun to drain. The architecture has exactly one argument to make and it makes it at enormous expense: that death is a room you can be shown out of, provided somebody is holding your coat.",
+  "description": "A vault the length of a cathedral, and the only room in Ascendant hands that's warm. The tanks stand four storeys in ranked colonnades of glass and brushed gold, each one lit from within, so the whole hall glows the deep amber of light held behind a hand. Somewhere high above, water moves. Attendants cross the floor in soft shoes, unhurried, carrying warmed towels toward a tank that has begun to drain. The architecture has exactly one argument to make and it makes it at enormous expense: that death is a room you can be shown out of, provided somebody is holding your coat.",
   "exits": {
     "out": "zone_asc_vats_registry"
   },

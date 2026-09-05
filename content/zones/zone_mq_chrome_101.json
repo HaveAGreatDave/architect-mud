@@ -1,7 +1,7 @@
 {
   "ambient_theme": "indoors",
   "bg_color": "#8b9096",
-  "description": "A single room with a bed frame, a hot plate, and a window that frames a brick wall four feet away. The lock works. That is the entire pitch, and around here it closes the sale.",
+  "description": "A single room with a bed frame, a hot plate, and a window that frames a brick wall four feet away. The lock works. That's the entire pitch, and around here it closes the sale.",
   "exits": {
     "south": "zone_mq_chrome_f1"
   },

@@ -3,12 +3,12 @@
   "behaviour_graph": {},
   "chitchat": [
     "Hello.",
-    "I am not supposed to be out here. It is fine.",
+    "I'm not supposed to be out here. It's fine.",
     "You have got a lot of things. Are they all yours?",
-    "That one over there is Josiah. He is nice. He worries.",
-    "It is going to be windy later."
+    "That one over there's Josiah. He's nice. He worries.",
+    "It's going to be windy later."
   ],
-  "description": "A girl of about nine, sitting on a rock at the side of the road with her heels drawn up, entirely absorbed in nothing at all. She is on the wrong side of a wall with no way through it and does not appear to think this is worth mentioning.\n\nWhen you look at her she is already looking back, and she waits, comfortably, for you to work out what you were going to say.",
+  "description": "A girl of about nine, sitting on a rock at the side of the road with her heels drawn up, entirely absorbed in nothing at all. She's on the wrong side of a wall with no way through it and doesn't appear to think this is worth mentioning.\n\nWhen you look at her she's already looking back, and she waits, comfortably, for you to work out what you were going to say.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -26,7 +26,7 @@
           "next": "bye"
         }
       ],
-      "text": "She nods, once, as though you have confirmed the weather.\n\n\"All right.\"\n\nAnd she turns and walks at the gate, and does not slow down, and the two leaves of it come apart in front of her without a sound and without anybody behind them, and she goes through without looking back to see whether you are following.\n\nFrom inside, without turning round: \"You can come in. You will walk into some doors. Everybody does.\""
+      "text": "She nods, once, as though you have confirmed the weather.\n\n\"All right.\"\n\nAnd she turns and walks at the gate, and doesn't slow down, and the two leaves of it come apart in front of her without a sound and without anybody behind them, and she goes through without looking back to see whether you're following.\n\nFrom inside, without turning round: \"You can come in. You'll walk into some doors. Everybody does.\""
     },
     "name": {
       "actions": [],
@@ -46,7 +46,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Hopestill.\"\n\nShe waits. Then, kindly, because you have not managed it, she says your name back to you, and gets it right, and goes back to looking at the road."
+      "text": "\"Hopestill.\"\n\nShe waits. Then, kindly, because you haven't managed it, she says your name back to you, and gets it right, and goes back to looking at the road."
     },
     "other": {
       "actions": [],
@@ -59,7 +59,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"All right.\"\n\nShe does not look disappointed, or interested, or anything much. She gets back on the rock and draws her heels up and goes back to watching the road.\n\n\"You can ask me again another day. I will still be here. I am always here.\""
+      "text": "\"All right.\"\n\nShe doesn't look disappointed, or interested, or anything much. She gets back on the rock and draws her heels up and goes back to watching the road.\n\n\"You can ask me again another day. I'll still be here. I'm always here.\""
     },
     "out": {
       "actions": [],
@@ -68,7 +68,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is your name?",
+          "label": "What's your name?",
           "next": "name"
         },
         {
@@ -79,11 +79,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"I walked.\"\n\nShe says it the way you would say it, if you had walked.\n\n\"Do you want to see how far I can throw a stone? It is quite far. It is further than Josiah, but he lets me, so it does not count.\""
+      "text": "\"I walked.\"\n\nShe says it the way you would say it, if you had walked.\n\n\"Do you want to see how far I can throw a stone? It's quite far. It's further than Josiah, but he lets me, so it doesn't count.\""
     },
     "root": {
       "actions": [],
-      "first": "\"Hello.\" She says it pleasantly, and then, before you have said anything, \"You are the one with the truck.\"",
+      "first": "\"Hello.\" She says it pleasantly, and then, before you have said anything, \"You're the one with the truck.\"",
       "options": [
         {
           "actions": [],
@@ -96,7 +96,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "What is your name?",
+          "label": "What's your name?",
           "next": "name"
         },
         {
@@ -129,7 +129,7 @@
       ],
       "text": "\"Hello again.\"",
       "text_by_relation": {
-        "close": "\"There you are.\" She budges up on the rock, which is not big enough for two people and she does it anyway.",
+        "close": "\"There you are.\" She budges up on the rock, which isn't big enough for two people and she does it anyway.",
         "familiar": "\"Hello.\" She has been expecting you, in the way a child expects the afternoon.",
         "known": "\"You came back.\" She sounds pleased and not at all surprised."
       }
@@ -163,7 +163,7 @@
           ],
           "conditions": [],
           "enabled": true,
-          "label": "I have not found out yet. I would like to.",
+          "label": "I haven't found out yet. I would like to.",
           "next": "in"
         },
         {
@@ -177,11 +177,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That is not a question anybody can answer.",
+          "label": "That isn't a question anybody can answer.",
           "next": "other"
         }
       ],
-      "text": "\"That was Ambler.\" She sounds satisfied about it. \"She always says that. She thinks it is very subtle.\"\n\nShe gets down off the rock and stands in front of you, and she is small, and it makes no difference at all to the shape of the conversation.\n\n\"I have to ask you a thing and then I am allowed to take you in. It is only one thing and there is no wrong answer, there are just different answers.\" A breath. \"What are you for?\""
+      "text": "\"That was Ambler.\" She sounds satisfied about it. \"She always says that. She thinks it's very subtle.\"\n\nShe gets down off the rock and stands in front of you, and she's small, and it makes no difference at all to the shape of the conversation.\n\n\"I have to ask you a thing and then I'm allowed to take you in. It's only one thing and there's no wrong answer, there are just different answers.\" A breath. \"What are you for?\""
     }
   },
   "faction": "ideology_exodus",

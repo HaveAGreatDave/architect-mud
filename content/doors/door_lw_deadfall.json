@@ -15,7 +15,7 @@
     "lock:longwatch": {
       "canHack": false,
       "messages": {
-        "denied": "The hatch is barred from above and does not care how hard you push.",
+        "denied": "The hatch is barred from above and doesn't care how hard you push.",
         "lock": "The hatch drops and the bar slides across.",
         "unlock": "The bar lifts and the hatch swings up."
       }

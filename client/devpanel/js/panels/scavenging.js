@@ -97,7 +97,7 @@ async function scavengingEditForm(rec, isNew) {
 
     <div class="field-section-header" style="margin-top:14px;font-weight:600">Loot entries</div>
     <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">
-      Difficulty = how hard it is to find (2d8−2d8 check). Weight = relative draw chance. Max qty = per-zone stock cap.
+      Difficulty = how hard it's to find (2d8−2d8 check). Weight = relative draw chance. Max qty = per-zone stock cap.
     </div>
     <div id="scav-entry-rows">${entries.map(e => scavEntryRow(_scavItems, e)).join('')}</div>
     <button type="button" class="action-btn" onclick="addScavEntry()">+ Add item</button>

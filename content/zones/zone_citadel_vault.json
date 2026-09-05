@@ -1,6 +1,6 @@
 {
   "ambient_events": [
-    "The vault door's clockwork ticks over behind you. It is counting something. It is not the time.",
+    "The vault door's clockwork ticks over behind you. It's counting something. It isn't the time.",
     "Cold air pours off the steel and pools around your ankles.",
     "A stack settles half a centimetre with a sound like a deck being cut.",
     "The lighting is on a separate circuit and it wants you to know it, brightening one notch as you move.",
@@ -10,7 +10,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#24262a",
   "color": "#b9c0c6",
-  "description": "Nine metres of reinforced concrete and hardened steel in every direction, and inside it, on plain grey shelving, more money than the rest of this ward will see in its collective lifetime. Strapped bricks of scrip. Trays of palladium ingots with the Citadel crest struck into them. Bearer paper in acid-free sleeves. It is the only thing in the room that is genuinely dangerous to hold. There is no decoration and no comfort: the walls are bare, the floor is bare, and the door behind you weighs nine tonnes and is currently the only opinion in the building that matters. The lights are cold and very bright, and they are on their own circuit, because Citadel understood some time ago that the dark is where people get ideas.",
+  "description": "Nine metres of reinforced concrete and hardened steel in every direction, and inside it, on plain grey shelving, more money than the rest of this ward will see in its collective lifetime. Strapped bricks of scrip. Trays of palladium ingots with the Citadel crest struck into them. Bearer paper in acid-free sleeves. It's the only thing in the room that's genuinely dangerous to hold. There's no decoration and no comfort: the walls are bare, the floor is bare, and the door behind you weighs nine tonnes and is currently the only opinion in the building that matters. The lights are cold and very bright, and they're on their own circuit, because Citadel understood some time ago that the dark is where people get ideas.",
   "exits": {
     "up": "zone_citadel_gallery"
   },

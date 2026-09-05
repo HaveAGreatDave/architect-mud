@@ -31,10 +31,10 @@
 const HUNGER_BANDS = [
   { at: 4, every: 4, lines: [
     'Your body has started eating itself. You can feel it deciding what to spend first.',
-    'There is nothing left in you to burn and something in you is burning anyway.',
+    "There's nothing left in you to burn and something in you is burning anyway.",
   ] },
   { at: 12, every: 8, lines: [
-    'You are starving. Not hungry — starving. There is a difference and you have found it.',
+    "You're starving. Not hungry — starving. There's a difference and you have found it.",
     'Your hands have a tremor in them that has nothing to do with the cold.',
     'Standing up takes a decision now.',
   ] },
@@ -50,19 +50,19 @@ const HUNGER_BANDS = [
   ] },
   { at: 58, every: 35, lines: [
     'You could eat.',
-    'A meal would not go amiss.',
+    "A meal wouldn't go amiss.",
   ] },
 ];
 
 const THIRST_BANDS = [
   { at: 5, every: 3, lines: [
     'Your tongue is stuck to the roof of your mouth. Swallowing has become a project.',
-    'You are dying of thirst, and rather faster than you would die of anything else.',
+    "You're dying of thirst, and rather faster than you would die of anything else.",
   ] },
   { at: 15, every: 6, lines: [
     'Your head is pounding and your mouth tastes of coins.',
-    'You are badly dehydrated. Everything has gone slightly too bright.',
-    'You have stopped sweating properly. That is not an improvement.',
+    "You're badly dehydrated. Everything has gone slightly too bright.",
+    "You have stopped sweating properly. That isn't an improvement.",
   ] },
   { at: 30, every: 11, lines: [
     'Your throat is raw and your lips have started to split.',
@@ -82,7 +82,7 @@ const THIRST_BANDS = [
 // Climbing back OUT of the two worst bands is worth one line; everything above that is
 // silent, because relief that announces itself as loudly as danger flattens both.
 const HUNGER_RELIEF = 'The gnawing lets up. You can think about other things again.';
-const THIRST_RELIEF = 'Your mouth stops feeling like a drain. That is most of it.';
+const THIRST_RELIEF = "Your mouth stops feeling like a drain. That's most of it.";
 const RELIEF_FROM_INDEX = 1;   // bands 0 and 1 are the ones worth marking a recovery from
 
 // Indices run WORST-FIRST, so a lower index is a worse state — which means "fine" has to sort
@@ -162,13 +162,13 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 const SATIATION = {
   stuffed: [
-    'You could not manage another bite, and you should probably stop trying.',
-    'Your stomach has opinions about that last mouthful, and they are not kind ones.',
+    "You couldn't manage another bite, and you should probably stop trying.",
+    "Your stomach has opinions about that last mouthful, and they aren't kind ones.",
     'That was too much. You know it was too much. You ate it anyway.',
   ],
   full: [
-    'You are full — properly, heavily full. It was worth it.',
-    'That is enough. That is comfortably, unarguably enough.',
+    "You're full — properly, heavily full. It was worth it.",
+    "That's enough. That's comfortably, unarguably enough.",
     'You sit back and let it settle. Nothing about you wants anything for a while.',
   ],
   sated: [
@@ -182,12 +182,12 @@ const SATIATION = {
     'Better. Not finished, but better.',
   ],
   partial: [
-    'It helps. It does not fix it.',
+    "It helps. It doesn't fix it.",
     'A dent in it. No more than a dent.',
     'Your stomach acknowledges the gesture and goes back to complaining.',
   ],
   trivial: [
-    'It barely registers. You are going to need considerably more than that.',
+    "It barely registers. You're going to need considerably more than that.",
     'That disappears into you without touching the sides.',
     'You may as well have thought about food.',
   ],
@@ -209,14 +209,14 @@ export function satiationLine(player) {
 // reads off thirst alone.
 const SLAKE = {
   done: [
-    'You drink until you have to stop for breath. That is that dealt with.',
+    "You drink until you have to stop for breath. That's that dealt with.",
     'You keep going well past needing to, because you can.',
-    'You drain it and stand there a moment, not thirsty. It is a strange feeling.',
+    "You drain it and stand there a moment, not thirsty. It's a strange feeling.",
   ],
   good: [
-    'That is better. Considerably better.',
+    "That's better. Considerably better.",
     'The dust goes out of your throat.',
-    'Your head clears a little, which you had not expected.',
+    "Your head clears a little, which you hadn't expected.",
   ],
   helps: [
     'It helps. Your mouth stops sticking to itself.',
@@ -225,7 +225,7 @@ const SLAKE = {
   ],
   start: [
     'A start. Not enough of one.',
-    'Your throat notices. It is not impressed.',
+    "Your throat notices. It isn't impressed.",
     'That wets your mouth and very little else.',
   ],
   trivial: [
@@ -263,7 +263,7 @@ const WASTE = {
   most: {
     hunger: ['Most of it goes to waste — you were fuller than you thought.',
              'You get perhaps a third of the way through before your stomach refuses the rest.',
-             'The rest of it is a gift to the floor. You had no room for it.'],
+             "The rest of it's a gift to the floor. You had no room for it."],
     thirst: ['Most of it goes straight through you and does nothing at all.',
              'You manage a few swallows and give up. There was nowhere for it to go.',
              'The rest runs down your chin, unwanted.'],

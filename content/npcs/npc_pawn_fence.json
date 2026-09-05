@@ -171,7 +171,7 @@
           "text": "\"Fair enough.\""
         }
       ],
-      "text": "\"Three,\" Hock says. \"Open them where you like. Do not open them in here, I am not watching that.\""
+      "text": "\"Three,\" Hock says. \"Open them where you like. Don't open them in here, I'm not watching that.\""
     },
     "dq_crack_done": {
       "actions": [
@@ -191,7 +191,7 @@
           "text": "\"It's not disappointing.\""
         }
       ],
-      "text": "He goes over what you brought under the loupe, one at a time, unhurried, and pays each one at what it is. Nothing is worth a fortune. Everything is worth something.\n\n\"There,\" he says, and pushes the notes through the mesh. \"Now you know. That is the entire service I provide and people find it disappointing every single time.\""
+      "text": "He goes over what you brought under the loupe, one at a time, unhurried, and pays each one at what it is. Nothing is worth a fortune. Everything is worth something.\n\n\"There,\" he says, and pushes the notes through the mesh. \"Now you know. That's the entire service I provide and people find it disappointing every single time.\""
     },
     "dq_crack_offer": {
       "options": [
@@ -215,7 +215,7 @@
           "text": "\"I'll think about it.\""
         }
       ],
-      "text": "The loupe comes up. He does not answer for long enough that you check whether he heard.\n\n\"Sealed,\" he says at last. \"A sealed thing is a rumour. I do not buy rumours. I buy objects, and an object has to have been LOOKED at before it is one.\"\n\nHe puts a small stack of notes on the mesh shelf and does not push it through.\n\n\"Three sleeves. Crack them. Bring me what is actually in your hand and I will pay you for that, and it will be a fair price, and you will know exactly what you sold.\"\n\nHe returns to the loupe.\n\n\"Sloat will pay you more. Sloat is paying for a feeling. I am not in that trade and I would not know how to price it.\""
+      "text": "The loupe comes up. He doesn't answer for long enough that you check whether he heard.\n\n\"Sealed,\" he says at last. \"A sealed thing is a rumour. I don't buy rumours. I buy objects, and an object has to have been LOOKED at before it's one.\"\n\nHe puts a small stack of notes on the mesh shelf and doesn't push it through.\n\n\"Three sleeves. Crack them. Bring me what's actually in your hand and I'll pay you for that, and it'll be a fair price, and you'll know exactly what you sold.\"\n\nHe returns to the loupe.\n\n\"Sloat will pay you more. Sloat is paying for a feeling. I'm not in that trade and I wouldn't know how to price it.\""
     },
     "dq_crack_sloat": {
       "options": [
@@ -234,7 +234,7 @@
           "text": "\"I'll go and see Sloat.\""
         }
       ],
-      "text": "\"He does.\" No heat in it at all. \"He also has a back room with eleven hundred sealed sleeves in it that he cannot spend, cannot insure, and cannot open, because the moment he opens one it becomes worth what it is worth.\"\n\nThe loupe does not move.\n\n\"He is not a collector. He is a man holding his breath. It has been nine years.\"\n\nHe finally looks up.\n\n\"You can take his money. I will not think less of you and I will not do this deal afterwards. One or the other. That is not me being difficult, that is just what happens to the sleeves.\""
+      "text": "\"He does.\" No heat in it at all. \"He also has a back room with eleven hundred sealed sleeves in it that he can't spend, can't insure, and can't open, because the moment he opens one it becomes worth what it's worth.\"\n\nThe loupe doesn't move.\n\n\"He isn't a collector. He's a man holding his breath. It has been nine years.\"\n\nHe finally looks up.\n\n\"You can take his money. I won't think less of you and I won't do this deal afterwards. One or the other. That isn't me being difficult, that's just what happens to the sleeves.\""
     },
     "gossip": {
       "actions": [

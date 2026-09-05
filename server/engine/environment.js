@@ -1998,7 +1998,7 @@ export function lightHitPenalty(category) {
 // category change (wire into commands.js room rendering / zone.describeAmbient).
 export function describeVisibilityTransition(prevCategory, nextCategory) {
   if (prevCategory !== 'dark' && nextCategory === 'dark') {
-    return 'It is becoming difficult to make out more than shadows.';
+    return "It's becoming difficult to make out more than shadows.";
   }
   if (prevCategory === 'dark' && nextCategory !== 'dark') {
     return 'Light returns, revealing your surroundings once again.';
@@ -2263,7 +2263,7 @@ async function firePulse() {
       if (darkened.has(zoneId)) {
         deps.broadcast(zoneId, wrap('Every light around you dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.'));
       } else if (skyVantage(zoneId) !== 'buried' && skyVantage(zoneId) !== 'sealed') {
-        deps.broadcast(zoneId, wrap('Across the rooftops a whole quarter of the city goes out at once, block after block, and does not come back.'));
+        deps.broadcast(zoneId, wrap("Across the rooftops a whole quarter of the city goes out at once, block after block, and doesn't come back."));
       }
     }
   }
@@ -3127,7 +3127,7 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   // From world.zones, which this module already imports — the install only reads
   // flags, name and the grid coords, all of which the Map carries verbatim.
   const zone = world.zones.get(zoneId);
-  if (!zone) throw new Error(`Zone ${zoneId} does not exist`);
+  if (!zone) throw new Error(`Zone ${zoneId} doesn't exist`);
 
   // Junction boxes serve building interiors only. Every external/outdoor tile is
   // fed straight from a city power plant (city_grid), so a JB there is meaningless

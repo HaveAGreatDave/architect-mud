@@ -129,7 +129,7 @@ export async function augmentTargets(player, ctx = {}) {
 
       const notes = [];
       if (oc > 0) notes.push(`Running at ${100 + oc * 25}% — thermal signature is wide open.`);
-      if (Number(rec.condition ?? 1) < 0.5) notes.push('Badly worn. Whatever is holding it together is not much.');
+      if (Number(rec.condition ?? 1) < 0.5) notes.push("Badly worn. Whatever is holding it together isn't much.");
       if (rec.custom_data?.radio_off === true) notes.push('Radio physically disconnected. Somebody has done this before.');
 
       out.push({
@@ -152,15 +152,15 @@ export async function augmentTargets(player, ctx = {}) {
             return {
               message: `<span class="msg-system">${aug.name} — ${subsystem.id} ${vital ? 'stops responding' : 'starts lying'}.</span>`,
               ownerMessage: vital
-                ? `<span class="text-red">Your ${aug.name} goes dead weight. The ${subsystem.id} is not answering.</span>`
-                : `<span class="text-amber">Your ${aug.name} is reporting something that cannot be true.</span>`,
+                ? `<span class="text-red">Your ${aug.name} goes dead weight. The ${subsystem.id} isn't answering.</span>`
+                : `<span class="text-amber">Your ${aug.name} is reporting something that can't be true.</span>`,
             };
           }
 
           if (opId === 'hijack') {
             return {
               message: `<span class="ip-gain">${whose} ${aug.name} moves when you tell it to.</span>`,
-              ownerMessage: `<span class="text-red">Your ${aug.name} moves, and you did not move it.</span>`,
+              ownerMessage: `<span class="text-red">Your ${aug.name} moves, and you didn't move it.</span>`,
             };
           }
 

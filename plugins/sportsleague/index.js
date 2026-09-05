@@ -60,7 +60,7 @@ const LEAGUES = {
   hockey: {
     sport: 'hockey', icon: '🏒', show: 'CLUSTER PUCK', league: 'CPhL',
     final: 'COLDWATER CUP', finalTitle: 'Coldwater Cup', finalCmd: 'cup',
-    empty: 'The CPhL has not dropped a puck yet — the Cluster Puck standings are empty.',
+    empty: "The CPhL hasn't dropped a puck yet — the Cluster Puck standings are empty.",
     head: '  W   L  OTL   PTS     GD',
     cells: (r) => {
       const gd = (r.goals_for || 0) - (r.goals_against || 0);

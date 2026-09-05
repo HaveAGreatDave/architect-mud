@@ -12,11 +12,11 @@
         "type": "say"
       },
       "l2": {
-        "text": "Third time in that room, at least. It is starting to feel less like bad luck and more like a subscription.",
+        "text": "Third time in that room, at least. It's starting to feel less like bad luck and more like a subscription.",
         "type": "say"
       },
       "l3": {
-        "text": "Somewhere a ledger notes the repeat address and does not editorialise.",
+        "text": "Somewhere a ledger notes the repeat address and doesn't editorialise.",
         "type": "say"
       },
       "line": {

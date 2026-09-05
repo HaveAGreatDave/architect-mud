@@ -78,7 +78,7 @@
   "butcher_difficulty": 5,
   "butcher_table": [],
   "death_message": "The sweeper grinds to a halt, brushes still twitching, and goes dark.",
-  "description": "A municipal street-sweeping drone from the city's better days, still trundling its route on three good wheels and one bad one. Its brushes are worn to nubs and its logic to nothing. It does not recognise you as pavement, which is the only good news.",
+  "description": "A municipal street-sweeping drone from the city's better days, still trundling its route on three good wheels and one bad one. Its brushes are worn to nubs and its logic to nothing. It doesn't recognise you as pavement. Take what comfort there's in that.",
   "dodge": 1,
   "faction": null,
   "flags": {

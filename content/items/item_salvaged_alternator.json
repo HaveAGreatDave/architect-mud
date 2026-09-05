@@ -1,10 +1,10 @@
 {
-  "description": "A car alternator pulled off something that stopped being a car some time ago. The casing is scabbed with rust; the windings inside are bright and perfect. It will work. Nobody can tell you for how long.",
+  "description": "A car alternator pulled off something that stopped being a car some time ago. The casing is scabbed with rust; the windings inside are bright and perfect. It'll work. Nobody can tell you for how long.",
   "flags": {},
   "id": "item_salvaged_alternator",
   "name": "salvaged alternator",
   "tags": {
-    "description": "A car alternator pulled off something that stopped being a car some time ago. The casing is scabbed with rust; the windings inside are bright and perfect. It will work. Nobody can tell you for how long.",
+    "description": "A car alternator pulled off something that stopped being a car some time ago. The casing is scabbed with rust; the windings inside are bright and perfect. It'll work. Nobody can tell you for how long.",
     "misc": true
   },
   "type": "misc",

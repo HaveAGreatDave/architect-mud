@@ -7,9 +7,9 @@
   "fx_intensity": 0.55,
   "id": "dxw_blotter_weather",
   "looks": [
-    "It is falling in a pattern, and the pattern is repeating, and you have started counting.",
+    "It's falling in a pattern, and the pattern is repeating, and you have started counting.",
     "Every drop is taking the same route as the one before it.",
-    "The sky is doing something structural that it is rather pleased with."
+    "The sky is doing something structural that it's rather pleased with."
   ],
   "matches": null,
   "name": "the weather, patterned",

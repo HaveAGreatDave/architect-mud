@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "The quartermaster's store: a narrow armoury-cum-shop where the Watch keep what they trust: no augments, no smart gear, nothing that phones home. Iron sights, hand tools, good boots, paper maps, honest steel, all of it maintained to a standard that borders on devotion. What you can draw from these shelves depends on what the Watch have decided you are worth. The common room is south.",
+  "description": "The quartermaster's store: a narrow armoury-cum-shop where the Watch keep what they trust: no augments, no smart gear, nothing that phones home. Iron sights, hand tools, good boots, paper maps, honest steel, all of it maintained to a standard that borders on devotion. What you can draw from these shelves depends on what the Watch have decided you're worth. The common room is south.",
   "exits": {
     "east": "zone_lw_tap",
     "south": "zone_lw_commons",

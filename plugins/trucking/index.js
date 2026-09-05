@@ -226,7 +226,7 @@ const RECKLESS_MPH = 44;
 // How often the ROOM is told about a horn, however many times the cord is pulled. The sound has no
 // cooldown at all and must not get one — see cmdHorn.
 const HORN_SAY_MS = 60_000;
-const HARD_START_LINE = '<span class="text-amber">It turns over, and over, and does not catch. You wait. You try it again and it goes, in a cloud of something that should not be blue.</span>';
+const HARD_START_LINE = '<span class="text-amber">It turns over, and over, and doesn\'t catch. You wait. You try it again and it goes, in a cloud of something that shouldn\'t be blue.</span>';
 
 // ── drive ────────────────────────────────────────────────────────────────────
 // Get in the rig. A haul STARTS AT A DEPOT and ends at one: you pull out of the yard, drive the
@@ -274,7 +274,7 @@ async function hydrateFromTruck(rig, owned) {
   return rig;
 }
 async function cmdDrive(args, raw, player) {
-  if (rigOf(player)) return say('You are already behind the wheel.');
+  if (rigOf(player)) return say("You're already behind the wheel.");
 
   // ── THE LICENCE ────────────────────────────────────────────────────────────
   // Flight's `boardFound` gate, for trucks: no licence, no seat. It sits ABOVE the crossing branch
@@ -327,7 +327,7 @@ async function cmdDrive(args, raw, player) {
   if (!depot) {
     return say("There's nothing to drive here. Rigs run out of the freight yards — find a depot with a truck in it.");
   }
-  if (here.grid_x == null) return say('There is no road out of this yard.');
+  if (here.grid_x == null) return say("There's no road out of this yard.");
 
   // OWNERSHIP IS THE GATE. Phase 1 handed anybody a free rig because the question then was whether
   // the DRIVE was worth doing. It is — so the question now is whether the run is worth OWNING, and
@@ -465,7 +465,7 @@ async function cmdDrive(args, raw, player) {
   const rollUp = fromShed
     ? ` The roller door grinds up in front of you, a bar of daylight at a time.`
     : '';
-  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. It is cold in here and nothing is running — the key is in the barrel where you left it.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`
+  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. It's cold in here and nothing is running — the key is in the barrel where you left it.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`
     + `
 <span class="text-dim">Turn the key — <b>K</b>, or the barrel on the shelf — and hold it until she catches.</span>`);
 }
@@ -704,11 +704,11 @@ function hitchZones(zoneId) {
 async function mountOnCrossing(player) {
   const live = player._crossing;
   const info = crossingInfo(live.instanceId);
-  if (!info) return say('The road will not resolve. Try the crossing on foot.');
+  if (!info) return say("The road won't resolve. Try the crossing on foot.");
   const destKey = info.dests?.[0]?.key;
   if (!destKey) return say('The road out of here goes nowhere anyone has charted.');
   const chain = crossingChain(live.instanceId, destKey);
-  if (!chain.length) return say('The road will not resolve. Try the crossing on foot.');
+  if (!chain.length) return say("The road won't resolve. Try the crossing on foot.");
 
   // ⚠ YOUR TRUCK, IF YOUR TRUCK IS THE ONE STANDING HERE. This path is named for the legacy case —
   // a rig left at the roadhead with the keys in it — and it built that fiction unconditionally: a
@@ -743,7 +743,7 @@ async function mountOnCrossing(player) {
   return say(mine
     ? `<span class="text-green">You climb back up into the ${mine.name || 'cab'}, and the diesel catches on the second turn.</span>`
       + (rig.trailer ? ` <span class="text-dim">The ${rig.trailer.name} is still on the pin behind you.</span>` : '')
-    : '<span class="text-green">There is a rig at the roadhead with the keys still in it. You climb up, and the diesel catches on the second turn.</span>');
+    : '<span class="text-green">There\'s a rig at the roadhead with the keys still in it. You climb up, and the diesel catches on the second turn.</span>');
 }
 
 // ── haul ─────────────────────────────────────────────────────────────────────
@@ -891,7 +891,7 @@ async function loadDeck(player) {
     if (tr) withBox.push({ truck: t, trailer: tr });
   }
   if (!withBox.length) {
-    return { err: say(`Every truck in this yard is bobtail — there is nothing behind one to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`) };
+    return { err: say(`Every truck in this yard is bobtail — there's nothing behind one to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`) };
   }
   if (withBox.length > 1) {
     return { err: say('More than one rig here is hitched up. Take the one you mean out yourself — '
@@ -945,18 +945,18 @@ async function cmdHaul(args, raw, player) {
   // cannot be in while looking at the board.
   const deck = await loadDeck(player);
   if (deck.err) return deck.err;
-  if (!deck.trailer) return say(`You are bobtail — there is nothing behind you to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
+  if (!deck.trailer) return say(`You're bobtail — there's nothing behind you to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
   if (deck.cargo) return say(`Already loaded: ${deck.cargo.name}${deck.cargo.toName ? `, for ${deck.cargo.toName}` : ''}.`);
   // ⚠ AND THE BOX HAS TO TAKE IT. The mounted path never checked, because there was no way to be
   // holding a contract the trailer could not carry — you took it in the cab of the truck that was
   // going to pull it. On foot you can be standing at a board with a small box on the pin, so the
   // rating is asked here rather than discovered at a weighbridge two regions away.
   if (deck.trailer.ratedKg && job.kg > deck.trailer.ratedKg) {
-    return say(`${job.kg} kg on a box rated for ${deck.trailer.ratedKg}. It will not go on.`);
+    return say(`${job.kg} kg on a box rated for ${deck.trailer.ratedKg}. It won't go on.`);
   }
   await setDeckCargo(player, deck, { ...job });
   return say(`<span class="item-grant">Loaded: ${job.name}. ${job.kg} kg, bound for ${job.toName}. ${job.pay}₵ on delivery.</span>`
-    + (deck.mounted ? '' : ` <span class="text-dim">It is on the ${deck.label}, waiting for you to take it out.</span>`));
+    + (deck.mounted ? '' : ` <span class="text-dim">It's on the ${deck.label}, waiting for you to take it out.</span>`));
 }
 
 // Paid on arrival, at the depot the load names. The credit is the only DB write on the whole haul
@@ -1366,7 +1366,7 @@ function depotDialogPayload(p) {
     rows.push({
       group: 'For sale',
       label: t.name,
-      detail: `${t.price}₵ · ${t.kg}kg · ${t.tank} tiles a tank · ${t.top}mph${t.afford ? '' : ' · cannot afford'}`,
+      detail: `${t.price}₵ · ${t.kg}kg · ${t.tank} tiles a tank · ${t.top}mph${t.afford ? '' : " · can't afford"}`,
       commands: t.afford ? [{ label: 'Buy', command: `yard buy ${t.id}` }] : [],
     });
   }
@@ -1431,7 +1431,7 @@ function textYard(p) {
     : '  <span class="text-dim">You own nothing with wheels on it.</span>';
   const stock = p.stock.map(t =>
     `  <b>${t.name}</b> — <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${t.tank} tiles a tank · ${t.top} mph`
-    + `${t.afford ? '' : ' <span class="text-dim">(cannot afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
+    + `${t.afford ? '' : ' <span class="text-dim">(can\'t afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
     + `\n    <span class="text-dim">yard buy ${t.id}</span>`).join('\n');
   // THE BOXES, ON THE RECORD. A trailer you own was invisible on BOTH rungs of the display
   // ladder, because it was never in the payload at all — so a bought reefer existed in the
@@ -1529,7 +1529,7 @@ async function yardBuyTrailer(player, here, depot, t) {
   return say(`<span class="item-grant">Bought: ${t.name}. ${t.price}₵.</span>\n`
     + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. ${outside
       ? `A yard hand walks it out and drops the legs on the hardstand, nose to the road — ${teachVerb('hitch')} once you have backed under it.`
-      : `It is standing in the yard — ${teachVerb('hitch')} to back under it.`}</span>`);
+      : `It's standing in the yard — ${teachVerb('hitch')} to back under it.`}</span>`);
 }
 
 // Selling a box. Priced off the list and its condition (trailerResale), refused while it is
@@ -1546,10 +1546,10 @@ async function yardSellTrailer(player, here, depot, id) {
   const rig = rigOf(player);
   const towed = !box && rig?.trailer && rig.trailer.id === id && rig.trailer.ownerId === player.id
     && (zones.includes(rig.zoneId) || zones.includes(rig.fromDepot)) ? rig.trailer : null;
-  if (towed && rig.cargo) return say(`There is still a load on it. <span class="text-dim">Deliver or dump it before you sell the ${towed.name}.</span>`);
+  if (towed && rig.cargo) return say(`There's still a load on it. <span class="text-dim">Deliver or dump it before you sell the ${towed.name}.</span>`);
   box = box || towed;
   if (!box) return say("That isn't yours, or it isn't standing in this yard.");
-  if (box.cargo || box.stash) return say(`There is still a load on it. <span class="text-dim">Empty the ${box.name} first.</span>`);
+  if (box.cargo || box.stash) return say(`There's still a load on it. <span class="text-dim">Empty the ${box.name} first.</span>`);
   const value = trailerResale(box);
   // Unhook it first, so the row is a parked box for the instant before it stops existing — and the
   // live rig stops believing it has one. Doing it the other way round leaves a rig towing a trailer
@@ -1590,7 +1590,7 @@ async function yardPaintTrailer(player, bay, depot, want, colour) {
   const c = String(colour || '').trim().toLowerCase();
   if (!/^#[0-9a-f]{6}$/.test(c)) return say(`A colour, like <span class="text-dim">#8e0f18</span>. <span class="text-dim">yard paint ${box.id} #8e0f18</span>`);
   if ((player.credits || 0) < BOX_PAINT_FEE) return say(`Painting a box is ${BOX_PAINT_FEE}₵ and you have ${player.credits || 0}₵.`);
-  if (!await paintTrailer(box.id, player.id, c)) return say('That box is not yours to paint.');
+  if (!await paintTrailer(box.id, player.id, c)) return say("That box isn't yours to paint.");
   player.credits -= BOX_PAINT_FEE;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
@@ -1676,7 +1676,7 @@ async function yardRecall(player, here, id) {
   if (rigOf(player)?.truckId === t.id) return say("You're sitting in it.");
   const fee = towFee(t.type, t.depot_zone, here.id) + (t.impound_fee || 0);
   if ((player.credits || 0) < fee) {
-    return say(`Recovery from ${depotNameOf(t.depot_zone)} is <b>${fee}₵</b>${t.impound_fee ? ` (${t.impound_fee}₵ of that is the lot's)` : ''}. `
+    return say(`Recovery from ${depotNameOf(t.depot_zone)} is <b>${fee}₵</b>${t.impound_fee ? ` (${t.impound_fee}₵ of that's the lot's)` : ''}. `
       + `<span class="text-dim">You have ${player.credits || 0}₵.</span>`);
   }
   const moved = await recoverTruckTo(t.id, player.id, t.depot_zone, here.id);
@@ -1793,7 +1793,7 @@ async function marketBuy(player, rig, here, region, good, qtyArg) {
   // the same building, and refused for the same wrong question. See `loadDeck`.
   const deck = await loadDeck(player);
   if (deck.err) return deck.err;
-  if (!deck.trailer) return say(`Nowhere to put it — you are bobtail. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
+  if (!deck.trailer) return say(`Nowhere to put it — you're bobtail. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
   if (deck.cargo) return say(`The deck is full: ${deck.cargo.name}.`);
   // Match on the key or on a word of the display name, but never on an EMPTY argument — a bare
   // `market buy` must ask what, not silently pick whichever commodity happens to sort first.
@@ -1893,16 +1893,16 @@ async function cmdRefuelTruck(args, raw, player) {
 // second opinion about either — the day somebody retunes FUEL_FULL or adds a pump flag, this path
 // changes with the rest of them.
 async function pumpParked(player, want = '') {
-  if (!pumpAt({ leg: 'city', zoneId: player.current_zone })) return say('You are not driving anything.');
+  if (!pumpAt({ leg: 'city', zoneId: player.current_zone })) return say("You aren't driving anything.");
   const parked = await trucksAt(player.id, player.current_zone);
   const truck = pickParked(parked, want);
   if (!truck && parked.length) return whichTruckLine('fuel', parked, want);
-  if (!truck) return say('You are not driving anything, and nothing of yours is standing at these pumps.');
+  if (!truck) return say("You aren't driving anything, and nothing of yours is standing at these pumps.");
 
   const room = 1 - (truck.fuel ?? 1);
   if (room < 0.02) return say('She is already full.');
   const { take, cost } = pumpClamp(player.credits, truck.fuel ?? 1, room);
-  if (take < 0.01) return say(`You cannot cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
+  if (take < 0.01) return say(`You can't cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
 
   // Fuel first, money second, exactly as the cab path does it: a failed write must never bill for a
   // fill that did not happen.
@@ -1939,7 +1939,7 @@ async function cmdTruckPump(args, raw, player) {
 
 async function pumpFuel(player, want, { typed }) {
   const rig = rigOf(player);
-  if (!rig) return typed ? say('You are not driving anything.') : { type: 'none' };
+  if (!rig) return typed ? say("You aren't driving anything.") : { type: 'none' };
   if (!pumpAt(rig, player.current_zone)) return say('No pump here.');
   const room = 1 - rig.fuel;
   if (room < 0.02) return say('She is already full.');
@@ -1950,7 +1950,7 @@ async function pumpFuel(player, want, { typed }) {
   // had enough to get to the next town. (The typed verb asks for a full tank, so this is the line
   // that turns `fuel` into "fill it as far as I can afford" rather than an error message.)
   const { take, cost } = pumpClamp(player.credits, rig.fuel, Number.isFinite(want) ? want : room);
-  if (take < 0.01) return say(`You cannot cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
+  if (take < 0.01) return say(`You can't cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
 
   player.credits -= cost;
   rig.fuel = Math.min(1, rig.fuel + take);
@@ -1984,7 +1984,7 @@ export async function forcedPark(player) { return parkRig(player, true); }
 async function cmdPark(args, raw, player) { return parkRig(player, false); }
 async function parkRig(player, forced) {
   const rig = rigOf(player);
-  if (!rig) return say('You are not driving anything.');
+  if (!rig) return say("You aren't driving anything.");
   // ── THE ONLY THING THAT STOPS YOU GETTING OUT IS MOTION ────────────────────
   // This used to refuse a running engine, on the reasoning that parking is a sequence — brake, key,
   // door — and a driver should perform all three. It was wrong twice over, and both showed up as
@@ -2003,7 +2003,7 @@ async function parkRig(player, forced) {
   // parking rather than a prerequisite for it — you do not leave one running, and the sim is
   // closing anyway, so the state is set here instead of demanded of the driver.
   if (!forced && (rig.speed || 0) > PARK_STOPPED_MPH) {
-    return say('Not while it is still rolling. Bring it to a stand first, then set the brakes.');
+    return say("Not while it's still rolling. Bring it to a stand first, then set the brakes.");
   }
   // ── ⚠ A DRIVER IS NEVER LEFT IN THE VOID WITH A TRUCK THAT STILL RUNS ──────
   // This used to be `rig.leg !== 'city' && (broken || dry || s > 2)`, which made ANY deliberate
@@ -2203,8 +2203,8 @@ async function cmdTruckSync(args, raw, player) {
   if (r.tookFork) {
     sendToPlayer(player.id, {
       type: 'emote',
-      message: `<span class="text-amber">The wheels find the other road and stay on it. You are on the ${r.tookFork.name} limb now.</span>`
-        + ` <span class="text-dim">Steer back across if that was not what you meant — or ${teachVerb('route', 'route')} to see what each one costs you.</span>`,
+      message: `<span class="text-amber">The wheels find the other road and stay on it. You're on the ${r.tookFork.name} limb now.</span>`
+        + ` <span class="text-dim">Steer back across if that wasn't what you meant — or ${teachVerb('route', 'route')} to see what each one costs you.</span>`,
     });
   }
 
@@ -2253,7 +2253,7 @@ async function cmdTruckSync(args, raw, player) {
     rig.bogged = true;
     unbog(rig);
     pushCab(rig, { bogged: true });
-    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The wheels go soft, then bite nothing at all. You are off the road and into the deep stuff — it takes a long, ugly while to get her back onto the gravel, and the tank is lighter for it.</span>' });
+    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The wheels go soft, then bite nothing at all. You\'re off the road and into the deep stuff — it takes a long, ugly while to get her back onto the gravel, and the tank is lighter for it.</span>' });
     return { type: 'noop' };
   }
   // Arrival is checked on EVERY frame, not only when the node index changes. The last room is the
@@ -2289,7 +2289,7 @@ async function cmdTruckSync(args, raw, player) {
       sendToPlayer(player.id, { type: 'emote', message:
         `<span class="text-amber">Somebody is standing at the side of the road up ahead with an arm out.</span>`
         + `\n<span class="text-dim">${b.handle}, about ${Math.max(1, Math.round(b.dist / 3))} mile${Math.round(b.dist / 3) === 1 ? '' : 's'} on. `
-        + `Slow down and they can climb up; keep going and they will not hold it against you out loud.</span>` });
+        + `Slow down and they can climb up; keep going and they won't hold it against you out loud.</span>` });
     }
   }
 
@@ -2309,8 +2309,8 @@ async function cmdTruckSync(args, raw, player) {
         sendToPlayer(player.id, {
           type: 'emote',
           message: '<span class="text-amber">A junction, of sorts: the graded road splits around a stand of dead pylons and both halves go on being road.</span>'
-            + ` <span class="text-dim">You are on the ${(info.dests.find(d => d.key === rig.destKey)?.heading) || 'far'} side of it. `
-            + `${others.map(d => `<b>${d.heading}</b>`).join(', ')} the other way — ${teachVerb('route', 'route')} while you are still on it.</span>`,
+            + ` <span class="text-dim">You're on the ${(info.dests.find(d => d.key === rig.destKey)?.heading) || 'far'} side of it. `
+            + `${others.map(d => `<b>${d.heading}</b>`).join(', ')} the other way — ${teachVerb('route', 'route')} while you're still on it.</span>`,
         });
       }
     }
@@ -2354,7 +2354,7 @@ async function cmdTruckSync(args, raw, player) {
 // what it says; the four reserved words are listed in the status line so nobody has to guess.
 async function cmdCb(args, raw, player) {
   const rig = rigOf(player);
-  if (!rig) return say('You are not driving anything.');
+  if (!rig) return say("You aren't driving anything.");
   const rest = String(raw || '').replace(/^\S+\s*/, '').trim();
   if (!rest) return cbStatus(player, rig);
 
@@ -2398,7 +2398,7 @@ async function cmdHorn(args, raw, player) {
   if (!typeId) {
     const zone = getZone(player.current_zone);
     const depot = depotAt(zone);
-    if (!depot) return say('There is nothing here with a horn on it.');
+    if (!depot) return say("There's nothing here with a horn on it.");
     // ANY OF THEM WILL DO. This is the one caller that does not care which truck it got: a horn is a
     // noise the yard hears, and nobody standing in it could tell you which of your cabs it came out
     // of. Asking "which one?" for a sound effect would be a prompt charging rent for nothing.
@@ -2448,11 +2448,11 @@ async function cmdHorn(args, raw, player) {
 // as worn out at the end of it as it was at the start.
 async function cmdFix(args, raw, player) {
   const rig = rigOf(player);
-  if (!rig) return say('You are not driving anything.');
+  if (!rig) return say("You aren't driving anything.");
   if (!rig.broken) {
     return say(rig.dry
-      ? 'There is nothing wrong with it that a tank of diesel would not solve.'
-      : 'Nothing on it is broken. Wear is a bench job — see <span class="text-dim">rig repair</span>.');
+      ? "There's nothing wrong with it that a tank of diesel wouldn't solve."
+      : 'Nothing on it\'s broken. Wear is a bench job — see <span class="text-dim">rig repair</span>.');
   }
   const b = BREAKDOWNS[rig.broken.kind] || BREAKDOWNS.hose;
 
@@ -2461,8 +2461,8 @@ async function cmdFix(args, raw, player) {
   // that does not offer another attempt — it offers the tow instead, which is the point.
   if (isTerminal(rig.condition)) {
     return say('<span class="text-amber">You get the panel up and stand looking at it for a while.</span>\n'
-      + '<span class="text-dim">There is nothing here to fix. It is not one thing that has gone — it is everything, all at '
-      + `once, the way it always is in the end. You are not driving this out. <b>${teachVerb('tow', 'tow')}</b> is the number to call.</span>`);
+      + '<span class="text-dim">There\'s nothing here to fix. It isn\'t one thing that has gone — it\'s everything, all at '
+      + `once, the way it always is in the end. You aren't driving this out. <b>${teachVerb('tow', 'tow')}</b> is the number to call.</span>`);
   }
 
   // THE PARTS. `fix` used to need nothing at all and came good by the fourth attempt for anybody,
@@ -2470,8 +2470,8 @@ async function cmdFix(args, raw, player) {
   // at a depot, when you either bought a box of spares or told yourself you would be fine.
   const spares = await sparesInHand(player);
   if (!spares) {
-    return say(`<span class="text-amber">You know exactly what ${b.label} needs. You do not have it.</span>\n`
-      + `<span class="text-dim">A box of truck spares is a depot counter and a few credits, and it is the difference between `
+    return say(`<span class="text-amber">You know exactly what ${b.label} needs. You don't have it.</span>\n`
+      + `<span class="text-dim">A box of truck spares is a depot counter and a few credits, and it's the difference between `
       + `this and a tow. <b>${teachVerb('tow', 'tow')}</b>, then.</span>`);
   }
   const fab = await effectiveSkill(player, 'fabrication');
@@ -2487,8 +2487,8 @@ async function cmdFix(args, raw, player) {
   await spendSpares(spares);
   if (Math.random() >= odds) {
     await awardSkillUse(player.id, 'fabrication', 0);
-    return say(`<span class="text-amber">You get at ${b.label} with what is in the box, and it beats you. `
-      + `You are dirtier, the light is worse, and it is still broken.</span> <span class="text-dim">Again, then.</span>`);
+    return say(`<span class="text-amber">You get at ${b.label} with what's in the box, and it beats you. `
+      + `You're dirtier, the light is worse, and it's still broken.</span> <span class="text-dim">Again, then.</span>`);
   }
   // FIXED, FOR A WHILE. The grace window is the whole design: it is why you limp to a town instead
   // of living out here with a spanner, and it is why the bench still exists.
@@ -2497,7 +2497,7 @@ async function cmdFix(args, raw, player) {
   await awardSkillUse(player.id, 'fabrication', 2);
   pushCab(rig, { fixed: true });
   return say(`<span class="item-grant">${b.fixed}</span>\n`
-    + `<span class="text-dim">It will hold for a while. It is not repaired — that is a bench and a bill, and the bar on it has not moved.</span>`);
+    + `<span class="text-dim">It'll hold for a while. It isn't repaired — that's a bench and a bill, and the bar on it hasn't moved.</span>`);
 }
 
 // ── parts, spares and `rig strip` → bench.js ─────────────────────────────────
@@ -2528,13 +2528,13 @@ async function cmdFix(args, raw, player) {
 // answer a question `impound_fee` already answers.
 async function cmdTow(args, raw, player) {
   const rig = rigOf(player);
-  if (!rig) return say('You are not driving anything, so there is nothing out here to come and get.');
+  if (!rig) return say("You aren't driving anything, so there's nothing out here to come and get.");
   if (!rig.broken && !rig.dry && !isTerminal(rig.condition)) {
-    return say('It is going. Whatever you think is wrong with it, a recovery driver is going to charge you to '
+    return say("It's going. Whatever you think is wrong with it, a recovery driver is going to charge you to "
       + 'tell you the same thing. <span class="text-dim">If you have simply had enough, <b>park</b>.</span>');
   }
   const truck = rig.truckId ? await getTruck(rig.truckId, player.id) : null;
-  if (!truck) return say('There is no paperwork on this thing. Nobody is coming out for it.');
+  if (!truck) return say("There's no paperwork on this thing. Nobody is coming out for it.");
 
   // Home is the depot it belongs to. Not the nearest one — a recovery firm takes a truck to the
   // yard whose name is on the movement order, which is the yard you set out from.
@@ -2556,7 +2556,7 @@ async function cmdTow(args, raw, player) {
 
   // The load is dropped with the truck, not carried by a man in a cab — a recovery driver is not
   // going to hand-ball somebody else's freight into the back of their pickup.
-  const lostLoad = rig.cargo ? ' The load goes back to the yard on the same ramps, and the contract on it is dead.' : '';
+  const lostLoad = rig.cargo ? " The load goes back to the yard on the same ramps, and the contract on it's dead." : '';
   rig.cargo = null;
 
   // Down off the road, on `park`'s own machinery — the truck's home is written above, so the rig's
@@ -2590,11 +2590,11 @@ async function cmdTow(args, raw, player) {
     ? `<span class="text-amber">You make the call and then you sit on the step for a long time.</span>\n`
       + `<span class="text-dim">The low-loader that turns up is older than your truck and considerably better maintained. `
       + `You ride back in the passenger seat with your boots on the dash, and nobody says anything the whole way.${lostLoad} `
-      + `The ${truck.type.name} is at ${depotNameOf(homeId)}, and it is going to need a bench.</span> <span class="item-loss">-${fee}₵</span>`
+      + `The ${truck.type.name} is at ${depotNameOf(homeId)}, and it's going to need a bench.</span> <span class="item-loss">-${fee}₵</span>`
     : `<span class="text-amber">You make the call. The recovery driver looks at your account, then at the truck, then at you.</span>\n`
-      + `<span class="text-dim">They take it anyway — that is the part people forget about recovery firms — and they keep it. `
-      + `${fee}₵ is what it costs to see it again, and it is sitting behind their fence at ${depotNameOf(homeId)} until you have it.${lostLoad} `
-      + `They drop you at the gate. It is a long way to anywhere from there.</span>`);
+      + `<span class="text-dim">They take it anyway — that's the part people forget about recovery firms — and they keep it. `
+      + `${fee}₵ is what it costs to see it again, and it's sitting behind their fence at ${depotNameOf(homeId)} until you have it.${lostLoad} `
+      + `They drop you at the gate. It's a long way to anywhere from there.</span>`);
 }
 
 // ── truckevent ───────────────────────────────────────────────────────────────
@@ -2722,7 +2722,7 @@ async function leaveTheMap(player, rig, broadcast) {
     if (back && back.grid_x != null) { rig.x = back.grid_x; rig.y = back.grid_y; }
     rig.speed = 0;
     pushCab(rig, { stopped: true });
-    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The road simply stops. Past the last of the hardtop there is nothing anybody has built a way through.</span>' });
+    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The road simply stops. Past the last of the hardtop there\'s nothing anybody has built a way through.</span>' });
     return { type: 'noop' };
   }
 
@@ -2753,7 +2753,7 @@ async function leaveTheMap(player, rig, broadcast) {
   const aimed = info.dests?.find(d => d.key === destKey);
   sendToPlayer(player.id, {
     type: 'emote',
-    message: '<span class="text-amber">The last streetlight goes by and the hardtop gives way to something graded rather than built. The map ends. The road, for whatever it is worth out here, does not.</span>'
+    message: '<span class="text-amber">The last streetlight goes by and the hardtop gives way to something graded rather than built. The map ends. The road, for whatever it\'s worth out here, does not.</span>'
       + (aimed ? `\n<span class="text-dim">Running for ${aimed.heading}.${(info.dests?.length || 0) > 1 ? ` The fork is ${info.trunk} rooms out — ${teachVerb('route', 'route')} until you take it.` : ''}</span>` : ''),
   });
   return { type: 'noop' };
@@ -2776,9 +2776,9 @@ async function leaveTheMap(player, rig, broadcast) {
 // forty tiles down the wrong limb is not a junction, it is a menu.
 async function cmdRoute(args, raw, player) {
   const rig = rigOf(player);
-  if (!rig) return say('You are not driving anything.');
+  if (!rig) return say("You aren't driving anything.");
   const opts = routeOptions(rig, { zoneId: player.current_zone, forkAhead: atOrBeforeFork(rig) });
-  if (!opts) return say('There is one road out of here and you are on it.');
+  if (!opts) return say("There's one road out of here and you're on it.");
   const onRoad = opts.onRoad;
   const info = onRoad && rig.instanceId ? crossingInfo(rig.instanceId) : null;
   const dests = (info?.dests || VOIDS[getZone(player.current_zone)?.flags?.region_id]?.dests || []);
@@ -2796,7 +2796,7 @@ async function cmdRoute(args, raw, player) {
     });
     const how = onRoad
       ? (opts.forkAhead ? `<span class="text-dim">The fork is still ahead. <b>route &lt;name&gt;</b> to take the other one.</span>`
-        : `<span class="text-dim">The fork is behind you. This is the road you are on now.</span>`)
+        : `<span class="text-dim">The fork is behind you. This is the road you're on now.</span>`)
       : `<span class="text-dim"><b>route &lt;name&gt;</b> to set it before you leave the map. A contracted load overrides it — the run goes where the paperwork says.</span>`;
     return say(`<span class="text-green">Out of ${opts.origin || 'here'}, the road forks toward:</span>\n${lines.join('\n')}\n${how}`);
   }
@@ -2807,12 +2807,12 @@ async function cmdRoute(args, raw, player) {
     rig.aim = pick.key;
     return say(`<span class="text-green">You settle on ${pick.heading}.</span> <span class="text-dim">Take the rim and the road will do the rest.</span>`);
   }
-  if (pick.key === rig.destKey) return say(`You are already on the ${pick.heading} road.`);
+  if (pick.key === rig.destKey) return say(`You're already on the ${pick.heading} road.`);
   if (!atOrBeforeFork(rig)) {
-    return say(`<span class="text-amber">The fork is a long way behind you. There is no cutting across out here — the only way onto the ${pick.heading} road is back the way you came.</span>`);
+    return say(`<span class="text-amber">The fork is a long way behind you. There's no cutting across out here — the only way onto the ${pick.heading} road is back the way you came.</span>`);
   }
   const chain = crossingChain(rig.instanceId, pick.key);
-  if (!chain.length) return say('That limb is not there. Something has gone wrong with the crossing.');
+  if (!chain.length) return say("That limb isn't there. Something has gone wrong with the crossing.");
   switchLimb(rig, { destKey: pick.key, chain, dest: crossingDest(rig.instanceId, pick.key) });
   rig.aim = pick.key;
   pushCab(rig, { rerouted: true });
@@ -2857,7 +2857,7 @@ async function retreat(player, rig) {
   // punishment enough for changing your mind, and the run is still there to be driven again.
   sendToPlayer(player.id, {
     type: 'emote',
-    message: '<span class="text-amber">The waste lets go of you and the gate comes back up out of the haze, from the wrong side. You are where you started, with less fuel and a day you will not get back.</span>'
+    message: '<span class="text-amber">The waste lets go of you and the gate comes back up out of the haze, from the wrong side. You\'re where you started, with less fuel and a day you won\'t get back.</span>'
       + (rig.cargo ? `\n<span class="text-dim">${rig.cargo.name} still on the deck, still bound for ${rig.cargo.toName}.</span>` : ''),
   });
   // A text run was aiming at somewhere on the far side; that target is meaningless now, and a rung
@@ -2943,7 +2943,7 @@ async function describeDepot(zone, player) {
   const depot = depotAt(zone);
   if (!depot) return undefined;
   let line = `<span class="ambient">Trucks stand nose-out along the fence with chalk prices on their screens, and `
-    + `somebody has bolted a board beside them with paper on it that is actually fresh. `
+    + `somebody has bolted a board beside them with paper on it that's actually fresh. `
     + `You could look over the ${teachVerb('yard', 'yard')}, read what needs ${teachVerb('haul', 'haul')}ing, `
     + `or see what the ${teachVerb('market', 'market')} is paying today. `
     + `With a rig of your own you could ${teachVerb('drive')}.</span>`;
@@ -3105,7 +3105,7 @@ async function cmdHitch(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('You would need to be in a truck. <b>drive</b>.');
   if (rig.trailer) return say(`Already hitched: ${rig.trailer.name}.`);
-  if (Math.abs(rig.speed) > HITCH_MPH) return say('Not at this speed. Stop first — the pin will not find the plate with the truck rolling.');
+  if (Math.abs(rig.speed) > HITCH_MPH) return say("Not at this speed. Stop first — the pin won't find the plate with the truck rolling.");
   // ⚠ A DEPOT IS THREE ZONES AND A TRAILER ONLY EVER SITS IN ONE OF THEM. This read the single tile
   // under your wheels, and that made a bought trailer unreachable on every real depot in the game:
   // `yard buy` parks it in the BAY (with the trucks, under the roof — see yardBuyTrailer), while a
@@ -3144,7 +3144,7 @@ async function cmdHitch(args, raw, player) {
   // Somebody else's box is somebody else's box. This is the one place trucking says no on grounds
   // of ownership rather than physics, and it is deliberate — an unattended trailer being takeable
   // would make the whole "leave it and come back" loop a coin-flip rather than a plan.
-  if (want.ownerId && want.ownerId !== player.id) return say(`${cap(want.name)} is not yours. The pin is locked and the plate has somebody else's number on it.`);
+  if (want.ownerId && want.ownerId !== player.id) return say(`${cap(want.name)} isn't yours. The pin is locked and the plate has somebody else's number on it.`);
 
   // ── YOU HAVE TO BACK UNDER IT ─────────────────────────────────────────────
   // A trailer now stands at a POSE rather than merely in a room, so hitching stopped being a menu
@@ -3154,11 +3154,11 @@ async function cmdHitch(args, raw, player) {
   const reach = hitchReach(rig, want);
   if (!reach.ok) {
     if (reach.why === 'far') return say(`${cap(want.name)} is standing ${reach.d < 1.2 ? 'just' : ''} too far off to couple. Line the truck up on it and back under.`);
-    if (reach.why === 'angle') return say(`You are across it, not under it. Straighten up on ${want.name} and try again.`);
+    if (reach.why === 'angle') return say(`You're across it, not under it. Straighten up on ${want.name} and try again.`);
     // The flank. A separate answer from 'far' because the driver is not far away at all — they are
     // beside the box, which looks close and is the one place the pin can never be.
-    if (reach.why === 'across') return say(`You are alongside ${want.name}, not on its pin. The fifth wheel has to come up its centreline — pull round and back onto the nose.`);
-    return say('Not at this speed. Stop first — the pin will not find the plate with the truck rolling.');
+    if (reach.why === 'across') return say(`You're alongside ${want.name}, not on its pin. The fifth wheel has to come up its centreline — pull round and back onto the nose.`);
+    return say("Not at this speed. Stop first — the pin won't find the plate with the truck rolling.");
   }
 
   // ⚠ THE GUARD IS THE TRAILER'S OWN ZONE, NOT THE ONE UNDER YOUR WHEELS. `hitchTrailer` writes
@@ -3178,14 +3178,14 @@ async function cmdHitch(args, raw, player) {
 async function cmdUnhitch(args, raw, player) {
   const say = (message) => ({ type: 'emote', message });
   const rig = rigOf(player);
-  if (!rig?.trailer) return say('You are bobtail already.');
+  if (!rig?.trailer) return say("You're bobtail already.");
   if (Math.abs(rig.speed) > HITCH_MPH) return say('Stop the truck first.');
   const here = getZone(player.current_zone);
   // The whole of rule 2. A dropped trailer must stand somewhere that is still there tomorrow, and
   // a transient void room is not — it goes when the crossing ends, and a trailer in one would be a
   // row pointing at nothing. On the corridor that is a no, and it says why.
   if (!canDrop(here)) {
-    return say('Not out here. There is nothing to leave it standing ON — the waste closes behind you, and a trailer you drop in it is a trailer you have thrown away. Get it to a yard, or to a street.');
+    return say("Not out here. There's nothing to leave it standing ON — the waste closes behind you, and a trailer you drop in it's a trailer you have thrown away. Get it to a yard, or to a street.");
   }
   const t = rig.trailer, hadLoad = !!rig.cargo;
   // The load STAYS ON IT — that is the point of a trailer being a thing rather than a state.
@@ -3214,12 +3214,12 @@ export const cap = (s) => String(s || '').charAt(0).toUpperCase() + String(s || 
 async function cmdStash(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('Not in a truck.');
-  if (!rig.trailer) return say('There is nothing behind you to hide it in. <b>hitch</b> a trailer first.');
+  if (!rig.trailer) return say("There's nothing behind you to hide it in. <b>hitch</b> a trailer first.");
   if (!args.length) {
     const on = rig.trailer.stash || [];
     if (!on.length) return say('Nothing behind the bulkhead. <span class="text-dim">stash &lt;something&gt;</span>');
     return say(`Behind the bulkhead: ${on.map(s => `${s.name} <span class="text-dim">(${s.kg} kg)</span>`).join(', ')}. `
-      + `<span class="text-amber">${stashKg(rig.trailer)} kg that is not on your paper.</span>`);
+      + `<span class="text-amber">${stashKg(rig.trailer)} kg that isn't on your paper.</span>`);
   }
   const hit = await resolveInventoryItem(player, { name: args.join(' ') });
   if (!hit) return say("You aren't carrying that.");
@@ -3269,11 +3269,11 @@ async function cmdUnstash(args, raw, player) {
 async function cmdPickup(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('Not in a truck.');
-  if (rig.leg !== 'corridor') return say('There is nobody out here on foot. This is a city.');
+  if (rig.leg !== 'corridor') return say("There's nobody out here on foot. This is a city.");
   if (rig.rider) return say(`${cap(rig.rider.look)} is already in the sleeper.`);
   const who = rig.hitchDone?.has(rig.node) ? null : hitcherAt(rig.route, rig.node, rig.chain?.length || 1);
   if (!who) return say('Nobody on this stretch. Just the road.');
-  if (Math.abs(rig.speed) > 6) return say('Not at this speed. They step back from the wash and you are past them.');
+  if (Math.abs(rig.speed) > 6) return say("Not at this speed. They step back from the wash and you're past them.");
 
   // WHERE they ride is the decision, and it is only offered for the one it matters for. Everybody
   // else takes the seat, because for everybody else there is nothing to hide.
@@ -3285,7 +3285,7 @@ async function cmdPickup(args, raw, player) {
       + `<b>pickup trailer</b> — nobody looks, and they weigh what a person weighs.</span>`);
   }
   const inTrailer = where === 'trailer';
-  if (inTrailer && !rig.trailer) return say('There is no box back there to put anybody in.');
+  if (inTrailer && !rig.trailer) return say("There's no box back there to put anybody in.");
 
   // ⚠ THE STRETCH IS SPENT, AND IT HAS TO BE RECORDED SOMEWHERE. 'hitcherAt' is a pure function of
   // the route and the node — that is its whole design, and it is what makes everybody driving this
@@ -3305,7 +3305,7 @@ async function cmdPickup(args, raw, player) {
   if (inTrailer) {
     // THE LINKAGE. A person is eighty kilos, and the weighbridge does not care what the eighty
     // kilos is for. Riding back there makes them contraband in the only sense the scale understands.
-    const list = [...(rig.trailer.stash || []), { itemId: null, name: 'somebody who is not on the paper', kg: 80 }];
+    const list = [...(rig.trailer.stash || []), { itemId: null, name: "somebody who isn't on the paper", kg: 80 }];
     rig.trailer.stash = list;
     await saveLoad(rig.trailer.id, rig.cargo || null, list);
   }
@@ -3314,7 +3314,7 @@ async function cmdPickup(args, raw, player) {
     + `${cap(who.look)}. ${who.line}\n\n`
     + (inTrailer
       ? `<span class="text-amber">They climb up into the dark and you shut them in. The trailer is eighty kilos heavier than your paper says.</span>`
-      : `<span class="text-dim">They put their bag between their feet and do not say much after that.</span>`));
+      : `<span class="text-dim">They put their bag between their feet and don't say much after that.</span>`));
 }
 
 async function cmdDropoff(args, raw, player) {
@@ -3335,7 +3335,7 @@ async function cmdDropoff(args, raw, player) {
   // What they were worth, paid at the moment they get out, because none of it is knowable before.
   let extra = '';
   if (who.id === 'mechanic') {
-    if (rig.dry) { rig.fuel = Math.max(rig.fuel, 0.18); rig.dry = false; extra = `<span class="item-grant">She spends twenty minutes under the tank with a length of hose and gets you enough to be going on with. You are not walking after all.</span>`; }
+    if (rig.dry) { rig.fuel = Math.max(rig.fuel, 0.18); rig.dry = false; extra = `<span class="item-grant">She spends twenty minutes under the tank with a length of hose and gets you enough to be going on with. You aren't walking after all.</span>`; }
     else extra = `<span class="text-dim">"Nothing wrong with it. Keep it that way."</span>`;
   } else if (who.id === 'local') {
     rig.fuel = Math.min(1, rig.fuel + 0.12);
@@ -3351,7 +3351,7 @@ async function cmdDropoff(args, raw, player) {
     player.credits = (player.credits || 0) + purse;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-    extra = `<span class="item-grant">They put ${purse}₵ on the seat, and they are gone off the shoulder before you have picked it up.</span>`;
+    extra = `<span class="item-grant">They put ${purse}₵ on the seat, and they're gone off the shoulder before you have picked it up.</span>`;
   }
   pushCab(rig, { boarded: false });
   return say(`They get down and shut the door.\n\n${extra}`);
@@ -3486,7 +3486,7 @@ registerAction({
 // of those words — `gear` is landing gear — and two plugins claiming one verb is a coin-flip
 // decided by load order. The regress manifest sweep is what catches that class of collision.
 function cmdTextDrive(what) {
-  return (args, raw, player) => textDriveCommand(player.id, what, args[0]) || say('Not while you are out of the truck.');
+  return (args, raw, player) => textDriveCommand(player.id, what, args[0]) || say("Not while you're out of the truck.");
 }
 
 // ── `ride` / `hop` — getting into somebody else's truck ──────────────────────
@@ -3536,11 +3536,11 @@ function rigsInReach(player) {
 }
 
 async function cmdRide(args, raw, player) {
-  if (rigOf(player)) return { type: 'error', message: 'You are driving. `park` first if you want somebody else to.' };
-  if (ridingRigOf(player)) return { type: 'error', message: 'You are already riding. `hop` to get down.' };
+  if (rigOf(player)) return { type: 'error', message: "You're driving. `park` first if you want somebody else to." };
+  if (ridingRigOf(player)) return { type: 'error', message: "You're already riding. `hop` to get down." };
 
   const here = rigsInReach(player);
-  if (!here.length) return { type: 'error', message: 'There is no truck here to ride in.' };
+  if (!here.length) return { type: 'error', message: "There's no truck here to ride in." };
 
   const want = args.join(' ').trim().toLowerCase();
   const pick = want
@@ -3555,7 +3555,7 @@ async function cmdRide(args, raw, player) {
   if (Math.abs(rig.speed || 0) > RIDE_STOPPED_MPH)
     return { type: 'error', message: `${driver.handle} is still rolling. You would have to be quicker than that.` };
   if (seatsFree(rig) <= 0)
-    return { type: 'error', message: `There is no room in the cab.${rig.rider ? ' Somebody is already in the sleeper.' : ''}` };
+    return { type: 'error', message: `There's no room in the cab.${rig.rider ? ' Somebody is already in the sleeper.' : ''}` };
 
   boardPassenger(rig, player);
   sendToPlayer(driver.id, { type: 'emote',
@@ -3564,7 +3564,7 @@ async function cmdRide(args, raw, player) {
     message: `${player.handle} climbs up into ${driver.handle}'s cab.` }, player.id);
   return { type: 'emote',
     message: `<span class="text-green">You haul yourself up into ${driver.handle}'s cab and pull the door shut.</span>`
-      + `\n<span class="text-dim">You are along for the ride. ${teachVerb('hop', 'hop')} to get down wherever they stop.</span>` };
+      + `\n<span class="text-dim">You're along for the ride. ${teachVerb('hop', 'hop')} to get down wherever they stop.</span>` };
 }
 
 async function cmdHop(args, raw, player) {
@@ -3578,10 +3578,10 @@ async function cmdHop(args, raw, player) {
   alightPassenger(player);
   if (driver) sendToPlayer(driver.id, { type: 'emote',
     message: rolling
-      ? `<span class="text-amber">${player.handle} gets the door open and goes out of it while you are still moving.</span>`
+      ? `<span class="text-amber">${player.handle} gets the door open and goes out of it while you're still moving.</span>`
       : `<span class="text-dim">${player.handle} drops down out of the cab.</span>` });
   return { type: 'emote', message: rolling
-    ? '<span class="text-amber">You get the door open, pick your moment, and it is still a worse landing than you wanted.</span>'
+    ? '<span class="text-amber">You get the door open, pick your moment, and it\'s still a worse landing than you wanted.</span>'
     : '<span class="text-green">You drop down out of the cab.</span>' };
 }
 

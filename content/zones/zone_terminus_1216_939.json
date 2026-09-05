@@ -1,11 +1,11 @@
 {
   "ambient_events": [
     "A cell door stands open on a made bed nobody has slept in.",
-    "Somebody writes a first name in the ledger and does not write a surname.",
+    "Somebody writes a first name in the ledger and doesn't write a surname.",
     "The fire is fed one log and left alone."
   ],
   "ambient_theme": "outdoors",
-  "description": "The only building in the compound whose door is propped, and it is propped with a stone that has clearly lived there for years. A water butt beside it with a dipper on a chain, and the chain is not there to stop anybody taking the dipper, it is there so the dipper does not get lost.",
+  "description": "The only building in the compound whose door is propped, and it's propped with a stone that has clearly lived there for years. A water butt beside it with a dipper on a chain, and the chain isn't there to stop anybody taking the dipper, it's there so the dipper doesn't get lost.",
   "exits": {
     "north": "zone_exo_opendoor",
     "south": "zone_terminus_1216_940"

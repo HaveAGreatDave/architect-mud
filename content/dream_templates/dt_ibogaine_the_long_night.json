@@ -1,11 +1,11 @@
 {
   "ambient": [
-    "The night continues, and is not shorter for continuing.",
+    "The night continues, and isn't shorter for continuing.",
     "The buzzing drops a tone and holds.",
     "Something is shown to you again, in case you missed it."
   ],
   "cause": "drug",
-  "description": "Hours of it. The dry buzzing, the ordered playback, and no conclusion arriving. It does not comfort you and it does not accuse you. It is going to run for as long as it runs and then it is going to let you go without a word.",
+  "description": "Hours of it. The dry buzzing, the ordered playback, and no conclusion arriving. It doesn't comfort you and it doesn't accuse you. It's going to run for as long as it runs and then it's going to let you go without a word.",
   "drug_id": "drug_ibogaine",
   "fx": "tunnel",
   "fx_intensity": 0.5,
@@ -14,7 +14,7 @@
   "objects": [
     {
       "looks": [
-        "A great many, and it is not near the end.",
+        "A great many, and it isn't near the end.",
         "You have stopped expecting it to finish, which helps.",
         "Somewhere out there the night is doing its ordinary business."
       ],
@@ -22,8 +22,8 @@
     },
     {
       "looks": [
-        "There is not going to be one. That is not what this is.",
-        "You keep waiting for the point. The waiting is the point, possibly.",
+        "There isn't going to be one. That isn't what this is.",
+        "You keep waiting for something to happen. Possibly this is the something.",
         "It has no interest in making you feel better."
       ],
       "name": "the absence of a conclusion"
@@ -32,10 +32,10 @@
       "looks": [
         "Working hard. Working oddly.",
         "It stumbles, catches itself, carries on. You notice it very clearly.",
-        "It is the only thing here in a hurry."
+        "It's the only thing here in a hurry."
       ],
       "name": "your heart"
     }
   ],
-  "weather": "Outside it is the middle of the night, in a way you can feel through the walls, and it will be for hours yet."
+  "weather": "Outside it's the middle of the night, in a way you can feel through the walls, and it'll be for hours yet."
 }

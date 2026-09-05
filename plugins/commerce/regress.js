@@ -61,9 +61,9 @@ export default async function regress({ run, check, getPlayer }) {
   const onShift = { [today]: [{ from: 0, to: 24 }] };
   check('an on-shift vendor still walking to work reads closed',
     isVendorClosed({ name: 'Latecomer', work_zone_id: 'zone_shop', zone_id: 'zone_street', vendor_schedule: onShift }));
-  check('the same vendor reads open once they are behind the counter',
+  check("the same vendor reads open once they're behind the counter",
     !isVendorClosed({ name: 'Latecomer', work_zone_id: 'zone_shop', zone_id: 'zone_shop', vendor_schedule: onShift }));
-  check('an absent vendor does not quote next week\'s opening hour',
+  check('an absent vendor doesn\'t quote next week\'s opening hour',
     /hasn't opened up yet/.test(vendorClosedLine({ name: 'Latecomer', work_zone_id: 'zone_shop', zone_id: 'zone_street', vendor_schedule: onShift })));
   check('a stallholder with no work_zone_id is unaffected by presence',
     !isVendorClosed({ name: 'Stallie', zone_id: 'zone_street', vendor_schedule: onShift }));
@@ -101,7 +101,7 @@ export default async function regress({ run, check, getPlayer }) {
     isVendorRole({ name: 'Sells', vendor_inventory: [{ item_id: 'x' }] }));
   check('a seller with only a shop name reads as a vendor role',
     isVendorRole({ name: 'Sells', vendor_shop_name: 'Bodega Vu' }));
-  check('an employed NPC with a timetable but no stock is not a vendor role',
+  check("an employed NPC with a timetable but no stock isn't a vendor role",
     !isVendorRole({ name: 'Clerk', vendor_schedule: onShift }));
 
   check('shop-hours move gate registered', getRegisteredMoveGates().includes('commerce:shop-hours'), getRegisteredMoveGates().join(','));
@@ -131,7 +131,7 @@ export default async function regress({ run, check, getPlayer }) {
     if (isShut && !shouldBeShut) wrongShut.push(zone.id);
     if (!isShut && shouldBeShut) missedShut.push(zone.id);
   }
-  check('nothing is called shut that the hours do not shut', !wrongShut.length, wrongShut.slice(0, 5).join(','));
+  check("nothing is called shut that the hours don't shut", !wrongShut.length, wrongShut.slice(0, 5).join(','));
   // The fake player owns no apartment, so the resident exemption can never fire here
   // and every shut shop room must be reported.
   check('every shut shop room is reported shut', !missedShut.length, missedShut.slice(0, 5).join(','));
@@ -181,7 +181,7 @@ export default async function regress({ run, check, getPlayer }) {
   const armed = await dispatchAction({ type: 'commerce.arm_door_prompt', actor: getPlayer(), params: { owner: 'npc_regress_shop', direction: 'north' } });
   check('the door prompt arms', armed?.armed === true, JSON.stringify(armed));
   const again = await dispatchAction({ type: 'commerce.arm_door_prompt', actor: getPlayer(), params: { owner: 'npc_regress_shop', direction: 'north' } });
-  check('the same door does not ask twice', again?.armed === false, JSON.stringify(again));
+  check("the same door doesn't ask twice", again?.armed === false, JSON.stringify(again));
   const other = await dispatchAction({ type: 'commerce.arm_door_prompt', actor: getPlayer(), params: { owner: 'npc_regress_other_shop', direction: 'north' } });
   check('a different shop asks for itself', other?.armed === true, JSON.stringify(other));
   await dispatchAction({ type: 'commerce.clear_door_prompt', actor: getPlayer(), params: {} });
@@ -245,7 +245,7 @@ export default async function regress({ run, check, getPlayer }) {
       // every listed item on each container view. On a `vendor_stock` case that is
       // a second, infinite source of truth for the same box: it hands out free
       // goods forever and inflates the `stock` count the shelf reads.
-      check(`${c.id} is not also a bottomless dispenser`, !c.flags.restock_items,
+      check(`${c.id} isn't also a bottomless dispenser`, !c.flags.restock_items,
         `carries restock_items (${(c.flags.restock_items || []).length} ids) AND vendor_stock`);
 
       const sourced = (vendor.vendor_inventory || []).filter(e => e.sourceContainer === c.id && e.restockToQty > 0);

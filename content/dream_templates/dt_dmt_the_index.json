@@ -5,7 +5,7 @@
     "Something finds your entry, reads a little of it, and is pleased."
   ],
   "cause": "drug",
-  "description": "Everything is catalogued here, and the catalogue is a room, and it has been kept up. You are in it. Your entry is not short. It has been added to recently, by somebody with good handwriting, and the most recent line is about now.",
+  "description": "Everything is catalogued here, and the catalogue is a room, and it has been kept up. You're in it. Your entry isn't short. It has been added to recently, by somebody with good handwriting, and the most recent line is about now.",
   "drug_id": "drug_dmt",
   "fx": "bloom",
   "fx_intensity": 0.7,
@@ -16,7 +16,7 @@
       "looks": [
         "It goes back further than the thing it catalogues.",
         "Every entry is complete. Yours is complete.",
-        "It is arranged by something that is not alphabet and not date and is obvious."
+        "It's arranged by something that isn't alphabet and not date and is obvious."
       ],
       "name": "the catalogue"
     },

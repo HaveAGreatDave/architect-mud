@@ -6,9 +6,9 @@
     "No, that one is too hot. That one is for Ferrous.",
     "Towels on the left, and bring it back.",
     "I have been in here since the sun was on the other side of everything.",
-    "Everybody talks in a bathhouse. It is the rules."
+    "Everybody talks in a bathhouse. It's the rules."
   ],
-  "description": "She is in the steam and of it. Her skin is faintly, permanently wet, and it does not dry, and it never has, and in any other room in the world that would be a problem. In this one she can stand at the copper for nine hours without going down, which is why she is the one who does.\n\nShe talks constantly, to everybody, about nothing, and it is the most relaxing sound in the Thornwarren.",
+  "description": "She's in the steam and of it. Her skin is faintly, permanently wet, and it doesn't dry, and it never has, and in any other room in the world that would be a problem. In this one she can stand at the copper for nine hours without going down, which is why she's the one who does.\n\nShe talks constantly, to everybody, about nothing, and it's the most relaxing sound in the Thornwarren.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
@@ -33,11 +33,11 @@
           "next": "bye"
         }
       ],
-      "text": "She stops, for the first time, and looks at you with real curiosity rather than any offence.\n\n\"Where would we put it?\"\n\nAnd she goes back to the copper, and after a moment says, in exactly the same tone as everything else, \"You have got a scar on your back you did not want anybody to see and I saw it in the first four seconds and I have not thought about it since, and neither has anyone else. That is the whole of what this room is for.\""
+      "text": "She stops, for the first time, and looks at you with real curiosity rather than any offence.\n\n\"Where would we put it?\"\n\nAnd she goes back to the copper, and after a moment says, in exactly the same tone as everything else, \"You have got a scar on your back you didn't want anybody to see and I saw it in the first four seconds and I haven't thought about it since, and neither has anyone else. That's the whole of what this room is for.\""
     },
     "root": {
       "actions": [],
-      "first": "\"Oh, you are the one from outside.\" She does not stop what she is doing. \"In or out, love, the heat gets away.\"",
+      "first": "\"Oh, you're the one from outside.\" She doesn't stop what she's doing. \"In or out, love, the heat gets away.\"",
       "options": [
         {
           "actions": [],
@@ -63,7 +63,7 @@
       ],
       "text": "\"In or out, the heat gets away.\"",
       "text_by_relation": {
-        "close": "She is already talking when you come in, halfway through a sentence, and you are expected to catch up.",
+        "close": "She's already talking when you come in, halfway through a sentence, and you're expected to catch up.",
         "familiar": "\"I saved you the middle one.\" She had not, and she had.",
         "known": "\"Back again. Middle tub.\""
       }
@@ -92,7 +92,7 @@
   "faction": "ideology_wildblood",
   "flags": {
     "clothing_layers": [
-      "a wrap, permanently damp, and she does not appear to mind",
+      "a wrap, permanently damp, and she doesn't appear to mind",
       "nothing much else",
       "wooden pattens"
     ],

@@ -239,7 +239,7 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   // something you have to read back to establish.
   if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player)) {
     emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'denied' });
-    return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
+    return { type:'error', message: lockTag.messages?.denied ?? "The lock doesn't recognize your credentials." };
   }
 
   // Auto-close the door before locking if it's open
@@ -264,11 +264,11 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   const lockTag = getLockTag(door);
   if (!lockTag) return { type:'error', message:"This door has no lock." };
-  if (door.lock_state !== 'locked') return { type:'error', message:'The door is not locked.' };
+  if (door.lock_state !== 'locked') return { type:'error', message:"The door isn't locked." };
 
   if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player)) {
     emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'denied' });
-    return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
+    return { type:'error', message: lockTag.messages?.denied ?? "The lock doesn't recognize your credentials." };
   }
 
   await updateDoor(door, { lock_state: 'unlocked' });
@@ -486,7 +486,7 @@ async function hackDoor(door, player, broadcast) {
     return { type:'error', message:'Your credentials open this lock — just UNLOCK it.' };
 
   if (doorForcefieldActive(door))
-    return { type:'error', message:'A quantum forcefield sheathes the lock — you cannot get a signal in.' };
+    return { type:'error', message:"A quantum forcefield sheathes the lock — you can't get a signal in." };
 
   if (!(await hasHackDevice(player.id)))
     return { type:'error', message:'You need a hacking device to breach a hololock.' };
@@ -553,7 +553,7 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   const lockTag = getLockTag(door);
   if (!lockTag || lockTag.type !== 'lock:hololock') return { type:'noop' };
   if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The hololock is already disengaged.' };
-  if (doorForcefieldActive(door)) return { type:'error', message:'A quantum forcefield sheathes the lock — you cannot get a signal in.' };
+  if (doorForcefieldActive(door)) return { type:'error', message:"A quantum forcefield sheathes the lock — you can't get a signal in." };
   if (!(await hasHackDevice(player.id))) return { type:'error', message:'You need a hacking device to breach a hololock.' };
 
   if (!win) {

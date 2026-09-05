@@ -1,5 +1,5 @@
 {
-  "description": "A scarred laminate counter with a register bolted to it, a rack of gum along the front edge, and a scanner window worn cloudy by four decades of groceries dragged across it. A handwritten card taped beside the till reads: ALL ITEMS MUST BE PRESENTED. Dell Fry stands behind it with the patience of a man who has heard every excuse.",
+  "description": "A scarred laminate counter with a register bolted to it, a rack of gum along the front edge, and a scanner window worn cloudy by four decades of groceries dragged over it. A card taped beside the till reads ALL ITEMS MUST BE PRESENTED. Dell Fry stands behind it, having heard every excuse.",
   "flags": {
     "aliases": "counter, till, register, checkout",
     "checkout": "npc_ration_cook",

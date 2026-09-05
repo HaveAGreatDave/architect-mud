@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Flat, and then flatter. The scrub runs east without feature or interruption until the heat-shimmer takes it, and it is doing that on the far side too.",
+  "description": "Flat, and then flatter. The scrub runs east without feature or interruption until the heat-shimmer takes it, and it's doing that on the far side too.",
   "exits": {
     "east": "zone_the_reach_882_1960",
     "north": "zone_the_reach_881_1959",

@@ -848,7 +848,7 @@ async function saveBroadcast() {
 
 async function deleteBroadcast(id, name) {
   if (!id) return;
-  if (!(await dpConfirm(`Delete broadcast "${name}"? This cannot be undone.`, { danger: true }))) return;
+  if (!(await dpConfirm(`Delete broadcast "${name}"? This can't be undone.`, { danger: true }))) return;
   try {
     const res = await directAPI(`/broadcast/broadcasts/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }
@@ -1217,7 +1217,7 @@ async function _bcPickerDeleteZone() {
   const zoneId = btn.dataset.zoneId;
   const zoneName = btn.dataset.zoneName || zoneId;
   if (!zoneId) return;
-  if (!(await dpConfirm(`Delete "${zoneName}" and all its studio rooms? This cannot be undone.`, { danger: true }))) return;
+  if (!(await dpConfirm(`Delete "${zoneName}" and all its studio rooms? This can't be undone.`, { danger: true }))) return;
   btn.disabled = true;
   btn.textContent = 'Deleting…';
   try {
@@ -2100,7 +2100,7 @@ async function saveCommercialCanvas() {
 
 async function deleteCommercialCanvas(id, name) {
   if (!id) return;
-  if (!(await dpConfirm(`Delete commercial "${name}"? This cannot be undone.`, { danger: true }))) return;
+  if (!(await dpConfirm(`Delete commercial "${name}"? This can't be undone.`, { danger: true }))) return;
   try {
     const res = await directAPI(`/broadcast/broadcasts/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }

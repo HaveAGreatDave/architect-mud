@@ -1,11 +1,11 @@
 {
   "ambient": [
     "The inner door is opened from the far side and closed again.",
-    "A name is called through, and it is not called out here.",
-    "Somebody else’s coat is taken and hung and it is a good coat."
+    "A name is called through, and it isn't called out here.",
+    "Somebody else’s coat is taken and hung and it's a good coat."
   ],
   "cause": "drug",
-  "description": "The room before the room. Coats off here, wait here, and through when called. It has been furnished for waiting by somebody who took the job seriously. Through the inner door there is a great deal of light and the sound of a considerable number of people.",
+  "description": "The room before the room. Coats off here, wait here, and through when called. It has been furnished for waiting by somebody who took the job seriously. Through the inner door there's a great deal of light and the sound of a considerable number of people.",
   "drug_id": "drug_threshold",
   "fx": "bloom",
   "fx_intensity": 0.55,
@@ -16,7 +16,7 @@
       "looks": [
         "Shut. Heavy. It opens inward and it opens easily.",
         "Light comes under it in a strip the width of the door.",
-        "You could push it. There is nothing about it that says not to."
+        "You could push it. There's nothing about it that says not to."
       ],
       "name": "the inner door"
     },
@@ -29,5 +29,5 @@
       "name": "the coats"
     }
   ],
-  "weather": "Warm, and still, and smelling of stone that is kept clean."
+  "weather": "Warm, and still, and smelling of stone that's kept clean."
 }

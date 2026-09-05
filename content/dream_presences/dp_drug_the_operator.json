@@ -1,6 +1,6 @@
 {
   "arrivals": [
-    "Somebody is here who is running this, and they have just come to check.",
+    "Somebody is here who's running this, and they have just come to check.",
     "A person arrives with the unhurried manner of staff.",
     "Somebody steps in, glances at the room, and makes a note."
   ],
@@ -13,10 +13,10 @@
   "drug_id": null,
   "id": "dp_drug_the_operator",
   "looks": [
-    "They are checking something and the something is you.",
+    "They're checking something and the something is you.",
     "Entirely competent. Slightly bored. This is a shift for them.",
     "They meet your eye and nod the nod of a professional.",
-    "They are writing on a card and the card has been filled in before."
+    "They're writing on a card and the card has been filled in before."
   ],
   "name": "the operator"
 }

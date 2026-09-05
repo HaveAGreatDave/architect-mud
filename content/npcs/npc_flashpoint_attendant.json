@@ -132,11 +132,11 @@
   },
   "chitchat": [
     "Nadine adds a stroke to the receipt roll without looking up, and turns the page over when it fills.",
-    "\"Card reader is fine. It is always fine. Try it the other way round.\"",
-    "The urn gurgles, settles, and produces nothing at all. Nadine does not react to this in any way.",
+    "\"Card reader is fine. It's always fine. Try it the other way round.\"",
+    "The urn gurgles, settles, and produces nothing at all. Nadine doesn't react to this in any way.",
     "Somebody out on the forecourt leans on a horn for four full seconds. She lets them finish."
   ],
-  "description": "The attendant on the long shift, somewhere past forty, in a station fleece gone bald at one shoulder from the strap of a bag she no longer carries. She works the counter the way you work a lock you have picked a hundred times, without ever quite looking at it. She keeps a tally on the back of the receipt roll of every rig that comes onto the lot, and she has never told anybody what it is for.",
+  "description": "The attendant on the long shift, somewhere past forty, in a station fleece gone bald at one shoulder from the strap of a bag she no longer carries. She works the counter the way you work a lock you have picked a hundred times, without ever quite looking at it. She keeps a tally on the back of the receipt roll of every rig that comes onto the lot, and she has never told anybody what it's for.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -163,11 +163,11 @@
           "next": "root"
         }
       ],
-      "text": "\"Two islands, same fuel, same price, and one of them has a shorter hose than the other.\" She points with the pencil without looking. \"That one. People pull up on the wrong side, and then they blame the pump, and then I have to come out and say a sentence I have now said eleven thousand times.\" She goes back to the roll. \"The meter is honest, though. That is the one thing on this lot I would swear to.\""
+      "text": "\"Two islands, same fuel, same price, and one of them has a shorter hose than the other.\" She points with the pencil without looking. \"That one. People pull up on the wrong side, and then they blame the pump, and then I have to come out and say a sentence I have now said eleven thousand times.\" She goes back to the roll. \"The meter is honest, though. That's the one thing on this lot I would swear to.\""
     },
     "root": {
       "actions": [],
-      "first": "She looks up, clocks you, clocks the door swinging shut behind you, and goes back to the roll. \"Pumps are metered, urn's hot, and the toilet key is on the spoon.\" A beat, as though she has remembered the rest of it. \"Nadine. I open at two and I am here until it gets light, so if you are ever in here in proper daylight, it is not me.\"",
+      "first": "She looks up, clocks you, clocks the door swinging shut behind you, and goes back to the roll. \"Pumps are metered, urn's hot, and the toilet key is on the spoon.\" A beat, as though she has remembered the rest of it. \"Nadine. I open at two and I'm here until it gets light, so if you're ever in here in proper daylight, it isn't me.\"",
       "options": [
         {
           "actions": [],
@@ -212,9 +212,9 @@
           "next": "bye"
         }
       ],
-      "text": "\"Back.\" She does not look up. \"Pumps are metered, urn's hot.\"",
+      "text": "\"Back.\" She doesn't look up. \"Pumps are metered, urn's hot.\"",
       "text_by_relation": {
-        "close": "\"Sit on the crate if you are stopping.\" She nods at it. \"Do not sit on the crate if you are going. You will only make a thing out of leaving.\"",
+        "close": "\"Sit on the crate if you're stopping.\" She nods at it. \"Don't sit on the crate if you're going. You'll only make a thing out of leaving.\"",
         "familiar": "She has the urn topped up before the door has finished shutting, which is as close to a greeting as this counter gets.",
         "known": "\"You again.\" She turns the receipt roll over without marking it. \"Go on, then.\""
       }
@@ -226,7 +226,7 @@
           "next": "root"
         }
       ],
-      "text": "She looks at the receipt roll as though she has not thought about it in years. \"Rigs on the lot. One stroke each.\" She turns it over. \"I started counting to prove the late shift was not worth staffing. It is not. They staffed it anyway, and I never stopped counting, so now it is just a thing I do with my hands.\""
+      "text": "She looks at the receipt roll as though she hasn't thought about it in years. \"Rigs on the lot. One stroke each.\" She turns it over. \"I started counting to prove the late shift wasn't worth staffing. It's not. They staffed it anyway, and I never stopped counting, so now it's just a thing I do with my hands.\""
     },
     "urn": {
       "options": [
@@ -235,7 +235,7 @@
           "next": "root"
         }
       ],
-      "text": "\"It is hot, it is there, and the urn has never once run dry on my shift.\" She nods at it. \"That is the entire pitch and I am not going to improve it for you.\" A shrug. \"Bring your own cup if you have got one. The paper ones run out twice a month and I have stopped pretending I am going to order more.\""
+      "text": "\"It's hot, it's there, and the urn has never once run dry on my shift.\" She nods at it. \"That's the entire pitch and I'm not going to improve it for you.\" A shrug. \"Bring your own cup if you have got one. The paper ones run out twice a month and I have stopped pretending I'm going to order more.\""
     }
   },
   "faction": null,

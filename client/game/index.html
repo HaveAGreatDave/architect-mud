@@ -9,7 +9,7 @@
 		     for every module in main.js's STATIC import graph (server/modulegraph.js).
 		     Without it the browser discovers 93 modules a level at a time, each wave
 		     costing a round trip — measured at ~1.6s of production load. Do not
-		     hand-write hints here; the generated list cannot go stale, a hand-written
+		     hand-write hints here; the generated list can't go stale, a hand-written
 		     one silently would. Deleting the marker just turns the optimisation off. -->
 		<!--MODULEPRELOAD-->
 		<!-- ─────────────────────────────────────────────────────────────── -->
@@ -21,7 +21,7 @@
 		       • og:image MUST be an absolute URL — a relative path silently
 		         yields no thumbnail on every platform.
 		       • It must also be a raster PNG/JPG. None of the major crawlers
-		         render SVG, so the assets/zone-icons/*.svg are not candidates.
+		         render SVG, so the assets/zone-icons/*.svg aren't candidates.
 		       • These all use the www host on purpose. Render's primary domain
 		         is www.architectgame.net and the bare apex 301s to it, so
 		         pointing og:image at the apex would make every crawler fetch
@@ -555,7 +555,7 @@
 				<div class="auth-toggle" id="auth-toggle-wrap">
 					<span id="auth-toggle-text">No account?</span>
 					<!-- A REAL BUTTON, and that is the whole point. This was an <a>
-					     with no href — which is not focusable and is not exposed as
+					     with no href — which isn't focusable and isn't exposed as
 					     a control, so registration and password recovery were
 					     click-only. Tabbing the form went username → password →
 					     remember → display mode → Enter and never touched them. -->
@@ -881,7 +881,7 @@
 				     focus falls to <body> and a screen reader says nothing at all,
 				     leaving a player who has just created an account with no idea
 				     whether it worked. This div holds the only instruction that
-				     matters ("check your email"), so it is where focus goes. -->
+				     matters ("check your email"), so it's where focus goes. -->
 				<div id="verify-message" tabindex="-1"></div>
 				<div class="auth-field" style="margin: 0">
 					<label for="verify-resend-email">Email address</label>
@@ -1129,7 +1129,7 @@
 				     reason to guess it — inside a dreamscape nearly every other command is
 				     refused, so this is the visible way out. -->
 				<div id="sleep-bar" hidden>
-					<span id="sleep-bar-label">You are asleep.</span>
+					<span id="sleep-bar-label">You're asleep.</span>
 					<button id="sleep-wake-btn" data-cmd="wake" title="Wake up">wake up</button>
 				</div>
 				<div id="bottom-bar">

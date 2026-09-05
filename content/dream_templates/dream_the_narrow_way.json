@@ -1,11 +1,11 @@
 {
   "ambient": [
     "The walls take up the sound of your coat and give it back closer.",
-    "Ahead, the gap you are aiming for resolves into the gap after it.",
+    "Ahead, the gap you're aiming for resolves into the gap after it.",
     "Something behind you settles, and the way you came is the way you came."
   ],
   "cause": "dream",
-  "description": "A way through, between two things, that you started into upright. It is still passable. It has been still passable for a while now, and each stretch of it is a stretch you could go back along, and you are going forward because the light is that way.",
+  "description": "A way through, between two things, that you started into upright. It's still passable. It has been still passable for a while now, and each stretch of it's a stretch you could go back along, and you're going forward because the light is that way.",
   "drug_id": null,
   "fx": "tunnel",
   "fx_intensity": 0.7,
@@ -15,16 +15,16 @@
     {
       "looks": [
         "Wide enough. It has been wide enough every time you have checked.",
-        "The light through it is daylight and it is on your face.",
+        "The light through it's daylight and it's on your face.",
         "You could get a hand through, and then a shoulder, and you have done both before."
       ],
       "name": "the gap ahead"
     },
     {
       "looks": [
-        "Cold on both sides at once, which they were not at the start.",
+        "Cold on both sides at once, which they weren't at the start.",
         "Marked, at your height, along the whole length, by people going through.",
-        "They are the walls of a building you could name if you went up a level."
+        "They're the walls of a building you could name if you went up a level."
       ],
       "name": "the walls"
     }

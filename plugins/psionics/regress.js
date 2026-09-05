@@ -39,14 +39,14 @@ export default async function regress({ check, getPlayer }) {
     unreachableDisciplines().length === 0, unreachableDisciplines().join(', '));
   check('the psionics skill exists in the arcane category',
     SKILLS.psionics?.category === 'arcane', `got ${SKILLS.psionics?.category}`);
-  check('there is deliberately no second psi_resistance skill',
+  check("there's deliberately no second psi_resistance skill",
     !SKILLS.psi_resistance, 'resistance must be derived, never a second IP track');
 
   // Applicability is the whole reason abilities and target kinds are separate
   // tables. You cannot read the surface thoughts of a door.
-  check('you cannot press a place', !abilityApplies('press', 'place'));
+  check("you can't press a place", !abilityApplies('press', 'place'));
   check('you can press a person', abilityApplies('press', 'person'));
-  check('you cannot pull a person', !abilityApplies('pull', 'person'));
+  check("you can't pull a person", !abilityApplies('pull', 'person'));
   check('residue reads a place', abilityApplies('residue', 'place'));
 
   // ── The compulsion deny list ───────────────────────────────────────────────
@@ -55,7 +55,7 @@ export default async function regress({ check, getPlayer }) {
   // could have typed, they can be made to type. Except the ones that move value:
   // a mind-controlled `give` skips thievery, trade escrow and the wanted system
   // and would be the best robbery in the game.
-  check('the compel deny list is not empty', deniedCompelVerbList().length > 0);
+  check("the compel deny list isn't empty", deniedCompelVerbList().length > 0);
   for (const verb of ['give', 'pay', 'trade', 'sell', 'bank', 'transfer']) {
     check(`compulsion refuses '${verb}' (value transfer)`, isCompelDenied(verb));
   }
@@ -68,7 +68,7 @@ export default async function regress({ check, getPlayer }) {
   check('the ladder has eight rungs', RANKS.length === 8, `got ${RANKS.length}`);
   check('an unranked player is below everything', !rankAtLeast(null, 'awakened'));
   check('master outranks channeler', rankAtLeast('master', 'channeler'));
-  check('channeler does not outrank master', !rankAtLeast('channeler', 'master'));
+  check("channeler doesn't outrank master", !rankAtLeast('channeler', 'master'));
   check('an unknown rank never satisfies a gate', !rankAtLeast('wizard', 'awakened'));
 
   // ── The gate: unranked players get Unknown command, never an explanation ───
@@ -80,8 +80,8 @@ export default async function regress({ check, getPlayer }) {
   p._flags = new Map();
   p.current_zone = ZONE;
 
-  check('an unawakened player cannot dwell', abilityRefusal(p, 'residue', 'place') === UNKNOWN);
-  check('an unawakened player cannot press', abilityRefusal(p, 'press', 'person') === UNKNOWN);
+  check("an unawakened player can't dwell", abilityRefusal(p, 'residue', 'place') === UNKNOWN);
+  check("an unawakened player can't press", abilityRefusal(p, 'press', 'person') === UNKNOWN);
   check('an unknown ability id is UNKNOWN, never a crash',
     abilityRefusal(p, 'no_such_ability', 'person') === UNKNOWN);
 
@@ -167,22 +167,22 @@ export default async function regress({ check, getPlayer }) {
   // ── Resistance is derived, and capped ──────────────────────────────────────
   const baseline = psiResistance(p);
   check('everyone has some baseline resistance', baseline > 0,
-    'a resistance you have to go and buy is one most players will not have');
-  check('a null target does not throw', psiResistance(null) === 0);
+    "a resistance you have to go and buy is one most players won't have");
+  check("a null target doesn't throw", psiResistance(null) === 0);
 
   registerPsiResistor(() => 9999, 'regress-greedy');
   const capped = psiResistance(p);
-  check('one contributor cannot become the whole answer',
+  check("one contributor can't become the whole answer",
     capped <= baseline + CONTRIBUTOR_CAP + 0.001, `got ${capped} from ${baseline}`);
   registerPsiResistor(() => { throw new Error('boom'); }, 'regress-broken');
-  check('a broken resistor does not make a mind unreadable',
+  check("a broken resistor doesn't make a mind unreadable",
     psiResistance(p) > 0);
   clearPsiResistor('regress-greedy');
   clearPsiResistor('regress-broken');
 
   check('nothing psionic ever reaches certainty (PSI_CAP)',
     psiResistFraction({ stat_cool: 99, stat_brains: 99 }) <= PSI_CAP,
-    'a mind that literally cannot be touched has left the consequence loop');
+    "a mind that literally can't be touched has left the consequence loop");
   check('PSI_CAP is below 1', PSI_CAP < 1);
 
   // ── Residue: the world's own exhaust ───────────────────────────────────────
@@ -217,10 +217,10 @@ export default async function regress({ check, getPlayer }) {
     violatesLowRank('The door opens — nobody touched it.') !== null,
     'the em dash belongs to the Architect and the Ascendants');
   check('an observational line passes',
-    violatesLowRank('The set of their shoulders is wrong for what they are saying.') === null);
+    violatesLowRank("The set of their shoulders is wrong for what they're saying.") === null);
 
   p._flags = new Map([['psi_rank', 'awakened']]);
-  check('a low-rank player does not speak plainly', !speaksPlainly(p));
+  check("a low-rank player doesn't speak plainly", !speaksPlainly(p));
   const scrubbed = voice(p, { low: 'A door opens — quietly.', high: 'x' });
   check('voice() strips the em dash from output', !scrubbed.includes('—'), scrubbed);
   p._flags.set('psi_rank', 'seer');
@@ -248,7 +248,7 @@ export default async function regress({ check, getPlayer }) {
   check('a bare player object trips nothing', !taboo.wearsArmour({}));
   check('armour is detected from the worn rows the engine already caches',
     taboo.wearsArmour({ _wornRows: new Map([['torso', { soak: { kinetic: 4 } }]]) }));
-  check('a garment with no soak is not armour',
+  check("a garment with no soak isn't armour",
     !taboo.wearsArmour({ _wornRows: new Map([['torso', { soak: {} }]]) }));
   check('the taboo only applies in an authored Exodus space',
     !taboo.isExodusSpace({ flags: {} }) && taboo.isExodusSpace({ flags: { exodus_space: true } }));
@@ -293,7 +293,7 @@ export default async function regress({ check, getPlayer }) {
     !gateOk({ [door.ADMITTED]: 'yes', path_mind: '40', path_human: '40' }));
   // Standing is what you have done; the path is what you decided to be. Only the
   // second one is a door with another order's name already on it.
-  check('reputation is not consulted anywhere in the gate rule',
+  check("reputation isn't consulted anywhere in the gate rule",
     !/getReputation|reputation|rep\b/i.test(door.WARDEN_LINE)
     && gateOk({ [door.ADMITTED]: 'yes', path_mind: '20' }));
   check('the warden explains the player, never the creed',
@@ -303,10 +303,10 @@ export default async function regress({ check, getPlayer }) {
   // ── The Purifier warns before it takes anything ────────────────────────────
   const victim = { id: 'regress-purify', _mutations: new Map([['a', {}], ['b', {}]]), _augments: new Map([['c', {}]]) };
   const bill = purifier.billFor(victim);
-  check('the Purifier counts what it is about to take', bill.mutations === 2 && bill.augments === 1);
+  check("the Purifier counts what it's about to take", bill.mutations === 2 && bill.augments === 1);
   const warn = purifier.warning(bill);
   check('the warning names the exact numbers', /2 mutations/.test(warn) && /1 installed augment/.test(warn));
-  check('the warning says it is permanent', /[Pp]ermanent/.test(warn));
+  check("the warning says it's permanent", /[Pp]ermanent/.test(warn));
   check('the warning offers no reassurance',
     !/don't worry|safe|reversible|undo it later/i.test(warn));
   check('an empty body still gets an honest bill',
@@ -360,7 +360,7 @@ export default async function regress({ check, getPlayer }) {
   const noStanding = await dispatchAction({
     type: 'PSI_AWAKEN', actor: ghost, params: { rank: 'awakened' },
   });
-  check('PSI_AWAKEN refuses somebody the Exodus have not taken in',
+  check("PSI_AWAKEN refuses somebody the Exodus haven't taken in",
     noStanding?.awakened === false && noStanding.reason === 'standing', JSON.stringify(noStanding));
   check('...and writes no flag doing it', !ghost._flags.get('psi_rank'));
 
@@ -370,7 +370,7 @@ export default async function regress({ check, getPlayer }) {
   // The failure this guards: `psiRank` runs the stored value through rankIndex
   // and returns null for anything unrecognised, so a typo would not throw — it
   // would leave a player unawakened holding a flag that LOOKS set.
-  check('PSI_AWAKEN rejects a rank that is not on the ladder, loudly',
+  check("PSI_AWAKEN rejects a rank that isn't on the ladder, loudly",
     offLadder?.type === 'error', JSON.stringify(offLadder));
 
   check('every rung the action accepts is a real rung',

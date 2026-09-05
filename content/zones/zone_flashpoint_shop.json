@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b2823",
   "color": "#cdb489",
-  "description": "A glass box on the back edge of the lot, lit hard enough to read a map by from the road. Two short aisles, a coffee urn with a brown ring baked permanently into its drip tray, a chiller sweating against the back wall, and a counter with the till bolted through the top of it. A card taped up by the door reads NO PUMP IS EVER BROKEN. IT IS ALWAYS THE CARD. The floor is gritty in a way mopping does not fix, because the grit walks back in on everybody's boots.",
+  "description": "A glass box on the back edge of the lot, lit hard enough to read a map by from the road. Two short aisles, a coffee urn with a brown ring baked permanently into its drip tray, a chiller sweating against the back wall, and a counter with the till bolted through the top of it. A card taped up by the door reads NO PUMP IS EVER BROKEN. IT IS ALWAYS THE CARD. The floor is gritty in a way mopping doesn't fix, because the grit walks back in on everybody's boots.",
   "exits": {
     "south": "zone_district_923_907",
     "west": "zone_yard_fuelyard"
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A glazed shopfront facing the pumps, so whoever is behind the counter can see exactly who is filling what, and roughly how much of it they intend to pay for.",
+      "description": "A glazed shopfront facing the pumps, so whoever is behind the counter can see exactly who's filling what, and roughly how much of it they intend to pay for.",
       "light": 0.9,
       "name": "the shopfront glass",
       "visibility": 0.9

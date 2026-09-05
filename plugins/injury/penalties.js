@@ -56,7 +56,7 @@ export function buildImpairment(player, sev) {
     statPenalties.stat_brains = head >= MAIMED ? 2 : 1;
     if (head >= MAIMED) {
       statPenalties.stat_cool = 1;
-      notes.push({ label: 'Head trauma', detail: 'Thinking is slow and your hands are not steady.' });
+      notes.push({ label: 'Head trauma', detail: "Thinking is slow and your hands aren't steady." });
     }
   }
 
@@ -76,7 +76,7 @@ export function buildImpairment(player, sev) {
   });
   if (hitMod < 0) {
     const which = ARMS.filter((_, i) => arms[i] >= HURT).map(p => PART_LABELS[p]).join(' and ');
-    notes.push({ label: 'Arm injury', detail: `Your ${which} will not do what you ask of it. Everything you swing goes wide.` });
+    notes.push({ label: 'Arm injury', detail: `Your ${which} won't do what you ask of it. Everything you swing goes wide.` });
   }
 
   // LEGS AND FEET — the ones you feel walking around town, which is most of the
@@ -85,7 +85,7 @@ export function buildImpairment(player, sev) {
     moveStaminaExtra = LEG_STEP_COST[Math.min(worstLeg, MAIMED)] ?? 0;
     if (worstLeg >= MAIMED) {
       runBlocked = bothLegsMaimed
-        ? 'Both your legs are ruined. You are not running anywhere — it is all you can do to stay upright.'
+        ? "Both your legs are ruined. You aren't running anywhere — it's all you can do to stay upright."
         : 'Your leg gives out the moment you try to push off it. Walking is the best you have.';
       // Two ruined legs: worse than the sum, and the one place the count matters.
       if (bothLegsMaimed) moveStaminaExtra += 3;
@@ -93,8 +93,8 @@ export function buildImpairment(player, sev) {
     notes.push({
       label: bothLegsMaimed ? 'Both legs ruined' : worstLeg >= MAIMED ? 'Leg ruined' : 'Leg injury',
       detail: worstLeg >= MAIMED
-        ? 'You cannot run, and every step costs you.'
-        : 'You are limping. Moving takes more out of you than it should.',
+        ? "You can't run, and every step costs you."
+        : "You're limping. Moving takes more out of you than it should.",
     });
   }
 

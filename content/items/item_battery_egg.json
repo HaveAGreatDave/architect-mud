@@ -1,11 +1,11 @@
 {
-  "description": "Pale, thin-shelled, and printed with a cage number. The yolk is the colour of a fire door. It will do what an egg does, without any of the romance.",
+  "description": "Pale, thin-shelled, and printed with a cage number. The yolk is the colour of a fire door. It'll do what an egg does, without any of the romance.",
   "flags": {},
   "id": "item_battery_egg",
   "name": "battery egg",
   "tags": {
     "consumable": true,
-    "description": "Pale, thin-shelled, and printed with a cage number. The yolk is the colour of a fire door. It will do what an egg does, without any of the romance.",
+    "description": "Pale, thin-shelled, and printed with a cage number. The yolk is the colour of a fire door. It'll do what an egg does, without any of the romance.",
     "food_noun": "egg",
     "food_profile": "egg",
     "needs_cooking": true,

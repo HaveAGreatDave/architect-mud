@@ -298,7 +298,7 @@ async function cmdDeposit(args, raw, player) {
     if (!amount || amount <= 0) return { type: 'error', message: 'Deposit how much? Try "deposit 50" or "deposit all".' };
     if (!await transferCredits(player, amount, 'deposit')) return { type: 'error', message: `You only have ${player.credits || 0}₵ on you.` };
     await logBankTx(player.id, 'deposit', amount, player.bank_credits);
-    const at = teller ? ` ${teller.name} counts it twice and does not comment on where it came from.` : '';
+    const at = teller ? ` ${teller.name} counts it twice and doesn't comment on where it came from.` : '';
     return { type: 'deposit', message: `You deposit ${amount}₵.${at} Carried: ${player.credits}₵ · Banked: ${player.bank_credits}₵`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
   }
 

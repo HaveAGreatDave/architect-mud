@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "The channel the water leaves by, running south in a cut of dressed stone with a plank walk along one side of it. It moves fast here and it is the only thing in the region in a hurry.",
+  "description": "The channel the water leaves by, running south in a cut of dressed stone with a plank walk along one side of it. It moves fast here and it's the only thing in the region in a hurry.",
   "exits": {
     "east": "zone_dw_770_984",
     "north": "zone_dw_769_983",

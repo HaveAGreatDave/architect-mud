@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Halcyon is paying somebody in Civic and the Watch would like the paper that proves it.\n\nThe Quartermaster has a route in, a name on a door, and a warning she delivers flatly and does not repeat: the woman at the gate reads people for a living, she will already have been told you are coming, and she will be pleasant.\n\n\"She is not going to stop you,\" she says. \"She is going to make you an offer. That is not the same as a trap and I want you to know the difference before you are standing in it.\"",
+  "description": "Halcyon is paying somebody in Civic and the Watch would like the paper that proves it.\n\nThe Quartermaster has a route in, a name on a door, and a warning she delivers flatly and doesn't repeat: the woman at the gate reads people for a living, she'll already have been told you're coming, and she'll be pleasant.\n\n\"She isn't going to stop you,\" she says. \"She's going to make you an offer. That isn't the same as a trap and I want you to know the difference before you're standing in it.\"",
   "fail_on": [
     {
       "desc": "Somebody made you in the claims hall, and Halcyon knows which face to look for now.",
@@ -26,7 +26,7 @@
       "count": 1,
       "desc": "Get the payment record.",
       "emotes": [
-        "{who} finds the record filed under a heading so dull it is almost a hiding place.",
+        "{who} finds the record filed under a heading so dull it's almost a hiding place.",
         "{who} reads a name they know from a counter in Civic, and a figure, and the figure is small."
       ],
       "id": "o1",
@@ -42,7 +42,7 @@
       "desc": "Get out to the gate.",
       "emotes": [
         "{who} takes the annexe stair down at the pace of somebody finishing a shift.",
-        "{who} comes out into the plaza and finds a woman in a pale grey coat already looking at the door they are coming out of."
+        "{who} comes out into the plaza and finds a woman in a pale grey coat already looking at the door they're coming out of."
       ],
       "id": "o2",
       "requires": [
@@ -58,8 +58,8 @@
         "{who} is greeted by name by somebody who has never met them.",
         "{who} is told, accurately and without malice, what the Watch pays and what it costs to stay in it.",
         "{who} listens to her explain the whole machine out loud — the vats, the premiums, who actually gets covered — as though describing weather.",
-        "{who} is offered a number, and the number is not insulting, which is worse.",
-        "{who} is told to take a week, and that the offer does not expire, because offers that expire are for people you do not want."
+        "{who} is offered a number, and the number isn't insulting, which is worse.",
+        "{who} is told to take a week, and that the offer doesn't expire, because offers that expire are for people you don't want."
       ],
       "id": "o3",
       "requires": [
@@ -71,8 +71,8 @@
     {
       "desc": "Take the record back to the Blind.",
       "emotes": [
-        "{who} walks east with the paper in one pocket and a figure in their head that will not settle.",
-        "{who} puts the record on the counter and does not mention the plaza, or does, and either way the Quartermaster already knows."
+        "{who} walks east with the paper in one pocket and a figure in their head that won't settle.",
+        "{who} puts the record on the counter and doesn't mention the plaza, or does, and either way the Quartermaster already knows."
       ],
       "id": "o4",
       "requires": [

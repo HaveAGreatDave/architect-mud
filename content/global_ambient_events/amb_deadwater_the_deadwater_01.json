@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "amb_deadwater_the_deadwater_01",
   "loudness": 1,
-  "message": "The water does not move. Not a ripple, not a slap against the stone, nothing.",
+  "message": "The water doesn't move. Not a ripple, not a slap against the stone, nothing.",
   "theme": "deadwater_the_deadwater",
   "weight": 100
 }

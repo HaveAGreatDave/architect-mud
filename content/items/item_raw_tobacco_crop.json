@@ -1,5 +1,5 @@
 {
-  "description": "A pressed bale of green tobacco leaf, strapped with wire and still smelling of the field it came out of. Nothing about it is illegal, which is exactly why the frontier grows it: a bale rides in a hold in plain sight, a scanner passes over it without a flicker, and nobody with a badge has ever once asked a pilot where his tobacco came from. Cure it down and it's smokable.",
+  "description": "A pressed bale of green leaf, strapped with wire and still smelling of the field. Nothing about it's illegal, which is why the frontier grows it: it rides in a hold in plain sight, and no badge has ever asked a pilot where his tobacco came from. Cure it down and it's smokable.",
   "flags": {
     "cook_tier": 0,
     "raw_of": "drug_loose_tobacco"

@@ -2,13 +2,13 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "You can come in. She will not mind.",
-    "Two dates. That is the whole of what we put.",
-    "The candle is lit while there is somebody on the stone.",
-    "It is cold in here on purpose.",
+    "You can come in. She won't mind.",
+    "Two dates. That's the whole of what we put.",
+    "The candle is lit while there's somebody on the stone.",
+    "It's cold in here on purpose.",
     "Everybody helps carry. Everybody."
   ],
-  "description": "A woman folding linen beside a stone bier, doing it slowly, along creases that were made a long time ago. There is a candle lit on the lectern. There is a name on the bier.\n\nShe does not stop when you come in and she does not mind that you have.",
+  "description": "A woman folding linen beside a stone bier, doing it slowly, along creases that were made a long time ago. There's a candle lit on the lectern. There's a name on the bier.\n\nShe doesn't stop when you come in and she doesn't mind that you have.",
   "dialogue_tree": {
     "book": {
       "actions": [],
@@ -28,12 +28,12 @@
           "next": "bye"
         }
       ],
-      "text": "\"To the first one we had paper for.\"\n\nShe turns the lectern book back, and back, to a first page in a small square hand, and turns it forward again to the last three entries, and they are in the same hand, and she closes the book without appearing to have seen anything worth mentioning.\n\n\"There are people before that. They are out in the plot with the rest. We just did not have the paper.\""
+      "text": "\"To the first one we had paper for.\"\n\nShe turns the lectern book back, and back, to a first page in a small square hand, and turns it forward again to the last three entries, and they're in the same hand, and she closes the book without appearing to have seen anything worth mentioning.\n\n\"There are people before that. They're out in the plot with the rest. We just didn't have the paper.\""
     },
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+      "text": "\"Mind how you go.\"\n\nThey nod once and go back to it."
     },
     "markers": {
       "actions": [],
@@ -53,11 +53,11 @@
           "next": "bye"
         }
       ],
-      "text": "\"Yes.\"\n\nShe shakes out the sheet.\n\n\"A name and two dates. There was an argument about it once, a long time before me, and whoever won it won it properly, because nobody has raised it since.\"\n\nShe folds.\n\n\"You want to know which one is important. That is the argument, that is exactly the argument, and that is why they are all the same size.\""
+      "text": "\"Yes.\"\n\nShe shakes out the sheet.\n\n\"A name and two dates. There was an argument about it once, a long time before me, and whoever won it won it properly, because nobody has raised it since.\"\n\nShe folds.\n\n\"You want to know which one is important. That's the argument, that's exactly the argument, and that's why they're all the same size.\""
     },
     "root": {
       "actions": [],
-      "first": "\"Come in.\" She does not look up from the linen. \"There is somebody here today, so mind your voice, that is all.\"",
+      "first": "\"Come in.\" She doesn't look up from the linen. \"There's somebody here today, so mind your voice, that's all.\"",
       "options": [
         {
           "actions": [],
@@ -83,7 +83,7 @@
       ],
       "text": "\"Come in.\"",
       "text_by_relation": {
-        "close": "\"Sit with me a minute,\" she says, and you do, and that is the whole of it.",
+        "close": "\"Sit with me a minute,\" she says, and you do, and neither of you says anything else.",
         "familiar": "She hands you the other end of the sheet, and you fold it together, and neither of you says anything.",
         "known": "\"You.\" She nods at the bier. \"Nobody today.\""
       }

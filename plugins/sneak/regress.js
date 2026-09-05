@@ -21,7 +21,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   setPosture(p, SNEAKING);
   r = await run('knockout nobodyhere');
-  check('a target that is not here is refused', /don't see/i.test(r?.message || ''), r?.message);
+  check("a target that isn't here is refused", /don't see/i.test(r?.message || ''), r?.message);
 
   // ── Weapons: blunt or nothing ───────────────────────────────────────────────
   // Swinging a blade at a skull is not a knockout attempt however quietly you
@@ -66,7 +66,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── Out cold ────────────────────────────────────────────────────────────────
   const victim = { id: 'regress-victim', hp: 12, hp_max: 20, statuses: [], _ai: {} };
-  check('a fresh target is not out', isOut(victim) === false);
+  check("a fresh target isn't out", isOut(victim) === false);
   knockOut(victim, { by: { handle: 'Somebody' } });
   check('knocking out puts them under', isOut(victim) === true);
   check('...lying down', victim.posture === 'lying');
@@ -118,7 +118,7 @@ export default async function regress({ run, check, getPlayer }) {
   let fired = 0;
   onEvent('stealth.window', ({ player: who }) => { if (who?.id === crouched.id) fired++; });
   tickStealth([crouched]);
-  check('an unexpired window does not re-roll the room', fired === 0);
+  check("an unexpired window doesn't re-roll the room", fired === 0);
   crouched._sneakUntil = Date.now() - 1;
   tickStealth([crouched]);
   check('an expired one does', fired === 1);
@@ -147,7 +147,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('panicking takes the NPC over', panicNpc(scared, { reason: 'assault' }) === true);
   check('...suspending its graph', scared._ai.alarm === true);
   check('...standing it up', scared.posture === 'standing');
-  check('...and it is idempotent, so a per-swing event costs nothing',
+  check("...and it's idempotent, so a per-swing event costs nothing",
     panicNpc(scared, { reason: 'assault' }) === false);
   check('isPanicking reports it', isPanicking(scared) === true);
   check('calming hands the graph back', calmNpc(scared) === true && scared._ai.alarm === false);
@@ -163,7 +163,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Somebody out cold or asleep witnessed nothing — the same rule the notice
   // roll uses, and what makes clearing a room one body at a time work.
   const koWitness = { id: 'regress-ko-witness', name: 'Sleeper', hp: 10, zone_id: p.current_zone, _koUntil: Date.now() + 60000, _ai: {} };
-  check('an unconscious NPC does not panic', panicNpc(koWitness) === false);
+  check("an unconscious NPC doesn't panic", panicNpc(koWitness) === false);
   const deadWitness = { id: 'regress-dead-witness', name: 'Corpse', hp: 0, zone_id: p.current_zone, _ai: {} };
   check('...nor a dead one', panicNpc(deadWitness) === false);
 

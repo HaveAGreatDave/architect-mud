@@ -139,23 +139,23 @@ export default async function regress({ run, check, getPlayer }) {
   const boots = { name: 'boots', tags: { slot: 'feet' } };
   check('a coat conceals a torso mutation with no per-item data',
     canConcealMutation(coat, torsoMut) === true, '');
-  check('boots do not conceal a torso mutation',
+  check("boots don't conceal a torso mutation",
     canConcealMutation(boots, torsoMut) === false, '');
   check('a covers-garment conceals every slot it fills',
     canConcealMutation(jumpsuit, { visibility_class: 'concealable', conceal_slots: ['torso', 'legs'] }) === true, '');
   check('an extreme mutation is never concealable',
     canConcealMutation(jumpsuit, { visibility_class: 'extreme', conceal_slots: ['torso'] }) === false, '');
-  check('a mutation with no conceal_slots cannot be hidden',
+  check("a mutation with no conceal_slots can't be hidden",
     canConcealMutation(coat, { visibility_class: 'concealable', conceal_slots: [] }) === false, '');
 
   // Clothing conflicts are read-only in Phase 1, and expression-gated.
   cache.__spur = { id: '__spur', name: 'Spur', visibility_class: 'concealable', blocks_slots: ['hands'] };
   const glove = { tags: { slot: 'hands' } };
-  check('a low-expression blocker does not conflict',
+  check("a low-expression blocker doesn't conflict",
     getClothingConflicts(carrier([['__spur', { expression: 20 }]]), glove).length === 0, '');
   check('a high-expression blocker conflicts',
     getClothingConflicts(carrier([['__spur', { expression: 80 }]]), glove).length === 1, '');
-  check('a blocker does not conflict with an unrelated slot',
+  check("a blocker doesn't conflict with an unrelated slot",
     getClothingConflicts(carrier([['__spur', { expression: 80 }]]), boots).length === 0, '');
   // (The Phase 1 assertion here was that NOTHING registered an equip gate. Phase 2
   // registers one deliberately; the live assertion moved to case 18.)
@@ -185,7 +185,7 @@ export default async function regress({ run, check, getPlayer }) {
     detectMutations({ id: 'o', _mutations: new Map(), statuses: [] }, covered).length === 0, '');
   const seen = detectMutations(sharp, covered);
   check('a sharp eye catches it anyway', seen.length === 1, '');
-  check('…but is not certain about it', seen[0]?.certain === false, `certain=${seen[0]?.certain}`);
+  check("…but isn't certain about it", seen[0]?.certain === false, `certain=${seen[0]?.certain}`);
   check('you always know your own body',
     detectMutations(covered, covered).length === 1, '');
 
@@ -220,7 +220,7 @@ export default async function regress({ run, check, getPlayer }) {
   chromed.chromed = true;
   chromed.radiation = 100;
   check('a chromed body never mutates', await checkMutationTrigger(chromed) === null, '');
-  check('…and cannot be granted one directly',
+  check("…and can't be granted one directly",
     await addRadiationMutation(chromed, ids[0]) === null, '');
 
   // ── 10. The mutagen gate refuses at every rung ─────────────────────────────
@@ -308,7 +308,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('treatment reduces expression', t.ok && t.expression === 55, JSON.stringify(t));
       const t2 = await treatMutation(live, treatable, { reduce: 90 });
       check('treatment below the floor removes it outright', t2.ok && t2.removed === true, JSON.stringify(t2));
-      check('…and it is gone', !hasMutation(live, treatable), '');
+      check("…and it's gone", !hasMutation(live, treatable), '');
       check('…and the stored stat column STILL never moved',
         live[stat] === before[stat], `${before[stat]} -> ${live[stat]}`);
 
@@ -328,7 +328,7 @@ export default async function regress({ run, check, getPlayer }) {
       await removeMutation(live, untreatable);
     }
 
-    check('a mutation cannot be granted twice', await (async () => {
+    check("a mutation can't be granted twice", await (async () => {
       const id = ids[0];
       await addRadiationMutation(live, id, { expression: 30 });
       const second = await addRadiationMutation(live, id, { expression: 90 });
@@ -389,7 +389,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('one mutation can grow TWO parts',
     partsForPlayer(winged).length === 9, `${partsForPlayer(winged).length}`);
   const budding = carrier([['__wings', { expression: 15 }]]);
-  check('a barely-expressed mutation has not grown the part yet',
+  check("a barely-expressed mutation hasn't grown the part yet",
     partsForPlayer(budding).length === 7, `${partsForPlayer(budding).length}`);
 
   // ── 18. Clothing conflicts are now ENFORCED ────────────────────────────────
@@ -414,7 +414,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   const lightlyWinged = carrier([['__wings', { expression: 20 }]]);
   const lightPass = await gate({ player: lightlyWinged, item: coatItem, slot: 'torso', action: 'equip' });
-  check('a lightly expressed mutation does not cost you the slot', !lightPass, JSON.stringify(lightPass));
+  check("a lightly expressed mutation doesn't cost you the slot", !lightPass, JSON.stringify(lightPass));
 
   // ── 19. The mutagen item cannot be drunk past the gate ─────────────────────
   const noRepBody = carrier([]);
@@ -471,7 +471,7 @@ export default async function regress({ run, check, getPlayer }) {
     mutationSeesInDark(carrier([['__therm', { expression: 60 }]])) === true, '');
   check('merely sharp eyes do NOT see in the dark',
     mutationSeesInDark(carrier([['__keen', { expression: 100 }]])) === false, '');
-  check('an ordinary body does not see in the dark',
+  check("an ordinary body doesn't see in the dark",
     mutationSeesInDark(carrier([])) === false, '');
 
   // ── 23. GRANT_MUTATION, the authoring seam ────────────────────────────────
@@ -521,7 +521,7 @@ export default async function regress({ run, check, getPlayer }) {
   const shelfFlask = (rin[0]?.vendor_inventory || []).find(e => e.item_id === 'item_wb_mutagen');
   check('the flask is on that shelf', !!shelfFlask, '');
   check('…behind the highest trust rung', (shelfFlask?.min_trust || 0) >= 3, `min_trust ${shelfFlask?.min_trust}`);
-  check('…and is not cheap', (shelfFlask?.price || 0) >= 2000, `${shelfFlask?.price}`);
+  check("…and isn't cheap", (shelfFlask?.price || 0) >= 2000, `${shelfFlask?.price}`);
   // Everything Rindle sold before the arc must still be visible to a stranger,
   // or turning on the trust shelf has quietly hidden the medicine.
   const openStock = (rin[0]?.vendor_inventory || []).filter(e => !(e.min_trust > 0));
@@ -563,7 +563,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a cliff still stops an ordinary body', walled?.block === true, JSON.stringify(walled)?.slice(0, 70));
     const flown = await runMoveGates({ player: flier, from: null, to: cliff, direction: 'north', opts: {} });
     const blockedByTerrain = flown?.block && /sheer/.test(flown.message || '');
-    check('…and does not stop a flying one', !blockedByTerrain, JSON.stringify(flown)?.slice(0, 70));
+    check("…and doesn't stop a flying one", !blockedByTerrain, JSON.stringify(flown)?.slice(0, 70));
   }
 
   // Fleeing. Asserted as a CONTEST margin rather than by reading the constant, so
@@ -585,10 +585,10 @@ export default async function regress({ run, check, getPlayer }) {
 
   // The power move is gated on the mutation, not merely offered.
   const noWings = await organCommands.swoop([], 'swoop', grounded, () => {});
-  check('swoop is not a verb for a body without wings',
+  check("swoop isn't a verb for a body without wings",
     noWings?.type === 'error' && /Unknown command/.test(noWings.message), JSON.stringify(noWings)?.slice(0, 60));
   const noTarget = await organCommands.swoop([], 'swoop', { ...flier, current_zone: 'zone_start', stamina: 100 }, () => {});
-  check('…and refuses in fiction when there is nothing to drop on',
+  check("…and refuses in fiction when there's nothing to drop on",
     noTarget?.type === 'error' && !/Unknown command/.test(noTarget.message), JSON.stringify(noTarget)?.slice(0, 70));
   const winded = await organCommands.swoop([], 'swoop', { ...flier, current_zone: 'zone_start', stamina: 2 }, () => {});
   check('…and refuses when you have no wind left',
@@ -619,14 +619,14 @@ export default async function regress({ run, check, getPlayer }) {
     `${mutationSoak(held).kinetic} vs ${mutationSoak(open).kinetic}`);
   check('…and the natural weapon',
     naturalWeaponStats(held).damage_max < naturalWeaponStats(open).damage_max, '');
-  check('suppression damps VISIBILITY, which is what it is bought for',
+  check("suppression damps VISIBILITY, which is what it's bought for",
     VISIBILITY.indexOf(getMutations(held)[0].visibility) < VISIBILITY.indexOf(getMutations(open)[0].visibility),
     `${getMutations(held)[0].visibility} vs ${getMutations(open)[0].visibility}`);
   check('a lapsed course does nothing at all',
     mutationStatBonus(lapsed, 'stat_brawn') === mutationStatBonus(open, 'stat_brawn'), '');
-  check('suppression does not CURE — the raw expression is untouched',
+  check("suppression doesn't CURE — the raw expression is untouched",
     getMutations(held)[0].expression === 100, `${getMutations(held)[0].expression}`);
-  check('…and the player is told it is being held, not that it shrank',
+  check("…and the player is told it's being held, not that it shrank",
     getMutations(held)[0].suppressed === true && getMutations(held)[0].effective < 100, '');
 
   // ── 29. Diagnosis names a thing and changes nothing else ──────────────────
@@ -639,7 +639,7 @@ export default async function regress({ run, check, getPlayer }) {
   await addRadiationMutation(dxBody, '__inner', { expression: 60 });
   await addRadiationMutation(dxBody, '__outer', { expression: 60 });
 
-  check('a mutation you cannot see arrives UNdiagnosed',
+  check("a mutation you can't see arrives UNdiagnosed",
     getMutations(dxBody).find(e => e.id === '__inner')?.diagnosed === false, '');
   check('a mutation you CAN see arrives already understood',
     getMutations(dxBody).find(e => e.id === '__outer')?.diagnosed === true, '');
@@ -652,7 +652,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('diagnosis names it', learned?.mutation?.id === '__inner', JSON.stringify(learned)?.slice(0, 60));
   check('…and is mechanically INERT',
     mutationStatBonus(dxBody, 'stat_cool') === beforeDx, `${beforeDx} -> ${mutationStatBonus(dxBody, 'stat_cool')}`);
-  check('…and is not billable twice',
+  check("…and isn't billable twice",
     await diagnoseMutation(dxBody, '__inner') === null, '');
   await removeMutation(dxBody, '__inner');
   await removeMutation(dxBody, '__outer');
@@ -683,7 +683,7 @@ export default async function regress({ run, check, getPlayer }) {
   await addRadiationMutation(dies, '__mortal', { expression: 50 });
   await addRadiationMutation(dies, '__outer', { expression: 50 });
   const lost = await applyCloneInheritance(dies);
-  check('respawn prunes what does not survive', lost.length === 1 && lost[0].id === '__mortal',
+  check("respawn prunes what doesn't survive", lost.length === 1 && lost[0].id === '__mortal',
     lost.map(m => m.id).join(','));
   check('…and keeps what does', hasMutation(dies, '__outer'), '');
   await removeMutation(dies, '__outer');
@@ -702,7 +702,7 @@ export default async function regress({ run, check, getPlayer }) {
   const pair = [{ name: 'Aldous' }, { name: 'Beck' }];
   const gathered = Array.from({ length: 60 }, () => reactionLines('extreme', pair))
     .some(r => r.lines.some(l => /Conversation stops|drifted together|rearranged itself/.test(l)));
-  check('two people are not a crowd', !gathered, 'a pair produced a gathering line');
+  check("two people aren't a crowd", !gathered, 'a pair produced a gathering line');
   // Nothing in here may ever be an attack. This is the rule the whole file exists
   // to hold, so it is asserted rather than trusted.
   const everyLine = Array.from({ length: 200 }, () => reactionLines('extreme', crowd)).flatMap(r => r.lines);
@@ -718,7 +718,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('the report rung is reported structurally',
     runs.every(r => typeof r.reported === 'boolean'), '');
   check('…and it does fire sometimes', runs.some(r => r.reported), '');
-  check('…and is not a certainty', runs.some(r => !r.reported), '');
+  check("…and isn't a certainty", runs.some(r => !r.reported), '');
   check('a reported run always carries the line that says so',
     runs.filter(r => r.reported).every(r => r.lines.length >= 2), '');
   // Only the loudest rung reaches the law at all.
@@ -801,7 +801,7 @@ export default async function regress({ run, check, getPlayer }) {
     _mutations: new Map([['__zap2', { expression: 90 }]]) };
   cache.__zap2 = { id: '__zap2', visibility_class: 'concealable', effects: { shock_attack: 14 } };
   const refused = await organCommands.shock([], 'shock', midTurn, () => {});
-  check('an organ cannot be fired mid-turn',
+  check("an organ can't be fired mid-turn",
     refused?.type === 'error' && /not finished|like this/.test(refused.message),
     JSON.stringify(refused)?.slice(0, 80));
   delete cache.__zap2;

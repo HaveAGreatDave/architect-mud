@@ -1,5 +1,5 @@
 {
   "id": "dtt_npc_032",
   "kind": "npc",
-  "line": "{value} is behind you, and will still be there when you turn round, and you do not turn round."
+  "line": "{value} is behind you, and will still be there when you turn round, and you don't turn round."
 }

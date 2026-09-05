@@ -1583,7 +1583,7 @@ registerAction({
       targets = await rollTargets(quest, actor);
     } catch (e) {
       console.error('[quests] selector failed for', quest_id, '—', e.message);
-      return { type: 'error', message: `${quest.name} cannot be offered right now.` };
+      return { type: 'error', message: `${quest.name} can't be offered right now.` };
     }
 
     const existing = await loadPlayerQuest(actor.id, quest_id);
@@ -1724,13 +1724,13 @@ registerAction({
     const base = await loadQuest(quest_id);
     const pq = base && await loadPlayerQuest(actor.id, quest_id);
     const quest = withRolled(base, pq);   // this player's rolled targets, if any
-    if (!pq) return { type: 'error', message: 'You have not started that quest.' };
+    if (!pq) return { type: 'error', message: "You haven't started that quest." };
     if (pq.status === 'turned_in') {
       msg(actor.id, `<span class="msg-system">You have already turned in ${quest.name}.</span>`);
       return { type: 'error', message: 'Already turned in.' };
     }
     if (pq.status === 'failed') {
-      msg(actor.id, `<span class="msg-system">You failed ${quest.name}. There is nothing to hand in.</span>`);
+      msg(actor.id, `<span class="msg-system">You failed ${quest.name}. There's nothing to hand in.</span>`);
       return { type: 'error', message: 'That quest was failed.' };
     }
     // The clock is checked at the counter too, not only in the field: a quest whose
@@ -1746,8 +1746,8 @@ registerAction({
     }
     const settled = await loadPlayerQuest(actor.id, quest_id) || pq;
     if (settled.status !== 'completed' && !isComplete(quest, settled.progress || [])) {
-      msg(actor.id, `<span class="msg-system">You have not finished ${quest.name} yet.</span>`);
-      return { type: 'error', message: 'You have not finished that quest yet.' };
+      msg(actor.id, `<span class="msg-system">You haven't finished ${quest.name} yet.</span>`);
+      return { type: 'error', message: "You haven't finished that quest yet." };
     }
 
     // CLAIM THE ROW BEFORE PAYING OUT. This used to be the other way round — every
@@ -2045,7 +2045,7 @@ async function questTrack(rest, player) {
   if (!rows.length) return { type: 'output', message: 'You have no active quests.' };
 
   if (!rest) {
-    if (!player.tracked_quest_id) return { type: 'output', message: 'You are not tracking a quest.' };
+    if (!player.tracked_quest_id) return { type: 'output', message: "You aren't tracking a quest." };
     const cur = rows.find(r => r.quest_id === player.tracked_quest_id);
     return { type: 'output', message: `Tracking <b>${cur?.name || player.tracked_quest_id}</b>.` };
   }

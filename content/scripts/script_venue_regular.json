@@ -38,7 +38,7 @@
       },
       "house": {
         "next": "gift",
-        "text": "A glass lands in front of you that you did not order and are not going to be charged for.",
+        "text": "A glass lands in front of you that you didn't order and aren't going to be charged for.",
         "type": "say"
       },
       "regular": {

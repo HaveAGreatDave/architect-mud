@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Red rock, and the rock here is wrong: banded through with a colour that is not mineral, and warm to the back of the hand from a foot away. Nothing grows. The few bones lying about have gone the same colour as the ground.",
+  "description": "Red rock, and the rock here is wrong: banded through with a colour that isn't mineral, and warm to the back of the hand from a foot away. Nothing grows. The few bones lying about have gone the same colour as the ground.",
   "exits": {
     "east": "zone_scw_1058_993",
     "north": "zone_scw_1057_992",

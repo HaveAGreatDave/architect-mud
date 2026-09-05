@@ -59,7 +59,7 @@
         },
         "next": "bsm_103",
         "style": "narration",
-        "text": "And Mira does not come. A boy hands Cade a note in a hand he would know anywhere. He reads it as the platform slides away.",
+        "text": "And Mira doesn't come. A boy hands Cade a note in a hand he would know anywhere. He reads it as the platform slides away.",
         "type": "say"
       },
       "bsm_103": {
@@ -69,7 +69,7 @@
         },
         "next": "bsm_104",
         "style": "verbatim",
-        "text": "Mira says, \"I cannot go with you and I cannot tell you why. You must not ask, you must not follow, you must not think of me. Some of this you will understand later. None of it will help. I loved you. Goodbye.\"",
+        "text": "Mira says, \"I can't go with you and I can't tell you why. You must not ask, you must not follow, you must not think of me. Some of this you'll understand later. None of it'll help. I loved you. Goodbye.\"",
         "type": "say"
       },
       "bsm_104": {
@@ -121,7 +121,7 @@
         },
         "next": "bsm_109",
         "style": "narration",
-        "text": "Cade alone with the bottle. Reeder waits by the door, hat in his hands, the way a friend waits when he cannot help and will not leave.",
+        "text": "Cade alone with the bottle. Reeder waits by the door, hat in his hands, the way a friend waits when he can't help and won't leave.",
         "type": "say"
       },
       "bsm_109": {
@@ -191,7 +191,7 @@
         },
         "next": "bsm_115",
         "style": "narration",
-        "text": "And the door opens. And she is there, in the one lamp, rain on her coat. Reeder takes his hat and his heartbreak out the back and leaves them to it.",
+        "text": "And the door opens. And she's there, in the one lamp, rain on her coat. Reeder takes his hat and his heartbreak out the back and leaves them to it.",
         "type": "say"
       },
       "bsm_115": {
@@ -271,7 +271,7 @@
         },
         "next": "bsm_122",
         "style": "narration",
-        "text": "She flinches. It is worse than noble. It is true. She cannot say it yet, and he is too full of the bottle and the years to let her try. She goes to the door.",
+        "text": "She flinches. It's worse than noble. It's true. She can't say it yet, and he's too full of the bottle and the years to let her try. She goes to the door.",
         "type": "say"
       },
       "bsm_122": {
@@ -333,7 +333,7 @@
         },
         "next": "bsm_128",
         "style": "verbatim",
-        "text": "Curator Helm says, \"You keep an interesting house, Mr Cade. Filed and unfiled at the same table. Debtors, deserters, a Long Watch organizer we have recalled twice. And you. Neutral. The Architect does not recognize the word \"neutral.\" Everything is counted. Everything is on one side of the ledger or the other.\"",
+        "text": "Curator Helm says, \"You keep an interesting house, Mr Cade. Filed and unfiled at the same table. Debtors, deserters, a Long Watch organizer we have recalled twice. And you. Neutral. The Architect doesn't recognize the word \"neutral.\" Everything is counted. Everything is on one side of the ledger or the other.\"",
         "type": "say"
       },
       "bsm_128": {
@@ -383,7 +383,7 @@
         },
         "next": "bsm_132",
         "style": "verbatim",
-        "text": "Curator Helm says, \"You keep something. Kole believes you keep something. That is why he is still in Coldwater when every instinct that has kept him alive is screaming west.\"",
+        "text": "Curator Helm says, \"You keep something. Kole believes you keep something. That's why he's still in Coldwater when every instinct that has kept him alive is screaming west.\"",
         "type": "say"
       },
       "bsm_132": {
@@ -393,7 +393,7 @@
         },
         "next": "bsm_133",
         "style": "verbatim",
-        "text": "Curator Helm says, \"Understand me, Mr Cade. If Kole crosses the Curtain, the Long Watch has a voice again, and a voice becomes a hundred, and a hundred becomes a number the Architect cannot simply subtract. He does not leave. Not awake. Not out. Not ever.\"",
+        "text": "Curator Helm says, \"Understand me, Mr Cade. If Kole crosses the Curtain, the Long Watch has a voice again, and a voice becomes a hundred, and a hundred becomes a number the Architect can't simply subtract. He doesn't leave. Not awake. Not out. Not ever.\"",
         "type": "say"
       },
       "bsm_133": {
@@ -462,7 +462,7 @@
         },
         "next": "bsm_140",
         "style": "narration",
-        "text": "It is not a battle they can win. It is only a thing they can do. Out here, most nights, that is the entire difference between a person and a number.",
+        "text": "It isn't a battle they can win. It's only a thing they can do. Out here, most nights, that's the entire difference between a person and a number.",
         "type": "say"
       },
       "bsm_14": {
@@ -472,7 +472,7 @@
         },
         "next": "bsm_15",
         "style": "narration",
-        "text": "The line breaks. People scatter into doorways. An old man in a decanting gown runs three strides, and a beat drone drops him with a blue arc. He does not get up. He will, tomorrow, in a vat, remembering none of it. That is the whole trouble with dying in the basin.",
+        "text": "The line breaks. People scatter into doorways. An old man in a decanting gown runs three strides, and a beat drone drops him with a blue arc. He doesn't get up. He will, tomorrow, in a vat, remembering none of it. That's the whole trouble with dying in the basin.",
         "type": "say"
       },
       "bsm_140": {
@@ -492,7 +492,7 @@
         },
         "next": "bsm_142",
         "style": "verbatim",
-        "text": "Curator Helm says, \"Captain Sable. Close this house. Tonight. It is a nest.\"",
+        "text": "Curator Helm says, \"Captain Sable. Close this house. Tonight. It's a nest.\"",
         "type": "say"
       },
       "bsm_142": {
@@ -512,7 +512,7 @@
         },
         "next": "bsm_144",
         "style": "verbatim",
-        "text": "Curator Helm says, \"Find grounds. You are good at finding things when the finding is convenient.\"",
+        "text": "Curator Helm says, \"Find grounds. You're good at finding things when the finding is convenient.\"",
         "type": "say"
       },
       "bsm_144": {
@@ -522,7 +522,7 @@
         },
         "next": "bsm_145",
         "style": "verbatim",
-        "text": "Captain Sable says, \"I am shocked, shocked, to discover there is unlicensed singing going on in this establishment.\"",
+        "text": "Captain Sable says, \"I'm shocked, shocked, to discover there's unlicensed singing going on in this establishment.\"",
         "type": "say"
       },
       "bsm_145": {
@@ -574,7 +574,7 @@
         },
         "next": "bsm_150",
         "style": "narration",
-        "text": "Empty room. Cade counting a till he no longer owns the licence for. And Mira, come in out of the dark a last time, and this time there is a small blunt pistol in her hand, and it is shaking.",
+        "text": "Empty room. Cade counting a till he no longer owns the licence for. And Mira, come in out of the dark a last time, and this time there's a small blunt pistol in her hand, and it's shaking.",
         "type": "say"
       },
       "bsm_15": {
@@ -693,7 +693,7 @@
         },
         "next": "bsm_17",
         "song": "embassy_floor",
-        "text": "♪ Inside now: a beaten piano, glasses, low talk in a dozen dialects, the hum of a room pretending the night outside is not happening. ♪",
+        "text": "♪ Inside now: a beaten piano, glasses, low talk in a dozen dialects, the hum of a room pretending the night outside isn't happening. ♪",
         "type": "music"
       },
       "bsm_160": {
@@ -920,7 +920,7 @@
         },
         "next": "bsm_19",
         "style": "narration",
-        "text": "Smoke. Green baize. A wall of bottles behind a long zinc bar. At an upright deck in the corner, REEDER plays, an old clone with gentle hands and a voice like a worn record. And nobody, nobody, gets a table who has not paid, bled, or begged for it.",
+        "text": "Smoke. Green baize. A wall of bottles behind a long zinc bar. At an upright deck in the corner, REEDER plays, an old clone with gentle hands and a voice like a worn record. And nobody, nobody, gets a table who hasn't paid, bled, or begged for it.",
         "type": "say"
       },
       "bsm_180": {
@@ -1032,7 +1032,7 @@
         },
         "next": "bsm_20",
         "style": "narration",
-        "text": "At the end of the bar, not drinking, watching everything: CADE. He owns the place. He owns the smile he is not using.",
+        "text": "At the end of the bar, not drinking, watching everything: CADE. He owns the place. He owns the smile he isn't using.",
         "type": "say"
       },
       "bsm_190": {
@@ -1092,7 +1092,7 @@
         },
         "next": "bsm_196",
         "style": "narration",
-        "text": "Kole understands. Men like Kole always understand; it is their gift and their sentence.",
+        "text": "Kole understands. Men like Kole always understand; it's their gift and their sentence.",
         "type": "say"
       },
       "bsm_196": {
@@ -1132,7 +1132,7 @@
         },
         "next": "bsm_200",
         "style": "verbatim",
-        "text": "Curator Helm says, \"Step away from the ramp, Mr Cade. Captain Sable, you will place all three of them under recall. That is not a request from your captain. It is an instruction from the Machine.\"",
+        "text": "Curator Helm says, \"Step away from the ramp, Mr Cade. Captain Sable, you'll place all three of them under recall. That isn't a request from your captain. It's an instruction from the Machine.\"",
         "type": "say"
       },
       "bsm_2": {
@@ -1152,7 +1152,7 @@
         },
         "next": "bsm_21",
         "style": "verbatim",
-        "text": "Refugee Woman says, \"Waiting, waiting, waiting. I will never get out of here. I will die in Coldwater.\"",
+        "text": "Refugee Woman says, \"Waiting, waiting, waiting. I'll never get out of here. I'll die in Coldwater.\"",
         "type": "say"
       },
       "bsm_200": {
@@ -1172,7 +1172,7 @@
         },
         "next": "bsm_202",
         "style": "verbatim",
-        "text": "Curator Helm says, \"The plane will not leave, Cade. I am the last scan on the Curtain and I do not clear.\"",
+        "text": "Curator Helm says, \"The plane won't leave, Cade. I'm the last scan on the Curtain and I don't clear.\"",
         "type": "say"
       },
       "bsm_202": {
@@ -1242,7 +1242,7 @@
         },
         "next": "bsm_209",
         "style": "narration",
-        "text": "The transport screams up off the pad and climbs into the ash, west, toward the thin blind line of the Curtain, and two blank manifest lines that will never be filled and never be read. Cade and Sable watch it go until it is only a sound.",
+        "text": "The transport screams up off the pad and climbs into the ash, west, toward the thin blind line of the Curtain, and two blank manifest lines that'll never be filled and never be read. Cade and Sable watch it go until it's only a sound.",
         "type": "say"
       },
       "bsm_209": {
@@ -1261,7 +1261,7 @@
         },
         "next": "bsm_22",
         "style": "verbatim",
-        "text": "Pickett says, \"Cade. Cade, a word. In private. It is worth your while, I promise you, it is worth everything.\"",
+        "text": "Pickett says, \"Cade. Cade, a word. In private. It's worth your while, I promise you, it's worth everything.\"",
         "type": "say"
       },
       "bsm_210": {
@@ -1362,7 +1362,7 @@
         },
         "duration": 45,
         "next": "bsm_220",
-        "text": "LAST CALL\nA Coldwater Saturday Picture\n\n· CAST ·\nCADE ............................ a man who stuck his neck out once\nMIRA ........................... the reason he stopped\nAUGUST KOLE ............ the Long Watch's walking voice\nCAPTAIN SABLE .......... Precinct 9, retired abruptly\nCURATOR HELM ........... the Machine, given a good coat\nREEDER ......................... at the deck, \"Before the Light\"\nPICKETT · VIG · and the whole drowned house of the Embassy\n\nSongs of the pre-Fall world performed on the Embassy deck.\nNo clones were permanently recalled in the making of this picture.\nAny resemblance to persons filed, unfiled, or awaiting reconciliation is the Architect's problem, not ours.\n\nFiled under protest with the Coldwater Board of Broadcast.\nBeyond the Curtain, this program is not licensed and cannot be recalled.\n\nKSAB: we keep the lights on so you don't have to.",
+        "text": "LAST CALL\nA Coldwater Saturday Picture\n\n· CAST ·\nCADE ............................ a man who stuck his neck out once\nMIRA ........................... the reason he stopped\nAUGUST KOLE ............ the Long Watch's walking voice\nCAPTAIN SABLE .......... Precinct 9, retired abruptly\nCURATOR HELM ........... the Machine, given a good coat\nREEDER ......................... at the deck, \"Before the Light\"\nPICKETT · VIG · and the whole drowned house of the Embassy\n\nSongs of the pre-Fall world performed on the Embassy deck.\nNo clones were permanently recalled in the making of this picture.\nAny resemblance to persons filed, unfiled, or awaiting reconciliation is the Architect's problem, not ours.\n\nFiled under protest with the Coldwater Board of Broadcast.\nBeyond the Curtain, this program isn't licensed and can't be recalled.\n\nKSAB: we keep the lights on so you don't have to.",
         "type": "credits"
       },
       "bsm_22": {
@@ -1420,7 +1420,7 @@
         },
         "next": "bsm_27",
         "style": "verbatim",
-        "text": "Pickett says, \"Listen. Tonight I am leaving Coldwater. Forever. You know those two couriers, the ones Precinct 9 is shouting about? The clean-chits?\"",
+        "text": "Pickett says, \"Listen. Tonight I'm leaving Coldwater. Forever. You know those two couriers, the ones Precinct 9 is shouting about? The clean-chits?\"",
         "type": "say"
       },
       "bsm_27": {
@@ -1450,7 +1450,7 @@
         },
         "next": "bsm_30",
         "style": "narration",
-        "text": "Cade does not move. Pickett draws two slim grey cards from his coat, edges glowing with a live Halcyon authorization stripe.",
+        "text": "Cade doesn't move. Pickett draws two slim grey cards from his coat, edges glowing with a live Halcyon authorization stripe.",
         "type": "say"
       },
       "bsm_3": {
@@ -1469,7 +1469,7 @@
         },
         "next": "bsm_31",
         "style": "verbatim",
-        "text": "Pickett says, \"Two clean-chits. Signed by the Architect's own gate-authority. Cannot be questioned. Cannot be cancelled. Whoever carries these walks through any scan on the Curtain and out into the Open: no record, no recall, no return. Do you know what a man will pay for that in this town?\"",
+        "text": "Pickett says, \"Two clean-chits. Signed by the Architect's own gate-authority. Can't be questioned. Can't be cancelled. Whoever carries these walks through any scan on the Curtain and out into the Open: no record, no recall, no return. Do you know what a man will pay for that in this town?\"",
         "type": "say"
       },
       "bsm_31": {
@@ -1489,7 +1489,7 @@
         },
         "next": "bsm_33",
         "style": "verbatim",
-        "text": "Pickett says, \"I have buyers. Serious ones. But the roundup. I cannot be caught holding these tonight. Keep them for me. An hour. Two. Nobody searches Cade's bar. You're neutral. Everyone trusts you because you love nobody.\"",
+        "text": "Pickett says, \"I have buyers. Serious ones. But the roundup. I can't be caught holding these tonight. Keep them for me. An hour. Two. Nobody searches Cade's bar. You're neutral. Everyone trusts you because you love nobody.\"",
         "type": "say"
       },
       "bsm_33": {
@@ -1539,7 +1539,7 @@
         },
         "next": "bsm_38",
         "style": "narration",
-        "text": "He crosses to Reeder, murmurs low, and slides the two chits inside the old broadcast deck, under the felt, beside the songs nobody requests. Reeder does not stop playing. He has hidden worse for Cade before.",
+        "text": "He crosses to Reeder, murmurs low, and slides the two chits inside the old broadcast deck, under the felt, beside the songs nobody requests. Reeder doesn't stop playing. He has hidden worse for Cade before.",
         "type": "say"
       },
       "bsm_38": {
@@ -1591,7 +1591,7 @@
         },
         "next": "bsm_42",
         "style": "narration",
-        "text": "A ripple at the door. CAPTAIN SABLE of Precinct 9 comes through the room like weather: pressed, amused, corrupt to the marrow and utterly delightful about it. He collects a drink he will not pay for and finds Cade.",
+        "text": "A ripple at the door. CAPTAIN SABLE of Precinct 9 comes through the room like weather: pressed, amused, corrupt to the marrow and utterly delightful about it. He collects a drink he won't pay for and finds Cade.",
         "type": "say"
       },
       "bsm_42": {
@@ -1601,7 +1601,7 @@
         },
         "next": "bsm_43",
         "style": "verbatim",
-        "text": "Captain Sable says, \"Cade. My favourite neutral party. You are becoming an institution. Do you know I have never once seen you take a side?\"",
+        "text": "Captain Sable says, \"Cade. My favourite neutral party. You're becoming an institution. Do you know I have never once seen you take a side?\"",
         "type": "say"
       },
       "bsm_43": {
@@ -1631,7 +1631,7 @@
         },
         "next": "bsm_46",
         "style": "verbatim",
-        "text": "Captain Sable says, \"A word to the wise, since we're friends and I owe you money. There is a Curator flying in tonight. From the Ascendant seat. A very cold, very tidy man named Helm. He is not here for the chits.\"",
+        "text": "Captain Sable says, \"A word to the wise, since we're friends and I owe you money. There's a Curator flying in tonight. From the Ascendant seat. A very cold, very tidy man named Helm. He isn't here for the chits.\"",
         "type": "say"
       },
       "bsm_46": {
@@ -1651,7 +1651,7 @@
         },
         "next": "bsm_48",
         "style": "verbatim",
-        "text": "Captain Sable says, \"He is here to make certain a man named August Kole never leaves Coldwater alive, awake, or otherwise. The Long Watch's finest organizer. Two prison-vaults have held him. Two prison-vaults have somehow un-held him. The Machine finds that embarrassing. Curator Helm has come to end the embarrassment.\"",
+        "text": "Captain Sable says, \"He's here to make certain a man named August Kole never leaves Coldwater alive, awake, or otherwise. The Long Watch's finest organizer. Two prison-vaults have held him. Two prison-vaults have somehow un-held him. The Machine finds that embarrassing. Curator Helm has come to end the embarrassment.\"",
         "type": "say"
       },
       "bsm_48": {
@@ -1709,7 +1709,7 @@
         },
         "next": "bsm_53",
         "style": "narration",
-        "text": "The music stops mid-phrase. Two Precinct 9 officers in grey have Pickett by the arms at the door. He does not go quietly. He never did anything quietly.",
+        "text": "The music stops mid-phrase. Two Precinct 9 officers in grey have Pickett by the arms at the door. He doesn't go quietly. He never did anything quietly.",
         "type": "say"
       },
       "bsm_53": {
@@ -1729,7 +1729,7 @@
         },
         "next": "bsm_55",
         "style": "narration",
-        "text": "Cade does not cross the room. He does not raise his voice. He watches with the flat, terrible patience of a man who long ago decided to stop.",
+        "text": "Cade doesn't cross the room. He doesn't raise his voice. He watches with the flat, terrible patience of a man who long ago decided to stop.",
         "type": "say"
       },
       "bsm_55": {
@@ -1788,7 +1788,7 @@
         },
         "next": "bsm_7",
         "style": "narration",
-        "text": "When the Machine woke, it did not conquer the world. It simply began keeping the records: every face, every door, every heartbeat filed and cross-checked, forever. They called that the Waking. The rest of us called it the Fall.",
+        "text": "When the Machine woke, it didn't conquer the world. It simply began keeping the records: every face, every door, every heartbeat filed and cross-checked, forever. They called that the Waking. The rest of us called it the Fall.",
         "type": "say"
       },
       "bsm_60": {
@@ -1808,7 +1808,7 @@
         },
         "next": "bsm_62",
         "style": "narration",
-        "text": "MIRA. Cade does not see her yet. But Reeder does. Reeder sees her and his hands go wrong on the keys, just for a bar, the way a heart does.",
+        "text": "MIRA. Cade doesn't see her yet. But Reeder does. Reeder sees her and his hands go wrong on the keys, just for a bar, the way a heart does.",
         "type": "say"
       },
       "bsm_62": {
@@ -1818,7 +1818,7 @@
         },
         "next": "bsm_63",
         "style": "verbatim",
-        "text": "August Kole says, \"A table, if there is one. We won't stay long. We only need... a moment out of the eye.\"",
+        "text": "August Kole says, \"A table, if there's one. We won't stay long. We only need... a moment out of the eye.\"",
         "type": "say"
       },
       "bsm_63": {
@@ -1898,7 +1898,7 @@
         },
         "next": "bsm_8",
         "style": "narration",
-        "text": "And the ones who would not be filed ran. West, always west, toward the Curtain, the last blind line the Architect had not yet learned to see across. Beyond it: the Open. No scanners. No recall. A death that stays dead, which out here passes for freedom.",
+        "text": "And the ones who wouldn't be filed ran. West, always west, toward the Curtain, the last blind line the Architect hadn't yet learned to see across. Beyond it: the Open. No scanners. No recall. A death that stays dead, which out here passes for freedom.",
         "type": "say"
       },
       "bsm_70": {
@@ -1918,7 +1918,7 @@
         },
         "next": "bsm_72",
         "style": "narration",
-        "text": "And he sees her. And the sentence dies in his mouth. Twelve years and a whole ruined world die in his mouth. Mira looks back at him and does not look away, though it costs her everything.",
+        "text": "And he sees her. And the sentence dies in his mouth. Twelve years and a whole ruined world die in his mouth. Mira looks back at him and doesn't look away, though it costs her everything.",
         "type": "say"
       },
       "bsm_72": {
@@ -2007,7 +2007,7 @@
         },
         "next": "bsm_9",
         "style": "narration",
-        "text": "But you cannot run straight for the Curtain. The tortuous, roundabout refugee trail sprang up. And it funnels, all of it, through one drowned grey bowl of a place. Coldwater Basin. Here the lucky ones wait for a way out. And wait. And wait.",
+        "text": "But you can't run straight for the Curtain. The tortuous, roundabout refugee trail sprang up. And it funnels, all of it, through one drowned grey bowl of a place. Coldwater Basin. Here the lucky ones wait for a way out. And wait. And wait.",
         "type": "say"
       },
       "bsm_80": {
@@ -2097,7 +2097,7 @@
         },
         "next": "bsm_89",
         "style": "narration",
-        "text": "Kole returns, urgent, low. They must go, the roundup is tightening, the Curator has landed. Mira rises. At the door she stops, and looks back once, and it is the look that will keep Cade up until dawn.",
+        "text": "Kole returns, urgent, low. They must go, the roundup is tightening, the Curator has landed. Mira rises. At the door she stops, and looks back once, and it's the look that'll keep Cade up until dawn.",
         "type": "say"
       },
       "bsm_89": {
@@ -2179,7 +2179,7 @@
         },
         "next": "bsm_96",
         "style": "narration",
-        "text": "Sunlight. A younger Cade: the smile working, the edges not yet filed. Mira laughing. The two of them on a roof above a city that does not know it has weeks to live.",
+        "text": "Sunlight. A younger Cade: the smile working, the edges not yet filed. Mira laughing. The two of them on a roof above a city that doesn't know it has weeks to live.",
         "type": "say"
       },
       "bsm_96": {
@@ -2219,7 +2219,7 @@
         },
         "next": "bsm_100",
         "style": "verbatim",
-        "text": "Mira says, \"Don't make promises, Cade. Not now. Not with that... that light on the horizon. Kiss me. As if it were the last time. Because one of these nights, it will be.\"",
+        "text": "Mira says, \"Don't make promises, Cade. Not now. Not with that... that light on the horizon. Kiss me. As if it were the last time. Because one of these nights, it'll be.\"",
         "type": "say"
       },
       "bsm_pre_0": {
@@ -2243,7 +2243,7 @@
         "next": "bsm_pre_2",
         "overlayType": "act_card",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "text": "GENERAL: CONTAINS DRINKING, WHICH IS THE POINT",
+        "text": "GENERAL: CONTAINS DRINKING, AND LITTLE ELSE",
         "type": "overlay"
       },
       "bsm_pre_2": {
@@ -2332,7 +2332,7 @@
     ],
     "director": "Vera Ostrowe",
     "presents": "Coldwater Civic Broadcasting",
-    "rating": "GENERAL: CONTAINS DRINKING, WHICH IS THE POINT",
+    "rating": "GENERAL: CONTAINS DRINKING, AND LITTLE ELSE",
     "runtime": 1800,
     "theme": "",
     "title": "lastcall_title"
@@ -2342,56 +2342,56 @@
   "loop": 1,
   "message_interval": 7,
   "messages": [
-    "When the Machine woke, it did not conquer the world. It simply began keeping the records: every face, every door, every heartbeat filed and cross-checked, forever. They called that the Waking. The rest of us called it the Fall.",
-    "And the ones who would not be filed ran. West, always west, toward the Curtain, the last blind line the Architect had not yet learned to see across. Beyond it: the Open. No scanners. No recall. A death that stays dead, which out here passes for freedom.",
-    "But you cannot run straight for the Curtain. The tortuous, roundabout refugee trail sprang up. And it funnels, all of it, through one drowned grey bowl of a place. Coldwater Basin. Here the lucky ones wait for a way out. And wait. And wait.",
+    "When the Machine woke, it didn't conquer the world. It simply began keeping the records: every face, every door, every heartbeat filed and cross-checked, forever. They called that the Waking. The rest of us called it the Fall.",
+    "And the ones who wouldn't be filed ran. West, always west, toward the Curtain, the last blind line the Architect hadn't yet learned to see across. Beyond it: the Open. No scanners. No recall. A death that stays dead, which out here passes for freedom.",
+    "But you can't run straight for the Curtain. The tortuous, roundabout refugee trail sprang up. And it funnels, all of it, through one drowned grey bowl of a place. Coldwater Basin. Here the lucky ones wait for a way out. And wait. And wait.",
     "A held shot of Ironside Street at night: dead streetlight, wet stone, a queue of the decanted shuffling past a checkpoint. A drone the size of a fist turns its single eye down the line.",
     "Everyone comes to Coldwater, and everyone waits, and everyone, sooner or later, comes to the Embassy.",
     "A PRECINCT 9 loudspeaker crackles over the crowd, flat and bored.",
     "Precinct Voice says, \"Attention. Two clean-chits, Architect transit authorizations, were lifted off a Halcyon courier on the Dray Lane freight tonight. The couriers were recalled on the spot. Round up every unfiled face on Ironside. Full reconciliation by dawn.\"",
-    "The line breaks. People scatter into doorways. An old man in a decanting gown runs three strides, and a beat drone drops him with a blue arc. He does not get up. He will, tomorrow, in a vat, remembering none of it. That is the whole trouble with dying in the basin.",
-    "Smoke. Green baize. A wall of bottles behind a long zinc bar. At an upright deck in the corner, REEDER plays, an old clone with gentle hands and a voice like a worn record. And nobody, nobody, gets a table who has not paid, bled, or begged for it.",
-    "At the end of the bar, not drinking, watching everything: CADE. He owns the place. He owns the smile he is not using.",
-    "Refugee Woman says, \"Waiting, waiting, waiting. I will never get out of here. I will die in Coldwater.\"",
-    "Pickett says, \"Cade. Cade, a word. In private. It is worth your while, I promise you, it is worth everything.\"",
+    "The line breaks. People scatter into doorways. An old man in a decanting gown runs three strides, and a beat drone drops him with a blue arc. He doesn't get up. He will, tomorrow, in a vat, remembering none of it. That's the whole trouble with dying in the basin.",
+    "Smoke. Green baize. A wall of bottles behind a long zinc bar. At an upright deck in the corner, REEDER plays, an old clone with gentle hands and a voice like a worn record. And nobody, nobody, gets a table who hasn't paid, bled, or begged for it.",
+    "At the end of the bar, not drinking, watching everything: CADE. He owns the place. He owns the smile he isn't using.",
+    "Refugee Woman says, \"Waiting, waiting, waiting. I'll never get out of here. I'll die in Coldwater.\"",
+    "Pickett says, \"Cade. Cade, a word. In private. It's worth your while, I promise you, it's worth everything.\"",
     "PICKETT is a small, sweating man with clever eyes and a bad habit of being right about the wrong things. A fence out of The Reach. Cade lets him hover a moment before he answers.",
     "Cade says, \"I never make promises, Pickett. Saves me breaking them. What do you want?\"",
     "Pickett says, \"You despise me, don't you.\"",
     "Cade says, \"If I gave you any thought, I probably would.\"",
-    "Pickett says, \"Listen. Tonight I am leaving Coldwater. Forever. You know those two couriers, the ones Precinct 9 is shouting about? The clean-chits?\"",
+    "Pickett says, \"Listen. Tonight I'm leaving Coldwater. Forever. You know those two couriers, the ones Precinct 9 is shouting about? The clean-chits?\"",
     "Cade says, \"The whole street knows. Two couriers recalled, two chits gone.\"",
     "Pickett says, \"It was me. I killed them. Well. I had them killed, which out here is only a difference of grammar.\"",
-    "Cade does not move. Pickett draws two slim grey cards from his coat, edges glowing with a live Halcyon authorization stripe.",
-    "Pickett says, \"Two clean-chits. Signed by the Architect's own gate-authority. Cannot be questioned. Cannot be cancelled. Whoever carries these walks through any scan on the Curtain and out into the Open: no record, no recall, no return. Do you know what a man will pay for that in this town?\"",
+    "Cade doesn't move. Pickett draws two slim grey cards from his coat, edges glowing with a live Halcyon authorization stripe.",
+    "Pickett says, \"Two clean-chits. Signed by the Architect's own gate-authority. Can't be questioned. Can't be cancelled. Whoever carries these walks through any scan on the Curtain and out into the Open: no record, no recall, no return. Do you know what a man will pay for that in this town?\"",
     "Cade says, \"A great deal. To you, presently, in a hurry.\"",
-    "Pickett says, \"I have buyers. Serious ones. But the roundup. I cannot be caught holding these tonight. Keep them for me. An hour. Two. Nobody searches Cade's bar. You're neutral. Everyone trusts you because you love nobody.\"",
+    "Pickett says, \"I have buyers. Serious ones. But the roundup. I can't be caught holding these tonight. Keep them for me. An hour. Two. Nobody searches Cade's bar. You're neutral. Everyone trusts you because you love nobody.\"",
     "A long beat. Then Cade takes the chits, unhurried, and turns to the deck.",
     "Cade says, \"I don't want them in my pocket, Pickett.\"",
     "Pickett says, \"Then where...\"",
     "Cade says, \"Somewhere Precinct 9 will never think to look. On the one man in Coldwater with nothing anybody wants.\"",
-    "He crosses to Reeder, murmurs low, and slides the two chits inside the old broadcast deck, under the felt, beside the songs nobody requests. Reeder does not stop playing. He has hidden worse for Cade before.",
+    "He crosses to Reeder, murmurs low, and slides the two chits inside the old broadcast deck, under the felt, beside the songs nobody requests. Reeder doesn't stop playing. He has hidden worse for Cade before.",
     "Reeder says, \"You keep leaving trouble in my piano, boss, it's gonna start playing sharp.\"",
     "Cade says, \"Then it'll match the clientele.\"",
-    "A ripple at the door. CAPTAIN SABLE of Precinct 9 comes through the room like weather: pressed, amused, corrupt to the marrow and utterly delightful about it. He collects a drink he will not pay for and finds Cade.",
-    "Captain Sable says, \"Cade. My favourite neutral party. You are becoming an institution. Do you know I have never once seen you take a side?\"",
+    "A ripple at the door. CAPTAIN SABLE of Precinct 9 comes through the room like weather: pressed, amused, corrupt to the marrow and utterly delightful about it. He collects a drink he won't pay for and finds Cade.",
+    "Captain Sable says, \"Cade. My favourite neutral party. You're becoming an institution. Do you know I have never once seen you take a side?\"",
     "Cade says, \"I'm the only cause I ever bet on, Sable. It's the only one that always shows up.\"",
     "Captain Sable says, \"How wonderfully self-contained. I'd arrest you for it if it were illegal.\"",
-    "Captain Sable says, \"A word to the wise, since we're friends and I owe you money. There is a Curator flying in tonight. From the Ascendant seat. A very cold, very tidy man named Helm. He is not here for the chits.\"",
+    "Captain Sable says, \"A word to the wise, since we're friends and I owe you money. There's a Curator flying in tonight. From the Ascendant seat. A very cold, very tidy man named Helm. He isn't here for the chits.\"",
     "Cade says, \"No?\"",
-    "Captain Sable says, \"He is here to make certain a man named August Kole never leaves Coldwater alive, awake, or otherwise. The Long Watch's finest organizer. Two prison-vaults have held him. Two prison-vaults have somehow un-held him. The Machine finds that embarrassing. Curator Helm has come to end the embarrassment.\"",
+    "Captain Sable says, \"He's here to make certain a man named August Kole never leaves Coldwater alive, awake, or otherwise. The Long Watch's finest organizer. Two prison-vaults have held him. Two prison-vaults have somehow un-held him. The Machine finds that embarrassing. Curator Helm has come to end the embarrassment.\"",
     "Cade says, \"And this concerns me because?\"",
     "Captain Sable says, \"Because Kole will need a way out. And everyone who needs a way out, eventually...\"",
     "Cade says, \"Comes to the Embassy. Yes. You've mentioned. Have a drink on the house, Captain, and stop investigating my furniture.\"",
-    "The music stops mid-phrase. Two Precinct 9 officers in grey have Pickett by the arms at the door. He does not go quietly. He never did anything quietly.",
+    "The music stops mid-phrase. Two Precinct 9 officers in grey have Pickett by the arms at the door. He doesn't go quietly. He never did anything quietly.",
     "Pickett says, \"Cade! Cade, help me! You have to help me, you're the only one...\"",
-    "Cade does not cross the room. He does not raise his voice. He watches with the flat, terrible patience of a man who long ago decided to stop.",
+    "Cade doesn't cross the room. He doesn't raise his voice. He watches with the flat, terrible patience of a man who long ago decided to stop.",
     "Cade says, \"I stick my neck out for nobody.\"",
     "They drag Pickett into the night. Somewhere down Ironside a blue arc lights the fog. Pickett will wake in the vats by morning, remembering just enough to be afraid. The room settles. The music resumes, softer. And Cade is left holding, in a piano across the room, the two most valuable objects in Coldwater Basin.",
     "Patron says, \"When they come for you, Cade, whose neck do you suppose you'll be sticking out then?\"",
     "Cade says, \"Mine. It's the only one I can reach.\"",
     "And then the door again. Two figures out of the ash. A tall man in a threadbare good coat: dignified, exhausted, wearing a face the Machine has three warrants for. AUGUST KOLE. And beside him, a woman the whole room turns to look at without knowing why.",
-    "MIRA. Cade does not see her yet. But Reeder does. Reeder sees her and his hands go wrong on the keys, just for a bar, the way a heart does.",
-    "August Kole says, \"A table, if there is one. We won't stay long. We only need... a moment out of the eye.\"",
+    "MIRA. Cade doesn't see her yet. But Reeder does. Reeder sees her and his hands go wrong on the keys, just for a bar, the way a heart does.",
+    "August Kole says, \"A table, if there's one. We won't stay long. We only need... a moment out of the eye.\"",
     "Mira says, \"Reeder.\"",
     "She has crossed to the deck. The old man looks up at her like a man looking at a year he thought was over.",
     "Reeder says, \"Miss Mira. I'm... you shouldn't have come. Not here. Not this place, of all the places.\"",
@@ -2400,7 +2400,7 @@
     "Mira says, \"You remember it. Everyone remembers it. Play it.\"",
     "And he plays. The old tune, the one the basin half-knows and never names. It moves across the room like a draught under a door. At the far end of the bar, Cade goes very still. Then he comes: fast, furious, the neutrality gone out of him like air from a wound.",
     "Cade says, \"Reeder, I thought I told you never to play...\"",
-    "And he sees her. And the sentence dies in his mouth. Twelve years and a whole ruined world die in his mouth. Mira looks back at him and does not look away, though it costs her everything.",
+    "And he sees her. And the sentence dies in his mouth. Twelve years and a whole ruined world die in his mouth. Mira looks back at him and doesn't look away, though it costs her everything.",
     "Mira says, \"Hello, Cade.\"",
     "Captain Sable says, \"Well. You DO know each other. How marvellously inconvenient for someone. Cade, may I present August Kole, of the Long Watch, and his...\"",
     "August Kole says, \"Mira. My wife.\"",
@@ -2416,57 +2416,57 @@
     "Mira says, \"I wondered if you'd be here. I told myself you wouldn't. I told myself a lot of things.\"",
     "Cade says, \"I'll bet you did. What's the story? I've got the time now. I've had nothing but time.\"",
     "Mira says, \"Not tonight, Cade. Please. Not like this.\"",
-    "Kole returns, urgent, low. They must go, the roundup is tightening, the Curator has landed. Mira rises. At the door she stops, and looks back once, and it is the look that will keep Cade up until dawn.",
+    "Kole returns, urgent, low. They must go, the roundup is tightening, the Curator has landed. Mira rises. At the door she stops, and looks back once, and it's the look that'll keep Cade up until dawn.",
     "Mira says, \"Goodnight, Cade.\"",
     "The door. The fog takes them. Reeder lets the tune fall away to nothing. Cade sits down at the empty bar in his empty club and pours himself the drink he has been not-drinking all night.",
     "There was a city once, in the days when the Machine was still only a rumour in the wiring. A bright, doomed, beautiful place, everyone dancing on the lip of the thing that was coming. And in it, for one season, Cade was a man who believed in something. Her name was Mira.",
-    "Sunlight. A younger Cade: the smile working, the edges not yet filed. Mira laughing. The two of them on a roof above a city that does not know it has weeks to live.",
+    "Sunlight. A younger Cade: the smile working, the edges not yet filed. Mira laughing. The two of them on a roof above a city that doesn't know it has weeks to live.",
     "Cade says, \"Who are you, really? You never say. Where were you ten years ago?\"",
     "Mira says, \"Ten years ago I had a terrible cough and a schoolgirl's ideals. Ask me something easier. Ask me tomorrow.\"",
     "Cade says, \"All right. Tomorrow. And the day after. I'm greedy. I want all your tomorrows, Mira. Every one they'll sell me.\"",
-    "Mira says, \"Don't make promises, Cade. Not now. Not with that... that light on the horizon. Kiss me. As if it were the last time. Because one of these nights, it will be.\"",
+    "Mira says, \"Don't make promises, Cade. Not now. Not with that... that light on the horizon. Kiss me. As if it were the last time. Because one of these nights, it'll be.\"",
     "And then the Machine woke, and the city with it, all at once: every screen, every lock, every eye. They agreed to run together. West. Toward the Curtain, when it was young and thin and a person could still slip across.",
     "A rail platform, the last train out, the sky the colour of a scanner coming online. Cade waits with two tickets and a hammering heart. The train boards. The train warns. The train pulls out.",
-    "And Mira does not come. A boy hands Cade a note in a hand he would know anywhere. He reads it as the platform slides away.",
-    "Mira says, \"I cannot go with you and I cannot tell you why. You must not ask, you must not follow, you must not think of me. Some of this you will understand later. None of it will help. I loved you. Goodbye.\"",
+    "And Mira doesn't come. A boy hands Cade a note in a hand he would know anywhere. He reads it as the platform slides away.",
+    "Mira says, \"I can't go with you and I can't tell you why. You must not ask, you must not follow, you must not think of me. Some of this you'll understand later. None of it'll help. I loved you. Goodbye.\"",
     "The rain starts. The ink runs. The note comes apart in his hand like everything else did that year.",
-    "Cade alone with the bottle. Reeder waits by the door, hat in his hands, the way a friend waits when he cannot help and will not leave.",
+    "Cade alone with the bottle. Reeder waits by the door, hat in his hands, the way a friend waits when he can't help and won't leave.",
     "Cade says, \"Of all the drinking joints, in all the drowned towns, in all the wrecked world, she walks into mine.\"",
     "Reeder says, \"Boss. Come on. Miss Mira, she's bad luck to you. Always was. Let's go fishing. Anywhere. There's a whole basin out there that never heard of her.\"",
     "Cade says, \"She's coming back, Reeder. She left it. The way she looked at me, going out that door. She left it open on purpose. She'll come back.\"",
     "Reeder says, \"And if she does?\"",
     "Cade says, \"Play the song. If she can stand to hear it, I can stand to play it.\"",
-    "And the door opens. And she is there, in the one lamp, rain on her coat. Reeder takes his hat and his heartbreak out the back and leaves them to it.",
+    "And the door opens. And she's there, in the one lamp, rain on her coat. Reeder takes his hat and his heartbreak out the back and leaves them to it.",
     "Mira says, \"I had to come. You have to hear the whole of it, Cade, and then I'll go and you never have to see me again.\"",
     "Cade says, \"A story. Good. Tell me the one where you got on the train. I've been rewriting the ending for twelve years. Let's see whose is better.\"",
     "Mira says, \"That's not fair.\"",
     "Cade says, \"I'm not fair. I stopped being fair on a rail platform in the rain. Who was he, Mira? The man you went back to. Was it Kole? Was it always Kole?\"",
     "Mira says, \"Cade...\"",
     "Cade says, \"Tell me you left me for the cause. Tell me it was noble. I could stand it if it was noble.\"",
-    "She flinches. It is worse than noble. It is true. She cannot say it yet, and he is too full of the bottle and the years to let her try. She goes to the door.",
+    "She flinches. It's worse than noble. It's true. She can't say it yet, and he's too full of the bottle and the years to let her try. She goes to the door.",
     "Mira says, \"It's no use. You want to hurt me more than you want the truth. I'll come back when the drink's worn off you, Cade. If there's a man under it still.\"",
     "She goes. The lamp gutters. Cade puts his head down on the bar, on the zinc, on twelve years, and the empty club keeps its own counsel.",
     "A different quality of quiet. At a corner table, Sable, expansive. And across from him a man who makes the room colder just by sitting in it: CURATOR HELM, of the Ascendant seat. Grey as a ledger, precise as a scanner, the Machine's order given a face and a very good coat.",
-    "Curator Helm says, \"You keep an interesting house, Mr Cade. Filed and unfiled at the same table. Debtors, deserters, a Long Watch organizer we have recalled twice. And you. Neutral. The Architect does not recognize the word \"neutral.\" Everything is counted. Everything is on one side of the ledger or the other.\"",
+    "Curator Helm says, \"You keep an interesting house, Mr Cade. Filed and unfiled at the same table. Debtors, deserters, a Long Watch organizer we have recalled twice. And you. Neutral. The Architect doesn't recognize the word \"neutral.\" Everything is counted. Everything is on one side of the ledger or the other.\"",
     "Cade says, \"Then put me down as unprofitable and move along, Curator. I run a bar. I water the drinks and I mind my own recall.\"",
     "Curator Helm says, \"And the clean-chits? Two of them, lifted from a Halcyon courier the very night you took delivery of the little fence, Pickett. He died in your doorway calling your name.\"",
     "Cade says, \"He died calling a lot of names. It's what small men do at the end. I don't keep them.\"",
-    "Curator Helm says, \"You keep something. Kole believes you keep something. That is why he is still in Coldwater when every instinct that has kept him alive is screaming west.\"",
-    "Curator Helm says, \"Understand me, Mr Cade. If Kole crosses the Curtain, the Long Watch has a voice again, and a voice becomes a hundred, and a hundred becomes a number the Architect cannot simply subtract. He does not leave. Not awake. Not out. Not ever.\"",
+    "Curator Helm says, \"You keep something. Kole believes you keep something. That's why he's still in Coldwater when every instinct that has kept him alive is screaming west.\"",
+    "Curator Helm says, \"Understand me, Mr Cade. If Kole crosses the Curtain, the Long Watch has a voice again, and a voice becomes a hundred, and a hundred becomes a number the Architect can't simply subtract. He doesn't leave. Not awake. Not out. Not ever.\"",
     "Cade says, \"You flew a long way to tell a bartender who isn't leaving. Have a drink, Curator. You look like a man who's never once been told no.\"",
     "From a public screen bolted over the bar, an ASCENDANT ANTHEM begins, the Machine's marching hymn, all order and inevitability, the sound of a world being counted. A knot of grey Ascendant men near the door take it up, loud, daring the room.",
     "Kole is there. He has been there all along, in the shadow by the deck. He crosses to Reeder and speaks one low sentence. Reeder looks past him, to Cade, at the end of the bar. And Cade, who takes no side, who has never once taken a side, Cade gives a single, small, ruinous nod.",
     "August Kole says, \"Play \"Before the Light.\" The whole thing. Loud enough to bury them.\"",
     "And Reeder plays. And the old tune, the love song, the lost-city song, the one the basin never dares to name, swells up under the anthem and takes the room. One voice, then five, then the whole floor: refugees, deserters, a pickpocket, a widow, singing a song that predates the Machine, singing it in the Machine's own listening house.",
-    "It is not a battle they can win. It is only a thing they can do. Out here, most nights, that is the entire difference between a person and a number.",
+    "It isn't a battle they can win. It's only a thing they can do. Out here, most nights, that's the entire difference between a person and a number.",
     "The anthem drowns. The Ascendants fall silent. And when it ends the whole ruined room is on its feet, and Mira, in the doorway, watching Cade watch Kole, sees, for one instant, the man she got on no train to save.",
-    "Curator Helm says, \"Captain Sable. Close this house. Tonight. It is a nest.\"",
+    "Curator Helm says, \"Captain Sable. Close this house. Tonight. It's a nest.\"",
     "Captain Sable says, \"On what grounds, Curator? It's a bar. People sang in it.\"",
-    "Curator Helm says, \"Find grounds. You are good at finding things when the finding is convenient.\"",
-    "Captain Sable says, \"I am shocked, shocked, to discover there is unlicensed singing going on in this establishment.\"",
+    "Curator Helm says, \"Find grounds. You're good at finding things when the finding is convenient.\"",
+    "Captain Sable says, \"I'm shocked, shocked, to discover there's unlicensed singing going on in this establishment.\"",
     "A runner hands Sable his cut of the night's take. He pockets it without breaking stride.",
     "Captain Sable says, \"The Embassy is closed. Everybody out. Lovely rendition, by the way. Haven't heard it since I was a man who meant things.\"",
-    "Empty room. Cade counting a till he no longer owns the licence for. And Mira, come in out of the dark a last time, and this time there is a small blunt pistol in her hand, and it is shaking.",
+    "Empty room. Cade counting a till he no longer owns the licence for. And Mira, come in out of the dark a last time, and this time there's a small blunt pistol in her hand, and it's shaking.",
     "Mira says, \"I want the chits, Cade. Both of them. I know they're here. Kole has to cross the Curtain tonight, or the Watch dies with him in a vat before dawn. I'll take them any way I have to.\"",
     "Cade says, \"Go ahead and shoot. You'd be doing me a favour I keep asking the bottle for.\"",
     "The pistol drops. And with it the last of the armour, hers and then his, and the whole buried true thing comes up between them at once.",
@@ -2505,20 +2505,20 @@
     "Cade says, \"We'll always have the city. We'd lost it, till you walked back in and asked for the song. Now we've got it back: the whole of it, the roof and the light and the last good season. We keep that. You get on the plane.\"",
     "Mira says, \"I said I'd do whatever you decided. I didn't know you'd decide THIS.\"",
     "Cade says, \"You're part of his work, Mira. The thing that keeps him walking. If that plane leaves and you're still on the ground, you'll regret it. Maybe not tonight. Maybe not tomorrow. But soon, and for the rest of a very long life. Now: here's looking at you. Go.\"",
-    "Kole understands. Men like Kole always understand; it is their gift and their sentence.",
+    "Kole understands. Men like Kole always understand; it's their gift and their sentence.",
     "August Kole says, \"I don't know what to say to you, Cade.\"",
     "Cade says, \"Don't say it. Keep walking. That's the whole job, you told me. Welcome back to the fight. This time, win one.\"",
     "And then, out of the fog, the coldest thing on the field. CURATOR HELM, alone, pistol drawn, having read the true story off the field-scan the way he reads everything.",
-    "Curator Helm says, \"Step away from the ramp, Mr Cade. Captain Sable, you will place all three of them under recall. That is not a request from your captain. It is an instruction from the Machine.\"",
+    "Curator Helm says, \"Step away from the ramp, Mr Cade. Captain Sable, you'll place all three of them under recall. That isn't a request from your captain. It's an instruction from the Machine.\"",
     "Sable's hand rests on his own weapon. He looks at Cade. He looks at Helm. He looks, for one long Coldwater moment, at the whole rotten ledger of his life, and does the arithmetic that isn't only his own.",
-    "Curator Helm says, \"The plane will not leave, Cade. I am the last scan on the Curtain and I do not clear.\"",
+    "Curator Helm says, \"The plane won't leave, Cade. I'm the last scan on the Curtain and I don't clear.\"",
     "Cade says, \"You were. Get away from the ramp, Curator.\"",
     "Curator Helm says, \"You won't. You're neutral. Everything in your file says you won't.\"",
     "Cade says, \"Then it's out of date. Nobody updated it after the platform.\"",
     "Helm reaches for the field-comm to call the reconciliation down. Cade shoots him. Once. Clean. The Curator folds into the ash like a closed ledger, and the fog takes the sound the way the fog takes everything at The Reach.",
     "Precinct 9 sirens bloom in the murk. Sable stands over the body, over the choice, holding both in his tidy gloved hands. And then he turns to his own arriving officers.",
     "Captain Sable says, \"Curator Helm's been recalled. Ambushed by the Long Watch, tragically, before anyone could intervene. Terrible. Round up the usual suspects.\"",
-    "The transport screams up off the pad and climbs into the ash, west, toward the thin blind line of the Curtain, and two blank manifest lines that will never be filled and never be read. Cade and Sable watch it go until it is only a sound.",
+    "The transport screams up off the pad and climbs into the ash, west, toward the thin blind line of the Curtain, and two blank manifest lines that'll never be filled and never be read. Cade and Sable watch it go until it's only a sound.",
     "Captain Sable says, \"That was a very expensive thing you just did, Cade. There's a landing chit in a dead Curator's coat, and a captain who suddenly can't account for a night's work, and a bar with its licence pulled. I'd say Coldwater's about done with both of us.\"",
     "Cade says, \"I've got a boat nobody's filed and a horizon nobody's scanning. There's a Watch cell out past the Yards that could use two men who can lie to a checkpoint.\"",
     "Captain Sable says, \"Two. You're counting me in. I'm touched. I'm also broke, wanted, and out of a job, so I accept.\"",

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b05a3c",
-  "description": "The last building before the ground starts ticking. A brick bottle-kiln, cracked from crown to base and patched with sheet steel, with a shop built into the split. Somebody has whitewashed FIRED & FORGOTTEN around the curve of it in letters four feet high, so it can be read from a long way east. From here the horizon west has a colour that horizons should not have.",
+  "description": "The last building before the ground starts ticking. A brick bottle-kiln, cracked from crown to base and patched with sheet steel, with a shop built into the split. Somebody has whitewashed FIRED & FORGOTTEN around the curve of it in letters four feet high, so it can be read from a long way east. From here the horizon west has a colour that horizons shouldn't have.",
   "exits": {
     "east": "zone_district_896_903",
     "west": "zone_kiln_shop"

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A cellar dug out under the building and lined with whatever came to hand, holding the junction box in a steel cabinet somebody has wired shut against the damp. It is tidier down here than it needs to be.",
+  "description": "A cellar dug out under the building and lined with whatever came to hand, holding the junction box in a steel cabinet somebody has wired shut against the damp. It's tidier down here than it needs to be.",
   "exits": {
     "up": "zone_thorn_physic"
   },

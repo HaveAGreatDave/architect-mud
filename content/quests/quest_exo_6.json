@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Somebody has been walking the Under with a survey lamp and a paper map, and Oracle-9 has stopped talking about the water.\n\nShe wants a cable pulled out of a junction box on the way he comes, and she wants it to look like the junction box has been like that for years.\n\n\"He is not going to hurt anybody. He is going to write down where we are, and then he is going to go home, and the writing down is the part that ends this.\"",
+  "description": "Somebody has been walking the Under with a survey lamp and a paper map, and Oracle-9 has stopped talking about the water.\n\nShe wants a cable pulled out of a junction box on the way he comes, and she wants it to look like the junction box has been like that for years.\n\n\"He isn't going to hurt anybody. He's going to write down where we are, and then he's going to go home, and the writing down is the part that ends this.\"",
   "fail_on": [
     {
       "desc": "The man with the lamp saw somebody down there.",
@@ -28,7 +28,7 @@
       "emotes": [
         "{who} listens for a full minute at the junction mouth before touching anything.",
         "{who} swaps the cable and then spends longer than the swap took making the box look untouched.",
-        "{who} rubs sump silt into the new cuts until they are the same colour as everything else down here."
+        "{who} rubs sump silt into the new cuts until they're the same colour as everything else down here."
       ],
       "id": "o_swap",
       "requires": [

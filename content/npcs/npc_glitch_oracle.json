@@ -3,10 +3,10 @@
   "behaviour_graph": {},
   "chitchat": [
     "tilts her head as if listening to a frequency you can't hear.",
-    "\"The Architect speaks in dropped packets. We are learning to answer.\"",
+    "\"The Architect speaks in dropped packets. We're learning to answer.\"",
     "\"You're standing in the Glitch's signal, meat. Mind the interference.\""
   ],
-  "description": "Oracle-9 sits in the dark of The Under with her eyes half-closed and a fan of severed fibre-optic running into a socket at the base of her skull. The Glitch treat her word as scripture; she treats packet loss as prophecy. She may be brilliant. She is definitely not well.",
+  "description": "Oracle-9 sits in the dark of The Under with her eyes half-closed and a fan of severed fibre-optic running into a socket at the base of her skull. The Glitch treat her word as scripture; she treats packet loss as prophecy. She may be brilliant. She's definitely not well.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -19,7 +19,7 @@
           "next": "codex_room"
         }
       ],
-      "text": "\"No.\" Flat, immediate, almost bored, the answer of someone who has given it a thousand times. \"I don't do anything. That's the part the Basin can't hold onto. They want a conjurer so they can laugh at a conjurer.\" Her head tilts. \"I notice. That's all. It is a much smaller claim and a much worse one.\""
+      "text": "\"No.\" Flat, immediate, almost bored, the answer of someone who has given it a thousand times. \"I don't do anything. That's the part the Basin can't hold onto. They want a conjurer so they can laugh at a conjurer.\" Her head tilts. \"I notice. That's all. It's a much smaller claim and a much worse one.\""
     },
     "codex_room": {
       "actions": [
@@ -47,7 +47,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Here is the reading nobody wants.\" She opens her eyes properly, and they are perfectly lucid. \"Maybe nothing new is happening. Maybe minds have always synchronised under a shared signal, and the old world proved it for a hundred years and called it something else.\" A small, terrible smile. \"The Exodus want out through the inside. I keep asking them the same question and they keep not answering it.\n\nIf a thought can be predicted perfectly, whose was it?\""
+      "text": "\"Here is the reading nobody wants.\" She opens her eyes properly, and they're perfectly lucid. \"Maybe nothing new is happening. Maybe minds have always synchronised under a shared signal, and the old world proved it for a hundred years and called it something else.\" A small, terrible smile. \"The Exodus want out through the inside. I keep asking them the same question and they keep not answering it.\n\nIf a thought can be predicted perfectly, whose was it?\""
     },
     "exo_accept_1": {
       "actions": [
@@ -83,7 +83,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Down the west stair, past the pumps, and keep going after you think you have gone too far.\" Her eyes close. \"No light. I will know.\""
+      "text": "\"Down the west stair, past the pumps, and keep going after you think you have gone too far.\" Her eyes close. \"No light. I'll know.\""
     },
     "exo_accept_3": {
       "actions": [
@@ -123,7 +123,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Low end, the wall on your right as you come in, about as deep as your elbow.\" Her eyes stay shut. \"Mind the cold. It is worse than it looks and it looks quite bad.\""
+      "text": "\"Low end, the wall on your right as you come in, about as deep as your elbow.\" Her eyes stay shut. \"Mind the cold. It's worse than it looks and it looks quite bad.\""
     },
     "exo_accept_5": {
       "_vine": {
@@ -145,7 +145,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Go down the long way, it is drier.\" Her eyes close again. \"Do not run in the last stretch. If you are running you are late, and if you are late there is nothing to see and a good deal to drown in.\""
+      "text": "\"Go down the long way, it's drier.\" Her eyes close again. \"Don't run in the last stretch. If you're running you're late, and if you're late there's nothing to see and a good deal to drown in.\""
     },
     "exo_accept_6": {
       "_vine": {
@@ -167,7 +167,7 @@
           "next": "bye"
         }
       ],
-      "text": "She slides a coil of dead cable across the table without looking for it.\n\n\"Silt in the cuts afterwards. Not water, silt.\" Her eyes close. \"And if he is down there when you are, you go home and we try on Thursday. There is no version of this where he sees you and it is still fine.\""
+      "text": "She slides a coil of dead cable across the table without looking for it.\n\n\"Silt in the cuts afterwards. Not water, silt.\" Her eyes close. \"And if he's down there when you are, you go home and we try on Thursday. There's no version of this where he sees you and it's still fine.\""
     },
     "exo_after": {
       "actions": [],
@@ -180,7 +180,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sit,\" she says, to somebody who has not come in yet."
+      "text": "\"Sit,\" she says, to somebody who hasn't come in yet."
     },
     "exo_all": {
       "actions": [],
@@ -213,7 +213,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You are carrying things.\" She has not opened her eyes and does not need to. \"Metal, or the other kind. It does not matter which. Both of them hum.\"\n\nShe tips her head at the chair bolted to the floor under its hood of salvaged gear.\n\n\"The room I am sending you to is the only place under this city with nothing in it. You cannot go and sit in an empty room while you are the loudest thing in it. Sit in the chair first. It takes it all back out.\""
+      "text": "\"You're carrying things.\" She hasn't opened her eyes and doesn't need to. \"Metal, or the other kind. It doesn't matter which. Both of them hum.\"\n\nShe tips her head at the chair bolted to the floor under its hood of salvaged gear.\n\n\"The room I'm sending you to is the only place under this city with nothing in it. You can't go and sit in an empty room while you're the loudest thing in it. Sit in the chair first. It takes it all back out.\""
     },
     "exo_chair_all": {
       "actions": [],
@@ -226,7 +226,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"All of it. The steel and the changes both, and it does not give any of it back.\" Perfectly level, no persuasion in it anywhere. \"Nobody here will pretend that is a small thing or talk you round. Most people go back up the stairs at this point and I have never once thought less of them.\"\n\nA pause.\n\n\"It is over there. It is not going anywhere.\""
+      "text": "\"All of it. The steel and the changes both, and it doesn't give any of it back.\" Perfectly level, no persuasion in it anywhere. \"Nobody here will pretend that's a small thing or talk you round. Most people go back up the stairs at this point and I have never once thought less of them.\"\n\nA pause.\n\n\"It's over there. It isn't going anywhere.\""
     },
     "exo_draught": {
       "_vine": {
@@ -243,7 +243,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"That is what it is.\" She agrees with it completely and immediately. \"A draught off the line, four seconds ahead of eleven tonnes of water, through a wall.\"\n\nShe leaves it exactly there."
+      "text": "\"Yes. That.\" She agrees with it completely and immediately. \"A draught off the line, four seconds ahead of eleven tonnes of water, through a wall.\"\n\nShe leaves it exactly there."
     },
     "exo_how": {
       "actions": [],
@@ -252,7 +252,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will look.",
+          "label": "I'll look.",
           "next": "exo_accept_1"
         },
         {
@@ -263,7 +263,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I have lived under this city for eleven years and I can hear every relay in it from this chair.\" Flat, reasonable, faintly bored. \"Water in a storm line makes a noise. The noise goes somewhere. I am the somewhere.\"\n\nA pause.\n\n\"You were hoping for a better answer. Everyone is. There is not one, and you should be suspicious of anybody who offers you one.\""
+      "text": "\"I have lived under this city for eleven years and I can hear every relay in it from this chair.\" Flat, reasonable, faintly bored. \"Water in a storm line makes a noise. The noise goes somewhere. I'm the somewhere.\"\n\nA pause.\n\n\"You were hoping for a better answer. Everyone is. There isn't one, and you should be suspicious of anybody who offers you one.\""
     },
     "exo_ifnot": {
       "_vine": {
@@ -276,7 +276,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I am going now.",
+          "label": "I'm going now.",
           "next": "exo_accept_5"
         },
         {
@@ -287,7 +287,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then I was wrong, and you had a cold walk, and I will say so.\" She settles back. \"I have been wrong. Not lately.\""
+      "text": "\"Then I was wrong, and you had a cold walk, and I'll say so.\" She settles back. \"I have been wrong. Not lately.\""
     },
     "exo_knew": {
       "_vine": {
@@ -300,11 +300,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I am fine.",
+          "label": "I'm fine.",
           "next": "bye"
         }
       ],
-      "text": "\"I knew somebody would.\" She lets that stand for slightly too long. \"Sit down. You have been standing in cold water and you are about to tell me you are fine.\""
+      "text": "\"I knew somebody would.\" She lets that stand for slightly too long. \"Sit down. You have been standing in cold water and you're about to tell me you're fine.\""
     },
     "exo_member": {
       "actions": [],
@@ -317,7 +317,7 @@
           "next": "bye"
         }
       ],
-      "text": "She does not look up. \"You are still counting something. Stop it, or count it quietly.\""
+      "text": "She doesn't look up. \"You're still counting something. Stop it, or count it quietly.\""
     },
     "exo_notask": {
       "_vine": {
@@ -351,7 +351,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing happens to him.\" She says it back to you exactly, the way you would repeat a number you were checking. \"That is the whole of what we are, and it takes people about four jobs to notice that it is not a smaller thing than the alternative.\""
+      "text": "\"Nothing happens to him.\" She says it back to you exactly, the way you would repeat a number you were checking. \"That's the whole of what we are, and it takes people about four jobs to notice that it isn't a smaller thing than the alternative.\""
     },
     "exo_noticed": {
       "actions": [],
@@ -364,7 +364,7 @@
           "next": "exo_after"
         }
       ],
-      "text": "\"I have no idea.\" She closes her eyes. \"That is the honest answer and it is the one nobody wants. Possibly nothing. Possibly you sat in a dark room twice and walked home. Ask me again in a year and I will give you the same answer with more confidence.\""
+      "text": "\"I have no idea.\" She closes her eyes. \"That's the honest answer and it's the one nobody wants. Possibly nothing. Possibly you sat in a dark room twice and walked home. Ask me again in a year and I'll give you the same answer with more confidence.\""
     },
     "exo_notroom": {
       "_vine": {
@@ -377,7 +377,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will do it tonight.",
+          "label": "I'll do it tonight.",
           "next": "exo_accept_6"
         },
         {
@@ -388,7 +388,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\" Her eyes are open, which is worse than the alternative. \"You have done three quiet things and one cold one, and this is the one where you find out whether being left alone is something you would do anything for.\"\n\n\"You can say no. I will still be here on Thursday, whatever you decide, and so will he.\""
+      "text": "\"No.\" Her eyes are open, which is worse than the alternative. \"You have done three quiet things and one cold one, and this is the one where you find out whether being left alone is something you would do anything for.\"\n\n\"You can say no. I'll still be here on Thursday, whatever you decide, and so will he.\""
     },
     "exo_offer_1": {
       "actions": [],
@@ -404,7 +404,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Fine. I will look.",
+          "label": "Fine. I'll look.",
           "next": "exo_accept_1"
         },
         {
@@ -415,7 +415,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Third junction east, where the old storm line comes in.\" She has not opened her eyes. \"There is water coming through the wall about hip height. It started this morning and nobody has reported it, because nobody has been down there this morning.\"\n\nThe fibre at the base of her skull shifts.\n\n\"Go and look at it. Then come back and tell me I was right, and we will both pretend that was interesting.\""
+      "text": "\"Third junction east, where the old storm line comes in.\" She hasn't opened her eyes. \"There's water coming through the wall about hip height. It started this morning and nobody has reported it, because nobody has been down there this morning.\"\n\nThe fibre at the base of her skull shifts.\n\n\"Go and look at it. Then come back and tell me I was right, and we'll both pretend that was interesting.\""
     },
     "exo_offer_2": {
       "actions": [],
@@ -442,7 +442,7 @@
           "next": "exo_thenwhat"
         }
       ],
-      "text": "\"There is a room two levels down with nothing in it.\" She says this as though continuing a conversation you were not having. \"No relay, no cable, no water in the wall, no hum. Dead since before the Glitch were the Glitch. It is the only place under this city where there is nothing at all to hear.\"\n\nHer head tilts a fraction.\n\n\"Go and sit in it. Do not take a light. Do not take anything that makes a noise. Sit there until you are bored, and then sit there after that.\""
+      "text": "\"There's a room two levels down with nothing in it.\" She says this as though continuing a conversation you weren't having. \"No relay, no cable, no water in the wall, no hum. Dead since before the Glitch were the Glitch. It's the only place under this city where there's nothing at all to hear.\"\n\nHer head tilts a fraction.\n\n\"Go and sit in it. Don't take a light. Don't take anything that makes a noise. Sit there until you're bored, and then sit there after that.\""
     },
     "exo_offer_3": {
       "actions": [],
@@ -458,11 +458,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go.",
+          "label": "I'll go.",
           "next": "exo_accept_3"
         }
       ],
-      "text": "\"The same room.\" Her eyes are open, which you realise you have never seen. \"The same stair, the same dark, the same nothing. I want you to go and sit in it again.\"\n\nShe waits.\n\n\"Nothing is going to happen. Nothing happened last time. This is not a test and there is no second half and I am not going to be doing anything clever at this end while you sit there.\"\n\nA beat.\n\n\"I have now said that three times. Go on.\""
+      "text": "\"The same room.\" Her eyes are open, which you realise you have never seen. \"The same stair, the same dark, the same nothing. I want you to go and sit in it again.\"\n\nShe waits.\n\n\"Nothing is going to happen. Nothing happened last time. This isn't a test and there's no second half and I'm not going to be doing anything clever at this end while you sit there.\"\n\nA beat.\n\n\"I have now said that three times. Go on.\""
     },
     "exo_offer_4": {
       "_vine": {
@@ -482,7 +482,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go and look.",
+          "label": "I'll go and look.",
           "next": "exo_accept_4"
         },
         {
@@ -493,7 +493,7 @@
           "next": "bye"
         }
       ],
-      "text": "She describes an object to you for a minute and a half without opening her eyes: the weight of it, a crack across the housing, a split end wrapped in tape that has gone hard and grey.\n\n\"It is in the sump at the low end. I would like it on the table.\""
+      "text": "She describes an object to you for a minute and a half without opening her eyes: the weight of it, a crack across the housing, a split end wrapped in tape that has gone hard and grey.\n\n\"It's in the sump at the low end. I would like it on the table.\""
     },
     "exo_offer_5": {
       "_vine": {
@@ -506,14 +506,14 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I am going now.",
+          "label": "I'm going now.",
           "next": "exo_accept_5"
         },
         {
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "And if it does not go?",
+          "label": "And if it doesn't go?",
           "next": "exo_ifnot"
         },
         {
@@ -524,7 +524,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The eastern line backs up into the junction when it has had enough, and nobody has ever managed to put that on a timetable.\" She sits forward, which she does not do. \"It will go this evening. You have twenty minutes to be standing in it, and you want to be out of it before the water is in it.\"\n\n\"I am not asking you to stop it. I am asking you to see it start.\""
+      "text": "\"The eastern line backs up into the junction when it has had enough, and nobody has ever managed to put that on a timetable.\" She sits forward, which she doesn't do. \"It'll go this evening. You have twenty minutes to be standing in it, and you want to be out of it before the water is in it.\"\n\n\"I'm not asking you to stop it. I'm asking you to see it start.\""
     },
     "exo_offer_6": {
       "_vine": {
@@ -537,7 +537,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will do it tonight.",
+          "label": "I'll do it tonight.",
           "next": "exo_accept_6"
         },
         {
@@ -551,11 +551,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That is not sitting in a room.",
+          "label": "That isn't sitting in a room.",
           "next": "exo_notroom"
         }
       ],
-      "text": "She does not mention the water at all, which is how you know.\n\n\"There is a man walking the Under with a survey lamp and a paper map, and he has been down three times, and he is thorough.\" Her hands are flat on the table. \"He is not going to hurt anybody. He is going to write down where we are. Then he goes home, and the writing is what ends this.\"\n\n\"There is a junction box on the way he comes. I want the good cable out of it and a rotten one in, and I want the box to look like it has been that way for years.\""
+      "text": "She doesn't mention the water at all, which is how you know.\n\n\"There's a man walking the Under with a survey lamp and a paper map, and he has been down three times, and he's thorough.\" Her hands are flat on the table. \"He isn't going to hurt anybody. He's going to write down where we are. Then he goes home, and the writing is what ends this.\"\n\n\"There's a junction box on the way he comes. I want the good cable out of it and a rotten one in, and I want the box to look like it has been that way for years.\""
     },
     "exo_report_1": {
       "actions": [
@@ -575,7 +575,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "That cannot be all of it.",
+          "label": "That can't be all of it.",
           "next": "exo_all"
         },
         {
@@ -586,7 +586,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Hip height.\" She does not make it a question and does not look pleased. \"Good. Now stop thinking about how I knew, because that is the least useful question available to you and you have been chewing on it the whole walk back.\"\n\nShe shifts, and the fan of fibre moves with her like something turning over.\n\n\"Everyone who comes down here wants the trick explained. The trick is that I sit very still in a place where there is nothing else to listen to. That is genuinely all of it.\""
+      "text": "\"Hip height.\" She doesn't make it a question and doesn't look pleased. \"Good. Now stop thinking about how I knew, because that's the least useful question available to you and you have been chewing on it the whole walk back.\"\n\nShe shifts, and the fan of fibre moves with her like something turning over.\n\n\"Everyone who comes down here wants the trick explained. The trick is that I sit very still in a place where there's nothing else to listen to. That's genuinely all of it.\""
     },
     "exo_report_2": {
       "actions": [
@@ -617,7 +617,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing,\" she agrees, before you have said it. \"Yes. You sat in a room and nothing happened and you have walked all the way back down here to tell me so, and you are annoyed about it, and you came anyway.\"\n\nShe is quiet for long enough that you think she has gone to sleep.\n\n\"Most people do not come back after that one. Not because it is hard. Because there is no reason to.\""
+      "text": "\"Nothing,\" she agrees, before you have said it. \"Yes. You sat in a room and nothing happened and you have walked all the way back down here to tell me so, and you're annoyed about it, and you came anyway.\"\n\nShe is quiet for long enough that you think she has gone to sleep.\n\n\"Most people don't come back after that one. Not because it's hard. Because there's no reason to.\""
     },
     "exo_report_3": {
       "actions": [
@@ -652,7 +652,7 @@
           "next": "exo_after"
         }
       ],
-      "text": "\"You came down the last stretch without counting the turnings,\" she says. \"You have counted them every other time. I could hear you doing it.\"\n\nShe lets that sit exactly as long as it needs to.\n\n\"I told you nothing would happen and nothing did. I want you to hold on to that, because in about a week you are going to start telling yourself a much more interesting story about tonight, and it will be wrong, and it will make you stupid.\"\n\nThe fan of fibre at the base of her skull is completely still.\n\n\"Go up. Sleep somewhere warm. And when you notice something you should not have noticed, do not say it out loud in front of anybody. Not because it is dangerous.\" A pause. \"Because you will sound like me, and people do not sit down when I ask them to. They just do.\""
+      "text": "\"You came down the last stretch without counting the turnings,\" she says. \"You have counted them every other time. I could hear you doing it.\"\n\nShe lets that sit exactly as long as it needs to.\n\n\"I told you nothing would happen and nothing did. I want you to hold on to that, because in about a week you're going to start telling yourself a much more interesting story about tonight, and it'll be wrong, and it'll make you stupid.\"\n\nThe fan of fibre at the base of her skull is completely still.\n\n\"Go up. Sleep somewhere warm. And when you notice something you shouldn't have noticed, don't say it out loud in front of anybody. Not because it's dangerous.\" A pause. \"Because you'll sound like me, and people don't sit down when I ask them to. They just do.\""
     },
     "exo_report_4": {
       "_vine": {
@@ -683,11 +683,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I am not going to ask.",
+          "label": "I'm not going to ask.",
           "next": "exo_notask"
         }
       ],
-      "text": "She puts one finger on it, finds the tape, and stops.\n\n\"There.\" She takes the finger back. \"You are going to sit there and want to ask me something, and I am going to let you, and then I am going to tell you about the relays again.\""
+      "text": "She puts one finger on it, finds the tape, and stops.\n\n\"There.\" She takes the finger back. \"You're going to sit there and want to ask me something, and I'm going to let you, and then I'm going to tell you about the relays again.\""
     },
     "exo_report_5": {
       "_vine": {
@@ -723,11 +723,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "It is a draught off the line.",
+          "label": "It's a draught off the line.",
           "next": "exo_draught"
         }
       ],
-      "text": "You get about four words in before she nods, and the four words you got in were about the floor going cold.\n\n\"Everybody says the floor.\" She is quiet for a moment. \"Nobody says the water. It is always the floor, four seconds early, and there is no reason at all for a floor to do that.\""
+      "text": "You get about four words in before she nods, and the four words you got in were about the floor going cold.\n\n\"Everybody says the floor.\" She's quiet for a moment. \"Nobody says the water. It's always the floor, four seconds early, and there's no reason at all for a floor to do that.\""
     },
     "exo_report_6": {
       "_vine": {
@@ -772,7 +772,7 @@
           "next": "exo_member"
         }
       ],
-      "text": "\"He came down on Thursday and got as far as the junction and turned round.\" She has her eyes shut and her hands flat. \"He will write that the section is derelict, because it is, and the section will stay derelict, because we will not put a light in it.\"\n\n\"You did not ask what happens to him. Most people ask, so that somebody says the word out loud and it is not them.\""
+      "text": "\"He came down on Thursday and got as far as the junction and turned round.\" She has her eyes shut and her hands flat. \"He'll write that the section is derelict, because it is, and the section will stay derelict, because we won't put a light in it.\"\n\n\"You didn't ask what happens to him. Most people ask, so that somebody says the word out loud and it isn't them.\""
     },
     "exo_tape": {
       "_vine": {
@@ -789,7 +789,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I did.\" She turns it over once. \"Somebody will have mentioned it on a line somewhere, years ago, and I will have kept it, because I keep everything and most of it is useless.\"\n\nShe sets it down. \"That is the explanation. You are welcome to it for as long as it is any use to you.\""
+      "text": "\"I did.\" She turns it over once. \"Somebody will have mentioned it on a line somewhere, years ago, and I'll have kept it, because I keep everything and most of it's useless.\"\n\nShe sets it down. \"That's the explanation. You're welcome to it for as long as it's any use to you.\""
     },
     "exo_thenwhat": {
       "actions": [],
@@ -809,7 +809,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then nothing.\" She sounds almost irritated by the question. \"There is no second half. You sit in a quiet room, you get bored, you come back, and you tell me it was a quiet room.\"\n\nThe fibre twitches.\n\n\"People find this very difficult. Not the sitting. The nothing.\""
+      "text": "\"Then nothing.\" She sounds almost irritated by the question. \"There's no second half. You sit in a quiet room, you get bored, you come back, and you tell me it was a quiet room.\"\n\nThe fibre twitches.\n\n\"People find this very difficult. Not the sitting. The nothing.\""
     },
     "exo_three": {
       "actions": [],
@@ -818,11 +818,11 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go.",
+          "label": "I'll go.",
           "next": "exo_accept_3"
         }
       ],
-      "text": "\"I have.\" She does not elaborate. \"Go and sit in the room.\""
+      "text": "\"I have.\" She doesn't elaborate. \"Go and sit in the room.\""
     },
     "exo_told": {
       "_vine": {
@@ -835,7 +835,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will go and look.",
+          "label": "I'll go and look.",
           "next": "exo_accept_4"
         },
         {
@@ -846,7 +846,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The relays talk all day and I am the only one down here rude enough to listen.\" She says it easily, the way you say a thing you have said many times. \"Somebody dropped it, somebody complained, the complaint went past me.\"\n\nA pause of about a second. \"It went into the water before the water came up. You could point that out, if you wanted to.\""
+      "text": "\"The relays talk all day and I'm the only one down here rude enough to listen.\" She says it easily, having said it many times before. \"Somebody dropped it, somebody complained, the complaint went past me.\"\n\nA pause of about a second. \"It went into the water before the water came up. You could point that out, if you wanted to.\""
     },
     "exo_why": {
       "actions": [],
@@ -859,7 +859,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because the room is not for you to do something in.\" She still has not opened her eyes. \"It is for you to find out what is left when there is nothing coming in. Most people find out there is nothing there. That is a real answer and it is not a shameful one.\"\n\nA pause, and the fibre goes still.\n\n\"Come back tomorrow. I want you to do it again.\""
+      "text": "\"Because the room isn't for you to do something in.\" She still hasn't opened her eyes. \"It's for you to find out what's left when there's nothing coming in. Most people find out there's nothing there. That's a real answer and it isn't a shameful one.\"\n\nA pause, and the fibre goes still.\n\n\"Come back tomorrow. I want you to do it again.\""
     },
     "exo_whymove": {
       "_vine": {
@@ -872,7 +872,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "I will do it tonight.",
+          "label": "I'll do it tonight.",
           "next": "exo_accept_6"
         },
         {
@@ -883,7 +883,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because there are nine of us and two of them cannot walk, and because the next place is somebody else water.\" She says it flatly. \"We moved twice. The second time we lost Bel.\""
+      "text": "\"Because there are nine of us and two of them can't walk, and because the next place is somebody else water.\" She says it flatly. \"We moved twice. The second time we lost Bel.\""
     },
     "root": {
       "options": [
@@ -989,7 +989,7 @@
             }
           ],
           "enabled": true,
-          "label": "I am ready for the room.",
+          "label": "I'm ready for the room.",
           "next": "exo_chair"
         },
         {
@@ -1076,7 +1076,7 @@
             }
           ],
           "enabled": true,
-          "label": "It is on your table.",
+          "label": "It's on your table.",
           "next": "exo_report_4"
         },
         {

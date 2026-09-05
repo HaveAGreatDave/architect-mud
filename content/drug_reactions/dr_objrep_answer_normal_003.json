@@ -4,7 +4,7 @@
   "npc_type": null,
   "relation": null,
   "room_line": "",
-  "self_line": "That is what I would have said, in your position.",
+  "self_line": "That's what I would have said, in your position.",
   "source": "object_reply_answer",
   "tone": "normal"
 }

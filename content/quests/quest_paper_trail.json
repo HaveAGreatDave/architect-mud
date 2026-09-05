@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A spool of citizen records walked out of Ledger Hall and into the west wastes, which happens, and something has built a nest out of it, which does not.\n\nThe Registrar is precise about the problem in a way that takes a moment to land.\n\n\"Eleven thousand people,\" she says. \"Not the paper. The people. If that spool goes, they were not born, they did not marry, they do not own their rooms. I will not be able to prove they exist and neither will they.\"\n\nShe squares a stack that is already square.\n\n\"It has made a bed out of them. Go and take it apart.\"",
+  "description": "A spool of citizen records walked out of Ledger Hall and into the west wastes, which happens, and something has built a nest out of it, which does not.\n\nThe Registrar is precise about the problem in a way that takes a moment to land.\n\n\"Eleven thousand people,\" she says. \"Not the paper. The people. If that spool goes, they weren't born, they didn't marry, they don't own their rooms. I won't be able to prove they exist and neither will they.\"\n\nShe squares a stack that's already square.\n\n\"It has made a bed out of them. Go and take it apart.\"",
   "fail_on": [],
   "id": "quest_paper_trail",
   "meta": {},
@@ -10,8 +10,8 @@
       "count": 1,
       "desc": "Destroy the slag wight denning on the lost records (deep west wastes)",
       "emotes": [
-        "{who} follows a trail of shredded municipal paper into somewhere it should not go.",
-        "{who} finds the nest, and it is made of names.",
+        "{who} follows a trail of shredded municipal paper into somewhere it shouldn't go.",
+        "{who} finds the nest, and it's made of names.",
         "{who} kills a thing that has been sleeping on eleven thousand people for a season."
       ],
       "id": "o1",

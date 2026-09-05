@@ -21,7 +21,7 @@
         },
         {
           "atSec": 150,
-          "text": "[trip]An advertisement for a product that does not exist plays across the whole sky.[/trip]"
+          "text": "[trip]An advertisement for a product that doesn't exist plays across the whole sky.[/trip]"
         },
         {
           "atSec": 200,
@@ -39,7 +39,7 @@
     "instant": {
       "sanity": -14
     },
-    "onset_message": "<span class=\"msg-system\">The signal drops out. You are between stations, and it is quiet here.</span>",
+    "onset_message": "<span class=\"msg-system\">The signal drops out. You're between stations, and it's quiet here.</span>",
     "onset_seconds": 8,
     "overdose": {
       "lethal": true,
@@ -61,7 +61,7 @@
       "stages": {
         "easing": "It thins to a hiss you can work through.",
         "onset": "The blue quiet goes off and the channel comes back in, loud.",
-        "peak": "There is no space between the signals at all. The gap dead air lives in has closed and every surface in this room is saying something.",
+        "peak": "There's no space between the signals at all. The gap dead air lives in has closed and every surface in this room is saying something.",
         "rising": "Everything is broadcasting. All of it at once and all of it addressed to you.",
         "tail": "Tuned in. Occasionally you catch yourself listening for the part between the stations."
       }

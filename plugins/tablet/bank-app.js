@@ -65,7 +65,7 @@ function buildWidget(player) {
       { pct: total ? (banked / total) * 100 : 100, tone: 'good', label: `₵${banked.toLocaleString()} banked` },
     ],
     note: total === 0 ? 'Broke. The job board pays.'
-      : exposed ? 'Carried credits are lost if you are robbed, booked or killed.'
+      : exposed ? "Carried credits are lost if you're robbed, booked or killed."
       : 'Banked credits survive anything. An ATM does it in one command.',
   };
 }

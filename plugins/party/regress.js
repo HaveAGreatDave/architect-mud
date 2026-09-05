@@ -48,7 +48,7 @@ export default async function regress({ check, getPlayer }) {
     // Only the leader may invite/kick.
     P(['invite', 'Bob']); B(['accept']);
     const memberInvite = B(['invite', 'Nobody']);
-    check('a non-leader cannot invite', /only the party leader/i.test(memberInvite?.message || ''), memberInvite?.message);
+    check("a non-leader can't invite", /only the party leader/i.test(memberInvite?.message || ''), memberInvite?.message);
 
     // Leader leaving disbands the whole party and clears everyone's follow.
     P(['leave']);

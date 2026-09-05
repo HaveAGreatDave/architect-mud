@@ -35,7 +35,7 @@ const STEPS = [
   {
     sel: ['#area-pane'],
     title: 'The room',
-    body: `This top pane is <b>where you are</b> — the room's description, who and what is standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
+    body: `This top pane is <b>where you are</b> — the room's description, who and what's standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
   },
   {
     // Phone-only, and the single most useful thing to know about the small

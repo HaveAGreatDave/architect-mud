@@ -331,8 +331,8 @@ function _schedRenderContent() {
       <div style="padding:32px;max-width:520px">
         <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px">${escHtml(ch.name)} — deck input</div>
         <div style="font-size:12px;color:var(--text-dim);line-height:1.6">
-          Channel 0 is not a station. It's the input on the back of the set that whatever
-          deck is under it is plugged into, and <strong>every VCR in the world shares this
+          Channel 0 isn't a station. It's the input on the back of the set that whatever
+          deck is under it's plugged into, and <strong>every VCR in the world shares this
           one row</strong> — so it carries no schedule. A deck plays the cassette somebody
           put in it, and answers to no timetable.
         </div>
@@ -798,7 +798,7 @@ function _schedRenderTimeline() {
 async function _schedRemoveEjected(idx) {
   const item = _schedItems[idx];
   if (!item?.missing_cassette) return;
-  if (!item.deck_id) { toast('Cannot remove — unknown deck.', true); return; }
+  if (!item.deck_id) { toast("Can't remove — unknown deck.", true); return; }
   if (!(await dpConfirm(`Discard the ghost slot for "${item.broadcast_name}"?`))) return;
   try {
     const res = await directAPI(`/broadcast/channels/${_schedChannelId}/ejected-slots`, 'DELETE',

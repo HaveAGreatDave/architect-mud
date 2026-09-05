@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Ives has a household in the Yards whose figures have gone the wrong way for three quarters, and a quarter that closes on Friday.\n\nThe work is arithmetic. The arithmetic ends a policy.\n\n\"You will want to know whether I have looked at them,\" she says. \"I have not, and I am not going to, and neither are you. That is not squeamishness. A number you have put a face on is a number you will get wrong.\"",
+  "description": "Ives has a household in the Yards whose figures have gone the wrong way for three quarters, and a quarter that closes on Friday.\n\nThe work is arithmetic. The arithmetic ends a policy.\n\n\"You'll want to know whether I have looked at them,\" she says. \"I have not, and I'm not going to, and neither are you. That isn't squeamishness. A number you have put a face on is a number you'll get wrong.\"",
   "fail_on": [
     {
       "count": 3600,
@@ -16,8 +16,8 @@
       "desc": "Run the household figures at the Gate before the quarter closes.",
       "emotes": [
         "{who} works down a column of a stranger four quarters at a time.",
-        "{who} finds the quarter where it went wrong, and it is a hospital, and it is not interesting.",
-        "{who} does not turn the sheet over to see the name, which is on the back, where it always is."
+        "{who} finds the quarter where it went wrong, and it's a hospital, and it isn't interesting.",
+        "{who} doesn't turn the sheet over to see the name, which is on the back, where it always is."
       ],
       "id": "o_work",
       "taskSeconds": 25,

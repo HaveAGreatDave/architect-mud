@@ -1,11 +1,11 @@
 {
-  "description": "The small one. Used for bread, for scraps, and for putting something down when there is nowhere to put it.",
+  "description": "The small one. Used for bread, for scraps, and for putting something down when there's nowhere to put it.",
   "flags": {},
   "id": "item_side_plate",
   "name": "side plate",
   "tags": {
     "container": 600,
-    "description": "The small one. Used for bread, for scraps, and for putting something down when there is nowhere to put it.",
+    "description": "The small one. Used for bread, for scraps, and for putting something down when there's nowhere to put it.",
     "dishware": true,
     "dishware_kind": "plate",
     "unique": true

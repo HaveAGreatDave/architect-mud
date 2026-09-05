@@ -1,5 +1,5 @@
 {
-  "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it is the one weapon in this city that does not care that it is underwater, because underwater is the only place anyone ever meant to fire it.",
+  "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it's the one weapon in this city that doesn't care that it's underwater, because underwater is the only place anyone ever meant to fire it.",
   "flags": {},
   "id": "item_tidewell_speargun",
   "name": "Tidewell speargun",
@@ -10,7 +10,7 @@
         "min": 9
       },
       "damage_type": "edged",
-      "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it is the one weapon in this city that does not care that it is underwater, because underwater is the only place anyone ever meant to fire it.",
+      "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it's the one weapon in this city that doesn't care that it's underwater, because underwater is the only place anyone ever meant to fire it.",
       "min_skill": {
         "firearms": 3
       },
@@ -25,7 +25,7 @@
       "min": 9
     },
     "damage_type": "edged",
-    "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it is the one weapon in this city that does not care that it is underwater, because underwater is the only place anyone ever meant to fire it.",
+    "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it's the one weapon in this city that doesn't care that it's underwater, because underwater is the only place anyone ever meant to fire it.",
     "min_skill": {
       "firearms": 3
     },

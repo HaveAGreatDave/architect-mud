@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "A calibration set goes into a unit on the underwriting floor. Kesh would rather you did it than one of his technicians.\n\nThe unit is one of nine that price mortality for the eastern districts. A person stands in front of it and it returns an expected remaining lifetime. That figure is what they are charged to stay covered.\n\nTo Kesh it is a mount with a set going into it.\n\nHe gives you the tolerance to four decimal places and expects it back inside that.",
+  "description": "A calibration set goes into a unit on the underwriting floor. Kesh would rather you did it than one of his technicians.\n\nThe unit is one of nine that price mortality for the eastern districts. A person stands in front of it and it returns an expected remaining lifetime. That figure is what they're charged to stay covered.\n\nTo Kesh it's a mount with a set going into it.\n\nHe gives you the tolerance to four decimal places and expects it back inside that.",
   "fail_on": [
     {
       "desc": "Something came apart on you out there. Duc wanted the numbers, and now he has different ones.",

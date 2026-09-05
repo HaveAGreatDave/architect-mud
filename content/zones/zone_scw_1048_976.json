@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "An open-sided works of salvaged plate where the region's scrap comes to be argued with: a drop hammer, a bank of gas bottles, a bath of quench oil with a skin on it. Everything made here is made to be mended, and you can tell, because half of what is stacked by the door has been mended already.",
+  "description": "An open-sided works of salvaged plate where the region's scrap comes to be argued with: a drop hammer, a bank of gas bottles, a bath of quench oil with a skin on it. Everything made here is made to be mended, and you can tell, because half of what's stacked by the door has been mended already.",
   "exits": {
     "east": "zone_scw_1049_976",
     "north": "zone_scw_1048_975",

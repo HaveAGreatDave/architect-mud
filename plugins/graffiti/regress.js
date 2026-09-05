@@ -56,7 +56,7 @@ export default async function regress({ run, check }) {
   const inner = wallsNear(backroom);
   check('an interior offers its own wall', inner.length === 1 && inner[0].id === backroom.id, JSON.stringify(inner));
   check('the interior wall is pickable with no word', pickWall(inner, '')?.wall?.id === backroom.id);
-  check('an interior does not also offer the street outside', !inner.some(w => w.id === street.id));
+  check("an interior doesn't also offer the street outside", !inner.some(w => w.id === street.id));
 
   // --- Picking which wall ---------------------------------------------------
   check('pickWall matches a direction', pickWall(walls, 'north')?.wall?.id === '__rg_shop__');
@@ -103,13 +103,13 @@ export default async function regress({ run, check }) {
   // --- The room line --------------------------------------------------------
   tags.set(street.id, { text: 'NO GODS NO LANDLORDS', targetName: 'Bodega Vu', dayIndex: nowIdx });
   const line = await (await import('./index.js')).hooks['zone.describeRoom'](street);
-  check('the room line names the building it is sprayed on', /Bodega Vu/.test(line || ''), line);
+  check("the room line names the building it's sprayed on", /Bodega Vu/.test(line || ''), line);
   check('the room line carries the tag text', /NO GODS NO LANDLORDS/.test(line || ''), line);
   // Inside vs. outside is derived from the wall being the tile itself.
   tags.set(backroom.id, { text: 'HI', targetZoneId: backroom.id, targetName: backroom.name, dayIndex: nowIdx });
   const inLine = await (await import('./index.js')).hooks['zone.describeRoom'](backroom);
   check('an interior tag reads as the wall in here', /wall in here/.test(inLine || ''), inLine);
-  check('an interior tag does not claim a shopfront', !/front of/.test(inLine || ''), inLine);
+  check("an interior tag doesn't claim a shopfront", !/front of/.test(inLine || ''), inLine);
   tags.delete(backroom.id);
   const clean = await (await import('./index.js')).hooks['zone.describeRoom'](field);
   check('an untagged room contributes nothing to the description', clean === undefined, String(clean));

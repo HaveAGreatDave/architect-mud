@@ -1,5 +1,5 @@
 {
-  "description": "A slab of soft light turning slowly on nothing, dense with glyphs that rearrange themselves the moment you understand them. Right now they hold still long enough to read:\n\nThe world answers two ways: TYPE what you want (look, north, use holosign), or CLICK the glowing links.\n\nYOU ARE MADE OF NUMBERS. Six STATS are the clay of you: Brawn, Reflexes, Endurance, Brains, Cool, Senses. You earn XP by living, and spend it with RAISE to buy more.\nSKILLS are what you practice. Every attempt, win or lose, teaches the hand and earns IP; a hundred IP is one level. The more you do a thing, the better you get. There is no ceiling the world will hand you.\n\nTo learn a thing, reach into it. USE this holosign to touch the lattice, to interface with the Architect, and feel what it gives back.",
+  "description": "A slab of soft light turning on nothing, dense with glyphs that rearrange the moment you understand them. The world answers two ways: TYPE what you want, or CLICK the glowing links. Six STATS are the clay of you, and XP buys more with RAISE. SKILLS come from practice. USE the holosign to reach in.",
   "flags": {
     "interactions": [
       "use"

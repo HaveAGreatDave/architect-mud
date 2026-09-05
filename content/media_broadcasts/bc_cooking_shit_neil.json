@@ -86,7 +86,7 @@
         },
         "next": "bsm_106",
         "style": "narration",
-        "text": "The pan is smoking. Not a wisp of it. The food is going, and it is going fast.",
+        "text": "The pan is smoking. Not a wisp of it. The food is going, and it's going fast.",
         "type": "say"
       },
       "bsm_106": {
@@ -201,7 +201,7 @@
         },
         "next": "bsm_117",
         "style": "raw",
-        "text": "I'm not too sure that will do much he's just in other ro-",
+        "text": "I'm not too sure that'll do much he's just in other ro-",
         "type": "say"
       },
       "bsm_117": {
@@ -383,7 +383,7 @@
           "x": 740,
           "y": 4240
         },
-        "message": "lights a fresh cigarette off the one he is already smoking and takes a long, furious drag.",
+        "message": "lights a fresh cigarette off the one he's already smoking and takes a long, furious drag.",
         "next": "bsm_134",
         "type": "npc_action"
       },
@@ -471,7 +471,7 @@
         },
         "next": "bsm_142",
         "style": "narration",
-        "text": "The producer does not move. On the stream, for a second and a half, the only sound is a chest freezer.",
+        "text": "The producer doesn't move. On the stream, for a second and a half, the only sound is a chest freezer.",
         "type": "say"
       },
       "bsm_142": {
@@ -577,7 +577,7 @@
         },
         "next": "bsm_152",
         "style": "narration",
-        "text": "The stream does not fade. It stops, mid-room-tone, the way a connection stops.",
+        "text": "The stream doesn't fade. It stops, mid-room-tone, the way a connection stops.",
         "type": "say"
       },
       "bsm_152": {
@@ -820,7 +820,7 @@
         },
         "next": "bsm_38",
         "style": "raw",
-        "text": "I am genuinely sorry that I asked.",
+        "text": "I'm genuinely sorry that I asked.",
         "type": "say"
       },
       "bsm_38": {
@@ -848,7 +848,7 @@
         },
         "next": "bsm_5",
         "style": "narration",
-        "text": "Neil McManistan is behind the counter in a borrowed woman's apron, blue gingham, frilled at the shoulders. It is not his size and it is not close.",
+        "text": "Neil McManistan is behind the counter in a borrowed woman's apron, blue gingham, frilled at the shoulders. It isn't his size and it isn't close.",
         "type": "say"
       },
       "bsm_40": {
@@ -964,7 +964,7 @@
         },
         "next": "bsm_51",
         "style": "narration",
-        "text": "A voice from the other room. It is not raised. It has never needed to be.",
+        "text": "A voice from the other room. It isn't raised. It has never needed to be.",
         "type": "say"
       },
       "bsm_51": {
@@ -1417,7 +1417,7 @@
         },
         "next": "bsm_94",
         "style": "narration",
-        "text": "He does not stop. There are eleven of them, and under his breath, not quite off mic, he can be heard saying \"heres your fuckin original recipe 11 herbs and spices you prick\".",
+        "text": "He doesn't stop. There are eleven of them, and under his breath, not quite off mic, he can be heard saying \"heres your fuckin original recipe 11 herbs and spices you prick\".",
         "type": "say"
       },
       "bsm_94": {
@@ -1496,7 +1496,7 @@
       "text": "Midday. The commercial kitchen under a rundown church: steel counters, a chest freezer, strip lighting with one tube out. Handwritten notes are taped to every cupboard in the same careful hand. PLEASE WASH YOUR OWN DISHES. CLEANLINESS IS NEXT TO GODLINESS, WASH YOUR HANDS PLEASE. DO NOT TOUCH ANY OF THE FOODS MARKED FATHER JEROME - FATHER JEROME, ST GARNEAU FRENCH CANADIAN ROMAN CATHOLIC CHURCH."
     },
     {
-      "text": "Neil McManistan is behind the counter in a borrowed woman's apron, blue gingham, frilled at the shoulders. It is not his size and it is not close."
+      "text": "Neil McManistan is behind the counter in a borrowed woman's apron, blue gingham, frilled at the shoulders. It isn't his size and it isn't close."
     },
     {
       "text": "I look like fuckin Dorothy in this stupid thing man you couldnt find anything better?"
@@ -1544,7 +1544,7 @@
       "text": "They can't keep their fingers out of the dykes over there"
     },
     {
-      "text": "I am genuinely sorry that I asked."
+      "text": "I'm genuinely sorry that I asked."
     },
     {
       "text": "Security camera footage, timestamped and greenish. Neil McManistan lets himself into Father Jerome's office and leaves with a bottle of communion wine held low against his leg. A second angle, another night: Neil eating Father Jerome's leftovers standing up in the church basement, straight from the container, with the fridge door open for the light."
@@ -1559,7 +1559,7 @@
       "text": "They probably wont be when youre showing me wheezing the Jesus j-ew-uice and eating the manna out of the house of the lord..."
     },
     {
-      "text": "A voice from the other room. It is not raised. It has never needed to be."
+      "text": "A voice from the other room. It isn't raised. It has never needed to be."
     },
     {
       "text": "I should have known better but the lord demands forgiveness, you must forget a better path and become an upright man"
@@ -1616,7 +1616,7 @@
       "text": "He invented chicken, you fast food luddite, read a book"
     },
     {
-      "text": "He does not stop. There are eleven of them, and under his breath, not quite off mic, he can be heard saying \"heres your fuckin original recipe 11 herbs and spices you prick\"."
+      "text": "He doesn't stop. There are eleven of them, and under his breath, not quite off mic, he can be heard saying \"heres your fuckin original recipe 11 herbs and spices you prick\"."
     },
     {
       "text": "I HEARD THAT! THE LORD HEARS THAT AND HE ISN'T HAPPY"
@@ -1634,7 +1634,7 @@
       "text": "I think I smell something burning"
     },
     {
-      "text": "The pan is smoking. Not a wisp of it. The food is going, and it is going fast."
+      "text": "The pan is smoking. Not a wisp of it. The food is going, and it's going fast."
     },
     {
       "text": "I'm glad you were all here to witness it happen, the bitter reality of this cruel world we're living in..."
@@ -1646,7 +1646,7 @@
       "text": "BAN FATHER JEROME FROM THE STREAM"
     },
     {
-      "text": "I'm not too sure that will do much he's just in other ro-"
+      "text": "I'm not too sure that'll do much he's just in other ro-"
     },
     {
       "text": "I WANT HIM BANNED, IM LOCKING THE DOOR HE'S BANNED"
@@ -1682,7 +1682,7 @@
       "text": "HOW MANY ALTAR BOYS HAD TO HEAR THAT LINE FATHER YOU RAT BASTARD I'M NOT OPENING THIS DOOR FOR NO ONE ILL BURN THIS WHOLE BUILDING DOWN PHIL BURN THIS BUILDING DOWN"
     },
     {
-      "text": "The producer does not move. On the stream, for a second and a half, the only sound is a chest freezer."
+      "text": "The producer doesn't move. On the stream, for a second and a half, the only sound is a chest freezer."
     },
     {
       "text": "Please don't use my name on this program"
@@ -1694,7 +1694,7 @@
       "text": "Join us next week on dating with Neil where I show you where to find the most available pussy ever. We're coming at you live on location from all the hottest spots for divorced dads to meet eligible run through single moms! IM THINKIN' ARBYS!"
     },
     {
-      "text": "The stream does not fade. It stops, mid-room-tone, the way a connection stops."
+      "text": "The stream doesn't fade. It stops, mid-room-tone, the way a connection stops."
     }
   ],
   "morning_pools": null,

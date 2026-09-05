@@ -1,15 +1,15 @@
 {
-  "description": "A green pouch with a leaf on it. VERDANT — CONTAINS VEGETABLE. The claim is legally precise and makes no promise about quantity, and there is a footnote so small it is functionally a texture.",
+  "description": "A green pouch with a leaf on it. VERDANT — CONTAINS VEGETABLE. The claim is legally precise and makes no promise about quantity, and there's a footnote so small it's functionally a texture.",
   "flags": {},
   "id": "item_soylent_verdant",
   "name": "soylent pouch (verdant)",
   "tags": {
     "consumable": true,
-    "description": "A green pouch with a leaf on it. VERDANT — CONTAINS VEGETABLE. The claim is legally precise and makes no promise about quantity, and there is a footnote so small it is functionally a texture.",
+    "description": "A green pouch with a leaf on it. VERDANT — CONTAINS VEGETABLE. The claim is legally precise and makes no promise about quantity, and there's a footnote so small it's functionally a texture.",
     "restore_hunger": 25,
     "restore_thirst": 10,
     "stackable": true,
-    "use_message": "Green, cold, and grassy in the way a cut lawn smells rather than in any way food does. It is the least filling thing in the shop and the only one that leaves you feeling you have done something virtuous, which is presumably the entire commercial strategy."
+    "use_message": "Green, cold, and grassy in the way a cut lawn smells rather than in any way food does. It's the least filling thing in the shop and the only one that leaves you feeling you have done something virtuous, which is presumably the entire commercial strategy."
   },
   "type": "consumable",
   "value": 1,

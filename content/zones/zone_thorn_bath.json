@@ -7,7 +7,7 @@
     "Steam rolls along the roofline and finds the gap at the end."
   ],
   "ambient_theme": "indoors",
-  "description": "Three tubs cut down from tank ends, one hot enough to hurt, and a run of duckboards between them worn hollow. It is the single most used building in the town.\n\nWhat you notice, if you are from outside and looking for it, is that nobody in here is hiding anything. Plate, spurs, a back grown into ridges, a woman with a second set of ribs, an old man with an arm that ends in something that is not a hand and works better than one. Nobody looks. Nobody is being brave about it. They are queuing for a bath.\n\nThe scrubbing brushes are hung in three sizes and the biggest one is enormous and has a handle on both ends, for the ones who cannot reach their own backs any more, and somebody always does it.",
+  "description": "Three tubs cut down from tank ends, one hot enough to hurt, and a run of duckboards between them worn hollow. It's the single most used building in the town.\n\nWhat you notice, if you're from outside and looking for it, is that nobody in here is hiding anything. Plate, spurs, a back grown into ridges, a woman with a second set of ribs, an old man with an arm that ends in something that isn't a hand and works better than one. Nobody looks. Nobody is being brave about it. They're queuing for a bath.\n\nThe scrubbing brushes are hung in three sizes and the biggest one is enormous and has a handle on both ends, for the ones who can't reach their own backs any more, and somebody always does it.",
   "exits": {
     "down": "zone_util_zone_thorn_bath",
     "south": "zone_scw_1045_975"

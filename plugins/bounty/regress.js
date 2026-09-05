@@ -13,6 +13,7 @@
 //     through the guarded UPDATE rather than by reasoning about it.
 //  3. ANONYMITY HOLDS BY DEFAULT. A poster built for a stranger must not contain
 //     the backer's handle anywhere in it — not in a field, not in the block.
+import fs from 'fs';
 import { query } from '../../server/models/db.js';
 import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 import {
@@ -20,6 +21,7 @@ import {
   chargeLine, money, WIDTH,
 } from './poster.js';
 import { MIN_BOUNTY, HOUSE_CUT, WITHDRAW_PENALTY, DURATION_DAYS, _internal } from './index.js';
+import { receptacleOf, line as recLine, GENERIC } from './receptacle.js';
 
 const DAY = 86_400_000;
 
@@ -62,7 +64,7 @@ export default async function regress({ run, check, getPlayer }) {
     const paid = buildPoster(row({ unmasked_by: ['p_target'] }), { viewer: 'p_target' });
     check('a target who PAID sees the name', paid.backerKnown === true && paid.backer === 'Silas Kettleburn', String(paid.backer));
     check('a target who did NOT pay does not', buildPoster(row(), { viewer: 'p_target' }).backerKnown === false, 'leaked');
-    check('the target sheet knows it is about the reader', buildPoster(row(), { viewer: 'p_target' }).isTarget === true, 'not flagged');
+    check("the target sheet knows it's about the reader", buildPoster(row(), { viewer: 'p_target' }).isTarget === true, 'not flagged');
 
     // ── never truncated mid-word ────────────────────────────────────────────
     const long = ('because ' + 'retribution '.repeat(40)).trim();
@@ -105,7 +107,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // You cannot post on yourself, at a board or anywhere else.
     const onSelf = await run(`bounty ${player.handle} 1000`);
-    check('you cannot post a contract on yourself', onSelf?.type === 'error', JSON.stringify(onSelf)?.slice(0, 90));
+    check("you can't post a contract on yourself", onSelf?.type === 'error', JSON.stringify(onSelf)?.slice(0, 90));
     check('a self-post costs nothing', player.credits === before, `${before} -> ${player.credits}`);
 
     // Below the floor.
@@ -124,9 +126,69 @@ export default async function regress({ run, check, getPlayer }) {
     const help = await run('bounty help');
     check('bounty help dispatches', help?.type === 'output' && /BOUNTIES/.test(help.message || ''), 'no help');
 
-    // Redeeming with nothing in hand.
+    // Redeeming with nothing in hand. The refusal must NAME the receptacle, or
+    // a player who has never read the board's description has no idea where the
+    // head is supposed to go.
     const nothing = await run('redeem');
     check('redeem with no head is refused', nothing?.type === 'error', JSON.stringify(nothing)?.slice(0, 90));
+    check('the refusal names the receptacle',
+      (nothing?.message || '').includes(GENERIC.noun), String(nothing?.message).slice(0, 90));
+
+    // ── 4. the receptacle ───────────────────────────────────────────────────
+    // An unauthored board is a WORKING board. The generic set is complete, so a
+    // new board added as a bare furniture row never prints an empty string at
+    // somebody standing in front of it.
+    const bare = receptacleOf({ flags: { wanted_board: true } });
+    for (const k of Object.keys(GENERIC))
+      check(`an unauthored board still has a "${k}" line`,
+        typeof bare[k] === 'string' && bare[k].length > 0, String(bare[k]));
+
+    // Authoring one line inherits the rest — that is what makes a board cheap.
+    const partial = receptacleOf({ flags: { receptacle: { noun: 'the slot' } } });
+    check('an authored noun wins', partial.noun === 'the slot', partial.noun);
+    check('the unauthored lines fall back', partial.room === GENERIC.room, partial.room);
+    // An authored blank is authoring nothing, not authoring silence.
+    check('a blank authored line falls back rather than printing nothing',
+      receptacleOf({ flags: { receptacle: { room: '   ' } } }).room === GENERIC.room, 'blank won');
+
+    // Tokens. A {noun} left un-substituted is the failure that reads as prose.
+    const filled = recLine(partial, 'room', { handle: 'Vex Marrow', amount: '₵4,500' });
+    check('tokens are substituted', filled.includes('the slot') && filled.includes('Vex Marrow')
+      && filled.includes('₵4,500'), filled.slice(0, 80));
+    check('no token survives into a rendered line', !/{w+}/.test(filled), filled.slice(0, 80));
+    // An unknown token is left alone rather than deleted, so a typo is visible.
+    check('an unknown token is left visible',
+      recLine({ ...GENERIC, room: 'x {nope} y' }, 'room') === 'x {nope} y',
+      recLine({ ...GENERIC, room: 'x {nope} y' }, 'room'));
+
+    // Every authored board in content must carry a complete, token-clean set.
+    // A board whose {amount} never resolves pays out silently.
+    // Read the FILES, not the table: content is git-authoritative, and a board
+    // whose prose is broken should fail on the machine that wrote it rather than
+    // only on a database somebody remembered to import into.
+    const dir = 'content/furniture';
+    const boards = fs.readdirSync(dir)
+      .map(n => { try { return JSON.parse(fs.readFileSync(`${dir}/${n}`, 'utf8')); } catch { return null; } })
+      .filter(b => b?.flags?.receptacle);
+    check('the authored boards are found', boards.length >= 3, `${boards.length} board(s)`);
+    for (const b of boards) {
+      const rec = receptacleOf(b);
+      const rendered = Object.keys(GENERIC)
+        .map(k => recLine(rec, k, { handle: 'H', amount: '₵1' })).join(' ');
+      check(`${b.id}: no unresolved token in any line`, !/{w+}/.test(rendered),
+        (rendered.match(/{w+}/) || [''])[0]);
+      check(`${b.id}: the room line reports the payout`,
+        recLine(rec, 'room', { handle: 'H', amount: '₵1' }).includes('₵1'), 'amount missing');
+      check(`${b.id}: the receptacle noun is authored, not inherited`,
+        rec.noun.length > 0 && rec.noun !== GENERIC.noun, rec.noun);
+      // Three units of one product. If they stop agreeing on what the hole is
+      // called, they have stopped being the same machine.
+      check(`${b.id}: names the same receptacle as every other unit`,
+        rec.noun === receptacleOf(boards[0]).noun, `${rec.noun} vs ${receptacleOf(boards[0]).noun}`);
+      check(`${b.id}: is the same product as every other unit`,
+        typeof b.description === 'string' && b.description.includes('Severance 400'),
+        String(b.description).slice(0, 50));
+    }
 
     // Cancelling with nothing out.
     const noCancel = await run('bounty cancel');
@@ -141,6 +203,21 @@ export default async function regress({ run, check, getPlayer }) {
     check('READ on a wanted board returns the contract list',
       readBoard?.type === 'output' && /OPEN CONTRACTS/.test(readBoard.message || ''),
       JSON.stringify(readBoard)?.slice(0, 90));
+
+    // The shipped units are called "bounty terminal", so a player typing the
+    // word they can see on the wall must reach the same listing as a player
+    // typing the word the system uses. Both, and neither by luck.
+    for (const noun of ['board', 'terminal', 'bounty terminal', 'machine']) {
+      const r = await run(`read ${noun}`);
+      check(`READ "${noun}" finds the board`,
+        r?.type === 'output' && /OPEN CONTRACTS/.test(r.message || ''), JSON.stringify(r)?.slice(0, 70));
+    }
+    // …and a noun that is NOT this thing still falls through, or every book,
+    // recipe card and leaderboard in the room stops being readable.
+    const notUs = await run('read novel');
+    check('READ of something else is NOT eaten by the board',
+      !(notUs?.type === 'output' && /OPEN CONTRACTS/.test(notUs.message || '')),
+      JSON.stringify(notUs)?.slice(0, 70));
 
     // ── 3. escrow arithmetic ────────────────────────────────────────────────
     // Stated here rather than only in the doc, because these three numbers are

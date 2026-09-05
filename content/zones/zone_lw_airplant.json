@@ -1,13 +1,13 @@
 {
   "ambient_events": [
     "The big fan turns slowly enough to count the blades, moving a great deal of air very quietly.",
-    "A rack of spent scrubber cartridges waits by the door, each one dated. They are not cheap.",
+    "A rack of spent scrubber cartridges waits by the door, each one dated. They aren't cheap.",
     "A thermometer taped to the outflow duct is circled in red at a number somebody clearly cares about."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "Ducting, scrubber drums and a slow enormous fan, drawing the base's breath out and pushing it three tiles away to vent inside a working stack where it is only ever one warm plume among many. Heat is the hardest thing to hide. A room full of people and two diesels glows to anything that looks in infrared, so the Watch spent four years teaching their own exhaust to lie about where it came from.",
+  "description": "Ducting, scrubber drums and a slow enormous fan, drawing the base's breath out and pushing it three tiles away to vent inside a working stack where it's only ever one warm plume among many. Heat is the hardest thing to hide. A room full of people and two diesels glows to anything that looks in infrared, so the Watch spent four years teaching their own exhaust to lie about where it came from.",
   "exits": {
     "north": "zone_lw_genvault"
   },

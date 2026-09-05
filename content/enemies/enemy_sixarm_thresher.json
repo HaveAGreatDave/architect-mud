@@ -128,13 +128,13 @@
   "butcher_difficulty": 6,
   "butcher_table": [],
   "death_message": "The six-arm thresher runs down like a toy, every arm folding in a different direction, and lies there looking far too much like a person.",
-  "description": "Something went very wrong in a womb near a leaking tank. Six arms, in three ragged pairs down a torso that never grew to match them, and it uses every single one. It does not swing so much as work, the way a machine works, until whatever is in front of it stops. Break the arms and it becomes a great deal less than the sum of them.",
+  "description": "Something went very wrong in a womb near a leaking tank. Six arms, in three ragged pairs down a torso that never grew to match them, and it uses every single one. It doesn't swing so much as work, the way a machine works, until whatever is in front of it stops. Break the arms and it becomes a great deal less than the sum of them.",
   "dodge": 1,
   "faction": null,
   "flags": {
     "attacks_npcs": true,
     "battle_cries": [
-      "$enemy opens all six arms at once, and there is no good way to look at that.",
+      "$enemy opens all six arms at once, and there's no good way to look at that.",
       "$enemy sets to work on $player with an awful, patient rhythm.",
       "Something in $enemy's chest clicks like a metronome as it reaches for $player."
     ],

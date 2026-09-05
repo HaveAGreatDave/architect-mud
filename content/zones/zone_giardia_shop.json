@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#20231a",
-  "description": "Under the tarp, where the cooking happens and the camp eats in shifts. A long trestle, benches worn to a shine, and a pot on the drum that has never once been empty and never once been washed out to the metal. Ma Cinder's stock is stacked behind her in crates, and what she is willing to sell you is decided per person, on the spot.",
+  "description": "Under the tarp, where the cooking happens and the camp eats in shifts. A long trestle, benches worn to a shine, and a pot on the drum that has never once been empty and never once been washed out to the metal. Ma Cinder's stock is stacked behind her in crates, and what she's willing to sell you is decided per person, on the spot.",
   "exits": {
     "down": "zone_util_zone_giardia_shop",
     "east": "zone_giardia_back",
@@ -15,7 +15,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9

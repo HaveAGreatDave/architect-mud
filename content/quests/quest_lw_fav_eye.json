@@ -19,7 +19,7 @@
       "desc": "Get up to the camera on the approach.",
       "emotes": [
         "{who} goes up the back of the housing, where the bracket gives a foot to stand on.",
-        "{who} keeps out of its arc on the way up, which takes longer and is the point."
+        "{who} keeps out of its arc on the way up, which costs two extra minutes and gets noticed by nobody."
       ],
       "id": "o_reach",
       "taskSeconds": 6,

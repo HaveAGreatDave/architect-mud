@@ -132,14 +132,14 @@
   },
   "chitchat": [
     "snaps a chalk line across a plate and cuts along it freehand.",
-    "\"Bring me a drawing and I will bring you a bill. Bring me the broken one and we will get along.\"",
+    "\"Bring me a drawing and I'll bring you a bill. Bring me the broken one and we'll get along.\"",
     "\"Half of this district is held together by something I made.\""
   ],
   "description": "A fabricator who chalks the job straight onto the plate and cuts to the chalk, on the grounds that paper gets lost and steel does not. Her hands are a map of small white scars she calls the curriculum.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Come back when it breaks. It will break.\""
+      "text": "\"Come back when it breaks. It'll break.\""
     },
     "root": {
       "options": [

@@ -62,7 +62,7 @@ async function buildScreen(player, screenId, params, notice) {
   const online = onlineHandles(player);
   return {
     view: 'detail', breadcrumb: [],
-    detail: { name: 'Party', desc: 'You are not in a party. Invite someone to form one — a party travels together, and crosses the void as one.', rows: [] },
+    detail: { name: 'Party', desc: "You aren't in a party. Invite someone to form one — a party travels together, and crosses the void as one.", rows: [] },
     actions: online.length ? [{ id: 'invite', label: '➕ Invite Player', pick: online }] : [],
     notice,
   };

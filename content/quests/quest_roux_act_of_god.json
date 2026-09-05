@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Halcyon Assurance does not dispute that the weather happened. Halcyon Assurance disputes that the weather has been adequately evidenced, which is a different sentence and a much cheaper one.\n\nCamille Roux has a stack of claims she cannot pay out and cannot refuse. What she needs is an independent witness. Not a meteorologist. Not a reading. A person, outdoors, from the peak through to the all-clear, who will afterwards sign a line saying so.\n\n\"You will be paid a retainer,\" she says, sliding it across before you have agreed. \"The retainer is not conditional on your survival. I want to be clear about that, because people find it comforting and it isn't.\"\n\nThere is a second line on the form, greyed out, for phenomena of an extraordinary character. She taps it once and does not explain it, and the rate beside it is four times the first.",
+  "description": "Halcyon Assurance doesn't dispute that the weather happened. Halcyon Assurance disputes that the weather has been adequately evidenced, which is a different sentence and a much cheaper one.\n\nCamille Roux has a stack of claims she can't pay out and can't refuse. What she needs is an independent witness. Not a meteorologist. Not a reading. A person, outdoors, from the peak through to the all-clear, who will afterwards sign a line saying so.\n\n\"You'll be paid a retainer,\" she says, sliding it across before you have agreed. \"The retainer isn't conditional on your survival. I want to be clear about that, because people find it comforting and it isn't.\"\n\nThere is a second line on the form, greyed out, for phenomena of an extraordinary character. She taps it once and doesn't explain it, and the rate beside it's four times the first.",
   "fail_on": [],
   "id": "quest_roux_act_of_god",
   "meta": {},
@@ -10,13 +10,13 @@
       "desc": "Be outdoors from the peak of a storm through to the all-clear.",
       "emotes": [
         "{who} stands in the open and lets the weather be evidenced upon them.",
-        "{who} counts the all-clear in and realises they are being paid for this."
+        "{who} counts the all-clear in and realises they're being paid for this."
       ],
       "id": "o0",
       "type": "survive"
     },
     {
-      "desc": "Witness a phenomenon of an extraordinary character. Roux will not say what.",
+      "desc": "Witness a phenomenon of an extraordinary character. Roux won't say what.",
       "emotes": [
         "{who} looks up at three of them at once and, for a moment, files no claim about it."
       ],

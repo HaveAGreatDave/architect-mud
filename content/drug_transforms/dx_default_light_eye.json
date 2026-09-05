@@ -4,7 +4,7 @@
     "Why do you keep standing under me?",
     "Would you rather I shut?"
   ],
-  "description": "The light is an eye. It is open, and it is the only source of illumination in the room, so everything you can see here you are seeing by it.",
+  "description": "The light is an eye. It's open, and it's the only source of illumination in the room, so everything you can see here you're seeing by it.",
   "drug_id": null,
   "emotes": [
     "{it} blinks, and the room goes briefly and completely black.",
@@ -17,14 +17,14 @@
   "looks": [
     "The iris is pale and enormous and the light comes out of the pupil, steadily.",
     "It dries out after a while and closes, and the room goes dark for exactly as long as the blink lasts.",
-    "It is aimed at the middle of the room, which is where you keep having to stand."
+    "It's aimed at the middle of the room, which is where you keep having to stand."
   ],
   "matches": "light",
   "name": "an eye set into the ceiling",
   "says": [
     "I have seen everything that happened in here.",
-    "You can turn me off. I will still be here.",
-    "Do not stand in the corner. I have to strain."
+    "You can turn me off. I'll still be here.",
+    "Don't stand in the corner. I have to strain."
   ],
   "scope": "object"
 }

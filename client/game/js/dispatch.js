@@ -109,9 +109,9 @@ const WELCOME_OMINOUS = [
   n => `We have been waiting for you, ${n}.`,
   n => `${n}. Reconnection confirmed. Compliance appreciated.`,
   n => `You were logged as absent, ${n}. The absence has been amended.`,
-  n => `Good. You are breathing. That simplifies the paperwork, ${n}.`,
+  n => `Good. You're breathing. That simplifies the paperwork, ${n}.`,
   n => `${n}. Your file was open the whole time. Nobody closed it.`,
-  n => `The Basin did not miss you, ${n}. It doesn't do that. But it noticed.`,
+  n => `The Basin didn't miss you, ${n}. It doesn't do that. But it noticed.`,
   n => `Resume, ${n}. Everything continued without you.`,
   n => `${n}. Somebody asked about you while you were away. We told them nothing.`,
   n => `Session restored, ${n}. Your prior session ended in a manner we found instructive.`,
@@ -120,7 +120,7 @@ const WELCOME_OMINOUS = [
   n => `Step in, ${n}. The city has been rearranged slightly. You'll adapt or you won't.`,
   n => `We kept watching after you left, ${n}. There wasn't much to watch.`,
   n => `${n}. Identity accepted. Provisionally.`,
-  n => `You are late, ${n}. Nothing was scheduled. You are still late.`,
+  n => `You're late, ${n}. Nothing was scheduled. You're still late.`,
   n => `Welcome home, ${n}. That word is used loosely here.`,
 ];
 // State-aware ominous lines. Each reads a field already present on the auth
@@ -145,14 +145,14 @@ const WELCOME_STATE = [
   { when: p => p.hp_max && p.hp >= p.hp_max, line: (n) => `Unmarked, ${n}. Either you were careful or you did nothing at all.` },
   { when: p => (p.deaths || 0) >= 10, line: (n) => `Death number ${'' + (p.deaths || 0)} is behind you, ${n}. We have stopped filing them individually.` },
   { when: p => (p.deaths || 0) === 0 && (p.total_xp || 0) > 500, line: (n) => `Still no deaths on your record, ${n}. Records like that are a kind of debt.` },
-  { when: p => p.body_temp_c != null && p.body_temp_c <= 35, line: (n) => `You are colder than you should be, ${n}. The Basin will finish that job if you let it.` },
+  { when: p => p.body_temp_c != null && p.body_temp_c <= 35, line: (n) => `You're colder than you should be, ${n}. The Basin will finish that job if you let it.` },
   { when: p => p.body_temp_c != null && p.body_temp_c >= 39, line: (n) => `You're running hot, ${n}. Something in you is burning fuel it doesn't have.` },
   { when: p => (p.wetness || 0) > 40, line: (n) => `You came back wet, ${n}. We would rather not know from what.` },
 
   // Mind
   { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.3, line: (n) => `Your readings are wrong, ${n}. Not low. Wrong. Whatever you saw down there, it saw the paperwork too.` },
-  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.55, line: (n) => `You are thinking a little sideways today, ${n}. We have noted it. We note everything.` },
-  { when: p => p.sanity_max && p.sanity >= p.sanity_max, line: (n) => `Perfectly lucid, ${n}. That is the least interesting way to be in Coldwater.` },
+  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.55, line: (n) => `You're thinking a little sideways today, ${n}. We have noted it. We note everything.` },
+  { when: p => p.sanity_max && p.sanity >= p.sanity_max, line: (n) => `Perfectly lucid, ${n}. That's the least interesting way to be in Coldwater.` },
 
   // Appetite
   { when: p => (p.hunger ?? 100) <= 15, line: (n) => `You haven't eaten, ${n}. The Basin is patient about that. It waits.` },
@@ -171,7 +171,7 @@ const WELCOME_STATE = [
   { when: p => p.combat_stance === 'aggressive', line: (n) => `You went offline with your guard down and your fists up, ${n}. Bold, for a body that only has one of itself.` },
 
   // Money & standing
-  { when: p => (p.credits || 0) > 20000, line: (n) => `You are carrying too much of it on your person, ${n}. So is everyone who has ever been robbed.` },
+  { when: p => (p.credits || 0) > 20000, line: (n) => `You're carrying too much of it on your person, ${n}. So is everyone who has ever been robbed.` },
   { when: p => (p.bank_credits || 0) === 0 && (p.credits || 0) > 5000, line: (n) => `Nothing banked, ${n}. You don't trust the vault. The vault has noticed.` },
   { when: p => p.home_zone && !p.died_offline, line: (n) => `Your door was undisturbed while you slept, ${n}. This time.` },
 
@@ -179,15 +179,15 @@ const WELCOME_STATE = [
   { when: p => p.current_zone === p.anchor_zone, line: (n) => `You never left your anchor, ${n}. Some people call that caution.` },
   { when: p => p.home_zone && p.current_zone === p.home_zone, line: (n) => `You logged off at home, ${n}. It's still standing. Try not to read anything into that.` },
   // Transient void rooms are `xing_<leader>_<seq>` (plugins/voidwalking), not real zone ids.
-  { when: p => p.current_zone && /^xing_/.test(p.current_zone), line: (n) => `You went out past the map, ${n}, and the map did not follow you back.` },
+  { when: p => p.current_zone && /^xing_/.test(p.current_zone), line: (n) => `You went out past the map, ${n}, and the map didn't follow you back.` },
 
   // Career
-  { when: p => (p.total_xp || 0) < 100, line: (n) => `You are new, ${n}. The Basin has a word for new. It isn't a kind one.` },
+  { when: p => (p.total_xp || 0) < 100, line: (n) => `You're new, ${n}. The Basin has a word for new. It isn't a kind one.` },
   { when: p => (p.total_xp || 0) > 50000, line: (n) => `You have outlasted your cohort, ${n}. All of it.` },
   { when: p => !p.archetype, line: (n) => `You still haven't decided what you are, ${n}. The city will decide for you eventually.` },
 
   // Sleep debt — last_slept_at is real time, so this reads a genuinely long gap
-  { when: p => p.last_slept_at && (Date.now() - p.last_slept_at) > 36e5 * 12, line: (n) => `You have not slept in a long time, ${n}. We can hear it in the way you move.` },
+  { when: p => p.last_slept_at && (Date.now() - p.last_slept_at) > 36e5 * 12, line: (n) => `You haven't slept in a long time, ${n}. We can hear it in the way you move.` },
 ];
 // Choose the greeting. Split out from playWelcomeVoice so the MOTD banner can
 // carry the same line even when the voice itself is muted.
@@ -289,8 +289,8 @@ function setSleepBar(sleeping, dreaming) {
   const label = document.getElementById('sleep-bar-label');
   if (label) {
     label.textContent = dreaming
-      ? 'You are dreaming. You can walk, look and speak here.'
-      : 'You are asleep. Any command will wake you.';
+      ? "You're dreaming. You can walk, look and speak here."
+      : "You're asleep. Any command will wake you.";
   }
 }
 
