@@ -4,9 +4,11 @@
   "id": "item_mescaline",
   "name": "mescaline",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 110,
   "weight": 20
 }
+

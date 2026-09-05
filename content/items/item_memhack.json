@@ -1,12 +1,21 @@
 {
   "description": "A memory-editing synth. Sands the barbs off your worst recollections. Mostly.",
-  "flags": {},
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_memhack",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_memhack",
   "name": "Memhack",
   "tags": {
-    "drug": true
+    "drug": true,
+    "fillable": 12,
+    "unique": true
   },
   "type": "consumable",
   "value": 220,
   "weight": 20
 }
+

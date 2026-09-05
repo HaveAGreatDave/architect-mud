@@ -1,16 +1,22 @@
 {
-  "description": "A jerrycan of crude Amyls. Titrate and stabilise into the finished liquid. Raw material: contraband; carrying it's manufacturing.",
+  "description": "A sealed steel drum of crude Amyls. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
   "flags": {
     "cook_tier": 4,
+    "prefill": {
+      "fluid_amount": 40,
+      "fluid_type": "chem"
+    },
     "raw_of": "drug_amyls"
   },
   "id": "item_raw_amyls",
   "name": "crude Amyls",
   "tags": {
     "contraband": true,
+    "fillable": 40,
     "raw_drug": true
   },
   "type": "chemical",
   "value": 63,
   "weight": 2
 }
+

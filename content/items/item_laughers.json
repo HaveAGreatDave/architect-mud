@@ -4,9 +4,11 @@
   "id": "item_laughers",
   "name": "laughers",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 85,
   "weight": 20
 }
+

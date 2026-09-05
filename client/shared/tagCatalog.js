@@ -321,7 +321,9 @@
     stash_box: { label: 'Stash Box', shape: 'object', scope: 'class', group: 'Container',
       help: 'Marks a carried item as a deployable dead-drop cache. `deploy` spends one and mints a concealed container furniture in the room; `recover` takes it back up, but only when it\'s empty. Value is { capacity } in grams. A placed cache is findable through `search` at STRANGER_BAR like any other — taking somebody else\'s isn\'t a crime, so the bar and the concealment tiers are the whole defence.' },
     fillable: { label: 'Fillable Capacity', shape: 'number', scope: 'class', group: 'Container',
-      help: 'Marks this item as a fillable fluid container. Value is the capacity in fluid units (a neutral volume). Fill at a water source; drink to consume the fluid. How much a fluid restores is a property of the fluid, not the container.' },
+      help: 'Marks this item as a fillable fluid container. Value is the capacity in fluid units (a neutral volume). Fill at a water, fuel or drug source; drink to consume the fluid; pour to move it between containers. How much a fluid restores is a property of the fluid, not the container. A container holding a prefill must NOT also be stackable - a stackable one arrives full once and empty ever after.' },
+    soluble: { label: 'Soluble', shape: 'flag', scope: 'class', group: 'Container',
+      help: 'This solid dissolves into water: "dissolve <item> in <container>" puts its drug into a fillable container of water, leaving the water looking like water. Gates the dissolve verb. Only meaningful on an item a drugs row points at - the drug is read off the item, never authored here. Smokables, gases and vapours are deliberately not soluble.' },
 
     // --- Preservation ---
     perishable: { label: 'Perishable', shape: 'flag', scope: 'class', group: 'Preservation',

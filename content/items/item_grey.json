@@ -4,9 +4,11 @@
   "id": "item_grey",
   "name": "grey",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 150,
   "weight": 20
 }
+

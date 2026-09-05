@@ -1,16 +1,22 @@
 {
-  "description": "A jerrycan of crude Memhack. Titrate and stabilise into the finished liquid. Raw material: contraband; carrying it's manufacturing.",
+  "description": "A sealed steel drum of crude Memhack. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
   "flags": {
     "cook_tier": 3,
+    "prefill": {
+      "fluid_amount": 40,
+      "fluid_type": "chem"
+    },
     "raw_of": "drug_memhack"
   },
   "id": "item_raw_memhack",
   "name": "crude Memhack",
   "tags": {
     "contraband": true,
+    "fillable": 40,
     "raw_drug": true
   },
   "type": "chemical",
   "value": 31,
   "weight": 2
 }
+

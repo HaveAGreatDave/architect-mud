@@ -4,9 +4,11 @@
   "id": "item_wraithdust",
   "name": "wraithdust",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 160,
   "weight": 15
 }
+

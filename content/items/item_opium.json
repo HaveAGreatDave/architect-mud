@@ -4,9 +4,11 @@
   "id": "item_opium",
   "name": "opium",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 95,
   "weight": 10
 }
+

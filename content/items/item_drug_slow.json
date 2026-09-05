@@ -1,14 +1,22 @@
 {
   "description": "A thick blue syrup. Time gets soft.",
-  "flags": {},
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_slow",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_drug_slow",
   "name": "slow",
   "tags": {
     "description": "A thick blue syrup. Time gets soft.",
     "drug": true,
-    "stackable": true
+    "fillable": 12,
+    "unique": true
   },
   "type": "drug",
   "value": 15,
   "weight": 200
 }
+

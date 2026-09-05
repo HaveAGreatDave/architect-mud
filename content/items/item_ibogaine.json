@@ -4,9 +4,11 @@
   "id": "item_ibogaine",
   "name": "ibogaine",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 400,
   "weight": 20
 }
+

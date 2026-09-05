@@ -1,12 +1,21 @@
 {
   "description": "A bottle of cough syrup drunk for entirely the wrong reason. Cheap, legal, and a long way down.",
-  "flags": {},
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_dxm",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_dxm",
   "name": "robo",
   "tags": {
-    "drug": true
+    "drug": true,
+    "fillable": 12,
+    "unique": true
   },
   "type": "consumable",
   "value": 35,
   "weight": 20
 }
+

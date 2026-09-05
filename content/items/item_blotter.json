@@ -4,9 +4,11 @@
   "id": "item_blotter",
   "name": "blotter",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 130,
   "weight": 20
 }
+

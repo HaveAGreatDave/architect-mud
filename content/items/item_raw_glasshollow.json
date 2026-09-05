@@ -1,16 +1,22 @@
 {
-  "description": "A jerrycan of crude Glasshollow. Titrate and stabilise into the finished liquid. Raw material: contraband; carrying it's manufacturing.",
+  "description": "A sealed steel drum of crude Glasshollow. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
   "flags": {
     "cook_tier": 1,
+    "prefill": {
+      "fluid_amount": 40,
+      "fluid_type": "chem"
+    },
     "raw_of": "drug_glasshollow"
   },
   "id": "item_raw_glasshollow",
   "name": "crude Glasshollow",
   "tags": {
     "contraband": true,
+    "fillable": 40,
     "raw_drug": true
   },
   "type": "chemical",
   "value": 5,
   "weight": 2
 }
+

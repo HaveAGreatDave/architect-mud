@@ -1,12 +1,21 @@
 {
   "description": "A pint of raw ether and a rag. Not the smart choice, but here we are.",
-  "flags": {},
+  "flags": {
+    "prefill": {
+      "drug_id": "drug_ether",
+      "fluid_amount": 12,
+      "fluid_type": "drug"
+    }
+  },
   "id": "item_ether",
   "name": "ether",
   "tags": {
-    "drug": true
+    "drug": true,
+    "fillable": 12,
+    "unique": true
   },
   "type": "consumable",
   "value": 30,
   "weight": 20
 }
+

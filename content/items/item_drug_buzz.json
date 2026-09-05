@@ -6,9 +6,11 @@
   "tags": {
     "description": "A cheap stimulant tab. Tastes like batteries.",
     "drug": true,
+    "soluble": true,
     "stackable": true
   },
   "type": "drug",
   "value": 8,
   "weight": 100
 }
+

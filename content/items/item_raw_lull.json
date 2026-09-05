@@ -1,16 +1,22 @@
 {
-  "description": "A jerrycan of crude Lull. Titrate and stabilise into the finished liquid. Raw material: contraband; carrying it's manufacturing.",
+  "description": "A sealed steel drum of crude Lull. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
   "flags": {
     "cook_tier": 4,
+    "prefill": {
+      "fluid_amount": 40,
+      "fluid_type": "chem"
+    },
     "raw_of": "drug_lull"
   },
   "id": "item_raw_lull",
   "name": "crude Lull",
   "tags": {
     "contraband": true,
+    "fillable": 40,
     "raw_drug": true
   },
   "type": "chemical",
   "value": 63,
   "weight": 2
 }
+

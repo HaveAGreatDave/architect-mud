@@ -4,9 +4,11 @@
   "id": "item_khole",
   "name": "k-hole",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 180,
   "weight": 20
 }
+

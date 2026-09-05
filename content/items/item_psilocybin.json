@@ -4,9 +4,11 @@
   "id": "item_psilocybin",
   "name": "psilocybin",
   "tags": {
-    "drug": true
+    "drug": true,
+    "soluble": true
   },
   "type": "consumable",
   "value": 60,
   "weight": 20
 }
+

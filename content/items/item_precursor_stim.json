@@ -5,9 +5,11 @@
   "name": "jar of pseudoephedrine",
   "tags": {
     "drug": true,
-    "reagent": true
+    "reagent": true,
+    "soluble": true
   },
   "type": "chemical",
   "value": 70,
   "weight": 30
 }
+
