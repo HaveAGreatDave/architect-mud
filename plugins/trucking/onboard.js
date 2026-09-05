@@ -17,6 +17,12 @@
 //  · AND IT IS ONE FLAG, ONCE. `truck_depot_brief` on the player, so it follows the account rather
 //    than the browser and never fires twice. Not a per-depot flag: the second yard is the same
 //    yard, and being told again is being nagged.
+//
+// ⚠ AND IT FIRES INSIDE THE SHED, NOT ON THE STREET. A depot is three tiles — bay, apron, facade —
+// and every VERB answers from all three, which is right: you can buy a truck standing on the
+// hardstand. The briefing is not a verb. It is somebody in a hi-vis vest pointing at a board on a
+// wall, and the wall is inside. Handed `depotFrom` it went off on the public road outside, with the
+// panel it describes not open, because that panel auto-opens on the bay alone.
 import { on } from '../../server/engine/events.js';
 import { getZone } from '../../server/engine/world.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
@@ -24,16 +30,14 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 
 const BRIEF_FLAG = 'truck_depot_brief';
 
-// Exported so index.js can hand it the same reachability test the panel uses — a depot is a bay
-// AND its apron, and being briefed on one but not the other would be a coin flip on which door you
-// happened to come in by.
-export async function maybeBriefDepot(player, zoneId, { depotFrom, isDriving }) {
+// Exported so index.js can hand it the same test the PANEL uses — the bay, and only the bay.
+export async function maybeBriefDepot(player, zoneId, { depotIn, isDriving }) {
   if (!player) return;
   // Not from the cab. Rolling through a yard on the way somewhere is not arriving at one, and the
   // panel skips a driver for exactly the same reason (index.js) — a briefing over the windscreen
   // would be the one moment it is least wanted.
   if (isDriving?.(player.id)) return;
-  const here = depotFrom(zoneId);
+  const here = depotIn(zoneId);
   if (!here?.depot) return;
   const seen = await getFlag('player', BRIEF_FLAG, player).catch(() => null);
   if (seen === '1' || seen === 1 || seen === true) return;
@@ -62,9 +66,9 @@ export async function maybeBriefDepot(player, zoneId, { depotFrom, isDriving }) 
 // It runs AFTER that handler for the same zone (both are ordinary subscribers on the same event, in
 // registration order), which is the order that reads right: the panel opens, then somebody tells
 // you what you are looking at.
-export function registerDepotBrief({ depotFrom, isDriving }) {
+export function registerDepotBrief({ depotIn, isDriving }) {
   on('zone.entered', async ({ actor, zone: zoneId }) => {
-    try { await maybeBriefDepot(actor, zoneId, { depotFrom, isDriving }); }
+    try { await maybeBriefDepot(actor, zoneId, { depotIn, isDriving }); }
     catch (e) { console.error('[trucking] depot brief:', e.message); }
   });
 }

@@ -3053,7 +3053,13 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
 // …and the first time you ever stand in one, somebody tells you what it is. Registered AFTER the
 // handler above so the panel opens first and the briefing lands under it, which is the order that
 // reads right. See onboard.js for why it is prose in the log rather than a fourth surface.
-registerDepotBrief({ depotFrom, isDriving: (id) => rigs.has(id) });
+// ⚠ `depotIn`, NOT `depotFrom` — the bay, not the three tiles. See the ⚠ at the top of onboard.js:
+// the verbs answer from the apron and the facade too, but the briefing is a person pointing at the
+// wall panel, and it was going off out on the public street with that panel shut.
+registerDepotBrief({
+  depotIn: (id) => { const z = getZone(id); const d = depotAt(z); return d ? { bay: z, depot: d } : null; },
+  isDriving: (id) => rigs.has(id),
+});
 
 // A driver who dies, logs out, or otherwise stops being a driver leaves no rig behind in RAM.
 // (The crossing itself is voidwalking's to clean up; this is only the steering wheel.)
