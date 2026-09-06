@@ -2859,6 +2859,50 @@ export default async function regress({ check, run, getPlayer }) {
       }
     }
   }
+  // ── The call sheet sends people home ────────────────────────────────────────
+  // An actor with lines gets a work-phased behaviour graph: the lifecycle shell with
+  // his part spliced into the at-work branch. The shell is the whole point, and it
+  // was missing — the graph ran HAVE_LIFE → GO_TO_WORK → the lines → loop, with
+  // nothing anywhere asking whether the show was on. So Captain Nguyen stood in the
+  // KSAB studio at every hour of the day reading You're Not Gonna Believe This Shit,
+  // and the studio relay put it out over Raptor News, which airs from the same room
+  // on the same channel at eight in the morning.
+  //
+  // Nothing about that reads as a scheduling fault when you see it — it reads as the
+  // wrong man being cast in the news — which is why it is pinned on the SHAPE of the
+  // graph rather than on any line of his.
+  {
+    const seq = [{ type: 'SAY', params: { message: 'CUT!' }, waitSecs: 5 }];
+    const g = _test.buildWorkPhasedGraph(seq, 'zone_studio_x');
+    const check_ = g.nodes[g._start] && g.nodes[g.nodes[g._start].next];
+    check('call sheet: the graph asks whether the show is on before anything else',
+      check_?.action_type === 'CHECK_WORK', JSON.stringify(g.nodes[g._start]));
+    check('call sheet: the lines hang off the goToWork branch',
+      g.nodes[check_?.goToWork]?.action_type === 'GO_TO_WORK');
+    check('call sheet: ...and that branch is what reaches the part',
+      g.nodes[g.nodes[check_?.goToWork]?.next]?.action_type === 'SAY');
+    // The haveLife branch must go BACK to the check, never fall through to the
+    // studio — a fall-through is the original bug wearing a condition's clothes.
+    const life = g.nodes[check_?.haveLife];
+    check('call sheet: off shift, HAVE_LIFE never falls through to the studio',
+      life?.action_type === 'HAVE_LIFE' && g.nodes[life.next]?.type === 'loop', JSON.stringify(life));
+    // No path from the start may reach GO_TO_WORK without passing the check.
+    const reach = (id, seen = new Set()) => {
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      const n = g.nodes[id];
+      if (!n) return false;
+      if (n.action_type === 'CHECK_WORK') return false;   // gated — stop here
+      if (n.action_type === 'GO_TO_WORK') return true;
+      return [n.next, n.goToWork, n.haveLife].some(x => reach(x, seen));
+    };
+    check('call sheet: there is no ungated route to the studio', !reach(g._start));
+    // A cast member with no extractable lines gets the same shell — the AT_WORK
+    // variant took the identical ungated path.
+    const bare = _test.buildWorkPhasedGraph([], 'zone_studio_x');
+    check('call sheet: ...and a wordless crew member is gated the same way',
+      bare.nodes[bare.nodes[bare._start].next]?.action_type === 'CHECK_WORK');
+  }
   // ── On location ─────────────────────────────────────────────────────────────
   // A show shot away from its channel's studio. Everything here guards a seam that
   // fails SILENTLY if it breaks: the cast walk to the wrong building and the show

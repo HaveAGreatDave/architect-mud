@@ -5893,12 +5893,27 @@ function _extractNpcWorkSequence(graph, npcId) {
 
 // Patch a NPC's behaviour graph: replace the AT_WORK + wait nodes with the
 // extracted work sequence, keeping the lifecycle shell intact.
+//
+// ⚠ THE SHELL IS `makeDefaultStudioGraph`'S, AND CHECK_WORK IS THE WHOLE SHELL.
+// This built `start → HAVE_LIFE → GO_TO_WORK → the lines → loop`, which asks nobody
+// whether the show is on: an actor walked to the studio at every hour of the day and
+// performed his part on a loop for ever. That is invisible until you remember the
+// studio floor goes out on air — the `zone.broadcast` relay puts anything said in a
+// studio zone in front of whoever is tuned to that channel — so Captain Nguyen read
+// his lines from You're Not Gonna Believe This Shit over the top of Raptor News at
+// eight in the morning, on the same channel, from the same room.
+//
+// So the sequence hangs off the goToWork branch of the same CHECK_WORK node the
+// default studio graph already uses, and HAVE_LIFE goes back to the check rather
+// than falling through to the studio. Off-shift, an actor goes home; the studio is
+// where he works and never where he lives.
 function _buildWorkPhasedGraph(sequence, studioZoneId = null) {
   const graph = {
     _start: 'n_start',
     nodes: {
-      n_start: { type: 'start',  next: 'n_life' },
-      n_life:  { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
+      n_start: { type: 'start',  next: 'n_check' },
+      n_check: { type: 'action', action_type: 'CHECK_WORK', goToWork: 'n_work', haveLife: 'n_life' },
+      n_life:  { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_loop' },
       n_work:  { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: sequence.length ? 'n_w0' : 'n_atwork' },
       n_loop:  { type: 'loop',   next: 'n_start' },
     },
@@ -9529,6 +9544,11 @@ export const _test = {
   morningPlug: _morningPlug, RUNTIME_TOKENS,
   channelRuntime, recordBeat: _recordBeat, sendCatchUp,
   pickDailySlot: _pickDailySlot, filmDayMask,
+  // The call-sheet graph an actor is actually given. Exposed because the only other
+  // way to see an actor performing off-shift is to watch a channel at 08:00 and
+  // notice a line from a show that airs at midnight.
+  buildWorkPhasedGraph: _buildWorkPhasedGraph, extractNpcWorkSequence: _extractNpcWorkSequence,
+  makeDefaultStudioGraph,
   assembleSermonGraph, getSermonGraph,
   fillCommercialTail: _fillCommercialTail,
   adDurationSec: _adDurationSec, adAt: _adAt, graphDurationSec: _graphDurationSec,
