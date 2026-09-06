@@ -3916,7 +3916,7 @@ function headlightWash(ctx, cam, dx, dy, h, str) {
   const a = clamp(str * 0.52 * dist * dist * clamp(1.15 - off, 0, 1) , 0, 0.62);
   if (a < 0.006) return;
   const r = clamp(120 / c.f, 10, 90);
-  emitFace(decoDepth(c.f), () => {
+  emitDeco([c], () => {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
     g.addColorStop(0, `rgba(255,240,206,${a})`);
@@ -3934,7 +3934,7 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   if (c.f <= 0.25 || c.f > 8) return;
   const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
   const a = night * alpha * (0.04 + 0.09 * prox);
-  emitFace(decoDepth(c.f), () => {
+  emitDeco([c], () => {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
     g.addColorStop(0, `rgba(255,206,132,${a})`); g.addColorStop(0.55, `rgba(255,176,96,${a * 0.4})`); g.addColorStop(1, 'rgba(255,176,96,0)');
@@ -7280,6 +7280,82 @@ let FACE_SINK = null;
 // ~1 tile gap to any building actually in front — so a nearer building now correctly occludes it.
 const DECO_LIFT = 0.6;
 const decoDepth = (...fs) => Math.min(...fs) - DECO_LIFT;
+// ── …AND THE LIFT IS A GUESS, SO IT IS NO LONGER THE ONLY ANSWER ────────────
+//
+// DECO_LIFT is one number standing in for a question the sort cannot answer: is there a wall
+// between the eye and this light? It gets the easy half right — a crown on a far tower is lifted
+// 0.6, and a building a whole tile nearer still paints over it — and it is wrong by construction
+// for everything closer than that, which is where the complaint has always been. A host's own near
+// wall sits ~0.44 of a tile in front of the tile centre, so ANY adornment anchored at the centre and
+// below the roofline is lifted straight through the wall it stands behind. That is "the lights show
+// through the walls", and no value of DECO_LIFT fixes it: raise it and far towers bleed onto their
+// neighbours, lower it and every front-mounted sign sinks into its own facade.
+//
+// The occlusion pre-pass already answers the real question. By the time any adornment is emitted,
+// OCC_FIELD holds a depth per 5-px cell for every building in the frame, so an adornment can ask
+// whether the world stands in front of it — the same question occludedByBuilding already answers for
+// a ground contact, off the same field, at the same OCC_BIAS. The lift stays, because it is still
+// what orders an adornment against its own host's faces; the probe decides whether it draws at all.
+//
+// ⚠ THE PROBE USES THE TRUE DEPTH, NEVER THE LIFTED ONE. Testing at f − DECO_LIFT asks whether the
+// light is hidden from a point 0.6 tiles in front of where it is, which is the bug wearing the
+// fix's clothes.
+//
+// ⚠ AND IT IS LIVE ONLY INSIDE THE WORLD PASS. OCC_FIELD is filled per frame and never cleared at
+// the end of one, so a later sink — the shape-capture run, the cold open's wireframe — would test
+// against a field belonging to another camera. DECO_OCC is the field's lifetime rather than its
+// existence; outside that window nothing is culled and the picture is exactly what it was.
+let DECO_OCC = false;
+// Hidden when EVERY cell the anchor points cover is owned by something nearer. All-or-nothing on
+// purpose: an adornment half behind a wall keeps drawing, which is the conservative direction and
+// the same one the rest of this pass leans in.
+function decoHidden(pts) {
+  if (!DECO_OCC || !OCC_FIELD || !pts.length) return false;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, f = Infinity;
+  for (const p of pts) {
+    if (!p || !(p.f > 0.12)) return false;                 // behind the eye: not our question
+    if (p.sx < x0) x0 = p.sx; if (p.sx > x1) x1 = p.sx;
+    if (p.sy < y0) y0 = p.sy; if (p.sy > y1) y1 = p.sy;
+    if (p.f < f) f = p.f;
+  }
+  return occludedByBuilding((x0 + x1) / 2, y0, y1, f, (x1 - x0) / 2);
+}
+// The one entry point for a building adornment: PROJECTED POINTS in, sorted-and-tested face out.
+// Callers hand over the points rather than their depths precisely so the probe has somewhere to
+// stand — a bare list of f's cannot be asked what is in front of it.
+function emitDeco(pts, fn) {
+  if (decoHidden(pts)) return;
+  emitFace(decoDepth(...pts.map((p) => p.f)), fn);
+}
+// ── AND THE PROBE ITSELF, BECAUSE NOTHING ELSE CAN SEE IT WORK ──────────────
+// Every other gate in this file proves a model RUNS. This one proves a decision, and it is a
+// decision with no visible failure: culling too little puts the lights back through the walls,
+// culling too much deletes signage nobody will connect to an occlusion change months later. The
+// two margins that matter are pinned here — OCC_BIAS must sit UNDER a host's own half-depth (or
+// the near wall of your own tile stops hiding what is behind it) and the probe must fail open in
+// every state where it does not have a field it owns.
+export function decoOcclusionSmoke() {
+  const out = [];
+  const gw = 8, gh = 8;
+  const savedField = OCC_FIELD, savedOn = DECO_OCC;
+  const field = (depth) => ({ d: Float32Array.from({ length: gw * gh }, () => depth), gw, gh, sx: 0.1, sy: 0.1, stride: gw });
+  const at = (f) => ({ sx: 40, sy: 40, f });
+  OCC_FIELD = null; DECO_OCC = true;
+  if (decoHidden([at(10)])) out.push('an adornment was culled with no occlusion field — the probe must fail open');
+  OCC_FIELD = field(2); DECO_OCC = false;
+  if (decoHidden([at(10)])) out.push('the probe fired outside the world pass, against a field belonging to another camera');
+  DECO_OCC = true;
+  if (!decoHidden([at(10)])) out.push('a light behind a wall a whole tile nearer still drew — the bug this exists for');
+  OCC_FIELD = field(10);
+  if (decoHidden([at(10)])) out.push('an adornment was culled by the face it is mounted on');
+  OCC_FIELD = field(10 - 0.44);
+  if (!decoHidden([at(10)])) out.push('an adornment behind its own near wall still drew — OCC_BIAS has grown past a host half-depth');
+  OCC_FIELD = field(Infinity);
+  if (decoHidden([at(10)])) out.push('open sky was read as an occluder');
+  OCC_FIELD = savedField; DECO_OCC = savedOn;
+  out.ran = 6;
+  return out;
+}
 // N64 distance fog, shared by the Mode-7 floor and the building pass so the horizon dissolves as ONE
 // wall (ground + skyline fade to the same sky colour over the same near→far band). FOG_NEAR/FAR are in
 // camera-forward tile units; FOG_FAR = the building draw limit (VISIBLE_FAR_F), so the farthest towers
@@ -8289,7 +8365,7 @@ function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment — a catwalk rail is not mass
   const pts = [];
   for (let i = 0; i <= N; i++) { const a = i / N * 6.2832, p = cam.proj(dx + Math.cos(a) * r, dy + Math.sin(a) * r, z); if (p.f <= 0.08) return; pts.push(p); }
-  emitFace(decoDepth(...pts.map(p => p.f)), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = strokeStyle; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); ctx.globalAlpha = 1; });
+  emitDeco([...pts], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = strokeStyle; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); ctx.globalAlpha = 1; });
 }
 // A curved BARREL ROOF (half-cylinder) sitting on a hangar's walls — the rounded shed roof a box
 // can't make. Built in the building's LOCAL frame via `F(lx,ly)` (so it aligns to the frontage):
@@ -12103,7 +12179,7 @@ function drawSmoke(ctx, cam, dx, dy, wz, col, alpha, now, seed) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.12) return;
   const s = propS(20, p.f, 2, 40);
-  emitFace(decoDepth(p.f), () => {
+  emitDeco([p], () => {
     for (let i = 0; i < 3; i++) {
       const t = ((now || 0) * 0.0002 + frac(seed + i)) % 1;
       ctx.fillStyle = `rgba(${col},${alpha * 0.24 * (1 - t)})`;
@@ -12116,7 +12192,7 @@ function drawGantry(ctx, cam, dx, dy, fh, h, alpha, seed) {
   const a = cam.proj(dx - lw, dy, 0), at = cam.proj(dx - lw, dy, hh), b = cam.proj(dx + lw, dy, 0), bt = cam.proj(dx + lw, dy, hh);
   if ([a, at, b, bt].some(p => p.f <= 0.12)) return;
   const jib = cam.proj(dx + lw * 2.1, dy, hh * 0.9);
-  emitFace(decoDepth(a.f, at.f, b.f, bt.f), () => {
+  emitDeco([a, at, b, bt], () => {
     ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(126,116,96,0.85)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(at.sx, at.sy); ctx.lineTo(bt.sx, bt.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
     if (jib.f > 0.12) { ctx.beginPath(); ctx.moveTo(at.sx, at.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); }
@@ -12168,7 +12244,7 @@ function drawRuin(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   if ((seed % 2) === 0) draw3DBoxAt(ctx, cam, dx + fh * 0.95, dy, fh * 0.55, 0, h * (0.2 + frac(seed + 1) * 0.3), bi, seed + 4, night, alpha, true);   // broken remnant
   if (bi === 'ruins') {   // Redline radioactive glow
     const g = cam.proj(dx, dy, h * 0.3);
-    if (g.f > 0.12) emitFace(decoDepth(g.f), () => { const s = clamp(24 / g.f, 3, 50), rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(150,220,80,${alpha * 0.22})`); rg.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
+    if (g.f > 0.12) emitDeco([g], () => { const s = clamp(24 / g.f, 3, 50), rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(150,220,80,${alpha * 0.22})`); rg.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
   }
 }
 function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
@@ -13183,7 +13259,7 @@ function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return;
   const k = 0.4 + 0.5 * Math.abs(Math.sin((now || 0) * 0.004 + seed));
-  emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
+  emitDeco([p], () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna mast + red aviation light
   // A SPAR: recorded, but never as mass. A mast is what holds a finial, a crown box or the Dead
@@ -13194,13 +13270,13 @@ function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna m
   if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'spar', dx, dy, wz0: h0, wz1: h1 }); return; }
   if (ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const a = cam.proj(dx, dy, h0), b = cam.proj(dx, dy, h1);
-  if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+  if (a.f > 0.1 && b.f > 0.1) emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
   blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
 }
 function dish(ctx, cam, dx, dy, wz, s0, alpha) {   // rooftop satellite dish
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const r = clamp(s0 / p.f, 2, 22);
-  emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)'; ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
+  emitDeco([p], () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)'; ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 // A ROOFTOP HELIDECK painted on a pad slab at world-z `z`, radius `r` (tile units): the aiming
 // circle, the touchdown "H" square inside it, the perimeter TLOF light ring, and one obstruction
@@ -13216,7 +13292,7 @@ function helideck(ctx, cam, dx, dy, z, r, glow, paint, night, alpha, now, seed =
   const ring = (rr, n = 28) => { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * 6.2832, p = P(Math.cos(a) * rr, Math.sin(a) * rr); if (p.f <= 0.1) return null; pts.push(p); } return pts; };
   const trace = (pts) => { if (!pts) return; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); };
   const bar = (pts) => { if (pts.some(p => p.f <= 0.1)) return; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); };
-  emitFace(decoDepth(c.f), () => {
+  emitDeco([c], () => {
     ctx.save(); ctx.globalAlpha = alpha; ctx.lineJoin = 'round';
     // Dark non-skid deck disc, so the pad reads as a surface and not as the tower's own roof colour.
     const disc = ring(r * 0.98);
@@ -13248,7 +13324,7 @@ function helideck(ctx, cam, dx, dy, z, r, glow, paint, night, alpha, now, seed =
 function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboard
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const s = clamp(9 / p.f, 2, 16);
-  emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)'; ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2); ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1; });
+  emitDeco([p], () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)'; ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2); ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1; });
 }
 // ── The Reach — frontier adornments ───────────────────────────────────────────
 // A slow-turning multi-blade WIND WHEEL (the Dynamo's windmill / genset flywheel) facing the
@@ -13258,7 +13334,7 @@ function windWheel(ctx, cam, dx, dy, z, worldR, now, alpha, seed = 0) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment (and animated — never geometry)
   const c = cam.proj(dx, dy, z); if (c.f <= 0.12) return;
   const R = clamp(worldR / c.f, 4, 60), ang = (now || 0) * 0.0015 + seed, N = 9, sq = 0.62;   // vertical squash → seen at a rake
-  emitFace(decoDepth(c.f), () => {
+  emitDeco([c], () => {
     ctx.globalAlpha = alpha;
     for (let i = 0; i < N; i++) {
       const a = ang + i / N * 6.2832, w = 0.30;
@@ -13281,7 +13357,7 @@ function windsockLimp(ctx, cam, dx, dy, z0, z1, alpha) {
   const drop = (z1 - z0) * 0.42, m1 = cam.proj(dx, dy, z1 - drop * 0.5), m2 = cam.proj(dx, dy, z1 - drop);
   if (m1.f <= 0.12 || m2.f <= 0.12) return;
   const w0 = clamp(4.5 / t.f, 1.2, 8), w1 = clamp(2.4 / m2.f, 0.6, 5);
-  emitFace(decoDepth(b.f, t.f), () => {
+  emitDeco([b, t], () => {
     ctx.globalAlpha = alpha;
     ctx.strokeStyle = 'rgba(150,150,156,0.9)'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke();   // pole
     const band = (pa, wa, pb, wb, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pa.sx - wa, pa.sy); ctx.lineTo(pa.sx + wa, pa.sy); ctx.lineTo(pb.sx + wb, pb.sy); ctx.lineTo(pb.sx - wb, pb.sy); ctx.closePath(); ctx.fill(); };
@@ -13294,7 +13370,7 @@ function windsockLimp(ctx, cam, dx, dy, z0, z1, alpha) {
 function perchBird(ctx, cam, dx, dy, z, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, z); if (p.f <= 0.12) return; const s = clamp(5.5 / p.f, 1.4, 9);
-  emitFace(decoDepth(p.f), () => {
+  emitDeco([p], () => {
     ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(16,14,16,0.94)';
     ctx.beginPath(); ctx.ellipse(p.sx, p.sy - s * 0.5, s * 0.52, s * 0.8, 0, 0, 7); ctx.fill();          // hunched body
     ctx.beginPath(); ctx.arc(p.sx - s * 0.44, p.sy - s * 1.06, s * 0.3, 0, 7); ctx.fill();               // low-slung head
@@ -13557,7 +13633,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
   // a back-corner blade's average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
   // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
-  emitFace(decoDepth(b.f, t.f), () => {
+  emitDeco([b, t], () => {
     const trace = () => { ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
     ctx.save();
     ctx.globalAlpha = alpha * (night ? 0.92 : 0.84); ctx.fillStyle = '#120d12'; trace(); ctx.fill();   // backing board
@@ -13661,7 +13737,7 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
   if (PERF.on) PERF.n.adorn++;
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
   const sp = glowSprite(rgb);
-  emitFace(decoDepth(g.f), () => {
+  emitDeco([g], () => {
     ctx.globalAlpha = alpha;
     ctx.drawImage(sp, g.sx - s, g.sy - s, s * 2, s * 2);
     ctx.globalAlpha = 1;
@@ -16120,7 +16196,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
           const p = cam.proj(dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i));
           if (p.f > 0.12) pts.push(p);
         }
-        if (pts.length > 1) emitFace(decoDepth(...pts.map(p => p.f)), () => {
+        if (pts.length > 1) emitDeco([...pts], () => {
           ctx.save(); ctx.globalAlpha = alpha * (night ? 0.95 : 0.55);
           ctx.strokeStyle = `rgba(${rgb},0.9)`; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
           if (night) { ctx.shadowColor = `rgb(${rgb})`; ctx.shadowBlur = 8; }
@@ -16174,7 +16250,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
           const p = cam.proj(dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i));
           if (p.f > 0.12) pts.push(p);
         }
-        if (pts.length > 1) emitFace(decoDepth(...pts.map(p => p.f)), () => {
+        if (pts.length > 1) emitDeco([...pts], () => {
           ctx.save(); ctx.globalAlpha = alpha * (night ? 0.92 : 0.5);
           ctx.strokeStyle = `rgba(${gold},0.9)`; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
           if (night) { ctx.shadowColor = `rgb(${gold})`; ctx.shadowBlur = 8; }
@@ -16274,7 +16350,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         if (frontVis) {
           const nhw = fh * 0.66, [nlx, nly] = F(-nhw, fh * 1.11), [nrx, nry] = F(nhw, fh * 1.11);
           const TL = cam.proj(nlx, nly, friZ1 - h * 0.012), TR = cam.proj(nrx, nry, friZ1 - h * 0.012), BR = cam.proj(nrx, nry, friZ0 + h * 0.012), BL = cam.proj(nlx, nly, friZ0 + h * 0.012);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const nam = bakeSignText('THE MERIDIAN', '#e8c878', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, nam, false, alpha)); }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const nam = bakeSignText('THE MERIDIAN', '#e8c878', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, nam, false, alpha)); }
         } }
       // 3) Vertical pilaster ribs standing proud of the shaft — corners + mid-face (front-centre skipped for the
       //    entrance bay), so the deco piers read from any camera angle (each box is backface-culled per face).
@@ -16603,7 +16679,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         // hand-lettered NO MANIFESTS board bolted beside the bay (surface text on the gable)
         { const bz0 = oTop + wallTop * 0.02, bz1 = oTop + wallTop * 0.16, bhw = hw * 0.5;
           const TL = P(-bhw, hw + 0.006, bz1), TR = P(bhw, hw + 0.006, bz1), BR = P(bhw, hw + 0.006, bz0), BL = P(-bhw, hw + 0.006, bz0);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('BUZZARD FIELD', '#e8c25a', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); } }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('BUZZARD FIELD', '#e8c25a', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); } }
         if (night) { const [obx, oby] = F(0, hw); glowPool(ctx, cam, obx, oby, wallTop * 0.3, '255,200,132', 13, alpha * 0.34); }
       }
       // 3) STILTED SPOTTER'S SHACK — a tin box on four legs standing back-right, clear of the shed.
@@ -16650,7 +16726,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const [gx, gy] = F(0, fh * 0.94); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.2, 0, bodyTop * 0.44, 'ty_door', seed + 4, night, alpha, false); }
       // 5) HITCHING RAIL out front — a low bar on two posts.
       { const rz = bodyTop * 0.16; for (const s of [-0.6, 0.6]) { const [px, py] = F(fh * s, fh * 1.34); draw3DBoxAt(ctx, cam, px, py, fh * 0.02, 0, rz, 'ty_reach_saloon_dk', seed + 12 + s, night, alpha, false); }
-        const a = P(-fh * 0.6, fh * 1.34, rz), b = P(fh * 0.6, fh * 1.34, rz); if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(52,40,28,0.9)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }
+        const a = P(-fh * 0.6, fh * 1.34, rz), b = P(fh * 0.6, fh * 1.34, rz); if (a.f > 0.1 && b.f > 0.1) emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(52,40,28,0.9)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }
       // 6) Busted neon on the false front — 'COYOTE'S REST' with half its letters dead (blanked out),
       //    the survivors buzzing on an irregular flicker (the sign the flavour text promises).
       if (frontVis) {
@@ -16659,7 +16735,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
           const t = now || 0, buzz = (Math.sin(t * 0.03) + Math.sin(t * 0.017) > -0.7) ? 0.74 + 0.26 * Math.abs(Math.sin(t * 0.05)) : 0.14;
           const live = bakeSignText('C YOT ’S R ST', m.neon || '#ff6a3a', night ? 1 : 0, false);   // dead tubes → blank cells
-          emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, live, false, alpha * buzz));
+          emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, live, false, alpha * buzz));
         }
         if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, bodyTop * 0.5, '255,190,110', 12, alpha * 0.4); }   // warm windows
       }
@@ -16710,7 +16786,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // 5) CABLES — a couple of sagging lines from the shack eave to a short pole.
       { const [ex, ey] = F(fh * 0.2, fh * 0.4); const a = cam.proj(ex, ey, shackTop), pole = F(fh * 0.86, fh * 0.7); const pb = cam.proj(pole[0], pole[1], h * 0.34);
         draw3DBoxAt(ctx, cam, pole[0], pole[1], fh * 0.02, 0, h * 0.34, 'ty_reach_shack', seed + 30, night, alpha, false);
-        if (a.f > 0.1 && pb.f > 0.1) emitFace(decoDepth(a.f, pb.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(20,18,18,0.85)'; ctx.lineWidth = 1; for (const dz of [0, 4]) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy + dz); ctx.quadraticCurveTo((a.sx + pb.sx) / 2, Math.max(a.sy, pb.sy) + 8 + dz, pb.sx, pb.sy + dz); ctx.stroke(); } ctx.globalAlpha = 1; }); }
+        if (a.f > 0.1 && pb.f > 0.1) emitDeco([a, pb], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(20,18,18,0.85)'; ctx.lineWidth = 1; for (const dz of [0, 4]) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy + dz); ctx.quadraticCurveTo((a.sx + pb.sx) / 2, Math.max(a.sy, pb.sy) + 8 + dz, pb.sx, pb.sy + dz); ctx.stroke(); } ctx.globalAlpha = 1; }); }
       // 6) ARC JUNCTION — a fast blue-white flash + an electric hum glow at the shack shoulder.
       { const [jx, jy] = F(fh * 0.3, fh * 0.5); const t = now || 0, arc = (Math.sin(t * 0.09) + Math.sin(t * 0.061)) > 1.2; blinkLight(ctx, cam, jx, jy, shackTop * 0.8, '150,230,255', now, seed + 2, alpha, arc ? 2.6 : 1.2); if (night) glowPool(ctx, cam, jx, jy, shackTop * 0.7, '108,240,255', 8, alpha * 0.3); }
       break;
@@ -16738,7 +16814,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const bz0 = h * 0.58, bz1 = h * 0.8, bhw = fh * 0.3;
         const [blx, bly] = F(fh * 0.86 - bhw, fh * 0.9 + 0.05), [brx, bry] = F(fh * 0.86 + bhw, fh * 0.9 + 0.05);
         const TL = cam.proj(blx, bly, bz1), TR = cam.proj(brx, bry, bz1), BR = cam.proj(brx, bry, bz0), BL = cam.proj(blx, bly, bz0);
-        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const t = now || 0, buzz = (Math.sin(t * 0.02) > -0.6) ? 0.85 : 0.2; const tex = bakeSignText('VA ANCY', '#ff8fb0', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * buzz)); } }
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const t = now || 0, buzz = (Math.sin(t * 0.02) > -0.6) ? 0.85 : 0.2; const tex = bakeSignText('VA ANCY', '#ff8fb0', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * buzz)); } }
       // 4) A porch light kept burning like a habit.
       { const [lx, ly] = F(-fh * 0.95, fh * 1.14); glowPool(ctx, cam, lx, ly, wallTop * 0.7, '255,206,140', 6, alpha * (night ? 0.5 : 0.28)); }
       // ONE LONG WALK PAST EVERY DOOR, which is the whole plan of a lodging house and the reason
@@ -16782,7 +16858,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (frontVis) {
         const bz0 = frontTop * 0.62, bz1 = frontTop * 0.86, bhw = fh * 0.84;
         const TL = P(-bhw, FR + 0.006, bz1), TR = P(bhw, FR + 0.006, bz1), BR = P(bhw, FR + 0.006, bz0), BL = P(-bhw, FR + 0.006, bz0);
-        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE DRY GOODS', '#f2ead6', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE DRY GOODS', '#f2ead6', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
         if (night) { const [wx, wy] = F(-fh * 0.4, fh * 0.96); glowPool(ctx, cam, wx, wy, bodyTop * 0.52, '255,198,124', 11, alpha * 0.42); }   // goods-lit window
       }
       if (night) glowPool(ctx, cam, dx, dy, bodyTop * 0.6, '255,208,132', 12, alpha * 0.18);
@@ -16815,7 +16891,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
                                                ['WE DO NOT ASK WHERE', '#9aa4a8', frontTop * 0.5, frontTop * 0.6, 1.04]]) {
           const w = bhw * hwm;
           const TL = P(-w, FR + 0.006, z1), TR = P(w, FR + 0.006, z1), BR = P(w, FR + 0.006, z0), BL = P(-w, FR + 0.006, z0);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText(txt, col, night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText(txt, col, night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
         }
       }
       if (night) glowPool(ctx, cam, dx, dy, bodyTop * 0.7, '150,200,224', 10, alpha * 0.16);
@@ -16834,12 +16910,12 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // 1) SHUTTERED WINDOW — boarded from the inside, so it reads as a flat dead panel, not glass.
       if (frontVis) { const wz0 = bodyTop * 0.3, wz1 = bodyTop * 0.72, whw = fh * 0.24;
         const q = [P(-whw - fh * 0.18, FR + 0.004, wz1), P(-fh * 0.18 + whw, FR + 0.004, wz1), P(-fh * 0.18 + whw, FR + 0.004, wz0), P(-whw - fh * 0.18, FR + 0.004, wz0)];
-        if (q.every(p => p.f > 0.12)) emitFace(decoDepth(q[0].f, q[1].f, q[2].f, q[3].f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(38,38,40,0.94)'; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+        if (q.every(p => p.f > 0.12)) emitDeco([q[0], q[1], q[2], q[3]], () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(38,38,40,0.94)'; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
       // 2) The door, and the BLACK RIBBON nailed above it and replaced whenever it frays.
       { const [gx, gy] = F(fh * 0.24, fh * 0.94); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.14, 0, bodyTop * 0.54, 'ty_door', seed + 4, night, alpha, false); }
       if (frontVis) { const rz0 = bodyTop * 0.58, rz1 = bodyTop * 0.66, rhw = fh * 0.2;
         const q = [P(fh * 0.24 - rhw, FR + 0.005, rz1), P(fh * 0.24 + rhw, FR + 0.005, rz1), P(fh * 0.24 + rhw, FR + 0.005, rz0), P(fh * 0.24 - rhw, FR + 0.005, rz0)];
-        if (q.every(p => p.f > 0.12)) emitFace(decoDepth(q[0].f, q[1].f, q[2].f, q[3].f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(14,12,14,0.95)'; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+        if (q.every(p => p.f > 0.12)) emitDeco([q[0], q[1], q[2], q[3]], () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(14,12,14,0.95)'; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
       // 2b) THE WALK, and DELIBERATELY NO BOARD HANGING OVER IT. Every other frontage on this
       //     street now swings a painted sign; this one has an empty bracket with nothing on it,
      //     which says what it is far better than a sign could. Nobody needs telling.
@@ -16892,7 +16968,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
           if (![tl, tr, br, bl].every(p => p.f > 0.12)) continue;
           const tex = bakeSignText(txt, '#cfe9df', night ? 1 : 0, false);
           const [A, B, C, D] = flip ? [bl, br, tr, tl] : [tl, tr, br, bl];
-          emitFace(decoDepth(tl.f, tr.f, br.f, bl.f), () => drawSurfaceText(ctx, A, B, C, D, tex, false, alpha));
+          emitDeco([tl, tr, br, bl], () => drawSurfaceText(ctx, A, B, C, D, tex, false, alpha));
         }
       }
       // 5) Steam glow at the eaves and a warm wet light out of the doorway.
@@ -16926,7 +17002,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         // THE LAST LOA — freehand, and then they gave up on the second D.
         { const bz0 = oTop + h * 0.1, bz1 = oTop + h * 0.22, bhw = hw * 0.66;
           const TL = P(-bhw, hw + 0.006, bz1), TR = P(bhw, hw + 0.006, bz1), BR = P(bhw, hw + 0.006, bz0), BL = P(-bhw, hw + 0.006, bz0);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE LAST LOA', m.neon || '#ffb14a', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); } }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE LAST LOA', m.neon || '#ffb14a', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); } }
         if (night) { const [bx, by] = F(0, hw); glowPool(ctx, cam, bx, by, wallTop * 0.34, '255,200,132', 12, alpha * 0.36); }
       }
       // 3) TWO TRAILERS on their legs alongside, grass grown up through the axles.
@@ -17033,7 +17109,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         mast(ctx, cam, txx, txy, roofTopZ, mastTop, alpha, now, seed + 6);                                            // antenna mast (draws its own red tip light)
         for (const s of [-0.018, 0.022]) {   // a couple of shorter whip antennas beside the mast
           const p0 = cam.proj(txx + s, txy, roofTopZ), p1 = cam.proj(txx + s, txy, cabTop + h * 0.2);
-          if (p0.f > 0.1 && p1.f > 0.1) emitFace(decoDepth(p0.f, p1.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(40,44,50,0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+          if (p0.f > 0.1 && p1.f > 0.1) emitDeco([p0, p1], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(40,44,50,0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke(); ctx.globalAlpha = 1; });
         }
         if (night) {
           glowPool(ctx, cam, txx, txy, (cabBot + cabTop) / 2, '150,220,255', 10, alpha * 0.42);                   // lit cab halo
@@ -17193,7 +17269,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 1.0, -fh * 0.05); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.07, 0, gTop, 'ty_gantry', seed + 40 + s, night, alpha, false); }
       { const [l0x, l0y] = F(-fh * 1.0, -fh * 0.05), [l1x, l1y] = F(fh * 1.0, -fh * 0.05);
         const a = cam.proj(l0x, l0y, gTop), b = cam.proj(l1x, l1y, gTop);
-        if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(58,92,132,0.95)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }
+        if (a.f > 0.1 && b.f > 0.1) emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(58,92,132,0.95)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }
       { const [tx, ty] = F(fh * 0.25, -fh * 0.05); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.13, gTop - h * 0.14, gTop, 'ty_gantry', seed + 45, night, alpha, true);
         blinkLight(ctx, cam, tx, ty, gTop + 0.004, '255,190,80', now, seed + 46, alpha, 1.6); }                 // trolley + its beacon
       break;
@@ -17233,7 +17309,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const [fx, fy] = F(fh * 0.95, 0);                                                                       // external fire stair — three zig-zag flights
         for (let k = 0; k < 3; k++) {
           const a = cam.proj(fx, fy, h * (0.2 + k * 0.35)), b = cam.proj(fx, fy + (k % 2 ? -fh * 0.3 : fh * 0.3), h * (0.55 + k * 0.35));
-          if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(58,52,48,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+          if (a.f > 0.1 && b.f > 0.1) emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(58,52,48,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
         } }
       if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.34, m.neon || '#ffb43a', night, alpha);          // sign band low on the frontage, not up top
       if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,190,120', 9, alpha * 0.2);
@@ -17249,7 +17325,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       for (const [ax, ay, bx, by] of [[-1.3, -1.3, 1.3, -1.3], [1.3, -1.3, 1.3, 1.3], [1.3, 1.3, -1.3, 1.3], [-1.3, 1.3, -1.3, -1.3]]) {
         const [p0x, p0y] = F(ax * fh, ay * fh), [p1x, p1y] = F(bx * fh, by * fh);
         const a = cam.proj(p0x, p0y, h * 0.16), b = cam.proj(p1x, p1y, h * 0.16);
-        if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha * 0.8; ctx.strokeStyle = 'rgba(70,74,78,0.9)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+        if (a.f > 0.1 && b.f > 0.1) emitDeco([a, b], () => { ctx.globalAlpha = alpha * 0.8; ctx.strokeStyle = 'rgba(70,74,78,0.9)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
       }
       for (const [sx, sy] of [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]]) {   // corner floodlight masts
         const [mx, my] = F(sx * fh, sy * fh);
@@ -17639,7 +17715,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, h * 0.55, pal, seed, night, alpha, true);                // shed
       for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 0.8, 0); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.06, 0, h * 0.85, 'ty_fab_steel', seed + s + 2, night, alpha, false); }   // gantry legs
       { const [l0x, l0y] = F(-fh * 0.8, 0), [l1x, l1y] = F(fh * 0.8, 0); const a = cam.proj(l0x, l0y, h * 0.85), b = cam.proj(l1x, l1y, h * 0.85);
-        if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(90,96,104,0.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // crane spanning beam
+        if (a.f > 0.1 && b.f > 0.1) emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(90,96,104,0.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // crane spanning beam
       { const [fx, fy] = F(fh * 0.55, -fh * 0.3); drawSmoke(ctx, cam, fx, fy, h * 0.55, '90,86,80', alpha * 0.7, now, seed + 5); }   // flue smoke
       if (night) glowPool(ctx, cam, dx, dy, h * 0.2, '255,150,70', 10, alpha * 0.24);                       // welding spark glow
       break;
@@ -17652,7 +17728,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (frontVis) for (const s of [-0.62, 0, 0.62]) { const [bx, by] = F(s * fh, fh * 1.03); draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, 0, wall * 0.72, 'ty_garage_bay', seed + 4 + s * 5, night, alpha, false); }   // roll-up bay doors
       { const [mx, my] = F(fh * 0.55, fh * 0.35); draw3DBoxAt(ctx, cam, mx, my, fh * 0.05, 0, wall * 1.5, 'ty_fab_steel', seed + 2, night, alpha, false);   // engine-hoist post
         const top = cam.proj(mx, my, wall * 1.5), [jx, jy] = F(fh * 0.55, fh * 1.1), jib = cam.proj(jx, jy, wall * 1.22);
-        if (top.f > 0.1 && jib.f > 0.1) emitFace(decoDepth(top.f, jib.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(80,84,92,0.95)'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // hoist jib over the forecourt
+        if (top.f > 0.1 && jib.f > 0.1) emitDeco([top, jib], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(80,84,92,0.95)'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // hoist jib over the forecourt
       { const [vx, vy] = F(-fh * 0.4, -fh * 0.3); draw3DBoxAt(ctx, cam, vx, vy, fh * 0.14, wall, wall + h * 0.14, 'ty_fab_steel', seed + 6, night, alpha, true);
         drawSmoke(ctx, cam, vx, vy, wall + h * 0.14, '110,104,96', alpha * 0.5, now, seed + 7); }           // rooftop extractor vent
       if (night) { glowPool(ctx, cam, dx, dy, wall * 0.3, '255,170,90', 11, alpha * 0.26);                  // warm worklight
@@ -17663,7 +17739,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, 0, h * 0.44, pal, seed, night, alpha, true);                // shed
       const [mx, my] = F(-fh * 0.4, -fh * 0.2); draw3DBoxAt(ctx, cam, mx, my, fh * 0.08, 0, h * 1.2, 'ty_wharf_steel', seed + 2, night, alpha, false);   // crane mast
       { const top = cam.proj(mx, my, h * 1.2), [jx, jy] = F(fh * 0.5, fh * 0.9), jib = cam.proj(jx, jy, h * 0.75);
-        if (top.f > 0.1 && jib.f > 0.1) emitFace(decoDepth(top.f, jib.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(70,76,84,0.95)'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // jib over the water
+        if (top.f > 0.1 && jib.f > 0.1) emitDeco([top, jib], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(70,76,84,0.95)'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // jib over the water
       blinkLight(ctx, cam, mx, my, h * 1.2, '255,90,70', now, seed, alpha, 1.5);                            // crane tip light
       break;
     }
@@ -17700,7 +17776,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
           const p = cam.proj(dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i));
           if (p.f > 0.12) pts.push(p);
         }
-        if (pts.length > 1) emitFace(decoDepth(...pts.map(p => p.f)), () => {
+        if (pts.length > 1) emitDeco([...pts], () => {
           ctx.save(); ctx.globalAlpha = alpha * (night ? 0.95 : 0.5);
           ctx.strokeStyle = `rgba(${asc},0.9)`; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
           if (night) { ctx.shadowColor = `rgb(${asc})`; ctx.shadowBlur = 8; }
@@ -17765,7 +17841,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.2, pal, seed + 1, night, alpha, true);                  // base
       { const [wx, wy] = F(-fh * 0.9, 0); glowPool(ctx, cam, wx, wy, h * 0.8, asc, 10, alpha * (night ? 0.6 : 0.35)); }   // server-rack glow, Curtain side
       mast(ctx, cam, dx, dy, h * 1.5, h * 2.1, alpha, now, seed);
-      emitFace(decoDepth(cam.proj(dx, dy, h * 1.5).f), () => {   // uplink beam
+      emitDeco([cam.proj(dx, dy, h * 1.5)], () => {   // uplink beam
         const a = cam.proj(dx, dy, h * 1.5), b = cam.proj(dx, dy, h * 2.6);
         if (a.f > 0.1 && b.f > 0.1) {
           ctx.save(); ctx.globalAlpha = alpha * (night ? 0.8 : 0.4); ctx.strokeStyle = `rgba(${asc},0.85)`; ctx.lineWidth = 2.4;
@@ -17822,7 +17898,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const TL = cam.proj(lx, ly, z1), TR = cam.proj(rx, ry, z1), BR = cam.proj(rx, ry, z0), BL = cam.proj(lx, ly, z0);
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
           const tex = bakeSignText('9', '#d8d2c0', night ? 1 : 0, false);
-          emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * 0.9));
+          emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * 0.9));
         }
         marqueeBand(ctx, cam, dx, dy, E, fh * 0.96, wallTop * 0.74, m.neon || '#ffb43a', night, alpha, 'RATION NINE');
       }
@@ -17848,7 +17924,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const BR = cam.proj(brx, bry, banZ0 + body * 0.012), BL = cam.proj(blx, bly, banZ0 + body * 0.012);
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
           const tex = bakeSignText('ADEQUATE!', m.neon || '#ff8a2e', night ? 1 : 0, false);
-          emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha));
+          emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha));
         }
         const [nx, ny] = F(fh * 0.70, fh * 1.02); neonBlade(ctx, cam, nx, ny, body * 0.88, body + h * 0.34, m.neon || '#ff8a2e', night, alpha);
       }
@@ -19191,6 +19267,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   }
   // With the pre-pass off there is no field, and every contact draws exactly as it always did.
   if (!TUNE.occlude) { OCC_FIELD = null; OCC_SOLIDS = null; }
+  // The field is now complete and belongs to THIS camera — adornments may probe it until the
+  // flush below. See decoHidden for why the window is explicit rather than "is there a field".
+  DECO_OCC = !!OCC_FIELD;
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
   // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
   if (sun && sun.len > 0) {
@@ -19426,6 +19505,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   pEnd();                      // ── end world:build (queueing) ──
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
+  DECO_OCC = false;                                 // the field outlives the frame; the permission does not
   pEnd();
   // Dev overlay: the captured shapes, stroked on top of the finished frame. Off unless asked for.
   if (RENDER_TUNE.shapeWire) {
@@ -21104,7 +21184,7 @@ function drawHoloAd(ctx, cam, dx, dy, fh, h, seed, now, alpha) {
   if ([b0, b1, t1, t0].some((p) => p.f <= 0.12)) return;
   const dropped = frac(Math.floor(now * 0.018) + seed) < 0.16;   // some frames blink out entirely
   const flick = (0.45 + 0.55 * Math.abs(Math.sin(now * 0.006 + seed))) * (dropped ? 0.15 : 1);
-  emitFace(decoDepth(b0.f, b1.f, t1.f, t0.f), () => {
+  emitDeco([b0, b1, t1, t0], () => {
     ctx.save(); ctx.globalAlpha = alpha;
     ctx.fillStyle = `rgba(${col},${0.16 * flick})`;
     ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy); ctx.lineTo(b1.sx, b1.sy); ctx.lineTo(b0.sx, b0.sy); ctx.closePath(); ctx.fill();

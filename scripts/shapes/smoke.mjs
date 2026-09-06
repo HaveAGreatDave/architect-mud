@@ -111,6 +111,16 @@ async function main() {
   for (const f of marks) problems.push(`mark   ${f.key} (night=${f.night}) → ${f.err}`);
   const markLine = `Marks: ${marks.ran} statue/gate/bay/highway-sign passes clean (night+day).`;
 
+  // ── ADORNMENT OCCLUSION ──
+  // A light, a sign or a beacon is queued at its own depth lifted DECO_LIFT toward the camera, and
+  // that lift is smaller than any real building gap and larger than a host's own half-depth — so a
+  // lamp behind its own near wall painted straight through it. The fix is a probe against the
+  // occlusion field the building pass already builds, and its margins are invisible in the picture
+  // until somebody notices signage has quietly stopped appearing. See decoHidden in windshield.js.
+  const deco = ws.decoOcclusionSmoke();
+  for (const f of deco) problems.push(`deco   ${f}`);
+  const decoLine = `Adornment occlusion: ${deco.ran} probe cases — a light behind a wall is culled, one on the wall it is mounted to is not.`;
+
   // ── HIGH GROUND ──
   // The cliff massif is the only mass in the sim that is TERRAIN, and it is the only one you can
   // be inside — nothing collides with it, so a truck drives into a mesa and an aircraft flies
@@ -412,6 +422,7 @@ async function main() {
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
   console.log('  ' + markLine);
+  console.log('  ' + decoLine);
   console.log('  ' + cliffLine);
   console.log(`  Views: ${views.ran} paintWindshield passes clean (cab/cockpit/chase/porthole/helm × night+day × clear+rain, plus the moon swept across a full month).`);
   console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
