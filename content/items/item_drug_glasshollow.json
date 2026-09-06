@@ -1,5 +1,5 @@
 {
-  "description": "Architect-adjacent. Nobody's sure what it actually is. People take it anyway.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_glasshollow",
@@ -19,4 +19,3 @@
   "value": 40,
   "weight": 100
 }
-

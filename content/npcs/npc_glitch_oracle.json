@@ -65,7 +65,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Third junction east. Mind your footing on the way back, the second stair is gone.\"\n\nHer eyes close the rest of the way, which is how you know you have been dismissed."
+      "text": "\"Third junction east. Mind your footing on the way back, the second stair is gone.\"\n\nHer eyes close the rest of the way."
     },
     "exo_accept_2": {
       "actions": [
@@ -226,7 +226,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"All of it. The steel and the changes both, and it doesn't give any of it back.\" Perfectly level, no persuasion in it anywhere. \"Nobody here will pretend that's a small thing or talk you round. Most people go back up the stairs at this point and I have never once thought less of them.\"\n\nA pause.\n\n\"It's over there. It isn't going anywhere.\""
+      "text": "\"All of it. The steel and the changes both, and it doesn't give any of it back.\" Perfectly level, no persuasion in it anywhere. \"Nobody here will pretend that's a small thing or talk you round. Most people go back up the stairs at this point and I have never thought less of them.\"\n\nA pause.\n\n\"It's over there. It isn't going anywhere.\""
     },
     "exo_draught": {
       "_vine": {
@@ -317,7 +317,7 @@
           "next": "bye"
         }
       ],
-      "text": "She doesn't look up. \"You're still counting something. Stop it, or count it quietly.\""
+      "text": "Her eyes stay shut. \"You're still counting something. Stop it, or count it quietly.\""
     },
     "exo_notask": {
       "_vine": {
@@ -555,7 +555,7 @@
           "next": "exo_notroom"
         }
       ],
-      "text": "She doesn't mention the water at all, which is how you know.\n\n\"There's a man walking the Under with a survey lamp and a paper map, and he has been down three times, and he's thorough.\" Her hands are flat on the table. \"He isn't going to hurt anybody. He's going to write down where we are. Then he goes home, and the writing is what ends this.\"\n\n\"There's a junction box on the way he comes. I want the good cable out of it and a rotten one in, and I want the box to look like it has been that way for years.\""
+      "text": "She doesn't mention the water at all.\n\n\"There's a man walking the Under with a survey lamp and a paper map, and he has been down three times, and he's thorough.\" Her hands are flat on the table. \"He isn't going to hurt anybody. He's going to write down where we are. Then he goes home, and the writing is what ends this.\"\n\n\"There's a junction box on the way he comes. I want the good cable out of it and a rotten one in, and I want the box to look like it has been that way for years.\""
     },
     "exo_report_1": {
       "actions": [

@@ -79,7 +79,11 @@ export function gameshowPool(cache = getItemCache()) {
     // Street chemistry is both unguessable (median 8cr) and not what a network gives
     // away on daytime television.
     if (it.type === 'drug' || it.type === 'chemical') continue;
-    if (!it.name || !String(it.description || '').trim()) continue;   // can't be presented on air
+    // The description lives on the description TAG; the column is only a fallback for
+    // rows that never got one (docs/items.md). Reading the column alone silently drops
+    // every tag-only item out of the prize pool.
+    const blurb = it.tags?.description ?? it.description ?? '';
+    if (!it.name || !String(blurb).trim()) continue;                  // can't be presented on air
     const key = String(it.name).toLowerCase();
     if (seen.has(key)) continue;                                      // never show one prize twice
     seen.add(key);

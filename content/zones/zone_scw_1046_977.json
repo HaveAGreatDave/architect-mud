@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A round shelter of hide over bent rail, set a little apart, with the door mat beaten and the step swept. This is where the elder holds court, which in practice means this is where arguments about water rota come to die. There are cushions. There are a great many cushions.",
+  "description": "A round shelter of hide over bent rail, set a little apart, with the door mat beaten and the step swept. The elder holds court here, which in practice means arguments about the water rota come here to die. There are cushions. There are a great many cushions.",
   "exits": {
     "north": "zone_scw_1046_976",
     "south": "zone_scw_1046_978"

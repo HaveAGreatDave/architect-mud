@@ -1,9 +1,10 @@
 {
-  "description": "A dented aerosol can in Prismatik house colours, the label worn down to the hazard diamond. PRISMATIK. ONE CAN. EVERY COLOUR. A mixing head draws from four pigment cells and a white, and the collar clicks through the range as you turn it. It rattles when you pick it up. That's the only gauge it has.",
+  "description": null,
   "flags": {},
   "id": "item_spray_paint",
   "name": "Chromaflux 167 Spraycan",
   "tags": {
+    "description": "A dented aerosol can in Prismatik house colours, the label worn down to the hazard diamond. PRISMATIK. ONE CAN. EVERY COLOUR. A mixing head draws from four pigment cells and a white, and the collar clicks through the range as you turn it. It rattles when you pick it up. That's the only gauge it has.",
     "misc": true,
     "spray_paint": true
   },

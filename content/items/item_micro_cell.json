@@ -1,10 +1,11 @@
 {
-  "description": "A slim rechargeable cell, the kind that keeps a bug alive for days. The heartbeat.",
+  "description": null,
   "flags": {},
   "id": "item_micro_cell",
   "name": "Micro Cell",
   "tags": {
-    "component": true
+    "component": true,
+    "description": "A slim rechargeable cell, the kind that keeps a bug alive for days. The heartbeat."
   },
   "type": "component",
   "value": 30,

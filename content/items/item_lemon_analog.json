@@ -1,11 +1,11 @@
 {
-  "description": "Bright yellow, slightly too symmetrical, and sour enough to make your jaw ache. Not a lemon by descent, but it does everything a lemon is asked to do.",
+  "description": null,
   "flags": {},
   "id": "item_lemon_analog",
   "name": "lemon-analog",
   "tags": {
     "consumable": true,
-    "description": "Bright yellow, slightly too symmetrical, and sour enough to make your jaw ache. Not a lemon by descent, but it does everything a lemon is asked to do.",
+    "description": "Bright yellow, slightly too symmetrical, and sour enough to make your jaw ache. It does everything a lemon is asked to do.",
     "food_noun": "lemon",
     "food_profile": "fruit",
     "perishable": true,

@@ -1,5 +1,5 @@
 {
-  "description": "Two dozen amyls in a rattling little box. A brief, roaring rush.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_amyls",
@@ -10,6 +10,7 @@
   "id": "item_amyls",
   "name": "amyls",
   "tags": {
+    "description": "Two dozen amyls in a rattling little box. A brief, roaring rush.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 25,
   "weight": 20
 }
-

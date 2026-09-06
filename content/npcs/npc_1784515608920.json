@@ -62,7 +62,7 @@
       },
       "actions": [],
       "options": [],
-      "text": "Amos is already looking past you at the door. \"Mind how you go.\""
+      "text": "Amos is already looking past you at the door. \"Safe road.\""
     },
     "inner": {
       "_vine": {
@@ -79,7 +79,7 @@
           "next": "inner_why"
         }
       ],
-      "text": "Amos looks at you for a while. Then he sets the pen down, which is the most he has ever committed to a conversation.\n\n\"You've flown enough of mine that I'll say it plain. It starts hard and gets harder: every step up in what you've cooked, that's one more thing he can find. Every extra pallet past the first, same again. The hold buys you back two steps and a coin-flip's worth of not being asked at all.\" <span class=\"text-dim\">He picks the pen back up.</span> \"So: one pallet, cooked light, false floor in. That's a milk run. Four pallets of your best work in a bare hold is you handing a man your licence and a pen.\""
+      "text": "Amos looks at you for a while. Then he sets the pen down.\n\n\"You've flown enough of mine that I'll say it plain. It starts hard and gets harder: every step up in what you've cooked, that's one more thing he can find. Every extra pallet past the first, same again. The hold buys you back two steps and a coin-flip's worth of not being asked at all.\" <span class=\"text-dim\">He picks the pen back up.</span> \"So: one pallet, cooked light, false floor in. That's a milk run. Four pallets of your best work in a bare hold is you handing a man your licence and a pen.\""
     },
     "inner_why": {
       "_vine": {
@@ -238,7 +238,7 @@
           "next": "raws_done"
         }
       ],
-      "text": "Amos doesn't look up. He just pulls the ledger a little closer and finds the page without searching for it."
+      "text": "Amos keeps his eyes on the ledger. He just pulls the ledger a little closer and finds the page without searching for it."
     },
     "root": {
       "_vine": {

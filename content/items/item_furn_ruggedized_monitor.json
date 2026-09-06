@@ -1,5 +1,5 @@
 {
-  "description": "A military-spec portable display, matte black, bolted to a repurposed equipment rack. The screen is scratched but perfectly legible.",
+  "description": null,
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,

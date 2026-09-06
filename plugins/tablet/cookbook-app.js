@@ -251,7 +251,7 @@ async function ingredientDetail(player, token) {
     return {
       view: 'detail',
       breadcrumb: ['Cookbook', 'Shopping List', item.name],
-      detail: { id: `${ING_PREFIX}i:${key}`, name: item.name, desc: item.description || '', rows: out },
+      detail: { id: `${ING_PREFIX}i:${key}`, name: item.name, desc: item.tags?.description ?? item.description ?? '', rows: out },
     };
   }
 

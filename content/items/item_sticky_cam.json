@@ -1,11 +1,12 @@
 {
-  "description": "A thumb-sized adhesive camera the colour of dead concrete. Runs off an internal cell for days and squirts its feed to a paired deck.",
+  "description": null,
   "flags": {},
   "id": "item_sticky_cam",
   "name": "Sticky Cam",
   "tags": {
     "battery_max": 864,
     "concealment_base": 4,
+    "description": "A thumb-sized adhesive camera the colour of dead concrete. Runs off an internal cell for days and squirts its feed to a paired deck.",
     "device_kind": "sticky_cam",
     "device_tier": 1,
     "hack_difficulty": 5,

@@ -165,7 +165,7 @@
       "text": "\"Still outside.\"",
       "text_by_relation": {
         "close": "\"Come in out of the sun a minute,\" she says, and stands aside from a doorway you still can't use.",
-        "familiar": "\"There you are.\" She reaches something down off a shelf without looking at it. \"Still outside. For now.\"",
+        "familiar": "\"Back, then.\" She reaches something down off a shelf without looking at it. \"Still outside. For now.\"",
         "known": "\"You again.\" She shifts, and the gate house door frame creaks. \"Still outside.\""
       }
     },
@@ -294,7 +294,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because of what happened the last four times.\"\n\nShe says it without any heat at all.\n\n\"Twice it was Ascendant survey crews with a paper saying this land was theirs. Once it was a Long Watch pair who wanted to count us. Once it was a man on his own who was exactly as harmless as you look and came back in the spring with eleven friends and a truck.\"\n\n\"So. No. It isn't about you. It has never once been about the person standing where you're standing.\""
+      "text": "\"Because of what happened the last four times.\"\n\nFlat as a line off the rota.\n\n\"Twice it was Ascendant survey crews with a paper saying this land was theirs. Once it was a Long Watch pair who wanted to count us. Once it was a man on his own who was exactly as harmless as you look and came back in the spring with eleven friends and a truck.\"\n\n\"So. No. It isn't about you. It has never been about the person standing where you're standing.\""
     }
   },
   "faction": "ideology_wildblood",

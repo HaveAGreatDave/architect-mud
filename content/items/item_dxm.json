@@ -1,5 +1,5 @@
 {
-  "description": "A bottle of cough syrup drunk for entirely the wrong reason. Cheap, legal, and a long way down.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_dxm",
@@ -10,6 +10,7 @@
   "id": "item_dxm",
   "name": "robo",
   "tags": {
+    "description": "A bottle of cough syrup drunk for entirely the wrong reason. Cheap, legal, and a long way down.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 35,
   "weight": 20
 }
-

@@ -43,7 +43,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Everything except through. Trade with Stannard, he's straight and he won't cheat you. Fuel up. Sleep on the flats, nobody will touch you. Walk the whole wall if you want, and people do, and I have never once minded.\"\n\n\"And then go home, or do not. That part is yours.\""
+      "text": "\"Everything except through. Trade with Stannard, he's straight and he won't cheat you. Fuel up. Sleep on the flats, nobody will touch you. Walk the whole wall if you want, and people do, and I have never minded.\"\n\n\"And then go home, or do not. That part is yours.\""
     },
     "bye": {
       "actions": [],
@@ -350,7 +350,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Nothing.\" She says it without any weight at all. \"You couldn't stop a determined child. That isn't what the stool is for.\"\n\n\"The stool is so that anybody coming up that road sees somebody sitting in it. That's the whole of the work and it's harder than it sounds, because there's nothing to do and you have to keep doing it.\""
+      "text": "\"Nothing.\" She lets it sit where it lands. \"You couldn't stop a determined child. That isn't what the stool is for.\"\n\n\"The stool is so that anybody coming up that road sees somebody sitting in it. That's the whole of the work and it's harder than it sounds, because there's nothing to do and you have to keep doing it.\""
     },
     "work": {
       "actions": [],

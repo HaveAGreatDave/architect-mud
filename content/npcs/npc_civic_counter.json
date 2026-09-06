@@ -18,14 +18,14 @@
     "\"Doorways. That's all. I don't ask what's behind them, that's a different department.\"",
     "\"It's a job. You don't have to like the ledger to eat off it.\""
   ],
-  "description": "A damp, apologetic man with a clipboard held against his chest like a shield, counting doorways on Foundry Way and writing each one down. He has a lanyard that has never once been checked and the specific patience of somebody paid by the hour to do something pointless.",
+  "description": "A damp, apologetic man with a clipboard held against his chest like a shield, counting doorways on Foundry Way and writing each one down. He has a lanyard that has never been checked and the specific patience of somebody paid by the hour to do something pointless.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He goes back to the doorways."
+      "text": "The clipboard comes up, and the doorways get him again."
     },
     "root": {
-      "first": "He looks up from the clipboard, sees somebody who isn't a doorway, and is briefly at a loss. \"Ah. Are you — is this your door?\"",
+      "first": "He looks up from the clipboard, sees somebody who isn't a doorway, and is briefly at a loss. \"Ah. Are you... is this your door?\"",
       "options": [
         {
           "label": "What are you counting?",

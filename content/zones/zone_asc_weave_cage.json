@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "A caged mezzanine of shelved stock: blank frames, spooled weave, ocular blanks staring in rows. Everything is tagged, counted, and worth more than you.",
+  "description": "A caged mezzanine of shelved stock: blank frames, spooled weave, ocular blanks staring in rows. Everything is tagged and counted.",
   "exits": {
     "out": "zone_asc_weave_line"
   },

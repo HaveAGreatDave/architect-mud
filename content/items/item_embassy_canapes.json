@@ -1,11 +1,11 @@
 {
-  "description": "Bite-sized, garnished, served on an actual plate. Nobody asks what's in them; the presentation is doing all the work.",
+  "description": null,
   "flags": {},
   "id": "item_embassy_canapes",
   "name": "embassy canapés",
   "tags": {
     "consumable": true,
-    "description": "Bite-sized, garnished, served on an actual plate. Nobody asks what's in them; the presentation is doing all the work.",
+    "description": "Bite-sized, garnished, served on an actual plate. The presentation is doing all the work.",
     "restore_hunger": 14,
     "restore_sanity": 5,
     "stackable": true,

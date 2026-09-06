@@ -139,7 +139,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He goes back to watching the steam."
+      "text": "He watches the steam instead."
     },
     "root": {
       "options": [
@@ -148,7 +148,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Morning.\" Georgi says it whatever the hour. \"Nine stools in there and I've never once sat on one. Never needed to. It's the smell that does it.\""
+      "text": "\"Morning.\" Georgi says it whatever the hour. \"Nine stools in there and I've never sat on one. Never needed to. It's the smell that does it.\""
     }
   },
   "faction": null,

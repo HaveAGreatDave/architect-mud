@@ -518,7 +518,7 @@
         "Over to {meteorologist} at the Fury Deck. {meteorologist}, give it to us with both barrels.",
         "{meteorologist}, you've had the radar all day and the look on your face all evening. Go ahead.",
         "Weather now, and I'm told you should be sitting down for it. {meteorologist}?",
-        "Let's bring in {meteorologist}, who has never once told me good news. {meteorologist}."
+        "Let's bring in {meteorologist}, who has never told me good news. {meteorologist}."
       ],
       "wx.trend.clearing": [
         "Good news, and I hate saying it on this network: the wet clears as the week runs on.",

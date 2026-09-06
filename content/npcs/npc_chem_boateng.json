@@ -397,7 +397,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Don't.\" <span class=\"text-dim\">He's already writing something on the sheet that may or may not exist.</span>\n\n\"If it's good you'll know, and if it's bad you'll know sooner. That's the beauty of the thing. Nobody's needing my opinion.\"\n\nA pause. He doesn't look up.\n\n\"Bring me a bit, if it's good.\""
+      "text": "\"Don't.\" <span class=\"text-dim\">He's already writing something on the sheet that may or may not exist.</span>\n\n\"If it's good you'll know, and if it's bad you'll know sooner. That's the beauty of the thing. Nobody's needing my opinion.\"\n\nA pause. His eyes stay on the sheet.\n\n\"Bring me a bit, if it's good.\""
     },
     "root": {
       "_vine": {
@@ -421,7 +421,7 @@
       ],
       "text": "\"Bulk's in the back, glass up front, gas is chained by the door. Sign the sheet on your way out.\"\n\n\"You cooking, or buying for somebody who is?\"",
       "text_by_relation": {
-        "close": "<span class=\"text-dim\">He doesn't look up from the sheet, but the pen stops.</span>\n\n\"There you are. I'd a shoulder on all night and nobody in this building to tell about it.\" He caps the pen. \"That's the state of my life, since you asked. Which you didn't.\"",
+        "close": "<span class=\"text-dim\">He doesn't look up from the sheet, but the pen stops.</span>\n\n\"I'd a shoulder on all night and nobody in this building to tell about it.\" He caps the pen. \"That's the state of my life, since you asked. Which you didn't.\"",
         "familiar": "\"Aye.\" <span class=\"text-dim\">He has the sheet turned round and facing you before you reach the counter.</span>\n\n\"Glass is where it was. Ask if you're after something that isn't.\"",
         "known": "\"Bulk's in the back, glass up front. You know where the sheet is.\"\n\n<span class=\"text-dim\">He looks at you a moment longer than the transaction requires, and appears to reach a decision he isn't pleased about.</span>\n\n\"Here. You've been in enough times that I've stopped counting, and a man buying that much foil is either cooking or he's up to something. I've chosen to believe the first one.\" He puts both hands flat on the counter. \"So. If you want to be taught something, ask. I'll not push it. I've already found this embarrassing.\""
       }

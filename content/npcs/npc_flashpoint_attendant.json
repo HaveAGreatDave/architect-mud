@@ -163,7 +163,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Two islands, same fuel, same price, and one of them has a shorter hose than the other.\" She points with the pencil without looking. \"That one. People pull up on the wrong side, and then they blame the pump, and then I have to come out and say a sentence I have now said eleven thousand times.\" She goes back to the roll. \"The meter is honest, though. That's the one thing on this lot I would swear to.\""
+      "text": "\"Two islands, same fuel, same price, and one of them has a shorter hose than the other.\" She points with the pencil without looking. \"That one. People pull up on the wrong side, and then they blame the pump, and then I have to come out and say a sentence I have now said eleven thousand times.\" The roll unspools another inch under her thumb. \"The meter is honest, though. That's the one thing on this lot I would swear to.\""
     },
     "root": {
       "actions": [],
@@ -212,7 +212,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Back.\" She doesn't look up. \"Pumps are metered, urn's hot.\"",
+      "text": "\"Back.\" Her eyes stay on the roll. \"Pumps are metered, urn's hot.\"",
       "text_by_relation": {
         "close": "\"Sit on the crate if you're stopping.\" She nods at it. \"Don't sit on the crate if you're going. You'll only make a thing out of leaving.\"",
         "familiar": "She has the urn topped up before the door has finished shutting, which is as close to a greeting as this counter gets.",
@@ -235,7 +235,7 @@
           "next": "root"
         }
       ],
-      "text": "\"It's hot, it's there, and the urn has never once run dry on my shift.\" She nods at it. \"That's the entire pitch and I'm not going to improve it for you.\" A shrug. \"Bring your own cup if you have got one. The paper ones run out twice a month and I have stopped pretending I'm going to order more.\""
+      "text": "\"It's hot, it's there, and the urn has never run dry on my shift.\" She nods at it. \"That's the entire pitch and I'm not going to improve it for you.\" A shrug. \"Bring your own cup if you have got one. The paper ones run out twice a month and I have stopped pretending I'm going to order more.\""
     }
   },
   "faction": null,

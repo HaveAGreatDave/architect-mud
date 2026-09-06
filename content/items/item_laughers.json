@@ -1,9 +1,10 @@
 {
-  "description": "Little yellow tabs that turn the apocalypse into the funniest thing you have ever seen.",
+  "description": null,
   "flags": {},
   "id": "item_laughers",
   "name": "laughers",
   "tags": {
+    "description": "Little yellow tabs that turn the apocalypse into the funniest thing you have ever seen.",
     "drug": true,
     "soluble": true
   },
@@ -11,4 +12,3 @@
   "value": 85,
   "weight": 20
 }
-

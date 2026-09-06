@@ -1,9 +1,10 @@
 {
-  "description": "A brown pellet of poppy tar wrapped in waxed paper, about the size of a thumbnail. Sticky in the heat.",
+  "description": null,
   "flags": {},
   "id": "item_opium",
   "name": "opium",
   "tags": {
+    "description": "A brown pellet of poppy tar wrapped in waxed paper, about the size of a thumbnail. Sticky in the heat.",
     "drug": true,
     "soluble": true
   },
@@ -11,4 +12,3 @@
   "value": 95,
   "weight": 10
 }
-

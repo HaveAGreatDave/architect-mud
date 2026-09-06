@@ -1,5 +1,5 @@
 {
-  "description": "A sealed steel drum of crude Blotter. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
+  "description": null,
   "flags": {
     "cook_tier": 2,
     "prefill": {
@@ -12,6 +12,7 @@
   "name": "crude Blotter",
   "tags": {
     "contraband": true,
+    "description": "A sealed steel drum of crude Blotter. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
     "fillable": 40,
     "raw_drug": true
   },
@@ -19,4 +20,3 @@
   "value": 14,
   "weight": 2
 }
-

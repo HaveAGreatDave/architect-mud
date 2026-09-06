@@ -1,5 +1,5 @@
 {
-  "description": "A gravity-field display unit. Crisp and vivid but three degrees off-true. Never connected to the patch server. One of three thousand that survived the bricking.",
+  "description": null,
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,

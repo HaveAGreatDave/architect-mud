@@ -89,7 +89,7 @@ async function placeFurniture(item, base, zoneId, ownerId) {
   delete flags.power_draw_kw;
   const id = `furn_${randomUUID().slice(0, 8)}`;
   await insertFurniture({
-    id, zone_id: zoneId, name: item.name, description: item.description,
+    id, zone_id: zoneId, name: item.name, description: item.tags?.description ?? item.description,
     flags: JSON.stringify(flags), object_type: furnitureObjectType(flags), price: base,
     origin: 'player', owner_id: ownerId ?? null,
     ...(Number.isFinite(draw) ? { power_draw_kw: draw } : {}),

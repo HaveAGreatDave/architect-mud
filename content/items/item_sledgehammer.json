@@ -1,5 +1,5 @@
 {
-  "description": "A brutal two-handed demolition hammer. Heavy enough to stove in armoured machinery, slowly.",
+  "description": null,
   "flags": {},
   "id": "item_sledgehammer",
   "name": "sledgehammer",
@@ -32,6 +32,7 @@
       "max": 70,
       "min": 40
     },
+    "description": "A brutal two-handed demolition hammer. Heavy enough to stove in armoured machinery, slowly.",
     "min_skill": {
       "clubs": 5
     },

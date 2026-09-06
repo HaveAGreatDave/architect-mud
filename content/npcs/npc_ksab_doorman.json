@@ -136,7 +136,7 @@
     "\"You can stand there. Standing there's free.\"",
     "He rolls one shoulder, hears something in it he doesn't like, and stops."
   ],
-  "description": "A wide, unhurried man planted between you and the stage door, in a KSAB-violet blazer that was tailored for a smaller decade. His hands stay folded low and in front, and his eyes do the moving. There's a floor-manager's headset hooked over one ear that he plainly isn't listening to, and a strip of house tape on the ground by his boot that he has never once stepped over.",
+  "description": "A wide, unhurried man planted between you and the stage door, in a KSAB-violet blazer that was tailored for a smaller decade. His hands stay folded low and in front, and his eyes do the moving. There's a floor-manager's headset hooked over one ear that he plainly isn't listening to, and a strip of house tape on the ground by his boot that he has never stepped over.",
   "dialogue_tree": {
     "bye": {
       "options": [],

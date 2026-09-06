@@ -1,9 +1,10 @@
 {
-  "description": "A pharmacy jar of pseudoephedrine crystal, dispensing label half scratched off, a scoop rattling loose in the lid. Clears a sinus that no amount of steam will shift, which in a city that tastes of solder is most of them.",
+  "description": null,
   "flags": {},
   "id": "item_precursor_stim",
   "name": "jar of pseudoephedrine",
   "tags": {
+    "description": "A pharmacy jar of pseudoephedrine crystal, dispensing label half scratched off, a scoop rattling loose in the lid. Clears a sinus that no amount of steam will shift, which in a city that tastes of solder is most of them.",
     "drug": true,
     "reagent": true,
     "soluble": true
@@ -12,4 +13,3 @@
   "value": 70,
   "weight": 30
 }
-

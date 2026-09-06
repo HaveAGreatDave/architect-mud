@@ -1,5 +1,5 @@
 {
-  "description": "A scarred strongbox set into the gap where a radiator used to be, the hole bricked back up around it so only the door shows. Sluice has never once opened it while anyone was watching.",
+  "description": "A scarred strongbox set into the gap where a radiator used to be, the hole bricked back up around it so only the door shows. Sluice has never opened it while anyone was watching.",
   "flags": {
     "hack_difficulty": 5,
     "vendor_npc_id": "npc_fence",

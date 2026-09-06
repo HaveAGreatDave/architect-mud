@@ -35,10 +35,10 @@
     "writes a time on the back of his hand and looks at the door.",
     "\"It goes out at eight whether it's ready or not. That's the whole job.\"",
     "straightens something that was already straight, then puts it back crooked so it looks lived in.",
-    "\"I have never once been thanked on air. I keep a note of it. Not a grudge. A note.\"",
+    "\"I have never been thanked on air. I keep a note of it. Not a grudge. A note.\"",
     "listens to something in an earpiece, closes his eyes briefly, and says nothing."
   ],
-  "description": "A man in a pressed shirt with a lanyard he has never once been asked for, holding a clipboard against his chest like a shield. He has the specific alertness of somebody who's always four minutes from a problem, and the resting face of somebody who has already solved it and been thanked by nobody.",
+  "description": "A man in a pressed shirt with a lanyard he has never been asked for, holding a clipboard against his chest like a shield. He has the specific alertness of somebody who's always four minutes from a problem, and the resting face of somebody who has already solved it and been thanked by nobody.",
   "dialogue_tree": {
     "billing": {
       "options": [
@@ -64,7 +64,7 @@
           "next": "gotrid"
         }
       ],
-      "text": "\"He did.\" Phil says it straight away, with no argument in it at all. \"After the marriage went, Neil was on sofas the better part of a year, and one of those sofas was Nguyen's. Basement flat under a laundromat. I have never once said otherwise and I never will.\" He turns a page over. \"You're standing in it, by the way.\""
+      "text": "\"He did.\" Phil says it straight away, with no argument in it at all. \"After the marriage went, Neil was on sofas the better part of a year, and one of those sofas was Nguyen's. Basement flat under a laundromat. I have never said otherwise and I never will.\" He turns a page over. \"You're standing in it, by the way.\""
     },
     "change": {
       "options": [
@@ -73,7 +73,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I could.\" He goes back to the clipboard. \"Ask me again after a good one.\""
+      "text": "\"I could.\" The clipboard comes back up between you. \"Ask me again after a good one.\""
     },
     "dq_recruited": {
       "options": [
@@ -112,7 +112,7 @@
           "next": "nevertook"
         }
       ],
-      "text": "\"I made it uncomfortable,\" he says, and doesn't dress it up. \"I put things in front of Neil at the right hours. I let a couple of arguments run that I could have cut. Nothing I said was untrue — that's the part I'd want you to check. I just chose the ten minutes.\" He puts the clipboard down for the first time. \"And then the credits rolled and there it was. Producer, Captain Nguyen. Still there. Nineteen weeks after he stopped coming down the stairs.\""
+      "text": "\"I made it uncomfortable,\" he says, and doesn't dress it up. \"I put things in front of Neil at the right hours. I let a couple of arguments run that I could have cut. Nothing I said was untrue. That's the part I'd want you to check. I just chose the ten minutes.\" He puts the clipboard down for the first time. \"And then the credits rolled and there it was. Producer, Captain Nguyen. Still there. Nineteen weeks after he stopped coming down the stairs.\""
     },
     "hard": {
       "options": [
@@ -165,7 +165,7 @@
           "next": "building"
         }
       ],
-      "text": "\"He was a lovely man and he was killing us,\" Phil says. \"He wasn't crew. He wasn't staff. He wasn't anything at all — he was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
+      "text": "\"He was a lovely man and he was killing us,\" Phil says. \"He wasn't crew. He wasn't staff. He wasn't anything at all. He was a bloke Neil used to go out with, back when Neil went out. And he sold a root out of his trousers on my air, and Neil gave him a producer credit for it because Neil gives everybody everything at eleven o'clock at night.\""
     },
     "root": {
       "first": "\"You're not crew,\" he says, not unkindly, checking a clipboard he doesn't need to check. \"Doesn't matter. Nobody's crew. I'm Phil. I produce the programme, which tonight means I'm the programme's entire crew, its legal department and its cleaner.\" He offers a hand. \"Don't touch the board.\"",
@@ -230,7 +230,7 @@
           "next": "root"
         }
       ],
-      "text": "Phil is quiet for a second. \"He never once treated it as a set,\" he says. \"Not once, in nineteen weeks. He'd come in, take his coat off, put it over the back of the chair like he was home.\" He squares the clipboard against his chest. \"You can decide for yourself what it means that I let him keep doing that. I have decided several things and none of them stayed decided.\""
+      "text": "Phil is quiet for a second. \"He never treated it as a set,\" he says. \"Not once, in nineteen weeks. He'd come in, take his coat off, put it over the back of the chair like he was home.\" He squares the clipboard against his chest. \"You can decide for yourself what it means that I let him keep doing that. I have decided several things and none of them stayed decided.\""
     },
     "theset": {
       "options": [
@@ -253,7 +253,7 @@
       "\"We can hold four minutes. After four minutes it's a different programme.\"",
       "\"Has anybody actually heard from {missing}, or are we all just assuming.\"",
       "sets the clipboard down, which he doesn't do, and rubs his eyes with two fingers.",
-      "\"I have never once missed one of these. Not one. In nineteen weeks.\""
+      "\"I have never missed one of these. Not one. In nineteen weeks.\""
     ],
     "clothing_layers": [
       "a pressed short-sleeve shirt with a station lanyard tucked into the pocket",

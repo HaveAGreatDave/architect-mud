@@ -1,6 +1,6 @@
 {
   "cost": 2000,
-  "description": "A second mind bolted alongside the first: cold, fast, and tireless. It runs the maths your meat is too slow for, and never once gets bored.",
+  "description": "A second mind bolted alongside the first: cold, fast, and tireless. It runs the maths your meat is too slow for, and never gets bored.",
   "failure_messages": {
     "burnout": "The co-processor browns out. For a long moment you can't remember what you were about to do.",
     "dead": "The second mind stops. You're alone in your head for the first time in a while, and it's quieter and slower.",

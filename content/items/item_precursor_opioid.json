@@ -1,9 +1,10 @@
 {
-  "description": "A tin of morphine base: tar-dark paste that smells of poppies and vinegar, the compounder's raw stock for every analgesic a clinic mixes on site. Sealed under a foil disc and a batch number somebody signed for.",
+  "description": null,
   "flags": {},
   "id": "item_precursor_opioid",
   "name": "tin of morphine base",
   "tags": {
+    "description": "A tin of morphine base: tar-dark paste that smells of poppies and vinegar, the compounder's raw stock for every analgesic a clinic mixes on site. Sealed under a foil disc and a batch number somebody signed for.",
     "reagent": true
   },
   "type": "chemical",

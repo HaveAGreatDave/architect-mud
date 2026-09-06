@@ -1,5 +1,5 @@
 {
-  "description": "A sealed steel drum of crude Grey. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
+  "description": null,
   "flags": {
     "cook_tier": 4,
     "prefill": {
@@ -12,6 +12,7 @@
   "name": "crude Grey",
   "tags": {
     "contraband": true,
+    "description": "A sealed steel drum of crude Grey. Titrate and stabilise into the finished product. Raw material: contraband; carrying it's manufacturing.",
     "fillable": 40,
     "raw_drug": true
   },
@@ -19,4 +20,3 @@
   "value": 63,
   "weight": 2
 }
-

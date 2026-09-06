@@ -1,10 +1,11 @@
 {
-  "description": "Two optics in a foam bed, lenses still filmed, cabling coiled beside them. They track the light when you move the box, which they shouldn't be able to do yet.",
+  "description": null,
   "flags": {},
   "id": "item_aug_ocular_array",
   "name": "a boxed ocular array",
   "tags": {
-    "augment_hardware": "aug_ocular_array"
+    "augment_hardware": "aug_ocular_array",
+    "description": "Two optics in a foam bed, lenses still filmed, cabling coiled beside them. They track the light when you move the box, which they shouldn't be able to do yet."
   },
   "type": "misc",
   "value": 650,

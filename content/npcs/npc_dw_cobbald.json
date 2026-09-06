@@ -45,7 +45,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I want to stop.\" He considers the distinction properly rather than defending himself. \"Those may be the same and I haven't been able to decide. Nobody else here wants it, if that's what you're asking. They want the switch. I want what's behind the switch, and they know that, and they have never once held it against me.\"\n\nHe almost smiles.\n\n\"Selke calls it my hobby.\""
+      "text": "\"I want to stop.\" He considers the distinction properly rather than defending himself. \"Those may be the same and I haven't been able to decide. Nobody else here wants it, if that's what you're asking. They want the switch. I want what's behind the switch, and they know that, and they have never held it against me.\"\n\nHe almost smiles.\n\n\"Selke calls it my hobby.\""
     },
     "evidence": {
       "actions": [],
@@ -110,7 +110,7 @@
       "text": "\"Hello again. Still fifty-three.\"",
       "text_by_relation": {
         "close": "\"Good, sit down.\" He puts the pencil behind his ear with the other one. \"I want to say a thing out loud and have somebody find the hole in it.\"",
-        "familiar": "He turns a sheet around so you can see it, which is the friendliest thing he does. \"Look at this and tell me it's wrong.\"",
+        "familiar": "He turns a sheet around so you can see it. \"Look at this and tell me it's wrong.\"",
         "known": "\"You're back. I have moved the water allowance, which changes everything and also nothing.\""
       }
     },

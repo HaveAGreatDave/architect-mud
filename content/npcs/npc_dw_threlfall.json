@@ -98,7 +98,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Loud is for people who aren't sure.\" She goes back to the board. \"Ask Imre why. He'll tell you at length and you won't enjoy it. Ask Selke why and she'll tell you in a sentence.\""
+      "text": "\"Loud is for people who aren't sure.\" Her eyes are on the board before you've turned round. \"Ask Imre why. He'll tell you at length and you won't enjoy it. Ask Selke why and she'll tell you in a sentence.\""
     },
     "nl_about": {
       "actions": [],
@@ -329,7 +329,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Gauge duty.\" She doesn't make it sound like an offer, because it isn't one. \"The chart in the gauge house is drawn by a pen on an arm off a float, and the drum it draws on is wound by whoever has the duty. Nobody has it today.\"\n\nShe rules a line and doesn't look up.\n\n\"It's an hour there and an hour back and there's nothing at the other end but a shed. I'm not going to pretend it's interesting.\""
+      "text": "\"Gauge duty.\" She doesn't make it sound like an offer, because it isn't one. \"The chart in the gauge house is drawn by a pen on an arm off a float, and the drum it draws on is wound by whoever has the duty. Nobody has it today.\"\n\nShe rules a line, and then another one.\n\n\"It's an hour there and an hour back and there's nothing at the other end but a shed. I'm not going to pretend it's interesting.\""
     },
     "nl_offer_2": {
       "actions": [],
@@ -414,7 +414,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There's a meter on the standpipe that isn't ours.\" She doesn't look up. \"It went on in the spring while four of us stood and watched, and it has been counting our water ever since, and once a month a man drives out to read it and drives away again.\"\n\n\"I want the number he's reading. Not the box. The number.\""
+      "text": "\"There's a meter on the standpipe that isn't ours.\" She keeps her eyes on the column. \"It went on in the spring while four of us stood and watched, and it has been counting our water ever since, and once a month a man drives out to read it and drives away again.\"\n\n\"I want the number he's reading. Not the box. The number.\""
     },
     "nl_offer_5": {
       "_vine": {
@@ -973,7 +973,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Imre's room.\" She doesn't look up. \"Fuel, loads, distances, and how many go. It's a long way east and it's a bad road the whole distance, and the number at the bottom is how many of us it takes to get there with enough left to do anything when we arrive.\"\n\nShe rules another line.\n\n\"He has had it down to forty and back up to sixty-one twice this year. It's currently fifty-three.\""
+      "text": "\"Imre's room.\" She keeps reading. \"Fuel, loads, distances, and how many go. It's a long way east and it's a bad road the whole distance, and the number at the bottom is how many of us it takes to get there with enough left to do anything when we arrive.\"\n\nShe rules another line.\n\n\"He has had it down to forty and back up to sixty-one twice this year. It's currently fifty-three.\""
     },
     "root": {
       "actions": [],
@@ -1283,7 +1283,7 @@
       "text_by_relation": {
         "close": "\"Good.\" She puts the chalk down properly, which from her is an event. \"Sit down and tell me something that isn't a number.\"",
         "familiar": "She hands you the straight edge without looking, the way you hand a thing to somebody who will hand it back. \"Hold that a moment.\"",
-        "known": "\"There you are. Shut the door on the belting, it whines.\""
+        "known": "\"Shut the door on the belting, it whines.\""
       }
     },
     "shutdown": {

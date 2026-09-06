@@ -1,5 +1,5 @@
 {
-  "description": "A blank authentication fob with no markings and no manufacturer. It answers one handshake convincingly enough, and the second time you try it the thing on the other end has already learned the trick.",
+  "description": null,
   "flags": {},
   "id": "item_null_ghost_key",
   "name": "ghost key",

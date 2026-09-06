@@ -1,5 +1,5 @@
 {
-  "description": "A lace-booster that runs your wetware past the red line. Smoke may be metaphorical.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_overclock",
@@ -10,6 +10,7 @@
   "id": "item_overclock",
   "name": "Neural Overclock",
   "tags": {
+    "description": "A lace-booster that runs your wetware past the red line. Smoke may be metaphorical.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 350,
   "weight": 20
 }
-

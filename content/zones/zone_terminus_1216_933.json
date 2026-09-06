@@ -5,7 +5,7 @@
     "The building ticks as it cools."
   ],
   "ambient_theme": "outdoors",
-  "description": "Two storeys of small square windows, every one of them the same size, and every one of them with the shutter set at exactly the same angle. Not a decision anybody made together, and not one anybody made separately either.",
+  "description": "Two storeys of small square windows, every one of them the same size, and every one of them with the shutter set at exactly the same angle.",
   "exits": {
     "north": "zone_terminus_1216_932",
     "south": "zone_exo_dorm"

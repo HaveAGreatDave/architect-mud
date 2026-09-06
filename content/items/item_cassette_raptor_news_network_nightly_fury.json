@@ -1,10 +1,11 @@
 {
-  "description": "A media cassette labeled \"Raptor News Network: Nightly Fury\".",
+  "description": null,
   "flags": {},
   "id": "item_cassette_raptor_news_network_nightly_fury",
   "name": "Cassette: Raptor News Network — Nightly Fury",
   "tags": {
     "broadcast_id": "bc_1783838567943",
+    "description": "A media cassette labeled \"Raptor News Network: Nightly Fury\".",
     "media_cassette": true,
     "unique": true
   },

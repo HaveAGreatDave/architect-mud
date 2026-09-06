@@ -87,7 +87,7 @@
     }
   ],
   "death_message": "The sewer rat lets out a wet squeal and goes limp in the muck.",
-  "description": "A bloated rat the size of a terrier, fur matted flat with grease, eyes filmed pale from a life without sun. It has never once been afraid of anything that walks upright.",
+  "description": "A bloated rat the size of a terrier, fur matted flat with grease, eyes filmed pale from a life without sun. It has never been afraid of anything that walks upright.",
   "dodge": 2,
   "faction": null,
   "flags": {

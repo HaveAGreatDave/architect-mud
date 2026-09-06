@@ -1,10 +1,11 @@
 {
-  "description": "A translucent-shell cassette, the ribbon inside faintly blue. DRIFTING, the label reads, in a soft rounded hand. Long, weightless, quietly heartbroken: the sound of falling asleep on a moving train.",
+  "description": null,
   "flags": {},
   "id": "item_amptape_drifting_mix",
   "name": "Drifting — cassette tape",
   "tags": {
     "amp_cassette": true,
+    "description": "A translucent-shell cassette, the ribbon inside faintly blue. DRIFTING, the label reads, in a soft rounded hand. Long, weightless, quietly heartbroken: the sound of falling asleep on a moving train.",
     "song_id": "aud_8e476da4-6bdf-48a3-8d15-5ba873f3af2b"
   },
   "type": "media",

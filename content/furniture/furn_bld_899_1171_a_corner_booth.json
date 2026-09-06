@@ -1,5 +1,5 @@
 {
-  "description": "A booth of cracked vinyl in the darkest corner, angled so its occupants can watch the door. This is where the Reach does its actual business.",
+  "description": "A booth of cracked vinyl in the darkest corner, angled so its occupants can watch the door. The Reach does its actual business here.",
   "flags": {
     "interactions": [
       "sit"

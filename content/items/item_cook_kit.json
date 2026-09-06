@@ -1,10 +1,11 @@
 {
-  "description": "A battered case of glassware, burners, and stained tubing. Lets you cook rough anywhere, badly.",
+  "description": null,
   "flags": {},
   "id": "item_cook_kit",
   "name": "portable cook kit",
   "tags": {
     "cook_kit": true,
+    "description": "A battered case of glassware, burners, and stained tubing. Lets you cook rough anywhere, badly.",
     "unique": true
   },
   "type": "chemical",

@@ -1,10 +1,11 @@
 {
-  "description": "A roll of tough grey composite that snaps taut into a one-person dinghy when you yank the inflation cord. Light enough to carry folded; just enough boat to get you across open water.",
+  "description": null,
   "flags": {},
   "id": "item_dinghy",
   "name": "packable dinghy",
   "tags": {
-    "boat": true
+    "boat": true,
+    "description": "A roll of tough grey composite that snaps taut into a one-person dinghy when you yank the inflation cord. Light enough to carry folded; just enough boat to get you across open water."
   },
   "type": "gear",
   "value": 180,

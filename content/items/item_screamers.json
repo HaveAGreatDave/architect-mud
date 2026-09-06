@@ -1,5 +1,5 @@
 {
-  "description": "A designer psychedelic that doesn't do gentle. Roll the dice.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_screamers",
@@ -10,6 +10,7 @@
   "id": "item_screamers",
   "name": "screamers",
   "tags": {
+    "description": "A designer psychedelic that doesn't do gentle. Roll the dice.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 100,
   "weight": 20
 }
-

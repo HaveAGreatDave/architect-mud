@@ -1,9 +1,10 @@
 {
-  "description": "A gram of dried, sticky cannabis flower in a little baggie. Useless as-is; roll it into a joint.",
+  "description": null,
   "flags": {},
   "id": "item_loose_cannabis",
   "name": "loose cannabis",
   "tags": {
+    "description": "A gram of dried, sticky cannabis flower in a little baggie. Useless as-is; roll it into a joint.",
     "drug": true
   },
   "type": "consumable",

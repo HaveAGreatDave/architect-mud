@@ -1,5 +1,5 @@
 {
-  "description": "A memory-editing synth. Sands the barbs off your worst recollections. Mostly.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_memhack",
@@ -10,6 +10,7 @@
   "id": "item_memhack",
   "name": "Memhack",
   "tags": {
+    "description": "A memory-editing synth. Sands the barbs off your worst recollections. Mostly.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 220,
   "weight": 20
 }
-

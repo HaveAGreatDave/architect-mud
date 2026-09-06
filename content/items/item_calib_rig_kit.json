@@ -1,10 +1,11 @@
 {
-  "description": "A proper bench kit in a hinged case: reference source, probe set, and a scope head that has been recalibrated more recently than most people in this city have been to a doctor.",
+  "description": null,
   "flags": {},
   "id": "item_calib_rig_kit",
   "name": "a calibration kit",
   "tags": {
-    "calibration_rig": true
+    "calibration_rig": true,
+    "description": "A proper bench kit in a hinged case: reference source, probe set, and a scope head that has been recalibrated more recently than most people in this city have been to a doctor."
   },
   "type": "misc",
   "value": 340,

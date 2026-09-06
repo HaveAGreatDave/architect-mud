@@ -135,7 +135,7 @@
     "\"Sit. Eat. Talk after.\"",
     "The stockpot lid lifts on a shoulder of steam and settles again."
   ],
-  "description": "A lean, fast cook in a sweat-through vest, working nine bowls at once with a ladle in one hand and a set of tongs in the other and never once looking at either. He doesn't do conversation during service. Between services he does very little else, and he's extremely good at it.",
+  "description": "A lean, fast cook in a sweat-through vest, working nine bowls at once with a ladle in one hand and a set of tongs in the other and never looking at either. He doesn't do conversation during service. Between services he does very little else, and he's extremely good at it.",
   "dialogue_tree": {
     "bye": {
       "options": [],

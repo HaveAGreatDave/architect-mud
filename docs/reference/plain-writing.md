@@ -145,6 +145,11 @@ does: NPC dialogue, room descriptions, item text, quest text, emotes, broadcast
 copy and death messages follow this spec as well as
 [docs/story.md](../story.md). Where the two disagree about voice, story.md wins.
 
+**The specific habits to check against are catalogued in
+[ai-fiction-tells.md](ai-fiction-tells.md)** (adopted 2026-09-06) — 171 of them,
+from "not X, but Y" and adjective triplets through to narrators who explain the
+reader's own reaction. This doc stays the rule; that one is the checklist.
+
 The rule that decides most cases is already above: scaffolding goes **when it
 adds no meaning**. In fiction that line falls between two things that look alike.
 

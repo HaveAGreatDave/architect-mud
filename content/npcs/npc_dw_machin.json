@@ -79,7 +79,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Yes.\" No hesitation at all, and no ceremony either.\n\n\"And not for his reason. I have never needed his reason.\" She picks the fine file up and looks along the edge of it. \"There's a thing on the far side of the world that decided how much water comes down this valley, and it has never once been asked, and it doesn't know my name, and it'll still be deciding it when my arm is on that shelf.\n\n\"I don't care whether it's real. I care that nobody chose it.\"\n\nShe puts the file back in its place in the rack, third from the left, where it lives.\n\n\"Imre wants to stop existing. I want to stop asking. We're going the same way, so we're going together, and on the road we'll argue about the rota.\""
+      "text": "\"Yes.\" No hesitation at all, and no ceremony either.\n\n\"And not for his reason. I have never needed his reason.\" She picks the fine file up and looks along the edge of it. \"There's a thing on the far side of the world that decided how much water comes down this valley, and it has never been asked, and it doesn't know my name, and it'll still be deciding it when my arm is on that shelf.\n\n\"I don't care whether it's real. I care that nobody chose it.\"\n\nShe puts the file back in its place in the rack, third from the left, where it lives.\n\n\"Imre wants to stop existing. I want to stop asking. We're going the same way, so we're going together, and on the road we'll argue about the rota.\""
     },
     "imre": {
       "actions": [],
@@ -169,7 +169,7 @@
       ],
       "text": "\"You again. Hold this.\"",
       "text_by_relation": {
-        "close": "\"There you are.\" She sets the brush down, which she does for almost nobody. \"Go on then. What's bothering you.\"",
+        "close": "\"Look who it is.\" She sets the brush down, which she does for almost nobody. \"Go on then. What's bothering you.\"",
         "familiar": "She nods at the stool without stopping. \"Sit. You can pass me things and be agreed with.\"",
         "known": "\"Good, a witness. The rota is still wrong.\""
       }

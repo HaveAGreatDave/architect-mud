@@ -1,9 +1,10 @@
 {
-  "description": "The gear teeth are rounded off and the housing is cracked along its length. Scrap alloy and a good bearing, if you're patient.",
+  "description": null,
   "flags": {},
   "id": "item_ruined_sprint_actuators",
   "name": "a stripped leg servo",
   "tags": {
+    "description": "The gear teeth are rounded off and the housing is cracked along its length. Scrap alloy and a good bearing, if you're patient.",
     "no_install": true,
     "no_repair": true,
     "scrap": true

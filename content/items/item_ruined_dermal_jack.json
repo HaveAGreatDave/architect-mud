@@ -1,9 +1,10 @@
 {
-  "description": "The port is fused into a black bead of its own sleeve. It comes out of a skull looking like a spent round.",
+  "description": null,
   "flags": {},
   "id": "item_ruined_dermal_jack",
   "name": "a shorted dermal jack",
   "tags": {
+    "description": "The port is fused into a black bead of its own sleeve. It comes out of a skull looking like a spent round.",
     "no_install": true,
     "no_repair": true,
     "scrap": true

@@ -4,7 +4,7 @@
   "chitchat": [
     "reads a bearing off his slate and thumbs it through to the gun.",
     "\"Low and slow, they said. They always come in low and slow.\"",
-    "\"Twelve years on this slate. Sky's never once been the problem.\""
+    "\"Twelve years on this slate. Sky's never been the problem.\""
   ],
   "description": "A Coldwater spotter gone grey at the temples, slate of overlapping radar returns propped on one knee and a headset clamped over the other ear. He calls bearings to the gunner in a flat, bored monotone, and has plainly been doing it long enough that nothing arriving on the slate could surprise him. A strip of tape on the casing reads ROOKE in marker, in case anyone forgets.",
   "dialogue_tree": {
@@ -85,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "He keeps one eye on the slate and doesn't look up. \"Unless you're here to help work the guns, you're in the way.\" A beat, flatter. \"Rooke. Ansel Rooke, if the gunner's asking, which she isn't.\" Another beat. \"Although.\""
+      "text": "He keeps one eye on the slate and the rest of him on the room. \"Unless you're here to help work the guns, you're in the way.\" A beat, flatter. \"Rooke. Ansel Rooke, if the gunner's asking, which she isn't.\" Another beat. \"Although.\""
     },
     "terms": {
       "options": [

@@ -1,5 +1,5 @@
 {
-  "description": "A squat ceramic block on a wire frame, with a handle and a dial nobody trusts.",
+  "description": null,
   "flags": {
     "heater_battery_min": 720,
     "heater_target_c": 20,

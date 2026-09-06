@@ -135,7 +135,7 @@
     "\"On the tab? Fine. Fine. Don't make a thing of it.\"",
     "The radio in the back room changes to something nobody asked for and nobody turns it off."
   ],
-  "description": "An old grocer in a cardigan with the elbows gone, who runs a tab for half of Marrow Street and has never once written down what he's actually owed by any of them, on the grounds that the ledger is for the ones who'd be embarrassed to be reminded. He knows what everyone on this street eats, and therefore roughly how they're doing.",
+  "description": "An old grocer in a cardigan with the elbows gone, who runs a tab for half of Marrow Street and has never written down what he's actually owed by any of them, on the grounds that the ledger is for the ones who'd be embarrassed to be reminded. He knows what everyone on this street eats, and therefore roughly how they're doing.",
   "dialogue_tree": {
     "bye": {
       "options": [],

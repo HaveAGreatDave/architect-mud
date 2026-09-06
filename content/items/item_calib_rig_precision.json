@@ -1,10 +1,11 @@
 {
-  "description": "Ascendant issue, and it announces itself: machined case, sealed reference, a probe that finds the port on its own. The tolerances printed inside the lid aren't boastful, which is somehow worse.",
+  "description": null,
   "flags": {},
   "id": "item_calib_rig_precision",
   "name": "a precision calibration kit",
   "tags": {
-    "calibration_rig": true
+    "calibration_rig": true,
+    "description": "Ascendant issue, and it announces itself: machined case, sealed reference, a probe that finds the port on its own. The tolerances printed inside the lid aren't boastful, which is somehow worse."
   },
   "type": "misc",
   "value": 900,

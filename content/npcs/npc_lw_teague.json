@@ -151,7 +151,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Should it.\"\n\nNot a question. She checks the tunnel behind you.\n\n\"I have got a rifle, a stretch, and eleven years of walking it, and in all of that I have never once had cause to change my mind about either of them.\"\n\n\"Bring it up with Rennick. He'll agree with you and he'll be very good about it, and then he'll come down here on a Thursday and walk behind me.\""
+      "text": "\"Should it.\"\n\nNot a question. She checks the tunnel behind you.\n\n\"I have got a rifle, a stretch, and eleven years of walking it, and in all of that I have never had cause to change my mind about either of them.\"\n\n\"Bring it up with Rennick. He'll agree with you and he'll be very good about it, and then he'll come down here on a Thursday and walk behind me.\""
     },
     "earned_bother_argue": {
       "_vine": {
@@ -426,7 +426,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"No.\"\n\nNo heat in it. She has been asked this before and it has never once landed.\n\n\"A person is a thing you can talk to and come to an arrangement with. I have tried, twice, early on. I don't think either of them knew what a word was by then.\"\n\n\"You'll tell me the drink did that and not them. It did. They bought it.\""
+      "text": "\"No.\"\n\nNo heat in it. She has been asked this before and it has never landed.\n\n\"A person is a thing you can talk to and come to an arrangement with. I have tried, twice, early on. I don't think either of them knew what a word was by then.\"\n\n\"You'll tell me the drink did that and not them. It did. They bought it.\""
     },
     "earned_still_tried": {
       "_vine": {
@@ -563,7 +563,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"And do what with them.\"\n\nNot a question, and then she waits — actually waits — in case you have one.\n\n\"That isn't me being clever with you. If there's somewhere in this city that'll take nine families who look like that, say it now and I'll walk them there myself on my own time.\"\n\nShe gives you about four seconds.\n\n\"No. Nobody has ever had one.\""
+      "text": "\"And do what with them.\"\n\nNot a question, and then she waits, actually waits, in case you have one.\n\n\"That isn't me being clever with you. If there's somewhere in this city that'll take nine families who look like that, say it now and I'll walk them there myself on my own time.\"\n\nShe gives you about four seconds.\n\n\"No. Nobody has ever had one.\""
     },
     "lantern": {
       "_vine": {
@@ -1069,7 +1069,7 @@
           "next": "teague_left"
         }
       ],
-      "text": "The lantern stops swinging.\n\nShe has kept her body angled to the tunnel the whole time you have been talking, watching past you, and now she turns and looks straight at you instead, which is the first careless thing she has done.\n\n\"I have. Out loud, to your face, and I'm not going to take it back to make this easier.\"\n\n\"Now I'm going to say the next part once. I'm going up this tunnel in a minute. You can come, or you can keep going at me and I'll go on my own, and you'll be down here without a light and without me.\""
+      "text": "The lantern stops swinging.\n\nShe has kept her body angled to the tunnel the whole time you have been talking, watching past you, and now she turns and looks straight at you instead.\n\n\"I have. Out loud, to your face, and I'm not going to take it back to make this easier.\"\n\n\"Now I'm going to say the next part once. I'm going up this tunnel in a minute. You can come, or you can keep going at me and I'll go on my own, and you'll be down here without a light and without me.\""
     },
     "the_flask": {
       "_vine": {
@@ -1261,7 +1261,7 @@
           "next": "the_flask_sea"
         }
       ],
-      "text": "\"Until then they stay out.\"\n\nShe lists it like a rota, because to her it's one.\n\n\"Not the city. Not inside the wall, not on the Row, not on a tram. And not down here either — not this stretch, not the Under, not one yard of it.\"\n\n\"People tell me the Under is nobody's. It's ours. It's ours because we walk it every night in the dark and nobody else will, and that's how a place becomes somebody's.\""
+      "text": "\"Until then they stay out.\"\n\nShe lists it like a rota, because to her it's one.\n\n\"Not the city. Not inside the wall, not on the Row, not on a tram. And not down here either. Not this stretch, not the Under, not one yard of it.\"\n\n\"People tell me the Under is nobody's. It's ours. It's ours because we walk it every night in the dark and nobody else will, and that's how a place becomes somebody's.\""
     },
     "the_flask_morning": {
       "_vine": {
@@ -1859,7 +1859,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Once. Years ago, and not down here — out in the wastes.\"\n\n\"Three of us went to see what we were dealing with. We got within a mile of a camp of theirs and sat up on a rise and watched it for a day and a half.\"\n\n\"I had gone out there expecting something organised. Somebody in charge, a rule, an order to it. There was none of that. Fires going with nobody at them. People asleep on open ground in the middle of the afternoon. Somebody played the same instrument for about nine hours and nobody stopped him.\""
+      "text": "\"Once. Years ago, and not down here. Out in the wastes.\"\n\n\"Three of us went to see what we were dealing with. We got within a mile of a camp of theirs and sat up on a rise and watched it for a day and a half.\"\n\n\"I had gone out there expecting something organised. Somebody in charge, a rule, an order to it. There was none of that. Fires going with nobody at them. People asleep on open ground in the middle of the afternoon. Somebody played the same instrument for about nine hours and nobody stopped him.\""
     },
     "where_from_camp_fair": {
       "_vine": {
@@ -1962,7 +1962,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"East is theirs. All of it past a certain point, and the point moves.\"\n\n\"My stretch is mine. The Blind is ours. After that there's about a mile that's nobody's and I don't walk it. Then it's theirs, and it stays theirs the whole way under the Curtain and out to the bay.\"\n\n\"The wall stops at the ground. Nobody ever built it downward. So there has been a road from the wastes into this city the entire time and it has never once been watched.\""
+      "text": "\"East is theirs. All of it past a certain point, and the point moves.\"\n\n\"My stretch is mine. The Blind is ours. After that there's about a mile that's nobody's and I don't walk it. Then it's theirs, and it stays theirs the whole way under the Curtain and out to the bay.\"\n\n\"The wall stops at the ground. Nobody ever built it downward. So there has been a road from the wastes into this city the entire time and it has never been watched.\""
     },
     "where_from_east_handing": {
       "_vine": {
@@ -2103,7 +2103,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then there are forty of us and a door.\"\n\nShe checks the tunnel behind you.\n\n\"I don't know how many of them there are. That isn't me being dramatic, it's the actual answer. Eleven years and I have never once seen the same face twice down here.\""
+      "text": "\"Then there are forty of us and a door.\"\n\nShe checks the tunnel behind you.\n\n\"I don't know how many of them there are. That isn't me being dramatic, it's the actual answer. Eleven years and I have never seen the same face twice down here.\""
     },
     "where_from_leave": {
       "_vine": {
@@ -2127,7 +2127,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Three things, and you learn all three in your first year.\"\n\n\"They leave food out. Not a store — a plate, set down in the middle of a floor, for something. I have never seen what comes for it and I have waited.\"\n\n\"They leave teeth. Pressed into the mortar in rows, at about the height of your face. Human ones, and I know that because I have looked.\"\n\n\"And they leave their dead.\"\n\nShe doesn't go on."
+      "text": "\"Three things, and you learn all three in your first year.\"\n\n\"They leave food out. Not a store. A plate, set down in the middle of a floor, for something. I have never seen what comes for it and I have waited.\"\n\n\"They leave teeth. Pressed into the mortar in rows, at about the height of your face. Human ones, and I know that because I have looked.\"\n\n\"And they leave their dead.\"\n\nShe doesn't go on."
     },
     "where_from_north": {
       "_vine": {

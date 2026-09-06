@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "A single table sixty feet long under a run of sailcloth, made from eleven different tables and painted once, badly, a long time ago. This is where the town eats when it eats together, which the state of the benches suggests is often.",
+  "description": "A single table sixty feet long under a run of sailcloth, made from eleven different tables and painted once, badly, a long time ago. The town eats here when it eats together, which the state of the benches suggests is often.",
   "exits": {
     "east": "zone_scw_1049_978",
     "north": "zone_scw_1048_977",

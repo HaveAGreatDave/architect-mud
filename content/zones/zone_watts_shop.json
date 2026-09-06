@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#241d16",
-  "description": "A repair bench runs the length of the room under a rack of task lamps, every one of them aimed at the same square foot. Dead machines are stacked along the far wall in the order they came in, each with a tag wired to it. The floor is swept. The bench is not, and never will be, because a swept bench is a bench nobody is using.",
+  "description": "A repair bench runs the length of the room under a rack of task lamps, every one of them aimed at the same square foot. Dead machines are stacked along the far wall in the order they came in, each with a tag wired to it. The floor is swept. The bench is not.",
   "exits": {
     "down": "zone_util_zone_watts_shop",
     "east": "zone_district_916_907",

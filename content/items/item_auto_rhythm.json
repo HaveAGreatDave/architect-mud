@@ -1,10 +1,11 @@
 {
-  "description": "A phase-locked pulse driver that sets the compound's lattice on the beat, hands-free. Automates the SET (rhythm) stage of a splice.",
+  "description": null,
   "flags": {},
   "id": "item_auto_rhythm",
   "name": "lattice sequencer",
   "tags": {
     "automates": "rhythm",
+    "description": "A phase-locked pulse driver that sets the compound's lattice on the beat, hands-free. Automates the SET (rhythm) stage of a splice.",
     "lab_upgrade": true
   },
   "type": "device",

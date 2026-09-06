@@ -16,7 +16,7 @@
       "looks": [
         "Many. Even. Going up out of it.",
         "You have done a lot of them and there are a lot of them.",
-        "They're getting easier, which is how you know."
+        "They're getting easier."
       ],
       "name": "the stairs"
     },
@@ -29,5 +29,5 @@
       "name": "the pieces coming back"
     }
   ],
-  "weather": "It gets fractionally less close with every flight, which is how you know you're getting out."
+  "weather": "It gets fractionally less close with every flight."
 }

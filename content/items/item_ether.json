@@ -1,5 +1,5 @@
 {
-  "description": "A pint of raw ether and a rag. Not the smart choice, but here we are.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_ether",
@@ -10,6 +10,7 @@
   "id": "item_ether",
   "name": "ether",
   "tags": {
+    "description": "A pint of raw ether and a rag. Not the smart choice, but here we are.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 30,
   "weight": 20
 }
-

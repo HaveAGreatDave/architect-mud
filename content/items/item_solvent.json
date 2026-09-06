@@ -1,11 +1,12 @@
 {
-  "description": "A brown glass bottle of CLEAN BREAK reagent-grade acetone, the label a cheerful hardware-aisle orange gone brittle with age. Strips lacquer, lifts adhesive, degreases a bench, and takes a stain off a floor faster than any mop. Directions: ventilate, wear gloves, don't smoke. One bottle at a time.",
+  "description": null,
   "flags": {},
   "id": "item_solvent",
   "name": "bottle of Clean Break acetone",
   "tags": {
     "cleaning_tool": true,
     "consumable_cleaner": true,
+    "description": "A brown glass bottle of CLEAN BREAK reagent-grade acetone, the label a cheerful hardware-aisle orange gone brittle with age. Strips lacquer, lifts adhesive, degreases a bench, and takes a stain off a floor faster than any mop. Directions: ventilate, wear gloves, don't smoke. One bottle at a time.",
     "reagent": true
   },
   "type": "chemical",

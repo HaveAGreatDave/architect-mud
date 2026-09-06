@@ -1,11 +1,11 @@
 {
-  "description": "Round, red, and startlingly convincing. Somebody's hydroponic pride. Good in your hand, good in a pan, ruined by anyone who won't leave it alone.",
+  "description": null,
   "flags": {},
   "id": "item_tomato",
   "name": "tomato",
   "tags": {
     "consumable": true,
-    "description": "Round, red, and startlingly convincing. Somebody's hydroponic pride. Good in your hand, good in a pan, ruined by anyone who won't leave it alone.",
+    "description": "Round, red, and startlingly convincing. Somebody's hydroponic pride. Good in your hand, good in a pan.",
     "food_profile": "soft_vegetable",
     "perishable": true,
     "restore_hunger": 8,

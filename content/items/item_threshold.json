@@ -1,9 +1,10 @@
 {
-  "description": "A single breath of vaporised DMT-analog. Ten thousand years in four hundred seconds.",
+  "description": null,
   "flags": {},
   "id": "item_threshold",
   "name": "The Threshold",
   "tags": {
+    "description": "A single breath of vaporised DMT-analog. Ten thousand years in four hundred seconds.",
     "drug": true
   },
   "type": "consumable",

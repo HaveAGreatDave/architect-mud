@@ -1,11 +1,12 @@
 {
-  "description": "A matchbox of black plastic with a single dark lens. No picture; it just whispers to your deck the moment something warm moves past.",
+  "description": null,
   "flags": {},
   "id": "item_motion_sensor",
   "name": "Motion Tripwire",
   "tags": {
     "battery_max": 576,
     "concealment_base": 5,
+    "description": "A matchbox of black plastic with a single dark lens. No picture; it just whispers to your deck the moment something warm moves past.",
     "device_kind": "motion_sensor",
     "device_tier": 1,
     "hack_difficulty": 4,

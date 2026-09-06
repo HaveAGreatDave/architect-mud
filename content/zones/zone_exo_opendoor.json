@@ -7,7 +7,7 @@
     "Wind comes down the hall from the propped door and nobody moves to shut it."
   ],
   "ambient_theme": "indoors",
-  "description": "A hall with six cells off it, each with a bed made up, a stool, a shelf and a jug. Nothing in any of them belongs to anybody. A ledger lies open on a stand by the door and a pen beside it, and the ledger is a list of first names and dates and nothing else, going back years, in a dozen hands.\n\nAt the far end there's a fire lit and a chair pulled up to it, and neither is for anyone in particular.",
+  "description": "A hall with six cells off it, each with a bed made up, a stool, a shelf and a jug. Nothing in any of them belongs to anybody. A ledger lies open on a stand by the door, and a pen beside it.\n\nAt the far end there's a fire lit and a chair pulled up to it, and neither is for anyone in particular.",
   "exits": {
     "down": "zone_util_zone_exo_opendoor",
     "south": "zone_terminus_1216_939"

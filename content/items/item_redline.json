@@ -1,5 +1,5 @@
 {
-  "description": "Military-grade cyber-amphetamine. The label is mostly warnings.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_redline",
@@ -10,6 +10,7 @@
   "id": "item_redline",
   "name": "Redline",
   "tags": {
+    "description": "Military-grade cyber-amphetamine. The label is mostly warnings.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 120,
   "weight": 20
 }
-

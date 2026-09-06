@@ -205,7 +205,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then it stops being a gamble and starts being a decision.\" He shrugs. \"That's the entire difference between the two of us and whatever is out in that alley. It isn't the gun. Anyone can hold the gun. It's that you get to choose where it goes and they do not.\"\nHe goes back to the crate.\n\"Come ask me again when you have been swinging a while. I'll tell you the same thing and it'll be worth more.\""
+      "text": "\"Then it stops being a gamble and starts being a decision.\" He shrugs. \"That's the entire difference between the two of us and whatever is out in that alley. It isn't the gun. Anyone can hold the gun. It's that you get to choose where it goes and they do not.\"\nHe crouches back over the crate.\n\"Come ask me again when you have been swinging a while. I'll tell you the same thing and it'll be worth more.\""
     },
     "bye": {
       "_vine": {
@@ -214,7 +214,7 @@
       },
       "actions": [],
       "options": [],
-      "text": "\"Mind the alley. And the sky. And the water. Actually, mind everything.\" He goes back to watching the doors."
+      "text": "\"Mind the alley. And the sky. And the water. Actually, mind everything.\" His eyes go to the doors and stay there."
     },
     "deep_tip": {
       "_vine": {
@@ -338,7 +338,7 @@
           "next": "bye"
         }
       ],
-      "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you. Upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never once left me in the dark. Graduation gift. Consider yourself a regular.\""
+      "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you. Upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never left me in the dark. Graduation gift. Consider yourself a regular.\""
     },
     "root": {
       "_vine": {
@@ -460,7 +460,7 @@
       ],
       "text_by_relation": {
         "familiar": [
-          "\"There you are.\" He’s already reaching for the cells drawer. \"What’s it this time?\"",
+          "\"Right, you.\" He’s already reaching for the cells drawer. \"What’s it this time?\"",
           "\"Still upright. Good.\" He nods at the crates. \"Take what you need, we’ll square it after.\""
         ],
         "first": "\"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\"",

@@ -1,9 +1,10 @@
 {
-  "description": "The lattice has gone brittle and torn along a dozen lines. It would stop nothing now, and it weighs the same.",
+  "description": null,
   "flags": {},
   "id": "item_ruined_subdermal_weave",
   "name": "a shredded subdermal weave",
   "tags": {
+    "description": "The lattice has gone brittle and torn along a dozen lines. It would stop nothing now, and it weighs the same.",
     "no_install": true,
     "no_repair": true,
     "scrap": true

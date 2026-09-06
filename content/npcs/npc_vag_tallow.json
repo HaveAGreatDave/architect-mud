@@ -61,7 +61,7 @@
           "next": "root"
         }
       ],
-      "text": "\"That's Cathode.\" Dorrit doesn't look up. \"Comes and goes. Doesn't want feeding and takes it as an insult if you offer.\" <span class=\"text-dim\">He squares a row.</span> \"I named her off the leg. Seemed like the thing to do and nobody else was going to.\""
+      "text": "\"That's Cathode.\" Dorrit keeps his eyes down. \"Comes and goes. Doesn't want feeding and takes it as an insult if you offer.\" <span class=\"text-dim\">He squares a row.</span> \"I named her off the leg. Seemed like the thing to do and nobody else was going to.\""
     },
     "cat_call": {
       "_vine": {
@@ -74,7 +74,7 @@
           "next": "root"
         }
       ],
-      "text": "\"You shout her name.\" Dorrit says this as though it were obvious, which it is. \"<span class=\"action-link verb-teach\" data-action=\"Cathode!\" title=\"Cathode!\">Cathode!</span>, or <span class=\"action-link verb-teach\" data-action=\"Here Cathode!\" title=\"Here Cathode!\">Here Cathode!</span> if you're feeling formal about it. Anywhere in the city, she's got ears on her.\" <span class=\"text-dim\">He goes back to the blanket.</span> \"She'll not come, mind. Nine times in ten she'll not come. That's not the shouting being wrong, that's a cat.\"\n\n\"And don't stand there doing it over and over,\" he adds, without heat. \"She's not a machine with a slot in it. You ask once and you get on with your day, and one time in a while you'll turn round and she'll be sat behind you looking put out about it.\""
+      "text": "\"You shout her name.\" Dorrit says this as though it were obvious, which it is. \"<span class=\"action-link verb-teach\" data-action=\"Cathode!\" title=\"Cathode!\">Cathode!</span>, or <span class=\"action-link verb-teach\" data-action=\"Here Cathode!\" title=\"Here Cathode!\">Here Cathode!</span> if you're feeling formal about it. Anywhere in the city, she's got ears on her.\" <span class=\"text-dim\">He smooths the blanket out again.</span> \"She'll not come, mind. Nine times in ten she'll not come. That's not the shouting being wrong, that's a cat.\"\n\n\"And don't stand there doing it over and over,\" he adds, without heat. \"She's not a machine with a slot in it. You ask once and you get on with your day, and one time in a while you'll turn round and she'll be sat behind you looking put out about it.\""
     },
     "cat_paid": {
       "_vine": {

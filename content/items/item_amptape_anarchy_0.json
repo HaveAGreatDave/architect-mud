@@ -1,10 +1,11 @@
 {
-  "description": "A cassette mummified in black electrical tape, ANARCHY ZERO scratched into the shell with a knife. Acid-line agitprop from before the towers went dark. Still illegal in three sectors, allegedly.",
+  "description": null,
   "flags": {},
   "id": "item_amptape_anarchy_0",
   "name": "Anarchy Zero — cassette tape",
   "tags": {
     "amp_cassette": true,
+    "description": "A cassette mummified in black electrical tape, ANARCHY ZERO scratched into the shell with a knife. Acid-line agitprop from before the towers went dark. Still illegal in three sectors, allegedly.",
     "song_id": "aud_76773810-868a-4bcd-8c34-2baf3729d371"
   },
   "type": "media",

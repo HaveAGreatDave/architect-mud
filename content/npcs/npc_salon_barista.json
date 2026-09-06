@@ -136,7 +136,7 @@
     "The lever comes down with a sound like a door closing somewhere expensive.",
     "\"Rain's coming in over the yards. You get about nine minutes' warning from up here.\""
   ],
-  "description": "A composed woman in her fifties working a sixty-year-old lever machine with the unhurried economy of somebody who has never once had to rush it. She wears the counter like a uniform and the view like it's nothing. She knows which chair every regular takes and what they drink, and she has never written either down.",
+  "description": "A composed woman in her fifties working a sixty-year-old lever machine with the unhurried economy of somebody who has never had to rush it. She wears the counter like a uniform and the view like it's nothing. She knows which chair every regular takes and what they drink, and she has never written either down.",
   "dialogue_tree": {
     "board": {
       "options": [
@@ -183,7 +183,7 @@
       "text": "\"Beans that grew in dirt, on a hillside, under weather.\" She lets that sit. \"There are four places left doing that and I'm not going to tell you which one sells to me. Everything downstairs is grown in a tray under a lamp, and it tastes like a tray under a lamp.\" The lever comes down. \"That's the whole secret. It's not a good secret, it's just expensive.\""
     },
     "root": {
-      "familiar": "\"Yours is coming.\" The lever is already down. She doesn't look up. \"Board by the glass is free, if you're playing. I kept it free.\"",
+      "familiar": "\"Yours is coming.\" The lever is already down. Her eyes stay on the pour. \"Board by the glass is free, if you're playing. I kept it free.\"",
       "first": "The woman behind the counter watches you take in the window first, the way everyone does. \"They all look at the city,\" she says. \"Give it a week and you'll look at the boards instead.\" She sets a cup down on the marble without being asked. \"Thea Wrenn. I've been up here eighteen years. Coffee's eighteen credits and worth it once.\"",
       "known": "\"Back, then.\" Thea reaches for a cup before you've said anything. \"Same as last time, or are we being adventurous?\"",
       "options": [

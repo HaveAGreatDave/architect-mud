@@ -145,7 +145,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"What about it.\"\n\nShe says it flatly, and waits, and doesn't help you.\n\n\"It's four hours on the poles in the wet and eight in the dry, and it's a rotten job, and it's done because it works. Nobody has come up that road with a truck and a rope in eleven years. Before it, they came twice a season.\"\n\nShe goes back to the ledger.\n\n\"You may think what you like about it. Most do. That's rather the arrangement.\""
+      "text": "\"What about it.\"\n\nShe says it flatly, and waits, and doesn't help you.\n\n\"It's four hours on the poles in the wet and eight in the dry, and it's a rotten job, and it's done because it works. Nobody has come up that road with a truck and a rope in eleven years. Before it, they came twice a season.\"\n\nThe ledger opens again in front of her.\n\n\"You may think what you like about it. Most do. That's rather the arrangement.\""
     },
     "root": {
       "actions": [],
@@ -336,7 +336,7 @@
       ],
       "text": "\"You're back. The chair is there.\"",
       "text_by_relation": {
-        "close": "\"There you are.\" She closes the ledger, which from her is a public holiday. \"Tell me something that isn't about water.\"",
+        "close": "\"Sit down.\" She closes the ledger, and nothing else in the day gets that. \"Tell me something that isn't about water.\"",
         "familiar": "She waves a hand at the cushions without looking up from the rota. \"Go on, sit. I'm nearly done being important.\"",
         "known": "\"Ah. Shut the flap, would you, the grit gets in.\""
       }
@@ -641,7 +641,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There's a pool east of the wall.\"\n\nShe says it the way she says the rota.\n\n\"We don't drink from it and we don't fence it off, and both of those are on purpose. It sits at seventy. You'll be sick for a week and you may be sick for longer, and some of what it does to you doesn't come off afterwards, and there's no version of this where I tell you it's safe.\"\n\nA pause, and she does the thing she does, which is the arithmetic out loud.\n\n\"Four hours a week for the masks. A week in bed for the pool. I have done this sum too. You aren't obliged to reach the same answer I did.\""
+      "text": "\"There's a pool east of the wall.\"\n\nShe says it the way she says the rota.\n\n\"We don't drink from it and we don't fence it off, and both of those are on purpose. It sits at seventy. You'll be sick for a week and you may be sick for longer, and some of what it does to you doesn't come off afterwards, and there's no version of this where I tell you it's safe.\"\n\nA pause, and she does the arithmetic out loud.\n\n\"Four hours a week for the masks. A week in bed for the pool. I have done this sum too. You aren't obliged to reach the same answer I did.\""
     },
     "wild_offer4": {
       "_vine": {

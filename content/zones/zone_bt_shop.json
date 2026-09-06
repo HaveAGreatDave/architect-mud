@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#8a4a4a",
-  "description": "A butcher's shop that has never once pretended to be anything gentler. Carcasses hang nose-down from a ceiling rail, spaced like coats in a hall, and the chilled case below them is laid out in ranked trays under a light chosen to flatter red. The floor slopes to a drain in the middle of the room. Sawdust goes down every morning and comes up every night, and the smell that survives both is smoke, cold fat, and iron. MEAT YOUR MAKER is painted on the window in a cheerful red script that somebody clearly enjoyed getting away with.",
+  "description": "A butcher's shop that has never pretended to be anything gentler. Carcasses hang nose-down from a ceiling rail, spaced like coats in a hall, and the chilled case below them is laid out in ranked trays under a light chosen to flatter red. The floor slopes to a drain in the middle of the room. Sawdust goes down every morning and comes up every night, and the smell that survives both is smoke, cold fat, and iron. MEAT YOUR MAKER is painted on the window in a cheerful red script that somebody clearly enjoyed getting away with.",
   "exits": {
     "north": "zone_bt_chill",
     "west": "zone_district_920_912"

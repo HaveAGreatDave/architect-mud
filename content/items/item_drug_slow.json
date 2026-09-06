@@ -1,5 +1,5 @@
 {
-  "description": "A thick blue syrup. Time gets soft.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_slow",
@@ -19,4 +19,3 @@
   "value": 15,
   "weight": 200
 }
-

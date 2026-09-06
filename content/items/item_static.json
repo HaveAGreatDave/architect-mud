@@ -1,5 +1,5 @@
 {
-  "description": "A nootropic mist for the overclocked mind. Clarity in a can, with interest.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_static",
@@ -10,6 +10,7 @@
   "id": "item_static",
   "name": "Static",
   "tags": {
+    "description": "A nootropic mist for the overclocked mind. Clarity in a can, with interest.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 90,
   "weight": 20
 }
-

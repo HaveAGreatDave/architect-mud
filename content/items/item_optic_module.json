@@ -1,10 +1,11 @@
 {
-  "description": "A pea-sized camera sensor on a flex ribbon, salvaged from a dead phone. The eye of any cam worth planting.",
+  "description": null,
   "flags": {},
   "id": "item_optic_module",
   "name": "Optic Module",
   "tags": {
-    "component": true
+    "component": true,
+    "description": "A pea-sized camera sensor on a flex ribbon, salvaged from a dead phone. The eye of any cam worth planting."
   },
   "type": "component",
   "value": 60,

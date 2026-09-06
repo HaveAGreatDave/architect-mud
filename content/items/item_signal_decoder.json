@@ -1,5 +1,5 @@
 {
-  "description": "A drone core reflashed into something it was never asked to be, wired to a fragment of Architect substrate and packed into a case that used to hold a glucose meter. It doesn't display anything. It gets warm, and its whine changes pitch when there's something nearby to listen to.",
+  "description": null,
   "flags": {},
   "id": "item_signal_decoder",
   "name": "Architect signal decoder",

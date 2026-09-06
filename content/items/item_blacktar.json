@@ -1,5 +1,5 @@
 {
-  "description": "Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_blacktar",
@@ -10,6 +10,7 @@
   "id": "item_blacktar",
   "name": "blacktar",
   "tags": {
+    "description": "Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 210,
   "weight": 20
 }
-

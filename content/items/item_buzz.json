@@ -1,9 +1,10 @@
 {
-  "description": "A cheap street stim in a cracked ampoule. Hits fast, fades faster.",
+  "description": null,
   "flags": {},
   "id": "item_buzz",
   "name": "buzz",
   "tags": {
+    "description": "A cheap street stim in a cracked ampoule. Hits fast, fades faster.",
     "drug": true
   },
   "type": "consumable",

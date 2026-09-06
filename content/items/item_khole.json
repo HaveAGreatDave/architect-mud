@@ -1,9 +1,10 @@
 {
-  "description": "A dissociative dust that unplugs you from your own body for a while.",
+  "description": null,
   "flags": {},
   "id": "item_khole",
   "name": "k-hole",
   "tags": {
+    "description": "A dissociative dust that unplugs you from your own body for a while.",
     "drug": true,
     "soluble": true
   },
@@ -11,4 +12,3 @@
   "value": 180,
   "weight": 20
 }
-

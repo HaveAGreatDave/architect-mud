@@ -12,7 +12,7 @@
   ],
   "behaviour_graph": {},
   "chitchat": [],
-  "description": "Hollis Tam is a wide, slow man with careful hands and a face that has stopped bothering with expressions. He does the one job in the Reach that everyone needs and nobody wants to owe him for, and he has never once raised his price for it. He listens more than he talks, which in a town of liars makes him the most informed man on the street.",
+  "description": "Hollis Tam is a wide, slow man with careful hands and a face that has stopped bothering with expressions. He does the one job in the Reach that everyone needs and nobody wants to owe him for, and he has never raised his price for it. He listens more than he talks, which in a town of liars makes him the most informed man on the street.",
   "dialogue_tree": {
     "bye": {
       "_vine": {

@@ -1,9 +1,10 @@
 {
-  "description": "A hardened reader panel and paired keycard, both wrapped in static-shielded film. The reader bonds permanently to a single keycard signature on first installation. Install on any door you own with INSTALL KEYCARDLOCK, and a matching keycard will be issued to you.",
+  "description": null,
   "flags": {},
   "id": "item_keycard_lock_kit",
   "name": "keycard lock kit",
   "tags": {
+    "description": "A hardened reader panel and paired keycard, both wrapped in static-shielded film. The reader bonds permanently to a single keycard signature on first installation. Install on any door you own with INSTALL KEYCARDLOCK, and a matching keycard will be issued to you.",
     "lockkit:keycardlock": true
   },
   "type": "misc",

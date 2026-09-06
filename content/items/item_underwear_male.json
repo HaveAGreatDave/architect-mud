@@ -1,10 +1,11 @@
 {
-  "description": "Plain cotton boxers. Not much, but it's something.",
+  "description": null,
   "flags": {},
   "id": "item_underwear_male",
   "name": "boxers",
   "tags": {
     "bulkiness": 1,
+    "description": "Plain cotton boxers. Not much, but it's something.",
     "insulation": 0.5,
     "layer": "underwear",
     "slot": "legs"

@@ -1,5 +1,5 @@
 {
-  "description": "A scuffed transmitter with a stub aerial taped on at an angle, built from a broadcast repeater that used to belong to somebody legitimate. Floods the whole band. Everyone in the room knows the moment you switch it on, which the Null consider a feature about half the time.",
+  "description": null,
   "flags": {},
   "id": "item_null_band_jammer",
   "name": "band jammer",

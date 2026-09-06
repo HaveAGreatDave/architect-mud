@@ -160,7 +160,7 @@
     "He counts the float, gets a number he dislikes, and counts it again to the same result.",
     "He eats half a sandwich over the bin, well clear of the counter, and washes his hands after."
   ],
-  "description": "A very large man in a black shirt buttoned to the throat, sitting on a stool that has given up arguing with him. He has the encyclopedic, wounded manner of somebody who knows more about one subject than anyone alive and has never once been thanked for it, and he'll correct you — courteously, exhaustively, and at a volume that assumes an audience — on the year, the printing, the inker, and what you have just called it. His hands, though, are careful past the point of reverence: he handles forty-year-old newsprint the way a nurse handles a wrist.",
+  "description": "A very large man in a black shirt buttoned to the throat, sitting on a stool that has given up arguing with him. He has the encyclopedic, wounded manner of somebody who knows more about one subject than anyone alive and has never been thanked for it, and he'll correct you, courteously and exhaustively and at a volume that assumes an audience, on the year, the printing, the inker, and what you have just called it. His hands, though, are careful past the point of reverence: he handles forty-year-old newsprint the way a nurse handles a wrist.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -297,7 +297,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Good.\" He means it. \"Looking is free and it has always been free and the sign in the window says DO NOT TAP THE GLASS, not DO NOT LOOK AT IT.\" He goes back to his page. \"Take your time. Don't stack anything face down.\""
+      "text": "\"Good.\" He means it. \"Looking is free and it has always been free and the sign in the window says DO NOT TAP THE GLASS, not DO NOT LOOK AT IT.\" He finds his place with a finger and reads on. \"Take your time. Don't stack anything face down.\""
     },
     "meter": {
       "options": [
@@ -306,7 +306,7 @@
           "next": "read"
         }
       ],
-      "text": "\"Forty pages. A man goes up a building taking readings and the numbers keep going up in flats with nobody in them.\" He shrugs, enormously. \"Twenty-four pages of it are BLANK FORMS. People skip them. You're MEANT to skip them — the skipping is the thing, you feel the thickness of it under your thumb, that's a comic doing something a film physically can't do, which is why the film is —\" He stops. \"The film is fine. The film is fine. I have said what I'm going to say about the film.\""
+      "text": "\"Forty pages. A man goes up a building taking readings and the numbers keep going up in flats with nobody in them.\" He shrugs, enormously. \"Twenty-four pages of it are BLANK FORMS. People skip them. You're MEANT to skip them. The skipping is the thing, you feel the thickness of it under your thumb, that's a comic doing something a film physically can't do, which is why the film is...\" He stops. \"The film is fine. The film is fine. I have said what I'm going to say about the film.\""
     },
     "mint": {
       "options": [
@@ -422,7 +422,7 @@
       "text": "\"Mm.\" He doesn't get off the stool. \"Racks are reading copies, wall is graded, counter is cards, back room is tapes and the back room is by invitation. Ask before you handle anything and we'll get along.\"\n\n\"After something, or looking? Both are fine. They want different answers out of me.\"",
       "text_by_relation": {
         "familiar": "He's already reaching under the counter before you're all the way through the door, and what comes out is a book in a sleeve with a strip of paper in it marked, in blunt pencil, with your name.\n\n\"Came in Thursday. I didn't put it out.\" He slides it across the glass and immediately looks somewhere else, as though the transaction embarrasses him. \"You don't have to take it.\"",
-        "first": "The large man on the stool marks his place with a finger and looks at you the way a customs officer looks at a bag.\n\n\"Emmett Sloat. This is mine.\" A small pause, in which he decides to be generous. \"Racks in the middle are reading copies — creased, cheap, meant to be read, so read them. The wall is graded and the wall isn't a browsing wall. Counter is cards. Back room is tapes.\" He returns to his page. \"Ask before you handle anything and we'll get along famously.\"",
+        "first": "The large man on the stool marks his place with a finger and looks at you the way a customs officer looks at a bag.\n\n\"Emmett Sloat. This is mine.\" A small pause, in which he decides to be generous. \"Racks in the middle are reading copies, creased, cheap, meant to be read, so read them. The wall is graded and the wall isn't a browsing wall. Counter is cards. Back room is tapes.\" He returns to his page. \"Ask before you handle anything and we'll get along famously.\"",
         "known": "\"You.\" He turns a page. \"You handled the spinner rack correctly last time. I noticed. I notice everything, it's a curse.\" He finally looks up. \"What.\""
       }
     },

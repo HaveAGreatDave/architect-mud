@@ -33,7 +33,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The glass, mostly. Beans, greens, the tomatoes when they're in. Barley we grow out on the flats in the wet years and buy in the dry ones, and buying it in is the thing nobody enjoys.\"\n\nShe tastes, and adds nothing.\n\n\"Fish, once a season, from a man who drives four days to bring it and won't tell anybody where he gets it. He and I have a great deal in common and we have never once discussed it.\""
+      "text": "\"The glass, mostly. Beans, greens, the tomatoes when they're in. Barley we grow out on the flats in the wet years and buy in the dry ones, and buying it in is the thing nobody enjoys.\"\n\nShe tastes, and adds nothing.\n\n\"Fish, once a season, from a man who drives four days to bring it and won't tell anybody where he gets it. He and I have a great deal in common and we have never discussed it.\""
     },
     "root": {
       "actions": [],
@@ -64,7 +64,7 @@
       "text": "\"Sit down. Anywhere.\"",
       "text_by_relation": {
         "close": "She has already got the bowl in her hand when you come through the door, and neither of you says anything about that.",
-        "familiar": "\"There you are, I had it warm.\" A bowl arrives, and it was warm.",
+        "familiar": "\"I had it warm.\" A bowl arrives, and it was warm.",
         "known": "\"You.\" A bowl arrives. \"Sit.\""
       }
     },

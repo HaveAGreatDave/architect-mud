@@ -32,7 +32,7 @@
         "\"Go on, then. I'll keep the place running. I always do.\"",
         "\"I'll be here. That was always the arrangement, and now it's just the truth.\"",
         "She picks her book back up, but she watches you to the hatch over the top of it.",
-        "\"Mind how you go. Come back to me in one piece. I've grown fond of all of them.\"",
+        "\"Go carefully. Come back to me in one piece. I've grown fond of all of them.\"",
         "\"The coffee'll be at temperature whenever you want it. So will I.\""
       ]
     },
@@ -89,7 +89,7 @@
           "next": "root"
         }
       ],
-      "text": "She considers you for a moment, deciding how honest to be, and settles on all the way. \"You want the unromantic version? Good. I prefer it.\" She turns her glass a slow quarter-turn. \"I worked the harbour rooms. I was good, I was cold about it, and I could read a mark's whole future in how he tipped. Then you came through, and I did the arithmetic before you'd finished your first drink: the berth, the safety, the ceiling over my head that nobody else held the key to. I chose you like a good investment. Eyes open. No violins.\" She meets your eye, unflinching. \"I've never once regretted the maths.\""
+      "text": "She considers you for a moment, deciding how honest to be, and settles on all the way. \"You want the unromantic version? Good. I prefer it.\" She turns her glass a slow quarter-turn. \"I worked the harbour rooms. I was good, I was cold about it, and I could read a mark's whole future in how he tipped. Then you came through, and I did the arithmetic before you'd finished your first drink: the berth, the safety, the ceiling over my head that nobody else held the key to. I chose you like a good investment. Eyes open. No violins.\" She meets your eye, unflinching. \"I've never regretted the maths.\""
     },
     "deal_cold": {
       "options": [

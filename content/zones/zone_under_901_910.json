@@ -2,7 +2,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The sewer beneath Halcyon Boulevard is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
+  "description": "The sewer beneath Halcyon Boulevard is all crumbling grade and standing filth, the kind of dark that has never been disturbed by anyone with a reason to be here.",
   "exits": {
     "east": "zone_under_902_910",
     "west": "zone_under_900_910"

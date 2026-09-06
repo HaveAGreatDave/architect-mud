@@ -10,12 +10,12 @@
     "No.",
     "You were going to. It's all right. Most people do."
   ],
-  "description": "She stands in the slot in the gate with her hands where you can see them, which is somehow more unsettling than if she hadn't bothered. Nothing about her is armed and nothing about her needs to be. She watches the road behind you rather than watching you, and she has clearly been doing this for years without once being bored by it.\n\nShe answers a shade early. Not enough to remark on. Enough that you find yourself leaving a gap before you speak, and then wondering why you started doing that.",
+  "description": "She stands in the slot in the gate with her hands where you can see them. Nothing about her is armed and nothing about her needs to be. She watches the road behind you rather than watching you, and she has clearly been doing this for years without once being bored by it.\n\nShe answers a shade early. Not enough to remark on. Enough that you find yourself leaving a gap before you speak, and then wondering why you started doing that.",
   "dialogue_tree": {
     "bye": {
       "actions": [],
       "options": [],
-      "text": "\"Safe road.\"\n\nShe means it, which is the strangest part. Behind her, somewhere down the length of the wall, a number of people stop what they're doing at the same moment, and then start again."
+      "text": "\"Safe road.\"\n\nShe means it. Behind her, somewhere down the length of the wall, a number of people stop what they're doing at the same moment, and then start again."
     },
     "done": {
       "actions": [],
@@ -106,7 +106,7 @@
     },
     "root": {
       "actions": [],
-      "first": "\"You came a long way to look at a door.\" She says it without any edge at all. \"I'm the door. Ask what you like, and then go and trade with Stannard, because that's what there's here for you.\"\n\n\"What were you expecting to find?\"",
+      "first": "\"You came a long way to look at a door.\" Nothing in her face moves. \"I'm the door. Ask what you like, and then go and trade with Stannard, because that's what there's here for you.\"\n\n\"What were you expecting to find?\"",
       "options": [
         {
           "actions": [],
@@ -151,7 +151,7 @@
       ],
       "text": "\"Still shut.\"",
       "text_by_relation": {
-        "close": "\"There you are.\" She almost smiles. \"You know I can't. You've known for a while. Ask me anyway, I like that you do.\"",
+        "close": "\"Thought that was you.\" She almost smiles. \"You know I can't. You've known for a while. Ask me anyway, I like that you do.\"",
         "familiar": "\"Morning.\" She shifts, very slightly, which from her is standing up. \"Still shut, before you ask.\"",
         "known": "\"You're back.\" A pause. \"Still shut.\""
       }

@@ -1,5 +1,5 @@
 {
-  "description": "A hovering display unit kept aloft by a low-power gravity field. The projection leans three degrees left. The patch bricked the others.",
+  "description": null,
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,

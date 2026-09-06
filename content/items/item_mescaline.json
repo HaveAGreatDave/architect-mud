@@ -1,9 +1,10 @@
 {
-  "description": "Seventy-five pellets rattle in a little tin. You only need a few.",
+  "description": null,
   "flags": {},
   "id": "item_mescaline",
   "name": "mescaline",
   "tags": {
+    "description": "Seventy-five pellets rattle in a little tin. You only need a few.",
     "drug": true,
     "soluble": true
   },
@@ -11,4 +12,3 @@
   "value": 110,
   "weight": 20
 }
-

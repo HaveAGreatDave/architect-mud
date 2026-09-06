@@ -28,7 +28,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It's a job.\" He goes back to the list. \"Everyone here has one. Mine has an ending in it, which is more than most people get.\""
+      "text": "\"It's a job.\" He finds his place on the list. \"Everyone here has one. Mine has an ending in it, which is more than most people get.\""
     },
     "box": {
       "actions": [],
@@ -385,7 +385,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Morning, on the road.\" He goes back to the list. \"If he offers you something personally, and he will, the answer is the same as hers and it's shorter than you think.\""
+      "text": "\"Morning, on the road.\" The pencil starts moving down the list again. \"If he offers you something personally, and he will, the answer is the same as hers and it's shorter than you think.\""
     },
     "offer3_why": {
       "_vine": {
@@ -558,7 +558,7 @@
       ],
       "text": "\"Buying's out here. Gate's not mine.\"\n\n\"So. What have you got?\"",
       "text_by_relation": {
-        "close": "\"There you are.\" He puts the list down, which from him is an embrace. \"Sit if you like. Don't touch the crates.\"",
+        "close": "\"You.\" He puts the list down, which from him is an embrace. \"Sit if you like. Don't touch the crates.\"",
         "familiar": "He doesn't look up, but the pencil stops. \"Go on then.\"",
         "known": "\"You again. Whatever it is, leave it by the doors.\""
       }

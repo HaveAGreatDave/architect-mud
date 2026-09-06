@@ -46,7 +46,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"He is coming back on Thursday.\" Vess is pleased and does not hide it, which is her whole method and works anyway. \"You said the thing about the tanks being warm. That is not in anything. That is yours.\"\n\nA small pause. \"You will use it four thousand times and it will stop being yours. I am telling you now so that it is not a surprise later.\""
+      "text": "\"He is coming back on Thursday.\" Vess is pleased and does not hide it. \"You said the thing about the tanks being warm. That is not in anything. That is yours.\"\n\nA small pause. \"You will use it four thousand times and it will stop being yours. I am telling you now so that it is not a surprise later.\""
     },
     "a12_offer": {
       "_vine": {
@@ -591,7 +591,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The line makes it and the theatre fits it, and in between there is a walk across a campus which nobody senior has ever had to make.\" She says this without any edge at all. \"The tray is cold. It stays cold. That is the entire brief.\""
+      "text": "\"The line makes it and the theatre fits it, and in between there is a walk across a campus which nobody senior has ever had to make.\" Nothing sharpens. \"The tray is cold. It stays cold. That is the entire brief.\""
     },
     "coldchain_report": {
       "actions": [
@@ -643,7 +643,7 @@
           "next": "bye"
         }
       ],
-      "text": "The Curator walks, and you walk with him, which is how every conversation in this building happens.\n\n\"Somebody is putting their orders on paper. Paper comes off a press. A press weighs six hundred kilos and has never once been moved in a hurry by anybody.\"\n\nHe stops at a case containing nothing you can identify.\n\n\"I would like the address.\""
+      "text": "The Curator walks, and you walk with him, which is how every conversation in this building happens.\n\n\"Somebody is putting their orders on paper. Paper comes off a press. A press weighs six hundred kilos and has never been moved in a hurry by anybody.\"\n\nHe stops at a case containing nothing you can identify.\n\n\"I would like the address.\""
     },
     "cross_offer2": {
       "_vine": {
@@ -662,7 +662,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I want you to notice that I have not asked you to break anything.\" He says it pleasantly, and then says the rest of it just as pleasantly. \"That is because breaking things is a different department. They are extremely good, and they have never once had to find an address.\"\n\nHe moves on to the next case.\n\n\"You know the way in. It is why you were asked, and I would think less of both of us if I pretended otherwise.\""
+      "text": "\"I want you to notice that I have not asked you to break anything.\" He says it pleasantly, and then says the rest of it just as pleasantly. \"That is because breaking things is a different department. They are extremely good, and they have never had to find an address.\"\n\nHe moves on to the next case.\n\n\"You know the way in. It is why you were asked, and I would think less of both of us if I pretended otherwise.\""
     },
     "gallery_removal": {
       "_vine": {
@@ -731,7 +731,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A recovery.\" The word is chosen. \"A client on Marrow Street has stopped paying and is still wearing the collateral. She is not in trouble, you understand — the account remains open, it always remains open. The hardware simply comes home until she is current.\"\n\nHer hands come apart, which is as close as she gets to emphasis.\n\n\"She is not to be killed. I want to be very clear, because people hear the word recovery and reach for the simple version. A dead client never resumes payments. Put her down, take the jack, and nothing else.\""
+      "text": "\"A recovery.\" The word is chosen. \"A client on Marrow Street has stopped paying and is still wearing the collateral. She is not in trouble, you understand — the account remains open, it always remains open. The hardware simply comes home until she is current.\"\n\nHer hands come apart.\n\n\"She is not to be killed. I want to be very clear, because people hear the word recovery and reach for the simple version. A dead client never resumes payments. Put her down, take the jack, and nothing else.\""
     },
     "lapse_report": {
       "actions": [
@@ -746,7 +746,7 @@
           "next": "bye"
         }
       ],
-      "text": "She turns the jack over once and sets it in a tray. \"Home. Good.\" She does not ask how it went, and you understand that she has never once asked."
+      "text": "She turns the jack over once and sets it in a tray. \"Home. Good.\" She does not ask how it went, and you understand that she has never asked."
     },
     "looked_after": {
       "_vine": {
@@ -770,7 +770,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They are looked after.\"\n\nShe says it warmly and it is plain she believes it.\n\n\"Nobody is put out on the road. That is the thing people always assume and it has never once been true.\""
+      "text": "\"They are looked after.\"\n\nShe says it warmly and it is plain she believes it.\n\n\"Nobody is put out on the road. That is the thing people always assume and it has never been true.\""
     },
     "looked_after_where": {
       "_vine": {
@@ -1209,7 +1209,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Difficult? Constantly.\"\n\nShe says it without any self-consciousness at all.\n\n\"Somebody has to decide who is covered. It is not pleasant work and we do not pretend it is. Anyone who enjoyed it would be removed.\"\n\n\"We do it and we stay decent about it. That is the whole of the qualification.\""
+      "text": "\"Difficult? Constantly.\"\n\nShe does not check your face.\n\n\"Somebody has to decide who is covered. It is not pleasant work and we do not pretend it is. Anyone who enjoyed it would be removed.\"\n\n\"We do it and we stay decent about it. That is the whole of the qualification.\""
     },
     "the_difficulty_decent": {
       "_vine": {

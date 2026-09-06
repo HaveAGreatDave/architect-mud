@@ -1,5 +1,5 @@
 {
-  "description": "A designer dissociative that drops you into the static between channels.",
+  "description": null,
   "flags": {
     "prefill": {
       "drug_id": "drug_deadair",
@@ -10,6 +10,7 @@
   "id": "item_deadair",
   "name": "dead air",
   "tags": {
+    "description": "A designer dissociative that drops you into the static between channels.",
     "drug": true,
     "fillable": 12,
     "unique": true
@@ -18,4 +19,3 @@
   "value": 300,
   "weight": 20
 }
-

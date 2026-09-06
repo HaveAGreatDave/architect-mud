@@ -1,9 +1,10 @@
 {
-  "description": "A paper sack of potassium nitrate: saltpetre, the growers' grade, corner stitched shut with wire. Feeds a hydroponic bed through a hungry fortnight and cures a side of meat pink instead of grey. Store dry.",
+  "description": null,
   "flags": {},
   "id": "item_reagent_nutrient",
   "name": "sack of potassium nitrate",
   "tags": {
+    "description": "A paper sack of potassium nitrate: saltpetre, the growers' grade, corner stitched shut with wire. Feeds a hydroponic bed through a hungry fortnight and cures a side of meat pink instead of grey. Store dry.",
     "reagent": true
   },
   "type": "chemical",

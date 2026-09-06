@@ -1,5 +1,5 @@
 {
-  "description": "Stamped aluminium, no back support, uncomfortable by design. A small pressure sensor on the seat surface logs duration of occupancy.",
+  "description": null,
   "flags": {
     "interactions": [
       "sit"
