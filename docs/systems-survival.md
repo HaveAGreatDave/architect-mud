@@ -264,7 +264,10 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   `peak_seconds` (2 h), then tapers over `taper_seconds` (6 h) back to the floor, which it never drops below
   while still addicted. Per-drug overrides ride the `withdrawal` block. `player._withdrawalActive` is a
   **Map** of `drugId → applied-mod signature` so an unchanged severity doesn't churn the ledger through a
-  reverse-and-reapply every minute.
+  reverse-and-reapply every minute. **Death clears it** — `clearActiveDrugState()` zeroes `addiction` and
+  `is_addicted` alongside doses, because the habit lived in the body the vat just replaced, and a clone
+  that woke up owing withdrawal to a bender it never went on would be paying twice for one death.
+  `tolerance` is deliberately kept: shedding it would make dying a free way to reset dose costs.
 - **The arc is now SAID, not only felt (`withdrawal.stages`)** — added 2026-08-25. The severity curve
   above runs for the better part of eight hours and the player used to be told about exactly one moment
   of it: `withdrawal.message`, fired once on first bite. An eight-hour shape read as a debuff that

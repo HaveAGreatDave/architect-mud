@@ -807,8 +807,9 @@ export async function handlePlayerDeath(player, killer, cause = null) {
     : await spawnPlayerCorpse(player, deathZone);
 
   // Shed active drug state BEFORE the restore: reverse every timed buff (so hp_max
-  // is the true base, not a drug-inflated cap), drop phased drugs, and clear
-  // doses-in-system (so a fresh clone isn't one dose from an instant re-overdose).
+  // is the true base, not a drug-inflated cap), drop phased drugs, clear
+  // doses-in-system (so a fresh clone isn't one dose from an instant re-overdose)
+  // and clear addiction (the habit was in the body that just got replaced).
   clearActiveDrugState(player);
 
   // Full restore on respawn — you come out of the vat whole, not wounded.

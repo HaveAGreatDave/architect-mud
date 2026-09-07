@@ -3,10 +3,11 @@
 // Covers the pharmacokinetic laws in server/engine/drugs.js. These are engine laws,
 // but this plugin owns the verbs that deliver a dose (use/inject), so the coverage
 // lives with it. Assertions run against the pure `_test` surface — no DB, no clock.
-import { _test as T, getDrugCache, drugForItem, isDrugItem } from '../../server/engine/drugs.js';
+import { _test as T, getDrugCache, drugForItem, isDrugItem, clearActiveDrugState } from '../../server/engine/drugs.js';
 import { _test as F } from './index.js';
+import { query } from '../../server/models/db.js';
 
-export default async function regress({ run, check }) {
+export default async function regress({ run, check, getPlayer }) {
   // --- habits: the read-out of your own pharmacology -------------------------
   // The fake player has no drug history, so this proves routing AND the empty case.
   const h = await run('habits');
@@ -229,4 +230,29 @@ export default async function regress({ run, check }) {
   check("an item nothing was authored on isn't a drug", isDrugItem('item_not_a_drug_at_all') === false);
   check("a missing item id isn't a drug, and doesn't throw",
     isDrugItem(null) === false && isDrugItem(undefined) === false);
+
+  // --- death clears the habit, not the tolerance ----------------------------
+  // The body that carried the addiction is the thing the vat replaced, so a clone
+  // must not wake up owing withdrawal to a bender it never went on. Tolerance is
+  // deliberately left standing: shedding it would make dying a way to reset dose
+  // costs. Driven against a real row rather than asserted about the SQL string,
+  // because the column list in that UPDATE is the thing that can silently drift.
+  {
+    const pid = getPlayer().id;
+    const DID = 'drug_regress_habit';
+    await query(
+      'INSERT INTO player_drug_state (player_id, drug_id, active_until, doses_in_system, times_used, is_addicted, last_used_at, tolerance, addiction)'
+      + " VALUES ($1,$2,$3,4,9,1,$4,0.7,0.9)"
+      + ' ON CONFLICT (player_id, drug_id) DO UPDATE SET is_addicted=1, addiction=0.9, tolerance=0.7, doses_in_system=4, active_until=EXCLUDED.active_until',
+      [pid, DID, Date.now() + 600000, Math.floor(Date.now() / 1000)]);
+    await clearActiveDrugState(getPlayer());
+    const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1 AND drug_id=$2', [pid, DID]);
+    const row = rows[0];
+    check('death leaves the drug row in place', !!row);
+    check('death releases the dependency latch', Number(row?.is_addicted) === 0, String(row?.is_addicted));
+    check('death zeroes accumulated addiction', Number(row?.addiction) === 0, String(row?.addiction));
+    check('death still clears doses in system', Number(row?.doses_in_system) === 0, String(row?.doses_in_system));
+    check('death does NOT reset tolerance', Number(row?.tolerance) > 0.6, String(row?.tolerance));
+    await query('DELETE FROM player_drug_state WHERE player_id=$1 AND drug_id=$2', [pid, DID]);
+  }
 }
