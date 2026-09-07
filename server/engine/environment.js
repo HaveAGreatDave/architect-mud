@@ -28,7 +28,7 @@ import { schedule } from './scheduler.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf } from './world.js';
+import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf, reloadZone } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
@@ -3442,6 +3442,15 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
   // runtime override so the deploy can never orphan the utility room.
   await addExitOverride(anchor.id, 'down', utilId, 'power');
 
+  // ⚠ The room exists in the DB and NOWHERE ELSE until this line. installGenerator
+  // resolves its zone from world.zones (the RAM Map), not from the table, so the
+  // install below threw `Zone <id> doesn't exist` for every building this
+  // self-heal was written to rescue — the whole path could only ever succeed on a
+  // room that survived to a restart. Reload the anchor too: its 'down' exit was
+  // just added as an override and the Map is still holding the old exits.
+  await reloadZone(utilId);
+  await reloadZone(anchor.id);
+
   // A worklight, so the room reads and has a load to power.
   await insertFurniture({
     id: `furn_light_${utilId}`, zone_id: utilId,
@@ -3527,6 +3536,20 @@ export async function fixBuildingPowerConnections() {
         [network]
       );
       if (vehicle.length) continue;
+      // …and never under a SEALED room. An interior with no exits anywhere in its
+      // network is off-map on purpose: Cathode's den (plugins/strays) is a real,
+      // exitless zone whose seal is a system invariant — hiding is absence, and
+      // the strays suite asserts the den has no exits. The utility room arrives
+      // as a 'down' exit override, so digging one breaks that seal at runtime
+      // while leaving zones.exits looking innocent. It would also be pointless:
+      // nothing can walk into a sealed room, and a room with no fixtures has
+      // nothing to power.
+      const { rows: reachable } = await query(
+        `SELECT 1 FROM zones WHERE id = ANY($1::text[])
+           AND COALESCE(exits::text, '{}') <> '{}' LIMIT 1`,
+        [network]
+      );
+      if (!reachable.length) continue;
       // Self-heal: dig a utility room below the building and drop a junction box.
       try {
         const made = await createUtilityRoomWithJunctionBox(query, network, root);

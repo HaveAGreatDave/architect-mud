@@ -1,6 +1,6 @@
 let powerPanelGenerators = [];
 let powerPanelMode = 'power';
-let powerPanelView = 'city';   // 'city' | 'interior'
+let powerPanelView = 'region'; // 'region' | 'city' | 'interior' — the map is what you open on
 let powerPanelBuilding = null; // selected building zone id for interior view
 let powerPanelAllZones = [];   // full zone list (for building interior search)
 let powerPanelInteriorZ = 0;  // current floor for interior map view
@@ -25,7 +25,7 @@ async function renderPowerPanel(zones) {
   powerPanelRegions = new Map((regionData?.regions || []).map(r => [r.id, r.name || r.id]));
   powerJbByOutdoor = _buildJbByOutdoor();
   powerPanelMode = 'power';
-  powerPanelView = 'city';
+  powerPanelView = 'region';
   renderPowerPanelBody();
 }
 
@@ -294,7 +294,7 @@ let powerRegionPlantSel = null; // clicked plant generator id
 let powerPanelMapParents = new Map();  // interior map id -> exterior parent zone id
 let powerPanelRegions = new Map();     // region id -> name
 
-const POWER_STATUS_RANK = { offline: 4, overloaded: 3, powered: 2, unpowered: 1 };
+const POWER_STATUS_RANK = { offline: 3, overloaded: 2, powered: 1 };
 const POWER_STATUS_RGB = {
   offline: '220,40,60',
   overloaded: '255,165,0',
@@ -353,7 +353,7 @@ function _powerByTile() {
     e.rooms.push({ zone, pw });
     // A tile is as bad as the worst room behind its door: one dead floor is the
     // thing you opened this map to find, and averaging would hide it.
-    const s = (Number(pw.loadKw ?? 0) === 0 && pw.status !== 'offline') ? 'unpowered' : (pw.status || 'unpowered');
+    const s = pw.status || 'powered';
     if (!e.status || (POWER_STATUS_RANK[s] || 0) > (POWER_STATUS_RANK[e.status] || 0)) e.status = s;
   }
   return { byTile, zoneById };
@@ -433,7 +433,47 @@ function _buildRegionMapHtml() {
     : `<div style="color:var(--text-dim);padding:12px">No placed tiles on floor z=${powerRegionZ}.</div>`;
   html += _powerRegionLegendHtml();
   html += `<div id="power-region-detail">${_powerRegionDetailHtml(byTile, zoneById)}</div>`;
+  html += _powerOffPlantHtml();
   return html;
+}
+
+// The actions the Generators table used to carry, beside the generator itself.
+function _powerGenActionsHtml(g) {
+  const id = JSON.stringify(g.id);
+  return `<button class="action-btn" onclick='toggleGeneratorPower(${id})'>${Number(g.capacity_kw) > 0 ? 'Switch off' : 'Switch on'}</button>
+    <button class="action-btn" onclick='editGeneratorCapacity(${id}, ${Number(g.capacity_kw) || 0})'>Capacity</button>
+    <button class="action-btn" onclick='viewGeneratorZones(${id})'>Zones</button>
+    <button class="action-btn danger" onclick='removeGeneratorFromPowerPanel(${id})'>Remove</button>`;
+}
+
+function _powerGenRowHtml(g, prefix) {
+  const on = Number(g.capacity_kw) > 0;
+  return `<div class="zone-subitem-row">
+    <span>${prefix || ''}${g.name || g.id}
+      <span style="color:var(--text-dim);font-size:11px">· ${g.zone_name || g.zone_id || '—'} · ${Number(g.zone_load_w ?? 0).toFixed(0)}W${on ? '' : ' · <span style="color:var(--warning)">offline</span>'}</span></span>
+    <span class="zone-subitem-actions">${_powerGenActionsHtml(g)}</span>
+  </div>`;
+}
+
+// Junction boxes on no city plant. Off-grid is a building running its own
+// generator on purpose; unassigned is a fault, and says so.
+function _powerOffPlantHtml() {
+  const plantIds = new Set(powerPanelGenerators.filter(g => g.generator_type === 'city_plant').map(g => g.id));
+  const loose = powerPanelGenerators.filter(g => g.generator_type === 'junction_box'
+    && (!g.city_generator_id || !plantIds.has(g.city_generator_id)));
+  const offgrid = loose.filter(g => g.flags?.offgrid);
+  const unassigned = loose.filter(g => !g.flags?.offgrid);
+  if (!loose.length) return '';
+  let h = '';
+  if (offgrid.length) {
+    h += `<div style="margin-top:10px"><div style="color:var(--text-dim);font-size:11px;margin-bottom:4px">🔋 Independent power — self-generated, not on a city plant</div>
+      ${offgrid.map(g => _powerGenRowHtml(g, '')).join('')}</div>`;
+  }
+  if (unassigned.length) {
+    h += `<div style="margin-top:10px"><div style="color:var(--warning);font-size:11px;margin-bottom:4px">⚠ Junction boxes wired to no city plant</div>
+      ${unassigned.map(g => _powerGenRowHtml(g, '')).join('')}</div>`;
+  }
+  return h;
 }
 
 // Grid health for the whole region — every floor of it, not just the one drawn,
@@ -446,10 +486,11 @@ function _powerGridHealthHtml(sel, byTile, plantsByTile) {
   const demand = plants.reduce((n, p) => n + Number(p.total_demand_w ?? 0), 0);
   const headroom = capacity > 0 ? Math.max(0, 1 - demand / capacity) : 0;
 
-  const counts = { offline: 0, overloaded: 0, powered: 0, unpowered: 0 };
+  const counts = { offline: 0, overloaded: 0, powered: 0, offgrid: 0 };
   for (const z of sel.tiles) {
     const e = byTile.get(z.id);
     if (e) counts[e.status] = (counts[e.status] || 0) + 1;
+    else counts.offgrid++;
   }
 
   // One sentence, so the number you act on is a word before it's a percentage.
@@ -472,7 +513,7 @@ function _powerGridHealthHtml(sel, byTile, plantsByTile) {
       ${stat('capacity', `${capacity.toFixed(0)}W`)}
       ${stat('demand', `${demand.toFixed(0)}W`)}
       ${stat('headroom', `${(headroom * 100).toFixed(0)}%`)}
-      ${stat('tiles', `${counts.powered} up · ${counts.overloaded} strained · ${counts.offline} dark · ${counts.unpowered} idle`)}
+      ${stat('tiles', `${counts.powered} up · ${counts.overloaded} strained · ${counts.offline} dark · ${counts.offgrid} off-grid`)}
     </div>
     <div style="margin-top:8px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden">
       <div style="height:100%;width:${barPct.toFixed(1)}%;background:${barColour}"></div>
@@ -506,11 +547,12 @@ function _powerRegionGridHtml(tiles, byTile, plantsByTile) {
 
       let overlay = '';
       if (e) {
-        // Alpha carries how much it draws; hue carries whether it's well. Offline
-        // and idle are states rather than magnitudes, so they take a flat alpha.
+        // Alpha carries how much it draws; hue carries whether it's well. A
+        // powered tile pulling nothing is still powered, so the ramp has a floor
+        // rather than a separate colour. Offline is a state, not a magnitude.
         const t = peak > 0 && e.load > 0 ? Math.sqrt(e.load / peak) : 0;
-        const alpha = e.status === 'offline' ? 0.85 : e.status === 'unpowered' ? 0.35 : 0.3 + 0.6 * t;
-        overlay = `<div style="position:absolute;inset:0;background:rgba(${POWER_STATUS_RGB[e.status] || POWER_STATUS_RGB.unpowered},${alpha.toFixed(3)})"></div>`;
+        const alpha = e.status === 'offline' ? 0.85 : 0.18 + 0.72 * t;
+        overlay = `<div style="position:absolute;inset:0;background:rgba(${POWER_STATUS_RGB[e.status] || POWER_STATUS_RGB.powered},${alpha.toFixed(3)})"></div>`;
       }
       let onClick = `powerRegionSelect(${JSON.stringify(z.id)})`;
       let lift = '';
@@ -538,12 +580,12 @@ function _powerRegionLegendHtml() {
   const sw = (rgb, a, label, ring) => `<span style="display:inline-flex;gap:4px;align-items:center"><span style="display:inline-block;width:12px;height:12px;background:rgba(${rgb},${a})${ring ? `;box-shadow:inset 0 0 0 2px ${ring}` : ''}"></span>${label}</span>`;
   return `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:10px;color:var(--text-dim)">
     ${sw('80,160,255', 0.8, 'city plant', 'rgba(110,190,255,0.95)')}
-    ${sw(POWER_STATUS_RGB.powered, 0.7, 'powered')}
+    ${sw(POWER_STATUS_RGB.powered, 0.18, 'powered, idle')}
+    ${sw(POWER_STATUS_RGB.powered, 0.9, 'powered, heavy draw')}
     ${sw(POWER_STATUS_RGB.overloaded, 0.7, 'overloaded')}
     ${sw(POWER_STATUS_RGB.offline, 0.85, 'offline')}
-    ${sw(POWER_STATUS_RGB.unpowered, 0.35, 'idle (no draw)')}
-    ${sw(PLAN_MAP_INK, PLAN_TILE_BUILDING, 'building, not on the grid')}
-    <span style="opacity:0.7">stronger colour = heavier draw · interior rooms fold onto their facade</span>
+    ${sw(PLAN_MAP_INK, PLAN_TILE_BUILDING, 'not on the grid')}
+    <span style="opacity:0.7">interior rooms fold onto their facade</span>
   </div>`;
 }
 
@@ -553,13 +595,13 @@ function _powerRegionDetailHtml(byTile, zoneById) {
     if (!p) return '';
     const fed = powerPanelGenerators.filter(g => g.generator_type === 'junction_box' && g.city_generator_id === p.id);
     const cap = Number(p.capacity_kw || 0), demand = Number(p.total_demand_w ?? 0);
-    const rows = fed.map(jb => `<div class="zone-subitem-row">
-        <span>${jb.name || jb.id} <span style="color:var(--text-dim);font-size:11px">· ${jb.zone_name || jb.zone_id} · ${Number(jb.zone_load_w ?? 0).toFixed(0)}W</span></span>
-      </div>`).join('');
+    const rows = fed.map(jb => _powerGenRowHtml(jb, '↳ ')).join('');
     return `<div class="zone-inline-form" style="margin:0 0 12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <b>⚡ ${p.name || p.id}</b>
-        <button class="action-btn" onclick='powerRegionSelectPlant(${JSON.stringify(p.id)})'>Close</button>
+        <span style="display:flex;gap:6px">${_powerGenActionsHtml(p)}
+          <button class="action-btn" onclick='powerRegionSelectPlant(${JSON.stringify(p.id)})'>Close</button>
+        </span>
       </div>
       <div style="font-size:12px;margin-bottom:6px">
         ${cap > 0 ? 'Online' : '<span style="color:var(--warning)">Offline (zero capacity)</span>'} ·
@@ -590,7 +632,7 @@ function _powerRegionDetailHtml(byTile, zoneById) {
   const plant = _powerPlantFor(e.rooms[0]?.pw);
   const room = r => {
     const load = Number(r.pw.loadKw ?? 0);
-    const st = (load === 0 && r.pw.status !== 'offline') ? 'unpowered' : (r.pw.status || 'unpowered');
+    const st = r.pw.status || 'powered';
     return `<div class="zone-subitem-row" style="cursor:pointer" onclick='editRecord(${JSON.stringify(r.zone.id)})'>
       <span>${r.zone.name || r.zone.id}
         <span style="color:var(--text-dim);font-size:11px">· ${load.toFixed(0)}W of ${Number(r.pw.availableKw ?? 0).toFixed(0)}W · ${st}${r.pw.artificialLight ? ' · lit' : ''}</span></span>
@@ -642,107 +684,6 @@ function renderPowerPanelBody() {
     </div>
     <div id="power-tool-log" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px;font-size:11px;font-family:monospace;min-height:48px;max-height:200px;overflow-y:auto;color:var(--text-dim)">No tools run yet.</div>
   </div>`;
-
-  html += `<div style="padding:12px"><h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Generators</h3>`;
-  if (powerPanelGenerators.length) {
-    const cityPlants = powerPanelGenerators.filter(g => g.generator_type === 'city_plant');
-    const jbsByCity = new Map();
-    const unassignedJBs = [];
-    const offgridJBs = [];
-    for (const jb of powerPanelGenerators.filter(g => g.generator_type === 'junction_box')) {
-      if (jb.city_generator_id) {
-        if (!jbsByCity.has(jb.city_generator_id)) jbsByCity.set(jb.city_generator_id, []);
-        jbsByCity.get(jb.city_generator_id).push(jb);
-      } else if (jb.flags?.offgrid) {
-        offgridJBs.push(jb);
-      } else {
-        unassignedJBs.push(jb);
-      }
-    }
-
-    html += '<table><thead><tr><th>Name</th><th>Zone / Building</th><th>Generation / Draw</th><th>Status</th><th></th></tr></thead><tbody>';
-
-    for (const cp of cityPlants) {
-      const cpIdSafe = cp.id.replace(/'/g, "\\'");
-      const used = Number(cp.total_demand_w ?? 0);
-      const pct = cp.capacity_kw > 0 ? Math.round((used / cp.capacity_kw) * 100) : 0;
-      const cpOn = Number(cp.capacity_kw) > 0;
-      const statusCls = cpOn ? 'safe' : 'high';
-      html += `<tr style="background:rgba(20,200,100,0.06)">
-        <td><strong>⚡ ${cp.name || cp.id}</strong></td>
-        <td style="color:var(--text-dim)">${cp.zone_name || cp.zone_id || '—'}</td>
-        <td style="white-space:nowrap">${used.toFixed(1)} / ${Number(cp.capacity_kw).toFixed(0)}W <span style="color:var(--text-dim);font-size:10px">(${pct}%)</span></td>
-        <td><span class="badge badge-${statusCls}">${cpOn ? 'online' : 'offline'}</span></td>
-        <td style="white-space:nowrap">
-          <button class="action-btn" onclick="toggleGeneratorPower('${cpIdSafe}')">Toggle</button>
-          <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${cpIdSafe}', ${cp.capacity_kw})">Edit</button>
-          <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${cpIdSafe}')">Zones</button>
-          <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${cpIdSafe}')">Remove</button>
-        </td>
-      </tr>`;
-      for (const jb of (jbsByCity.get(cp.id) || [])) {
-        const jbIdSafe = jb.id.replace(/'/g, "\\'");
-        const draw = Number(jb.zone_load_w ?? 0);
-        const jbOn = Number(jb.capacity_kw) > 0;
-        const jbStatusCls = jbOn ? 'safe' : 'high';
-        html += `<tr>
-          <td style="padding-left:22px;color:var(--text-dim)">↳ ${jb.name || jb.id}</td>
-          <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
-          <td style="white-space:nowrap">${draw.toFixed(1)}W draw</td>
-          <td><span class="badge badge-${jbStatusCls}">${jbOn ? 'online' : 'offline'}</span></td>
-          <td style="white-space:nowrap">
-            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
-            <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
-            <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${jbIdSafe}')">Zones</button>
-            <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
-          </td>
-        </tr>`;
-      }
-    }
-
-    if (offgridJBs.length) {
-      html += `<tr><td colspan="5" style="color:var(--text-dim);font-size:11px;padding-top:8px">🔋 Independent power (off-grid — self-generated, not on the city plant):</td></tr>`;
-      for (const jb of offgridJBs) {
-        const jbIdSafe = jb.id.replace(/'/g, "\\'");
-        const draw = Number(jb.zone_load_w ?? 0);
-        html += `<tr>
-          <td style="padding-left:10px">🔋 ${jb.name || jb.id}</td>
-          <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
-          <td>${draw.toFixed(1)}W draw</td>
-          <td><span class="badge badge-${Number(jb.capacity_kw) > 0 ? 'safe' : 'high'}">${Number(jb.capacity_kw) > 0 ? 'online' : 'offline'}</span></td>
-          <td style="white-space:nowrap">
-            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
-            <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
-            <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
-          </td>
-        </tr>`;
-      }
-    }
-
-    if (unassignedJBs.length) {
-      html += `<tr><td colspan="5" style="color:var(--warning);font-size:11px;padding-top:8px">⚠ Unassigned junction boxes (no city plant linked):</td></tr>`;
-      for (const jb of unassignedJBs) {
-        const jbIdSafe = jb.id.replace(/'/g, "\\'");
-        const draw = Number(jb.zone_load_w ?? 0);
-        html += `<tr>
-          <td style="padding-left:10px">${jb.name || jb.id}</td>
-          <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
-          <td>${draw.toFixed(1)}W draw</td>
-          <td><span class="badge badge-${Number(jb.capacity_kw) > 0 ? 'safe' : 'high'}">${Number(jb.capacity_kw) > 0 ? 'online' : 'offline'}</span></td>
-          <td style="white-space:nowrap">
-            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
-            <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
-            <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
-          </td>
-        </tr>`;
-      }
-    }
-
-    html += '</tbody></table>';
-  } else {
-    html += `<div style="color:var(--text-dim)">No generators installed yet — install one from a zone's editor.</div>`;
-  }
-  html += '</div>';
 
   panel.innerHTML = html;
   applyMapScale(panel);

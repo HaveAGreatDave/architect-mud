@@ -18,6 +18,10 @@ tools/thomas-tour/thomas-tour.html
 # Free-tier watch: scheduled-task stdout (the history JSON beside it IS committed)
 data/ops/last-run.log
 
+# Prod egress meter: one JSONL row per `--prod` content script (see lib.mjs).
+# Local evidence about who spent the transfer budget, not shared state.
+data/ops/prod-reads.log
+
 # Saved regress output. `npm run test:regress > reg.log 2>&1` is the correct way
 # to read the trailing "N/N passed" line — piping to tail reports TAIL's exit
 # code, not the suite's — so these accumulate in the repo root. ~570 KB each.

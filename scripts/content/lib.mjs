@@ -12,7 +12,7 @@
 // Everything here derives from server/models/content-registry.js. There is no
 // second table list.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, rmSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -88,7 +88,93 @@ export async function connectTarget({ prod = false, yes = false, purpose = 'oper
   }
   const client = new pg.Client({ connectionString: url, ssl: needsSsl(url) ? { rejectUnauthorized: false } : false });
   await client.connect();
+  if (prod) meterProdEgress(client, host, purpose);
   return { client, host, url };
+}
+
+// ── Prod egress meter ────────────────────────────────────────────────────────
+// Every `--prod` script spends from the same 5 GB/month transfer budget the game
+// runs on, and until now a one-shot that pulled a whole table said nothing about
+// it. The September 2026 investigation is the case for this: egress ran 89 MB
+// one day and 600 MB the next, and the only surviving evidence of what did it
+// was a seq-scan counter on `zones` — the scripts themselves had been deleted by
+// the time anybody looked. A number printed at the time would have named it in
+// one line. So measure what leaves Neon, say it out loud, and keep a local trail.
+//
+// The figure is EXACT WIRE BYTES, not an estimate. `socket.bytesRead` is what the
+// kernel handed us, which is the thing Neon bills; stringifying result sets to
+// guess their size would cost a full extra copy of every export AND disagree with
+// the bill. Where the socket isn't reachable the meter degrades to a row count
+// rather than guessing — an absent byte figure is better than a wrong one, since
+// the only reason this exists is for somebody to trust it.
+//
+// ⚠ It reports on process exit, never on `client.end()`. A run that throws half
+// way through has still spent the egress, and that is exactly the run you want
+// the number for.
+const EGRESS_LOG = join(REPO_ROOT, 'data', 'ops', 'prod-reads.log');
+// Loud above this. A full content export is ~13.5 MB, so the threshold sits just
+// under two of them: routine pipeline work stays quiet, and anything that reads
+// the world twice over announces itself.
+// PROD_EGRESS_WARN_MB overrides it — which is also how the loud path gets
+// exercised without spending 25 MB to see it.
+const EGRESS_WARN_BYTES = (Number(process.env.PROD_EGRESS_WARN_MB) || 25) * 1024 * 1024;
+
+function meterProdEgress(client, host, purpose) {
+  const socket = client.connection?.stream;
+  const startBytes = typeof socket?.bytesRead === 'number' ? socket.bytesRead : null;
+  const started = Date.now();
+  let queries = 0;
+  let rows = 0;
+
+  const origQuery = client.query.bind(client);
+  client.query = function meteredQuery(...args) {
+    queries++;
+    const res = origQuery(...args);
+    // pg returns a promise for the callback-free form and a Query object
+    // otherwise; only the promise carries a rowCount we can read from here. A
+    // rejection is swallowed — the caller still gets the original promise, and
+    // this must never turn a query error into an unhandled rejection.
+    if (res && typeof res.then === 'function') {
+      res.then((r) => { rows += r?.rowCount || 0; }, () => {});
+    }
+    return res;
+  };
+
+  process.on('exit', () => {
+    const bytes = startBytes === null || typeof socket?.bytesRead !== 'number'
+      ? null
+      : socket.bytesRead - startBytes;
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    const size = bytes === null ? `${rows} rows (byte count unavailable)` : formatBytes(bytes);
+    const line = `prod egress: ${size} over ${queries} quer${queries === 1 ? 'y' : 'ies'}, ${secs}s — ${host}`;
+    if (bytes !== null && bytes >= EGRESS_WARN_BYTES) {
+      console.warn(`\n⚠ ${line}\n  That is a material slice of Neon's 5 GB/month transfer budget — see docs/ops-usage-watch.md.`);
+    } else {
+      console.log(line);
+    }
+    try {
+      mkdirSync(dirname(EGRESS_LOG), { recursive: true });
+      appendFileSync(EGRESS_LOG, `${JSON.stringify({
+        at: new Date().toISOString(),
+        host,
+        purpose,
+        script: process.argv[1] ? process.argv[1].split(/[\\/]/).pop() : null,
+        queries,
+        rows,
+        bytes,
+        seconds: Number(secs),
+      })}\n`, 'utf8');
+    } catch {
+      // A missing trail must never fail the script that was doing the real work.
+    }
+  });
+}
+
+export function formatBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
+  return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }
 
 // ── Canonical serialization ──────────────────────────────────────────────────
