@@ -5891,6 +5891,24 @@ export function buildingHeightZ(wx, wy, cell) {
 // sim collides in real feet straight off the floors — a 1-storey shop ≈ 12 ft, a 22-storey tower ≈
 // 264 ft — which both reads sensibly and stops the old flat hz·600 from CFIT-ing you a third of a
 // mile above a corner shop. Returns 0 for any tile with no solid building (reuses buildingHeightZ's gate).
+// ── THE SIM'S OWN (fh, h), FOR ANYTHING THAT PREVIEWS A BUILDING ────────────
+// A model arm takes a footprint half-width and a storey-stack height, and until the
+// Modelshop existed the only caller was drawWorldObjects, which derives both from the
+// tile. A preview that invents its own pair is previewing a building the game will never
+// draw — so the formula is stated once, here, and the tool asks for it.
+//
+// Both terms carry the per-tile jitter (`frac(seed)`) deliberately: a real building is
+// never exactly BUILDING_FOOT wide, and a preview that pretends otherwise hides the range
+// an author's model actually has to survive. The RENDER_TUNE multipliers are in for the
+// same reason — a tuning slider that moved the game and not the preview would make the
+// preview a lie.
+export function buildingScaleFor(floors, seed = 0) {
+  return {
+    fh: (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1),
+    h: Math.max(1, floors) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH * (RENDER_TUNE.bldgStretch || 1),
+  };
+}
+
 export const FT_PER_FLOOR = 12;   // realistic storey height (ft) used for collision altitudes
 export function buildingRoofFt(wx, wy, cell) {
   if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
@@ -13058,16 +13076,27 @@ export function renderModelPreview(canvas, opts = {}) {
     night = 0, E = [0, 1], alpha = 1, now = 1000,
     heading = 0, dist = 8, eyeH = 1.4, tier = ADORN_RICH,
     wire = false, ground = true,
+    // PAN, for the Modelshop's viewport. `panX` strafes the camera sideways in world tiles;
+    // `panY` slides the horizon in screen pixels. They are deliberately different units because
+    // they are different operations: there is no pitch in this projection, so moving the picture
+    // up the screen is a horizon shift and cannot be a camera rotation. Both default to the
+    // no-pan values, so every existing caller is bit-identical.
+    panX = 0, panY = 0,
   } = opts;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
   if (!ctx || !m || !W || !H) return null;
 
-  const horizonY = H * 0.42, focal = H * 0.55;
+  const horizonY = H * 0.42 + panY, focal = H * 0.55;
+  const hd = heading * Math.PI / 180;
+  // Strafe. `fx`/`fy` are makeCam's WORLD-space camera offset, and the lateral term it feeds is
+  // `(dx − fx)·cos(hd) + (dy − fy)·sin(hd)` — so moving the eye along (cos, sin) slides the world
+  // the other way, which is what a pan is. `back: 0, up: 0` keeps every other chase term at the
+  // value an absent chase would have given.
+  const chase = (panX ? { back: 0, up: 0, fx: Math.cos(hd) * panX, fy: Math.sin(hd) * panX } : undefined);
   // `height: 0` and an explicit `eyeH` is the truck cab's own shape (see the ⚠ in makeCam): the
   // altitude term is the aircraft's, and a preview wants to state its eye directly.
-  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH });
-  const hd = heading * Math.PI / 180;
+  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH }, chase);
   const dx = dist * Math.sin(hd), dy = -dist * Math.cos(hd);
 
   ctx.save();
@@ -18910,6 +18939,117 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
     c.x = wx; c.y = wy;
     fn(c, a);
   }
+}
+
+// ── THE VEHICLE PREVIEW — the other half of the Modelshop ────────────────────────────────────
+//
+// A building is a `drawTypeModel` arm; an aircraft or a truck is a FACE LIST from
+// aircraft3d's `aircraftFaces`, painted by `drawAircraftModel`. Two renderers, and the tool
+// needs both — so this is renderModelPreview's sibling, with the same option shape and the
+// same rule: it calls the REAL renderer rather than a preview copy of it.
+//
+// ⚠ VEHICLES ARE READ-ONLY IN THE MODELSHOP, and the reason is structural rather than a
+// missing feature. A building can be authored as data because `SHAPE_SINK` gives a lossless
+// mass capture and the schema round-trips it. A vehicle mesh is parametric code in
+// aircraft3d.js (FW_PARAMS, TRUCK_SHAPES, buildCessna…) with no capture and no authored
+// format, so there is nothing for an editor to write. Showing them is still worth it: until
+// now the only way to look at an airframe was to fly it.
+export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck'];
+// Framing derived from the subject, exactly as a building's is derived from its roof. These
+// craft differ in size by seven times — CONTACT_SIZE runs 0.030 for a rig to 0.21 for the
+// heavy — so one flat preview distance frames the transport and leaves the truck three pixels.
+export const vehicleFrameDist = (cls) => Math.max(1.1, 52 * (CONTACT_SIZE[cls] || 0.11));
+export const TRUCK_VARIANTS = ['scrapper', 'hauler', 'drayman', 'continental'];
+
+export function renderVehiclePreview(canvas, opts = {}) {
+  const {
+    cls = 'prop', variant = '', livery = null, armed = false, gearAnim = 1,
+    heading = 0, dist = vehicleFrameDist(cls), eyeH = null, night = 0, now = 1000,
+    bank = 0, pitch = 0, sizeMul = 1, panX = 0, panY = 0, ground = true,
+  } = opts;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx || !W || !H) return null;
+
+  const horizonY = H * 0.42 + panY, focal = H * 0.55;
+  const hd = heading * Math.PI / 180;
+  const chase = (panX ? { back: 0, up: 0, fx: Math.cos(hd) * panX, fy: Math.sin(hd) * panX } : undefined);
+  // The eye scales with the craft too, so the camera looks AT a rig rather than down on it
+  // from an aeroplane's eye height.
+  const eye = eyeH == null ? Math.max(0.12, dist * 0.16) : eyeH;
+  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH: eye }, chase);
+  const dx = dist * Math.sin(hd), dy = -dist * Math.cos(hd);
+
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  if (ground) {
+    const sky = night > 0.5 ? [14, 16, 26] : [150, 168, 186];
+    const grd = night > 0.5 ? [18, 20, 22] : [64, 68, 62];
+    ctx.fillStyle = rgb(sky); ctx.fillRect(0, 0, W, Math.max(0, horizonY));
+    ctx.fillStyle = rgb(grd); ctx.fillRect(0, Math.max(0, horizonY), W, H - Math.max(0, horizonY));
+  }
+
+  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE;
+  try {
+    FACE_SINK = [];
+    // `hdg` is the craft's own heading; holding it at the camera's turns the model with the
+    // orbit so you circle it rather than watching it spin.
+    const craft = { cls, variant, livery, armed, gearAnim, dx, dy, hdg: heading, bank, pitch, sizeMul, own: true, rng: 0 };
+    // ⚠ THE SUN IS A SHAPE, NOT A DIRECTION. drawAircraftModel reads `elev`, `dir` and
+    // `night` off it — and `night` feeds a lamp alpha directly, so a plausible-looking
+    // `{x, y, z}` makes that alpha NaN and the first navigation light throws
+    // "addColorStop … could not be parsed as a color". It threw in a browser and NOT under
+    // the node stub, which accepts any string; see the vehicle lamp gate in shapes:smoke.
+    const sun = { elev: (1 - night) * 0.7, dir: [0.4, -0.7], night };
+    drawAircraftModel(ctx, cam, craft, 0, sun, now);
+    flushFaces();
+  } finally {
+    FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight;
+    ctx.restore();
+  }
+  return { cam, dx, dy, horizonY };
+}
+
+// ── VEHICLE SMOKE — every class, and every colour it asks the canvas for ─────────────────────
+//
+// The paint smokes above prove a model RUNS. This one proves the colours it hands the canvas
+// are colours, and it exists because the stub cannot tell the difference: SHAPE_STUB_CTX
+// takes any string, so `rgba(255,55,55,NaN)` sails through it and throws in a real browser on
+// the first navigation lamp. That is precisely how the vehicle preview shipped broken while
+// every headless gate was green.
+//
+// So the trace context is reused with one extra job: any recorded argument containing NaN is
+// a failure. It is the cheapest possible check for a whole class of bug — an arithmetic slip
+// that reaches a colour, a gradient stop or a coordinate.
+export function vehicleRenderSmoke() {
+  const out = [];
+  for (const cls of VEHICLE_CLASSES) {
+    const variants = cls === 'truck' ? TRUCK_VARIANTS : [''];
+    for (const variant of variants) {
+      for (const night of [0, 0.9]) {
+        const sink = [];
+        const ctx = traceCtx(sink);
+        const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE;
+        try {
+          FACE_SINK = [];
+          const cam = makeCam(900, 250, 330, { heading: 35, height: 0, eyeH: 0.9 });
+          const craft = { cls, variant, armed: false, gearAnim: 1, dx: 0, dy: -6, hdg: 35, bank: 0, pitch: 0, sizeMul: 1, own: true, rng: 0 };
+          drawAircraftModel(ctx, cam, craft, 0, { elev: (1 - night) * 0.7, dir: [0.4, -0.7], night }, 1000);
+          flushFaces();
+        } catch (e) {
+          out.push(`${cls}${variant ? '/' + variant : ''} (night=${night}) threw: ${e.message}`);
+        } finally {
+          FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight;
+        }
+        const bad = sink.filter((op) => op.includes('NaN'));
+        if (bad.length) {
+          out.push(`${cls}${variant ? '/' + variant : ''} (night=${night}) asked the canvas for ${bad.length} NaN value(s), `
+            + `e.g. ${bad[0]} — a real browser throws on the first one.`);
+        }
+      }
+    }
+  }
+  return out;
 }
 
 // ── THE DRAWING TRACE — what a model would paint, as comparable data ─────────────────────────

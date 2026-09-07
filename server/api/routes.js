@@ -452,6 +452,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/dev/notes/') && method==='PATCH') return requireDev(auth, ()=>apiUpdateDevNote(path.split('/')[3], body));
   if (path.startsWith('/dev/notes/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteDevNote(path.split('/')[3]));
   if (path==='/dev/studio' && method==='POST') return requireDev(auth, apiStartStudio);
+  if (path==='/dev/modelshop' && method==='POST') return requireDev(auth, apiStartModelshop);
   if (path==='/dev/contributions' && method==='GET') return requireDev(auth, apiGetDevContributions);
   if (path==='/dev/identities/automatch' && method==='POST') return requireDev(auth, apiAutomatchDevIdentities);
   if (path==='/dev/identities' && method==='GET') return requireDev(auth, apiGetDevIdentities);
@@ -2626,20 +2627,28 @@ async function apiDeleteDevNote(id) {
   return { status: 200, body: { ok: true } };
 }
 
-// ── Map Studio launcher (LOCAL DEV ONLY) ────────────────────────────────────
-// The Studio is a separate process (`npm run studio`, port 5180) that edits
-// content/ files with no DB. The devpanel's sidebar link asks here first so a
-// developer doesn't have to remember to start it in a second terminal.
+// ── Local tool launchers (LOCAL DEV ONLY) ───────────────────────────────────
+// The Studio (`npm run studio`, :5180) edits content/ files with no DB. The
+// Modelshop (`npm run modelshop`, :5181) edits GLASS building models the same
+// way. The devpanel's sidebar links ask here first so a developer doesn't have
+// to remember to start one in a second terminal.
 //
-// It spawns DETACHED and unref'd: the Studio must outlive a game-server restart,
-// or every `npm run dev` cycle would kill the editor you're working in. It is
-// hard-refused on production — there is no content/ tree to edit there, and
-// spawning processes from an HTTP route is a local-convenience affordance only.
-const STUDIO_PORT = Number(process.env.STUDIO_PORT) || 5180;
+// ONE TABLE AND ONE LAUNCHER, not a function per tool. The second tool arrived
+// as a copy of the first and that is how a port number, a spawn flag or the
+// production refusal ends up fixed in one of them and not the other.
+//
+// They spawn DETACHED and unref'd: a tool must outlive a game-server restart, or
+// every `npm run dev` cycle would kill the editor you're working in. Hard-refused
+// on production — there is no content/ tree to edit there, and spawning processes
+// from an HTTP route is a local-convenience affordance only.
+const LOCAL_TOOLS = {
+  studio: { port: Number(process.env.STUDIO_PORT) || 5180, script: 'tools/studio/serve.mjs', label: 'Studio', theme: true },
+  modelshop: { port: Number(process.env.MODELSHOP_PORT) || 5181, script: 'tools/modelshop/serve.mjs', label: 'Modelshop', theme: false },
+};
 
-function studioIsUp() {
+function toolIsUp(port) {
   return new Promise(resolve => {
-    const sock = net.connect({ port: STUDIO_PORT, host: '127.0.0.1' });
+    const sock = net.connect({ port, host: '127.0.0.1' });
     const done = up => { sock.destroy(); resolve(up); };
     sock.setTimeout(400);
     sock.once('connect', () => done(true));
@@ -2648,31 +2657,39 @@ function studioIsUp() {
   });
 }
 
-async function apiStartStudio() {
-  const url = `http://localhost:${STUDIO_PORT}`;
+async function apiStartLocalTool(name) {
+  const tool = LOCAL_TOOLS[name];
+  if (!tool) return { status: 404, body: { error: `No such local tool: ${name}` } };
+  const url = `http://localhost:${tool.port}`;
   if (process.env.NODE_ENV === 'production' || process.env.CONTENT_READONLY) {
-    return { status: 403, body: { error: 'The Studio is local-only.' } };
+    return { status: 403, body: { error: `The ${tool.label} is local-only.` } };
   }
-  if (await studioIsUp()) return { status: 200, body: { ok: true, url, started: false } };
+  // `theme` tells the caller whether this tool honours a ?theme= seed. The Studio
+  // does; the Modelshop wears its own palette, and handing it a parameter it
+  // ignores would look like a feature that quietly does nothing.
+  if (await toolIsUp(tool.port)) return { status: 200, body: { ok: true, url, started: false, theme: tool.theme } };
 
   const root = fileURLToPath(new URL('../../', import.meta.url));
   try {
-    const child = spawn(process.execPath, ['tools/studio/serve.mjs', String(STUDIO_PORT)], {
+    const child = spawn(process.execPath, [tool.script, String(tool.port)], {
       cwd: root, detached: true, stdio: 'ignore', windowsHide: true,
     });
     child.unref();
   } catch (e) {
-    return { status: 500, body: { error: `Couldn't start the Studio: ${e.message}` } };
+    return { status: 500, body: { error: `Couldn't start the ${tool.label}: ${e.message}` } };
   }
 
   // Poll rather than guess — the caller opens the tab, and a tab opened before
   // the listener exists just shows a connection error.
   for (let i = 0; i < 40; i++) {
-    if (await studioIsUp()) return { status: 200, body: { ok: true, url, started: true } };
+    if (await toolIsUp(tool.port)) return { status: 200, body: { ok: true, url, started: true, theme: tool.theme } };
     await new Promise(r => setTimeout(r, 250));
   }
-  return { status: 504, body: { error: "The Studio didn't come up in time." } };
+  return { status: 504, body: { error: `The ${tool.label} didn't come up in time.` } };
 }
+
+const apiStartStudio = () => apiStartLocalTool('studio');
+const apiStartModelshop = () => apiStartLocalTool('modelshop');
 
 // Aggregated per-author contribution stats (commits/lines/file-changes) for a
 // few ranges, from the synced dev_commits table. Handles resolved via dev_identities.

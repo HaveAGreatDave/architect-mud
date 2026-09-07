@@ -7,92 +7,113 @@
 <style>
   :root { color-scheme: dark; --ms-bg: #0d0f12; --ms-panel: #14181d; --ms-line: #262c34; --ms-ink: #d6dde6; --ms-dim: #8b97a5; --ms-accent: #6fd3ff; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--ms-bg); color: var(--ms-ink); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  #wrap { display: grid; grid-template-columns: 260px 1fr 300px; height: 100vh; }
-  .col { overflow: auto; border-right: 1px solid var(--ms-line); }
-  .col:last-child { border-right: 0; border-left: 1px solid var(--ms-line); }
-  h1 { font-size: 13px; margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--ms-line); letter-spacing: .08em; color: var(--ms-accent); }
-  h1 small { color: var(--ms-dim); letter-spacing: 0; font-weight: normal; }
-  #search { width: 100%; padding: 7px 12px; background: var(--ms-panel); border: 0; border-bottom: 1px solid var(--ms-line); color: var(--ms-ink); font: inherit; }
-  #list { list-style: none; margin: 0; padding: 0; }
-  #list li { padding: 5px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.03); }
-  #list li:hover { background: var(--ms-panel); }
-  #list li.on { background: #1d2732; color: var(--ms-accent); }
-  #list li .k { color: var(--ms-dim); font-size: 11px; }
-  #stage { display: flex; flex-direction: column; min-width: 0; }
-  #view { flex: 1; min-height: 0; background: #000; display: block; width: 100%; }
-  #bar { padding: 8px 12px; border-top: 1px solid var(--ms-line); background: var(--ms-panel); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  label { color: var(--ms-dim); display: inline-flex; gap: 6px; align-items: center; }
-  input[type=range] { width: 120px; }
-  button { background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); padding: 4px 10px; font: inherit; cursor: pointer; border-radius: 3px; }
-  button.on { border-color: var(--ms-accent); color: var(--ms-accent); }
-  section { padding: 10px 12px; border-bottom: 1px solid var(--ms-line); }
-  section h2 { font-size: 11px; margin: 0 0 8px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
-  #scales { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  #scales figure { margin: 0; }
-  #scales canvas { width: 100%; background: #000; display: block; border: 1px solid var(--ms-line); }
-  #scales figcaption { color: var(--ms-dim); font-size: 10px; padding-top: 2px; }
-  select { width: 100%; background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; padding: 3px; margin-bottom: 6px; }
-  #diffimgs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
-  #diffimgs figure { margin: 0; }
-  #diffimgs canvas { width: 100%; background: #000; display: block; border: 1px solid var(--ms-line); }
-  #diffimgs figcaption { color: var(--ms-dim); font-size: 10px; text-align: center; padding-top: 2px; }
-  #diffnum { padding-top: 6px; }
-  #editor h3 { font-size: 10px; margin: 10px 0 4px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
-  .etop { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .part { border: 1px solid var(--ms-line); border-radius: 3px; margin-bottom: 5px; }
-  .part.sel { border-color: var(--ms-accent); }
-  .phead { display: flex; gap: 3px; align-items: center; padding: 3px 5px; background: #171c22; }
-  .phead b { flex: 1; font-weight: normal; color: var(--ms-accent); font-size: 11px; }
-  .pbody { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; padding: 5px; }
-  .fld { display: flex; gap: 4px; align-items: center; }
-  .fld label { flex: 0 0 34px; font-size: 10px; }
-  .fld input { flex: 1; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; padding: 1px 3px; }
-  .fld select.tag { flex: 0 0 42px; font-size: 10px; padding: 0; margin: 0; }
-  .fld select.tag.warn { color: #ffbe6f; border-color: #ffbe6f; }
-  .fld input.warn { color: #ffbe6f; border-color: #ffbe6f; }
+  body { margin: 0; background: var(--ms-bg); color: var(--ms-ink); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow: hidden; }
+
+  /* Two columns, not three. The model list moved into a dialog so the viewport gets
+     the width — a browser you open once a minute should not hold a quarter of the
+     screen while you are editing. */
+  #wrap { display: grid; grid-template-columns: 1fr 320px; height: 100vh; }
+  #stage { display: flex; flex-direction: column; min-width: 0; position: relative; }
+  #rail { overflow: auto; border-left: 1px solid var(--ms-line); }
+
+  #view { flex: 1; min-height: 0; background: #000; display: block; width: 100%; cursor: default; }
+  #view.grabbing { cursor: grabbing; }
+
+  /* The toolbar sits OVER the viewport rather than stealing height from it. */
+  #tools { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+  #tools > * { pointer-events: auto; }
+  .spacer { flex: 1; }
+  #hud { position: absolute; left: 10px; bottom: 46px; color: var(--ms-dim); font-size: 11px; pointer-events: none; text-shadow: 0 1px 3px #000; }
+  #modelname { color: var(--ms-accent); font-size: 12px; padding: 0 4px; text-shadow: 0 1px 3px #000; }
+
+  #bar { padding: 6px 10px; border-top: 1px solid var(--ms-line); background: var(--ms-panel); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 11px; }
+  label { color: var(--ms-dim); display: inline-flex; gap: 5px; align-items: center; }
+  input[type=range] { width: 96px; }
+  button { background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); padding: 4px 9px; font: inherit; cursor: pointer; border-radius: 3px; }
+  button:hover { border-color: #3d4b5a; }
+  button.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #16222b; }
   button.mini { padding: 0 5px; font-size: 11px; line-height: 16px; }
-  .addrow { display: flex; gap: 4px; margin: 4px 0 10px; }
-  .addrow select, .addrow input { flex: 1; margin: 0; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; }
-  .msgs { margin-top: 6px; font-size: 11px; }
-  .dim { color: var(--ms-dim); }
-  #esave { font-size: 11px; padding-top: 6px; word-break: break-word; }
-  #esave.ok { color: #7ee787; }
-  #esave.err { color: #ff7b72; }
+  kbd { background: #10141a; border: 1px solid var(--ms-line); border-radius: 2px; padding: 0 3px; font-size: 10px; color: var(--ms-dim); }
+
+  section { padding: 9px 11px; border-bottom: 1px solid var(--ms-line); }
+  section h2 { font-size: 10px; margin: 0 0 7px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
+  #rail h3 { font-size: 10px; margin: 10px 0 4px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
+
+  #scales { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  #scales figure, #diffimgs figure { margin: 0; }
+  #scales canvas, #diffimgs canvas { width: 100%; background: #000; display: block; border: 1px solid var(--ms-line); }
+  #scales figcaption, #diffimgs figcaption { color: var(--ms-dim); font-size: 10px; padding-top: 2px; text-align: center; }
+  select { width: 100%; background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; padding: 3px; margin-bottom: 5px; }
+  #diffimgs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  #diffnum { padding-top: 5px; }
+
   .row { display: flex; justify-content: space-between; gap: 8px; }
   .row b { font-weight: normal; color: var(--ms-dim); }
   .warn { color: #ffbe6f; }
   .err { color: #ff7b72; white-space: pre-wrap; }
-  ol { margin: 0; padding-left: 20px; }
+  .dim { color: var(--ms-dim); }
+  ol { margin: 0; padding-left: 19px; }
   ol li { color: var(--ms-dim); }
+
+  .etop { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .part { border: 1px solid var(--ms-line); border-radius: 3px; margin-bottom: 4px; }
+  .part.sel { border-color: var(--ms-accent); }
+  .phead { display: flex; gap: 3px; align-items: center; padding: 3px 5px; background: #171c22; cursor: pointer; }
+  .phead b { flex: 1; font-weight: normal; color: var(--ms-accent); font-size: 11px; }
+  .pbody { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; padding: 5px; }
+  .fld { display: flex; gap: 4px; align-items: center; }
+  .fld label { flex: 0 0 32px; font-size: 10px; }
+  .fld input { flex: 1; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; padding: 1px 3px; }
+  .fld input.warn { color: #ffbe6f; border-color: #ffbe6f; }
+  .fld select.tag { flex: 0 0 40px; font-size: 10px; padding: 0; margin: 0; width: auto; }
+  .fld select.tag.warn { color: #ffbe6f; border-color: #ffbe6f; }
+  .addrow { display: flex; gap: 4px; margin: 4px 0 9px; }
+  .addrow select, .addrow input { flex: 1; margin: 0; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; }
+  .msgs { margin-top: 6px; font-size: 11px; }
+  #esave { font-size: 11px; padding-top: 6px; word-break: break-word; }
+  #esave.ok { color: #7ee787; }
+  #esave.err { color: #ff7b72; }
+
+  /* ── the model browser, as a dialog ── */
+  dialog { background: var(--ms-panel); color: var(--ms-ink); border: 1px solid var(--ms-line); border-radius: 5px; padding: 0; width: min(780px, 92vw); height: min(680px, 88vh); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  #browser { display: flex; flex-direction: column; height: 100%; }
+  #bhead { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--ms-line); }
+  #search { flex: 1; background: #10141a; border: 1px solid var(--ms-line); color: var(--ms-ink); font: inherit; padding: 5px 8px; }
+  #blist { flex: 1; overflow: auto; padding: 4px 0; }
+  #blist .grp { padding: 9px 12px 3px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
+  #blist .item { padding: 4px 12px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+  #blist .item:hover { background: #1d2732; }
+  #blist .item.on { background: #1d2732; color: var(--ms-accent); }
+  #blist .item .k { color: var(--ms-dim); font-size: 10px; margin-left: auto; }
+  #blist .item .badge { color: #7ee787; font-size: 10px; }
 </style>
 </head>
 <body>
 <div id="wrap">
-  <div class="col">
-    <h1>MODELSHOP <small id="count"></small></h1>
-    <input id="search" placeholder="filter models…" autocomplete="off">
-    <ul id="list"></ul>
-  </div>
-
   <div id="stage">
     <canvas id="view"></canvas>
+    <div id="tools">
+      <button id="open">📂 Open… <kbd>O</kbd></button>
+      <span id="modelname"></span>
+      <span class="spacer"></span>
+      <button id="mode-move" class="on" title="Move the selected piece — drag on the ground, Shift+drag for height">Move <kbd>G</kbd></button>
+      <button id="mode-scale" title="Scale the selected piece — drag for width, Shift+drag for height">Scale <kbd>S</kbd></button>
+      <button id="mode-rotate" title="Rotate the selected piece about its own axis">Rotate <kbd>R</kbd></button>
+      <button id="frame" title="Frame the model again">Frame <kbd>F</kbd></button>
+    </div>
+    <div id="hud"></div>
     <div id="bar">
       <button id="preset-cockpit" class="on">Cockpit</button>
       <button id="preset-cab">Cab</button>
-      <label>orbit <input id="heading" type="range" min="0" max="359" value="0"></label>
-      <label>dist <input id="dist" type="range" min="2" max="60" step="0.5" value="9"></label>
-      <label>eye <input id="eye" type="range" min="0" max="30" step="0.1" value="1.4"></label>
-      <label>fh <input id="fh" type="range" min="0.15" max="1" step="0.01" value="0.4"></label>
-      <label>h <input id="h" type="range" min="0.2" max="4" step="0.05" value="1"></label>
+      <label title="Storeys — fh and h are DERIVED from this the way the sim derives them, so the preview is a building the game could actually draw">floors <input id="floors" type="range" min="1" max="40" step="1" value="6"></label>
+      <span id="scaleread" class="dim"></span>
       <label>seed <input id="seed" type="range" min="0" max="12" step="1" value="3"></label>
       <label>night <input id="night" type="range" min="0" max="1" step="0.05" value="0"></label>
       <label>facing
-        <select id="facing">
-          <option value="0,1">N (0,1)</option>
-          <option value="0,-1">S (0,-1)</option>
-          <option value="1,0">E (1,0)</option>
-          <option value="-1,0">W (-1,0)</option>
+        <select id="facing" style="width:auto;margin:0">
+          <option value="0,1">N</option><option value="0,-1">S</option>
+          <option value="1,0">E</option><option value="-1,0">W</option>
         </select>
       </label>
       <button id="wire">Cage</button>
@@ -100,7 +121,12 @@
     </div>
   </div>
 
-  <div class="col">
+  <div id="rail">
+    <section>
+      <h2>Edit</h2>
+      <div id="editor"></div>
+      <div id="esave"></div>
+    </section>
     <section>
       <h2>Model</h2>
       <div id="meta"></div>
@@ -114,11 +140,6 @@
       <div id="bake"></div>
     </section>
     <section>
-      <h2>Edit</h2>
-      <div id="editor"></div>
-      <div id="esave"></div>
-    </section>
-    <section>
       <h2>Difference</h2>
       <select id="cmp"><option value="">— compare with —</option></select>
       <div id="diffimgs"></div>
@@ -130,6 +151,18 @@
     </section>
   </div>
 </div>
+
+<dialog id="browserdlg">
+  <div id="browser">
+    <div id="bhead">
+      <input id="search" placeholder="filter models…" autocomplete="off">
+      <span id="count" class="dim"></span>
+      <button id="bclose">Close</button>
+    </div>
+    <div id="blist"></div>
+  </div>
+</dialog>
+
 <script type="module" src="/app.js"></script>
 </body>
 </html>

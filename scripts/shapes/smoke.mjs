@@ -83,6 +83,13 @@ async function main() {
     problems.push(`paint  ${f.key} (night=${f.night}, ${f.front ? 'entrance toward camera' : 'entrance away'}) → ${f.err}`);
   }
 
+  // ── VEHICLES ──
+  // Every aircraft and truck class, and every colour it hands the canvas. The NaN check is the
+  // point: SHAPE_STUB_CTX accepts any string, so 'rgba(255,55,55,NaN)' passes headlessly and
+  // throws in a real browser on the first navigation lamp — which is exactly how the Modelshop's
+  // vehicle preview shipped broken with every other gate green.
+  for (const f of ws.vehicleRenderSmoke()) problems.push(`vehicle ${f}`);
+
   // ── NEAR TIER ──
   // Proves the near-detail tier adds to the picture. shapeRenderSmoke already proves it adds
   // nothing to the captured geometry; this is the other half.

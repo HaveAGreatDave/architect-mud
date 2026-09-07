@@ -117,6 +117,19 @@ function numField(part, name, defTag, onEdit) {
 function plainField(part, name, type, onEdit) {
   const wrap = el('div', 'fld');
   wrap.append(el('label', null, name));
+  // 'pal' is the TEXTURE: wallTex() derives the material family (metal, glass, deco, brick)
+  // from the palette key, so choosing one is how a piece changes surface. Backed by the real
+  // WALL_COL list, and a key that is not in it turns amber rather than silently going grey.
+  if (name === 'pal') {
+    const inp = el('input'); inp.type = 'text'; inp.value = part[name] ?? '';
+    inp.setAttribute('list', 'palkeys');
+    const known = new Set(wallPaletteKeys());
+    const mark = () => inp.classList.toggle('warn', !!inp.value && !known.has(inp.value));
+    mark();
+    inp.oninput = () => { if (inp.value) part[name] = inp.value; else delete part[name]; mark(); onEdit(); };
+    wrap.append(inp);
+    return wrap;
+  }
   if (type === 'boolean') {
     const inp = el('input'); inp.type = 'checkbox';
     inp.checked = part[name] !== false;
@@ -201,7 +214,17 @@ export function renderEditor(host, key, redraw) {
   save.onclick = () => doSave(file, doc, redraw);
   const del = el('button', '', 'Delete');
   del.onclick = () => { if (confirm('Delete ' + file + '?')) doDelete(file, redraw); };
-  top.append(save, del);
+  const exp = el('button', '', 'Export');
+  exp.title = 'Download this model as a .json file';
+  exp.onclick = () => {
+    const blob = new Blob([JSON.stringify(doc, null, 2) + '\n'], { type: 'application/json' });
+    const a = el('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+  top.append(save, exp, del);
   host.append(top);
 
   // The palette list comes from WALL_COL itself, never a second copy of ~300 key names. A free

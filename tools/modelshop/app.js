@@ -1,52 +1,126 @@
-// MODELSHOP — the client. Phase 1: the inspector.
+// MODELSHOP — the client.
 //
-// It imports the REAL renderer. Nothing in this file draws a building, computes a
-// camera, or knows what a segment is — every picture on the page comes out of
-// renderModelPreview(), which is a named entry into windshield.js's own
-// drawTypeModel. That is deliberate and is the whole reason the tool is trustworthy:
-// there is no second renderer to disagree with the sim.
+// It imports the REAL renderer. Nothing here draws a building, computes a camera, or
+// knows what a segment is — every picture on the page comes out of renderModelPreview(),
+// a named entry into windshield.js's own drawTypeModel. That is the whole reason the tool
+// is worth trusting: there is no second renderer to disagree with the sim.
 //
 // ⚠ Quoting rule, from CLAUDE.md: inside a template literal, quote identifiers with
-// 'single quotes', never backticks. A backtick in a comment inside a template string
-// ends the string mid-sentence and takes the whole client down with it.
+// 'single quotes', never backticks. Most markup here is built through the DOM instead.
 import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,
-  ADORN_RICH, ADORN_NEAR,
+  ADORN_RICH, ADORN_NEAR, buildingScaleFor,
+  renderVehiclePreview, VEHICLE_CLASSES, TRUCK_VARIANTS, vehicleFrameDist,
 } from '/client/game/js/panels/windshield.js';
 import { initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty } from './editor.js';
 
 const $ = (id) => document.getElementById(id);
 
-// The AUTHORING BASIS. The sliders read in tile units at this scale, which is the
-// same pair captureRawPass uses, so what you set here is what the capture solves at.
+// The AUTHORING BASIS — the pair captureRawPass uses, so a number an author types is the
+// number the capture solves at.
 const BASIS = { fh: 0.4, h: 1 };
-// The three scales the affine decomposition is solved from, plus the fourth it is
-// VERIFIED against — the strip renders all four, because seeing the model at a scale
-// the solver never saw is what "affine in fh and h" actually means.
 const SCALES = [[1, 1], [2, 1], [1, 2], [2, 3]];
 
-const MODELS = shapeModelRegistry();
+// Buildings AND vehicles. They are two different renderers — a building is a drawTypeModel
+// arm, a vehicle is a face list from aircraft3d — so an entry carries which one it is and
+// the viewport branches once. Vehicles are read-only: their meshes are parametric code with
+// no capture and no authored format, so there is nothing for the editor to write.
+const VEHICLES = [
+  ...VEHICLE_CLASSES.filter((c) => c !== 'truck').map((cls) => ({ key: 'vehicle:' + cls, vehicle: { cls, variant: '' }, m: { type: cls } })),
+  ...TRUCK_VARIANTS.map((v) => ({ key: 'vehicle:truck/' + v, vehicle: { cls: 'truck', variant: v }, m: { type: 'truck ' + v } })),
+];
+const MODELS = [...shapeModelRegistry(), ...VEHICLES];
+const entryOf = (key) => MODELS.find((r) => r.key === key) || null;
+const isVehicle = (key) => !!entryOf(key)?.vehicle;
 let selectedSeg = -1;
+let lastCam = null;
+
 const state = {
   key: MODELS[0]?.key || null,
-  heading: 0, dist: 9, eye: 1.4, fh: 0.4, h: 1, seed: 3, night: 0,
+  heading: 0, dist: 9, eye: 1.4, panX: 0, panY: 0,
+  floors: 6, seed: 3, night: 0,
   E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, preset: 'cockpit',
+  mode: 'move',
 };
 
-const editCache = new Map();   // key → the record compiled from the CURRENT doc, one per edit
+const editCache = new Map();
 export function invalidateEdit(key) { editCache.delete(key); }
 const modelOf = (key) => {
   if (!editCache.has(key)) editCache.set(key, editorRecordFor(key));
   return editCache.get(key) || MODELS.find((r) => r.key === key)?.m || null;
 };
+const bare = (key) => (key || '').replace(/^(named|type|vehicle):/, '');
 
-// ── FRAMING IS DERIVED FROM THE MODEL, NOT SET BY HAND ──────────────────────
-// A shopfront is 0.8 tiles tall and Halcyon is 2.9, so one fixed distance either
-// buries the shop in the bottom of the frame or walks the tower out of the top —
-// and an author would spend the session dragging two sliders back to sensible
-// before looking at anything. The roof comes out of the capture that is already
-// running for the readouts, so this costs nothing.
+// ⚠ fh AND h ARE DERIVED, NEVER SET. They used to be two sliders, which meant the preview
+// could show a footprint and a storey stack the game never produces. The sim computes both
+// from the tile — BUILDING_FOOT plus a per-seed jitter, and floors x FLOOR_Z — so the tool
+// asks for that pair instead of inventing one. Floors is the control because floors is the
+// thing the world actually authors (flags.floors).
+const scale = () => buildingScaleFor(state.floors, state.seed);
+
+// ── BROWSING FAMILIES ───────────────────────────────────────────────────────
+// ⚠ A DISPLAY HEURISTIC, AND NOTHING ELSE READS IT. Everything in this registry is a
+// BUILDING — aircraft and vehicles are a different renderer (aircraft3d.js) and are not
+// in shapeModelRegistry at all, so "buildings vs aeroplanes" is not a split this tool can
+// make yet. What it can do is stop 173 models being one flat alphabetical wall.
+//
+// Keyed off the arm's own type name, which is why it is a heuristic: an unmatched model
+// lands in Other and nothing breaks. It must never become a table anything depends on —
+// that would be Coldwater's content leaking into a THOMAS tool.
+//
+// Two signals, in order, and the FIRST one is the codebase's own rather than mine.
+//
+//   1. THE TYPE PREFIX. `asc_spire`, `trm_still`, `sw_kiln`, `dw_forge` — the arms are
+//      already namespaced by the place that owns them, and that is 52 models sorted for
+//      free. A prefix EARNS a group by having members (>= MIN_PREFIX below), derived at
+//      load, so a new region groups itself and a compound name like `fuel_yard` or
+//      `cold_storage` is not mistaken for one.
+//   2. A KEYWORD FAMILY, for the unprefixed rest.
+//
+// The prefix names below are verified from the world, not guessed: a `dw_` building sits
+// on region_deadwater, `sw_`/`trm_` on region_scarletwastes. An unknown prefix is shown
+// raw rather than invented.
+const PREFIX_NAMES = { asc: 'Ascendant', trm: 'Thornwarren', sw: 'Scarletwastes', dw: 'Deadwater' };
+const MIN_PREFIX = 4;
+const FAMILIES = [
+  ['Towers & spires', /tower|spire|lux|high|solenne|halcyon|penthouse|aerie/],
+  ['Industry & freight', /foundry|forge|works|fab|slag|refin|industr|dynamo|mill|yard|freight|warehouse|depot|storage|dock|wharf|container|chem|vats|truck|fuel|cold/],
+  ['Shops & nightlife', /shop|store|bodega|bar|diner|noodle|cafe|coffee|bakery|butcher|market|casino|honky|club|comic|hardware|outfitter|laundr|salon|pawn|strip|boutique|showroom|atelier|stall|ration/],
+  ['Civic & law', /police|precinct|civic|court|church|clinic|hospital|records|hall|school|library|bank|jail|gov|permits|embassy|sentinel/],
+  ['Homes', /apartment|unit|tenement|house|home|residence|hab|motel|hotel|creche|dorm|inn/],
+  ['Transport', /hangar|airfield|terminal|station|garage|rail|bus|tram|port/],
+  ['Walls & infrastructure', /wall|gate|dam|bridge|pylon|infra|tunnel|mast|antenna|power|cistern|water/],
+];
+
+// Which prefixes are real, counted from the registry rather than listed.
+const LIVE_PREFIXES = (() => {
+  const n = {};
+  for (const r of MODELS) {
+    const p = /^([a-z]{2,6})_/.exec(r.m?.type || '');
+    if (p) n[p[1]] = (n[p[1]] || 0) + 1;
+  }
+  return new Set(Object.entries(n).filter(([, c]) => c >= MIN_PREFIX).map(([p]) => p));
+})();
+
+function familyOf(key, m) {
+  if (key && key.startsWith('vehicle:')) return key.startsWith('vehicle:truck') ? 'Road vehicles' : 'Aircraft';
+  const t = (m && m.type) || '';
+  if (t === 'authored') return 'Authored';
+  const p = /^([a-z]{2,6})_/.exec(t);
+  if (p && LIVE_PREFIXES.has(p[1])) return PREFIX_NAMES[p[1]] || p[1] + '_';
+  for (const [name, re] of FAMILIES) if (re.test(t)) return name;
+  // A named model with a bespoke arm and no other signal is, definitionally, a one-off
+  // building somebody drew on purpose. "Landmarks" is a truer label for it than "Other".
+  return key && key.startsWith('named:') ? 'Landmarks' : 'Other';
+}
+const FAMILY_ORDER = ['Authored', 'Aircraft', 'Road vehicles', ...Object.values(PREFIX_NAMES), ...FAMILIES.map((f) => f[0]), 'Landmarks', 'Other'];
+
+// ── FRAMING IS DERIVED FROM THE MODEL ───────────────────────────────────────
+// A shopfront is 0.8 tiles tall and Halcyon is 2.9, so one fixed distance either buries
+// the shop or walks the tower out of frame, and an author spends the session dragging two
+// sliders back to sensible. The roof comes out of the capture already running for the
+// readouts, so this costs nothing.
 function roofOf(m, fh, h) {
   const segs = shapeForModel(m, state.seed);
   if (!segs || !segs.length) return h;
@@ -54,35 +128,56 @@ function roofOf(m, fh, h) {
   for (const s of segs) top = Math.max(top, s.z1[0] * fh + s.z1[1] * h + s.z1[2]);
   return Math.max(0.2, top);
 }
-
-// The cab is a driver at a kerb: close, eye almost on the ground, near tier on.
-// The cockpit stands back far enough to hold the whole building and sits at about
-// half its height, which is the angle a pilot on approach actually gets.
 function frameAt(top, which) {
   if (which === 'cab') return { dist: Math.max(1.8, top * 0.5 + 1.1), eye: 0.25, tier: ADORN_NEAR };
   return { dist: Math.max(3.2, top * 1.25 + 2), eye: Math.max(0.8, top * 0.42), tier: ADORN_RICH };
 }
-const frameFor = (which) => frameAt(roofOf(modelOf(state.key), state.fh, state.h), which);
 
-// ── the model list ──────────────────────────────────────────────────────────
-function renderList(filter) {
+// ── the browser dialog ──────────────────────────────────────────────────────
+function renderBrowser(filter) {
   const q = (filter || '').trim().toLowerCase();
   const rows = MODELS.filter((r) => !q || r.key.toLowerCase().includes(q) || String(r.m?.type || '').toLowerCase().includes(q));
-  $('count').textContent = rows.length === MODELS.length ? String(MODELS.length) : rows.length + '/' + MODELS.length;
-  const ul = $('list');
-  ul.textContent = '';
+  $('count').textContent = rows.length === MODELS.length ? MODELS.length + ' models' : rows.length + ' of ' + MODELS.length;
+
+  const groups = new Map();
   for (const r of rows) {
-    const li = document.createElement('li');
-    li.className = r.key === state.key ? 'on' : '';
-    const name = document.createElement('div');
-    name.textContent = r.key.replace(/^(named|type):/, '');
-    const kind = document.createElement('div');
-    kind.className = 'k';
-    kind.textContent = (r.key.startsWith('named:') ? 'named · ' : 'type · ') + (r.m?.type || '?');
-    li.append(name, kind);
-    li.onclick = () => { state.key = r.key; renderList($('search').value); fillCompare(); preset(state.preset); };
-    ul.append(li);
+    const fam = familyOf(r.key, r.m);
+    if (!groups.has(fam)) groups.set(fam, []);
+    groups.get(fam).push(r);
   }
+  const order = [...FAMILY_ORDER, ...[...groups.keys()].filter((g) => !FAMILY_ORDER.includes(g))];
+
+  const host = $('blist');
+  host.textContent = '';
+  for (const fam of order) {
+    const list = groups.get(fam);
+    if (!list || !list.length) continue;
+    const h = document.createElement('div');
+    h.className = 'grp';
+    h.textContent = fam + '  (' + list.length + ')';
+    host.append(h);
+    for (const r of list.sort((a, b) => a.key.localeCompare(b.key))) {
+      const it = document.createElement('div');
+      it.className = 'item' + (r.key === state.key ? ' on' : '');
+      const n = document.createElement('span'); n.textContent = bare(r.key);
+      it.append(n);
+      if (r.m?.type === 'authored') { const b = document.createElement('span'); b.className = 'badge'; b.textContent = '✎ editable'; it.append(b); }
+      const k = document.createElement('span'); k.className = 'k';
+      k.textContent = (r.key.startsWith('named:') ? 'named · ' : 'type · ') + (r.m?.type || '?');
+      it.append(k);
+      it.onclick = () => { select(r.key); $('browserdlg').close(); };
+      host.append(it);
+    }
+  }
+}
+
+function select(key) {
+  state.key = key;
+  selectedSeg = -1;
+  invalidateEdit(key);
+  $('modelname').textContent = bare(key);
+  fillCompare();
+  preset(state.preset);
 }
 
 // ── the viewport ────────────────────────────────────────────────────────────
@@ -95,19 +190,23 @@ function sizeCanvas(c) {
 
 function previewOpts(over) {
   return {
-    m: modelOf(state.key), name: (state.key || '').replace(/^(named|type):/, '').toUpperCase(),
-    seed: state.seed, fh: state.fh, h: state.h, night: state.night, E: state.E,
+    m: modelOf(state.key), name: bare(state.key).toUpperCase(),
+    seed: state.seed, fh: scale().fh, h: scale().h, night: state.night, E: state.E,
     heading: state.heading, dist: state.dist, eyeH: state.eye,
+    panX: state.panX, panY: state.panY,
     tier: state.tier, wire: state.wire,
     ...over,
   };
 }
 
 function draw() {
-  const m = modelOf(state.key);
-  if (!m) return;
   const view = $('view');
   sizeCanvas(view);
+  // ONE branch, here, because there are genuinely two renderers. Everything below it is
+  // building-only and returns early for a vehicle rather than being taught to cope.
+  if (isVehicle(state.key)) return drawVehicle(view);
+  const m = modelOf(state.key);
+  if (!m) return;
   try {
     lastCam = renderModelPreview(view, previewOpts());
     paintSelection();
@@ -117,14 +216,51 @@ function draw() {
     ctx.fillStyle = '#ff7b72'; ctx.font = '16px monospace';
     ctx.fillText('threw: ' + e.message, 20, 40);
   }
+  drawHud();
   drawScales();
   renderSidebar();
   renderDiff();
   renderEditor($('editor'), state.key, () => { invalidateEdit(state.key); draw(); });
 }
 
-// The strip. Distance scales with the model so a 3x-tall building does not walk out
-// of frame — the point of the strip is the SHAPE at each scale, not the framing.
+// A vehicle: the same camera controls, no editing, and the rail says why.
+function drawVehicle(view) {
+  const v = entryOf(state.key).vehicle;
+  try {
+    lastCam = renderVehiclePreview(view, {
+      ...v, night: state.night, heading: state.heading, dist: state.dist,
+      eyeH: state.eye, panX: state.panX, panY: state.panY,
+    });
+  } catch (e) {
+    const ctx = view.getContext('2d');
+    ctx.fillStyle = '#2a0f10'; ctx.fillRect(0, 0, view.width, view.height);
+    ctx.fillStyle = '#ff7b72'; ctx.font = '16px monospace';
+    ctx.fillText('threw: ' + e.message, 20, 40);
+  }
+  $('hud').textContent = 'drag to orbit · middle-drag to pan · wheel to zoom — vehicles are read-only';
+  const meta = $('meta'); meta.textContent = '';
+  row(meta, 'key', state.key);
+  row(meta, 'class', v.cls);
+  if (v.variant) row(meta, 'variant', v.variant);
+  row(meta, 'family', familyOf(state.key, null));
+  row(meta, 'mesh', 'aircraft3d.js (parametric code)');
+  for (const id of ['scales', 'bake', 'checks', 'diffimgs', 'diffnum']) $(id).textContent = '';
+  const ed = $('editor'); ed.textContent = '';
+  const note = document.createElement('div'); note.className = 'dim';
+  note.textContent = 'Vehicle meshes are parametric code in aircraft3d.js — there is no capture and no authored format for them, so there is nothing here to edit. Buildings are editable.';
+  ed.append(note);
+  $('scaleread').textContent = '';
+}
+
+function drawHud() {
+  const doc = editorDocFor(state.key);
+  const sel = selectedSeg >= 0 && doc && doc.segs[selectedSeg];
+  $('hud').textContent = sel
+    ? 'seg #' + selectedSeg + ' ' + doc.segs[selectedSeg].kind + ' · ' + state.mode
+      + ' — drag to ' + state.mode + ', Shift for height · Del removes · Esc deselects'
+    : 'drag to orbit · middle-drag to pan · wheel to zoom' + (doc ? ' · click a piece to select it' : ' · read-only (a code arm)');
+}
+
 function drawScales() {
   const host = $('scales');
   if (host.childElementCount !== SCALES.length) {
@@ -132,7 +268,7 @@ function drawScales() {
     for (const [sf, sh] of SCALES) {
       const fig = document.createElement('figure');
       const c = document.createElement('canvas');
-      c.width = 280; c.height = 190;
+      c.width = 280; c.height = 180;
       const cap = document.createElement('figcaption');
       cap.textContent = 'fh x' + sf + '  h x' + sh + (sf === 2 && sh === 3 ? '  (verify)' : '');
       fig.append(c, cap);
@@ -142,11 +278,9 @@ function drawScales() {
   SCALES.forEach(([sf, sh], i) => {
     const c = host.children[i].querySelector('canvas');
     try {
-      renderModelPreview(c, previewOpts({
-        fh: BASIS.fh * sf, h: BASIS.h * sh,
-        ...(() => { const f = frameAt(roofOf(modelOf(state.key), BASIS.fh * sf, BASIS.h * sh), state.preset); return { dist: f.dist, eyeH: f.eye }; })(),
-        wire: false,
-      }));
+      const top = roofOf(modelOf(state.key), BASIS.fh * sf, BASIS.h * sh);
+      const f = frameAt(top, state.preset);
+      renderModelPreview(c, previewOpts({ fh: BASIS.fh * sf, h: BASIS.h * sh, dist: f.dist, eyeH: f.eye, panX: 0, panY: 0, wire: false }));
     } catch { /* the main viewport already reports the throw, in full */ }
   });
 }
@@ -160,27 +294,33 @@ function row(host, label, value, cls) {
   d.append(b, v); host.append(d);
 }
 
+function fmtErr(m) {
+  try {
+    const e = shapeLinearityError(m, state.seed);
+    if (e == null) return { ok: true, text: 'clean' };
+    return { ok: false, text: typeof e === 'number' ? e.toExponential(1) : JSON.stringify(e).slice(0, 120) };
+  } catch (err) { return { ok: false, text: err.message }; }
+}
+
 function renderSidebar() {
   const m = modelOf(state.key);
   const meta = $('meta'); meta.textContent = '';
   const segs = shapeForModel(m, state.seed);
   row(meta, 'key', state.key);
   row(meta, 'type', m?.type || '?');
+  row(meta, 'family', familyOf(state.key, m));
   row(meta, 'palette', m?.pal || '—');
   row(meta, 'segments', segs ? String(segs.length) : 'capture failed', segs ? '' : 'err');
   row(meta, 'spars', segs?.spars ? String(segs.spars.length) : '0');
   if (segs?.length) {
-    // Roof height in the units an author thinks in: multiples of the storey stack.
     let top = 0;
-    for (const s of segs) top = Math.max(top, s.z1[0] * state.fh + s.z1[1] * state.h + s.z1[2]);
-    row(meta, 'roof', (top / Math.max(1e-6, state.h)).toFixed(2) + ' x h');
+    const sc = scale();
+    for (const s of segs) top = Math.max(top, s.z1[0] * sc.fh + s.z1[1] * sc.h + s.z1[2]);
+    row(meta, 'roof', (top / Math.max(1e-6, sc.h)).toFixed(2) + ' x h');
   }
   const cost = shapeAdornCost(m, state.tier, state.night);
-  row(meta, 'adorn cost', cost.grads + ' grads · ' + cost.blurs + ' blurs',
-    cost.grads + cost.blurs > 30 ? 'warn' : '');
+  row(meta, 'adorn cost', cost.grads + ' grads · ' + cost.blurs + ' blurs', cost.grads + cost.blurs > 30 ? 'warn' : '');
 
-  // What the BAKE keeps — the nine segments the cold open flies past. Only
-  // discoverable today by running shapes:bake and reading a diff.
   const bake = $('bake'); bake.textContent = '';
   const kept = shapeWireList(m, 9);
   const spars = segs?.spars?.length ?? 0;
@@ -207,107 +347,183 @@ function renderSidebar() {
   }
 }
 
-// shapeLinearityError answers with null when the decomposition reproduces the model at
-// a scale it never saw — which is the ordinary case, and printing the word 'null' for
-// it makes a passing check look like a broken readout.
-function fmtErr(m) {
-  try {
-    const e = shapeLinearityError(m, state.seed);
-    if (e == null) return { ok: true, text: 'clean' };
-    return { ok: false, text: typeof e === 'number' ? e.toExponential(1) : JSON.stringify(e).slice(0, 120) };
-  } catch (err) { return { ok: false, text: err.message }; }
-}
-
-// ── THE VIEWPORT GIZMO — click a segment, drag it on the ground ─────────────
-//
-// Two jobs, and the first is the one that earns its place: CLICKING A SEGMENT IN THE
-// PICTURE SELECTS ITS CARD, and selecting a card highlights it in the picture. A model is
-// a list of numbered boxes in a form and a building on screen, and without this you are
-// counting cards to work out which one is the awning.
-//
-// Dragging moves a segment in the GROUND PLANE only. Size, height and yaw stay in the
-// numeric form deliberately: a perspective view with no depth cue makes those a guess, and
-// the fields are exact. So the drag is for roughing out where a piece sits, and the numbers
-// remain the truth — which is also why the form updates live as you drag.
-//
-// ⚠ The drag must undo the ENTRANCE ROTATION. Segment coordinates are model-local and the
-// model is turned to face its entrance, so a screen-right drag is only world-right when the
-// facing is north. Without the inverse rotation the piece walks off at an angle to the
-// mouse, which reads as the tool being broken rather than as a missing transform.
-let lastCam = null;   // the camera the viewport was last painted with — the gizmo's frame
+// ── selection, and the transform gizmo ──────────────────────────────────────
 const HIT_PX = 34;
+const AUTH_ZERO = [0, 0, 0];
 
 function segScreenPoints() {
+  if (isVehicle(state.key)) return [];
   const doc = editorDocFor(state.key);
   const m = modelOf(state.key);
   if (!doc || !m || !lastCam) return [];
   const { cam, dx, dy } = lastCam;
   const th = Math.atan2(-state.E[0], state.E[1]), ct = Math.cos(th), st = Math.sin(th);
-  const V = (p) => (p ? p[0] * state.fh + p[1] * state.h + p[2] : 0);
+  const sc = scale();
+  const V = (p) => (p ? p[0] * sc.fh + p[1] * sc.h + p[2] : 0);
   return m.segs.map((s, i) => {
-    const lx = V(s.cx), ly = V(s.cy);
+    const lx = V(s.cx || AUTH_ZERO), ly = V(s.cy || AUTH_ZERO);
     const wx = dx + lx * ct - ly * st, wy = dy + lx * st + ly * ct;
     const p = cam.proj(wx, wy, (V(s.z0) + V(s.z1)) / 2);
     return { i, p };
   }).filter((r) => r.p.f > 0.2);
 }
 
-// Screen delta → model-local delta, at the depth of the piece you grabbed. Lateral is exact
-// (a perspective divide); forward reuses the same scale, which is an approximation and the
-// right one — it makes the drag feel linear, and the field beside it shows the real number.
+// Screen delta → model-local delta at the depth of the piece you grabbed. Lateral is a
+// real perspective divide; forward reuses the same scale, which is an approximation and
+// the right one — it makes the drag feel linear, and the field beside it shows the truth.
+//
+// ⚠ It must undo the ENTRANCE ROTATION. Segment coordinates are model-local and the model
+// is turned to face its entrance, so a screen-right drag is only world-right when the
+// facing is north. Without the inverse the piece walks off at an angle to the mouse.
 function dragToLocal(dsx, dsy, f) {
   const per = f / lastCam.cam.FL;
   const worldSide = dsx * per, worldFwd = dsy * per;
   const hd = state.heading * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd);
   const wx = worldSide * ch + worldFwd * sh, wy = worldSide * sh - worldFwd * ch;
   const th = Math.atan2(-state.E[0], state.E[1]), ct = Math.cos(th), st = Math.sin(th);
-  // Inverse of the model-local → world rotation above.
   const lx = wx * ct + wy * st, ly = -wx * st + wy * ct;
-  // …and back out of world tiles into the AUTHORED basis, so dragging at one fh writes the
-  // same number dragging at another would.
-  const k = (BASIS.fh / Math.max(1e-6, state.fh));
+  const k = BASIS.fh / Math.max(1e-6, scale().fh);
   return [lx * k, ly * k];
 }
 
-function initGizmo() {
+const snap = (v) => Math.round(v * 100) / 100;
+
+// The three transforms, on the fields the schema actually has. Shift is the vertical
+// modifier throughout, which is the one convention worth being consistent about: there is
+// no depth cue in this projection, so height can never be a free drag.
+function applyTransform(seg, start, dsx, dsy, f, shift) {
+  const [dlx, dly] = dragToLocal(dsx, dsy, f);
+  const vScale = (BASIS.h / Math.max(1e-6, scale().h)) * (f / lastCam.cam.FL);
+  if (state.mode === 'move') {
+    if (shift) {
+      // Move the piece bodily up or down: both ends together, so its height is unchanged.
+      const dz = snap(-dsy * vScale);
+      seg.z0 = snap(start.z0 + dz);
+      seg.z1 = snap(start.z1 + dz);
+    } else {
+      seg.cx = snap(start.cx + dlx);
+      seg.cy = snap(start.cy + dly);
+    }
+  } else if (state.mode === 'scale') {
+    if (shift) {
+      // Grow from the base, which is what a building does.
+      seg.z1 = snap(Math.max(start.z0 + 0.02, start.z1 - dsy * vScale));
+    } else {
+      const k = Math.max(0.05, 1 + dsx / 220);
+      if (seg.kind === 'drum') {
+        seg.rb = snap(Math.max(0.01, start.rb * k));
+        if (start.rt != null) seg.rt = snap(Math.max(0.005, start.rt * k));
+      } else {
+        seg.hw = snap(Math.max(0.02, start.hw * k));
+        if (start.fd != null) seg.fd = snap(Math.max(0.02, start.fd * k));
+      }
+    }
+  } else if (state.mode === 'rotate') {
+    // Radians, because that is what draw3DBoxAt's yaw argument is. A drum has no yaw —
+    // it is a solid of revolution, so the field would be authored and never read.
+    if (seg.kind !== 'drum') seg.yaw = Number((((start.yaw || 0) + dsx / 160)).toFixed(3));
+  }
+}
+
+function initViewport() {
   const view = $('view');
-  let drag = null;
-  view.addEventListener('mousedown', (ev) => {
+  let act = null;   // { kind:'orbit'|'pan'|'edit', ... }
+
+  const local = (ev) => {
     const r = view.getBoundingClientRect();
-    const scale = view.width / Math.max(1, r.width);
-    const sx = (ev.clientX - r.left) * scale, sy = (ev.clientY - r.top) * scale;
+    const k = view.width / Math.max(1, r.width);
+    return [(ev.clientX - r.left) * k, (ev.clientY - r.top) * k, k];
+  };
+
+  view.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
+  view.addEventListener('mousedown', (ev) => {
+    const [sx, sy, k] = local(ev);
+    // Middle button, or right button, pans. Both, because muscle memory differs and
+    // neither costs anything.
+    if (ev.button === 1 || ev.button === 2) {
+      ev.preventDefault();
+      act = { kind: 'pan', sx, sy, k, panX: state.panX, panY: state.panY };
+      view.classList.add('grabbing');
+      return;
+    }
+    if (ev.button !== 0) return;
+
+    // A hit on a piece begins a transform; empty space begins an orbit. That is the one
+    // rule that makes a single mouse button enough for both.
     let best = null;
     for (const { i, p } of segScreenPoints()) {
       const d = Math.hypot(p.sx - sx, p.sy - sy);
-      if (d < HIT_PX * scale && (!best || d < best.d)) best = { i, d, f: p.f };
+      if (d < HIT_PX * k && (!best || d < best.d)) best = { i, d, f: p.f };
     }
-    if (!best) return;
-    selectedSeg = best.i;
     const doc = editorDocFor(state.key);
-    drag = doc ? { i: best.i, f: best.f, sx, sy, scale, cx: doc.segs[best.i].cx || 0, cy: doc.segs[best.i].cy || 0 } : null;
-    draw();
+    if (best && doc) {
+      selectedSeg = best.i;
+      const s = doc.segs[best.i];
+      act = {
+        kind: 'edit', i: best.i, f: best.f, sx, sy, k,
+        start: { cx: s.cx || 0, cy: s.cy || 0, z0: s.z0 || 0, z1: s.z1 || 0, hw: s.hw || 0.2, fd: s.fd, rb: s.rb || 0.1, rt: s.rt, yaw: s.yaw || 0 },
+      };
+      draw();
+      return;
+    }
+    if (best) { selectedSeg = best.i; draw(); return; }   // a code arm: select, cannot edit
+    act = { kind: 'orbit', sx, sy, k, heading: state.heading, eye: state.eye };
+    view.classList.add('grabbing');
   });
+
   addEventListener('mousemove', (ev) => {
-    if (!drag) return;
+    if (!act) return;
     const r = view.getBoundingClientRect();
-    const sx = (ev.clientX - r.left) * drag.scale, sy = (ev.clientY - r.top) * drag.scale;
-    const [dlx, dly] = dragToLocal(sx - drag.sx, sy - drag.sy, drag.f);
+    const sx = (ev.clientX - r.left) * act.k, sy = (ev.clientY - r.top) * act.k;
+    const dsx = sx - act.sx, dsy = sy - act.sy;
+
+    if (act.kind === 'orbit') {
+      state.heading = (act.heading + dsx * 0.35 + 360000) % 360;
+      // Vertical drag arcs the eye. There is no pitch term in this projection — see the
+      // README — so raising the eye IS looking down, and clamping at 0 keeps the camera
+      // from going under the ground it is standing on.
+      state.eye = Math.max(0, act.eye - dsy * 0.02);
+      $('heading') && ($('heading').value = state.heading);
+      draw();
+      return;
+    }
+    if (act.kind === 'pan') {
+      state.panX = act.panX - dsx * 0.006 * state.dist;
+      state.panY = act.panY + dsy;
+      draw();
+      return;
+    }
     const doc = editorDocFor(state.key);
     if (!doc) return;
-    // Snap to a hundredth of a tile, which is finer than anything visible and coarse enough
-    // that a number written by a drag is still a number a person would have typed.
-    const snap = (v) => Math.round(v * 100) / 100;
-    doc.segs[drag.i].cx = snap(drag.cx + dlx);
-    doc.segs[drag.i].cy = snap(drag.cy + dly);
+    applyTransform(doc.segs[act.i], act.start, dsx, dsy, act.f, ev.shiftKey);
     markDirty();
     invalidateEdit(state.key);
     draw();
   });
-  addEventListener('mouseup', () => { drag = null; });
+
+  addEventListener('mouseup', () => { act = null; view.classList.remove('grabbing'); });
+  // The projected pieces and the live drag, for driving this viewport from a console or a
+  // test. It is also the thing that explains a hit test which "does not work": in a hidden
+  // or zero-sized pane the canvas collapses to 1x1 and every point projects to the origin,
+  // which looks exactly like broken selection code and is not.
+  window.__msDebug = () => ({
+    mode: state.mode,
+    act: act && { kind: act.kind, i: act.i },
+    hasDoc: !!editorDocFor(state.key),
+    hasCam: !!lastCam,
+    canvas: [view.width, view.height],
+    pts: segScreenPoints().map((r) => ({ i: r.i, sx: Math.round(r.p.sx), sy: Math.round(r.p.sy) })),
+  });
+
+  view.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    // Multiplicative, so a step feels the same close up and far away.
+    state.dist = Math.max(1.2, Math.min(90, state.dist * (ev.deltaY > 0 ? 1.12 : 1 / 1.12)));
+    draw();
+  }, { passive: false });
 }
 
-// The selected segment, stroked over the render so the picture and the form agree about
-// which piece is which.
 function paintSelection() {
   if (selectedSeg < 0 || !lastCam) return;
   const hit = segScreenPoints().find((r) => r.i === selectedSeg);
@@ -323,32 +539,21 @@ function paintSelection() {
   ctx.restore();
 }
 
-// ── THE DIFFERENCE VIEW — the half that has to be real pixels ───────────────
-//
-// scripts/shapes/modeldiff.mjs answers "is this the same picture?" by comparing DRAWING
-// OPERATIONS, because a pixel comparison in node needs a native canvas dependency and a
-// build toolchain in CI. That trade is right for a push gate and it over-reports by
-// construction: two paths drawn in a different order make the same picture and a
-// different trace.
-//
-// So this is where the question actually gets settled. A browser has a real canvas, so
-// the two models are rendered at the SAME camera and subtracted, and a human looks at
-// what moved. The gate says "something differs"; this says whether it matters.
-//
-// The difference image is AMPLIFIED (x6, clamped). An unamplified difference of four or
-// five levels is invisible on a dark building, which is exactly the size of difference a
-// port is most likely to introduce and least likely to be forgiven for.
-const DIFF_GAIN = 6;
-const DIFF_W = 300, DIFF_H = 200;
+// ── the difference view ─────────────────────────────────────────────────────
+// modeldiff.mjs compares DRAWING OPERATIONS, because a pixel diff in node needs a native
+// canvas. That over-reports by construction — two paths in a different order make the same
+// picture and a different trace — so this is where the question is actually settled, in
+// real pixels, amplified because an unamplified delta of four levels is invisible on a
+// dark building and that is exactly the size of mistake a port makes.
+const DIFF_GAIN = 6, DIFF_W = 300, DIFF_H = 200;
 
 function diffCanvases() {
   const host = $('diffimgs');
   if (host.childElementCount !== 3) {
     host.textContent = '';
-    for (const cap of ['this', 'that', 'difference x' + DIFF_GAIN]) {
+    for (const cap of ['this', 'that', 'diff x' + DIFF_GAIN]) {
       const fig = document.createElement('figure');
-      const c = document.createElement('canvas');
-      c.width = DIFF_W; c.height = DIFF_H;
+      const c = document.createElement('canvas'); c.width = DIFF_W; c.height = DIFF_H;
       const f = document.createElement('figcaption'); f.textContent = cap;
       fig.append(c, f); host.append(fig);
     }
@@ -357,19 +562,13 @@ function diffCanvases() {
 }
 
 function renderDiff() {
-  const num = $('diffnum');
-  num.textContent = '';
+  const num = $('diffnum'); num.textContent = '';
   const other = modelOf($('cmp').value);
-  const host = $('diffimgs');
-  if (!other) { host.textContent = ''; return; }
-
+  if (!other) { $('diffimgs').textContent = ''; return; }
   const [ca, cb, cd] = diffCanvases();
-  // Both at the CURRENT camera, whatever the sliders say — comparing at a camera you
-  // cannot see is how a difference gets explained away.
   const opts = { ...previewOpts(), wire: false };
   renderModelPreview(ca, opts);
   renderModelPreview(cb, { ...opts, m: other });
-
   const A = ca.getContext('2d').getImageData(0, 0, DIFF_W, DIFF_H);
   const B = cb.getContext('2d').getImageData(0, 0, DIFF_W, DIFF_H);
   const D = cd.getContext('2d').createImageData(DIFF_W, DIFF_H);
@@ -386,71 +585,86 @@ function renderDiff() {
     if (m) { differing++; if (m > worst) worst = m; }
   }
   cd.getContext('2d').putImageData(D, 0, 0);
-
   const px = DIFF_W * DIFF_H;
   row(num, 'pixels differing', (100 * differing / px).toFixed(2) + '%', differing ? 'warn' : '');
   row(num, 'worst channel', String(worst), worst > 24 ? 'warn' : '');
   row(num, 'mean delta', (total / (px * 3)).toFixed(3));
-  if (!differing) {
-    const ok = document.createElement('div');
-    ok.textContent = 'identical at this camera';
-    num.append(ok);
-  }
+  if (!differing) num.append(Object.assign(document.createElement('div'), { textContent: 'identical at this camera' }));
 }
 
 function fillCompare() {
-  const sel = $('cmp');
-  const keep = sel.value;
+  const sel = $('cmp'), keep = sel.value;
   sel.textContent = '';
-  const none = document.createElement('option');
-  none.value = ''; none.textContent = '— compare with —';
+  const none = document.createElement('option'); none.value = ''; none.textContent = '— compare with —';
   sel.append(none);
   for (const r of MODELS) {
     if (r.key === state.key) continue;
-    const o = document.createElement('option');
-    o.value = r.key; o.textContent = r.key;
+    const o = document.createElement('option'); o.value = r.key; o.textContent = r.key;
     sel.append(o);
   }
   sel.value = keep;
 }
 
 // ── controls ────────────────────────────────────────────────────────────────
-const bind = (id, key, cast = Number) => {
+const bindRange = (id, key) => {
   const el = $(id);
+  if (!el) return;
   el.value = state[key];
-  el.oninput = () => { state[key] = cast(el.value); draw(); };
+  el.oninput = () => { state[key] = Number(el.value); draw(); };
 };
-bind('heading', 'heading'); bind('dist', 'dist'); bind('eye', 'eye');
-bind('seed', 'seed'); bind('night', 'night');
-// Changing the SCALE changes how far away the model wants to be, so these two reframe
-// rather than redraw — otherwise pushing h to 4 walks the building out of the top.
-for (const k of ['fh', 'h']) {
-  const el = $(k); el.value = state[k];
-  el.oninput = () => { state[k] = Number(el.value); preset(state.preset); };
+bindRange('seed', 'seed'); bindRange('night', 'night');
+{
+  const el = $('floors'); el.value = state.floors;
+  el.oninput = () => { state.floors = Number(el.value); preset(state.preset); };
 }
-
-$('cmp').onchange = () => renderDiff();
 $('facing').onchange = () => { state.E = $('facing').value.split(',').map(Number); draw(); };
-$('search').oninput = () => renderList($('search').value);
+$('cmp').onchange = () => renderDiff();
+$('wire').onclick = () => { state.wire = !state.wire; $('wire').classList.toggle('on', state.wire); draw(); };
 
-const toggle = (id, key) => { $(id).onclick = () => { state[key] = !state[key]; $(id).classList.toggle('on', state[key]); draw(); }; };
-toggle('wire', 'wire');
+function setMode(mode) {
+  state.mode = mode;
+  for (const m of ['move', 'scale', 'rotate']) $('mode-' + m).classList.toggle('on', m === mode);
+  draw();
+}
+$('mode-move').onclick = () => setMode('move');
+$('mode-scale').onclick = () => setMode('scale');
+$('mode-rotate').onclick = () => setMode('rotate');
 
-// THE TWO PRESETS, and why the second one is not a nicety. ADORN_NEAR exists for a
-// truck cab at eye height 0 and a cockpit almost never sees it — so authoring only
-// from a cockpit is exactly how near-tier detail ships broken. The cab preset is the
-// only way to look at it.
+// THE TWO PRESETS, and why the second is not a nicety. ADORN_NEAR exists for a truck cab
+// at eye height 0 and a cockpit almost never sees it — so authoring only from a cockpit is
+// exactly how near-tier detail ships broken. The cab preset is the only way to look at it.
 function preset(which) {
-  const f = frameFor(which);
-  state.dist = Math.round(f.dist * 2) / 2; state.eye = Math.round(f.eye * 10) / 10; state.tier = f.tier;
+  if (isVehicle(state.key)) {
+    // Same principle as a building: the framing comes from the subject, not a constant.
+    const d = vehicleFrameDist(entryOf(state.key).vehicle.cls);
+    state.dist = which === 'cab' ? d * 0.45 : d;
+    state.eye = which === 'cab' ? Math.max(0.1, d * 0.06) : Math.max(0.12, d * 0.16);
+    state.tier = which === 'cab' ? ADORN_NEAR : ADORN_RICH;
+    state.preset = which; state.panX = 0; state.panY = 0;
+    $('preset-cab').classList.toggle('on', which === 'cab');
+    $('preset-cockpit').classList.toggle('on', which !== 'cab');
+    draw();
+    return;
+  }
+  const sc = scale();
+  const f = frameAt(roofOf(modelOf(state.key), sc.fh, sc.h), which);
+  $('scaleread').textContent = 'fh ' + sc.fh.toFixed(3) + ' · h ' + sc.h.toFixed(3);
+  state.dist = Math.round(f.dist * 2) / 2;
+  state.eye = Math.round(f.eye * 10) / 10;
+  state.tier = f.tier;
   state.preset = which;
+  state.panX = 0; state.panY = 0;
   $('preset-cab').classList.toggle('on', which === 'cab');
   $('preset-cockpit').classList.toggle('on', which !== 'cab');
-  $('eye').value = state.eye; $('dist').value = state.dist;
   draw();
 }
 $('preset-cockpit').onclick = () => preset('cockpit');
 $('preset-cab').onclick = () => preset('cab');
+$('frame').onclick = () => preset(state.preset);
+
+$('open').onclick = () => { renderBrowser($('search').value); $('browserdlg').showModal(); $('search').select(); };
+$('bclose').onclick = () => $('browserdlg').close();
+$('search').oninput = () => renderBrowser($('search').value);
 
 let spinRaf = 0;
 $('spin').onclick = () => {
@@ -460,49 +674,62 @@ $('spin').onclick = () => {
   const step = () => {
     if (!state.spin) return;
     state.heading = (state.heading + 0.6) % 360;
-    $('heading').value = state.heading;
-    // Only the main viewport per frame: the strip and the sidebar do four more
-    // captures and every readout, which is not a thing to do sixty times a second.
     sizeCanvas($('view'));
-    try { renderModelPreview($('view'), previewOpts()); } catch { /* reported on the next still frame */ }
+    try { lastCam = renderModelPreview($('view'), previewOpts()); paintSelection(); } catch { /* reported on the next still frame */ }
     spinRaf = requestAnimationFrame(step);
   };
   spinRaf = requestAnimationFrame(step);
 };
 
-window.__msSelect = (i) => { selectedSeg = i; draw(); };
-window.__msSelected = () => selectedSeg;
-window.__msModel = (key) => MODELS.find((r) => r.key === key)?.m || null;
-// MODELS is a snapshot of the registry taken at load, so a model created since then is
-// editable and previewable but absent from the list — which reads as it having vanished.
-// A new binding is registered here instead; the baked module catches up on the next reload.
+// Keyboard, on the conventions a 3-D editor already trained everyone in. Ignored while a
+// field has focus, or typing a palette name would rotate the building.
+addEventListener('keydown', (ev) => {
+  const t = ev.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+  const doc = editorDocFor(state.key);
+  const k = ev.key.toLowerCase();
+  if (k === 'g') setMode('move');
+  else if (k === 's') setMode('scale');
+  else if (k === 'r') setMode('rotate');
+  else if (k === 'f') preset(state.preset);
+  else if (k === 'o') { ev.preventDefault(); $('open').click(); }
+  else if (k === 'escape') { selectedSeg = -1; draw(); }
+  else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {
+    ev.preventDefault();
+    doc.segs.splice(selectedSeg, 1);
+    selectedSeg = -1; markDirty(); invalidateEdit(state.key); draw();
+  } else if (k === 'd' && doc && selectedSeg >= 0) {
+    doc.segs.splice(selectedSeg + 1, 0, JSON.parse(JSON.stringify(doc.segs[selectedSeg])));
+    selectedSeg += 1; markDirty(); invalidateEdit(state.key); draw();
+  } else return;
+});
+
+// MODELS is a snapshot taken at load, so a model created since then is editable and
+// previewable but absent from the browser — which reads as it having vanished.
 window.__msRegister = (key) => {
   if (MODELS.some((r) => r.key === key)) return;
   MODELS.push({ key, m: editorRecordFor(key) });
   MODELS.sort((a, b) => a.key.localeCompare(b.key));
 };
-window.__msReselect = (key) => {
-  window.__msRegister(key);
-  state.key = key; invalidateEdit(key);
-  renderList($('search').value); fillCompare(); preset(state.preset);
-};
-// A DELETED model has to leave the list for the same reason, and the selection has to go
-// somewhere that still exists.
+window.__msReselect = (key) => { window.__msRegister(key); select(key); };
 window.__msUnregister = (key) => {
   const i = MODELS.findIndex((r) => r.key === key);
   if (i >= 0) MODELS.splice(i, 1);
   invalidateEdit(key);
-  if (state.key === key) state.key = MODELS[0]?.key || null;
-  renderList($('search').value); fillCompare(); preset(state.preset);
+  if (state.key === key) select(MODELS[0]?.key || null);
+  else draw();
 };
+window.__msSelect = (i) => { selectedSeg = i; draw(); };
+window.__msSelected = () => selectedSeg;
+window.__msModel = (key) => MODELS.find((r) => r.key === key)?.m || null;
 
 addEventListener('resize', () => { if (!state.spin) draw(); });
 
-renderList('');
+initViewport();
+$('modelname').textContent = bare(state.key);
 fillCompare();
 preset('cockpit');
 // The editor loads its documents after the first paint, so the inspector is usable
 // immediately and a server that is not answering degrades to read-only rather than blank.
-initGizmo();
 initEditor({ state, onChange: draw }).then(() => { invalidateEdit(state.key); draw(); })
   .catch((e) => { $('esave').className = 'err'; $('esave').textContent = 'no write path: ' + e.message; });

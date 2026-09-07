@@ -1,9 +1,9 @@
 # The Modelshop
 
-**STATUS: Phases 1-4 built — the inspector, the authored model format, the differ, and the
-editor. You can create, edit, save and delete an authored model in the browser. Phase 5, the
-port of the hand-written arms, was attempted, measured and abandoned on the evidence — the
-tooling for it ships, the ports do not. See "The port: why it does not happen" below.**
+**STATUS: BUILT — an inspector, an authored model format, a differ, and an editor with a
+3-D viewport (orbit/pan/zoom, move/scale/rotate, keyboard). Buildings are editable; vehicles
+are shown read-only. Phase 5, the port of the hand-written arms, was attempted, measured and
+abandoned on the evidence — the tooling for it ships, the ports do not.**
 
 ```bash
 npm run modelshop          # http://localhost:5181
@@ -11,7 +11,43 @@ npm run modelshop -- 5200  # another port
 npm run dev                # server :3000, Studio :5180, Modelshop :5181
 ```
 
-Local-only. Do not expose it.
+Local-only. Do not expose it. There is a link to it in the dev panel sidebar (🏛 Modelshop),
+which starts it for you the way the Map Studio link does.
+
+## Getting around
+
+| | |
+|---|---|
+| drag empty space | orbit — horizontal turns, vertical arcs the eye |
+| middle- or right-drag | pan |
+| wheel | zoom |
+| click a piece | select it, and its card in the rail |
+| drag a piece | apply the active transform to it |
+| <kbd>G</kbd> <kbd>S</kbd> <kbd>R</kbd> | move / scale / rotate |
+| <kbd>Shift</kbd>+drag | the vertical of whatever transform is active |
+| <kbd>D</kbd> / <kbd>Del</kbd> / <kbd>Esc</kbd> | duplicate / remove / deselect |
+| <kbd>O</kbd> | the model browser · <kbd>F</kbd> re-frame |
+
+There is no pitch in this projection, so **arcing the eye IS looking down** — the same camera
+the cockpit and the cab have. Scale and rotate are horizontal drags with Shift for height;
+height can never be a free drag because there is no depth cue to judge it against.
+
+## Buildings and vehicles
+
+The browser groups by family, and the first signal is the codebase's own: the arms are already
+namespaced by the place that owns them (`asc_`, `trm_`, `sw_`, `dw_`), which sorts 52 models
+for free. A prefix earns a group by having members, so a new region groups itself.
+
+**Vehicles are in the tool but read-only.** An aircraft or a truck is a face list from
+`aircraftFaces` painted by `drawAircraftModel` — a second renderer, wired up here as
+`renderVehiclePreview`. They cannot be edited because their meshes are parametric code in
+aircraft3d.js with no capture and no authored format: there is nothing for an editor to write.
+Showing them is still worth it, since until now the only way to look at an airframe was to fly it.
+
+⚠ **`fh` and `h` are derived, never set.** They were two sliders, which meant the preview could
+show a footprint and a storey stack the game never produces. `buildingScaleFor()` in windshield.js
+is the sim's own formula — `BUILDING_FOOT` plus the per-tile jitter, and floors x `FLOOR_Z` — and
+the tool asks it. **Floors** is the control, because floors is what the world actually authors.
 
 ## What it is
 
@@ -40,7 +76,7 @@ plane, so the thing you are looking at is the thing you are editing.
 - **Cockpit and Cab presets.** The cab one matters: `ADORN_NEAR` detail exists for a driver
   at eye height 0 and a cockpit almost never sees it, so authoring only from a cockpit is
   exactly how near-tier detail ships broken.
-- Orbit, distance, eye height, `fh`/`h`, seed, night, entrance facing, and the shape cage.
+- Orbit, distance, eye height, floors, seed, night, entrance facing, and the shape cage.
 - **Framing is derived from the model**, not set by hand — a shopfront and a 2.9× tower
   cannot share one camera, and an author should not spend the session dragging sliders.
 - **At other scales** — the model at the three scales the affine decomposition is solved
