@@ -18959,6 +18959,48 @@ export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship'
 // craft differ in size by seven times — CONTACT_SIZE runs 0.030 for a rig to 0.21 for the
 // heavy — so one flat preview distance frames the transport and leaves the truck three pixels.
 export const vehicleFrameDist = (cls) => Math.max(1.1, 52 * (CONTACT_SIZE[cls] || 0.11));
+
+// ── REAL BOUNDS, SO A PREVIEW CAN ACTUALLY FIT THE THING ────────────────────
+// The mesh's own extent in WORLD tiles at `sizeMul` 1, straight off the same face list
+// drawAircraftModel paints. Returned rather than guessed because these craft are tiny in
+// world terms — a rig stands about 0.05 tiles tall, since it is authored to read as a
+// contact seen from an aeroplane — and no camera distance makes 0.05 fill a screen. A
+// preview has to scale the MODEL up; to do that it has to know how big it is.
+// Solve the camera that makes a thing of this size FILL the frame. It lives here because it
+// is arithmetic about this projection and nothing else: the preview's focal is `H * 0.55`
+// and its lateral scale is makeCam's `FL`, so a tool that solved this itself would be a
+// second copy of the camera to keep in step.
+//
+//   vertical   screen height = depth * height / f      -> f = depth * height / (fill * H)
+//   horizontal screen width  = 2 * halfW * FL / f      -> f = 2 * halfW * FL / (fill * W)
+//
+// The larger of the two wins, so whichever axis is tight is the one that fits. `eyeH` puts
+// the middle of the object on the horizon, which is what centres it — there is no pitch.
+export function previewFit(bounds, W, H, fill = 0.72) {
+  const depth = H * 0.55;
+  const FL = (W / 2) / 1.15 * (RENDER_TUNE.fov || 1);
+  const fV = depth * bounds.height / Math.max(1, fill * H);
+  const fH = 2 * bounds.halfW * FL / Math.max(1, fill * W);
+  const dist = Math.max(0.35, fV, fH);
+  return { dist, eyeH: Math.max(0.02, (bounds.baseH || 0) + bounds.height / 2) };
+}
+
+export function vehicleBounds(cls, armed = false, variant = '') {
+  let lo = 1e9, hi = -1e9, ext = 0;
+  for (const face of aircraftFaces(cls, 1, !!armed, variant)) {
+    for (const p of face.p) {
+      if (p[2] < lo) lo = p[2];
+      if (p[2] > hi) hi = p[2];
+      // The RADIUS, not the larger axis. A preview orbits, so the widest the model can ever
+      // project is its distance from the axis — measuring per-axis under-reads a rotated
+      // craft by up to root two and frames it hard against the edges of the picture.
+      ext = Math.max(ext, Math.hypot(p[0], p[1]));
+    }
+  }
+  if (lo > hi) { lo = 0; hi = 1; }
+  const S = CONTACT_SIZE[cls] || 0.11;
+  return { height: Math.max(1e-4, S * CONTACT_VS * (hi - lo)), halfW: Math.max(1e-4, S * ext), baseH: S * CONTACT_VS * lo };
+}
 export const TRUCK_VARIANTS = ['scrapper', 'hauler', 'drayman', 'continental'];
 
 export function renderVehiclePreview(canvas, opts = {}) {

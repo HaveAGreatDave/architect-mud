@@ -28,6 +28,19 @@ which starts it for you the way the Map Studio link does.
 | <kbd>D</kbd> / <kbd>Del</kbd> / <kbd>Esc</kbd> | duplicate / remove / deselect |
 | <kbd>O</kbd> | the model browser · <kbd>F</kbd> re-frame |
 
+**Every model arrives framed.** The framing is SOLVED, not guessed: the model own bounds go to
+`previewFit()`, which returns the distance that fills the picture on whichever axis is tight. It
+used to be a formula off the roof height, which suited a mid-rise and left a shed tiny and a spire
+cropped — so Frame was a repair rather than a convenience. It is a convenience now.
+
+⚠ **A vehicle is scaled UP, not approached.** These meshes are authored to read as a contact seen
+from an aeroplane — a rig stands about 0.05 tiles tall — so no camera distance makes one fill a
+screen; the projection own near clamp stops you first. The preview picks a `sizeMul` instead and
+frames that. And the fit is padded, because the PAINTED craft is bigger than its face list: prop
+discs, lamp glows and the ground shadow all draw outside the vertices `vehicleBounds` can see. That
+pad is measured — unpadded, six of ten classes spilled past the frame while the three smallest sat
+correctly at about 0.7.
+
 There is no pitch in this projection, so **arcing the eye IS looking down** — the same camera
 the cockpit and the cab have. Scale and rotate are horizontal drags with Shift for height;
 height can never be a free drag because there is no depth cue to judge it against.

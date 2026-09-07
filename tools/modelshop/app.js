@@ -11,7 +11,7 @@ import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,
   ADORN_RICH, ADORN_NEAR, buildingScaleFor,
-  renderVehiclePreview, VEHICLE_CLASSES, TRUCK_VARIANTS, vehicleFrameDist,
+  renderVehiclePreview, VEHICLE_CLASSES, TRUCK_VARIANTS, vehicleBounds, previewFit,
 } from '/client/game/js/panels/windshield.js';
 import { initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty } from './editor.js';
 
@@ -38,7 +38,7 @@ let lastCam = null;
 
 const state = {
   key: MODELS[0]?.key || null,
-  heading: 0, dist: 9, eye: 1.4, panX: 0, panY: 0,
+  heading: 0, dist: 9, eye: 1.4, panX: 0, panY: 0, vehSizeMul: 1,
   floors: 6, seed: 3, night: 0,
   E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, preset: 'cockpit',
   mode: 'move',
@@ -128,9 +128,43 @@ function roofOf(m, fh, h) {
   for (const s of segs) top = Math.max(top, s.z1[0] * fh + s.z1[1] * h + s.z1[2]);
   return Math.max(0.2, top);
 }
-function frameAt(top, which) {
-  if (which === 'cab') return { dist: Math.max(1.8, top * 0.5 + 1.1), eye: 0.25, tier: ADORN_NEAR };
-  return { dist: Math.max(3.2, top * 1.25 + 2), eye: Math.max(0.8, top * 0.42), tier: ADORN_RICH };
+// ── FRAMING IS SOLVED, NOT GUESSED ──────────────────────────────────────────
+// It used to be a formula off the roof height (top * 1.25 + 2). That is a guess which
+// happens to suit a mid-rise, and it leaves a shed tiny and a spire cropped — so the tool
+// needed a Frame button to rescue it. Now the model's real bounds go to previewFit(),
+// which solves the distance that fills the frame on whichever axis is tight, and framing
+// happens on every selection and every change. Frame is a convenience, not a repair.
+function buildingBounds(m) {
+  const sc = scale();
+  const segs = shapeForModel(m, state.seed);
+  if (!segs || !segs.length) return { halfW: sc.fh, height: sc.h, baseH: 0 };
+  const V = (p) => (p ? p[0] * sc.fh + p[1] * sc.h + p[2] : 0);
+  let top = 0, halfW = 0;
+  for (const s of segs) {
+    top = Math.max(top, V(s.z1));
+    // The RADIUS from the model axis, not the larger of the two offsets — the viewport
+    // orbits, so the widest this can ever project is its distance out plus the piece's own
+    // half-diagonal. Measuring per-axis frames a rotated building against the edges.
+    const r = s.kind === 'drum' ? Math.max(V(s.rb), V(s.rt))
+      : Math.min(V(s.hwRaw), 0.44) * Math.SQRT2;
+    halfW = Math.max(halfW, Math.hypot(V(s.cx), V(s.cy)) + r);
+  }
+  // Spars sit outside the mass list but are part of the silhouette you are looking at.
+  for (const sp of segs.spars || []) top = Math.max(top, V(sp.z1 ?? sp.wz1));
+  return { halfW: Math.max(0.05, halfW), height: Math.max(0.05, top), baseH: 0 };
+}
+
+// The cab stays a deliberate close crop rather than a fit — being too close to see all of
+// it is the whole point of that seat.
+function frameAt(bounds, which) {
+  const view = $('view');
+  const W = Math.max(1, view.width), H = Math.max(1, view.height);
+  if (which === 'cab') {
+    const f = previewFit(bounds, W, H, 1.35);
+    return { dist: f.dist, eye: Math.max(0.06, bounds.height * 0.12), tier: ADORN_NEAR };
+  }
+  const f = previewFit(bounds, W, H, 0.72);
+  return { dist: f.dist, eye: f.eyeH, tier: ADORN_RICH };
 }
 
 // ── the browser dialog ──────────────────────────────────────────────────────
@@ -229,7 +263,7 @@ function drawVehicle(view) {
   try {
     lastCam = renderVehiclePreview(view, {
       ...v, night: state.night, heading: state.heading, dist: state.dist,
-      eyeH: state.eye, panX: state.panX, panY: state.panY,
+      eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1,
     });
   } catch (e) {
     const ctx = view.getContext('2d');
@@ -279,8 +313,9 @@ function drawScales() {
     const c = host.children[i].querySelector('canvas');
     try {
       const top = roofOf(modelOf(state.key), BASIS.fh * sf, BASIS.h * sh);
-      const f = frameAt(top, state.preset);
-      renderModelPreview(c, previewOpts({ fh: BASIS.fh * sf, h: BASIS.h * sh, dist: f.dist, eyeH: f.eye, panX: 0, panY: 0, wire: false }));
+      // Each thumbnail solves its own fit, so the strip compares SHAPES rather than sizes.
+      const f = previewFit({ halfW: BASIS.fh * sf * 1.3, height: top, baseH: 0 }, c.width, c.height, 0.74);
+      renderModelPreview(c, previewOpts({ fh: BASIS.fh * sf, h: BASIS.h * sh, dist: f.dist, eyeH: f.eyeH, panX: 0, panY: 0, wire: false }));
     } catch { /* the main viewport already reports the throw, in full */ }
   });
 }
@@ -635,11 +670,21 @@ $('mode-rotate').onclick = () => setMode('rotate');
 // exactly how near-tier detail ships broken. The cab preset is the only way to look at it.
 function preset(which) {
   if (isVehicle(state.key)) {
-    // Same principle as a building: the framing comes from the subject, not a constant.
-    const d = vehicleFrameDist(entryOf(state.key).vehicle.cls);
-    state.dist = which === 'cab' ? d * 0.45 : d;
-    state.eye = which === 'cab' ? Math.max(0.1, d * 0.06) : Math.max(0.12, d * 0.16);
-    state.tier = which === 'cab' ? ADORN_NEAR : ADORN_RICH;
+    // ⚠ A VEHICLE IS SCALED UP, NOT APPROACHED. These meshes are authored to read as a
+    // contact seen from an aeroplane — a rig stands about 0.05 tiles tall — so no camera
+    // distance makes one fill a screen; the projection's own near clamp stops you first.
+    // The preview therefore picks a sizeMul that gives the model a sensible world size and
+    // frames THAT. Its real size is still what the sim uses; only the preview is scaled.
+    const v = entryOf(state.key).vehicle;
+    const b = vehicleBounds(v.cls, false, v.variant);
+    state.vehSizeMul = 1.2 / b.height;
+    // ⚠ Padded, because the PAINTED craft is bigger than its face list: the prop disc, the
+    // lamp glows and the ground shadow are all drawn outside the vertices vehicleBounds can
+    // see. Measured rather than guessed — at an unpadded fit six of ten classes spilled past
+    // the frame while the three smallest sat correctly at ~0.7.
+    const VEH_PAINT_PAD = 1.45;
+    const f = frameAt({ halfW: b.halfW * state.vehSizeMul * VEH_PAINT_PAD, height: 1.2 * VEH_PAINT_PAD, baseH: b.baseH * state.vehSizeMul }, which);
+    state.dist = f.dist; state.eye = f.eye; state.tier = f.tier;
     state.preset = which; state.panX = 0; state.panY = 0;
     $('preset-cab').classList.toggle('on', which === 'cab');
     $('preset-cockpit').classList.toggle('on', which !== 'cab');
@@ -647,7 +692,7 @@ function preset(which) {
     return;
   }
   const sc = scale();
-  const f = frameAt(roofOf(modelOf(state.key), sc.fh, sc.h), which);
+  const f = frameAt(buildingBounds(modelOf(state.key)), which);
   $('scaleread').textContent = 'fh ' + sc.fh.toFixed(3) + ' · h ' + sc.h.toFixed(3);
   state.dist = Math.round(f.dist * 2) / 2;
   state.eye = Math.round(f.eye * 10) / 10;
