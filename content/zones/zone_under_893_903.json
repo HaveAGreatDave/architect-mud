@@ -1,0 +1,27 @@
+{
+  "ambient_events": [
+    "A card comes loose from a rack end and settles on the floor face down.",
+    "The shelving shifts a fraction under its own weight and holds."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#141b19",
+  "color": "#8fae9a",
+  "description": "A long municipal room behind the concourse, racked floor to ceiling with steel shelving that has rusted into one continuous object. What's on the shelves was paper and is now a grey compacted mass with the ghosts of ledger lines in it. None of that stops the cataloguing. Fresh index cards are pinned along the rack ends in a dense, careful hand, numbering shelves whose contents nobody will ever read, and a clipboard hangs on a nail by the door with today's date at the top of it.",
+  "exits": {
+    "east": "zone_under_894_903",
+    "north": "zone_under_893_902"
+  },
+  "flags": {
+    "district": "sewer",
+    "floor": "stone",
+    "is_interior": true,
+    "terrain": "sewer"
+  },
+  "grid_x": 893,
+  "grid_y": 903,
+  "grid_z": -1,
+  "id": "zone_under_893_903",
+  "map_id": "map_world",
+  "name": "The Records Hall",
+  "parent_zone": null
+}

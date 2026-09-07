@@ -26,7 +26,41 @@
       "\"There's forty thousand people up there,\" Kettle says, \"and I can hear every one of them wash.\""
     ]
   ],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A big, slow, immaculately shaved man sitting on an upturned crate under the weeping concrete, in the only dry yard of the sump, which he has swept. He wears a municipal coverall with the pump-authority flash still on the shoulder, laundered pale and patched at both knees. A hurricane lamp burns beside him at an economical setting. He doesn't look like a man who has ended up here. He looks like a man at work, and mildly surprised that you're not.",
   "dialogue_tree": {

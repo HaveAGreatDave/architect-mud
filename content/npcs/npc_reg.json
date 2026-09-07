@@ -1,6 +1,40 @@
 {
   "banter": [],
-  "behaviour_graph": null,
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [
     "\"Another quiet night, too quiet...\"",
     "\"Inventory’s running low again, like always.\"",
@@ -202,53 +236,10 @@
     }
   ],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {
-    "fri": [
-      {
-        "from": 6,
-        "to": 23
-      }
-    ],
-    "mon": [
-      {
-        "from": 6,
-        "to": 23
-      }
-    ],
-    "sat": [
-      {
-        "from": 6,
-        "to": 23
-      }
-    ],
-    "sun": [
-      {
-        "from": 6,
-        "to": 23
-      }
-    ],
-    "thu": [
-      {
-        "from": 6,
-        "to": 23
-      }
-    ],
-    "tue": [
-      {
-        "from": 6,
-        "to": 23
-      }
-    ],
-    "wed": [
-      {
-        "from": 6,
-        "to": 23
-      }
-    ]
-  },
+  "vendor_schedule": {},
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],
-  "wanders": 1,
+  "wanders": 0,
   "work_zone_id": null
 }

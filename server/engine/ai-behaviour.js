@@ -186,6 +186,24 @@ function npcAutoLockable(door) {
 // note. Runtime-only, like every other field on a door.
 function markAutoLock(door, insideZoneId) { door._autoLockedInside = insideZoneId || null; }
 
+// Is somebody ELSE still minding this shop? A storefront can be staffed in shifts
+// — a day clerk and a night clerk sharing one work_zone_id, which is how a shop
+// stays open around the clock — and the lockup below is keyed on the DEPARTING
+// npc alone, so without this the handover locks the door on a colleague already
+// behind the counter and the player is told a trading shop just shut. Excludes
+// the leaver by id rather than by zone, because callers differ on whether the
+// leaver's own zone_id has been reassigned by this point.
+export function anotherVendorOnDuty(zoneId, leaverId) {
+  const z = world.zones.get(zoneId);
+  if (!z) return false;
+  for (const id of z.npcs) {
+    if (id === leaverId) continue;
+    const n = world.npcs.get(id);
+    if (n && !isEnemy(n) && n.work_zone_id === zoneId) return true;
+  }
+  return false;
+}
+
 // Vendor closing-time farewells — picked when the vendor shuts up shop while a
 // player is mid-session. Warm if they bought, needling if they didn't.
 const VENDOR_CLOSE_HAPPY = [
@@ -1180,7 +1198,8 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop and opens up for business.` });
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop.` });
           doorHandled = true;   // leave it open for business — don't close behind them
-        } else if (leavingWork && shopDoor.lock_state !== 'locked') {
+        } else if (leavingWork && shopDoor.lock_state !== 'locked'
+                   && !anotherVendorOnDuty(oldZoneId, entity.id)) {
           shopDoor.is_open = 0;
           shopDoor.lock_state = 'locked';
           markAutoLock(shopDoor, oldZoneId);   // the shop floor is the inside — a customer caught in it can still leave

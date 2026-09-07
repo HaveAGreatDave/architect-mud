@@ -1,6 +1,40 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A block of a man in Precinct 9 body armor, thumbs hooked in his belt beside a baton and a zip-tie dispenser. He watches the holding block on a bank of monitors and processes the overnight guests one at a time, without hurry and without interest.",
   "dialogue_tree": {},

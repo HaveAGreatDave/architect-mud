@@ -1,6 +1,40 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [
     "tilts her head as if listening to a frequency you can't hear.",
     "\"The Architect speaks in dropped packets. We're learning to answer.\"",

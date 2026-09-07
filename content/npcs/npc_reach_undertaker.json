@@ -10,7 +10,41 @@
       "\"You don't owe me anything yet. Try to keep it that way.\""
     ]
   ],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "Hollis Tam is a wide, slow man with careful hands and a face that has stopped bothering with expressions. He does the one job in the Reach that everyone needs and nobody wants to owe him for, and he has never raised his price for it. He listens more than he talks, which in a town of liars makes him the most informed man on the street.",
   "dialogue_tree": {

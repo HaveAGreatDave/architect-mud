@@ -131,18 +131,18 @@
     }
   },
   "chitchat": [
-    "\"What'll it be?\"",
-    "\"You look like you've had a rough one.\"",
-    "\"Pay first. Trust later. That's policy.\"",
-    "\"You're not the first person to cry at this bar. Won't be the last.\"",
-    "\"I've heard worse. Much worse.\"",
-    "\"Last call was three hours ago. I'm still here.\"",
-    "\"We're out of the good stuff. We were always out of the good stuff.\"",
-    "\"Tab's running. Keep drinking.\"",
-    "\"I don't ask questions. That's why people come here.\"",
-    "\"You want ice with that? Funny.\""
+    "\"Bar's open. It doesn't close, it just changes hands.\"",
+    "\"You're up late. So's everyone who ends up here.\"",
+    "\"Lowry does the daylight. I do the rest.\"",
+    "\"Whatever you're about to tell me, I've already heard it at four in the morning.\"",
+    "\"Drink it or don't. The stool's the same price.\"",
+    "\"Nothing good gets ordered after two. Doesn't stop anyone.\"",
+    "\"If you're waiting for someone, wait quietly.\"",
+    "\"I don't do last call. There isn't one.\"",
+    "\"Tab's open. So's the door. Mind which one you use.\"",
+    "\"Sleep's for people with somewhere to be.\""
   ],
-  "description": "A former concierge, still buttoned into a frayed Embassy vest, polishing a glass that was already clean. Calls every customer \"valued guest,\" sincerity optional.",
+  "description": "Night shift at the Embassy Lounge, in a cardigan over the house apron and reading glasses pushed up into grey hair. She keeps a paperback face-down by the taps and picks it up the second you stop talking.",
   "dialogue_tree": {
     "advice": {
       "actions": [
@@ -160,7 +160,7 @@
           "next": "root"
         }
       ],
-      "text": "Lowry leans on the bar and sizes you up."
+      "text": "Imogen puts the paperback down and looks at you properly."
     },
     "gossip": {
       "actions": [
@@ -174,7 +174,7 @@
           "next": "root"
         }
       ],
-      "text": "Lowry lowers his voice to something discreet."
+      "text": "She checks the stairwell before she says anything."
     },
     "menu": {
       "options": [
@@ -183,7 +183,7 @@
           "next": "root"
         }
       ],
-      "text": "The Reserve is our signature pour. Don't ask what's left to age it in. The Swill is also available, for guests with simpler tastes, or none. Canapés are complimentary with a drink. They aren't actually complimentary."
+      "text": "Same list as the day shift, minus the theatre. The Reserve if you're paying for the idea of it, the Swill if you're not. Canapes are whatever Lowry didn't get through, and they were his idea of complimentary, not mine."
     },
     "poker": {
       "actions": [
@@ -197,7 +197,7 @@
           "next": "root"
         }
       ],
-      "text": "Lowry nods toward the card table."
+      "text": "She tips her head at the card table without looking at it."
     },
     "root": {
       "options": [
@@ -218,7 +218,7 @@
           "next": "poker"
         },
         {
-          "label": "Any news from the front desk?",
+          "label": "Heard anything?",
           "next": "gossip"
         },
         {
@@ -226,7 +226,12 @@
           "next": null
         }
       ],
-      "text": "Welcome to the Embassy Lounge, valued guest. We maintain certain standards here, within reason. What can I get you?"
+      "text": "\"Evening. Or morning. Take your pick, the tap doesn't care.\"",
+      "text_by_relation": {
+        "familiar": "\"There you are.\" The paperback goes face-down before you've got to the stool. \"Sit. You can tell me what happened while I pour.\"",
+        "first": "\"You're new, or you've never been up this late.\" She marks her page with a beer mat. \"Imogen. I have the bar from eight at night until Lowry turns up hungover and calls me valued colleague. Sit where you like, nobody's reserved anything since the Handoff.\"",
+        "known": "\"Back at this hour. That's twice.\" She's already reaching for a glass. \"Same again, or are we branching out?\""
+      }
     },
     "tv": {
       "actions": [
@@ -240,15 +245,15 @@
           "next": "root"
         }
       ],
-      "text": "Lowry glances up at the set."
+      "text": "She glances up at the set, which nobody has changed in hours."
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
-      "a worn leather bar-apron",
-      "a tight black tee",
-      "black briefs"
+      "a grey cardigan over the house apron",
+      "a faded work shirt",
+      "plain cotton underwear"
     ],
     "mis_willing": false,
     "personality": "bartender"
@@ -257,10 +262,10 @@
   "home_zone": "zone_apt_7",
   "hp": 20,
   "hp_max": 20,
-  "id": "npc_embassy_barkeep",
-  "name": "Lowry Cormack",
+  "id": "npc_embassy_barkeep_night",
+  "name": "Imogen Cardew",
   "npc_type": "npc",
-  "sex": "male",
+  "sex": "female",
   "studio_zone_id": null,
   "vendor_inventory": [
     {
@@ -283,44 +288,72 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 8,
-        "to": 21
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
       }
     ],
     "mon": [
       {
-        "from": 8,
-        "to": 21
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
       }
     ],
     "sat": [
       {
-        "from": 8,
-        "to": 21
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
       }
     ],
     "sun": [
       {
-        "from": 8,
-        "to": 21
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
       }
     ],
     "thu": [
       {
-        "from": 8,
-        "to": 21
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
       }
     ],
     "tue": [
       {
-        "from": 8,
-        "to": 21
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
       }
     ],
     "wed": [
       {
-        "from": 8,
-        "to": 21
+        "from": 0,
+        "to": 8
+      },
+      {
+        "from": 20,
+        "to": 24
       }
     ]
   },

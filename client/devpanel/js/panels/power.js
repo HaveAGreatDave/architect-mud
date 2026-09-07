@@ -6,16 +6,23 @@ let powerPanelAllZones = [];   // full zone list (for building interior search)
 let powerPanelInteriorZ = 0;  // current floor for interior map view
 
 async function renderPowerPanel(zones) {
-  const [powerMap, generators, allZones] = await Promise.all([
+  const [powerMap, generators, allZones, maps, regionData] = await Promise.all([
     API('/environment/power/map').catch(() => []),
     API('/environment/power/generators').catch(() => []),
     API('/zones').catch(() => []),
+    API('/maps').catch(() => []),
+    API('/maps/regions').catch(() => null),
   ]);
   bigMapZones = Array.isArray(zones) ? zones : [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   powerPanelGenerators = Array.isArray(generators) ? generators : [];
   bigMapGenerators = powerPanelGenerators;
   powerPanelAllZones = Array.isArray(allZones) ? allZones : [];
+  // Region Map folds interior rooms onto the facade they hang off, so it needs the
+  // interior-map -> parent-zone parentage; and the region names for its selector.
+  powerPanelMapParents = new Map((Array.isArray(maps) ? maps : [])
+    .filter(m => m.parent_zone_id).map(m => [m.id, m.parent_zone_id]));
+  powerPanelRegions = new Map((regionData?.regions || []).map(r => [r.id, r.name || r.id]));
   powerJbByOutdoor = _buildJbByOutdoor();
   powerPanelMode = 'power';
   powerPanelView = 'city';
@@ -271,6 +278,336 @@ function _buildInteriorMapHtml() {
   return buildingDropdown + floorNav + gridHtml + `<div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml('power')}</div>`;
 }
 
+// --- Region Map --------------------------------------------------------------
+// The third view, and the one that answers "where is the grid, and is it well?"
+// City Grid is a schematic — it shows what is wired to what and deliberately
+// throws the geography away. This is the same data laid back over the ground, on
+// the monochrome plan base the spawn map already uses (maps.js), so a dark block
+// of city reads as a dark block of city rather than as a list of building names.
+//
+// Interior rooms have no tile of their own, so their draw is folded onto the
+// facade you enter them through — one building, one tile, one number.
+let powerRegionId = null;       // selected region ('__unassigned' for tiles with no region)
+let powerRegionZ = null;        // selected floor (grid_z); null = pick the busiest one
+let powerRegionSel = null;      // clicked tile zone id
+let powerRegionPlantSel = null; // clicked plant generator id
+let powerPanelMapParents = new Map();  // interior map id -> exterior parent zone id
+let powerPanelRegions = new Map();     // region id -> name
+
+const POWER_STATUS_RANK = { offline: 4, overloaded: 3, powered: 2, unpowered: 1 };
+const POWER_STATUS_RGB = {
+  offline: '220,40,60',
+  overloaded: '255,165,0',
+  powered: '20,200,100',
+  unpowered: '90,90,120',
+};
+
+function setPowerRegion(rid) {
+  powerRegionId = rid;
+  powerRegionZ = null;      // re-pick the busiest floor of the new region
+  powerRegionSel = null;
+  powerRegionPlantSel = null;
+  renderPowerPanelBody();
+}
+function setPowerRegionZ(z) {
+  powerRegionZ = z;
+  powerRegionSel = null;
+  powerRegionPlantSel = null;
+  renderPowerPanelBody();
+}
+function powerRegionStepZ(delta) {
+  const tiles = planPlacedTiles(powerPanelAllZones).filter(z => planRegionOf(z) === powerRegionId);
+  const floors = [...new Set(tiles.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
+  const next = delta > 0 ? floors.find(z => z > powerRegionZ)
+                         : floors.slice().reverse().find(z => z < powerRegionZ);
+  if (next != null) setPowerRegionZ(next);
+}
+function powerRegionSelect(zoneId) {
+  powerRegionSel = powerRegionSel === zoneId ? null : zoneId;
+  powerRegionPlantSel = null;
+  renderPowerPanelBody();
+  document.getElementById('power-region-detail')?.scrollIntoView({ block: 'nearest' });
+}
+function powerRegionSelectPlant(genId) {
+  powerRegionPlantSel = powerRegionPlantSel === genId ? null : genId;
+  powerRegionSel = null;
+  renderPowerPanelBody();
+  document.getElementById('power-region-detail')?.scrollIntoView({ block: 'nearest' });
+}
+
+// Every power-model zone folded onto the tile it should paint.
+// -> Map(tileZoneId -> { load, available, capacity, status, rooms: [{zone, pw}] })
+function _powerByTile() {
+  const zoneById = new Map(powerPanelAllZones.map(z => [z.id, z]));
+  const byTile = new Map();
+  for (const pw of bigMapPowerData) {
+    const zone = zoneById.get(pw.zoneId);
+    if (!zone) continue;
+    const tile = planTileZoneFor(zone, zoneById, powerPanelMapParents);
+    if (!tile) continue;
+    let e = byTile.get(tile.id);
+    if (!e) byTile.set(tile.id, e = { load: 0, available: 0, capacity: 0, status: null, rooms: [] });
+    e.load += Number(pw.loadKw ?? 0);
+    e.available += Number(pw.availableKw ?? 0);
+    e.capacity += Number(pw.capacityKw ?? 0);
+    e.rooms.push({ zone, pw });
+    // A tile is as bad as the worst room behind its door: one dead floor is the
+    // thing you opened this map to find, and averaging would hide it.
+    const s = (Number(pw.loadKw ?? 0) === 0 && pw.status !== 'offline') ? 'unpowered' : (pw.status || 'unpowered');
+    if (!e.status || (POWER_STATUS_RANK[s] || 0) > (POWER_STATUS_RANK[e.status] || 0)) e.status = s;
+  }
+  return { byTile, zoneById };
+}
+
+// Plants keyed by the tile they stand on. map_zone_id is computed server-side and
+// already resolves a plant sitting in an interior back out to its exterior zone.
+function _powerPlantsByTile() {
+  const byTile = new Map();
+  for (const g of powerPanelGenerators) {
+    if (g.generator_type !== 'city_plant') continue;
+    const tid = g.map_zone_id || g.zone_id;
+    if (!byTile.has(tid)) byTile.set(tid, []);
+    byTile.get(tid).push(g);
+  }
+  return byTile;
+}
+
+// Which city plant ultimately feeds a power row — through its junction box if it
+// has one. Returns the plant generator, or null for off-grid and unwired zones.
+function _powerPlantFor(pw) {
+  if (!pw?.generatorId) return null;
+  const gen = powerPanelGenerators.find(g => g.id === pw.generatorId);
+  if (!gen) return null;
+  if (gen.generator_type === 'city_plant') return gen;
+  return powerPanelGenerators.find(g => g.id === gen.city_generator_id) || null;
+}
+
+function _buildRegionMapHtml() {
+  const { byTile, zoneById } = _powerByTile();
+  const plantsByTile = _powerPlantsByTile();
+  const buckets = planRegionBuckets(powerPanelAllZones);
+  if (!buckets.size) return '<div style="color:var(--text-dim);padding:8px">No placed tiles to map.</div>';
+
+  const regions = [...buckets.entries()].map(([rid, tiles]) => ({
+    rid, tiles,
+    name: planRegionName(powerPanelRegions, rid),
+    load: tiles.reduce((n, z) => n + (byTile.get(z.id)?.load || 0), 0),
+    wired: tiles.filter(z => byTile.has(z.id)).length,
+  })).sort((a, b) => b.load - a.load || a.name.localeCompare(b.name));
+
+  if (!regions.some(r => r.rid === powerRegionId)) powerRegionId = regions[0].rid;
+  const sel = regions.find(r => r.rid === powerRegionId);
+
+  const options = regions.map(r =>
+    `<option value="${r.rid}"${r.rid === powerRegionId ? ' selected' : ''}>${r.name} — ${r.wired} wired tile${r.wired === 1 ? '' : 's'}</option>`).join('');
+
+  // Floors are separate places, not storeys of one thing, so one draws at a time.
+  const floors = [...new Set(sel.tiles.map(z => z.grid_z ?? 0))].sort((a, b) => b - a);
+  const floorWired = z => sel.tiles.filter(t => (t.grid_z ?? 0) === z && byTile.has(t.id)).length;
+  if (!floors.includes(powerRegionZ)) {
+    powerRegionZ = floors.slice().sort((a, b) => floorWired(b) - floorWired(a) || b - a)[0] ?? 0;
+  }
+  const onFloor = sel.tiles.filter(z => (z.grid_z ?? 0) === powerRegionZ);
+
+  const floorNav = floors.length > 1 ? `<div class="field" style="flex:0 0 auto"><label>Floor</label>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button class="action-btn" onclick="powerRegionStepZ(-1)"${powerRegionZ === floors[floors.length - 1] ? ' disabled' : ''}>▾</button>
+      <span style="min-width:52px;text-align:center;font-size:12px">z = ${powerRegionZ}</span>
+      <button class="action-btn" onclick="powerRegionStepZ(1)"${powerRegionZ === floors[0] ? ' disabled' : ''}>▴</button>
+      <span style="font-size:10px;color:var(--text-dim)">${floors.map(z =>
+        `<a href="#" onclick="setPowerRegionZ(${z});return false" style="color:${z === powerRegionZ ? 'var(--text)' : 'var(--text-dim)'};text-decoration:none;padding:0 3px">${z}${floorWired(z) ? '•' : ''}</a>`).join('')}</span>
+    </div></div>` : '';
+
+  let html = `<div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:8px">
+    <div class="field" style="flex:0 0 280px"><label>Region</label>
+      <select onchange="setPowerRegion(this.value)">${options}</select></div>
+    ${floorNav}
+    <div style="color:var(--text-dim);font-size:11px;padding-bottom:6px">
+      Click a building or a plant for what it draws, what feeds it and whether it's up.
+    </div>
+  </div>`;
+
+  html += _powerGridHealthHtml(sel, byTile, plantsByTile);
+  html += onFloor.length
+    ? _powerRegionGridHtml(onFloor, byTile, plantsByTile)
+    : `<div style="color:var(--text-dim);padding:12px">No placed tiles on floor z=${powerRegionZ}.</div>`;
+  html += _powerRegionLegendHtml();
+  html += `<div id="power-region-detail">${_powerRegionDetailHtml(byTile, zoneById)}</div>`;
+  return html;
+}
+
+// Grid health for the whole region — every floor of it, not just the one drawn,
+// because a plant is regional and a basement is still on it.
+function _powerGridHealthHtml(sel, byTile, plantsByTile) {
+  const tileIds = new Set(sel.tiles.map(z => z.id));
+  const plants = [...plantsByTile.entries()].filter(([tid]) => tileIds.has(tid)).flatMap(([, gs]) => gs);
+  const online = plants.filter(p => Number(p.capacity_kw) > 0);
+  const capacity = online.reduce((n, p) => n + Number(p.capacity_kw || 0), 0);
+  const demand = plants.reduce((n, p) => n + Number(p.total_demand_w ?? 0), 0);
+  const headroom = capacity > 0 ? Math.max(0, 1 - demand / capacity) : 0;
+
+  const counts = { offline: 0, overloaded: 0, powered: 0, unpowered: 0 };
+  for (const z of sel.tiles) {
+    const e = byTile.get(z.id);
+    if (e) counts[e.status] = (counts[e.status] || 0) + 1;
+  }
+
+  // One sentence, so the number you act on is a word before it's a percentage.
+  const verdict = !plants.length ? ['no plant in this region', 'var(--text-dim)']
+    : !online.length ? ['blackout — every plant is down', '#e34']
+    : demand > capacity ? ['over capacity — drawing more than it makes', 'var(--warning)']
+    : counts.offline ? [`${counts.offline} tile${counts.offline === 1 ? '' : 's'} dark`, 'var(--warning)']
+    : headroom < 0.1 ? ['at the limit — under 10% headroom', 'var(--warning)']
+    : ['healthy', '#2c8'];
+
+  const barPct = capacity > 0 ? Math.min(100, (demand / capacity) * 100) : 0;
+  const barColour = demand > capacity ? 'rgba(220,40,60,0.85)' : barPct > 90 ? 'rgba(255,165,0,0.85)' : 'rgba(20,200,100,0.75)';
+  const stat = (label, value) => `<span style="display:inline-flex;flex-direction:column;gap:1px">
+    <b style="font-size:13px">${value}</b><span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">${label}</span></span>`;
+
+  return `<div style="border:1px solid var(--border);border-radius:4px;padding:10px;margin-bottom:10px;background:var(--bg2)">
+    <div style="display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap">
+      ${stat('grid', `<span style="color:${verdict[1]}">${verdict[0]}</span>`)}
+      ${stat('plants up', `${online.length}/${plants.length}`)}
+      ${stat('capacity', `${capacity.toFixed(0)}W`)}
+      ${stat('demand', `${demand.toFixed(0)}W`)}
+      ${stat('headroom', `${(headroom * 100).toFixed(0)}%`)}
+      ${stat('tiles', `${counts.powered} up · ${counts.overloaded} strained · ${counts.offline} dark · ${counts.unpowered} idle`)}
+    </div>
+    <div style="margin-top:8px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden">
+      <div style="height:100%;width:${barPct.toFixed(1)}%;background:${barColour}"></div>
+    </div>
+  </div>`;
+}
+
+// One floor of the region: terrain tone underneath, power status on top.
+function _powerRegionGridHtml(tiles, byTile, plantsByTile) {
+  const xs = tiles.map(z => z.grid_x), ys = tiles.map(z => z.grid_y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const cols = maxX - minX + 1;
+  const cell = Math.max(5, Math.min(20, Math.floor(880 / cols)));
+
+  const byCoord = new Map();
+  for (const z of tiles) {
+    const key = `${z.grid_x},${z.grid_y}`;
+    const cur = byCoord.get(key);
+    if (!cur || (z.grid_z ?? 0) < (cur.grid_z ?? 0)) byCoord.set(key, z);
+  }
+  const peak = Math.max(0, ...tiles.map(z => byTile.get(z.id)?.load || 0));
+
+  let html = planGridOpen(cols, cell);
+  for (const [coord, z] of byCoord) {
+      const [x, y] = coord.split(',').map(Number);
+      const e = byTile.get(z.id);
+      const plants = plantsByTile.get(z.id) || [];
+      const tone = planTileTone(z);
+      const border = planTileIsBuilding(z) ? `;box-shadow:inset 0 0 0 1px rgba(${PLAN_MAP_INK},0.85)` : '';
+
+      let overlay = '';
+      if (e) {
+        // Alpha carries how much it draws; hue carries whether it's well. Offline
+        // and idle are states rather than magnitudes, so they take a flat alpha.
+        const t = peak > 0 && e.load > 0 ? Math.sqrt(e.load / peak) : 0;
+        const alpha = e.status === 'offline' ? 0.85 : e.status === 'unpowered' ? 0.35 : 0.3 + 0.6 * t;
+        overlay = `<div style="position:absolute;inset:0;background:rgba(${POWER_STATUS_RGB[e.status] || POWER_STATUS_RGB.unpowered},${alpha.toFixed(3)})"></div>`;
+      }
+      let onClick = `powerRegionSelect(${JSON.stringify(z.id)})`;
+      let lift = '';
+      let tip = (z.name || z.id) + (e
+        ? `\n${e.load.toFixed(0)}W of ${e.available.toFixed(0)}W · ${e.status}${e.rooms.length > 1 ? ` · ${e.rooms.length} rooms` : ''}`
+        : '\nnot on the power model');
+      if (plants.length) {
+        const p = plants[0];
+        const up = Number(p.capacity_kw) > 0;
+        const over = Number(p.total_demand_w ?? 0) > Number(p.capacity_kw || 0);
+        const ring = up ? (over ? '255,165,0' : '110,190,255') : '220,40,60';
+        overlay += `<div style="position:absolute;inset:-2px;background:rgba(80,160,255,${up ? 0.8 : 0.45});box-shadow:0 0 0 2px rgba(${ring},0.95),0 0 9px 3px rgba(${ring},0.5)"></div>`;
+        lift = ';z-index:2;overflow:visible';
+        onClick = `powerRegionSelectPlant(${JSON.stringify(p.id)})`;
+        tip = `⚡ ${p.name || p.id}\n${Number(p.total_demand_w ?? 0).toFixed(0)}W drawn of ${Number(p.capacity_kw || 0).toFixed(0)}W${up ? '' : ' · OFFLINE'}`;
+      }
+      const isSel = z.id === powerRegionSel || plants.some(p => p.id === powerRegionPlantSel);
+      html += `<div class="plan-tile${isSel ? ' plan-tile-sel' : ''}" style="${planCellPos(x, y, minX, minY)};position:relative;background:rgba(${PLAN_MAP_INK},${tone})${border}${lift}"
+        title="${tip.replace(/"/g, '&quot;')}" onclick='${onClick}'>${overlay}</div>`;
+  }
+  return html + '</div>';
+}
+
+function _powerRegionLegendHtml() {
+  const sw = (rgb, a, label, ring) => `<span style="display:inline-flex;gap:4px;align-items:center"><span style="display:inline-block;width:12px;height:12px;background:rgba(${rgb},${a})${ring ? `;box-shadow:inset 0 0 0 2px ${ring}` : ''}"></span>${label}</span>`;
+  return `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:10px;color:var(--text-dim)">
+    ${sw('80,160,255', 0.8, 'city plant', 'rgba(110,190,255,0.95)')}
+    ${sw(POWER_STATUS_RGB.powered, 0.7, 'powered')}
+    ${sw(POWER_STATUS_RGB.overloaded, 0.7, 'overloaded')}
+    ${sw(POWER_STATUS_RGB.offline, 0.85, 'offline')}
+    ${sw(POWER_STATUS_RGB.unpowered, 0.35, 'idle (no draw)')}
+    ${sw(PLAN_MAP_INK, PLAN_TILE_BUILDING, 'building, not on the grid')}
+    <span style="opacity:0.7">stronger colour = heavier draw · interior rooms fold onto their facade</span>
+  </div>`;
+}
+
+function _powerRegionDetailHtml(byTile, zoneById) {
+  if (powerRegionPlantSel) {
+    const p = powerPanelGenerators.find(g => g.id === powerRegionPlantSel);
+    if (!p) return '';
+    const fed = powerPanelGenerators.filter(g => g.generator_type === 'junction_box' && g.city_generator_id === p.id);
+    const cap = Number(p.capacity_kw || 0), demand = Number(p.total_demand_w ?? 0);
+    const rows = fed.map(jb => `<div class="zone-subitem-row">
+        <span>${jb.name || jb.id} <span style="color:var(--text-dim);font-size:11px">· ${jb.zone_name || jb.zone_id} · ${Number(jb.zone_load_w ?? 0).toFixed(0)}W</span></span>
+      </div>`).join('');
+    return `<div class="zone-inline-form" style="margin:0 0 12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b>⚡ ${p.name || p.id}</b>
+        <button class="action-btn" onclick='powerRegionSelectPlant(${JSON.stringify(p.id)})'>Close</button>
+      </div>
+      <div style="font-size:12px;margin-bottom:6px">
+        ${cap > 0 ? 'Online' : '<span style="color:var(--warning)">Offline (zero capacity)</span>'} ·
+        supplies <b>${cap.toFixed(0)}W</b> · drawn <b style="color:${demand > cap ? 'var(--warning)' : 'inherit'}">${demand.toFixed(0)}W</b> ·
+        ${fed.length} junction box${fed.length === 1 ? '' : 'es'} · at ${p.zone_name || p.zone_id}
+      </div>
+      ${rows || '<div class="zone-subitem-empty">Nothing wired to this plant.</div>'}
+    </div>`;
+  }
+
+  if (!powerRegionSel) return '';
+  const zone = zoneById.get(powerRegionSel);
+  if (!zone) return '';
+  const e = byTile.get(zone.id);
+  const zoneArg = JSON.stringify(zone.id);
+  const head = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <b>${zone.name || zone.id}</b>
+      <span style="display:flex;gap:6px">
+        ${zone.flags?.is_building ? `<button class="action-btn" onclick='powerPanelOpenBuilding(${zoneArg})'>Open interior</button>` : ''}
+        <button class="action-btn" onclick='editRecord(${zoneArg})'>Edit zone</button>
+        <button class="action-btn" onclick='powerRegionSelect(${zoneArg})'>Close</button>
+      </span>
+    </div>`;
+  if (!e) {
+    return `<div class="zone-inline-form" style="margin:0 0 12px">${head}
+      <div class="zone-subitem-empty">This tile isn't on the power model — nothing here draws or supplies.</div></div>`;
+  }
+  const plant = _powerPlantFor(e.rooms[0]?.pw);
+  const room = r => {
+    const load = Number(r.pw.loadKw ?? 0);
+    const st = (load === 0 && r.pw.status !== 'offline') ? 'unpowered' : (r.pw.status || 'unpowered');
+    return `<div class="zone-subitem-row" style="cursor:pointer" onclick='editRecord(${JSON.stringify(r.zone.id)})'>
+      <span>${r.zone.name || r.zone.id}
+        <span style="color:var(--text-dim);font-size:11px">· ${load.toFixed(0)}W of ${Number(r.pw.availableKw ?? 0).toFixed(0)}W · ${st}${r.pw.artificialLight ? ' · lit' : ''}</span></span>
+    </div>`;
+  };
+  const rooms = e.rooms.slice().sort((a, b) => Number(b.pw.loadKw ?? 0) - Number(a.pw.loadKw ?? 0));
+  return `<div class="zone-inline-form" style="margin:0 0 12px">${head}
+    <div style="font-size:12px;margin-bottom:6px">
+      Draws <b>${e.load.toFixed(0)}W</b> of <b>${e.available.toFixed(0)}W</b> available ·
+      <b style="color:rgba(${POWER_STATUS_RGB[e.status]},1)">${e.status}</b> ·
+      ${e.rooms.length} room${e.rooms.length === 1 ? '' : 's'} ·
+      fed by ${plant ? `⚡ ${plant.name || plant.id}` : '<span style="color:var(--text-dim)">no city plant (off-grid or unwired)</span>'}
+    </div>
+    ${rooms.map(room).join('')}
+  </div>`;
+}
+
 function renderPowerPanelBody() {
   const panel = document.getElementById('list-panel');
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
@@ -278,10 +615,13 @@ function renderPowerPanelBody() {
   const tabBar = `<div class="panel-sticky-head" style="display:flex;gap:8px;margin-bottom:12px;align-items:center;padding:4px 0">
     <button class="action-btn${powerPanelView === 'city' ? ' primary' : ''}" onclick="setPowerPanelView('city')">⚡ City Grid</button>
     <button class="action-btn${powerPanelView === 'interior' ? ' primary' : ''}" onclick="setPowerPanelView('interior')">🏢 Building Interior</button>
+    <button class="action-btn${powerPanelView === 'region' ? ' primary' : ''}" onclick="setPowerPanelView('region')">🗺 Region Map</button>
   </div>`;
 
   let html;
-  if (powerPanelView === 'interior') {
+  if (powerPanelView === 'region') {
+    html = `<div style="padding:12px">${tabBar}${_buildRegionMapHtml()}</div>`;
+  } else if (powerPanelView === 'interior') {
     html = `<div style="padding:12px">${tabBar}${_buildInteriorMapHtml()}</div>`;
   } else {
     html = `<div style="padding:12px">

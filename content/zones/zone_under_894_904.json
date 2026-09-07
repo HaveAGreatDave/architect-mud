@@ -4,7 +4,8 @@
   "color": "#8fae9a",
   "description": "A grimy trunk of storm tunnel under Halcyon Boulevard, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "south": "zone_under_894_905"
+    "south": "zone_under_894_905",
+    "north": "zone_under_894_903"
   },
   "flags": {
     "ambient_pool": "world_sewer_line",

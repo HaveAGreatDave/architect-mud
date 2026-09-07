@@ -1,6 +1,29 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "idle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A lush, full-figured woman with a wicked grin and a satin chemise that leaves little argument, draped along the end of the bed like she was poured there. She watches the hatch for exactly one person and treats every other face as furniture: politely, and from a careful distance.",
   "dialogue_tree": {

@@ -2,7 +2,7 @@
 // production). Zone-independent paths only (the fake player's zone may or may
 // not contain a vendor).
 import { vendorGrudgeRemaining, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
-import { isVendorClosed, hoursUntilOpen, openInPhrase, vendorClosedLine, isVendorOffHours, isVendorRole, vendorOffHoursLine } from '../../server/engine/ai-behaviour.js';
+import { isVendorClosed, hoursUntilOpen, openInPhrase, vendorClosedLine, isVendorOffHours, isVendorRole, vendorOffHoursLine, anotherVendorOnDuty } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { getRegisteredMoveGates, getRegisteredShutProviders, shutStatus } from '../../server/engine/movement-gates.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
@@ -67,6 +67,30 @@ export default async function regress({ run, check, getPlayer }) {
     /hasn't opened up yet/.test(vendorClosedLine({ name: 'Latecomer', work_zone_id: 'zone_shop', zone_id: 'zone_street', vendor_schedule: onShift })));
   check('a stallholder with no work_zone_id is unaffected by presence',
     !isVendorClosed({ name: 'Stallie', zone_id: 'zone_street', vendor_schedule: onShift }));
+
+  // ── The shift handover ─────────────────────────────────────────────────────
+  // A shop staffed around the clock is two vendors sharing one work_zone_id. The
+  // door lockup in ai-behaviour is keyed on the DEPARTING npc, so the day clerk
+  // going home would throw the lock on the night clerk already behind the
+  // counter — a shop that says it just shut while still trading.
+  const HANDOVER = 'zone_regress_handover';
+  const priorZone = world.zones.get(HANDOVER);
+  world.zones.set(HANDOVER, { id: HANDOVER, npcs: new Set(['npc_day', 'npc_night', 'npc_browser']) });
+  world.npcs.set('npc_day',     { id: 'npc_day',     name: 'Day',     work_zone_id: HANDOVER });
+  world.npcs.set('npc_night',   { id: 'npc_night',   name: 'Night',   work_zone_id: HANDOVER });
+  world.npcs.set('npc_browser', { id: 'npc_browser', name: 'Browser', work_zone_id: null });
+  try {
+    check("the day clerk leaving doesn't lock up on the night clerk",
+      anotherVendorOnDuty(HANDOVER, 'npc_day'));
+    world.zones.get(HANDOVER).npcs.delete('npc_night');
+    check('the last vendor out still locks up — a browsing customer is not staff',
+      !anotherVendorOnDuty(HANDOVER, 'npc_day'));
+    check('an unknown zone never blocks the lockup',
+      !anotherVendorOnDuty('zone_regress_nowhere', 'npc_day'));
+  } finally {
+    if (priorZone) world.zones.set(HANDOVER, priorZone); else world.zones.delete(HANDOVER);
+    for (const id of ['npc_day', 'npc_night', 'npc_browser']) world.npcs.delete(id);
+  }
 
   // ── The 24-hour lie ────────────────────────────────────────────────────────
   // hoursUntilOpen only counted blocks that START in the future, so a shop whose

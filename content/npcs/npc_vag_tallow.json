@@ -26,7 +26,41 @@
       "Dorrit looks genuinely alarmed. \"Then what would I do all day?\""
     ]
   ],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A narrow, fastidious man kneeling at the edge of a grey blanket laid out precisely inside the painted KEEP CLEAR line, on which perhaps forty pieces of salvage are arranged in ranks by size, then by kind, then by how well they have come up under a rag. His hands are black to the second knuckle and scrupulously clean past it. He glances at your boots before he glances at your face, and he prices you off the boots.",
   "dialogue_tree": {

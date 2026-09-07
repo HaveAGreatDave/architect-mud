@@ -27,7 +27,41 @@
       "\"That's what I'm establishing.\""
     ]
   ],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A small, upright woman on the end of a bolted bench, sitting the way people sit when they have somewhere to be and thirty years to get there. Her coat has been mended so many times it's mostly mend. Across her knees, held flat with one gloved hand against the wind, is a notebook swollen to twice its proper thickness by rain and dried again into a solid brick of paper. She writes in it constantly, in a tiny, disciplined hand, and she doesn't stop writing when you sit down.",
   "dialogue_tree": {

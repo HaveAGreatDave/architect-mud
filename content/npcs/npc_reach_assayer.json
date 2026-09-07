@@ -10,7 +10,41 @@
       "\"I don't care what's in the jar. I care what's in the jar, if you follow.\""
     ]
   ],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "Neve Calder is small, precise, and entirely unbothered by anyone's opinion of her, including yours. She came out to the Reach with a balance, a case of reagents, and no explanation, and she has given the same number to a warlord and to a kid with a jar of dirt. Her hands are stained to the second knuckle in colours that don't wash out and she has stopped noticing.",
   "dialogue_tree": {

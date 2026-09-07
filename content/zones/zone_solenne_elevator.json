@@ -15,6 +15,7 @@
       "zone_solenne_residences",
       "zone_solenne_residences_34",
       "zone_solenne_skydeck",
+      "zone_solenne_aerie",
       "zone_solenne_ph_landing",
       "zone_solenne_helipad"
     ]
@@ -47,6 +48,11 @@
         "label": "Sky Deck & Pool",
         "n": 40,
         "zone": "zone_solenne_skydeck"
+      },
+      {
+        "label": "The Aerie — members",
+        "n": 41,
+        "zone": "zone_solenne_aerie"
       },
       {
         "label": "The Penthouse",

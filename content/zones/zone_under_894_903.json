@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "Water finds a seam in the tiling and lets itself down, one drop at a time.",
+    "Somewhere off in the dark a broom goes over stone, unhurried, and stops.",
+    "The ceiling tiles tick as the trunk behind you breathes."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#141b19",
+  "color": "#8fae9a",
+  "description": "The trunk opens without warning into a hall it was never meant to reach. This was a station concourse once, before the water and the fill and the second city built over the top of it: a barrel of tiled ceiling, a run of ticket windows with the brass grilles still in them, and a floor of black and white stone laid in a pattern that goes on under the silt. Half of it is silt. The other half has been swept, and swept recently, in a hard straight edge that stops where somebody ran out of shift.",
+  "exits": {
+    "south": "zone_under_894_904",
+    "west": "zone_under_893_903"
+  },
+  "flags": {
+    "district": "sewer",
+    "floor": "stone",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer",
+    "terrain": "sewer"
+  },
+  "grid_x": 894,
+  "grid_y": 903,
+  "grid_z": -1,
+  "id": "zone_under_894_903",
+  "map_id": "map_world",
+  "name": "The Old Concourse",
+  "parent_zone": null
+}

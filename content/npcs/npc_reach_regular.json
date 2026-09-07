@@ -27,7 +27,41 @@
       "\"Right you are. Right you are.\""
     ]
   ],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "player_check"
+      },
+      "player_check": {
+        "type": "condition",
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifTrue": "chitchat",
+        "ifFalse": "idle"
+      },
+      "chitchat": {
+        "type": "action",
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "settle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A weathered man welded to the third stool from the end, where the bar has worn pale in the shape of his forearms. Broken veins map his cheeks; a white seam of old scar runs up under his jaw and disappears into his beard. His hands are a pilot's hands, thick and scarred and still steady, and they never quite stop moving, walking through a checklist for an aircraft that isn't there. He's delighted to see you. He's delighted to see everybody.",
   "dialogue_tree": {

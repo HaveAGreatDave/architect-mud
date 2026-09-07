@@ -1,6 +1,29 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "idle"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "settle"
+      },
+      "settle": {
+        "type": "wait",
+        "seconds": 45,
+        "jitter": 30,
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A statuesque woman with an hourglass figure wrapped in soft silk, all curves and heavy-lidded calm. Off any stage she moves slower, like the cabin belongs to her and she's in no hurry to prove it. Her eyes drift to the hatch whenever it so much as creaks.",
   "dialogue_tree": {
