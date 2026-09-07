@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [],
-  "description": "A narrow, still woman who runs the Slip's quiet trade. She never raises her voice and never forgets a face, and both facts should worry you equally.",
+  "description": "A narrow, still woman who runs the Slip's quiet trade. She never raises her voice and never forgets a face.",
   "dialogue_tree": {
     "bye": {
       "options": [],

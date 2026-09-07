@@ -134,7 +134,7 @@
     "Hock turns something small over under the loupe and names a number lower than it deserves.",
     "\"Everything in here belonged to someone who swore they'd be back. They swore.\""
   ],
-  "description": "A soft-spoken man behind the wire mesh, loupe screwed into one eye and a valuation already forming behind the other. He buys what walks in, holds what won't sell, and remembers nothing that could be asked about later. Every kindness he offers is priced, and the price is always his.",
+  "description": "A soft-spoken man behind the wire mesh, loupe screwed into one eye and a valuation already forming behind the other. He buys what walks in, holds what won't sell, and remembers nothing that could be asked about later. Every kindness he offers is priced.",
   "dialogue_tree": {
     "buy": {
       "options": [
