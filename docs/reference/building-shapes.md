@@ -193,6 +193,120 @@ landmark to its own model, the entrance is the frame the geometry is laid out in
 asserts the city still carries them, so a rename or a lost `facade` tag can't silently downgrade
 every landmark back to a box.
 
+## Looking at a model — the Modelshop
+
+The renderer these models belong to is **GLASS** (Geometry, Lights, Aircraft, Streets &
+Structures), and [tools/modelshop](../../tools/modelshop/README.md) is its editor:
+
+```bash
+npm run modelshop     # http://localhost:5181 — also started by npm run dev
+```
+
+Phase 1 is an **inspector**. It lists every model from `shapeModelRegistry()` and draws it
+through `renderModelPreview()`, which is a named entry into the real `drawTypeModel` — the same
+seam as `shapeRenderSmoke`, and for the same reason: a second preview renderer would agree about
+geometry and disagree about wall texture, night lighting, face order and glow, so a model would
+look right in the tool and wrong out of the windscreen.
+
+It surfaces four things that were previously only reachable by flying to a building or by reading
+a bake diff: the **shape cage** live at any `fh`/`h`/seed/facing, the **nine segments the bake
+keeps** (so a tower that the gap-filling rule left headless is visible immediately), the
+**constant-term warnings** this doc describes, and the **adornment cost** in gradients and blurs.
+
+⚠ **Use the Cab preset.** `ADORN_NEAR` is aimed at eye height 0 and a cockpit almost never sees
+it, so authoring only from the cockpit view is exactly how near-tier detail ships broken.
+
+There is still **no pixel comparison** (see Verification below). The Modelshop is where you look
+at a model; it does not assert that one looks right.
+
+### Authored models — the data half
+
+A model no longer has to be an arm. One JSON file per model under `content/building_models/`,
+compiled by `npm run models:bake` into the generated `client/shared/building-models.js`, which
+windshield.js imports and merges into `NAMED_MODELS`/`TYPE_MODEL` at load. The schema is
+[client/shared/building-model-schema.js](../../client/shared/building-model-schema.js).
+
+**The bake resolves an authored file into exactly the shape this document already describes** —
+every geometric scalar as an affine `[a·fh + b·h + c]` triple, under the primitive's own argument
+name. That is the whole trick: by the time anything draws one, an authored model and a captured one
+are the same data. `drawAuthoredModel` then calls the *real* mass primitives, so `SHAPE_SINK`
+records it identically and every consumer in the table above works on it unchanged — the worked
+example ([content/building_models/foundry.json](../../content/building_models/foundry.json))
+entered the bake above with nobody wiring it up.
+
+An author writes plain numbers in tile units at a fixed basis (`fh` 0.4, `h` 1, the pair
+`captureRawPass` itself uses) and tags what each field scales with; the triple is derived. A mixed
+triple is deliberately not authorable — if a model needs one, it is a code arm.
+
+Two rules, both enforced rather than described:
+
+- **A hand-written arm always wins.** The merge is `??=`. `models:bake` refuses two authored models
+  claiming one key, and `shapes:smoke` reports an authored binding a code arm shadows — otherwise
+  it is inert, and inert looks exactly like nothing going wrong.
+- ⚠ **An adornment must project at a FINITE position.** Every adornment helper guards with
+  `if (p.f <= 0.1) return`, and `NaN <= 0.1` is **false** — so a mis-named argument sails straight
+  past the bailout and paints at NaN, which a canvas draws as nothing and reports no error. The
+  model renders perfectly with its neon, beacons and masts silently absent, and it reached the
+  committed skyline bake that way once already. `authoredAdornSmoke()` checks the ARGUMENTS rather
+  than the output, which is what lets it run in node with no pixels.
+
+Boxes and drums are authorable; barrel and sawtooth are not yet, and neither blocks authoring a
+building. Editing is still by hand — the Modelshop has no write path.
+
+### Does it draw the same picture? — `models:diff`
+
+```bash
+npm run models:diff -- type:foundry named:thefoundry   # compare any two
+npm run models:diff -- --ported                        # every ported model against its arm
+npm run models:diff -- --determinism                   # every model, rendered twice
+```
+
+⚠ **It compares drawing OPERATIONS, not pixels, and it is deliberately not called a pixel diff.**
+A pixel comparison in node needs a native canvas dependency and a build toolchain in CI, in a repo
+whose premise is no build step. So a model is rendered against a recording context
+(`captureModelTrace`) and the recordings are compared, over 48 cameras — day and night, four
+facings, three scales, two seeds. It **over-reports**: a different draw *order* is the same picture
+and a different trace. That is the safe direction for a gate, and it means a non-zero distance is a
+question rather than a verdict. The Modelshop's Difference panel settles it in real pixels.
+
+A port is declared by `portedFrom` in the authored file, which flips the merge rule so the data
+model overrides the arm — and **the arm is kept**, in `LEGACY_MODELS`, so the claim is re-checked
+on every push for as long as it exists, and `RENDER_TUNE.legacyArms` puts the whole city back on
+the hand-written arms with one flag (it reaches CFIT, not just the render). Delete an arm in a
+later commit, once the port has flown.
+
+**Determinism is the precondition**, and it is now asserted for all 173 models: the same model at
+the same camera must produce the same trace twice. A `Math.random` or a real-clock read in an arm
+would otherwise make that building different on every frame with nothing here to notice — the
+capture harness probes seeds but holds `now` fixed and never renders one model twice.
+
+### ⚠ Why the arms cannot be ported to authored data
+
+`npm run models:survey` ([scripts/shapes/autoport.mjs](../../scripts/shapes/autoport.mjs)) generates
+an authored model from an arm's own capture and then measures it against that arm. **Zero of 172
+arms port faithfully**, and the reason is worth knowing before anybody tries again:
+
+| | |
+|---|---|
+| 129 of 172 | expressible as authored boxes and drums (43 are not: 30 entrance-face-only mass, 12 barrel roofs, 1 sawtooth) |
+| 79 of 129 | **byte-identical to the arm at the capture conditions** |
+| 0 of 79 | break when the footprint or storey height changes — **the affine basis is exactly right** |
+| 10 of 79 | break on a different tile seed |
+| **79 of 79** | **break on a different entrance facing** |
+| 69 of 79 | lose something visible once adornments are back on |
+
+**Facing is the blocker, and it is unanimous.** Capture runs an arm once at the canonical
+`E = [0,1]` and an authored model reproduces that shape rotated — but an arm is **not** a pure
+rotation of its own capture. The control proves it: the arms differ from `drawModelLOD` itself in
+all 258 non-canonical-facing cases tested. That is fine for the LOD, which only takes over past
+`lodNear` and is an approximation on purpose. It is not fine for a port, which replaces the arm at
+every distance including the truck cab at arm's length.
+
+So the arms stay as code, and the authored format is for **new** buildings. Porting would first
+need capture to record all four facings (or facing-conditional geometry in the schema), adornments
+to survive `SHAPE_SINK`, and per-box seeds and drum style functions to be recorded — each of which
+is design, not effort.
+
 ## Verification
 
 ```bash

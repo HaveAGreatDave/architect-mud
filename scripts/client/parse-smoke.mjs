@@ -26,6 +26,11 @@ import { join, relative } from 'node:path';
 
 const ROOT = new URL('../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const DIR = join(ROOT, 'client');
+// The local tools ship browser JS too, and it is the same class of file for the same
+// reason — hand-written, no build step, nothing parses it until it is loaded. The
+// Modelshop's client builds form markup out of template literals, which is precisely
+// where the backtick-in-a-comment failure above lives.
+const TOOL_DIRS = [join(ROOT, 'tools', 'modelshop')];
 const CONCURRENCY = 8;
 
 async function walk(dir) {
@@ -79,7 +84,8 @@ async function pluginPanelScripts() {
   return out;
 }
 
-const files = [...(await walk(DIR)), ...(await pluginPanelScripts())].sort();
+const toolFiles = (await Promise.all(TOOL_DIRS.map((d) => walk(d)))).flat();
+const files = [...(await walk(DIR)), ...toolFiles, ...(await pluginPanelScripts())].sort();
 const failures = [];
 let next = 0;
 

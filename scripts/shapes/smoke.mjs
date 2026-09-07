@@ -407,6 +407,117 @@ async function main() {
     problems.push(`could not read client/shared/building-shapes.js (${e.message}). Run: npm run shapes:bake`);
   }
 
+  // ── AUTHORED MODELS ──
+  // The same three questions the code arms get, asked of the data half. They are here rather than
+  // in content:lint because an authored model never reaches the database — models:bake compiles it
+  // into a client module, so its gate belongs beside the renderer's.
+  let authoredLine = 'Authored models: none.';
+  let diffLine = null;
+  let authoredReach = null;
+  try {
+    const { bakeModels, readModelFiles } = await import('./bake-models.mjs');
+    const { ADORN_SCHEMA } = await import('../../client/shared/building-model-schema.js');
+    const files = readModelFiles();
+    const { models: fresh, errors } = bakeModels(files);
+    for (const e of errors) problems.push(`authored model — ${e}`);
+
+    // 1. STALE BAKE, the same direct comparison the shapes bake gets above.
+    const baked = (await import('../../client/shared/building-models.js')).AUTHORED_MODELS;
+    const drifted = [...new Set([...Object.keys(fresh), ...Object.keys(baked)])]
+      .filter((k) => JSON.stringify(fresh[k]) !== JSON.stringify(baked[k]));
+    if (drifted.length) {
+      problems.push(`stale authored bake — ${drifted.length} binding(s) differ from client/shared/building-models.js `
+        + `(${drifted.slice(0, 5).join(', ')}${drifted.length > 5 ? ', …' : ''}). Run: npm run models:bake`);
+    }
+
+    // 2. ORPHANS. A file that binds to a key a hand-written arm already owns is inert — it
+    // validates, bakes, ships and never draws, because the registry merge is `??=` on purpose.
+    // Silence is the failure mode this whole codebase keeps rediscovering, so it is named here.
+    const live = new Set(models.map((r) => r.key));
+    for (const key of Object.keys(baked)) {
+      const m = ws.shapeModelRegistry().find((r) => r.key === key)?.m;
+      if (!live.has(key)) problems.push(`authored model '${key}' resolves to nothing in the live registry`);
+      else if (m && m.type !== 'authored') {
+        problems.push(`authored model '${key}' is shadowed by a hand-written '${m.type}' arm — it will never draw. `
+          + 'Rebind it, or delete the arm deliberately.');
+      }
+    }
+
+    // 3. THE TWO ADORNMENT LISTS. windshield.js cannot import scripts/, so its dispatch table and
+    // ADORN_SCHEMA are written out twice. Compared by value here, because the failure otherwise is
+    // an authored field that validates and bakes and then silently draws nothing at all.
+    const schemaKinds = Object.keys(ADORN_SCHEMA).sort().join(',');
+    const rendererKinds = [...ws.AUTHORED_ADORN_KINDS].sort().join(',');
+    if (schemaKinds !== rendererKinds) {
+      problems.push('adornment drift — model-schema.mjs knows [' + schemaKinds + '] and windshield.js draws ['
+        + rendererKinds + ']. A kind in only one of them is a field that validates and never paints.');
+    }
+    // 4. THE ADORNMENTS ACTUALLY REACH THE CAMERA. See authoredAdornSmoke in windshield.js —
+    // an adornment drawn at a non-finite position paints nothing and throws nothing, so every
+    // other gate here reports a clean model with its neon silently missing.
+    for (const f of ws.authoredAdornSmoke()) problems.push(`authored adorn — ${f}`);
+
+    // 5. DETERMINISM, and 6. THE PORT CLAIMS. Both from scripts/shapes/modeldiff.mjs.
+    //
+    // Determinism is the precondition for every comparison the port depends on: a model that draws
+    // differently on a second identical render cannot be diffed at all. It is also worth having on
+    // its own — a Math.random or a real-clock read in an arm makes that building different every
+    // frame, and nothing else here would see it, because the capture harness holds `now` fixed and
+    // never runs one model twice at the same camera.
+    //
+    // The port gate then re-checks every `portedFrom` claim against the arm it replaced, for as
+    // long as that arm exists. It is vacuous until something is ported, and wired now so that the
+    // first port is measured rather than trusted.
+    const { determinismSweep, portedSweep } = await import('./modeldiff.mjs');
+    for (const f of determinismSweep(ws)) problems.push(`determinism — ${f}`);
+    for (const f of portedSweep(ws)) problems.push(`port — ${f}`);
+    const ported = models.filter((r) => r.m.type === 'authored' && r.m.portedFrom).length;
+    diffLine = `Model diff: all ${models.length} models render identically twice; ${ported} ported model(s) match the arm they replaced.`;
+
+    // 7. CAN ANY TILE ACTUALLY REACH IT?
+    //
+    // The orphan check above proves a binding resolves in the REGISTRY. That is not the same
+    // question as whether a building in the world resolves to it, and the difference is not
+    // academic: `modelFor` prefers a building's NAME over its TYPE, and 408 of the 416 building
+    // tiles in Coldwater carry a name. So a model bound `by: 'type'` draws on almost nothing —
+    // the worked example shipped bound to `type:foundry`, whose three tiles are all named, and
+    // was invisible in the game while looking perfectly healthy in every other gate here.
+    //
+    // A warning rather than an error, because authoring a model before placing its tiles is a
+    // reasonable order to work in. It is printed by name so it cannot be a silence.
+    try {
+      const { readdirSync: rd, readFileSync: rf } = await import('node:fs');
+      const zoneDir = new URL('../../content/zones/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+      const live = new Set(ws.shapeModelRegistry().map((r) => r.key));
+      const reach = new Map();
+      for (const f of rd(zoneDir)) {
+        if (!f.endsWith('.json')) continue;
+        const z = JSON.parse(rf(zoneDir + f, 'utf8'));
+        const bt = z.flags?.building_type;
+        if (!bt) continue;
+        const bn = z.flags.building_name;
+        const slug = (bn || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+        // Exactly modelFor's order: a named model wins, then the type model.
+        const key = (bn && live.has('named:' + slug)) ? 'named:' + slug : 'type:' + bt;
+        reach.set(key, (reach.get(key) || 0) + 1);
+      }
+      const unreached = Object.keys(baked).filter((k) => !(reach.get(k) > 0));
+      authoredReach = Object.keys(baked).length
+        ? `${Object.keys(baked).length - unreached.length}/${Object.keys(baked).length} authored binding(s) are reached by at least one tile`
+          + (unreached.length ? ` — NOT reached: ${unreached.join(', ')} (a name on the tile beats a type bind)` : '')
+        : null;
+    } catch (e) {
+      authoredReach = 'could not check tile reachability: ' + e.message;
+    }
+
+    const nSegs = Object.values(fresh).reduce((a, m) => a + m.segs.length, 0);
+    const nAdorn = Object.values(fresh).reduce((a, m) => a + m.adorn.length, 0);
+    authoredLine = `Authored models: ${files.length} file(s) → ${Object.keys(fresh).length} binding(s), `
+      + `${nSegs} segments + ${nAdorn} adornments, over ${Object.keys(ADORN_SCHEMA).length} adornment kinds the renderer agrees on.`;
+  } catch (e) {
+    problems.push(`authored models — ${e.message}. Run: npm run models:bake`);
+  }
+
   if (problems.length) {
     console.error(`✗ shapes:smoke — ${problems.length} problem(s) across ${models.length} building models:`);
     for (const p of problems) console.error(`    ${p}`);
@@ -420,6 +531,9 @@ async function main() {
   const at = (d) => models.reduce((s, { m }) => s + ws.shapeLodFaces(m, d), 0) / models.length;
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
+  console.log('  ' + authoredLine);
+  if (diffLine) console.log('  ' + diffLine);
+  if (authoredReach) console.log('  ' + authoredReach);
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
   console.log('  ' + markLine);
   console.log('  ' + decoLine);

@@ -1,0 +1,15 @@
+// GENERATED FILE — DO NOT EDIT BY HAND.
+//
+// Authored GLASS building models, baked from content/building_models/*.json by
+// `npm run models:bake`. `npm run shapes:smoke` fails if this file is stale.
+//
+// Keyed by the same key space shapeModelRegistry() uses — `named:<slug>` for a
+// building_name and `type:<building_type>` for a building_type. windshield.js merges
+// these into NAMED_MODELS / TYPE_MODEL at load, and never over a hand-written arm.
+//
+// Every geometric scalar is an affine triple [a, b, c] meaning a·fh + b·h + c, which is
+// exactly what SHAPE_SINK capture produces for a code arm. That is deliberate: by the
+// time anything draws one, an authored model and a captured one are the same data.
+export const AUTHORED_MODELS = {
+  "type:foundry": {"type":"authored","pal":"ty_foundry","segs":[{"kind":"box","cx":[0,0,0],"cy":[0,0,0],"hwRaw":[1,0,0],"fdRaw":[0.75,0,0],"z0":[0,0,0],"z1":[0,0.62,0],"pal":"ty_foundry","roof":true,"yaw":0},{"kind":"box","cx":[-0.4,0,0],"cy":[0.15,0,0],"hwRaw":[0.5,0,0],"fdRaw":[0.55,0,0],"z0":[0,0,0],"z1":[0,1.02,0],"pal":"ty_foundry","roof":true,"yaw":0},{"kind":"box","cx":[0.7,0,0],"cy":[-0.3,0,0],"hwRaw":[0.3,0,0],"fdRaw":[0.25,0,0],"z0":[0,0,0],"z1":[0,0.34,0],"pal":"ty_slag","roof":true,"yaw":0},{"kind":"drum","cx":[0.25,0,0],"cy":[0.25,0,0],"rb":[0.155,0,0],"rt":[0.115,0,0],"z0":[0,0.5,0],"z1":[0,1.95,0],"pal":"ty_foundry_stack","cap":false,"n":10},{"kind":"drum","cx":[0.55,0,0],"cy":[0.325,0,0],"rb":[0.125,0,0],"rt":[0.095,0,0],"z0":[0,0.5,0],"z1":[0,1.54,0],"pal":"ty_foundry_stack","cap":false,"n":10}],"adorn":[{"kind":"blinkLight","cx":[0.25,0,0],"cy":[0.25,0,0],"z":[0,1.97,0],"rgb":"255,86,64","r":1.7},{"kind":"blinkLight","cx":[0.55,0,0],"cy":[0.325,0,0],"z":[0,1.56,0],"rgb":"255,86,64","r":1.4},{"kind":"glowPool","cx":[-0.4,0,0],"cy":[0.15,0,0],"z":[0,0.08,0],"rgb":"255,132,42","s":46},{"kind":"mast","cx":[-0.75,0,0],"cy":[-0.2,0,0],"z0":[0,1.02,0],"z1":[0,1.42,0]}]},
+};

@@ -236,7 +236,16 @@ export function isRuntimeResidueId(table, id) {
 // terrain palette (and, later, the coordinate atlas): authored, committed, git-
 // owned like everything else here, but read whole rather than upserted, so the
 // unknown-directory guard has to know about it by name.
-export const NON_TABLE_DIRS = new Set(['map']);
+// Directories under content/ that are NOT content tables. An unclassified directory here is a hard
+// content:lint error, which is right — it is how a typo'd table name gets caught instead of quietly
+// never importing.
+//
+// `building_models` holds authored GLASS building models (scripts/shapes/model-schema.mjs). They are
+// content in every sense that matters — hand-authored, versioned in git, deployed by a push — but
+// they have no table and never reach the database: `npm run models:bake` compiles them into
+// client/shared/building-models.js, which the renderer imports. The CODEX pipeline must therefore
+// leave them alone, and `shapes:smoke` owns their gate instead of `content:lint`.
+export const NON_TABLE_DIRS = new Set(['map', 'building_models']);
 
 // ── Asset refs ──────────────────────────────────────────────────────────────
 //
