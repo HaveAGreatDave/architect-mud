@@ -148,6 +148,16 @@ export const RENDER_TUNE = {
   // surface. See mountedOn: the constraint exists because no single depth per face can order a
   // vent against the roof it stands on, which is why a rooftop box was being painted over by its
   // own roof on every heading that put it on the far half. 0 = the queue as it was.
+  // ── GLASS 2, STAGE ONE ──
+  // 1 = the city's MASS is drawn in WebGL2 under the 2-D canvas, and the model arms run with
+  // MASS_OFF so every light, sign and adornment still paints on top exactly as it does today.
+  // 0 = the renderer that has always shipped, untouched: no canvas is created and no context is
+  // asked for, so `off` is not a code path, it is the absence of one.
+  //
+  // Measured before it was wired at all (see tools/modelshop/README.md): the 2-D building pass
+  // costs 3.6 ms on a 73-building city, the same geometry costs GL 0.02-0.04 ms, and a HUNDRED
+  // times the triangles costs 0.67-1.06 ms.
+  gl: 0,
   mount: 1,
   shapeShadow: 1,
   legacyArms: 0,      // 1 = put every overridden building back on its hand-written arm. The revert for a bad port or an unwanted fork: one flag, no deploy, no file to untangle. Inert until something carries `portedFrom` or `replaces` — see LEGACY_MODELS.
@@ -7769,6 +7779,15 @@ let SHAPE_PAL = null;
 // Note the two hand-rolled shells (the bank's dome, the Meridian's cupola) draw straight through
 // cam.proj/emitFace rather than a mass primitive, so they survive this and keep their contour at
 // range. That's a happy accident of where they live, not a design.
+// ── THE GL SEAM ─────────────────────────────────────────────────────────────
+// windshield.js does not import the GL renderer, and that is deliberate rather than tidy: the
+// cold open imports this file and must stay free of anything that touches a GPU, and the smoke
+// suite loads it against a DOM stub with no WebGL at all. So the world pass is INSTALLED from
+// outside — `installGLWorld(fn)` — and until something installs one, `TUNE.gl` does nothing at
+// all. A throw inside it switches the flag off and the frame finishes in 2-D.
+let GL_HOOK = null, GL_CELLS = null;
+export function installGLWorld(fn) { GL_HOOK = fn || null; }
+export function glWorldInstalled() { return !!GL_HOOK; }
 let MASS_OFF = false;
 // How much adornment a building is allowed to draw. 2 = everything (what a near building gets and
 // what the sim has always done), 1 = only the CHEAP lights, 0 = none.
@@ -20426,6 +20445,13 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     key: mix(hexRgb(RENDER_TUNE.vlKeyDay), hexRgb(RENDER_TUNE.vlKeyNight), night),
     shadow: mix(hexRgb(RENDER_TUNE.vlShadowDay), hexRgb(RENDER_TUNE.vlShadowNight), night),
   } : null;
+  // ── GLASS 2, STAGE ONE: THE MASS GOES TO THE GPU ─────────────────────────
+  // The arms still run — this is not a second renderer running instead, it is the same frame with
+  // its heaviest pass moved. MASS_OFF is the seam that makes it possible and it is not new: the
+  // distance LOD has always drawn a far building's neon without its walls this way.
+  const glOn = !!TUNE.gl && !!GL_HOOK;
+  GL_CELLS = glOn ? [] : null;
+  if (glOn) MASS_OFF = true;
   beginFaces();
   for (const it of items) {
     // Fully hidden behind a nearer building (see the occlusion pre-pass), or entirely off the side
@@ -20531,6 +20557,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // the same mass; a non-building tile falls back to the shared biome archetype set
     // (industrial stacks, freight containers, cooling towers, broken ruins, neon marquee, …).
     const m = modelFor(it.c);
+    // GLASS 2: this building's mass is on the GPU, so the arm runs for its lights alone. The
+    // collection happens here rather than in a second loop because `m`, the footprint, the storey
+    // height, the seed and the entrance are all resolved exactly once, and a second resolution is
+    // a second chance for the two renderers to disagree about which building stands where.
+    if (GL_CELLS && m) GL_CELLS.push({ dx: it.dx, dy: it.dy, c: it.c, m, fh, h, seed: it.seed, E: face });
     // Emit THIS building's faces into the SHARED world sink (opened before the loop): its sub-parts
     // depth-sort against each other AND against every other building's faces, so a tower/marquee
     // can't over-paint nearer geometry of the same building OR of a neighbour (the "see-through"
@@ -20619,6 +20650,18 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR);
   }
   pEnd();                      // ── end world:build (queueing) ──
+  // ── GLASS 2: paint the mass, then let the 2-D flush paint everything else over it ──
+  // Order matters and is the whole arrangement: GL owns a canvas UNDER the 2-D one and clears it,
+  // so it must draw before the lights that belong on top of it are flushed. `MASS_OFF` is dropped
+  // here rather than in the loop because the loop's own branches restore it in their finallys.
+  if (GL_CELLS) {
+    MASS_OFF = false;
+    pBegin('world:gl');
+    try { GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1) }); }
+    catch (e) { console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
+    pEnd();
+    GL_CELLS = null;
+  }
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
   DECO_OCC = false;                                 // the field outlives the frame; the permission does not

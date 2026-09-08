@@ -17,7 +17,8 @@
 // Re-run it from the console with `__glBench()`. It is a measurement, not a gate: the numbers move
 // with the machine, so what belongs in a commit message is the RATIO and the conditions.
 import { createGLView } from '/client/game/js/panels/gl/context.js';
-import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam } from '/client/game/js/panels/windshield.js';
+import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
+import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
 
@@ -194,4 +195,48 @@ export async function runBench({ frames = 40, W = 1280, H = 720 } = {}) {
   };
 }
 
-if (typeof window !== 'undefined') window.__glBench = runBench;
+// ── GLASS 2, STAGE ONE, END TO END ──────────────────────────────────────────
+// Paints a real frame with RENDER_TUNE.gl on: the mass goes to a GL canvas under the 2-D one and
+// the arms run with MASS_OFF, so what is left on the 2-D canvas is the lights. The check is that
+// BOTH happen — a 2-D pass that got cheaper and a GL canvas that filled — because either alone is
+// a way for this to look like it works while doing nothing.
+export async function runStage1({ frames = 20, W = 1280, H = 720 } = {}) {
+  const el = document.createElement('canvas');
+  el.id = '__stage1'; el.width = W; el.height = H;
+  el.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:1280px;height:720px';
+  holder.append(el); document.body.append(holder);
+
+  const uninstall = installGL(() => el);
+  const map = scene(true);
+  const view = { cls: 'prop', phase: 'cruise', height: 0.5, worldBlend: 1, hour: 13, weather: 'clear', speed: 0.4, map };
+  const time = () => {
+    const t = [];
+    for (let i = 0; i < frames; i++) {
+      const t0 = performance.now();
+      paintWindshield('__stage1', { ...view, heading: (i * 9) % 360 });
+      t.push(performance.now() - t0);
+    }
+    return median(t);
+  };
+  RENDER_TUNE.gl = 0; time(); const ms2d = time();
+  RENDER_TUNE.gl = 1; time(); const msGl = time();
+  // What ended up on the GL canvas, and what is left on the 2-D one.
+  // What the pass says it drew, rather than what a pixel read claims: the drawing buffer of a
+  // composited canvas is not preserved, so reading it back after the fact reports an empty city.
+  paintWindshield('__stage1', { ...view, heading: 45 });
+  const last = glLastFrame();
+  const glCanvas = holder.querySelector('canvas.ws-gl');
+  RENDER_TUNE.gl = 0;
+  uninstall();
+  holder.remove();
+  return {
+    installed: glWorldInstalled(), glCanvas: !!glCanvas,
+    frame2dMs: +ms2d.toFixed(2), frameGlMs: +msGl.toFixed(2),
+    saved: +(ms2d - msGl).toFixed(2), savedPct: +((1 - msGl / ms2d) * 100).toFixed(1),
+    glFaces: last ? last.faces : 0,
+  };
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; }
