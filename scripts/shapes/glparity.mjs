@@ -41,7 +41,7 @@ for (const heading of HEADINGS) {
   for (const eyeH of EYES) {
     for (const pitch of PITCHES) {
       for (const chase of CHASES) {
-        const v = { heading, height: 0, eyeH, map: null, pitch };
+        const v = { heading, height: 0, eyeH, map: null, camPitch: pitch };
         const cam = makeCam(W, HORIZON, DEPTH, v, chase || undefined);
         const m = viewProjMatrix(cam, H);
         for (const [x, y, z] of PTS) {

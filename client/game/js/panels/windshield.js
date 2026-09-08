@@ -7386,7 +7386,14 @@ export function makeCam(W, horizonY, depth, v, chase) {
   // horizon is drawn as a horizontal line, the sky and ground are filled as two rectangles split
   // at `horizonY`, and cloud/fog layers are placed against it. Under pitch the horizon is still a
   // straight line but it MOVES, and at a large enough tilt it leaves the canvas entirely.
-  const pitch = v.pitch || 0;
+  // ⚠ `camPitch`, NEVER `pitch`. A view object in this renderer ALREADY has a `pitch`: the
+  // AIRCRAFT'S ATTITUDE, in DEGREES, which four other readers in this file divide by 26 or
+  // multiply by π/180. Reading that field here as radians tips the camera by fifty-seven degrees
+  // per degree of climb — the city hangs upside down and the runway swings round like a billboard,
+  // which is exactly what the flight sim did the moment anybody rotated. `renderModelPreview` had
+  // already named its own field `camPitch` for this precise reason and then handed it back to
+  // makeCam as `pitch`, so the rename stopped one layer short of the place that mattered.
+  const pitch = v.camPitch || 0;
   let proj, projFL, rawF;
   if (!pitch) {
     proj = (dx, dy, wz) => { const bx = dx + back * sinh - fx, by = dy - back * cosh - fy; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
@@ -13637,7 +13644,7 @@ export function renderModelPreview(canvas, opts = {}) {
   const chase = (panX ? { back: 0, up: 0, fx: Math.cos(hd) * panX, fy: Math.sin(hd) * panX } : undefined);
   // `height: 0` and an explicit `eyeH` is the truck cab's own shape (see the ⚠ in makeCam): the
   // altitude term is the aircraft's, and a preview wants to state its eye directly.
-  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH, pitch: camPitch }, chase);
+  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH, camPitch }, chase);
   const dx = dist * Math.sin(hd), dy = -dist * Math.cos(hd);
 
   ctx.save();
@@ -20013,7 +20020,7 @@ export function renderVehiclePreview(canvas, opts = {}) {
   // The eye scales with the craft too, so the camera looks AT a rig rather than down on it
   // from an aeroplane's eye height.
   const eye = eyeH == null ? Math.max(0.12, dist * 0.16) : eyeH;
-  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH: eye, pitch: camPitch }, chase);
+  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH: eye, camPitch }, chase);
   const dx = dist * Math.sin(hd), dy = -dist * Math.cos(hd);
 
   ctx.save();
