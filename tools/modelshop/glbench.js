@@ -17,7 +17,7 @@
 // Re-run it from the console with `__glBench()`. It is a measurement, not a gate: the numbers move
 // with the machine, so what belongs in a commit message is the RATIO and the conditions.
 import { createGLView } from '/client/game/js/panels/gl/context.js';
-import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
+import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
 import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
@@ -364,4 +364,4 @@ export async function runFidelity({ keys = null, hours = [13, 23], W = 640, H = 
   } finally { performance.now = realNow; }
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; }
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glCaps = glCapabilities; }

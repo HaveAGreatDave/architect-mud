@@ -152,6 +152,25 @@ second.
 
 ## GLASS 2 in the game
 
+### Turning it on
+
+In the sim, click **⚙** at the top right of the flight view and find **GLASS 2 (WebGL)** under
+**▦ WORLD RENDER** (that section is open by default). It is a 0/1 slider and takes effect on the
+next frame.
+
+From a console, `__wsTune.gl = 1` — `__wsTune` IS `RENDER_TUNE`, so the write lands immediately.
+`__wsTune.gl = 0` puts it back.
+
+The flag is shared by every seat that has not overridden it, so **the truck cab picks it up from the
+same switch** — the cab has no ⚙ panel of its own. A view can pin its own answer with
+`tune: { gl: 1 }`, since `gl` is in `VIEW_TUNABLE`.
+
+In the Modelshop (`npm run modelshop`, :5181) the console carries the measurements: `__glCaps()`
+for what the machine can do, `__glPhases()` for where the frame goes with the flag off and on,
+`__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are, and
+`__glBench()` for the original ceiling question.
+
+
 The spike answered its four questions, so the pass is wired into `paintWindshield` behind
 `RENDER_TUNE.gl` — the **GLASS 2 (WebGL)** slider in the flight-sim render knobs, or `__wsTune.gl = 1`
 from a console. Off is the absence of a code path: no canvas is made, no context is asked for, and
