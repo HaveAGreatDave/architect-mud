@@ -150,8 +150,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         const canvas = roof ? roofTex(tk.slice(2), opts.night || 0) : wallTexMixed(tk.slice(2), opts.nb || 0);
         if (canvas && canvas.width) tiles.push({ key: tk, canvas });
       }
-      g.atlas = buildAtlas(tiles);
-      if (g.atlas) g.view.setAtlas(g.atlas.canvas);
+      g.atlas = buildAtlas(tiles, g.view.maxTexture || 2048);
+      // A page the device cannot hold is refused rather than uploaded, and the fragment shader
+      // already knows what to do without one: flat palette colours. Said once per scene, because a
+      // per-frame warning about a permanent property of the machine is noise.
+      if (!g.atlas && !g.warnedAtlas) { g.warnedAtlas = true; console.warn(`[glass2] the texture atlas for ${tiles.length} surfaces does not fit this device (max ${g.view.maxTexture}) — drawing flat colours`); }
+      g.view.setAtlas(g.atlas ? g.atlas.canvas : null);
       g.atlasKey = akey;
     }
     // Resolved per face at fill time rather than written onto it: the face objects are SHARED between

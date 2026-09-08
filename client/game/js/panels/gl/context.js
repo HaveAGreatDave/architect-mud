@@ -339,5 +339,6 @@ export function createGLView(canvas) {
     return L.draw(cam, canvas.width, canvas.height);
   }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, setAtlas, lost: () => gl.isContextLost(), get triangles() { return count / 3; } };
+  return { gl, upload, uploadGroups, draw, drawSprites, setAtlas, lost: () => gl.isContextLost(),
+    maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; } };
 }

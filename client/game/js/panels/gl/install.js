@@ -17,6 +17,39 @@ import { glWorldPass } from './world.js';
 let lastStats = null;
 export function glLastFrame() { return lastStats; }
 
+// ── WHAT IS THIS MACHINE? ───────────────────────────────────────────────────
+//
+// GLASS 2 fails safe everywhere it can fail — no WebGL2, a lost context, a shader that will not
+// compile and a texture page the device cannot hold each hand the world back to the 2-D renderer.
+// What none of that tells you is WHY a particular machine went quiet, and "it turned itself off"
+// is not a bug report. This answers that in one call, from a throwaway context that is released
+// immediately: nothing here touches the pass or its canvas.
+//
+// ⚠ The atlas line is the one that matters. WebGL2 guarantees MAX_TEXTURE_SIZE ≥ 2048 and every
+// surface in the city at `texRes: 2` wants 2048×4096, so a device at the floor draws flat colours
+// in the worst view rather than textures — correct, deliberate, and worth being able to confirm.
+export function glCapabilities() {
+  const cv = document.createElement('canvas');
+  const gl = cv.getContext('webgl2');
+  if (!gl) return { webgl2: false, reason: 'no WebGL2 context — GLASS 2 will stay on the 2-D renderer' };
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  const out = {
+    webgl2: true,
+    renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+    maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+    maxAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+    maxVarying: gl.getParameter(gl.MAX_VARYING_COMPONENTS),
+  };
+  out.needs = { attribs: 8, varyingComponents: 13 };
+  out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents;
+  out.atlasWorstCase = out.maxTexture >= 4096
+    ? 'every surface fits, textured'
+    : 'the worst view falls back to flat colours';
+  const lose = gl.getExtension('WEBGL_lose_context');
+  if (lose) lose.loseContext();
+  return out;
+}
+
 let palette = null;
 function paletteMap() {
   if (!palette) palette = new Map(wallPaletteInfo().map((p) => [p.key, p.rgb]));

@@ -21,16 +21,25 @@
 const PAD = 1;
 
 // `tiles` is [{ key, canvas }]. Returns { canvas, rect: Map(key -> [u0, v0, u1, v1]), size }.
-export function buildAtlas(tiles) {
+// ⚠ `maxSize` IS NOT OPTIONAL ADVICE. WebGL2 guarantees only that MAX_TEXTURE_SIZE is at least
+// 2048, and every palette in the city at `texRes: 2` wants a 2048×4096 page. On a device at the
+// floor that upload is an INVALID_VALUE and nothing else — no throw, no warning, a city wearing a
+// black texture. Refusing the page instead hands the renderer back to flat palette colours, which
+// is a picture somebody can look at and recognise.
+export function buildAtlas(tiles, maxSize = Infinity) {
   if (!tiles.length) return null;
   // Every wall tile is the same size and every roof tile is the same size, so a shelf packer is
   // overkill: a uniform grid of the largest cell wastes a few percent and cannot get the arithmetic
   // wrong. The cell is the biggest tile plus its skirt.
   const cw = Math.max(...tiles.map((t) => t.canvas.width)) + PAD * 2;
   const ch = Math.max(...tiles.map((t) => t.canvas.height)) + PAD * 2;
-  const cols = Math.ceil(Math.sqrt(tiles.length));
+  // ⚠ THE GRID IS BALANCED ON THE CELL, NOT ON THE COUNT. A square grid of tall cells makes a page
+  // twice as high as it is wide, which is the shape most likely to cross a device limit on one axis
+  // while wasting half the other. Solving for cols·cw ≈ rows·ch instead costs one square root.
+  const cols = Math.max(1, Math.round(Math.sqrt(tiles.length * ch / cw)));
   const rows = Math.ceil(tiles.length / cols);
   const W = pow2(cols * cw), H = pow2(rows * ch);
+  if (W > maxSize || H > maxSize) return null;
 
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;

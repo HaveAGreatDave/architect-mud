@@ -463,18 +463,56 @@ What the pass closed, in order of how much it was worth:
 What is left, and it is one thing: **`emitFlat`'s hairline stroke**. A vent and a sign board carry a
 1px outline that a triangle cannot cheaply reproduce. It is inside the noise of the number above.
 
-### And one hole that is only half closed
+### Hardware coverage
+
+`glCapabilities()` in the console answers "will this machine run it", from a throwaway context it
+releases immediately. GLASS 2 fails safe at every point it can fail — no WebGL2, a lost context, a
+shader that will not compile, a texture page the device cannot hold — but "it turned itself off" is
+not a bug report, and this is the difference.
+
+What the pass actually asks for: **8 vertex attributes** (position, normal, colour, uv, wall ramp,
+alpha, flat, haze jitter) against a WebGL2 guarantee of 16, and **13 varying components** against a
+guarantee of 60. Neither is close.
+
+⚠ **The texture page is the one that can bite.** WebGL2 guarantees only `MAX_TEXTURE_SIZE ≥ 2048`,
+and every surface in the city at once — 283 palettes, wall and roof each — wants **2048×4096** at
+`texRes: 2`. On a device at the floor that upload is an `INVALID_VALUE` and nothing else: no throw,
+no warning, a city wearing a black texture. `buildAtlas` takes the device limit now and refuses a
+page that will not fit, which drops the frame to flat palette colours with one warning naming the
+limit. A typical frame is nowhere near it — twenty surfaces is a 256×512 page — so the refusal only
+ever fires in a pathological view on a floor-spec machine.
+
+The packing got squarer on the way past: a square grid of TALL cells makes a page twice as high as
+it is wide, which is the shape most likely to cross a limit on one axis while wasting half the
+other. Solving for `cols·cw ≈ rows·ch` costs one square root and brings the `texRes: 1` worst case
+to 2048×2048, which fits everywhere.
+
+⚠ **What is still untested is other hardware.** Every measurement in this file was taken on one
+machine with a discrete NVIDIA card. The failure paths are correct by construction and the limits
+are checked against the standard rather than against this GPU, but "falls back correctly" and
+"is fast on an integrated GPU" are different claims and only the first one has been shown. If GLASS
+2 ever measures SLOWER somewhere, the first knob to try is `antialias` in `createGLView`: the 2-D
+canvas has no MSAA, so the GL path is buying smoother edges nobody asked for at full-frame cost.
+
+### What stands on the ground
 
 ⚠ **A painter's queue hides things by painting over them**, so the moment GLASS 2 takes the walls
-the 2-D queue has nothing to sort a bush, a tree, a lamp post or a pedestrian against — and they
-paint straight through the building they stand behind. A wood behind a row of warehouses came out
-drawn ON the warehouses. Those are all screen-space billboards at a tile's ground point, so
-`groundHidden` probes that point against the occluder field the frame already built.
+the 2-D queue has nothing to sort a bush, a tree, a lamp post or a pedestrian against. Those are all
+screen-space billboards at a tile's ground point, so `groundHidden` probes that point against the
+occluder field the frame already built, and a tall building hides what stands behind it.
 
-It is timid, and what it misses is worth knowing: that field is deliberately SHRUNK, because culling
-a building that should have drawn is a hole in the city. A shrunk one-storey shed covers a thin band
-of screen, so a wood behind a row of them is not proved hidden and still shows. Tall buildings — the
-case a city is made of — are covered. The real answer is the billboards moving onto the GPU too.
+⚠ **AND THE HOLE THIS SECTION USED TO DESCRIBE DOES NOT EXIST.** It said a wood behind a row of
+one-storey warehouses still drew through them, and blamed `OCC_SHRINK` for covering too thin a band
+of screen. Both halves were wrong, and both were written from a screenshot rather than a
+measurement. Setting the shrink to zero changes nothing — 442 probes, 0 hits either way — because
+the field is not what was missing: at that range the trees stand on ground that projects ABOVE the
+sheds' rooflines, so they were never occluded to begin with. Held against a building's own
+silhouette with the clock frozen, a wood behind it accounts for **nothing**: 1,030 badly-differing
+pixels with the trees present, 1,187 with them removed. The difference inside a silhouette is the
+ordinary 1% renderer gap, not scatter coming through.
+
+The lesson is the cheap one: a rendering difference you can see in a screenshot is a hypothesis, and
+this codebase has a harness for turning those into numbers. Two of them were built this week.
 
 ## Forking an arm into something editable
 
