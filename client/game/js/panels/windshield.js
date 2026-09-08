@@ -144,6 +144,11 @@ export const RENDER_TUNE = {
   modelLights: 1,     // strength of the model's own lamps spilling onto its own bodywork (headlamps, lifter wash, tail lamps). 0 = off; the canvas halos are unaffected either way.
   occlude: 1,         // skip buildings entirely hidden behind a nearer one. Lossless by construction (there is no z-buffer, so a hidden building is otherwise fully built, queued, sorted and filled); the occluder/occludee boxes are biased so it can only ever be too timid. 0 = draw everything as before.
   frustum: 1,         // skip buildings that fall entirely off the SIDE of the canvas. The tile loop has always clipped near and far and never sideways, which costs nothing at altitude and is the biggest single waste from a ground camera — see offCanvasLaterally. 0 = draw everything as before.
+  // 1 = a thing drawn as MOUNTED on a surface (rooftop clutter today) may not sort behind that
+  // surface. See mountedOn: the constraint exists because no single depth per face can order a
+  // vent against the roof it stands on, which is why a rooftop box was being painted over by its
+  // own roof on every heading that put it on the far half. 0 = the queue as it was.
+  mount: 1,
   shapeShadow: 1,
   legacyArms: 0,      // 1 = put every overridden building back on its hand-written arm. The revert for a bad port or an unwanted fork: one flag, no deploy, no file to untangle. Inert until something carries `portedFrom` or `replaces` — see LEGACY_MODELS.
   shapeWire: 0,       // dev: stroke the captured building shapes over the render (cyan = mass, amber = entrance-face door/bay, magenta = the core segment that never fades). The one-glance check that collision/shadow/LOD geometry actually sits on the building.
@@ -3918,6 +3923,7 @@ function headlightWash(ctx, cam, dx, dy, h, str) {
   const a = clamp(str * 0.52 * dist * dist * clamp(1.15 - off, 0, 1) , 0, 0.62);
   if (a < 0.006) return;
   const r = clamp(120 / c.f, 10, 90);
+  if (LIGHT_TALLY) { LIGHT_TALLY.wash++; if (!decoHidden([c])) LIGHT_TALLY.washDrawn++; }
   emitDeco([c], () => {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
@@ -3936,6 +3942,7 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   if (c.f <= 0.25 || c.f > 8) return;
   const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
   const a = night * alpha * (0.04 + 0.09 * prox);
+  if (LIGHT_TALLY) { LIGHT_TALLY.bloom++; if (!decoHidden([c])) LIGHT_TALLY.bloomDrawn++; }
   emitDeco([c], () => {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
@@ -7420,12 +7427,23 @@ function decoHidden(pts) {
   }
   return occludedByBuilding((x0 + x1) / 2, y0, y1, f, (x1 - x0) / 2);
 }
+// A tally, null on every real frame and an object only while lightVisibilitySmoke is running.
+// It exists because the failure it watches for is silent: a light that is culled draws nothing,
+// throws nothing and leaves no trace, so the only way to see it is to count both sides of the
+// probe. Two increments behind a null check is the same shape PERF uses.
+let LIGHT_TALLY = null;
+
 // The one entry point for a building adornment: PROJECTED POINTS in, sorted-and-tested face out.
 // Callers hand over the points rather than their depths precisely so the probe has somewhere to
 // stand — a bare list of f's cannot be asked what is in front of it.
-function emitDeco(pts, fn) {
+// ⚠ THE LIFT AND THE PROBE ARE TWO DIFFERENT QUESTIONS, and treating them as one package is how
+// the two largest signs in the game ended up with no occlusion test at all. A sign the size of a
+// wall cannot take the full DECO_LIFT — 0.6 tiles jumps it onto a nearer neighbour, which is the
+// bug marqueeBand's own comment records — so those callers reached for emitFace and lost the
+// probe on the way past. The lift is now a parameter and the probe is not optional.
+function emitDeco(pts, fn, lift = DECO_LIFT) {
   if (decoHidden(pts)) return;
-  emitFace(decoDepth(...pts.map((p) => p.f)), fn);
+  emitFace(Math.min(...pts.map((p) => p.f)) - lift, fn);
 }
 // ── AND THE PROBE ITSELF, BECAUSE NOTHING ELSE CAN SEE IT WORK ──────────────
 // Every other gate in this file proves a model RUNS. This one proves a decision, and it is a
@@ -7562,8 +7580,44 @@ function wallLit(litC) {
     solid: `rgba(${mc[0] | 0},${mc[1] | 0},${mc[2] | 0},${((aTop + aBot) * 0.5).toFixed(3)})`,
   });
 }
+// ── ⚠ A THING STANDING ON A SURFACE MUST PAINT AFTER THAT SURFACE ───────────
+//
+// The queue orders by one scalar per face, and no scalar can order a small object against the large
+// plane it stands on. Measured on a vent sitting on the far half of a roof, five tiles out, from
+// both an aircraft eye and a cab eye:
+//
+//   key            roof     vent     result
+//   shipped        4.9800   5.1986   vent queued first → THE ROOF PAINTS OVER IT
+//   mean f         5.0000   5.2200   same
+//   true eye dist  5.0990   5.3022   same — a 3-D distance does not help, the vent IS farther
+//   nearest vertex 4.5600   5.1500   same
+//   farthest       5.4400   5.2900   correct here, and the key that put the forecourt apron
+//                                    through a neighbouring warehouse (see groundPaint)
+//
+// So the fix is not a better key. It is a CONSTRAINT: while something is being drawn as mounted on
+// a host surface, its faces may never sort behind that host. `MOUNT_D` carries the host's own queue
+// depth, and every face emitted inside the mount clamps to just in front of it. A mounted face that
+// is already nearer keeps its own depth, so the clamp can only ever pull a face forward — the same
+// conservative direction the rest of this pass leans in.
+//
+// It is deliberately narrow. It says nothing about two unrelated buildings, and nothing about the
+// host's own walls; it answers one question — "is this thing on top of that thing" — which is the
+// one question the sort cannot answer and the caller always knows.
+let MOUNT_D = null;
+const MOUNT_EPS = 1e-3;
+function mountedOn(depth, fn) {
+  if (!RENDER_TUNE.mount) return fn();
+  const prev = MOUNT_D;
+  // Nested mounts (a tank on a penthouse on a roof) take the nearest constraint in force, so a
+  // mount can never push a face BACK behind something it was already in front of.
+  MOUNT_D = prev == null ? depth : Math.min(prev, depth);
+  try { return fn(); } finally { MOUNT_D = prev; }
+}
 function beginFaces() { FACE_SINK = []; }
-function emitFace(depth, fn) { if (FACE_SINK) { FACE_SINK.push({ d: depth, fn }); if (PERF.on) PERF.n.faces++; } else fn(); }
+function emitFace(depth, fn) {
+  const d = MOUNT_D == null ? depth : Math.min(depth, MOUNT_D - MOUNT_EPS);
+  if (FACE_SINK) { FACE_SINK.push({ d, fn }); if (PERF.on) PERF.n.faces++; } else fn();
+}
 function flushFaces() { const s = FACE_SINK; if (!s) return; FACE_SINK = null; s.sort((a, b) => b.d - a.d); for (const e of s) e.fn(); }
 
 // ── Frame profiler ───────────────────────────────────────────────────────────
@@ -12248,6 +12302,16 @@ function drawGuideBoxes(ctx, cam, v, now) {
 // flagged seedVariant by the bake and keyed by seed at runtime. The mast/dish/blink inside
 // are still adornment; only the boxes count.
 function roofClutter(ctx, cam, dx, dy, fh, roofZ, bi, seed, night, alpha, now) {
+  // ⚠ EVERYTHING BELOW STANDS ON THE HOST'S ROOF, so it is drawn inside that roof's mount (see
+  // mountedOn). The host roof's own queue depth is reproduced here rather than plumbed through:
+  // `f` is linear in x and y, so the mean of a centred quad IS the value at its centre, which is
+  // what draw3DBoxAt's roof branch computes — and it applies the same `− wz1 · 0.02` tie-break.
+  // Two copies of one number, and they are two lines apart in behaviour, so the smoke asserts the
+  // relationship rather than the arithmetic: a clutter face must never sort behind its roof.
+  const hostRoofD = cam.proj(dx, dy, roofZ).f - roofZ * 0.02;
+  return mountedOn(hostRoofD, () => roofClutterParts(ctx, cam, dx, dy, fh, roofZ, bi, seed, night, alpha, now));
+}
+function roofClutterParts(ctx, cam, dx, dy, fh, roofZ, bi, seed, night, alpha, now) {
   const ph = roofZ * (0.14 + frac(seed) * 0.2);
   draw3DBoxAt(ctx, cam, dx + fh * 0.12, dy - fh * 0.08, fh * 0.44, roofZ, roofZ + ph, bi, seed + 7, night, alpha, true);   // set-back penthouse
   for (let i = 0; i < 2; i++) {                             // low rooftop mechanical boxes — capped (roof=true) so you don't look into an open box from above
@@ -12354,7 +12418,9 @@ function drawRuin(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h * 0.7, bi, seed, night, alpha, true);
   const b = cam.proj(dx, dy, h * 0.7), t = cam.proj(dx, dy, h * 1.05);   // rooftop neon sign
-  if (b.f > 0.12 && t.f > 0.12) emitFace((b.f + t.f) / 2, () => {
+  // The probe, which this had none of: a rooftop sign three streets back was painting through
+  // whatever stood in front of it. The depth is unchanged — its own mid-point, no lift.
+  if (b.f > 0.12 && t.f > 0.12 && !decoHidden([b, t])) emitFace((b.f + t.f) / 2, () => {
     const neon = ['#ff4a9a', '#5fd0ff', '#ffcf3e', '#7dff6a'][seed % 4];
     ctx.globalAlpha = alpha * (night ? 0.95 : 0.5); ctx.strokeStyle = neon; ctx.lineWidth = 2.2;
     if (night) { ctx.shadowColor = neon; ctx.shadowBlur = 6; }
@@ -13022,6 +13088,100 @@ export function wallTexSmoke() {
     else if (owner.has(k)) out.push(`FACADE_MAT names '${k}', but ${owner.get(k)} already owns it — a family branch returns before the facade path is reached, so the entry does nothing`);
     else if (typeof FACADE_MAT[k].paint !== 'function') out.push(`FACADE_MAT['${k}'] has no painter`);
   }
+  return out;
+}
+// ── DOES A THING STANDING ON A ROOF PAINT AFTER THE ROOF? ───────────────────
+//
+// The first test this renderer has ever had on the WORLD queue. Everything that exists today
+// tests the truck mesh (sortTruckFaces has its own sorter and its own suite); the city has been
+// sorted by one scalar per face with nothing checking the result, which is how a rooftop vent
+// could be painted over by its own roof on every heading that put it on the far half.
+//
+// It reads FACE_SINK directly instead of tagging faces, because the queue is a list in emit order
+// and that is all the attribution this needs: everything pushed between the two marks below was
+// emitted by roofClutter, and the face immediately before them is the host box's roof (the roof
+// branch of draw3DBoxAt runs after its walls). Asserting that relationship is also what keeps the
+// duplicated host-depth arithmetic in roofClutter honest.
+//
+// ⚠ IT CHECKS THE CONTROL TOO. With RENDER_TUNE.mount off, at least one clutter face MUST sort
+// behind the roof — otherwise the camera in this test never reproduced the bug and a green result
+// would mean nothing at all.
+// ── DO A BUILDING’S OWN LIGHTS SURVIVE ITS OWN OCCLUDER? ────────────────────
+//
+// Measured before the fix that prompted this: over four night frames of an ordinary city block,
+// drawCityBloom was reached 70 times and drew 0. Every window bloom in the game was being thrown
+// away by the building whose windows it was lighting, because the probe was anchored at the tile
+// centre and the host’s own occluder face sits 0.378 tiles in front of that, against an OCC_BIAS
+// of 0.35. The margin was negative, so it fired every time, on every heading.
+//
+// ⚠ IT ASSERTS A RATIO, NOT A COUNT. Some blooms SHOULD be culled — a building behind another one
+// is exactly what the probe is for — so demanding all of them draw would forbid the feature from
+// working. What cannot be true is that a whole class of light never reaches the screen.
+export function lightVisibilitySmoke(ID) {
+  const out = [];
+  const R = 8, N = R * 2 + 1;
+  // A lit street with buildings on both sides: blooms in range, and enough of them behind each
+  // other that the probe still has real work to do.
+  const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
+    x === R ? { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 }
+      : (x + y) % 3 === 0 ? { kind: 'land', biome: 'citycore', bt: 'office', ent: 'west', flr: 6 }
+        : { kind: 'land', biome: 'citycore', flr: 0 })));
+  const prev = LIGHT_TALLY;
+  LIGHT_TALLY = { bloom: 0, bloomDrawn: 0, wash: 0, washDrawn: 0 };
+  try {
+    for (const heading of [0, 45, 90, 200]) {
+      paintWindshield(ID, { cls: 'prop', phase: 'cruise', height: 0.5, worldBlend: 1, map, heading, hour: 2, weather: 'clear', speed: 0.4 });
+      paintWindshield(ID, { cls: 'truck', phase: 'ground', height: 0, worldBlend: 1, variant: 'rigid', map, heading, hour: 2, weather: 'clear', speed: 0.4 });
+    }
+    const T = LIGHT_TALLY;
+    if (!T.bloom) out.push('no window bloom was reached at all — the scene stopped exercising the night city path');
+    else if (!T.bloomDrawn) out.push(`every window bloom was culled: ${T.bloom} reached, 0 drawn — a building is throwing away its own lights`);
+    else if (T.bloomDrawn / T.bloom < 0.5) out.push(`most window blooms were culled: ${T.bloomDrawn} of ${T.bloom} drawn`);
+    if (T.wash && !T.washDrawn) out.push(`every headlight wash was culled: ${T.wash} reached, 0 drawn`);
+  } finally { LIGHT_TALLY = prev; }
+  return out;
+}
+
+export function sortOrderSmoke() {
+  const out = [];
+  const W = 1280, H = 720;
+  const ctx = SHAPE_STUB_CTX;
+  let reproduced = 0, tested = 0;
+  // A spread of headings and both eye heights. Only some of them put the clutter on the FAR half of
+  // the roof, which is the failing case — the rest are here to show the constraint does not break
+  // the case that already worked. A heading that puts the building behind the eye queues no roof
+  // and is skipped rather than failed: it is not a case, it is an absence of one.
+  for (const heading of [0, 30, 45, 90, 135, 270, 315]) {
+    for (const eyeH of [2.0, 0.24]) {
+      const cam = makeCam(W, H * 0.42, H * 0.55, { heading, height: 0, eyeH, map: null });
+      const run = (mount) => {
+        const keep = RENDER_TUNE.mount;
+        RENDER_TUNE.mount = mount;
+        try {
+          beginFaces();
+          const dx = 0, dy = -5, fh = 0.42, z1 = 1.0;
+          draw3DBoxAt(ctx, cam, dx, dy, fh, 0, z1, 'citycore', 3, 0, 1, true);
+          const roof = FACE_SINK[FACE_SINK.length - 1];
+          const i0 = FACE_SINK.length;
+          roofClutter(ctx, cam, dx, dy, fh, z1, 'citycore', 3, 0, 1, 1000);
+          const clutter = FACE_SINK.slice(i0);
+          return { roof, clutter };
+        } finally { RENDER_TUNE.mount = keep; FACE_SINK = null; }
+      };
+      const on = run(1), off = run(0);
+      const label = `heading ${heading} eye ${eyeH}`;
+      if (!on.roof || !on.clutter.length) continue;   // building behind the eye — no case here
+      tested++;
+      const behind = on.clutter.filter((f) => f.d >= on.roof.d);
+      if (behind.length) out.push(`${label}: ${behind.length} of ${on.clutter.length} rooftop faces sort behind the roof they stand on`);
+      if (off.roof && off.clutter.some((f) => f.d >= off.roof.d)) reproduced++;
+    }
+  }
+  // ⚠ THE CONTROL. If no camera in the sweep would fail with the constraint switched off, then the
+  // sweep never reproduced the bug and a green result above means nothing. This is the assertion
+  // that keeps the test honest as the geometry it points at changes.
+  if (!tested) out.push('no camera in the sweep queued a roof and rooftop clutter together');
+  else if (!reproduced) out.push(`the control failed: across ${tested} cameras, not one would sort a rooftop face behind its roof with RENDER_TUNE.mount off, so this sweep proves nothing`);
   return out;
 }
 export function nearTierSmoke() {
@@ -13747,7 +13907,7 @@ function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
   const seg = (A, B, w, c) => {
     const a = cam.proj(A[0], A[1], A[2]), b = cam.proj(B[0], B[1], B[2]);
     if (a.f <= 0.1 || b.f <= 0.1) return;
-    emitFace(Math.min(a.f, b.f) - 0.03, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+    emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }, 0.03);
   };
   const leg = 'rgba(202,208,222,0.9)', brace = 'rgba(150,120,210,0.72)';
   for (let i = 0; i < S; i++) seg(corner(i, z0), corner(i, z1), 1.3, leg);                                  // 3 legs
@@ -13903,25 +14063,25 @@ function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N
     if (nfx * mx + nfy * my - (nfx * (cam.ex || 0) + nfy * (cam.ey || 0)) >= 0) return; // face turned away → cull
     const At = cam.proj(A[0], A[1], h1), Bt = cam.proj(B[0], B[1], h1), Bb = cam.proj(B[0], B[1], h0), Ab = cam.proj(A[0], A[1], h0);
     if ([At, Bt, Bb, Ab].some(q => q.f <= 0.12)) return;
-    emitFace(Math.min(At.f, Bt.f, Bb.f, Ab.f) - 0.04, () => {                      // bias forward so it beats the wall it's mounted on
+    emitDeco([At, Bt, Bb, Ab], () => {                      // 0.04 biases it forward so it beats the wall it is mounted on
       ctx.save();
       board();
       ctx.beginPath(); ctx.moveTo(At.sx, At.sy); ctx.lineTo(Bt.sx, Bt.sy); ctx.lineTo(Bb.sx, Bb.sy); ctx.lineTo(Ab.sx, Ab.sy); ctx.closePath(); ctx.fill();
       frame();
       drawSurfaceText(ctx, At, Bt, Bb, Ab, bakeSignText(label, color, night ? 1 : 0, true), true, alpha);   // EMBASSY down the flat face
       ctx.restore();
-    });
+    }, 0.04);
   };
   const drawCap = (hz) => {   // top or bottom triangle (baseL, baseR, apex at height hz) — fills the prism into a solid (dark, no text)
     const A = cam.proj(baseL[0], baseL[1], hz), B = cam.proj(baseR[0], baseR[1], hz), Ap = cam.proj(apex[0], apex[1], hz);
     if ([A, B, Ap].some(q => q.f <= 0.12)) return;   // far cap sorts behind and is over-painted by the near side face; no cull needed
-    emitFace(Math.min(A.f, B.f, Ap.f) - 0.04, () => {
+    emitDeco([A, B, Ap], () => {
       ctx.save();
       board();
       ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(Ap.sx, Ap.sy); ctx.closePath(); ctx.fill();
       frame();
       ctx.restore();
-    });
+    }, 0.04);
   };
   drawCap(h1); drawCap(h0);        // top & bottom caps first (deepest), then the lettered flat sides over them
   drawFace(baseL, apex);           // front slanted face — EMBASSY
@@ -13987,6 +14147,11 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
   // sign lifted 0.6 tiles forward jumps in front of a NEARER neighbour (KSAB's board bled over the
   // Solenne tower two tiles away). Pushed proud of its own wall, this still self-occludes when the
   // front faces away (the sign lands behind the near wall) without leaping onto neighbours.
+  // ⚠ THE PROBE IS SEPARATE FROM THE LIFT. The bias above is right and the reasoning for it holds;
+  // what was missing is the occlusion question, which emitDeco asks and emitFace does not. Written
+  // out rather than routed through emitDeco because this sign sorts on the MEAN of its quad, not
+  // the nearest corner — a wall-sized board sorted by its near edge leans out of its own wall.
+  if (decoHidden([tl, tr, bl, br])) return;
   emitFace((tl.f + tr.f + bl.f + br.f) / 4 - 0.06, () => {
   ctx.save();
   // 1. dark backing board

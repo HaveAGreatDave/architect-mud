@@ -95,6 +95,23 @@ async function main() {
   // nothing to the captured geometry; this is the other half.
   for (const f of ws.nearTierSmoke()) problems.push(`near   ${f}`);
 
+  // ── THE WORLD QUEUE ──
+  // The city is painted back-to-front off one scalar per face and, until this, nothing checked
+  // the result — the sort tests that existed all run on the truck's own mesh. This asks the one
+  // question a single depth per face cannot answer on its own: does a thing standing on a roof
+  // paint after that roof? It carries its own control, so a green line here means the sweep
+  // reproduced the failure and the constraint fixed it.
+  for (const f of ws.sortOrderSmoke()) problems.push(`sort   ${f}`);
+
+  // ── AND DO A BUILDING’S OWN LIGHTS SURVIVE ITS OWN OCCLUDER? ──
+  // A light that is culled draws nothing and throws nothing, so a whole class of them can stop
+  // reaching the screen with no symptom at all. This counts both sides of the probe over a night
+  // street and fails if the ratio collapses — never if a single light is hidden, which is the
+  // probe doing its job.
+  const LIGHT_ID = '__smoke-light';
+  stubCanvas(LIGHT_ID, 1280, 720);
+  for (const f of ws.lightVisibilitySmoke(LIGHT_ID)) problems.push(`light  ${f}`);
+
   // ── WALL TEXTURES ──
   // Every palette in WALL_COL bakes, and every material family is still reached by one. A wall
   // texture is generated lazily the first time a building wearing it comes into view, so this is
@@ -561,6 +578,18 @@ async function main() {
         const key = (bn && live.has('named:' + slug)) ? 'named:' + slug : 'type:' + bt;
         reach.set(key, (reach.get(key) || 0) + 1);
       }
+      // ── ⚠ AND THE OTHER DIRECTION: A TILE THAT RESOLVES TO NO MODEL AT ALL ──
+      // Such a tile is drawn by the generic archetype path (drawBuilding), and the occluder
+      // pre-pass skips it — `modelFor` returns null and the loop continues — so it registers as
+      // transparent: contacts, lights and the own ship all show straight through a building you
+      // can plainly see. Today that reaches NOTHING (every building tile in the world resolves to
+      // a named or typed model), which is exactly why it is worth gating: the hole is one new
+      // building_type away, and it would arrive looking like a lighting bug.
+      const modelless = new Map();
+      for (const [key, n] of reach) if (!live.has(key)) modelless.set(key, n);
+      for (const [key, n] of modelless) {
+        problems.push(`${n} building tile(s) resolve to '${key}', which has no model — they draw through the archetype path and OCCLUDE NOTHING. ` + 'Give the type a model, or teach the occluder pre-pass to register the archetype box.');
+      }
       const unreached = Object.keys(baked).filter((k) => !(reach.get(k) > 0));
       authoredReach = Object.keys(baked).length
         ? `${Object.keys(baked).length - unreached.length}/${Object.keys(baked).length} authored binding(s) are reached by at least one tile`
@@ -614,6 +643,7 @@ async function main() {
   console.log('  Forecourt: all three lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — the pumps are still solid, and the island kerb is ridden over rather than hit.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');
   console.log('  Signals: a head is square-on to its own approach and all but vanishes from the side, and the mast steel thins with distance instead of sitting on a floor.');
+  console.log('  World queue: a thing standing on a roof paints after the roof, across 14 cameras — and the control confirms the sweep still reproduces the failure without the constraint.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
   // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).

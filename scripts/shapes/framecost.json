@@ -1,0 +1,154 @@
+{
+ "total": 172225,
+ "cases": {
+  "cockpit:0:day": {
+   "calls": 8975,
+   "path": 6275,
+   "paint": 730,
+   "blit": 375,
+   "state": 1514,
+   "grad": 78,
+   "other": 3
+  },
+  "cockpit:0:night": {
+   "calls": 9144,
+   "path": 6225,
+   "paint": 901,
+   "blit": 397,
+   "state": 1526,
+   "grad": 92,
+   "other": 3
+  },
+  "cockpit:45:day": {
+   "calls": 13165,
+   "path": 8188,
+   "paint": 658,
+   "blit": 843,
+   "state": 3386,
+   "grad": 87,
+   "other": 3
+  },
+  "cockpit:45:night": {
+   "calls": 13305,
+   "path": 8120,
+   "paint": 817,
+   "blit": 866,
+   "state": 3398,
+   "grad": 101,
+   "other": 3
+  },
+  "cockpit:90:day": {
+   "calls": 11683,
+   "path": 7577,
+   "paint": 724,
+   "blit": 659,
+   "state": 2644,
+   "grad": 76,
+   "other": 3
+  },
+  "cockpit:90:night": {
+   "calls": 11826,
+   "path": 7505,
+   "paint": 878,
+   "blit": 685,
+   "state": 2662,
+   "grad": 93,
+   "other": 3
+  },
+  "cockpit:200:day": {
+   "calls": 10287,
+   "path": 6333,
+   "paint": 504,
+   "blit": 669,
+   "state": 2688,
+   "grad": 90,
+   "other": 3
+  },
+  "cockpit:200:night": {
+   "calls": 10485,
+   "path": 6342,
+   "paint": 631,
+   "blit": 689,
+   "state": 2718,
+   "grad": 102,
+   "other": 3
+  },
+  "cab:0:day": {
+   "calls": 9006,
+   "path": 6623,
+   "paint": 847,
+   "blit": 283,
+   "state": 1156,
+   "grad": 94,
+   "other": 3
+  },
+  "cab:0:night": {
+   "calls": 9209,
+   "path": 6597,
+   "paint": 1022,
+   "blit": 311,
+   "state": 1168,
+   "grad": 108,
+   "other": 3
+  },
+  "cab:45:day": {
+   "calls": 11658,
+   "path": 7728,
+   "paint": 776,
+   "blit": 605,
+   "state": 2444,
+   "grad": 102,
+   "other": 3
+  },
+  "cab:45:night": {
+   "calls": 11837,
+   "path": 7686,
+   "paint": 940,
+   "blit": 633,
+   "state": 2458,
+   "grad": 117,
+   "other": 3
+  },
+  "cab:90:day": {
+   "calls": 11023,
+   "path": 7273,
+   "paint": 727,
+   "blit": 585,
+   "state": 2358,
+   "grad": 77,
+   "other": 3
+  },
+  "cab:90:night": {
+   "calls": 11178,
+   "path": 7219,
+   "paint": 882,
+   "blit": 609,
+   "state": 2374,
+   "grad": 91,
+   "other": 3
+  },
+  "cab:200:day": {
+   "calls": 9620,
+   "path": 6041,
+   "paint": 534,
+   "blit": 585,
+   "state": 2364,
+   "grad": 93,
+   "other": 3
+  },
+  "cab:200:night": {
+   "calls": 9824,
+   "path": 6050,
+   "paint": 662,
+   "blit": 608,
+   "state": 2396,
+   "grad": 105,
+   "other": 3
+  }
+ },
+ "scene": {
+  "w": 1280,
+  "h": 720,
+  "tiles": 289
+ }
+}
