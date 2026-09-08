@@ -17,6 +17,13 @@ import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+// ── GLASS 2 ────────────────────────────────────────────────────────────────
+// Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
+// hook is never called and no context is asked for. It is imported HERE rather than from
+// windshield.js because that file is also loaded by the cold open and by the headless smoke suite,
+// neither of which has a GPU — this panel is the first place in the client that certainly does.
+import { installGL } from './gl/install.js';
+installGL();
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -1281,6 +1288,11 @@ const FSIM_TUNE = [
   // cheapest experiments in the renderer (is the cost texturing? fog overfill? face count?) could
   // only be run by editing source. Profiling put ~54% of the frame in the building face flush, so
   // they earn their place in the panel.
+  // GLASS 2: draw the city's MASS in WebGL2 under this canvas and run the model arms with their
+  // mass suppressed, so every light and sign still paints on top. 0 is the renderer that has
+  // always shipped — no canvas is created and no GL context is asked for — and a throw inside the
+  // pass switches this back to 0 and finishes the frame in 2-D.
+  ['gl', 'GLASS 2 (WebGL)', 0, 1, 1],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
   // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an

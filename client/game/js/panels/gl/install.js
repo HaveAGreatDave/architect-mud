@@ -23,15 +23,15 @@ function paletteMap() {
   return palette;
 }
 
-// `hostFor` answers "which canvas is this frame being drawn into" — the GL canvas is inserted as its
-// sibling, so the pass needs the element rather than the id alone.
+// The pass is handed the canvas this frame belongs to, so installing it is a call with no
+// arguments and no knowledge of which view is painting — four seats share one installation.
 export function installGL(hostFor) {
   installGLWorld((cells, cam, opts) => {
-    const host = hostFor();
+    const host = (hostFor && hostFor()) || opts.host;
     if (!host) return;
     const L = glLightState(opts.night || 0);
     const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
-    lastStats = glWorldPass(host.id || 'ws', host, cells, cam, {
+    lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, wallTexMixed, roofTex, palette: paletteMap(),
     }, {
       night: opts.night, nb: opts.nb,

@@ -827,6 +827,11 @@ export function paintWindshield(id, view) {
   const cv = document.getElementById(id); if (!cv || !cv.getContext) return;
   const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
   const ctx = cv.getContext('2d');
+  // Which element this frame belongs to, for a GL pass that has to put its own canvas beside it.
+  // Set here rather than threaded through drawWorldObjects because every view already calls this
+  // function with its own id, and a second parameter on the world pass would have to be added to
+  // four callers to say a thing this one already knows.
+  GL_HOST = cv; GL_ID = id;
   const st = sceneFor(id, cw, ch);
   const v = view || {};
   // Who is standing near a depot door this frame — collected ONCE, here, before the world pass
@@ -7555,7 +7560,7 @@ let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in pa
 // `pixel` qualifies on the rule above and is the most consequential key in the set: it is the
 // Mode-7 ground raster's texel size, so it decides how much of a fixed-cost software loop runs and
 // decides nothing about where anything is. Nothing outside a frame reads it.
-const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes']);
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes', 'gl']);
 // The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
@@ -7785,7 +7790,7 @@ let SHAPE_PAL = null;
 // suite loads it against a DOM stub with no WebGL at all. So the world pass is INSTALLED from
 // outside — `installGLWorld(fn)` — and until something installs one, `TUNE.gl` does nothing at
 // all. A throw inside it switches the flag off and the frame finishes in 2-D.
-let GL_HOOK = null, GL_CELLS = null;
+let GL_HOOK = null, GL_CELLS = null, GL_HOST = null, GL_ID = null;
 export function installGLWorld(fn) { GL_HOOK = fn || null; }
 export function glWorldInstalled() { return !!GL_HOOK; }
 let MASS_OFF = false;
@@ -20657,7 +20662,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   if (GL_CELLS) {
     MASS_OFF = false;
     pBegin('world:gl');
-    try { GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1) }); }
+    try { GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID }); }
     catch (e) { console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
     GL_CELLS = null;
