@@ -30,10 +30,17 @@ const TOL_CASE = 0.06;    // 6% on any single case — noise floor is zero, so t
 
 // ── THE SCENE ───────────────────────────────────────────────────────────────
 // A city block a driver would actually be in: a road with a crossroads, lit and unlit lamps, a
-// terrace of shops on one side and offices on the other, one tower, and a water edge. The models
-// are picked from the REAL registry rather than invented, because the cost being measured is the
-// cost of the buildings that ship.
-const R = 8, N = R * 2 + 1;
+// terrace of shops on one side and offices on the other, towers, and a water edge. The models are
+// picked from the REAL registry rather than invented, because the cost being measured is the cost
+// of the buildings that ship.
+//
+// ⚠ IT HAS TO REACH PAST `lodNear`, OR IT MEASURES ONE HALF OF THE RENDERER. The first cut was a
+// 17x17 window — every building in it inside 8 tiles, so the cab (lodNear 9) and the cockpit
+// (lodNear 20) both ran full model arms for all of them and the distance LOD never executed once.
+// Raising RENDER_TUNE.lodAdorn from 1 to 2 measured as a 0.00% change, which is not a finding
+// about lighting cost, it is a scene that cannot see it. 33x33 puts buildings on both sides of
+// both thresholds.
+const R = 16, N = R * 2 + 1;
 const SCENE = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
   if (x === R && y === R - 3) return { kind: 'land', biome: 'citycore', road: 1, rd: 'nesw', flr: 0, pw: 1 };
   if (x === R) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1, sl: y % 3 === 0 ? 1 : y % 3 === 1 ? 0 : undefined };
@@ -45,6 +52,11 @@ const SCENE = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, 
   if (x === R - 4 && y % 3 === 0) return { kind: 'land', biome: 'freight', bt: 'warehouse', ent: 'east', flr: 1 };
   if (x === R + 4 && y === R) return { kind: 'land', biome: 'citycore', bt: 'luxtower', ent: 'west', flr: 21 };
   if (x === R + 4 && y % 4 === 0) return { kind: 'land', biome: 'citycore', bt: 'apartment', ent: 'west', flr: 4 };
+  // Past both lodNear thresholds: the LOD ladder, the adornment tier and the fog band.
+  if (x === R - 11 && y % 3 === 0) return { kind: 'land', biome: 'citycore', bt: 'office', ent: 'east', flr: 8 };
+  if (x === R + 11 && y % 3 === 1) return { kind: 'land', biome: 'citycore', bt: 'shop', ent: 'west', flr: 2 };
+  if (x === R - 14 && y % 5 === 0) return { kind: 'land', biome: 'freight', bt: 'warehouse', ent: 'east', flr: 1 };
+  if (x === R + 14 && y === R - 6) return { kind: 'land', biome: 'citycore', bt: 'luxtower', ent: 'west', flr: 30 };
   if (y === 0) return { kind: 'water', biome: 'coast' };
   return { kind: 'land', biome: 'citycore', flr: 0 };
 }));
@@ -56,7 +68,7 @@ const SCENE = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, 
 function counted(el) {
   const inner = el.getContext('2d');
   let T = null;
-  const reset = () => (T = { calls: 0, byName: new Map() });
+  const reset = () => (T = { calls: 0, blur: 0, byName: new Map() });
   reset();
   el.getContext = () => new Proxy({}, {
     get(_t, k) {
@@ -68,7 +80,12 @@ function counted(el) {
         return v(...a);
       };
     },
-    set(_t, k, v) { inner[k] = v; return true; },
+    // ⚠ THE EXPENSIVE ONE IS A PROPERTY, NOT A CALL. `shadowBlur` is a software blur pass per
+    // draw and, with gradients now baked into sprites, it is the one genuinely costly thing left in
+    // the adornment layer — RENDER_TUNE.glowFar exists solely to switch it off past 11 tiles. A
+    // counter that only tallied METHOD calls was blind to exactly the cost it was built to hold,
+    // and made rich lighting at range look free.
+    set(_t, k, v) { if (k === 'shadowBlur' && v) T.blur++; inner[k] = v; return true; },
   });
   return { read: () => T, reset };
 }
@@ -129,7 +146,7 @@ export async function measure({ width = 1280, height = 720 } = {}) {
         const T = C.read();
         const groups = { path: 0, paint: 0, blit: 0, state: 0, grad: 0, other: 0 };
         for (const [name, n] of T.byName) groups[groupOf(name)] += n;
-        cases[key] = { calls: T.calls, ...groups };
+        cases[key] = { calls: T.calls, ...groups, blur: T.blur };
       }
     }
   }
@@ -152,6 +169,10 @@ function compare(now, base) {
     if (!b) { notes.push(`new case ${key}`); continue; }
     const d = rel(now.cases[key].calls, b.calls);
     if (d > TOL_CASE) problems.push(`${key}: ${b.calls} → ${now.cases[key].calls} calls (+${(d * 100).toFixed(1)}%)`);
+    // Blurs are counted separately and held tighter, because one of them costs far more than one
+    // call and the whole glowFar mechanism exists to keep their number down.
+    const db = rel(now.cases[key].blur, b.blur || 0);
+    if ((b.blur || 0) && db > TOL_CASE) problems.push(`${key}: ${b.blur} → ${now.cases[key].blur} shadowBlur passes (+${(db * 100).toFixed(1)}%)`);
   }
   for (const key of Object.keys(base.cases)) if (!now.cases[key]) problems.push(`case ${key} disappeared from the sweep`);
   return { problems, notes, dTotal };
@@ -165,7 +186,7 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '
   if (detail) {
     for (const [k, c] of Object.entries(now.cases)) {
       console.log(`  ${k.padEnd(22)} ${String(c.calls).padStart(7)} calls  ·  path ${String(c.path).padStart(6)} `
-        + `paint ${String(c.paint).padStart(5)} blit ${String(c.blit).padStart(5)} state ${String(c.state).padStart(5)} grad ${String(c.grad).padStart(4)}`);
+        + `paint ${String(c.paint).padStart(5)} blit ${String(c.blit).padStart(5)} state ${String(c.state).padStart(5)} grad ${String(c.grad).padStart(4)} blur ${String(c.blur).padStart(4)}`);
     }
   }
   const pathShare = Object.values(now.cases).reduce((a, c) => a + c.path, 0) / now.total;
@@ -180,7 +201,8 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '
     for (const p of problems) console.error(`  ✗ ${p}`);
     if (problems.length) process.exit(1);
     const move = dTotal <= -0.005 ? ` — ${(-dTotal * 100).toFixed(1)}% cheaper than the baseline` : '';
+    const blurs = Object.values(now.cases).reduce((a, c) => a + (c.blur || 0), 0);
     console.log(`✓ framecost: ${now.total} canvas calls over ${Object.keys(now.cases).length} frames`
-      + ` (${(pathShare * 100).toFixed(0)}% describe paths)${move}.`);
+      + ` (${(pathShare * 100).toFixed(0)}% describe paths, ${blurs} shadowBlur passes)${move}.`);
   }
 }

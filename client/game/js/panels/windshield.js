@@ -7347,9 +7347,14 @@ export function makeCam(W, horizonY, depth, v, chase) {
   // at `horizonY`, and cloud/fog layers are placed against it. Under pitch the horizon is still a
   // straight line but it MOVES, and at a large enough tilt it leaves the canvas entirely.
   const pitch = v.pitch || 0;
-  let proj, projFL;
+  let proj, projFL, rawF;
   if (!pitch) {
     proj = (dx, dy, wz) => { const bx = dx + back * sinh - fx, by = dy - back * cosh - fy; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
+    // The SAME depth, unclamped. `proj` floors f at 0.06 so a projected point stays finite, which
+    // is right for drawing and useless for clipping: a polygon straddling the eye needs to know how
+    // far BEHIND the plane a corner is, and the clamp erases exactly that. Three call sites already
+    // rebuild this expression by hand; the camera should be the one that owns it.
+    rawF = (dxx, dyy) => (dxx + back * sinh - fx) * sinh - (dyy - back * cosh - fy) * cosh;
     projFL = (aa, s, wz) => { const f = Math.max(0.06, aa + back - fFwd); return { sx: cx + ((s - fSide) / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
   } else {
     const cp = Math.cos(pitch), sp = Math.sin(pitch);
@@ -7364,8 +7369,10 @@ export function makeCam(W, horizonY, depth, v, chase) {
       const f = Math.max(0.06, f0 * cp - u * sp), uu = u * cp + f0 * sp;
       return { sx: cx + ((sd - fSide) / f) * FL, sy: horizonY - depth * uu / f, f };
     };
+    // Under pitch the depth carries a height term, so the clip plane has to as well.
+    rawF = (dxx, dyy, wz) => ((dxx + back * sinh - fx) * sinh - (dyy - back * cosh - fy) * cosh) * cp - ((wz || 0) - EH) * sp;
   }
-  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  return { R, sinh, cosh, ox, oy, proj, projFL, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -7416,7 +7423,13 @@ let DECO_OCC = false;
 // Hidden when EVERY cell the anchor points cover is owned by something nearer. All-or-nothing on
 // purpose: an adornment half behind a wall keeps drawing, which is the conservative direction and
 // the same one the rest of this pass leans in.
-function decoHidden(pts) {
+// ⚠ AN ADORNMENT IS BIGGER THAN ITS ANCHOR, and for one of them it is sixty pixels bigger. A
+// glow pool is anchored at a single point and painted as a disc of up to 60px radius, so probing
+// the anchor asks whether the CENTRE is covered and then acts on the answer for the whole pool:
+// centre behind a kerb, entire pool gone. `rPx` widens the box the probe tests, and since the
+// probe is all-or-nothing — hidden only when EVERY cell it covers is owned by something nearer —
+// a wider box can only ever make it draw more often, which is the conservative direction.
+function decoHidden(pts, rPx = 0) {
   if (!DECO_OCC || !OCC_FIELD || !pts.length) return false;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, f = Infinity;
   for (const p of pts) {
@@ -7425,7 +7438,7 @@ function decoHidden(pts) {
     if (p.sy < y0) y0 = p.sy; if (p.sy > y1) y1 = p.sy;
     if (p.f < f) f = p.f;
   }
-  return occludedByBuilding((x0 + x1) / 2, y0, y1, f, (x1 - x0) / 2);
+  return occludedByBuilding((x0 + x1) / 2, y0 - rPx, y1 + rPx, f, (x1 - x0) / 2 + rPx);
 }
 // A tally, null on every real frame and an object only while lightVisibilitySmoke is running.
 // It exists because the failure it watches for is silent: a light that is culled draws nothing,
@@ -7441,8 +7454,8 @@ let LIGHT_TALLY = null;
 // wall cannot take the full DECO_LIFT — 0.6 tiles jumps it onto a nearer neighbour, which is the
 // bug marqueeBand's own comment records — so those callers reached for emitFace and lost the
 // probe on the way past. The lift is now a parameter and the probe is not optional.
-function emitDeco(pts, fn, lift = DECO_LIFT) {
-  if (decoHidden(pts)) return;
+function emitDeco(pts, fn, lift = DECO_LIFT, rPx = 0) {
+  if (decoHidden(pts, rPx)) return;
   emitFace(Math.min(...pts.map((p) => p.f)) - lift, fn);
 }
 // ── AND THE PROBE ITSELF, BECAUSE NOTHING ELSE CAN SEE IT WORK ──────────────
@@ -13866,8 +13879,36 @@ function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
     const nx = opts.cullN[0], ny = opts.cullN[1];
     if (nx * cx + ny * cy - (nx * (cam.ex || 0) + ny * (cam.ey || 0)) >= 0) return;   // face turned away → skip
   }
-  const pr = pts.map(p => cam.proj(p[0], p[1], p[2]));
-  if (pr.some(q => q.f <= 0.1)) return;   // any corner behind the eye → drop (rooftop deco, rarely this close)
+  // ── ⚠ IT CLIPS, IT DOES NOT REJECT ─────────────────────────────────────────
+  // This used to drop the whole surface the moment ONE corner crossed the near plane, on the same
+  // reasoning the box roof used before it was fixed: a partly-behind face cannot be seen from that
+  // angle anyway. That is true of everything you look AT and false of everything you stand UNDER,
+  // and everything a sawtooth roof is made of comes through here — panels, glazing and both gable
+  // ends. Drive under one and the entire roof blinked out, at exactly the distance it is the whole
+  // of what you can see. The box roof already solved this (`Sutherland–Hodgman against one
+  // half-space is a dozen lines`); this is the same fix for flat quads, in three dimensions
+  // because a flat quad here is as often vertical as horizontal.
+  //
+  // The unclipped case is byte-identical to before: the same points, the same mean depth.
+  const FLAT_NEAR = 0.1;
+  const g = pts.map((p) => (cam.rawF ? cam.rawF(p[0], p[1], p[2]) : cam.proj(p[0], p[1], p[2]).f) - FLAT_NEAR);
+  let poly = pts;
+  if (!g.every((q) => q >= 0)) {
+    if (g.every((q) => q < 0)) return;            // wholly behind the eye — nothing to clip
+    poly = [];
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length, ga = g[i], gb = g[j];
+      if (ga >= 0) poly.push(pts[i]);
+      if ((ga >= 0) !== (gb >= 0)) {
+        const t = ga / (ga - gb);
+        poly.push([pts[i][0] + (pts[j][0] - pts[i][0]) * t,
+                   pts[i][1] + (pts[j][1] - pts[i][1]) * t,
+                   pts[i][2] + (pts[j][2] - pts[i][2]) * t]);
+      }
+    }
+    if (poly.length < 3) return;
+  }
+  const pr = poly.map(p => cam.proj(p[0], p[1], p[2]));
   let d = 0; for (const q of pr) d += q.f; d = d / pr.length - (opts.lift || 0);
   emitFace(d, () => {
     ctx.globalAlpha = alpha;
@@ -14124,7 +14165,7 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
     ctx.globalAlpha = alpha;
     ctx.drawImage(sp, g.sx - s, g.sy - s, s * 2, s * 2);
     ctx.globalAlpha = 1;
-  });
+  }, DECO_LIFT, s);   // `s` is the disc it is about to paint — see the note on decoHidden
 }
 // A HORIZONTAL marquee SIGN across a building's entrance face (a hotel/bar marquee), at
 // height wz, spanning ±half across the front edge (E = entrance world vector). Drawn as a

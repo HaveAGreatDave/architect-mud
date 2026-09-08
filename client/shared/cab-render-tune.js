@@ -32,6 +32,17 @@ export const CAB_VIEW_TUNE = Object.freeze({
   // building nine tiles down the street is already mostly hidden behind the two in front of it.
   lodNear: 9,
   lodFar: 20,
+  // ⚠ AND THE LIGHTS COME WITH IT. `lodAdorn` ships at 1 — beacons, masts and dishes only — which
+  // is the right answer for an aeroplane, where the LOD ring is 20 tiles out in the haze. Pairing
+  // it with a 9-tile ring meant a truck at night lost every neon blade, marquee and glow pool past
+  // nine tiles: the far end of a lit street went dark while the near end blazed, which reads as the
+  // city's power failing behind you rather than as detail being shed.
+  //
+  // Measured before raising it, on the framecost sweep: the whole of rich adornment at range costs
+  // the cab 0.32% of its night-frame canvas calls and twelve more shadowBlur passes across four
+  // frames. The blur is the expensive part and `glowFar` (11 tiles) already caps it, so what is
+  // bought here is signs that still paint out to the LOD ring, unblurred past eleven.
+  lodAdorn: 2,
   // The one that matters most, and the clearest case of an aeroplane's number meaning something
   // else on the ground. Any wall taller than this on screen takes the expensive textured blit.
   // 44px is roughly 4% of screen height — properly distant from a driver's seat — and the flat fill
