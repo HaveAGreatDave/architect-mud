@@ -618,8 +618,10 @@ export function renderEditor(host, key, redraw) {
 // until you bind the fork to it yourself.
 function forkRow(key, m, redraw) {
   const row = el('div', 'addrow');
-  const b = el('button', '', 'Fork to editable');
-  b.title = 'Capture this arm\'s mass into a new authored model you can edit. Adornments, per-box texture seeds and the other three entrance facings are NOT captured — the copy is a starting point.';
+  const b = el('button', '', 'Make editable');
+  b.title = 'Copy this arm\'s mass into an authored model, bound to the same buildings, and edit it here.'
+    + ' What the game draws changes with it. Adornments other than masts, per-box texture seeds and the'
+    + ' other three entrance facings are not captured, so it is a starting point rather than a copy.';
   b.onclick = async () => {
     const bar = $('esave');
     // portModel takes the renderer as an argument; in node that is the stubbed windshield, here
@@ -630,17 +632,27 @@ function forkRow(key, m, redraw) {
       bar.textContent = 'cannot be expressed in the authored format — ' + errors[0];
       return;
     }
-    const id = doc.id + '_fork';
-    doc.id = id;
-    // Its own name, bound to nothing: an authored model that reuses the arm's key is invisible
-    // (the registry merge keeps the arm), which would look exactly like the fork having failed.
-    doc.bind = [{ by: 'name', key: id }];
+    // ⚠ IT KEEPS THE ARM'S OWN KEY AND STANDS IN FOR IT. The first cut gave the fork its own id and
+    // bound it to a name nothing carried, which was safe and useless: you edited a model no tile
+    // resolved to, and the building in the game went on drawing the arm. So the fork claims the key
+    // (`replaces`, which the registry merge honours the way it honours a port) and the arm is kept
+    // in LEGACY_MODELS — `RENDER_TUNE.legacyArms` puts the whole city back with one flag.
+    //
+    // `replaces` rather than `portedFrom` because the two make different claims. A port says it
+    // draws the SAME building and is re-measured against the arm on every push; a fork says it is
+    // deliberately a different one. Writing `portedFrom` here would be claiming something false
+    // and the port gate would fail the push, correctly.
     delete doc.portedFrom;
-    doc.note = 'Forked from the hand-written ' + m.type + ' arm in the Modelshop. Mass only: adornments other than masts, per-box texture seeds and the other entrance facings were not captured.';
-    docs.set(id + '.json', doc);
-    keyToFile.set('named:' + id, id + '.json');
-    await doSave(id + '.json', doc, redraw);
-    window.__msReselect('named:' + id);
+    doc.replaces = m.type;
+    doc.note = 'Forked from the hand-written ' + m.type + ' arm in the Modelshop, and drawn instead of it. '
+      + 'Mass only: adornments other than masts, per-box texture seeds and the other entrance facings '
+      + 'were not captured.';
+    const file = doc.id + '.json';
+    docs.set(file, doc);
+    keyToFile.set(key, file);
+    await doSave(file, doc, redraw);
+    // Same key, now an authored record: the tool reopens on the thing you were already looking at.
+    window.__msReselect(key);
   };
   row.append(b);
   return row;

@@ -92,9 +92,18 @@ can add shapes to it, move them, retexture them and save. **Fork to editable**, 
 - **one entrance facing**, frozen at capture. This is the finding that ended the port of the city:
   79 arms that were byte-identical at the capture conditions all broke when the facing changed.
 
-So the fork takes its own id (`<arm>_fork`), binds to a name nothing carries yet, and deliberately
-does **not** claim `portedFrom` — the field that would make it override the arm. The building in
-the game is untouched until you bind the fork to it yourself, with the bind picker.
+**It keeps the arm's key and stands in for it.** The first cut gave the fork its own id and bound
+it to a name nothing carried, which was safe and useless — you edited a model no tile resolved to,
+while the building in the game went on drawing the arm. So the fork claims the key and the arm is
+kept in `LEGACY_MODELS`, exactly as a port's is: **`RENDER_TUNE.legacyArms` puts the whole city
+back on the hand-written arms with one flag.**
+
+It writes `replaces`, not `portedFrom`, and the difference is the whole point. `portedFrom` claims
+*this draws the same building as the arm*, and `scripts/shapes/modeldiff.mjs` re-measures that on
+every push. A fork does not draw the same building — capture drops the adornments and a facing — so
+claiming it would be claiming something false and the port gate would rightly fail the push.
+`replaces` says *this is deliberately a different building, drawn instead of the arm*; it is not
+diffed, and `shapes:smoke` names every stand-in on every push so an override is never a surprise.
 
 Of the 172 arms, 138 can be expressed at all; the other 34 hold entrance-face-only mass and the
 fork refuses them by name rather than producing a wrong building. The inversion is
@@ -255,24 +264,37 @@ plane, so the thing you are looking at is the thing you are editing.
 
 ## Orbit is heading, and pitch is eye height
 
+**The heading is the azimuth and the pitch is real.** GLASS grew a pitch term (below), so the
+orbit is a proper one: middle-drag left and right goes round, up and down goes over the roof and
+under the belly, and the camera is *aimed* at the subject rather than the picture being slid back
+into frame beneath it.
+
 ⚠ **A vertical drag moves on a SPHERE, never up a line.** Raising the eye while holding the
 distance is a crane: the camera climbs and the subject stays as far away in plan, so it flattens
 and slides instead of turning under you. The orbit holds the *radius* about the subject's own
-mid-height instead, so rising pulls the camera in over it exactly as going round holds it at a
-constant distance, and `lockCentre` re-solves the horizon every frame so the subject stays pinned.
+mid-height, and `aimAtModel()` solves the pitch that points at it — `panY` stays 0.
 
-Two limits, and both exist because there is no pitch term to take up the slack:
+What that replaced is worth knowing, because it explains the shape of the older code. With a fixed
+horizontal optical axis the only way to look down was to raise the eye and then shift the horizon
+by hand, so the viewport carried two workarounds: a ceiling on the arc (a high eye *sheared* the
+model instead of turning it) and a floor under the camera distance (which read as the camera being
+inside a long rig). Both are gone. The only limits left are that the arc stops a degree short of
+the poles — at the pole every heading projects the same picture, so dragging through it flips the
+model end for end — and a numerical floor under the depth distance.
 
-- **The camera never gets inside the model.** `dist` is the *depth* distance, so holding the radius
-  shrinks it as the eye rises — and a rig is about three tiles long once the preview has scaled it
-  up, so the top of an unlimited arc puts the camera half a tile from a three-tile object and the
-  near end of the deck projects several times the size of the far one. That read as the truck being
-  stretched, and it is why the orbit looked right on buildings and wrong on vehicles: a building is
-  tall and about as deep as it is wide, so its fit distance already covered it. The orbit now keeps
-  its radius until that would take it closer than three times the subject's own radius, and climbs
-  on a wider arc past that.
-- **The arc stops at 55°.** A true plan view is not something this renderer can draw; pretending
-  otherwise is what the shearing at the top of the arc was.
+⚠ **The eye may go below the ground**, which is right for a model viewer and is the one place this
+camera is deliberately not the sim's: in the game the floor under the eye height is what stops the
+terrain collapsing.
+
+## Spin
+
+The turntable, and two rules it learned the hard way. **The heading comes from the clock**, not
+from a per-frame counter — otherwise the speed is whatever frame rate the model happens to render
+at, and a shopfront spins several times faster than Halcyon. And **it does not ride
+`requestAnimationFrame` alone**: rAF stops being delivered whenever the page is not being
+composited (a background tab, an occluded window), and the spin then stops dead with the button
+still lit, which is indistinguishable from it being broken. A timer runs beside it and whichever
+arrives first advances the frame.
 
 
 

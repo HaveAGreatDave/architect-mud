@@ -48,7 +48,7 @@ let lastCam = null;
 
 const state = {
   key: MODELS[0]?.key || null,
-  heading: 0, dist: 9, eye: 1.4, panX: 0, panY: 0, vehSizeMul: 1,
+  heading: 0, dist: 9, eye: 1.4, pitch: 0, panX: 0, panY: 0, vehSizeMul: 1,
   floors: 6, seed: 3, night: 0,
   E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, preset: 'cockpit',
   mode: 'move',
@@ -176,58 +176,42 @@ function currentBounds() {
   return buildingBounds(modelOf(state.key));
 }
 
-// ── LOCKED ORBIT ────────────────────────────────────────────────────────────
-// There is no pitch in this projection: arcing the eye up moves the picture DOWN the
-// screen, because `sy = horizonY + depth · (EH − wz) / f`. So an orbit that only changed
-// the eye would walk the model off the bottom of the frame as you rose — which is not an
-// orbit, it is a camera drifting away from its subject.
+// ── THE CAMERA LOOKS AT THE MODEL ───────────────────────────────────────────
+// GLASS has a pitch term now (see `makeCam`), so this is what it always should have been: the
+// camera is AIMED at the subject, rather than the picture being slid back into frame under it.
 //
-// Locking it is one line of algebra rather than a new camera. Solve the horizon shift that
-// keeps the model's own mid-height at the centre of the canvas:
+// What it replaces is worth keeping, because the whole viewport was shaped by the lack of it.
+// With a fixed horizontal optical axis — `sy = horizonY + depth · (EH − wz) / f` — the only way
+// to look down was to raise the eye and then shift the horizon by hand, so this function used to
+// solve that shift for "put the subject's mid-height at the centre of the canvas". It kept the
+// model in frame and it never actually tilted the view, which is why a high arc SHEARED the model
+// instead of turning it. Now the pitch is solved instead, `panY` stays 0, and the arc is free:
+// over the roof, under the belly, the whole way round.
 //
-//   H/2 = (H·0.42 + panY) + depth·(EH − zMid)/dist        with depth = H·0.55
-//   panY = H·0.08 − H·0.55·(EH − zMid)/dist
-//
-// so the subject stays pinned however far round or up you go.
-function lockCentre() {
-  const view = $('view');
-  const H = Math.max(1, view.height);
+//   pitch = atan2(eye − zMid, dist)      positive tips the view down, which is what rising needs
+function aimAtModel() {
   const b = currentBounds();
   const zMid = (b.baseH || 0) + b.height / 2;
-  state.panY = H * 0.08 - H * 0.55 * (state.eye - zMid) / Math.max(0.05, state.dist);
+  state.pitch = Math.atan2(state.eye - zMid, Math.max(0.05, state.dist));
+  state.panY = 0;
 }
 
-// ── HOW CLOSE AN ORBIT MAY GET, AND HOW HIGH ────────────────────────────────
-// This projection has no pitch: the camera never tilts, so a high eye is not a rotated view but
-// an extreme oblique one, and two things go wrong at the top of an arc.
+// ── WHAT STOPS THE CAMERA ENTERING THE MODEL ────────────────────────────────
+// The RADIUS, and nothing else. An orbit holds its distance from the subject in three dimensions,
+// so a camera that starts outside the model stays outside it however far round or over the top it
+// goes — the depth distance `dist` shrinking to nothing at the pole is the camera being directly
+// ABOVE the subject, not inside it.
 //
-// The camera walks INSIDE a long subject. `dist` is the depth distance, so holding the orbit
-// radius shrinks it as the eye rises — and a rig is about three tiles long once the preview has
-// scaled it up, so at the top of the arc the camera sits half a tile from a three-tile object
-// and the near end of the deck projects several times the size of the far end. That reads as the
-// truck being stretched, which is why the orbit looked broken on vehicles and fine on buildings:
-// a building is tall and roughly as deep as it is wide, so its fit distance already covers it.
-//
-// So the orbit keeps its radius until that would take it closer than a tight fit on the subject,
-// and past that point it climbs on a wider arc instead. The subject stays framed and the camera
-// never ends up inside it.
-function minOrbitDist() {
-  const view = $('view');
-  const b = currentBounds();
-  // Two floors, and the second is the one that matters for a long subject. A screen fit says how
-  // far back the whole thing is visible from; it says nothing about the camera being INSIDE the
-  // object, which is what a rig three tiles long and half a tile tall gets you. So the camera also
-  // stays back at three times the subject radius, which is where the near end and the far end of a
-// long object are within about a third of each other in scale rather than five times apart.
-  const fit = previewFit(b, Math.max(1, view.width), Math.max(1, view.height), 1.15).dist;
-  return Math.max(fit, (b.halfW || 0) * 3);
-}
+// ⚠ Two clamps used to live here and both are gone, because both were working around the missing
+// pitch term rather than around a real limit: a ceiling on the arc (a high eye sheared the model
+// instead of turning it) and a floor under `dist` (which read as the camera being inside a long
+// rig). With the view able to tilt, the arc is free and the only floor left is numerical.
+const MIN_DEPTH = 0.05;
 
-// And a ceiling on the arc. Even from a correct distance the picture shears as the eye rises,
-// because there is no pitch to take up the difference — a true plan view is not something this
-// renderer can draw, and pretending otherwise is what the distortion at the top of the arc was.
-// 55° is where it still reads as a raised three-quarter view.
-const ORBIT_MAX_ELEV = 0.96;
+// Just short of the poles. At exactly straight up or straight down every heading projects the same
+// picture, so a drag through the pole spins the model end for end under the mouse. A degree short
+// costs nothing and removes the flip.
+const POLE = Math.PI / 2 - 0.02;
 
 // The cab stays a deliberate close crop rather than a fit — being too close to see all of
 // it is the whole point of that seat.
@@ -303,7 +287,7 @@ function previewOpts(over) {
   return {
     m: modelOf(state.key), name: bare(state.key).toUpperCase(),
     seed: state.seed, fh: scale().fh, h: scale().h, night: state.night, E: state.E,
-    heading: state.heading, dist: state.dist, eyeH: state.eye,
+    heading: state.heading, dist: state.dist, eyeH: state.eye, camPitch: state.pitch,
     panX: state.panX, panY: state.panY,
     tier: state.tier, wire: state.wire,
     ...over,
@@ -323,7 +307,7 @@ function paintViewport() {
     if (isVehicle(state.key)) {
       const v = entryOf(state.key).vehicle;
       lastCam = renderVehiclePreview(view, {
-        ...v, night: state.night, heading: state.heading, dist: state.dist,
+        ...v, night: state.night, heading: state.heading, dist: state.dist, camPitch: state.pitch,
         eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1,
       });
     } else {
@@ -670,7 +654,7 @@ function initViewport() {
       elev: Math.atan2(dz, Math.max(0.05, state.dist)),
       // Solved once per grab rather than per frame: the subject does not change size mid-drag,
       // and re-solving it under the mouse would make the floor itself move.
-      minDist: Math.min(state.dist, minOrbitDist()),
+      minDist: MIN_DEPTH,
     };
   };
 
@@ -740,18 +724,21 @@ function initViewport() {
     if (act.kind === 'orbit') {
       state.heading = (act.heading + dsx * 0.35 + 360000) % 360;
       // ⚠ VERTICAL DRAG MOVES ON THE SPHERE, never up a line. Raising the eye while holding the
-      // distance is a CRANE: the camera climbs and the model stays the same distance away in
-      // plan, so it flattens out and slides rather than turning under you. An orbit holds the
-      // RADIUS instead — rising pulls the camera in over the subject, exactly as going round
-      // holds it at a constant distance — so a full drag looks over the roof and back down.
+      // distance is a CRANE: the camera climbs and the subject stays as far away in plan, so it
+      // flattens and slides rather than turning under you. The orbit holds the RADIUS about the
+      // subject's own mid-height, and the camera is AIMED with the pitch term — so the arc is
+      // free, over the roof and down under the belly, and nothing shears on the way.
       //
-      // There is still no pitch term in this projection (see the README): the eye height IS the
-      // look-down. So the elevation angle is turned back into the two numbers the camera has,
-      // and `lockCentre` re-solves the horizon so the subject stays pinned while it moves.
-      const elev = Math.max(-0.32, Math.min(ORBIT_MAX_ELEV, act.elev - dsy * 0.004));
-      state.dist = Math.max(act.minDist, act.radius * Math.cos(elev));
-      state.eye = Math.max(0, act.zMid + act.radius * Math.sin(elev));
-      if (act.locked) lockCentre();
+      // It stops just short of the poles rather than at them: straight down is a fine picture, but
+      // at the pole every heading projects the same one, so a drag through it flips the model end
+      // for end under the mouse.
+      const elev = Math.max(-POLE, Math.min(POLE, act.elev - dsy * 0.004));
+      state.dist = Math.max(act.minDist, Math.abs(act.radius * Math.cos(elev)));
+      // ⚠ The eye may go BELOW the ground here, and that is right for a model viewer — you look up
+      // at a building from under the pavement. It is the one place this camera is deliberately not
+      // the sim's, where the floor under the eye height is what stops the terrain collapsing.
+      state.eye = act.zMid + act.radius * Math.sin(elev);
+      aimAtModel();
       draw();
       return;
     }
@@ -778,7 +765,7 @@ function initViewport() {
     mode: state.mode,
     // The camera as three numbers, so an orbit can be checked as arithmetic rather than
     // by eye: a drag that holds the radius is an orbit, one that does not is a crane.
-    cam: { heading: state.heading, dist: state.dist, eye: state.eye, panY: state.panY },
+    cam: { heading: state.heading, dist: state.dist, eye: state.eye, pitch: state.pitch, panY: state.panY },
     act: act && { kind: act.kind, i: act.i },
     hasDoc: !!editorDocFor(state.key),
     hasCam: !!lastCam,
@@ -922,6 +909,7 @@ function preset(which) {
     const f = frameAt({ halfW: b.halfW * state.vehSizeMul * VEH_PAINT_PAD, height: 1.2 * VEH_PAINT_PAD, baseH: b.baseH * state.vehSizeMul }, which);
     state.dist = f.dist; state.eye = f.eye; state.tier = f.tier;
     state.preset = which; state.panX = 0; state.panY = 0;
+    aimAtModel();
     $('preset-cab').classList.toggle('on', which === 'cab');
     $('preset-cockpit').classList.toggle('on', which !== 'cab');
     draw();
@@ -935,6 +923,7 @@ function preset(which) {
   state.tier = f.tier;
   state.preset = which;
   state.panX = 0; state.panY = 0;
+  aimAtModel();
   $('preset-cab').classList.toggle('on', which === 'cab');
   $('preset-cockpit').classList.toggle('on', which !== 'cab');
   draw();
@@ -958,18 +947,42 @@ window.__msRedraw = () => { invalidateEdit(state.key); draw(); };
 $('palclose').onclick = () => $('paldlg').close();
 $('palsearch').oninput = () => renderPalette($('palsearch').value);
 
-let spinRaf = 0;
+// ── SPIN ────────────────────────────────────────────────────────────────────
+// Two rules, both learned the hard way.
+//
+// ⚠ THE HEADING COMES FROM THE CLOCK, NOT FROM A COUNTER. `heading += 0.6` per frame means the
+// turntable's speed is whatever frame rate the model happens to render at — a shopfront spins
+// several times faster than Halcyon, and a heavy model creeps. Derived from elapsed time it turns
+// at 36°/s whatever the machine is doing, and a dropped frame is a skipped step rather than a slow
+// one.
+//
+// ⚠ AND IT DOES NOT RIDE requestAnimationFrame ALONE. rAF stops being delivered whenever the page
+// is not being composited — a background tab, an occluded window, a headless check — and the spin
+// then stops dead with the button still lit, which is indistinguishable from it being broken. So a
+// timer runs beside it and whichever arrives first advances the frame; `busy` keeps them from
+// painting the same model twice over.
+let spinTimer = 0, spinRaf = 0, spinBusy = false, spinFrom = 0, spinAt = 0;
+const SPIN_DPS = 36;
+function spinStep() {
+  if (!state.spin || spinBusy) return;
+  spinBusy = true;
+  try {
+    state.heading = (spinFrom + (performance.now() - spinAt) / 1000 * SPIN_DPS) % 360;
+    paintViewport();
+  } finally {
+    spinBusy = false;
+  }
+  spinRaf = requestAnimationFrame(spinStep);
+}
 $('spin').onclick = () => {
   state.spin = !state.spin;
   $('spin').classList.toggle('on', state.spin);
-  if (!state.spin) { cancelAnimationFrame(spinRaf); return; }
-  const step = () => {
-    if (!state.spin) return;
-    state.heading = (state.heading + 0.6) % 360;
-    paintViewport();
-    spinRaf = requestAnimationFrame(step);
-  };
-  spinRaf = requestAnimationFrame(step);
+  cancelAnimationFrame(spinRaf);
+  clearInterval(spinTimer);
+  if (!state.spin) return;
+  spinFrom = state.heading; spinAt = performance.now();
+  spinTimer = setInterval(spinStep, 33);
+  spinRaf = requestAnimationFrame(spinStep);
 };
 
 // Keyboard, on the conventions a 3-D editor already trained everyone in. Ignored while a

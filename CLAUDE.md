@@ -310,3 +310,5 @@ being sure it is ESM, and being wrong on a push gate is worse than the miss. Esc
 Creating or updating an NPC behaviour graph, dialogue tree, or enemy behaviour graph is covered by
 the `mud-designer` skill (push mechanics, auth, the dialogue flat-params gotcha); schemas live in
 [docs/vine.md](docs/vine.md).
+
+⚠ **GLASS can tilt now.** `makeCam` takes an optional `pitch` (radians, positive tips the view down) — until it existed the optical axis was horizontal ALWAYS, so raising the eye was the only way to look down and a plan view was not expressible. The unpitched path is a SEPARATE CLOSURE rather than θ=0 through the pitched one, because `f·1 + u·0` is not the same floating-point expression as `f` and every view in the game goes through that function with no pixel coverage; `scripts/shapes/freecam.mjs` asserts the identity with Object.is. **Only the Modelshop preview passes a pitch today** — before the sim flies with one, the horizon (drawn as a horizontal line), the sky/ground fill (two rectangles split at `horizonY`) and the cloud/fog placement all have to learn that the horizon MOVES and at a large enough tilt leaves the canvas.

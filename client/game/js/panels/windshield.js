@@ -145,7 +145,7 @@ export const RENDER_TUNE = {
   occlude: 1,         // skip buildings entirely hidden behind a nearer one. Lossless by construction (there is no z-buffer, so a hidden building is otherwise fully built, queued, sorted and filled); the occluder/occludee boxes are biased so it can only ever be too timid. 0 = draw everything as before.
   frustum: 1,         // skip buildings that fall entirely off the SIDE of the canvas. The tile loop has always clipped near and far and never sideways, which costs nothing at altitude and is the biggest single waste from a ground camera — see offCanvasLaterally. 0 = draw everything as before.
   shapeShadow: 1,
-  legacyArms: 0,      // 1 = put every PORTED building back on its hand-written arm. The revert for a bad port: one flag, no deploy, no file to untangle. Inert until something carries `portedFrom` — see LEGACY_MODELS.
+  legacyArms: 0,      // 1 = put every overridden building back on its hand-written arm. The revert for a bad port or an unwanted fork: one flag, no deploy, no file to untangle. Inert until something carries `portedFrom` or `replaces` — see LEGACY_MODELS.
   shapeWire: 0,       // dev: stroke the captured building shapes over the render (cyan = mass, amber = entrance-face door/bay, magenta = the core segment that never fades). The one-glance check that collision/shadow/LOD geometry actually sits on the building.
   // What a distant (LOD) building is allowed to light up with. 2 = every adornment, which looks
   // right and costs nearly what the full model cost (gradients + shadowBlur, not face count, are
@@ -7314,9 +7314,51 @@ export function makeCam(W, horizonY, depth, v, chase) {
   const fwdOff = back - fFwd;
   // The chase offset shifts everything `back` tiles forward of the camera (f += back); lateral
   // is unchanged. up raises the eye height (EH), tipping the nose of the view down onto the craft.
-  const proj = (dx, dy, wz) => { const bx = dx + back * sinh - fx, by = dy - back * cosh - fy; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
-  const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa + back - fFwd); return { sx: cx + ((s - fSide) / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
-  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  // ── ⚠ PITCH: THE AXIS GLASS NEVER HAD ──────────────────────────────────────
+  // Until now the optical axis was horizontal, always: `sy = horizonY + depth·(EH − wz)/f` is a
+  // pinhole that cannot tilt, so raising the eye is the only way to look down and a plan view is
+  // not expressible at all. Everything downstream leans on that — the horizon is a straight line at
+  // a known y, the ground is filled below it, fog banding is per-depth — which is why this arrives
+  // as an OPTION on the camera and not as a change to it.
+  //
+  // The maths is one rotation about the lateral axis, applied in view space before the divide:
+  //
+  //   u  = wz − EH                 height above the eye
+  //   f' = f·cos θ − u·sin θ        θ > 0 tips the view DOWN
+  //   u' = u·cos θ + f·sin θ
+  //   sx = cx + (l / f')·FL        sy = horizonY − depth·u' / f'
+  //
+  // ⚠ AND THE DEFAULT IS A SEPARATE CLOSURE, NOT θ = 0 THROUGH THE SAME ONE. cos 0 is exactly 1
+  // and sin 0 exactly 0, so the pitched form reduces algebraically — but `f·1 + u·0` is not the
+  // same floating-point expression as `f`, and every view in the game (nine callers, no pixel
+  // coverage) goes through here. Same rule the free-camera offsets were added under, same reason,
+  // and scripts/shapes/freecam.mjs asserts it with Object.is rather than trusting it.
+  //
+  // The 6-DoF camera this opens up is currently used by the Modelshop preview alone. Before the
+  // SIM flies with it, three things need answering, and none of them is in this function: the
+  // horizon is drawn as a horizontal line, the sky and ground are filled as two rectangles split
+  // at `horizonY`, and cloud/fog layers are placed against it. Under pitch the horizon is still a
+  // straight line but it MOVES, and at a large enough tilt it leaves the canvas entirely.
+  const pitch = v.pitch || 0;
+  let proj, projFL;
+  if (!pitch) {
+    proj = (dx, dy, wz) => { const bx = dx + back * sinh - fx, by = dy - back * cosh - fy; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
+    projFL = (aa, s, wz) => { const f = Math.max(0.06, aa + back - fFwd); return { sx: cx + ((s - fSide) / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
+  } else {
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    proj = (dx, dy, wz) => {
+      const bx = dx + back * sinh - fx, by = dy - back * cosh - fy;
+      const f0 = bx * sinh - by * cosh, l = bx * cosh + by * sinh, u = wz - EH;
+      const f = Math.max(0.06, f0 * cp - u * sp), uu = u * cp + f0 * sp;
+      return { sx: cx + (l / f) * FL, sy: horizonY - depth * uu / f, f };
+    };
+    projFL = (aa, sd, wz) => {
+      const f0 = aa + back - fFwd, u = (wz || 0) - EH;
+      const f = Math.max(0.06, f0 * cp - u * sp), uu = u * cp + f0 * sp;
+      return { sx: cx + ((sd - fSide) / f) * FL, sy: horizonY - depth * uu / f, f };
+    };
+  }
+  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -12604,7 +12646,9 @@ const TYPE_MODEL = {
 // one — models:bake already refuses two authored models claiming the same key, so the only
 // collision left is authored-over-code, and this is where it loses. A binding that lands on an
 // occupied key is inert, which is visible in the Modelshop rather than mysterious in the sim.
-// ⚠ THE ONE EXCEPTION IS A PORT, AND IT KEEPS THE ARM. A model carrying `portedFrom` is claiming
+// ⚠ THE TWO EXCEPTIONS BOTH KEEP THE ARM. A model carrying `replaces` is a deliberate stand-in
+// for the arm named there — the Modelshop writes one when you fork a code arm and edit it, and
+// it makes no claim to look the same. A model carrying `portedFrom` is claiming
 // to REPLACE the arm named there, so it must win — but the arm is not deleted in the same move.
 // It stays reachable in LEGACY_MODELS for two reasons, and both are the difference between a
 // reviewable change and a leap:
@@ -12618,7 +12662,7 @@ for (const [key, m] of Object.entries(AUTHORED_MODELS)) {
   const named = key.startsWith('named:');
   const bare = named ? key.slice(6) : key.slice(5);
   const table = named ? NAMED_MODELS : TYPE_MODEL;
-  if (m.portedFrom) {
+  if (m.portedFrom || m.replaces) {
     if (table[bare]) LEGACY_MODELS[key] = table[bare];
     table[bare] = m;
   } else {
@@ -12631,7 +12675,7 @@ function modelFor(cell) {
   const m = (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null;
   // The port revert. Zero cost when nothing is ported (LEGACY_MODELS is empty) and zero cost with
   // the flag off, which is every frame anybody will ever render.
-  if (m && RENDER_TUNE.legacyArms && m.portedFrom) {
+  if (m && RENDER_TUNE.legacyArms && (m.portedFrom || m.replaces)) {
     return LEGACY_MODELS['named:' + bldgSlug(cell.bn || '')] || LEGACY_MODELS['type:' + cell.bt] || m;
   }
   return m;
@@ -13111,11 +13155,13 @@ export function renderModelPreview(canvas, opts = {}) {
     heading = 0, dist = 8, eyeH = 1.4, tier = ADORN_RICH,
     wire = false, ground = true,
     // PAN, for the Modelshop's viewport. `panX` strafes the camera sideways in world tiles;
-    // `panY` slides the horizon in screen pixels. They are deliberately different units because
-    // they are different operations: there is no pitch in this projection, so moving the picture
-    // up the screen is a horizon shift and cannot be a camera rotation. Both default to the
-    // no-pan values, so every existing caller is bit-identical.
+    // `panY` slides the horizon in screen pixels — two different operations, deliberately in two
+    // different units. Both default to the no-pan values, so every existing caller is unchanged.
     panX = 0, panY = 0,
+    // CAMERA PITCH, in radians, positive tipping the view down. Named `camPitch` rather than
+    // `pitch` because a preview of an AIRCRAFT already has a pitch — the craft's attitude — and
+    // the two would be one field with two meanings. 0 is the projection GLASS has always had.
+    camPitch = 0,
   } = opts;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
@@ -13130,7 +13176,7 @@ export function renderModelPreview(canvas, opts = {}) {
   const chase = (panX ? { back: 0, up: 0, fx: Math.cos(hd) * panX, fy: Math.sin(hd) * panX } : undefined);
   // `height: 0` and an explicit `eyeH` is the truck cab's own shape (see the ⚠ in makeCam): the
   // altitude term is the aircraft's, and a preview wants to state its eye directly.
-  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH }, chase);
+  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH, pitch: camPitch }, chase);
   const dx = dist * Math.sin(hd), dy = -dist * Math.cos(hd);
 
   ctx.save();
@@ -19058,6 +19104,9 @@ export function renderVehiclePreview(canvas, opts = {}) {
     cls = 'prop', variant = '', livery = null, armed = false, gearAnim = 1,
     heading = 0, dist = vehicleFrameDist(cls), eyeH = null, night = 0, now = 1000,
     bank = 0, pitch = 0, sizeMul = 1, panX = 0, panY = 0, ground = true,
+    // ⚠ `pitch` above is the CRAFT's attitude; this is the CAMERA's. Two different things that
+    // would be one field with two meanings if they shared a name.
+    camPitch = 0,
   } = opts;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
@@ -19069,7 +19118,7 @@ export function renderVehiclePreview(canvas, opts = {}) {
   // The eye scales with the craft too, so the camera looks AT a rig rather than down on it
   // from an aeroplane's eye height.
   const eye = eyeH == null ? Math.max(0.12, dist * 0.16) : eyeH;
-  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH: eye }, chase);
+  const cam = makeCam(W, horizonY, focal, { heading, height: 0, eyeH: eye, pitch: camPitch }, chase);
   const dx = dist * Math.sin(hd), dy = -dist * Math.cos(hd);
 
   ctx.save();

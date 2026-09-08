@@ -19,6 +19,29 @@ Nothing else could read a building's form, and three things were quietly wrong b
 This doc is the map of what replaced that. **Read it before touching a building model, the CFIT
 sweep, or the cold open's flythrough.**
 
+
+## The camera can tilt now (the pitch term)
+
+`makeCam` in windshield.js takes an optional `pitch`, in radians, positive tipping the view down.
+Until it existed the optical axis was horizontal *always* — `sy = horizonY + depth·(EH − wz)/f` is
+a pinhole that cannot tilt — so raising the eye was the only way to look down and a plan view was
+not expressible at all. It is one rotation about the lateral axis, applied in view space before the
+divide.
+
+⚠ **The unpitched path is a separate closure, not θ = 0 through the pitched one.** `cos 0` is
+exactly 1 and `sin 0` exactly 0, so the pitched form reduces algebraically — but `f·1 + u·0` is
+not the same floating-point expression as `f`, and every view in the game goes through this
+function with no pixel coverage. Same rule the free-camera offsets landed under, and
+[scripts/shapes/freecam.mjs](../../scripts/shapes/freecam.mjs) asserts it with `Object.is` rather
+than trusting it.
+
+**Only the Modelshop preview passes a pitch today.** Before the sim flies with one, three things
+need answering and none of them is in `makeCam`: the horizon is drawn as a horizontal line, the sky
+and ground are filled as two rectangles split at `horizonY`, and the cloud and fog layers are placed
+against it. Under pitch the horizon is still a straight line but it *moves*, and at a large enough
+tilt it leaves the canvas entirely. That is the work a 6-DoF cockpit would be, and the projection is
+now the part of it that is done.
+
 ## The one idea: the arms record themselves
 
 Hand-porting 72 arms into data would have risked the best-looking thing in the codebase. Instead the

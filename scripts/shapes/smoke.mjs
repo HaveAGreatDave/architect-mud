@@ -525,6 +525,13 @@ async function main() {
     for (const f of determinismSweep(ws)) problems.push(`determinism — ${f}`);
     for (const f of portedSweep(ws)) problems.push(`port — ${f}`);
     const ported = models.filter((r) => r.m.type === 'authored' && r.m.portedFrom).length;
+    // A stand-in is NOT diffed against the arm it replaces — it is a different building on
+    // purpose — but it is named, every push, because a model quietly overriding a hand-written
+    // arm is exactly the kind of thing that should never be discovered by surprise.
+    const standIns = models.filter((r) => r.m.type === 'authored' && r.m.replaces);
+    for (const r of standIns) {
+      console.log(`  ⓘ ${r.key} stands in for the hand-written ${r.m.replaces} arm — RENDER_TUNE.legacyArms puts it back.`);
+    }
     diffLine = `Model diff: all ${models.length} models render identically twice; ${ported} ported model(s) match the arm they replaced.`;
 
     // 7. CAN ANY TILE ACTUALLY REACH IT?

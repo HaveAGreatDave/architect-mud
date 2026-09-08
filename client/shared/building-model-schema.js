@@ -170,6 +170,13 @@ export function compileModel(doc, file = '<model>') {
   // this model overrides an arm or defers to it, and modeldiff reads the pair back off the
   // live registry rather than re-reading these files.
   if (doc.portedFrom) { rec.portedFrom = doc.portedFrom; rec.pixdiff = doc.pixdiff ?? 0; }
+  // `replaces` is the same override with a WEAKER claim, and the difference is the whole point:
+  // `portedFrom` says 'this draws the same building as the arm' and is re-measured on every push,
+  // while `replaces` says 'this is deliberately a different building, drawn instead of the arm'.
+  // A fork made in the Modelshop is the second thing — capture drops adornments, texture seeds
+  // and three of the four entrance facings, so a fork that claimed to be identical would be
+  // claiming something false, and the port gate would rightly fail it.
+  if (doc.replaces) rec.replaces = doc.replaces;
   return { rec, warnings, bindings: (doc.bind || []).map((b) => bindKey(b)) };
 }
 
@@ -227,6 +234,12 @@ export function validateModel(doc, file = '<model>') {
   // instead of losing to it, and scripts/shapes/modeldiff.mjs re-checks it on every push for as long
   // as the arm still exists. `pixdiff` records how close "close enough" was, so a later regression is
   // a diff on a number rather than an argument about whether it always looked like that.
+  if (doc.replaces != null && (typeof doc.replaces !== 'string' || !doc.replaces)) {
+    errors.push(`${file}: 'replaces' must name the model type it stands in for (the arm's case label)`);
+  }
+  if (doc.replaces && doc.portedFrom) {
+    errors.push(`${file}: use 'portedFrom' OR 'replaces', never both — one claims to match the arm, the other says it deliberately does not`);
+  }
   if (doc.portedFrom != null && (typeof doc.portedFrom !== 'string' || !doc.portedFrom)) {
     errors.push(`${file}: 'portedFrom' must name the model type it replaces (the arm's case label)`);
   }
@@ -271,12 +284,13 @@ export function validateModel(doc, file = '<model>') {
     //   segs/adorn the model                             -> drawAuthoredModel
     //   bind       where it resolves                     -> the registry merge
     //   portedFrom / pixdiff  the port claim             -> modeldiff.mjs
+    //   replaces              the same override, without the claim of being identical
     //   note       prose for whoever opens the file — the ONE key with no code reader, on purpose
     // 'kind: authored' used to sit here too. Nothing read it: compileModel sets the record's type
     // itself, and the directory is what says these are models. An authored key with no reader is
     // the failure this codebase keeps rediscovering (see `effects` in systems-mutations.md), so it
     // is gone rather than tolerated.
-    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'bind', 'note', 'portedFrom', 'pixdiff'].includes(k)) {
+    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces'].includes(k)) {
       errors.push(`${file}: unknown top-level key '${k}'`);
     }
   }
