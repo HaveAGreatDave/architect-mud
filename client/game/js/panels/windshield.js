@@ -3954,7 +3954,10 @@ function headlightWash(ctx, cam, dx, dy, h, str) {
 // amber windows baked into the wall texture read as actually emitting light.
 function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   const c = cam.proj(dx, dy, h * 0.55);
-  if (c.f <= 0.25 || c.f > 8) return;
+  // Eight tiles is what a radial gradient per building per frame was worth paying for. A quad is
+  // worth more of them, and a skyline whose windows stop glowing a street away is the one thing a
+  // night city must not do.
+  if (c.f <= 0.25 || c.f > (SPRITE_SINK ? 22 : 8)) return;
   const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
   const a = night * alpha * (0.04 + 0.09 * prox);
   // The warm middle of the three-stop gradient, added rather than laid over — a window bloom is
@@ -14486,7 +14489,12 @@ function glowSprite(rgb) {
   return c;
 }
 function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof glow (generalised ruin glow)
-  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
+  // ⚠ THE TIER IT ANSWERS TO DEPENDS ON WHAT IS GOING TO DRAW IT. `lodAdorn` sheds the lights past
+  // `lodNear` because on canvas they are the expensive half — and a cab's lodNear is NINE TILES, so
+  // from a truck at night everything past nine tiles lost its glow. That trade was about gradients
+  // and blits. As a depth-tested quad a glow costs six vertices, so with the sprite sink installed
+  // it sheds at the same tier a blinking beacon does and the night city keeps its lights.
+  if (SHAPE_SINK || ADORN_TIER < (SPRITE_SINK ? ADORN_CHEAP : ADORN_RICH)) return;   // adornment
   if (PERF.on) PERF.n.adorn++;
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
   // On the GPU it is a depth-tested disc rather than a probed blit — the same point, the same
@@ -18882,7 +18890,14 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     FACE_SINK = [];
     FOG_STATE = null; LIGHT_STATE = null;
     SHAPE_SINK = sink;
-    drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, fh, h, m, seed, 0, 1, 0, [0, 1], '');
+    // ⚠ AN ARCHETYPE IS CAPTURED THE SAME WAY, and it is the reason this dispatches at all. A tile
+    // whose building_type has no model of its own falls through to the shared biome set, drawn by
+    // `drawBuilding` rather than by `drawTypeModel` — and everything downstream of capture asks
+    // `shapeForModel`, which had nothing to hand back. So an archetype occluded nothing: `luxtower`
+    // is a thirty-storey tower, and contacts, lights and the own ship went straight through it.
+    // Same primitives, same sink, same affine solve; only the arm differs.
+    if (m && m.arch) drawBuilding(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, fh, h, m.arch, seed, 0, 1, 0);
+    else drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, fh, h, m, seed, 0, 1, 0, [0, 1], '');
   } finally {
     // Restore in a finally so a throwing arm can't leave the sink installed and blank the skyline.
     SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
@@ -19044,6 +19059,27 @@ const splitSpars = (all) => {
   mass.spars = all.filter((s) => s.kind === 'spar');
   return mass;
 };
+// The biome archetype sets, as model records, so `shapeForModel` can be asked about them. One
+// object per archetype and never a fresh one, because the shape cache is a WeakMap keyed on
+// IDENTITY — a new object per call would capture the same building on every frame.
+const ARCH_MODEL = new Map();
+function archModel(arch) {
+  let m = ARCH_MODEL.get(arch);
+  if (!m) { m = { type: '__arch', arch }; ARCH_MODEL.set(arch, m); }
+  return m;
+}
+
+// Every archetype the world can resolve, as {key, m} — the same shape shapeModelRegistry hands
+// back, so the smoke can hold them to the same capture and linearity gates the 172 arms answer to.
+// ⚠ THE LIST IS DERIVED FROM THE TABLE, not written out beside it: a biome or a building type added
+// to BLDG_TYPE_3D with a new archetype would otherwise be the one that is never checked.
+export function shapeArchetypeRegistry() {
+  const seen = new Set();
+  for (const s of Object.values(BLDG_TYPE_3D)) if (s && s.a) seen.add(s.a);
+  for (const b of Object.keys(BLDG_H)) seen.add(b);
+  return [...seen].map((a) => ({ key: `arch:${a}`, m: archModel(a) }));
+}
+
 export function shapeForModel(m, seed) {
   if (!m) return null;
   let e = _shapeCache.get(m);
@@ -20727,7 +20763,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         contribute(it);
         continue;
       }
-      const om = modelFor(it.c); if (!om) continue;
+      // ⚠ AN ARCHETYPE IS A BUILDING TOO. `modelFor` answers null for a building_type with no model
+      // of its own, and this used to `continue` — so the biome archetypes contributed nothing to the
+      // field at all. They are drawn, they are solid, you can fly into them, and everything the
+      // field protects showed straight through them. Captured through the same path now; a capture
+      // that cannot be solved still answers null, which is exactly the old behaviour.
+      const om = modelFor(it.c) || archModel(bldgStyle(it.c).arch);
       const segs = shapeForModel(om, it.seed); if (!segs || !segs.length) continue;
       const oh = floorHeight(it.c, it.seed);
       const ofh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;

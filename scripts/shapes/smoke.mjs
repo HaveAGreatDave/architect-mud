@@ -103,6 +103,20 @@ async function main() {
   // reproduced the failure and the constraint fixed it.
   for (const f of ws.sortOrderSmoke()) problems.push(`sort   ${f}`);
 
+  // ── AND THE BIOME ARCHETYPES CAPTURE TOO ──
+  // A building_type with no model of its own is drawn by the shared biome set, and until the
+  // occluder pass started asking about them nothing downstream of capture had ever seen one. They
+  // are solid buildings — `luxtower` is a thirty-storey tower — so the field has to know they are
+  // there, and the field can only be told by a capture that SOLVES. Same two gates the 172 arms
+  // answer to: it captures at all, and it is affine in the footprint and the storey height, checked
+  // at a scale the decomposition never saw.
+  for (const { key, m } of ws.shapeArchetypeRegistry()) {
+    const segs = ws.shapeForModel(m, 3);
+    if (!segs || !segs.length) { problems.push(`arch   ${key}: no capture — it occludes nothing`); continue; }
+    const err = ws.shapeLinearityError(m, 3);
+    if (err) problems.push(`arch   ${key}: ${err}`);
+  }
+
   // ── AND DO A BUILDING’S OWN LIGHTS SURVIVE ITS OWN OCCLUDER? ──
   // A light that is culled draws nothing and throws nothing, so a whole class of them can stop
   // reaching the screen with no symptom at all. This counts both sides of the probe over a night

@@ -397,6 +397,30 @@ blades, marquees, painted signage, the lit-window overlays — is the heavy half
 makes the rest of the quality pass affordable: **109 of 173 models emit no light after dark**, and
 gradients and blurs are the two most expensive things canvas2d does. On the GPU they are quads.
 
+### Two culling holes, closed
+
+⚠ **AN ARCHETYPE IS A BUILDING TOO, and the occluder field had never heard of one.** A tile whose
+`building_type` has no model of its own is drawn by the shared biome set — `drawBuilding`, not
+`drawTypeModel` — and everything downstream of capture asks `shapeForModel`, which answered null.
+The pre-pass duly `continue`d, so an archetype contributed nothing at all: `luxtower` is a
+thirty-storey tower, and contacts, lights and the own ship went straight through it. The capture
+path now dispatches on the arm, so an archetype is captured through the same primitives, the same
+sink and the same affine solve as the 172 models. `shapes:smoke` holds all eleven of them to the
+same two gates — it captures at all, and it is affine at a scale the decomposition never saw — and
+the archetype list is DERIVED from `BLDG_TYPE_3D` rather than written out beside it, so a new one
+cannot be the one that is never checked.
+
+The evidence is in the budget: `framecost` **fell**, 278,336 to 277,545, with eight fewer
+`shadowBlur` passes. Those are signs behind archetype buildings that had been drawing through them.
+
+⚠ **AND THE NIGHT CITY GOT ITS LIGHTS BACK PAST NINE TILES.** `lodAdorn` sheds the lights past
+`lodNear` because on canvas they are the expensive half — and a cab's `lodNear` is **nine tiles**,
+so from a truck at night everything further than that lost its glow and the far end of a lit street
+went dark. That trade was about gradients and blits. As a depth-tested quad a glow is six vertices,
+so with the sprite sink installed `glowPool` sheds at the tier a blinking beacon does, and the
+window bloom's eight-tile cull opens to twenty-two. Both are GL-only: with the flag off the ladder
+is exactly what it was, and `framecost` says so to the call.
+
 ### And one hole that is only half closed
 
 ⚠ **A painter's queue hides things by painting over them**, so the moment GLASS 2 takes the walls
