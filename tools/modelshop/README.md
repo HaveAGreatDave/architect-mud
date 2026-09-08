@@ -223,9 +223,44 @@ own fog colour, amount and 6..34 curve, and writes premultiplied alpha. One thin
 not carried over: the 2-D fade staggers each tile by up to three tiles so a row does not dissolve in
 unison, and the GL edge is the unstaggered one.
 
-Still on the 2-D side and unchanged: adornments, neon, ground, weather, actors, the HUD. The arms
-still RUN, for their lights alone — which is where the remaining frame time is, and what stage two
-is about.
+### Stage two: the detail is free
+
+Adornments are not one thing. Half of them are SURFACES — the panels, bands, louvres, sills, coping,
+jambs and soffits every piece of trim is actually built out of — and half are LIGHT: neon, glow,
+bloom, painted signage, holo. The surfaces belong in a mesh; the light does not. Stage two moves the
+first half and leaves the second exactly where it is.
+
+One function does it. Every one of those surfaces is drawn by `emitFlat`, so `emitFlat` records into
+`MESH_SINK` when a capture is running and returns without painting when GLASS 2 took the building —
+`FLAT_OFF`, which is `MASS_OFF` for things that are not mass. ⚠ **The suppression test is the capture
+test**: a quad whose fill is not a plain colour (a gradient, or a stroke-only outline) is not in the
+mesh, and a blunt flag would have deleted it from the world instead of moving it.
+
+⚠ **AND THE MESH CAPTURES AT THE NEAR TIER.** `ADORN_NEAR` is the detail that only reads from arm's
+length — a recessed doorway with a frame, glazing behind it, sills, a head soffit, mullion bars, a
+threshold step. The tier exists because running it on every building at every distance is what the
+2-D renderer cannot afford; a mesh built once and drawn through a depth buffer has no such problem,
+so **the truck driver's detail is simply always there now**. The city went from 1,191 to 2,133 faces
+on the GPU at the same cost — `world:gl` stayed at 0.13 ms — and the frame from 5.1 to **2.0 ms**.
+
+⚠ **The capture offset has to follow the entrance, and for a long time it did not.** The arm is run
+displaced from the origin so its front faces the stub camera, because sixty arms gate part of what
+they draw on `frontVis` — and that displacement was a fixed step along y, which is correct for a
+building facing north and wrong for the other three. A shop lost its doorway, its glazing and its
+mullions on three facings out of four, silently, because the shape capture only ever runs at [0,1]
+and had no reason to notice. `gl:mesh` now captures every model at **all four facings** and demands
+the same face count and the same counts by kind; the extents get a tolerance instead, because
+`draw3DBoxAt` applies its yaw in WORLD space, so a yawed box genuinely reaches a hair further on two
+facings and failing on that would mean deleting the check that matters to silence one that does not.
+
+The gate also stopped comparing adornment faces against the captured shape. Adornments are
+deliberately absent from that shape — it is what the city COLLIDES with, and a downpipe is not
+something you can fly into — so holding one against the other would fail every model with a canopy,
+and the fix would have been to stop capturing detail.
+
+Two things the port drops on purpose: `emitFlat`'s hairline **stroke** (a 1px outline is not
+geometry), and the fade **stagger** noted above. Still on the 2-D side and unchanged: neon, glow,
+bloom, painted signage, ground, weather, actors, the HUD — and the arms still RUN, for those lights.
 
 ## Forking an arm into something editable
 

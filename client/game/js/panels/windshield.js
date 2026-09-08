@@ -7592,6 +7592,35 @@ function fogWeight(f) { if (!FOG_STATE) return 0; const ff = clamp((f - FOG_NEAR
 // drawWorldObjects and read by draw3DBoxAt to shade each wall (sun-facing = warm/neon catch up top,
 // shadow-facing = cool + dark at the base). Null when off or outside the world pass.
 const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };   // '#rrggbb' → [r,g,b]; palette lives in RENDER_TUNE (live colour pickers)
+// ── A CSS COLOUR AS NUMBERS, FOR ANYTHING THAT IS NOT A CANVAS ──────────────
+// The arms speak in CSS strings because that is what a canvas takes, and a mesh needs the numbers
+// back. Handles the four forms the arms actually write; anything else answers null and the caller
+// falls back to the palette, which is the right failure — a wrong colour is worse than a default.
+// Memoised, because the answer is asked per quad per frame once GLASS 2 is on and a city is built
+// out of about twenty colours. ⚠ Not quite twenty, though: a few arms mix a colour against the
+// continuous `night`, so the key space grows slowly over a day cycle rather than being fixed. The
+// cap turns that from a leak into a reset — it is a memo, and losing it costs one parse.
+const _cssRgb = new Map();
+function cssRgb(c) {
+  if (!c || typeof c !== 'string') return null;
+  if (_cssRgb.has(c)) return _cssRgb.get(c);
+  const v = cssRgbRaw(c);
+  if (_cssRgb.size > 4096) _cssRgb.clear();
+  _cssRgb.set(c, v);
+  return v;
+}
+function cssRgbRaw(c) {
+  if (c[0] === '#') {
+    if (c.length === 4) { const n = parseInt(c.slice(1), 16); return [((n >> 8) & 15) * 17, ((n >> 4) & 15) * 17, (n & 15) * 17, 1]; }
+    if (c.length === 7) { const [r, g, b] = hexRgb(c); return [r, g, b, 1]; }
+    return null;
+  }
+  const m = /^rgba?\(([^)]+)\)$/.exec(c.trim());
+  if (!m) return null;
+  const v = m[1].split(',').map((x) => parseFloat(x));
+  if (!(v.length >= 3) || v.slice(0, 3).some((x) => !isFinite(x))) return null;
+  return [v[0], v[1], v[2], v.length > 3 && isFinite(v[3]) ? v[3] : 1];
+}
 let LIGHT_STATE = null;
 // Wall-light colour memo. A wall's lit ramp is a function of ONE scalar — litC, how squarely its
 // outward normal faces the key — so walls facing the same way share a colour exactly. Quantising
@@ -12890,7 +12919,8 @@ function modelFor(cell) {
 // shells build their faces inside their own helpers rather than through the two primitives above,
 // so they are absent from the mesh — reported as `missing`, never silently dropped. A spike that
 // quietly skipped a tenth of the city would measure a cost that is not the real one.
-const MESH_DY = -8;   // the near side, matching captureAt — see the note inside
+// How far off the origin the arm is run so its ENTRANCE faces the stub camera. See the note inside;
+const MESH_BACK = 8;
 export function captureModelMesh(m, opts = {}) {
   const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 0 } = opts;
   // ⚠ THE TIER IS LEFT ALONE, and the first cut zeroed it.  does not touch it
@@ -12898,8 +12928,14 @@ export function captureModelMesh(m, opts = {}) {
   // are supposed to describe one building. It cost the fuel yard its price pylon: 3.05 tiles of
   // captured mass with no mesh under it. Adornments do not reach the sink anyway, because they do
   // not go through the mass primitives; the ones that DO (rooftop clutter) are mass, and belong.
-  const prevMesh = MESH_SINK;
-  MESH_SINK = [];
+  // ⚠ AND IT CAPTURES AT THE NEAR TIER. `ADORN_NEAR` is the detail that only reads from arm's
+  // length — a door reveal with a frame, a sill, a soffit and a threshold; the tier exists because
+  // running it on every building at every distance is what the 2-D renderer cannot afford. A mesh
+  // has no such problem: it is built once and drawn by a depth buffer, so the truck driver's
+  // detail is simply always there. The mass is unaffected — the primitives ignore the tier, which
+  // is the invariant `shapes:smoke` already asserts by value.
+  const prevMesh = MESH_SINK, prevTier = ADORN_TIER;
+  MESH_SINK = []; ADORN_TIER = ADORN_NEAR;
   try {
     // ⚠ FROM THE FRONT, THEN TRANSLATED BACK. Sixty arms gate part of their mass on `frontVis` —
     // a door reveal, a shopfront, the fuel yard's price pylon — and the stub camera sits where the
@@ -12907,13 +12943,21 @@ export function captureModelMesh(m, opts = {}) {
     // lost 1.2 tiles of pylon that way, and the capture had it, which is how it was caught.
     //
     // The shape capture solved this first and this borrows the answer: run the arm on the NEAR side
-    // (the same `dyOff` captureAt uses) so the entrance faces the camera, then translate the
-    // vertices back. The arm places everything through its own model frame, so the offset is a
-    // rigid translation and subtracting it is exact.
-    drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, MESH_DY, fh, h, m, seed, night, 1, 1000, E);
-    for (const q of MESH_SINK) for (const p of q.p) p[1] -= MESH_DY;
+    // so the entrance faces the camera, then translate the vertices back. The arm places everything
+    // through its own model frame, so the offset is a rigid translation and subtracting it is exact.
+    //
+    // ⚠ THE OFFSET FOLLOWS THE ENTRANCE, and a fixed one along y is only right for a building that
+    // faces north. `frontVis` and every near-tier helper test E·(centre − eye) < 0, so the model has
+    // to be displaced along −E; at E = [0,1] that is the plain −8 in y this used to be, and at
+    // E = [1,0] the old offset put the door on the FAR side and the whole near tier returned early.
+    // A shop lost its recessed doorway, its glazing and its mullions that way — thirty faces of the
+    // one building a truck driver spends the most time looking at — and nothing said so, because the
+    // shape capture only ever runs at [0,1] and had no reason to notice.
+    const ox = -E[0] * MESH_BACK, oy = -E[1] * MESH_BACK;
+    drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, ox, oy, fh, h, m, seed, night, 1, 1000, E);
+    for (const q of MESH_SINK) for (const p of q.p) { p[0] -= ox; p[1] -= oy; }
     return MESH_SINK;
-  } finally { MESH_SINK = prevMesh; }
+  } finally { MESH_SINK = prevMesh; ADORN_TIER = prevTier; }
 }
 
 // The vertex-light palette a frame would arm, for a renderer that has to reproduce the shading
@@ -14044,7 +14088,40 @@ function applyRegionGrade(ctx, W, H, horizonY, g, w, now, night) {
 // DECO_LIFT-ed sign. opts.cullN = a world-XY outward normal → backface-cull a vertical face turned
 // away from the eye (same test the box walls use); opts.lift = a hair of forward bias for a face
 // mounted flush on another (kept tiny, never the 0.6 that bleeds signs through walls).
+// ── THE FLAT ADORNMENT LAYER, AND ITS OWN OFF SWITCH ────────────────────────
+// `FLAT_OFF` is `MASS_OFF` for the surfaces that are not mass: the panels, bands, louvres, slabs
+// and coping every adornment is actually made of. With GLASS 2 on they are drawn from the mesh
+// with a depth buffer under them, so the arm must not also paint them — and the arm still RUNS,
+// because the light it hangs on those surfaces is not geometry and stays on the 2-D canvas.
+let FLAT_OFF = false;
 function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
+  // Recorded ahead of the backface cull and the near-plane clip below, for the reason every other
+  // primitive records ahead of its own: a mesh is looked at from everywhere, and where the camera
+  // happens to be is not a property of the building. A flat quad carries its own colour rather
+  // than a palette key — that is what makes it flat — so it also carries a normal, worked out
+  // from the polygon itself, and its own alpha, since half of these are deliberately see-through.
+  if (MESH_SINK) {
+    const rgba = cssRgb(fill);
+    if (rgba && pts.length >= 3) {
+      // Newell: correct for a polygon that is not perfectly planar, which a clipped one is not.
+      let nx = 0, ny = 0, nz = 0;
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i], b = pts[(i + 1) % pts.length];
+        nx += (a[1] - b[1]) * (a[2] + b[2]);
+        ny += (a[2] - b[2]) * (a[0] + b[0]);
+        nz += (a[0] - b[0]) * (a[1] + b[1]);
+      }
+      const nl2 = Math.hypot(nx, ny, nz) || 1;
+      MESH_SINK.push({ kind: 'flat', seed: 0, rgbOverride: [rgba[0], rgba[1], rgba[2]],
+        alpha: rgba[3] * (alpha == null ? 1 : alpha),
+        p: pts.map((p) => [p[0], p[1], p[2]]), n: [nx / nl2, ny / nl2, nz / nl2] });
+    }
+    return;
+  }
+  // ⚠ SUPPRESSED ONLY IF THE MESH COULD TAKE IT, and the test is the same one the capture used. A
+  // quad whose fill is not a plain colour — a gradient, or a stroke-only outline with no fill at
+  // all — is not in the mesh, and a blunt flag would delete it from the world rather than move it.
+  if (FLAT_OFF && cssRgb(fill)) return;
   if (opts.cullN) {
     let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length;
     const nx = opts.cullN[0], ny = opts.cullN[1];
@@ -14104,17 +14181,21 @@ function sawtoothRoof(ctx, cam, dx, dy, E, hx, hy, z0, rh, teeth, roofc, glassc,
   // The mesh takes the same four quads per tooth the painter emits, minus the culls: a north-light
   // face is glass and a gable end is roofing, and both are surfaces a camera can end up behind.
   if (MESH_SINK) {
+    // ⚠ THE COLOUR, NOT THE CSS STRING. These four carried `css` and nothing downstream read it, so
+    // every sound-stage roof came out of the mesh wearing its palette wall texture instead of the
+    // roofing and glazing the painter gives it.
+    const roofRgb = cssRgb(roofc), glassRgb = cssRgb(glassc);
     for (let i = 0; i < teeth; i++) {
       const yb = -hy + i * step, yr = yb + step;
       const slope = Math.hypot(step, rh) || 1;
-      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, css: roofc,
+      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, rgbOverride: roofRgb,
         p: [L(-hx, yb, z0), L(hx, yb, z0), L(hx, yr, z0 + rh), L(-hx, yr, z0 + rh)],
         n: [-E[0] * rh / slope, -E[1] * rh / slope, step / slope] });
-      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, css: glassc,
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: glassRgb,
         p: [L(-hx, yr, z0 + rh), L(hx, yr, z0 + rh), L(hx, yr, z0), L(-hx, yr, z0)], n: [E[0], E[1], 0] });
-      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, css: roofc,
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: roofRgb,
         p: [L(hx, yb, z0), L(hx, yr, z0 + rh), L(hx, yr, z0)], n: [px, py, 0] });
-      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, css: roofc,
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: roofRgb,
         p: [L(-hx, yb, z0), L(-hx, yr, z0 + rh), L(-hx, yr, z0)], n: [-px, -py, 0] });
     }
     return;
@@ -19537,7 +19618,10 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
       // ⚠ THE SCREEN-SIZE GATE, and it is the whole reason ten times the parts is affordable.
       // A part smaller than its own floor is not drawn — not drawn cheaply, not queued at all.
       const dz = Math.max(0.02, Math.abs(V(d.hh || d.rail || d.r || d.half || [0, 0, 0.05])) * 2);
-      if (detailPx(cam, hostF, dz) < (DETAIL_PX[d.kind] || 6)) continue;
+      // ⚠ NEVER WHILE CAPTURING. The gate asks how big this part looks from HERE, and a capture is
+      // run against a stub camera parked eight tiles off — so honouring it would bake one camera's
+      // answer into a mesh that every camera then draws. A GPU does not need the gate at all.
+      if (!MESH_SINK && detailPx(cam, hostF, dz) < (DETAIL_PX[d.kind] || 6)) continue;
       dc.lx = V(d.cx); dc.ly = V(d.cy);
       fn(dc, d);
     }
@@ -20162,6 +20246,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // dissolves into. (4→5: a slightly softer shoulder on the emergence fade.)
   const HAZE_BAND = 5;
   const wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
+  // ── THE SUB-PHASES OF world:build ─────────────────────────────────────────
+  // Four passes over the same tiles, and the profiler could not tell them apart — so "the build
+  // phase is expensive" was as far as any measurement got. They want completely different cures:
+  // the sweep is a walk over the map, the occluder pass rasterises boxes, the shadow pass projects
+  // one polygon per building, and the arms are the model code itself.
+  pBegin('world:sweep');
   const items = [], wildF = v._wildFill;
   // ── GLASS 2: THE MASS GOES TO THE GPU ────────────────────────────────────
   // Collected here, at the very top of the sweep, because everything below this line is a CAMERA
@@ -20277,6 +20367,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     items.push({ dx, dy, f, c, alpha, off, seed: tileSeed(wx, wy), wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
+  pEnd();                      // ── end world:sweep ──
+  pBegin('world:occlude');
   // Occlusion pre-pass: walk NEAR→FAR (the reverse of the paint order) building a span buffer, and
   // mark every building already hidden behind a nearer one. See the notes above screenBox — the
   // occluder/occludee boxes are deliberately biased so this can only ever be too timid.
@@ -20468,6 +20560,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // The field is now complete and belongs to THIS camera — adornments may probe it until the
   // flush below. See decoHidden for why the window is explicit rather than "is there a field".
   DECO_OCC = !!OCC_FIELD;
+  pEnd();                      // ── end world:occlude ──
+  pBegin('world:shadow');
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
   // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
   if (sun && sun.len > 0) {
@@ -20508,6 +20602,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     key: mix(hexRgb(RENDER_TUNE.vlKeyDay), hexRgb(RENDER_TUNE.vlKeyNight), night),
     shadow: mix(hexRgb(RENDER_TUNE.vlShadowDay), hexRgb(RENDER_TUNE.vlShadowNight), night),
   } : null;
+  pEnd();                      // ── end world:shadow ──
+  pBegin('world:arms');
   beginFaces();
   for (const it of items) {
     // Fully hidden behind a nearer building (see the occlusion pre-pass), or entirely off the side
@@ -20664,9 +20760,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         const near = (TUNE.detailNear || 0) > 0 && it.f < TUNE.detailNear;
         if (glTier > 0) ADORN_TIER = Math.min(glTier, ADORN_RICH);
         else if (near) ADORN_TIER = ADORN_NEAR;
-        MASS_OFF = glMass;
+        // Both halves of the building are on the GPU now: the mass, and the flat surfaces the
+        // adornments are built out of. What is left for the arm to paint is the LIGHT — neon,
+        // glow, bloom, painted signage — which is not geometry and has no place in a mesh.
+        MASS_OFF = glMass; FLAT_OFF = glMass;
         try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd); }
-        finally { ADORN_TIER = ADORN_RICH; MASS_OFF = false; }
+        finally { ADORN_TIER = ADORN_RICH; MASS_OFF = false; FLAT_OFF = false; }
       }
     }
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
@@ -20700,6 +20799,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // Ground AA emplacements ride the SHARED face queue too (each turret emitted at its tile-centre
   // depth), so a building between you and the site occludes it instead of the turret painting on top
   // — it used to draw as a post-pass after flushFaces (the "AA showing through a building" bug).
+  pEnd();                      // ── end world:arms ──
+  pBegin('world:street');
   if (v.aaSites && (v.worldBlend ?? 1) > 0.02) drawAASites(ctx, cam, v, now);
   // THE PEOPLE. Queued into the same face sink for the same reason the AA sites are: a figure on
   // the far pavement must be hidden by the building between you and them, not painted over it.
@@ -20718,6 +20819,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // suppresses them — 'drawStreetActors' returns early on an empty set and this must not ride it.
     drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR);
   }
+  pEnd();                      // ── end world:street ──
   pEnd();                      // ── end world:build (queueing) ──
   // ── GLASS 2: THE MASS, COMPOSITED WHERE THE MASS WAS ──────────────────────
   // Here, and not by stacking canvases. The 2-D pass paints an opaque sky and an opaque ground over

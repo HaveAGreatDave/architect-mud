@@ -17,18 +17,25 @@
 // city nobody can see.
 import { viewProjMatrix } from './camera.js';
 
+// Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1.
+const STRIDE = 14;
+
 const VERT = `#version 300 es
 in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
 in vec2 aUV;
 in float aRamp;
+in float aAlpha;
+in float aFlat;
 uniform mat4 uViewProj;
 out vec3 vNormal;
 out vec3 vColor;
 out vec2 vUV;
 out float vRamp;
 out float vDepth;
+out float vAlpha;
+out float vFlat;
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
   gl_Position = clip;
@@ -36,6 +43,8 @@ void main() {
   vColor = aColor;
   vUV = aUV;
   vRamp = aRamp;
+  vAlpha = aAlpha;
+  vFlat = aFlat;
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
 
@@ -49,6 +58,8 @@ in vec3 vColor;
 in vec2 vUV;
 in float vRamp;
 in float vDepth;
+in float vAlpha;
+in float vFlat;
 uniform sampler2D uAtlas;
 uniform float uTextured;
 uniform vec3 uKeyDir;
@@ -70,7 +81,12 @@ void main() {
   // The palette colour is what a flat-shaded face gets; the atlas is what a textured one gets.
   // Mixed rather than branched because a branch here is a branch per fragment, and the untextured
   // path exists only for the silhouette comparison.
-  vec3 surf = mix(vColor, texture(uAtlas, vUV).rgb, clamp(uTextured, 0.0, 1.0));
+  // ⚠ A FLAT FACE IS ITS OWN COLOUR AND NOTHING ELSE. The panels, bands, louvres and coping the
+  // adornments are made of are painted by the 2-D renderer as ONE fill — no wall texture, no light
+  // ramp — so a shader that helpfully textured and shaded them would not be reproducing GLASS, it
+  // would be improving on it, which is the one thing a port must not do.
+  float solid = 1.0 - clamp(vFlat, 0.0, 1.0);
+  vec3 surf = mix(vColor, texture(uAtlas, vUV).rgb, clamp(uTextured, 0.0, 1.0) * solid);
   // wallLit's own two overlays, per fragment instead of as a canvas gradient: a warm top tinted
   // between sky and key by the light dot, and a darker base, both at alphas that depend on that
   // same dot. A flat tint is what this looked like before, and a flat tint reads as a wall painted
@@ -79,7 +95,7 @@ void main() {
   float aTop = uStr * (0.06 + 0.14 * lit);
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
   vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(vRamp, 0.0, 1.0));
-  vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0));
+  vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0) * solid);
   // GLASS's own fog curve, squared, scaled by the same amount its slider sets — see fogWeight.
   float ff = clamp((vDepth - uFogNear) / max(0.001, uFogFar - uFogNear), 0.0, 1.0);
   float fog = ff * ff * uFogAmt;
@@ -88,7 +104,7 @@ void main() {
   // popping in — and this buffer is composited onto that same frame, so a mass that stayed opaque
   // to its last tile would paint a hard edge over the haze the rest of the picture dissolves into.
   // Premultiplied, because the canvas is.
-  float a = 1.0 - smoothstep(uHazeNear, uHazeFar, vDepth);
+  float a = (1.0 - smoothstep(uHazeNear, uHazeFar, vDepth)) * clamp(vAlpha, 0.0, 1.0);
   outColor = vec4(mix(base, uFog, fog) * a, a);
 }`;
 
@@ -120,6 +136,8 @@ export function createGLView(canvas) {
     color: gl.getAttribLocation(prog, 'aColor'),
     uv: gl.getAttribLocation(prog, 'aUV'),
     ramp: gl.getAttribLocation(prog, 'aRamp'),
+    alpha: gl.getAttribLocation(prog, 'aAlpha'),
+    flat: gl.getAttribLocation(prog, 'aFlat'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     key: gl.getUniformLocation(prog, 'uKey'),
@@ -175,7 +193,7 @@ export function createGLView(canvas) {
   function uploadGroups(groups, rectOf) {
     let verts = 0;
     for (const g of groups) for (const f of g.faces) verts += (f.p.length - 2) * 3;
-    const data = new Float32Array(verts * 12);
+    const data = new Float32Array(verts * STRIDE);
     let o = 0;
     for (const grp of groups) {
       const ox = grp.ox || 0, oy = grp.oy || 0;
@@ -187,6 +205,8 @@ export function createGLView(canvas) {
         const uv = f.uv || null, rc = (rectOf ? rectOf(f) : f.rect) || [0, 0, 0, 0];
         const u0 = rc[0], v0 = rc[1], du = rc[2] - rc[0], dv = rc[3] - rc[1];
         const cr = r / 255, cg = g / 255, cb = b / 255;
+        const fa = f.alpha == null ? 1 : f.alpha;
+        const flat = f.kind === 'flat' ? 1 : 0;
         // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
         // its light as a gradient down each wall, so a shader that wants the same picture needs to
         // know where in the wall it is. A horizontal face has no extent and takes the top end.
@@ -202,7 +222,9 @@ export function createGLView(canvas) {
             data[o + 6] = cr; data[o + 7] = cg; data[o + 8] = cb;
             data[o + 9] = u0 + du * (t ? t[0] : 0); data[o + 10] = v0 + dv * (t ? t[1] : 0);
             data[o + 11] = (z1 - p[2]) / dz;
-            o += 12;
+            data[o + 12] = fa;
+            data[o + 13] = flat;
+            o += STRIDE;
           }
         }
       }
@@ -216,12 +238,14 @@ export function createGLView(canvas) {
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    const S = 12 * 4;
+    const S = STRIDE * 4;
     gl.enableVertexAttribArray(loc.pos); gl.vertexAttribPointer(loc.pos, 3, gl.FLOAT, false, S, 0);
     gl.enableVertexAttribArray(loc.normal); gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, S, 12);
     gl.enableVertexAttribArray(loc.color); gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, S, 24);
     if (loc.uv >= 0) { gl.enableVertexAttribArray(loc.uv); gl.vertexAttribPointer(loc.uv, 2, gl.FLOAT, false, S, 36); }
     if (loc.ramp >= 0) { gl.enableVertexAttribArray(loc.ramp); gl.vertexAttribPointer(loc.ramp, 1, gl.FLOAT, false, S, 44); }
+    if (loc.alpha >= 0) { gl.enableVertexAttribArray(loc.alpha); gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, S, 48); }
+    if (loc.flat >= 0) { gl.enableVertexAttribArray(loc.flat); gl.vertexAttribPointer(loc.flat, 1, gl.FLOAT, false, S, 52); }
     gl.bindVertexArray(null);
     return count;
   }
