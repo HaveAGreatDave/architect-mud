@@ -9,6 +9,9 @@
 // 'single quotes', never backticks. Most markup here is built through the DOM instead.
 import { initToolbox, toggleToolbox } from './toolbox.js';
 import { glDraw, glHide, glShown, glAvailable } from './glview.js';
+// The cost half of the spike. It registers window.__glBench and nothing else — a benchmark with
+// a button is a benchmark somebody runs by accident.
+import './glbench.js';
 import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,

@@ -58,6 +58,19 @@ no-ops. `captureShape` runs the real `drawTypeModel` against a stub ctx/cam and 
 **On a real frame `SHAPE_SINK` is null**, so every guard is `if (null) return;` and the arms are
 byte-for-byte what they were. `drawWorldObjects` asserts it is null on entry and logs if it leaked.
 
+### A fourth sink: the mesh
+
+`MESH_SINK` is the same trick as `SHAPE_SINK`, one level lower. With it set, `draw3DBoxAt`,
+`drawFacetDrum`, `drawBarrelRoof` and `sawtoothRoof` record their faces in **world space** and return
+without painting, so the GL spike's vertices come out of the primitives that already draw the city.
+`captureModelMesh(m, opts)` is the entry point and `npm run gl:mesh` is the gate.
+
+Two differences from the painted path, and both are because GL does that work itself: **no backface
+cull** (the depth buffer decides) and **no near clip** (the frustum does). And one from the capture:
+the mesh is built from the **near side** (`dyOff` as `captureAt` uses) and translated back, because
+sixty arms gate part of their mass on `frontVis` and a mesh built at the origin is missing all of it
+— the fuel yard's price pylon was 1.2 tiles of captured mass with no mesh under it.
+
 ### The three flags
 
 | flag | when set | effect |

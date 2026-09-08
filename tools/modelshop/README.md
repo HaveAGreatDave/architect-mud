@@ -79,6 +79,64 @@ Its two lists are read from the schema, never from a list of names in the panel 
 tools grey out on a hand-written arm, and the tooltip says why. A piece added here and a piece
 added from the rail share one `defaultPart()`, so both arrive the same size.
 
+## The GL spike
+
+Press <kbd>G</kbd> (or the **GL** button) and the same model is drawn again through WebGL2, over the
+2-D picture, at the same camera. It exists to answer one question with evidence rather than
+argument: **should GLASS stop being a 2-D painter and become a real 3-D renderer?**
+
+Four criteria were set before any of it was written. All four are now answered.
+
+**1. Is it the same camera?** GLASS projects by hand — `sx = cx + FL·(l/f)`,
+`sy = horizonY − depth·(u/f)` — which is not an approximation of a perspective camera, it *is* one:
+a pinhole with two focal lengths and a principal point well above centre, because the horizon is.
+[client/game/js/panels/gl/camera.js](../../client/game/js/panels/gl/camera.js) writes it as a 4×4 and
+`npm run gl:parity` checks it: **2,811 projections across nine headings, four eye heights, five
+pitches and three chase offsets, worst disagreement 4.9×10⁻¹⁰ px.** A deliberate 0.1% focal error
+fails the gate. This mattered more than it looks — a second renderer drawing the same city through a
+slightly different camera would look like an improvement and *be* a regression, since collision, the
+shadows, the occlusion field and the cold open all read the same geometry.
+
+**2. Is it the same building?** `MESH_SINK` is `SHAPE_SINK` one level lower: with it set, a mass
+primitive records its faces in world space and returns without painting, so the vertices come out of
+the code that already draws the city rather than from a second opinion about what a box is.
+`npm run gl:mesh` holds it against the captured shape the sim collides with: **7,977 faces / 16,856
+triangles over all 173 models, every one agreeing, no kinds missing.**
+
+**3. Does it cost less?** Measured in the browser with `__glBench()`, on a 73-building city:
+
+| | |
+|---|---|
+| the 2-D building pass | **3.6 ms** (measured as the same map with the buildings minus without) |
+| the same geometry in GL | **0.02–0.04 ms** |
+| GL at 100× the triangles (286,600, all on screen) | **0.67–1.06 ms** |
+
+So a hundred times the detail still costs a third of what today's renderer costs at one times. The
+criterion was 3× headroom; the answer is about two orders of magnitude.
+
+**4. Does it look like the same city?** Silhouette agreement between the two renderers at one camera,
+sampled over the frame: office 100%, warehouse 100%, halcyontowers 98.3%, the KSAB sound stage 95.9%.
+The warehouse read 83.7% until barrel roofs were added to the mesh sink — the coverage gap and the
+fidelity gap turning out to be one fact seen twice, which is the sort of agreement that makes a
+measurement worth trusting.
+
+⚠ **What the spike deliberately is not.** No textures (a GL building reads as the right building in
+the wrong finish), no adornments, no ground, no weather, and not wired into `paintWindshield` at
+all. It answers whether the same city can be drawn with a depth buffer from the same seat, and stops.
+
+⚠ **Three ways it drew nothing before it drew anything**, each with no error to go on, and each now
+written into the file it happened in: `renderModelPreview` returns a *wrapper* (`{cam, dx, dy}`), so
+reading `FL` off it gives `undefined` and a matrix of NaN; the mesh is model-local and centred where
+the camera stands; and an axis swap added as hospitality to a GL convention the matrix does not use.
+
+⚠ **And three ways the benchmark lied before it told the truth.** `gl.finish()` on a canvas nobody
+composites returns instantly, so every scale reported an identical 0.005 ms — 2,866 triangles and
+286,600 cannot cost the same, which is how the measurement announced it was not one; a `readPixels`
+stalls properly. Tiling the city outward put the extra geometry outside the frustum, so 100× measured
+*faster* than 10× — the copies now land on the same buildings. And the readback is not free, so it is
+measured against an empty scene and subtracted. The first run of a session is still noisy; take the
+second.
+
 ## Forking an arm into something editable
 
 The answer to "can I edit this building?" for the 172 models that are code. The arm itself cannot

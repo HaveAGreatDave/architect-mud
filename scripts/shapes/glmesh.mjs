@@ -69,14 +69,17 @@ for (const { key, m } of ws.shapeModelRegistry()) {
   // thing on the model — that is the coverage gap, reported below rather than failed here. What it
   // may never be is TALLER or WIDER than the shape the rest of the engine reads, because that is a
   // building whose picture is bigger than its collision.
-  const buildable = [...kinds].every((k) => k === 'box' || k === 'drum');
+  // Every kind the mesh sink knows how to record. A kind outside this list has no vertices at
+  // all, and the model it appears on is reported as a coverage gap rather than compared.
+  const MESHED = ['box', 'drum', 'barrel', 'sawtooth'];
+  const buildable = [...kinds].every((k) => MESHED.includes(k));
   if (mz1 > sz1 + TOL) problems.push(`${key}: the mesh stands ${(mz1 - sz1).toFixed(4)} taller than the captured shape`);
   if (mr > sr + 0.02) problems.push(`${key}: the mesh reaches ${(mr - sr).toFixed(4)} wider than the captured shape`);
   if (buildable) {
     if (Math.abs(mz1 - sz1) > 1e-3) problems.push(`${key}: mesh top ${mz1.toFixed(4)} vs captured ${sz1.toFixed(4)}`);
     if (Math.abs(mz0 - sz0) > 1e-3) problems.push(`${key}: mesh base ${mz0.toFixed(4)} vs captured ${sz0.toFixed(4)}`);
   } else {
-    for (const k of kinds) if (k !== 'box' && k !== 'drum') gaps.set(k, (gaps.get(k) || 0) + 1);
+    for (const k of kinds) if (!MESHED.includes(k)) gaps.set(k, (gaps.get(k) || 0) + 1);
   }
 }
 

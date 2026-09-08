@@ -8611,6 +8611,27 @@ function drawBarrelRoof(ctx, cam, F, cxL, hl, hw, wallTop, archH, NF, alpha, bas
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   const [ox, oy] = F(0, 0), [rx, ry] = F(1, 0), [fx, fy] = F(0, 1);
   const RX = rx - ox, RY = ry - oy, FX = fx - ox, FY = fy - oy;   // world basis per local unit
+  // The mesh, from the same arc the painter is about to walk. Both ends are recorded, unlike the
+  // painted path which culls the far tympanum — a mesh is looked at from everywhere.
+  if (MESH_SINK) {
+    const W = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return [wx, wy, z]; };
+    const lxB = (t) => cxL + hl * Math.cos(t), zB = (t) => wallTop + archH * Math.sin(t);
+    for (let k = 0; k < NF; k++) {
+      const t0 = k / NF * Math.PI, t1 = (k + 1) / NF * Math.PI, tm = (t0 + t1) / 2;
+      // The panel normal is the arc normal, turned into world by the same basis the frame gives.
+      const nlx = Math.cos(tm), nlz = Math.sin(tm);
+      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, rgbOverride: base,
+        p: [W(lxB(t0), -hw, zB(t0)), W(lxB(t0), hw, zB(t0)), W(lxB(t1), hw, zB(t1)), W(lxB(t1), -hw, zB(t1))],
+        n: [nlx * RX / (Math.hypot(RX, RY) || 1), nlx * RY / (Math.hypot(RX, RY) || 1), nlz] });
+    }
+    for (const sgn of [1, -1]) {
+      const pts = [W(cxL + hl, sgn * hw, wallTop)];
+      for (let k = 0; k <= NF; k++) { const t = k / NF * Math.PI; pts.push(W(lxB(t), sgn * hw, zB(t))); }
+      const nl2 = Math.hypot(FX, FY) || 1;
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: base, p: pts, n: [sgn * FX / nl2, sgn * FY / nl2, 0] });
+    }
+    return;
+  }
   const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
   const shade = (s) => `rgb(${Math.min(255, base[0] * s) | 0},${Math.min(255, base[1] * s) | 0},${Math.min(255, base[2] * s) | 0})`;
   const facesCam = (nlx, nly, clx, cly) => { const NX = nlx * RX + nly * FX, NY = nlx * RY + nly * FY, [cx, cy] = F(clx, cly); return NX * cx + NY * cy - (NX * (cam.ex || 0) + NY * (cam.ey || 0)) < 0; };
@@ -14020,6 +14041,24 @@ function sawtoothRoof(ctx, cam, dx, dy, E, hx, hy, z0, rh, teeth, roofc, glassc,
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   const L = (lx, ly, z) => { const w = facePt(dx, dy, lx, ly, E); return [w[0], w[1], z]; };
   const px = E[1], py = -E[0], step = (2 * hy) / teeth;
+  // The mesh takes the same four quads per tooth the painter emits, minus the culls: a north-light
+  // face is glass and a gable end is roofing, and both are surfaces a camera can end up behind.
+  if (MESH_SINK) {
+    for (let i = 0; i < teeth; i++) {
+      const yb = -hy + i * step, yr = yb + step;
+      const slope = Math.hypot(step, rh) || 1;
+      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, css: roofc,
+        p: [L(-hx, yb, z0), L(hx, yb, z0), L(hx, yr, z0 + rh), L(-hx, yr, z0 + rh)],
+        n: [-E[0] * rh / slope, -E[1] * rh / slope, step / slope] });
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, css: glassc,
+        p: [L(-hx, yr, z0 + rh), L(hx, yr, z0 + rh), L(hx, yr, z0), L(-hx, yr, z0)], n: [E[0], E[1], 0] });
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, css: roofc,
+        p: [L(hx, yb, z0), L(hx, yr, z0 + rh), L(hx, yr, z0)], n: [px, py, 0] });
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, css: roofc,
+        p: [L(-hx, yb, z0), L(-hx, yr, z0 + rh), L(-hx, yr, z0)], n: [-px, -py, 0] });
+    }
+    return;
+  }
   for (let i = 0; i < teeth; i++) {
     const yb = -hy + i * step, yr = yb + step;   // slab back edge → ridge (front) edge
     emitFlat(ctx, cam, [L(-hx, yb, z0), L(hx, yb, z0), L(hx, yr, z0 + rh), L(-hx, yr, z0 + rh)], roofc, alpha, { stroke: edge, lw: 1 });                                     // sloped roofing panel (top-facing)
