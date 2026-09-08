@@ -87,6 +87,17 @@
   #blist .item.on { background: #1d2732; color: var(--ms-accent); }
   #blist .item .k { color: var(--ms-dim); font-size: 10px; margin-left: auto; }
   #blist .item .badge { color: #7ee787; font-size: 10px; }
+
+  /* the texture (palette) picker */
+  .sw { width: 13px; height: 13px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; cursor: pointer; }
+  #palgrid { flex: 1; overflow: auto; padding: 4px 0; }
+  #palgrid .grp { padding: 9px 12px 3px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
+  #palgrid .wrapg { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 3px; padding: 5px 12px; }
+  #palgrid .pk { display: flex; gap: 6px; align-items: center; padding: 3px 5px; cursor: pointer; border: 1px solid transparent; border-radius: 3px; font-size: 11px; }
+  #palgrid .pk:hover { background: #1d2732; border-color: var(--ms-line); }
+  #palgrid .pk.on { border-color: var(--ms-accent); color: var(--ms-accent); }
+  #palgrid .pk i { width: 15px; height: 15px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; }
+  #palgrid .pk span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -151,6 +162,17 @@
     </section>
   </div>
 </div>
+
+<dialog id="paldlg">
+  <div id="browser">
+    <div id="bhead">
+      <input id="palsearch" placeholder="filter textures…" autocomplete="off">
+      <span id="palcount" class="dim"></span>
+      <button id="palclose">Close</button>
+    </div>
+    <div id="palgrid"></div>
+  </div>
+</dialog>
 
 <dialog id="browserdlg">
   <div id="browser">

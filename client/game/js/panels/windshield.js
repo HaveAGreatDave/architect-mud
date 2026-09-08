@@ -5530,6 +5530,40 @@ const _tex = new Map();
 // tool cannot mutate the renderer's colours, and so there is never a second copy of these ~300
 // names to drift from this one.
 export const wallPaletteKeys = () => Object.keys(WALL_COL).sort();
+
+// ── THE PALETTE IS THE TEXTURE, AND THIS IS THE WHOLE OF IT ─────────────────
+// `draw3DBoxAt` takes one surface argument — `biome`, a palette key — and hands it to
+// wallTexMixed, which picks BOTH the colour and the material generator from it. (The
+// `seed` parameter beside it does not reach the texture at all.) So there is no separate
+// texture layer to expose: choosing a palette key IS choosing a surface.
+//
+// What an author could not previously see is which of the sixteen materials a key lands
+// in, or what colour it is without flying to a building wearing it. This says both, from
+// the sets themselves, so a picker can group by material without a second copy of them.
+// ⚠ Built on first CALL, not at module load. The material sets are declared ~600 lines
+// below this, so naming them in a module-level array is a temporal dead zone that throws
+// on import — which takes the whole client down, not just the palette readout.
+let _wallMaterials = null;
+function wallMaterials() {
+  if (_wallMaterials) return _wallMaterials;
+  _wallMaterials = [
+    ['metal', METAL_WALL], ['glass', GLASS_WALL], ['deco', DECO_WALL], ['struct', STRUCT_WALL],
+    ['pump', PUMP_WALL], ['plain', PLAIN_WALL], ['stone', STONE_WALL], ['brick', BRICK_WALL],
+    ['plate', PLATE_WALL], ['lattice', LATTICE_WALL], ['concrete', CONCRETE_WALL],
+    ['bale', BALE_WALL], ['brass', BRASS_WALL], ['tile', TILE_WALL], ['stucco', STUCCO_WALL],
+    ['timber', TIMBER_WALL],
+  ];
+  return _wallMaterials;
+}
+export function wallMaterialOf(key) {
+  for (const [name, set] of wallMaterials()) if (set.has(key)) return name;
+  return 'window grid';   // the default facade: a lit window grid, not a bare fill
+}
+export function wallPaletteInfo() {
+  return Object.keys(WALL_COL).sort().map((key) => ({
+    key, rgb: WALL_COL[key], material: wallMaterialOf(key),
+  }));
+}
 export function setObjectTexture(key, img) { if (img) _tex.set(key, img); }
 function getTex(key, gen) { let t = _tex.get(key); if (!t) { t = gen(); _tex.set(key, t); } return t; }
 function texCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }

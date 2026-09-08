@@ -20,7 +20,7 @@
 import {
   SEG_SCHEMA, ADORN_SCHEMA, DEFAULT_BASIS, compileModel, validateModel,
 } from '/client/shared/building-model-schema.js';
-import { wallPaletteKeys } from '/client/game/js/panels/windshield.js';
+import { wallPaletteKeys, wallPaletteInfo } from '/client/game/js/panels/windshield.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -67,6 +67,7 @@ async function reload() {
   const r = await fetch('/api/models').then((x) => x.json());
   for (const { file, doc } of r.models || []) {
     docs.set(file, doc);
+    baseline.set(file, JSON.stringify(doc));
     for (const b of doc.bind || []) {
       const key = b.by === 'name'
         ? 'named:' + String(b.key).toLowerCase().replace(/[^a-z0-9]+/g, '')
@@ -75,6 +76,122 @@ async function reload() {
     }
   }
 }
+
+// ── THE TEXTURE PICKER ──────────────────────────────────────────────────────
+// In GLASS the palette key IS the surface: draw3DBoxAt takes one surface argument and
+// wallTexMixed derives BOTH the colour and the material generator from it. So picking a
+// texture is picking a palette key — and until now that was a text field, which meant
+// choosing one required knowing 283 names and what each looked like.
+//
+// The grid groups by MATERIAL, which is the thing an author is actually choosing between
+// (brick, glass, corrugated metal, art-deco limestone). Both the grouping and the swatch
+// come from wallPaletteInfo(), so there is no second copy of the sets here.
+let palTarget = null;   // { get, set } for whichever field opened it
+
+export function openPalettePicker(target) {
+  palTarget = target;
+  renderPalette(document.getElementById('palsearch').value);
+  document.getElementById('paldlg').showModal();
+}
+
+export function renderPalette(filter) {
+  const q = (filter || '').trim().toLowerCase();
+  const rows = wallPaletteInfo().filter((p) => !q || p.key.toLowerCase().includes(q) || p.material.includes(q));
+  document.getElementById('palcount').textContent = rows.length + ' of ' + wallPaletteInfo().length;
+  const groups = new Map();
+  for (const p of rows) {
+    if (!groups.has(p.material)) groups.set(p.material, []);
+    groups.get(p.material).push(p);
+  }
+  const host = document.getElementById('palgrid');
+  host.textContent = '';
+  const cur = palTarget ? palTarget.get() : null;
+  for (const [mat, list] of [...groups.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    const h = el('div', 'grp', mat + '  (' + list.length + ')');
+    host.append(h);
+    const wrap = el('div', 'wrapg');
+    for (const p of list) {
+      const b = el('div', 'pk' + (p.key === cur ? ' on' : ''));
+      const sw = el('i');
+      sw.style.background = 'rgb(' + p.rgb[0] + ',' + p.rgb[1] + ',' + p.rgb[2] + ')';
+      const nm = el('span', null, p.key);
+      b.append(sw, nm);
+      b.onclick = () => { if (palTarget) palTarget.set(p.key); document.getElementById('paldlg').close(); };
+      wrap.append(b);
+    }
+    host.append(wrap);
+  }
+}
+
+// ── UNDO ────────────────────────────────────────────────────────────────────
+// A drag writes numbers into the doc on every mousemove, so an editor without undo means
+// one careless gesture and the only way back is retyping the model. The stack holds whole
+// documents rather than a diff: a model is a few kilobytes, the operations are varied
+// (move, add, reorder, palette, delete), and a per-operation inverse for each of them is a
+// lot of code that can be subtly wrong. Snapshots cannot be.
+//
+// ⚠ A DRAG IS ONE UNDO STEP, NOT SIXTY. push() coalesces by tag+file inside a short window,
+// so dragging a piece across the viewport is a single entry and Ctrl+Z puts it back where
+// it started rather than a pixel to the left.
+// ⚠ THE SNAPSHOT PUSHED IS THE STATE BEFORE THE EDIT, AND THAT IS THE WHOLE TRICK.
+// A form field mutates the doc and THEN calls back, so snapshotting `doc` at that moment
+// captures the change you are trying to undo — Ctrl+Z restores what you already have and
+// looks broken. So a BASELINE per file holds the state as of the last undo entry: a push
+// stores the baseline and then advances it to the current doc. The first baseline is taken
+// when the documents load.
+const UNDO_LIMIT = 60;
+const COALESCE_MS = 700;
+const undoStack = [];
+const redoStack = [];
+const baseline = new Map();   // file -> JSON as of the last undo entry
+let lastPush = { tag: null, file: null, at: 0 };
+
+export function pushUndo(file, doc, tag = 'edit') {
+  if (!file || !doc) return;
+  const now = Date.now();
+  // Coalesce a run of the same kind of edit — a drag, or typing into one field — into one
+  // step. The baseline deliberately does NOT advance while coalescing, so the whole run
+  // undoes back to where it started.
+  if (tag === lastPush.tag && file === lastPush.file && now - lastPush.at < COALESCE_MS) {
+    lastPush.at = now;
+    return;
+  }
+  lastPush = { tag, file, at: now };
+  const before = baseline.get(file);
+  if (before !== undefined) {
+    undoStack.push({ file, snap: before });
+    if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+    redoStack.length = 0;   // a new edit forks the future
+  }
+  baseline.set(file, JSON.stringify(doc));
+}
+
+function restore(from, to) {
+  const e = from.pop();
+  if (!e) return null;
+  const doc = docs.get(e.file);
+  if (!doc) return null;
+  to.push({ file: e.file, snap: JSON.stringify(doc) });
+  baseline.set(e.file, e.snap);
+  // Replace the CONTENTS, not the reference — app.js and the form both hold this object.
+  for (const k of Object.keys(doc)) delete doc[k];
+  Object.assign(doc, JSON.parse(e.snap));
+  dirty.add(e.file);
+  lastPush = { tag: null, file: null, at: 0 };
+  return e.file;
+}
+
+// The viewport edits by KEY and has no idea which file backs it, so it snapshots through
+// this rather than app.js learning the file map.
+export function pushUndoFor(key, tag = 'edit') {
+  const file = keyToFile.get(key);
+  const doc = file && docs.get(file);
+  if (doc) pushUndo(file, doc, tag);
+}
+
+export const undo = () => restore(undoStack, redoStack);
+export const redo = () => restore(redoStack, undoStack);
+export const undoDepth = () => undoStack.length;
 
 // ── the form ────────────────────────────────────────────────────────────────
 // Generated from the schema, never hand-written per field. A field added to SEG_SCHEMA is
@@ -114,6 +231,29 @@ function numField(part, name, defTag, onEdit) {
   return wrap;
 }
 
+// One palette control, used by the model-level field and every segment's. A swatch you can
+// click to open the grid, the key itself, and the derived MATERIAL — which is the half an
+// author could not see before, because the material generator is chosen off the same key.
+function paletteField(get, set, onEdit) {
+  const wrap = el('div', 'fld');
+  wrap.append(el('label', null, 'pal'));
+  const sw = el('i', 'sw');
+  const inp = el('input'); inp.type = 'text'; inp.value = get() || '';
+  inp.setAttribute('list', 'palkeys');
+  const known = new Map(wallPaletteInfo().map((x) => [x.key, x]));
+  const paint = () => {
+    const info = known.get(inp.value);
+    inp.classList.toggle('warn', !!inp.value && !info);
+    sw.style.background = info ? 'rgb(' + info.rgb.join(',') + ')' : 'transparent';
+    sw.title = info ? inp.value + ' — ' + info.material : 'unknown palette key';
+  };
+  paint();
+  sw.onclick = () => openPalettePicker({ get: () => inp.value, set: (k) => { inp.value = k; set(k); paint(); onEdit(); } });
+  inp.oninput = () => { set(inp.value || null); paint(); onEdit(); };
+  wrap.append(sw, inp);
+  return wrap;
+}
+
 function plainField(part, name, type, onEdit) {
   const wrap = el('div', 'fld');
   wrap.append(el('label', null, name));
@@ -121,14 +261,7 @@ function plainField(part, name, type, onEdit) {
   // from the palette key, so choosing one is how a piece changes surface. Backed by the real
   // WALL_COL list, and a key that is not in it turns amber rather than silently going grey.
   if (name === 'pal') {
-    const inp = el('input'); inp.type = 'text'; inp.value = part[name] ?? '';
-    inp.setAttribute('list', 'palkeys');
-    const known = new Set(wallPaletteKeys());
-    const mark = () => inp.classList.toggle('warn', !!inp.value && !known.has(inp.value));
-    mark();
-    inp.oninput = () => { if (inp.value) part[name] = inp.value; else delete part[name]; mark(); onEdit(); };
-    wrap.append(inp);
-    return wrap;
+    return paletteField(() => part.pal, (v) => { if (v) part.pal = v; else delete part.pal; }, onEdit);
   }
   if (type === 'boolean') {
     const inp = el('input'); inp.type = 'checkbox';
@@ -206,7 +339,8 @@ export function renderEditor(host, key, redraw) {
     return;
   }
 
-  const onEdit = () => { dirty.add(file); redraw(); };
+  // Tagged so a run of keystrokes in one field is ONE undo step, not one per character.
+  const onEdit = (tag) => { pushUndo(file, doc, tag || 'edit'); dirty.add(file); redraw(); };
 
   const top = el('div', 'etop');
   top.append(el('span', 'dim', file + (dirty.has(file) ? ' •' : '')));
@@ -224,27 +358,51 @@ export function renderEditor(host, key, redraw) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   };
-  top.append(save, exp, del);
+  const imp = el('button', '', 'Import');
+  imp.title = 'Replace this model from a .json file';
+  imp.onclick = () => {
+    const inp = el('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      const bar = $('esave');
+      try {
+        const next = JSON.parse(await f.text());
+        // Validated BEFORE it lands, with the same validator the server and the bake run —
+        // so a file from somewhere else cannot put the editor into a state the build rejects.
+        const v = validateModel(next, f.name);
+        if (v.errors.length) {
+          bar.className = 'err';
+          bar.textContent = 'not imported — ' + v.errors.slice(0, 2).join(' / ');
+          return;
+        }
+        pushUndo(file, doc, 'import');
+        for (const k of Object.keys(doc)) delete doc[k];
+        Object.assign(doc, next);
+        dirty.add(file);
+        bar.className = 'ok';
+        bar.textContent = 'imported ' + f.name + ' — not saved yet';
+        redraw();
+      } catch (e) {
+        bar.className = 'err';
+        bar.textContent = 'not imported — ' + e.message;
+      }
+    };
+    inp.click();
+  };
+  top.append(save, exp, imp, del);
   host.append(top);
 
   // The palette list comes from WALL_COL itself, never a second copy of ~300 key names. A free
   // text field was the first cut and it is the wrong shape: a mistyped palette does not fail, it
   // silently falls back to grey, which looks like a rendering bug rather than a typo.
-  const idf = el('div', 'fld');
-  idf.append(el('label', null, 'palette'));
-  const pal = el('input'); pal.type = 'text'; pal.value = doc.pal || ''; pal.setAttribute('list', 'palkeys');
-  let dl = document.getElementById('palkeys');
-  if (!dl) {
-    dl = el('datalist'); dl.id = 'palkeys';
+  // The datalist backs every palette input on the page, so it is built once.
+  if (!document.getElementById('palkeys')) {
+    const dl = el('datalist'); dl.id = 'palkeys';
     for (const k of wallPaletteKeys()) { const o = el('option'); o.value = k; dl.append(o); }
     document.body.append(dl);
   }
-  const known = new Set(wallPaletteKeys());
-  const markPal = () => pal.classList.toggle('warn', !!pal.value && !known.has(pal.value));
-  markPal();
-  pal.oninput = () => { if (pal.value) doc.pal = pal.value; else delete doc.pal; markPal(); onEdit(); };
-  idf.append(pal);
-  host.append(idf);
+  host.append(paletteField(() => doc.pal, (v) => { if (v) doc.pal = v; else delete doc.pal; }, onEdit));
 
   host.append(el('h3', null, 'Segments — paint order'));
   doc.segs = doc.segs || [];

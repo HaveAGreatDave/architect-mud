@@ -13,7 +13,10 @@ import {
   ADORN_RICH, ADORN_NEAR, buildingScaleFor,
   renderVehiclePreview, VEHICLE_CLASSES, TRUCK_VARIANTS, vehicleBounds, previewFit,
 } from '/client/game/js/panels/windshield.js';
-import { initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty } from './editor.js';
+import {
+  initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty, renderPalette,
+  pushUndoFor, undo, redo,
+} from './editor.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -494,6 +497,9 @@ function initViewport() {
     const doc = editorDocFor(state.key);
     if (best && doc) {
       selectedSeg = best.i;
+      // One snapshot taken at grab time; the drag's own writes coalesce into that single
+      // step, so Ctrl+Z puts the piece back where you picked it up rather than a pixel left.
+      pushUndoFor(state.key, 'gizmo');
       const s = doc.segs[best.i];
       act = {
         kind: 'edit', i: best.i, f: best.f, sx, sy, k,
@@ -710,6 +716,8 @@ $('frame').onclick = () => preset(state.preset);
 $('open').onclick = () => { renderBrowser($('search').value); $('browserdlg').showModal(); $('search').select(); };
 $('bclose').onclick = () => $('browserdlg').close();
 $('search').oninput = () => renderBrowser($('search').value);
+$('palclose').onclick = () => $('paldlg').close();
+$('palsearch').oninput = () => renderPalette($('palsearch').value);
 
 let spinRaf = 0;
 $('spin').onclick = () => {
@@ -733,6 +741,18 @@ addEventListener('keydown', (ev) => {
   if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
   const doc = editorDocFor(state.key);
   const k = ev.key.toLowerCase();
+  // Undo / redo, on the shortcuts everyone already has in their fingers.
+  if ((ev.ctrlKey || ev.metaKey) && k === 'z') {
+    ev.preventDefault();
+    if (ev.shiftKey ? redo() : undo()) { invalidateEdit(state.key); draw(); }
+    return;
+  }
+  if ((ev.ctrlKey || ev.metaKey) && k === 'y') {
+    ev.preventDefault();
+    if (redo()) { invalidateEdit(state.key); draw(); }
+    return;
+  }
+  if (ev.ctrlKey || ev.metaKey) return;   // leave every other browser shortcut alone
   if (k === 'g') setMode('move');
   else if (k === 's') setMode('scale');
   else if (k === 'r') setMode('rotate');
@@ -741,9 +761,11 @@ addEventListener('keydown', (ev) => {
   else if (k === 'escape') { selectedSeg = -1; draw(); }
   else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {
     ev.preventDefault();
+    pushUndoFor(state.key, 'delete');
     doc.segs.splice(selectedSeg, 1);
     selectedSeg = -1; markDirty(); invalidateEdit(state.key); draw();
   } else if (k === 'd' && doc && selectedSeg >= 0) {
+    pushUndoFor(state.key, 'duplicate');
     doc.segs.splice(selectedSeg + 1, 0, JSON.parse(JSON.stringify(doc.segs[selectedSeg])));
     selectedSeg += 1; markDirty(); invalidateEdit(state.key); draw();
   } else return;

@@ -26,6 +26,7 @@ which starts it for you the way the Map Studio link does.
 | <kbd>G</kbd> <kbd>S</kbd> <kbd>R</kbd> | move / scale / rotate |
 | <kbd>Shift</kbd>+drag | the vertical of whatever transform is active |
 | <kbd>D</kbd> / <kbd>Del</kbd> / <kbd>Esc</kbd> | duplicate / remove / deselect |
+| <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | undo / redo |
 | <kbd>O</kbd> | the model browser · <kbd>F</kbd> re-frame |
 
 **Every model arrives framed.** The framing is SOLVED, not guessed: the model own bounds go to
@@ -44,6 +45,37 @@ correctly at about 0.7.
 There is no pitch in this projection, so **arcing the eye IS looking down** — the same camera
 the cockpit and the cab have. Scale and rotate are horizontal drags with Shift for height;
 height can never be a free drag because there is no depth cue to judge it against.
+
+## Textures
+
+In GLASS the **palette key IS the surface**: `draw3DBoxAt` takes one surface argument and
+`wallTexMixed` derives both the colour and the material generator from it. (The `seed` beside
+it does not reach the texture at all.) So there is no separate texture layer to expose —
+choosing a palette is choosing a surface.
+
+Click a swatch, on the model or on any segment, and the picker opens: **283 keys grouped by
+their material** — brick, glass, corrugated metal, art-deco limestone, and thirteen more. The
+grouping and the swatches come from `wallPaletteInfo()`, so the tool holds no second copy of
+those sets. A key that is not in the table turns amber rather than silently rendering grey.
+
+## Saving, exporting, importing
+
+**Save** writes the file and rewrites the bake. **Export** downloads the model as JSON.
+**Import** replaces the open model from a `.json` file — validated with the same
+`validateModel()` the server and the bake run, before it lands, so a file from anywhere else
+cannot put the editor into a state the build would reject. An import is one undo step.
+
+## Undo
+
+Whole-document snapshots rather than per-operation inverses: a model is a few kilobytes, the
+operations are varied, and sixteen hand-written inverses are sixteen chances to be subtly wrong.
+
+⚠ **The snapshot pushed is the state BEFORE the edit.** A form field mutates the document and
+then calls back, so snapshotting at that moment captures the very change you are undoing — which
+makes Ctrl+Z restore what you already have and look broken. A per-file baseline holds the state
+as of the last entry; a push stores that and then advances it.
+
+A drag is **one** step, not sixty: pushes coalesce by kind within a short window.
 
 ## Buildings and vehicles
 
