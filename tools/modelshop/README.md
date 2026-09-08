@@ -271,11 +271,17 @@ field an author sets — a metric you satisfy by writing `quality: 5` measures n
 
 | | what it reads | at the start | now |
 |---|---|---|---|
-| a roof face | the mesh | 172 of 173 | 172 |
+| a roof face | the mesh | 172 of 173 | **173** |
 | a light at night | a light SPRITE, a gradient or a blur, from `shapeAdornCost` | 159 of 173 | 159 |
 | more than one wall palette | the mesh | 146 of 173 | 146 |
-| any trim | `flat` faces in the mesh, or a `detail` list | **8 of 173** | **143** |
-| all four | | 5 of 173 | **107** |
+| any trim | `flat` faces in the mesh, or a `detail` list | **8 of 173** | **144** |
+| all four | | 5 of 173 | **108** |
+
+⚠ **The one model with no roof was `type:bank`, and it had no top at all** — every box in that arm
+was drawn `roof: false`, which is right for a face nobody can see and wrong for five of them. A
+flight sim looks DOWN at a building, and the Citadel came back as a stone box you could see
+straight into from the air. Five are capped now: the two step rings, the entablature, the attic and
+the crown. The main mass and the columns keep theirs, because the entablature is wider than both.
 
 ⚠ **THE FIRST VERSION OF THE LIGHT METRIC WAS WRONG, AND WRONG IN THE DIRECTION THAT INVENTS WORK.**
 It counted gradients and blurs on the stub ctx, which sees a neon blade (it sets `shadowBlur`) and

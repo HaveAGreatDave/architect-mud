@@ -16818,8 +16818,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const stone = pal, colPal = 'ty_marble_col', bronze = 'ty_marble_bronze';
       const plinth = h * 0.16, colTop = h * 0.88, entTop = h * 1.04, atticTop = h * 1.22;
       // 1) Two broad stone steps up off the deck.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, h * 0.08, stone, seed, night, alpha, false);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.20, h * 0.08, plinth, stone, seed + 1, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, h * 0.08, stone, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.20, h * 0.08, plinth, stone, seed + 1, night, alpha, true);
       // 2) The strongbox itself — one solid windowless mass. This is the whole point of the model.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, plinth, colTop, stone, seed + 2, night, alpha, false);
       // 3) Four fluted columns standing proud of it on the entrance side.
@@ -16828,8 +16828,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         draw3DBoxAt(ctx, cam, cx, cy, fh * 0.11, plinth, colTop, colPal, seed + 10 + i, night, alpha, false);
       }
       // 4) Heavy entablature over the colonnade, and the blank attic block above it.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.16, colTop, entTop, stone, seed + 3, night, alpha, false);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, entTop, atticTop, stone, seed + 4, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.16, colTop, entTop, stone, seed + 3, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, entTop, atticTop, stone, seed + 4, night, alpha, true);
       // 5) The bronze doors — a dark band recessed under the portico, front face only.
       if (frontVis) {
         const [bx, by] = F(0, fh * 0.96);
@@ -16838,7 +16838,13 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         glowPool(ctx, cam, bx, by, plinth + h * 0.06, '236,226,200', 11, alpha * (night ? 0.75 : 0.3));
       }
       // 6) Rooftop plant and one steady red obstruction light. No beacon theatrics.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.30, atticTop, atticTop + h * 0.10, colPal, seed + 6, night, alpha, false);
+      // ⚠ THE ONLY BUILDING IN THE CITY WITH NO TOP. Every box here was drawn `roof: false`, which is
+      // right for a face you can never see and wrong for five of them: a flight sim looks DOWN at a
+      // building, and this one came back as a stone box you could see straight into from the air. The
+      // five capped here are the ones whose tops are exposed — the two step rings, the entablature,
+      // the attic and the crown. The main mass and the columns keep theirs, because the entablature
+      // is wider than both and covers them.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.30, atticTop, atticTop + h * 0.10, colPal, seed + 6, night, alpha, true);
       blinkLight(ctx, cam, dx, dy, atticTop + h * 0.14, '255,90,80', now, seed, alpha, 1);
       break;
     }
