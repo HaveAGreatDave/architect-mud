@@ -1090,12 +1090,20 @@ export function paintWindshield(id, view) {
   // else here works in CSS pixels and never needs to know. Module-level rather than a seventh
   // parameter threaded through two call sites for a number that is constant across a frame.
   _frameDpr = dpr; _frameW = W; _frameH = H;
+  LAST_VIEW = {
+    id, cls: v.cls, phase: v.phase, worldBlend: +(worldBlend ?? 1).toFixed(3), height: +(v.height || 0).toFixed(4),
+    airport: v.airport, helipad: !!v.helipad, external: !!v.external, hour: v.hour, weather: v.weather,
+    heading: v.heading == null ? null : +v.heading.toFixed(1), pitchDeg: v.pitch ?? null, bankDeg: v.bank ?? null,
+    horizonPx: null, mapR: v.map ? (v.map.length - 1) / 2 : null,
+    mapCenter: v.mapCenter || null, mapOffset: v.mapOffset || null, W, H, dpr,
+  };
   ctx.clearRect(0, 0, W, H);
 
   // Horizon. On the deck it tracks how much field is in view: pull the nose up (or
   // climb away) and the airport sinks off the bottom until the view "levels out"
   // into open sky. Airborne, pitch/altitude nudge it as before.
   const reveal = (1 - worldBlend) * clamp(1 - Math.max(0, v.pitch || 0) / 26 - height * 0.95, 0, 1);
+  LAST_VIEW.reveal = +reveal.toFixed(3);
   // Unified Mode-7 path (worldBlend 1): ONE continuous pitch+altitude horizon on the deck and aloft
   // alike, so parked → roll → rotate → climb is a single believable move down the real runway. The
   // legacy modal decks (worldBlend < 1, paired with the hand-drawn airport strip) keep the old
@@ -7557,6 +7565,15 @@ let SPRITE_SINK = null;
 // there is nothing left to point at. `__glass2()` in the game reads this.
 let GL_LAST_ERROR = null;
 export function glLastError() { return GL_LAST_ERROR; }
+// ── WHAT WAS THE RENDERER BEING TOLD? ───────────────────────────────────────
+// A picture is a question about the INPUT as often as about the code, and the input arrives from
+// four callers with fifty fields. "The runway band looks like it is above the ground" cannot be
+// answered from a screenshot — the same pixels come from a plain Mode-7 horizon, a flat airport
+// scene crossfading in at `worldBlend` below 1, and the edge of the map window, and those are
+// three different bugs. These are the handful of scalars that decide which, kept from the last
+// frame so anybody looking at something odd can ask what the frame was.
+let LAST_VIEW = null;
+export function lastViewState() { return LAST_VIEW; }
 const _rgbTriple = new Map();
 function rgbTriple(c) {
   let v = _rgbTriple.get(c);
