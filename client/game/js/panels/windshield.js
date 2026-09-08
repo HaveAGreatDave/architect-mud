@@ -7372,7 +7372,11 @@ export function makeCam(W, horizonY, depth, v, chase) {
     // Under pitch the depth carries a height term, so the clip plane has to as well.
     rawF = (dxx, dyy, wz) => ((dxx + back * sinh - fx) * sinh - (dyy - back * cosh - fy) * cosh) * cp - ((wz || 0) - EH) * sp;
   }
-  return { R, sinh, cosh, ox, oy, proj, projFL, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  // W/horizonY/depth ride along because they ARE the camera: this projection is a pinhole whose
+  // focal lengths are FL (lateral) and depth (vertical) and whose principal point is (W/2, horizonY).
+  // A second renderer cannot reproduce the picture without them, and deriving them again elsewhere
+  // is how two cameras start disagreeing by a pixel that nobody can trace.
+  return { R, sinh, cosh, ox, oy, proj, projFL, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -7616,6 +7620,20 @@ function wallLit(litC) {
 // It is deliberately narrow. It says nothing about two unrelated buildings, and nothing about the
 // host's own walls; it answers one question — "is this thing on top of that thing" — which is the
 // one question the sort cannot answer and the caller always knows.
+// ── ⚠ THE MESH SINK: THE SAME GEOMETRY, AS TRIANGLES ────────────────────────
+//
+// The GL spike needs the city as vertices, and there is exactly one honest place to get them:
+// the primitives that already draw it. Rebuilding a box from its captured segment would be a
+// SECOND definition of what a building is shaped like — three lines of footprint arithmetic that
+// look obviously right and drift the first time the 0.44 clamp or the yaw composition changes.
+// This is the same trick SHAPE_SINK plays one level lower: when the sink is set, a mass primitive
+// records its faces in WORLD space and returns without painting.
+//
+// Two deliberate differences from the painted path, and both are because GL does this work itself:
+// no backface cull (the depth buffer decides) and no near clip (the frustum does). What comes out
+// is the whole solid, every time, from any camera — which is also why a mesh can be built once and
+// reused, where a painted face cannot.
+let MESH_SINK = null;
 let MOUNT_D = null;
 const MOUNT_EPS = 1e-3;
 function mountedOn(depth, fn) {
@@ -7799,6 +7817,28 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // extruded box turns with the hull. cs stays the SSOT the projection + backface cull read from.
   let cs = [[-fh, -fd], [fh, -fd], [fh, fd], [-fh, fd]];
   if (yaw) { const cy = Math.cos(yaw), sy = Math.sin(yaw); cs = cs.map(([a, b]) => [a * cy - b * sy, a * sy + b * cy]); }
+  // The mesh, taken from the same corners the painter is about to use — after the clamp, after the
+  // yaw, before any cull. See the note on MESH_SINK.
+  if (MESH_SINK) {
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4;
+      const mx = (cs[i][0] + cs[j][0]) / 2, my = (cs[i][1] + cs[j][1]) / 2, ml = Math.hypot(mx, my) || 1;
+      MESH_SINK.push({
+        kind: 'wall', pal: biome, seed,
+        p: [[dx + cs[i][0], dy + cs[i][1], wz1], [dx + cs[j][0], dy + cs[j][1], wz1],
+            [dx + cs[j][0], dy + cs[j][1], wz0], [dx + cs[i][0], dy + cs[i][1], wz0]],
+        n: [mx / ml, my / ml, 0],
+      });
+    }
+    if (roof) {
+      MESH_SINK.push({
+        kind: 'roof', pal: biome, seed,
+        p: cs.map(([a, c]) => [dx + a, dy + c, wz1]),
+        n: [0, 0, 1],
+      });
+    }
+    return;
+  }
   // Raw (unclamped) forward distance of a footprint point — the value proj() clamps to 0.06.
   // f is constant up a vertical edge (height-independent), so this is per footprint CORNER.
   const NEAR_CLIP = 0.08;   // trim walls to this near plane; above proj's 0.06 clamp so trimmed corners project stably
@@ -8464,6 +8504,23 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
   // half of it a stub camera happens to face.
   if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: z0, wz1: z1, rb, rt, n: N, cap: !!cap, pal: SHAPE_PAL }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
+  if (MESH_SINK) {
+    for (let i = 0; i < N; i++) {
+      const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2;
+      MESH_SINK.push({
+        kind: 'wall', pal: SHAPE_PAL, seed: 0,
+        p: [[dx + Math.cos(a0) * rt, dy + Math.sin(a0) * rt, z1], [dx + Math.cos(a1) * rt, dy + Math.sin(a1) * rt, z1],
+            [dx + Math.cos(a1) * rb, dy + Math.sin(a1) * rb, z0], [dx + Math.cos(a0) * rb, dy + Math.sin(a0) * rb, z0]],
+        n: [Math.cos(am), Math.sin(am), 0],
+      });
+    }
+    if (cap) {
+      const ring = [];
+      for (let i = 0; i < N; i++) { const a = i / N * 6.2832; ring.push([dx + Math.cos(a) * rt, dy + Math.sin(a) * rt, z1]); }
+      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, p: ring, n: [0, 0, 1] });
+    }
+    return;
+  }
   const lx = -0.7, ly = -0.7, rm = (rb + rt) / 2, F = [];
   for (let i = 0; i < N; i++) {
     const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2, nx = Math.cos(am), ny = Math.sin(am);
@@ -12764,6 +12821,39 @@ function modelFor(cell) {
 // shape lint checks for coverage. Named models are prefixed so a building called "Hangar" can never
 // collide with the `hangar` building_type. The `m` values are the same object identities modelFor
 // hands back, which is what lets shapeForModel cache on them.
+// EVERY FACE OF ONE MODEL, IN WORLD SPACE, as the GL spike would upload it. The same entry shape
+// as captureModelTrace: run the real arm with a sink set and hand back what it recorded.
+//
+// ⚠ WHAT IT DOES NOT COVER, AND SAYS SO. Barrel roofs, sawtooth roofs and the two hand-rolled
+// shells build their faces inside their own helpers rather than through the two primitives above,
+// so they are absent from the mesh — reported as `missing`, never silently dropped. A spike that
+// quietly skipped a tenth of the city would measure a cost that is not the real one.
+const MESH_DY = -8;   // the near side, matching captureAt — see the note inside
+export function captureModelMesh(m, opts = {}) {
+  const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 0 } = opts;
+  // ⚠ THE TIER IS LEFT ALONE, and the first cut zeroed it.  does not touch it
+  // either, so zeroing here made the mesh pass run a DIFFERENT arm from the capture — and the two
+  // are supposed to describe one building. It cost the fuel yard its price pylon: 3.05 tiles of
+  // captured mass with no mesh under it. Adornments do not reach the sink anyway, because they do
+  // not go through the mass primitives; the ones that DO (rooftop clutter) are mass, and belong.
+  const prevMesh = MESH_SINK;
+  MESH_SINK = [];
+  try {
+    // ⚠ FROM THE FRONT, THEN TRANSLATED BACK. Sixty arms gate part of their mass on `frontVis` —
+    // a door reveal, a shopfront, the fuel yard's price pylon — and the stub camera sits where the
+    // frontage is turned away, so a mesh built at the origin is missing all of it. The fuel yard
+    // lost 1.2 tiles of pylon that way, and the capture had it, which is how it was caught.
+    //
+    // The shape capture solved this first and this borrows the answer: run the arm on the NEAR side
+    // (the same `dyOff` captureAt uses) so the entrance faces the camera, then translate the
+    // vertices back. The arm places everything through its own model frame, so the offset is a
+    // rigid translation and subtracting it is exact.
+    drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, MESH_DY, fh, h, m, seed, night, 1, 1000, E);
+    for (const q of MESH_SINK) for (const p of q.p) p[1] -= MESH_DY;
+    return MESH_SINK;
+  } finally { MESH_SINK = prevMesh; }
+}
+
 export function shapeModelRegistry() {
   return [
     ...Object.entries(NAMED_MODELS).map(([k, m]) => ({ key: `named:${k}`, m })),
