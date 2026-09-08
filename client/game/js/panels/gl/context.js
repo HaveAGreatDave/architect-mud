@@ -16,6 +16,7 @@
 // the Modelshop's GL preview, where a wrong answer is a picture somebody is looking at rather than a
 // city nobody can see.
 import { viewProjMatrix } from './camera.js';
+import { createSpriteLayer } from './sprites.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1.
 const STRIDE = 14;
@@ -306,5 +307,16 @@ export function createGLView(canvas) {
     return count;
   }
 
-  return { gl, upload, uploadGroups, draw, setAtlas, get triangles() { return count / 3; } };
+  // The lights, on the same context and the same depth buffer. Built lazily: a view that never
+  // has a light never compiles the program.
+  let sprites = null;
+  const spriteLayer = () => (sprites || (sprites = createSpriteLayer(gl)));
+  function drawSprites(cam, list) {
+    if (!list || !list.length) return 0;
+    const L = spriteLayer();
+    L.upload(list);
+    return L.draw(cam, canvas.width, canvas.height);
+  }
+
+  return { gl, upload, uploadGroups, draw, drawSprites, setAtlas, get triangles() { return count / 3; } };
 }

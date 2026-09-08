@@ -327,6 +327,39 @@ whole facade, and GLASS draws it with smoothing on only when the wall is being M
 the window rows are crisp blocks of texel. LINEAR magnification turned every near facade into a soft
 grey wash — which looked like the lighting being wrong and was the sampler.
 
+### Stage three: the lights
+
+Every light in GLASS is one shape — a **world point**, a radius in **screen pixels**, a colour and
+an alpha. A window bloom, a ground glow, an aviation beacon: a disc of light at a place, sized by
+how far away that place is. That is a sprite, and a sprite is exactly what a depth buffer settles.
+
+⚠ **Which is the bug the whole plan opened with.** With no depth buffer, hiding a light behind a
+wall is done by a PROBE — `decoHidden` against a rasterised occluder field, with a bias, a shrink
+and a grow, each a number somebody had to choose. Too generous and the lights come through the
+walls; too timid and signage disappears for reasons nobody will trace back to an occlusion change
+months later. `gl/sprites.js` makes the question stop being asked: the mass is already in a depth
+buffer, so `glowPool`, `drawCityBloom` and `blinkLight` become depth-TESTED quads and a wall in
+front of a glow settles it per pixel.
+
+Three things make them the same lights rather than similar ones. **The radius is handed over, never
+re-derived** — it is the identical `clamp(k / f, lo, hi)` the painter computes, so the two renderers
+cannot drift apart by one of them being retuned; the quad is expanded from a point and that pixel
+radius in the vertex shader, so the CPU never has to know which way the camera is facing. **A light
+writes no depth**, because it is the appearance of a thing and not a thing — two glows on the same
+wall would otherwise cut holes in each other. And **the additive ones are sorted to the end of the
+buffer**: a bloom ADDS light to what is behind it and a ground glow lays colour over it, and
+painting one as the other is the difference between a lit window and a grey smear.
+
+⚠ **A light sits ON the surface it belongs to**, so at exactly that depth it z-fights into a
+stipple. The 2-D renderer has the same problem and solves it by sorting (`DECO_LIFT`); the shader
+does it in the only units a depth buffer has, a small nudge in clip z.
+
+Measured on a night cab frame: **9.6 ms → 7.2 ms**, with 2,458 faces and 44 lights on the GPU. A
+smaller saving than the daylight case, because what is left on the 2-D canvas at night — neon
+blades, marquees, painted signage, the lit-window overlays — is the heavy half. It is also what
+makes the rest of the quality pass affordable: **109 of 173 models emit no light after dark**, and
+gradients and blurs are the two most expensive things canvas2d does. On the GPU they are quads.
+
 ### And one hole that is only half closed
 
 ⚠ **A painter's queue hides things by painting over them**, so the moment GLASS 2 takes the walls

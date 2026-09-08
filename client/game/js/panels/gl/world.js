@@ -166,6 +166,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     ? { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy }
     : cam;
   g.view.draw(camAt, opts.draw || {});
-  return { faces: g.faces || 0, builds, canvas: g.canvas };
+  // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window
+  // tiles so it can be cached; a light is collected fresh every frame from the arm that owns it,
+  // in the camera-relative coordinates the arm works in. So it takes the plain camera, and the
+  // shifted one exists only for the buffer that needed shifting.
+  const lights = g.view.drawSprites(cam, opts.sprites);
+  return { faces: g.faces || 0, builds, lights, canvas: g.canvas };
 }
 

@@ -3957,6 +3957,9 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   if (c.f <= 0.25 || c.f > 8) return;
   const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
   const a = night * alpha * (0.04 + 0.09 * prox);
+  // The warm middle of the three-stop gradient, added rather than laid over — a window bloom is
+  // light leaving a building, and `lighter` is what the 2-D path composites it with.
+  if (SPRITE_SINK) { pushLight(dx, dy, h * 0.55, r, [255, 196, 116], a, false, true); return; }
   if (LIGHT_TALLY) { LIGHT_TALLY.bloom++; if (!decoHidden([c])) LIGHT_TALLY.bloomDrawn++; }
   emitDeco([c], () => {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -7505,6 +7508,30 @@ let LIGHT_TALLY = null;
 // buildings — the case a city is made of — are covered. The real answer is the billboards moving
 // onto the GPU with everything else, where a depth buffer settles it per pixel; until then this is
 // an approximation that can only ever be too shy.
+// ── THE LIGHTS, WHEN THERE IS A DEPTH BUFFER TO PUT THEM IN ─────────────────
+//
+// Every light in this renderer is one shape: a world point, a radius in SCREEN pixels, a colour
+// and an alpha. That is a sprite, and a sprite is the one thing a depth buffer settles perfectly —
+// which matters because hiding a light behind a wall is the problem this file has the most numbers
+// for. `decoHidden` against a rasterised field, with a bias, a shrink and a grow: too generous and
+// the lights come through the walls, too timid and signage vanishes for reasons nobody will trace
+// to an occlusion change months later. With the mass on the GPU the question stops being asked.
+//
+// ⚠ THE RADIUS IS HANDED OVER, NEVER RE-DERIVED. It is the same `clamp(k / f, lo, hi)` the painter
+// computes, so a light is the same size in both renderers by construction rather than by matching
+// two formulas — and scaled to DEVICE pixels here, because the GL canvas has no CSS-pixel idea.
+let SPRITE_SINK = null;
+const _rgbTriple = new Map();
+function rgbTriple(c) {
+  let v = _rgbTriple.get(c);
+  if (!v) { v = String(c).split(',').map(Number); _rgbTriple.set(c, v); }
+  return v;
+}
+function pushLight(x, y, z, rPx, rgb, a, hard, add) {
+  if (!(a > 0.002) || !(rPx > 0)) return;
+  SPRITE_SINK.push({ x, y, z, r: rPx * _frameDpr, rgb: typeof rgb === 'string' ? rgbTriple(rgb) : rgb, a, hard, add });
+}
+
 function groundHidden(cam, dx, dy, f) {
   if (!GL_CELLS) return false;
   const p = cam.proj(dx, dy, 0);
@@ -13900,6 +13927,8 @@ function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return;
   const k = 0.4 + 0.5 * Math.abs(Math.sin((now || 0) * 0.004 + seed));
+  // A lamp, not a glow: a small solid disc with a soft edge, which is what an arc of that radius is.
+  if (SPRITE_SINK) { pushLight(dx, dy, wz, r, rgb, alpha * k, true, false); return; }
   emitDeco([p], () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna mast + red aviation light
@@ -14460,6 +14489,9 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   if (PERF.on) PERF.n.adorn++;
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
+  // On the GPU it is a depth-tested disc rather than a probed blit — the same point, the same
+  // radius, and a wall in front of it settles the matter per pixel.
+  if (SPRITE_SINK) { pushLight(dx, dy, wz, s, rgb, alpha, false, false); return; }
   const sp = glowSprite(rgb);
   emitDeco([g], () => {
     ctx.globalAlpha = alpha;
@@ -20401,6 +20433,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // term instead, where it costs one matrix.
   const glOn = !!TUNE.gl && !!GL_HOOK;
   GL_CELLS = glOn ? [] : null;
+  SPRITE_SINK = glOn ? [] : null;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx]; if (!c) continue;
     if (GL_CELLS && massTile(c)) {
@@ -20970,12 +21003,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   if (GL_CELLS) {
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE });
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK });
       if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
     }
     catch (e) { console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
-    GL_CELLS = null;
+    GL_CELLS = null; SPRITE_SINK = null;
   }
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass

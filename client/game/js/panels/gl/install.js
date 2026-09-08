@@ -40,6 +40,7 @@ export function installGL(hostFor) {
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
     }, {
+      sprites: opts.sprites,
       night: opts.night, nb: opts.nb,
       draw: {
         // Transparent, because this buffer is BLITTED onto the 2-D frame rather than shown: every
