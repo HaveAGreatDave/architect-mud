@@ -1683,7 +1683,14 @@ export function paintWindshield(id, view) {
     // must never blink in as you climb. Non-yacht objects self-cull at low worldBlend (their alpha
     // folds it in and drops below the draw threshold); only the yacht escapes it (see the alpha above).
     // The heavier atmospherics (lightning, clouds, traffic, guides) stay gated below.
-    drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
+    // ⚠ THE GL SINKS ARE CLEARED HERE AND NOT WHERE THEY ARE FILLED, because a throw anywhere in
+    // the world pass would otherwise leave them set FOR EVER. `GL_CELLS` non-null makes every
+    // modelled building suppress its own mass on the next frame, and `SPRITE_SINK` non-null makes
+    // every glow, bloom and beacon collect itself into an array nobody draws — so one bad frame
+    // becomes a permanently broken 2-D renderer with the flag already back at 0, which is exactly
+    // how it was found. A finally turns that back into one bad frame.
+    try { drawWorldObjects(ctx, cam, vw, sky, now, sunFx); }
+    finally { GL_CELLS = null; SPRITE_SINK = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; }
     if (worldBlend > 0.02) {
       // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
       // ground, projected through the world camera — so parked in a depot bay it was drawn
