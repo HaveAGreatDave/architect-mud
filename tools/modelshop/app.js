@@ -8,6 +8,7 @@
 // ⚠ Quoting rule, from CLAUDE.md: inside a template literal, quote identifiers with
 // 'single quotes', never backticks. Most markup here is built through the DOM instead.
 import { initToolbox, toggleToolbox } from './toolbox.js';
+import { glDraw, glHide, glShown, glAvailable } from './glview.js';
 import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,
@@ -44,13 +45,14 @@ const MODELS = [...shapeModelRegistry(), ...VEHICLES];
 const entryOf = (key) => MODELS.find((r) => r.key === key) || null;
 const isVehicle = (key) => !!entryOf(key)?.vehicle;
 let selectedSeg = -1;
+let glNote = '';   // what the GL spike drew, if it is on — see paintViewport
 let lastCam = null;
 
 const state = {
   key: MODELS[0]?.key || null,
   heading: 0, dist: 9, eye: 1.4, pitch: 0, panX: 0, panY: 0, vehSizeMul: 1,
   floors: 6, seed: 3, night: 0,
-  E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, preset: 'cockpit',
+  E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, gl: false, preset: 'cockpit',
   mode: 'move',
 };
 
@@ -304,6 +306,22 @@ function paintViewport() {
   const view = $('view');
   sizeCanvas(view);
   try {
+    // ── THE GL SPIKE ────────────────────────────────────────────────────────
+    // Drawn from the camera the 2-D pass just solved, over the top of it, so the comparison is
+    // the same model at the same seat rather than two pictures taken at different times. It is
+    // off unless asked for, and a vehicle has no captured mesh, so it falls through to the
+    // renderer that can draw one.
+    if (state.gl && !isVehicle(state.key)) {
+      lastCam = renderModelPreview(view, previewOpts());
+      const r = glDraw(view.parentElement, modelOf(state.key), lastCam, { mesh: { fh: scale().fh, h: scale().h, seed: state.seed } });
+      // Kept rather than written straight to the HUD, because drawHud runs after this and would
+      // overwrite it — which reads as the GL pass having silently done nothing.
+      glNote = r.error ? ('GL: ' + r.error)
+        : 'GL — ' + r.faces + ' faces, ' + Math.round(r.triangles) + ' triangles, depth-buffered (no sort, no textures, no adornments)';
+      return;
+    }
+    glHide();
+    glNote = '';
     if (isVehicle(state.key)) {
       const v = entryOf(state.key).vehicle;
       lastCam = renderVehiclePreview(view, {
@@ -350,6 +368,7 @@ function drawVehicleRail() {
 }
 
 function drawHud() {
+  if (glNote) { $('hud').textContent = glNote; return; }
   const doc = editorDocFor(state.key);
   const sel = selectedSeg >= 0 && doc && doc.segs[selectedSeg];
   $('hud').textContent = sel
@@ -877,6 +896,16 @@ bindRange('seed', 'seed'); bindRange('night', 'night');
 $('facing').onchange = () => { state.E = $('facing').value.split(',').map(Number); draw(); };
 $('cmp').onchange = () => renderDiff();
 $('wire').onclick = () => { state.wire = !state.wire; $('wire').classList.toggle('on', state.wire); draw(); };
+// The spike, behind a switch that says what it is. Absent entirely where WebGL2 is not there,
+// rather than present and broken.
+function setGl(on) {
+  state.gl = !!on && glAvailable();
+  $('gl').classList.toggle('on', state.gl);
+  if (!state.gl) glHide();
+  draw();
+}
+$('gl').onclick = () => setGl(!state.gl);
+if (!glAvailable()) { $('gl').disabled = true; $('gl').title = 'this browser has no WebGL2'; }
 
 function setMode(mode) {
   state.mode = mode;
@@ -1010,6 +1039,7 @@ addEventListener('keydown', (ev) => {
   else if (k === 'f') preset(state.preset);
   else if (k === 'o') { ev.preventDefault(); $('open').click(); }
   else if (k === 't') { ev.preventDefault(); toggleToolbox(); }
+  else if (k === 'g' && !ev.shiftKey) { ev.preventDefault(); setGl(!state.gl); }
   else if (k === 'escape') { selectedSeg = -1; draw(); }
   else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {
     ev.preventDefault();
