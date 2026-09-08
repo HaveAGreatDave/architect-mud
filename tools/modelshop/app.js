@@ -157,6 +157,39 @@ function buildingBounds(m) {
   return { halfW: Math.max(0.05, halfW), height: Math.max(0.05, top), baseH: 0 };
 }
 
+// The bounds of whatever is on screen, building or vehicle, in the units the camera works
+// in. One place, so the fit and the locked orbit cannot disagree about where the model is.
+function currentBounds() {
+  if (isVehicle(state.key)) {
+    const v = entryOf(state.key).vehicle;
+    const b = vehicleBounds(v.cls, false, v.variant);
+    const sm = state.vehSizeMul || 1;
+    return { halfW: b.halfW * sm, height: b.height * sm, baseH: b.baseH * sm };
+  }
+  return buildingBounds(modelOf(state.key));
+}
+
+// ── LOCKED ORBIT ────────────────────────────────────────────────────────────
+// There is no pitch in this projection: arcing the eye up moves the picture DOWN the
+// screen, because `sy = horizonY + depth · (EH − wz) / f`. So an orbit that only changed
+// the eye would walk the model off the bottom of the frame as you rose — which is not an
+// orbit, it is a camera drifting away from its subject.
+//
+// Locking it is one line of algebra rather than a new camera. Solve the horizon shift that
+// keeps the model's own mid-height at the centre of the canvas:
+//
+//   H/2 = (H·0.42 + panY) + depth·(EH − zMid)/dist        with depth = H·0.55
+//   panY = H·0.08 − H·0.55·(EH − zMid)/dist
+//
+// so the subject stays pinned however far round or up you go.
+function lockCentre() {
+  const view = $('view');
+  const H = Math.max(1, view.height);
+  const b = currentBounds();
+  const zMid = (b.baseH || 0) + b.height / 2;
+  state.panY = H * 0.08 - H * 0.55 * (state.eye - zMid) / Math.max(0.05, state.dist);
+}
+
 // The cab stays a deliberate close crop rather than a fit — being too close to see all of
 // it is the whole point of that seat.
 function frameAt(bounds, which) {
@@ -236,23 +269,37 @@ function previewOpts(over) {
   };
 }
 
-function draw() {
+// ⚠ THE ONE PLACE THE TWO RENDERERS ARE CHOSEN BETWEEN. Everything that paints the
+// viewport goes through here, and that is not tidiness — the spin loop used to call
+// renderModelPreview directly, so spinning while looking at an aircraft drew a BUILDING:
+// modelOf() hands back a stub record for a vehicle key, drawTypeModel finds no arm for its
+// type, and the switch falls through to the default shop arm. A second call site is a
+// second chance to forget the branch.
+function paintViewport() {
   const view = $('view');
   sizeCanvas(view);
-  // ONE branch, here, because there are genuinely two renderers. Everything below it is
-  // building-only and returns early for a vehicle rather than being taught to cope.
-  if (isVehicle(state.key)) return drawVehicle(view);
-  const m = modelOf(state.key);
-  if (!m) return;
   try {
-    lastCam = renderModelPreview(view, previewOpts());
-    paintSelection();
+    if (isVehicle(state.key)) {
+      const v = entryOf(state.key).vehicle;
+      lastCam = renderVehiclePreview(view, {
+        ...v, night: state.night, heading: state.heading, dist: state.dist,
+        eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1,
+      });
+    } else {
+      lastCam = renderModelPreview(view, previewOpts());
+      paintSelection();
+    }
   } catch (e) {
     const ctx = view.getContext('2d');
     ctx.fillStyle = '#2a0f10'; ctx.fillRect(0, 0, view.width, view.height);
     ctx.fillStyle = '#ff7b72'; ctx.font = '16px monospace';
     ctx.fillText('threw: ' + e.message, 20, 40);
   }
+}
+
+function draw() {
+  paintViewport();
+  if (isVehicle(state.key)) return drawVehicleRail();
   drawHud();
   drawScales();
   renderSidebar();
@@ -261,20 +308,9 @@ function draw() {
 }
 
 // A vehicle: the same camera controls, no editing, and the rail says why.
-function drawVehicle(view) {
+function drawVehicleRail() {
   const v = entryOf(state.key).vehicle;
-  try {
-    lastCam = renderVehiclePreview(view, {
-      ...v, night: state.night, heading: state.heading, dist: state.dist,
-      eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1,
-    });
-  } catch (e) {
-    const ctx = view.getContext('2d');
-    ctx.fillStyle = '#2a0f10'; ctx.fillRect(0, 0, view.width, view.height);
-    ctx.fillStyle = '#ff7b72'; ctx.font = '16px monospace';
-    ctx.fillText('threw: ' + e.message, 20, 40);
-  }
-  $('hud').textContent = 'drag to orbit · middle-drag to pan · wheel to zoom — vehicles are read-only';
+  $('hud').textContent = 'middle-drag to orbit · shift+middle or right-drag to pan · wheel to zoom — vehicles are read-only';
   const meta = $('meta'); meta.textContent = '';
   row(meta, 'key', state.key);
   row(meta, 'class', v.cls);
@@ -295,7 +331,7 @@ function drawHud() {
   $('hud').textContent = sel
     ? 'seg #' + selectedSeg + ' ' + doc.segs[selectedSeg].kind + ' · ' + state.mode
       + ' — drag to ' + state.mode + ', Shift for height · Del removes · Esc deselects'
-    : 'drag to orbit · middle-drag to pan · wheel to zoom' + (doc ? ' · click a piece to select it' : ' · read-only (a code arm)');
+    : 'middle-drag to orbit · shift+middle or right-drag to pan · wheel to zoom' + (doc ? ' · click a piece to select it' : ' · read-only (a code arm)');
 }
 
 function drawScales() {
@@ -477,8 +513,16 @@ function initViewport() {
 
   view.addEventListener('mousedown', (ev) => {
     const [sx, sy, k] = local(ev);
-    // Middle button, or right button, pans. Both, because muscle memory differs and
-    // neither costs anything.
+    // MIDDLE BUTTON ORBITS, which is the convention every 3-D editor has trained people in,
+    // and it orbits LOCKED: the model stays pinned at the centre of the picture however far
+    // round or up you go. Shift+middle pans, as it does in Blender; the right button pans
+    // too, because muscle memory differs and it costs nothing.
+    if (ev.button === 1 && !ev.shiftKey) {
+      ev.preventDefault();
+      act = { kind: 'orbit', locked: true, sx, sy, k, heading: state.heading, eye: state.eye };
+      view.classList.add('grabbing');
+      return;
+    }
     if (ev.button === 1 || ev.button === 2) {
       ev.preventDefault();
       act = { kind: 'pan', sx, sy, k, panX: state.panX, panY: state.panY };
@@ -525,7 +569,9 @@ function initViewport() {
       // README — so raising the eye IS looking down, and clamping at 0 keeps the camera
       // from going under the ground it is standing on.
       state.eye = Math.max(0, act.eye - dsy * 0.02);
-      $('heading') && ($('heading').value = state.heading);
+      // A LOCKED orbit keeps the subject pinned: the horizon shift is re-solved every frame,
+      // so raising the eye circles the model instead of sliding it off the bottom.
+      if (act.locked) lockCentre();
       draw();
       return;
     }
@@ -727,8 +773,7 @@ $('spin').onclick = () => {
   const step = () => {
     if (!state.spin) return;
     state.heading = (state.heading + 0.6) % 360;
-    sizeCanvas($('view'));
-    try { lastCam = renderModelPreview($('view'), previewOpts()); paintSelection(); } catch { /* reported on the next still frame */ }
+    paintViewport();
     spinRaf = requestAnimationFrame(step);
   };
   spinRaf = requestAnimationFrame(step);

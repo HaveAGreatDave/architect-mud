@@ -18,8 +18,9 @@ which starts it for you the way the Map Studio link does.
 
 | | |
 |---|---|
-| drag empty space | orbit — horizontal turns, vertical arcs the eye |
-| middle- or right-drag | pan |
+| middle-drag | **locked orbit** — the model stays pinned at the centre |
+| drag empty space | the same orbit, unlocked |
+| shift+middle, or right-drag | pan |
 | wheel | zoom |
 | click a piece | select it, and its card in the rail |
 | drag a piece | apply the active transform to it |
@@ -43,7 +44,20 @@ pad is measured — unpadded, six of ten classes spilled past the frame while th
 correctly at about 0.7.
 
 There is no pitch in this projection, so **arcing the eye IS looking down** — the same camera
-the cockpit and the cab have. Scale and rotate are horizontal drags with Shift for height;
+the cockpit and the cab have. Which is exactly why the middle-button orbit has to be *locked*:
+`sy = horizonY + depth·(EH − wz)/f`, so raising the eye slides the picture DOWN the screen and
+an unlocked orbit walks the model off the bottom. Locking it is one line of algebra rather than
+a second camera — solve the horizon shift that keeps the model's own mid-height at the centre:
+
+    panY = H·0.08 − H·0.55·(EH − zMid)/dist
+
+Measured on the same drag: locked holds the subject at 0.61 of the frame, unlocked drifts to 0.86.
+
+⚠ **Everything that paints the viewport goes through one function**, and that is not tidiness.
+Spin used to call the building renderer directly, so hitting it while looking at an aircraft drew
+a *building*: `modelOf()` returns a stub record for a vehicle key, `drawTypeModel` finds no arm
+for its type, and the switch falls through to the default shop arm. A second call site is a
+second chance to forget the branch. Scale and rotate are horizontal drags with Shift for height;
 height can never be a free drag because there is no depth cue to judge it against.
 
 ## Textures
