@@ -29,7 +29,13 @@ export function installGL(hostFor) {
   installGLWorld((cells, cam, opts) => {
     const host = (hostFor && hostFor()) || opts.host;
     if (!host) return;
-    const L = glLightState(opts.night || 0);
+    // ⚠ THE FRAME'S OWN LIGHT, NOT A SECOND DERIVATION OF IT. `glLightState` is the standalone
+    // answer the Modelshop spike needs, and it has no sun to ask — so it falls back to a fixed
+    // north-west fill. Used in the game that put the whole city under a key light pointing
+    // somewhere the 2-D renderer's sun was not, which by day reads as every facade being in
+    // shadow. `LIGHT_STATE` is what the arms are shading against this very frame; take that.
+    const L = opts.light || glLightState(opts.night || 0);
+    const dir = L.dir || [L.sx, L.sy];
     const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
@@ -41,7 +47,7 @@ export function installGL(hostFor) {
         // alone. An opaque clear would blank the whole world and draw the city on the hole.
         clearAlpha: 0,
         key: u(L.key), shadow: u(L.shadow), skyTint: u(L.sky), str: L.str,
-        keyDir: [L.dir[0], L.dir[1], 0.35],
+        keyDir: [dir[0], dir[1], 0.35],
         // GLASS's own N64 fog — the colour it mixes toward, the amount its slider sets, over the
         // same 6..34 band (see fogWeight) — and its own far dissolve, which is a property of the
         // WINDOW rather than a constant: a truck asks for 15 tiles and an aeroplane for 34.

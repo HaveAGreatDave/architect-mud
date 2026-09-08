@@ -42,6 +42,7 @@
     "shapes:framecost": "node scripts/shapes/framecost.mjs",
     "gl:parity": "node scripts/shapes/glparity.mjs",
     "gl:mesh": "node scripts/shapes/glmesh.mjs",
+    "models:quality": "node scripts/shapes/quality.mjs",
     "models:bake": "node scripts/shapes/bake-models.mjs",
     "vehicles:bake": "node scripts/shapes/bake-vehicles.mjs",
     "models:diff": "node scripts/shapes/modeldiff.mjs",

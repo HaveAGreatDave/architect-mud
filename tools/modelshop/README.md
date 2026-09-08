@@ -262,6 +262,84 @@ Two things the port drops on purpose: `emitFlat`'s hairline **stroke** (a 1px ou
 geometry), and the fade **stagger** noted above. Still on the 2-D side and unchanged: neon, glow,
 bloom, painted signage, ground, weather, actors, the HUD — and the arms still RUN, for those lights.
 
+## The quality pass
+
+`npm run models:quality` scores every model out of four, because a pass over 173 buildings cannot be
+run on taste: taste works one building at a time and cannot answer *which twenty are worst* or *did
+that batch help*. Each property is read off something the renderer already produces, never off a
+field an author sets — a metric you satisfy by writing `quality: 5` measures nothing.
+
+| | what it reads | at the start |
+|---|---|---|
+| a roof face | the mesh | 172 of 173 |
+| a light at night | `shapeAdornCost` runs the arm and counts gradients and blurs | **64 of 173** |
+| more than one wall palette | the mesh | 146 of 173 |
+| any trim | `flat` faces in the mesh, or an authored `detail` list | **8 of 173** |
+
+It is a REPORT, not a gate, and deliberately so: a gate here would fail the day somebody adds a
+model and go on failing until they finished it, which is the pressure that produces a building
+nobody wanted to make. `--fail-under N` is there for the day the pass is done.
+
+**Trim is keyed on the ARM, not the record.** A `detail` list is geometry hung on a building, so it
+has to know where that building's surfaces are — and what decides that is the arm. `type:office`,
+`type:corporate_office` and every named tower drawn by the office arm are the same three setbacks at
+the same heights, so one list serves all of them. A record's own `m.detail` still wins. This is what
+makes the pass affordable, and it needed the detail layer to stop living inside `drawAuthoredModel`:
+a `detail` list is not a property of authored models, it is a property of a model RECORD, and the
+172 hand-written arms have records too.
+
+⚠ **Author a wall-mounted part at `[1,0,0]` — the footprint — not at the box's own half-width.**
+`draw3DBoxAt` CLAMPS a half-width to 0.44, so a box authored at `fh*1.14` has its wall at 0.44
+whenever fh ≥ 0.386 and a part placed at 1.14 floats off the side of the building. At the footprint
+it is at worst a few centimetres inside the wall, which nothing can see.
+
+⚠ **And a part stands physically off its face, not merely earlier in the queue.** `lift` moves a
+quad in the painter's ORDER, which is all a renderer with no depth buffer can do and is nothing at
+all to one that has one: a panel lying in the plane of its wall z-fights into a stipple. `FACE_EPS`
+is the real gap.
+
+### What it costs, and the one thing that decides it
+
+Trim is the cheapest canvas work there is — flat fills, no gradient, no blur — and there is a lot of
+it. Four arms' worth measured **+3.3%** canvas calls in `framecost`, with `grad` and `blur`
+unchanged to the call; all 173 would be several times that. The framerate contract for this whole
+expansion was *no regression, measured*, so:
+
+**In 2-D the trim draws at `ADORN_NEAR` only** — inside `detailNear` tiles, where it can actually be
+read. That bounds the cost by how many buildings are near you rather than by how many models have
+been authored, so the pass can run to all 173 without the frame moving. **In the mesh it is not
+gated at all**, because `captureModelMesh` forces that tier: GLASS 2 carries every part at every
+distance and a depth buffer draws them for nothing. Trim is a GLASS 2 feature that the 2-D renderer
+also shows you when you are standing beside it. The residual +2.3% is one batch of four arms at the
+harness's worst case, and the measured frame time does not move (4.9 ms against 5.1 ms on the same
+scene, inside the noise).
+
+### Two bugs the pass turned up
+
+⚠ **The GL pass was lighting the city from a fixed north-west fill.** `glLightState` is the
+standalone answer the spike needs and it has no sun to ask; used in the game it put every facade
+under a key pointing somewhere the 2-D renderer's sun was not, which by day reads as the whole city
+being in shadow. The pass now takes `LIGHT_STATE` — the light the arms are shading against this very
+frame — and `glLightState` is the fallback.
+
+⚠ **And GL was magnifying the wall textures with LINEAR.** A wall texture is 16×32 stretched over a
+whole facade, and GLASS draws it with smoothing on only when the wall is being MINIFIED, so close up
+the window rows are crisp blocks of texel. LINEAR magnification turned every near facade into a soft
+grey wash — which looked like the lighting being wrong and was the sampler.
+
+### And one hole that is only half closed
+
+⚠ **A painter's queue hides things by painting over them**, so the moment GLASS 2 takes the walls
+the 2-D queue has nothing to sort a bush, a tree, a lamp post or a pedestrian against — and they
+paint straight through the building they stand behind. A wood behind a row of warehouses came out
+drawn ON the warehouses. Those are all screen-space billboards at a tile's ground point, so
+`groundHidden` probes that point against the occluder field the frame already built.
+
+It is timid, and what it misses is worth knowing: that field is deliberately SHRUNK, because culling
+a building that should have drawn is a hole in the city. A shrunk one-storey shed covers a thin band
+of screen, so a wood behind a row of them is not proved hidden and still shows. Tall buildings — the
+case a city is made of — are covered. The real answer is the billboards moving onto the GPU too.
+
 ## Forking an arm into something editable
 
 The answer to "can I edit this building?" for the 172 models that are code. The arm itself cannot

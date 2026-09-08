@@ -171,8 +171,14 @@ export function createGLView(canvas) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
     // ⚠ NO MIPMAPS AND CLAMP TO EDGE. A mipmap chain blends across tile boundaries at the coarse
     // levels, which is the atlas seam the padding exists to prevent, arriving by another door.
+    //
+    // ⚠ AND MAGNIFY WITH NEAREST, WHICH IS WHAT GLASS DOES. A wall texture is 16×32 stretched over
+    // a whole facade, and the 2-D renderer draws it with smoothing ON only when the wall is being
+    // MINIFIED (`drawTexQuadP(..., minify)`) — so close up the window rows are crisp blocks of
+    // texel. LINEAR magnification turned every near facade into a soft grey wash with the windows
+    // barely readable, which looked like the GL lighting being wrong and was the sampler.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     hasAtlas = true;

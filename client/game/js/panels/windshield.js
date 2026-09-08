@@ -7485,6 +7485,32 @@ let LIGHT_TALLY = null;
 // wall cannot take the full DECO_LIFT — 0.6 tiles jumps it onto a nearer neighbour, which is the
 // bug marqueeBand's own comment records — so those callers reached for emitFace and lost the
 // probe on the way past. The lift is now a parameter and the probe is not optional.
+// ── WHAT STANDS ON THE GROUND, ONCE THE MASS IS NO LONGER IN THE QUEUE ──────
+//
+// ⚠ A PAINTER'S QUEUE HIDES THINGS BY PAINTING OVER THEM, so the moment GLASS 2 takes the walls
+// the queue has nothing to sort a bush, a tree, a lamp post or a pedestrian against — and they
+// paint straight through the building they are standing behind. It is not subtle: a wood behind a
+// row of warehouses comes out drawn ON the warehouses.
+//
+// The occluder field is exactly the answer and was already built for this frame — it is what stops
+// a distant sign showing through a nearer tower. These are all SCREEN-SPACE billboards drawn
+// around their tile's ground point, so the probe is that point with the sprite's own pixel size
+// round it, deliberately generous: a bigger box is harder to cover, and the only safe direction to
+// be wrong in is drawing something that is hidden.
+//
+// ⚠ IT IS TIMID, AND WHAT IT MISSES IS WORTH KNOWING. The field it reads is the one the building
+// cull uses, and that field is deliberately SHRUNK (OCC_SHRINK) because culling a building that
+// should have drawn is a hole in the city. A shrunk one-storey shed covers a thin band of screen,
+// so a wood standing behind a row of them is not proved hidden and still paints over them. Tall
+// buildings — the case a city is made of — are covered. The real answer is the billboards moving
+// onto the GPU with everything else, where a depth buffer settles it per pixel; until then this is
+// an approximation that can only ever be too shy.
+function groundHidden(cam, dx, dy, f) {
+  if (!GL_CELLS) return false;
+  const p = cam.proj(dx, dy, 0);
+  return decoHidden([p], propS(34, f, 3, 64) * 0.95);
+}
+
 function emitDeco(pts, fn, lift = DECO_LIFT, rPx = 0) {
   if (decoHidden(pts, rPx)) return;
   emitFace(Math.min(...pts.map((p) => p.f)) - lift, fn);
@@ -9262,6 +9288,7 @@ function drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR) {
   const a = smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);
   if (a <= 0.03) return;
   const tok = hh.t || 'hh';
+  if (groundHidden(cam, dx, dy, f)) return;
   emitFace(f + (cam.fwdOff || 0), () => {
     drawActorFigure(ctx, cam, dx, dy, a, tok, 0, false, night);
     // The hand. Drawn after the body so it sits over the shoulder rather than under it, and sized
@@ -9317,6 +9344,7 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     if (a <= 0.03) continue;
     // Gait runs on wall-clock, offset per figure, so a pavement of people is not a chorus line.
     const phase = now * 0.011 + actorHash(t, 5) * 7;
+    if (groundHidden(cam, dx, dy, f)) continue;
     emitFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, p.moving, night));
   }
 }
@@ -9754,6 +9782,7 @@ function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
 // under every building in the flush that follows (see the same note on the signal heads).
 function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
   const f = dx * cam.sinh - dy * cam.cosh;
+  if (groundHidden(cam, dx, dy, f)) return;
   emitFace(f + (cam.fwdOff || 0), () => drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed));
 }
 
@@ -9809,6 +9838,7 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       // open during this pass, so anything painting straight to ctx here is painted OVER by every
       // building in the flush that follows.
       const hf = mx * cam.sinh - my * cam.cosh;
+      if (groundHidden(cam, mx, my, hf)) continue;
       emitFace(hf + (cam.fwdOff || 0), () => drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35));
     }
   }
@@ -18753,6 +18783,9 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
   }
+  // The model's own trim, whichever arm drew its mass. `authored` is excluded because it draws its
+  // own before its adornments, which is where a pipe belongs relative to a beacon.
+  if (m.type !== 'authored') detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E);
 }
 
 // ── Shape capture harness ────────────────────────────────────────────────────
@@ -19461,6 +19494,16 @@ function drawModelLOD(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, E, detail)
 // And it is MOUNTED. A part standing on a surface takes that surface as its host (see mountedOn),
 // so an AC unit on a roof cannot sort behind the roof it stands on.
 const DETAIL_LIFT = 0.02;   // a hair proud of the face it is bolted to, the same trick marqueeBand uses
+// ⚠ AND A REAL GAP, NOT ONLY A SORT NUDGE. `lift` moves a quad in the painter's QUEUE and not in
+// the world, which is all a 2-D renderer with no depth buffer can do — and it is nothing at all to
+// a depth buffer, where a panel lying exactly in the plane of the wall behind it z-fights into a
+// stipple. So a wall-mounted part stands physically off its face by this, in tile units: small
+// enough to be invisible, large enough that no depth format has to choose.
+const FACE_EPS = 0.006;
+// The plane a wall-mounted part actually sits in: its own y, pushed outward. The sign is the side
+// of the model it was placed on, and a part authored dead on the centreline is pushed toward the
+// entrance, which is the face that has one.
+const faceY = (ly) => ly + (ly < 0 ? -FACE_EPS : FACE_EPS);
 
 // The on-screen height of a world-z span at this distance, which is what the gate tests. Derived
 // from the projection rather than guessed: `depth·dz/f` is exactly what proj does to a height.
@@ -19473,10 +19516,10 @@ const AUTHORED_DETAIL = {
   // A pipe: two flat strips at right angles, which reads as a round pipe from any angle a wall is
   // seen from and costs two quads instead of a drum.
   pipe: (c, d) => {
-    const r = c.V(d.r), z0 = c.V(d.z0), z1 = c.V(d.z1);
+    const r = c.V(d.r), z0 = c.V(d.z0), z1 = c.V(d.z1), y = faceY(c.ly);
     const col = shadeOf(d.pal || c.pal, 0.86), lit = shadeOf(d.pal || c.pal, 1.06);
-    detailQuad(c.ctx, c.cam, c.F, [[c.lx - r, c.ly, z1], [c.lx + r, c.ly, z1], [c.lx + r, c.ly, z0], [c.lx - r, c.ly, z0]], col, c.alpha, { lift: DETAIL_LIFT });
-    detailQuad(c.ctx, c.cam, c.F, [[c.lx, c.ly - r, z1], [c.lx, c.ly + r, z1], [c.lx, c.ly + r, z0], [c.lx, c.ly - r, z0]], lit, c.alpha, { lift: DETAIL_LIFT * 1.5 });
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - r, y, z1], [c.lx + r, y, z1], [c.lx + r, y, z0], [c.lx - r, y, z0]], col, c.alpha, { lift: DETAIL_LIFT });
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx, y - r, z1], [c.lx, y + r, z1], [c.lx, y + r, z0], [c.lx, y - r, z0]], lit, c.alpha, { lift: DETAIL_LIFT * 1.5 });
   },
   // A mechanical box: a top and one side, which is all of it that is ever visible from outside.
   acUnit: (c, d) => {
@@ -19491,12 +19534,12 @@ const AUTHORED_DETAIL = {
   },
   // A louvred panel: one quad and three lines, flat on the face.
   vent: (c, d) => {
-    const w = c.V(d.w), hh = d.hh ? c.V(d.hh) : w, z = c.V(d.z);
-    detailQuad(c.ctx, c.cam, c.F, [[c.lx - w, c.ly, z + hh], [c.lx + w, c.ly, z + hh], [c.lx + w, c.ly, z - hh], [c.lx - w, c.ly, z - hh]],
+    const w = c.V(d.w), hh = d.hh ? c.V(d.hh) : w, z = c.V(d.z), y = faceY(c.ly);
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - w, y, z + hh], [c.lx + w, y, z + hh], [c.lx + w, y, z - hh], [c.lx - w, y, z - hh]],
       shadeOf(d.pal || c.pal, 0.6), c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.35)", lw: 1 });
     for (let i = 1; i <= 3; i++) {
-      const zz = z - hh + (2 * hh) * (i / 4);
-      detailQuad(c.ctx, c.cam, c.F, [[c.lx - w * 0.9, c.ly, zz], [c.lx + w * 0.9, c.ly, zz], [c.lx + w * 0.9, c.ly, zz - hh * 0.08], [c.lx - w * 0.9, c.ly, zz - hh * 0.08]],
+      const zz = z - hh + (2 * hh) * (i / 4), yy = y + (y < 0 ? -FACE_EPS : FACE_EPS);
+      detailQuad(c.ctx, c.cam, c.F, [[c.lx - w * 0.9, yy, zz], [c.lx + w * 0.9, yy, zz], [c.lx + w * 0.9, yy, zz - hh * 0.08], [c.lx - w * 0.9, yy, zz - hh * 0.08]],
         shadeOf(d.pal || c.pal, 0.42), c.alpha, { lift: DETAIL_LIFT * 1.4 });
     }
   },
@@ -19526,8 +19569,8 @@ const AUTHORED_DETAIL = {
   },
   // A painted sign board bolted to a wall — not neonBlade, which is a lit blade on its own mast.
   signBoard: (c, d) => {
-    const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z);
-    const pts = [[c.lx - half, c.ly, z + hh], [c.lx + half, c.ly, z + hh], [c.lx + half, c.ly, z - hh], [c.lx - half, c.ly, z - hh]];
+    const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z), y = faceY(c.ly);
+    const pts = [[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, y, z - hh], [c.lx - half, y, z - hh]];
     detailQuad(c.ctx, c.cam, c.F, pts, d.color || "#141018", c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.5)", lw: 1 });
     if (d.label) {
       // Painted INTO the surface, never billboarded — the house rule for all world text.
@@ -19571,6 +19614,115 @@ const AUTHORED_ADORN = {
 export const AUTHORED_ADORN_KINDS = Object.keys(AUTHORED_ADORN);
 
 const AUTH_ZERO = [0, 0, 0];
+// ── THE TRIM, BY THE ARM THAT DRAWS THE MASS ────────────────────────────────
+//
+// A `detail` list is geometry hung on a building, so it has to know where that building's surfaces
+// ARE — and what decides that is the arm, not the record. `type:office`, `type:corporate_office`
+// and every named tower that resolves to the office arm are the same three setbacks at the same
+// heights, so they want the same coping and the same rooftop plant. Keying the table on the arm is
+// what makes the quality pass affordable: one list, every building drawn that way.
+//
+// A record's own `m.detail` always wins, so a landmark can say something different from its type.
+//
+// ⚠ VALUES ARE AFFINE TRIPLES `[a·fh + b·h + c]`, the same basis the segments use, because a part
+// has to stay on the wall when the footprint or the storey height changes. And ⚠ a wall-mounted
+// part is authored at `[1,0,0]` — the footprint itself — rather than at the box's own half-width:
+// `draw3DBoxAt` CLAMPS a half-width to 0.44, so a box authored at `fh*1.14` has its wall at 0.44
+// whenever fh ≥ 0.386, and a part placed at 1.14 would float off the side of the building. Placed
+// at the footprint it is at worst a few centimetres inside the wall, which nothing can see.
+
+// A corporate tower: three setbacks at H/3, 2H/3 and H where H = h·1.7, stepping in by 0.74 each
+// time. Coping on all three ledges, plant on the top roof, a riser and a vent on the street wall.
+const D_OFFICE = [
+  { kind: 'parapet', z: [0, 0.5667, 0], half: [1.0, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'parapet', z: [0, 1.1333, 0], half: [0.83, 0, 0], hh: [0, 0.028, 0] },
+  { kind: 'parapet', z: [0, 1.7, 0], half: [0.63, 0, 0], hh: [0, 0.045, 0] },
+  { kind: 'acUnit', cx: [0.28, 0, 0], cy: [0.20, 0, 0], z: [0, 1.7, 0], w: [0.11, 0, 0], d: [0.09, 0, 0], hh: [0, 0.055, 0] },
+  { kind: 'acUnit', cx: [-0.30, 0, 0], cy: [-0.18, 0, 0], z: [0, 1.7, 0], w: [0.09, 0, 0], d: [0.07, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'pipe', cx: [0.72, 0, 0], cy: [1, 0, 0], z0: [0, 0.03, 0], z1: [0, 0.55, 0], r: [0.028, 0, 0] },
+  { kind: 'vent', cx: [-0.55, 0, 0], cy: [1, 0, 0], z: [0, 0.28, 0], w: [0.11, 0, 0], hh: [0, 0.050, 0] },
+];
+
+// A civic block with a set-back roof house: coping on both roofs, plant beside the house, a blank
+// painted board over the door and a pair of louvres on the street wall.
+const D_CIVIC = [
+  { kind: 'parapet', z: [0, 0.85, 0], half: [1.0, 0, 0], hh: [0, 0.035, 0] },
+  { kind: 'parapet', z: [0, 1.02, 0], half: [0.64, 0, 0], hh: [0, 0.025, 0] },
+  { kind: 'acUnit', cx: [0.82, 0, 0], cy: [0.20, 0, 0], z: [0, 0.85, 0], w: [0.08, 0, 0], d: [0.07, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'acUnit', cx: [-0.80, 0, 0], cy: [-0.24, 0, 0], z: [0, 0.85, 0], w: [0.07, 0, 0], d: [0.06, 0, 0], hh: [0, 0.034, 0] },
+  { kind: 'signBoard', cy: [1, 0, 0], z: [0, 0.62, 0], half: [0.46, 0, 0], hh: [0, 0.055, 0], color: '#2b3038' },
+  { kind: 'vent', cx: [-0.62, 0, 0], cy: [1, 0, 0], z: [0, 0.34, 0], w: [0.10, 0, 0], hh: [0, 0.045, 0] },
+  { kind: 'vent', cx: [0.62, 0, 0], cy: [1, 0, 0], z: [0, 0.34, 0], w: [0.10, 0, 0], hh: [0, 0.045, 0] },
+];
+
+// A clean pale block with a small roof house — the same shape as the civic one, one storey taller,
+// and kept plainer on purpose: a clinic that bristles with plant stops reading as clean.
+const D_CLINIC = [
+  { kind: 'parapet', z: [0, 0.90, 0], half: [1.0, 0, 0], hh: [0, 0.032, 0] },
+  { kind: 'parapet', z: [0, 1.08, 0], half: [0.57, 0, 0], hh: [0, 0.024, 0] },
+  { kind: 'acUnit', cx: [0.78, 0, 0], cy: [0.22, 0, 0], z: [0, 0.90, 0], w: [0.09, 0, 0], d: [0.08, 0, 0], hh: [0, 0.045, 0] },
+  { kind: 'vent', cx: [-0.58, 0, 0], cy: [1, 0, 0], z: [0, 0.40, 0], w: [0.09, 0, 0], hh: [0, 0.040, 0] },
+];
+
+// Two cooling towers either side of a stack. The towers are boxes centred at ±fh·0.8, so their own
+// walls are at ±fh·0.55 about those centres — which is what the pipe runs are placed against.
+const D_INDUSTRIAL = [
+  { kind: 'parapet', cx: [0.8, 0, 0], z: [0, 1.05, 0], half: [0.57, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'parapet', cx: [-0.8, 0, 0], z: [0, 1.05, 0], half: [0.57, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'pipe', cx: [0.80, 0, 0], cy: [0.56, 0, 0], z0: [0, 0.04, 0], z1: [0, 1.00, 0], r: [0.034, 0, 0] },
+  { kind: 'pipe', cx: [-0.80, 0, 0], cy: [0.56, 0, 0], z0: [0, 0.04, 0], z1: [0, 1.00, 0], r: [0.034, 0, 0] },
+  { kind: 'vent', cx: [0.80, 0, 0], cy: [0.56, 0, 0], z: [0, 0.30, 0], w: [0.16, 0, 0], hh: [0, 0.070, 0] },
+  { kind: 'vent', cx: [-0.80, 0, 0], cy: [0.56, 0, 0], z: [0, 0.30, 0], w: [0.16, 0, 0], hh: [0, 0.070, 0] },
+];
+
+const ARM_DETAIL = {
+  office: D_OFFICE,
+  police: D_CIVIC,
+  clinic: D_CLINIC,
+  power: D_INDUSTRIAL,
+};
+
+// ── THE DETAIL LAYER, FOR ANY MODEL ─────────────────────────────────────────
+//
+// ⚠ IT IS NOT A PROPERTY OF AUTHORED MODELS, and living inside drawAuthoredModel made it look
+// like one. A `detail` list is read off the MODEL RECORD, and the 172 hand-written arms have
+// model records too — that is what they are registered as. So a pipe run, a vent, a parapet or a
+// sign board can be hung on `type:office` and every office in the city gets it, with the arm
+// untouched. That is the whole shape of the quality pass: the arms stay hand-written and the trim
+// they never had is data.
+function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
+  const list = (m.detail && m.detail.length) ? m.detail : ARM_DETAIL[m.type];
+  // ⚠ THE NEAR TIER, NOT THE RICH ONE, AND THAT IS THE WHOLE COST STORY. Trim is the cheapest kind
+  // of canvas work — flat fills, no gradient, no blur — and there is a lot of it, so drawing it on
+  // every building at every range is a rise the 2-D renderer has to pay for on a city it was
+  // already finishing on time. `ADORN_NEAR` bounds that by construction: what it costs depends on
+  // how many buildings are within `detailNear` tiles, not on how many models have been authored, so
+  // the quality pass can run to all 173 without the frame moving.
+  //
+  // The mesh is the other half of that bargain and is not gated: `captureModelMesh` forces this tier
+  // precisely so GLASS 2 carries every part at every distance, where a depth buffer draws them for
+  // nothing. Trim is a GLASS 2 feature that the 2-D renderer also shows you when you are beside it.
+  if (!list || !list.length || SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;
+  const th = Math.atan2(-E[0], E[1]);
+  const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
+  const hostF = cam.proj(dx, dy, 0).f;
+  const dc = { ctx, cam, V, E, th, seed, night, alpha, now, pal: m.pal, name: m.name || m.id, lx: 0, ly: 0,
+    F: (lx, ly) => facePt(dx, dy, lx, ly, E) };
+  for (const d of list) {
+    const fn = AUTHORED_DETAIL[d.kind];
+    if (!fn) continue;
+    // ⚠ THE SCREEN-SIZE GATE, and it is the whole reason ten times the parts is affordable on the
+    // 2-D renderer. A part smaller than its own floor is not drawn — not drawn cheaply, not queued.
+    const dz = Math.max(0.02, Math.abs(V(d.hh || d.rail || d.r || d.half || [0, 0, 0.05])) * 2);
+    // ⚠ NEVER WHILE CAPTURING. The gate asks how big this part looks from HERE, and a capture runs
+    // against a stub camera parked eight tiles off — so honouring it would bake one camera's answer
+    // into a mesh that every camera then draws. A GPU does not need the gate at all.
+    if (!MESH_SINK && detailPx(cam, hostF, dz) < (DETAIL_PX[d.kind] || 6)) continue;
+    dc.lx = V(d.cx); dc.ly = V(d.cy);
+    fn(dc, d);
+  }
+}
+
 function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   const th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
   const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
@@ -19605,27 +19757,8 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
     }
   });
 
-  // ── THE DETAIL LAYER ──
-  // Before the adornments, because a pipe is part of the wall and a beacon is not, and because
-  // the gate below wants the same host distance the mass was drawn at.
-  if (m.detail && m.detail.length && !SHAPE_SINK && ADORN_TIER >= ADORN_RICH) {
-    const hostF = cam.proj(dx, dy, 0).f;
-    const dc = { ctx, cam, V, E, th, seed, night, alpha, now, pal: m.pal, name: m.name || m.id, lx: 0, ly: 0,
-      F: (lx, ly) => facePt(dx, dy, lx, ly, E) };
-    for (const d of m.detail) {
-      const fn = AUTHORED_DETAIL[d.kind];
-      if (!fn) continue;
-      // ⚠ THE SCREEN-SIZE GATE, and it is the whole reason ten times the parts is affordable.
-      // A part smaller than its own floor is not drawn — not drawn cheaply, not queued at all.
-      const dz = Math.max(0.02, Math.abs(V(d.hh || d.rail || d.r || d.half || [0, 0, 0.05])) * 2);
-      // ⚠ NEVER WHILE CAPTURING. The gate asks how big this part looks from HERE, and a capture is
-      // run against a stub camera parked eight tiles off — so honouring it would bake one camera's
-      // answer into a mesh that every camera then draws. A GPU does not need the gate at all.
-      if (!MESH_SINK && detailPx(cam, hostF, dz) < (DETAIL_PX[d.kind] || 6)) continue;
-      dc.lx = V(d.cx); dc.ly = V(d.cy);
-      fn(dc, d);
-    }
-  }
+  // The detail layer, before the adornments: a pipe is part of the wall and a beacon is not.
+  detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E);
 
   if (!m.adorn || !m.adorn.length) return;
   // `neon` is the model's own sign colour, used when an adornment does not name one — the same
@@ -20647,6 +20780,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // the foot of a landform that was not being drawn. `hi` is the whole test: a rim tile
     // and a tableland tile take the same call and differ only in the run they hand it, so
     // there is no seam through the middle of a massif.
+    // Everything below this line stands ON the ground rather than being one — see groundHidden.
+    // Cliffs and the Curtain are excluded because they are world-scale masses, and a screen box
+    // sized for a bush would under-measure them into being culled while still visible.
+    if (!it.c.bt && !it.c.hi && !it.c.cur && groundHidden(cam, it.dx, it.dy, it.f)) continue;
     if (it.c.hi && !it.c.bt) {
       emitFace(od, () => drawCliffMass(ctx, cam, it.dx, it.dy, it.c.cf || '', bi, it.seed, night, alpha, sun, it.wx, it.wy));
       continue;
@@ -20833,7 +20970,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   if (GL_CELLS) {
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE });
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE });
       if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
     }
     catch (e) { console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
