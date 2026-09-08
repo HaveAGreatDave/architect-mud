@@ -21,6 +21,9 @@ import {
   SEG_SCHEMA, ADORN_SCHEMA, DEFAULT_BASIS, compileModel, validateModel,
 } from '/client/shared/building-model-schema.js';
 import { wallPaletteKeys, wallPaletteInfo } from '/client/game/js/panels/windshield.js';
+import { toolboxSection, setToolboxOpen } from './toolbox.js';
+import { shapeForModel } from '/client/game/js/panels/windshield.js';
+import { portModel } from '/client/shared/model-port.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -316,37 +319,37 @@ const ADORN_HELP = {
   awning: 'A shopfront awning — wide across the front, shallow into the street.',
 };
 
-export function openToolPicker() { renderTools(); document.getElementById('tooldlg').showModal(); }
-
-function tile(title, help, enabled, onPick, on) {
-  const b = el('button', 'tk' + (on ? ' on' : '') + (enabled ? '' : ' off'));
-  b.append(el('b', null, title), el('i', null, help));
-  if (enabled) b.onclick = () => { onPick(); document.getElementById('tooldlg').close(); };
-  else b.title = 'Select an authored model first — a hand-written arm cannot be edited here.';
-  return b;
-}
-
-function section(host, name, tiles) {
-  host.append(el('div', 'grp', name));
-  const w = el('div', 'wrapg');
-  for (const t of tiles) w.append(t);
-  host.append(w);
-}
+// Opening the palette is now showing a panel that is probably already open, so this doubles as
+// the redraw: a tool that is on, or a model that just became editable, is reflected at once.
+export function openToolPicker() { setToolboxOpen(true); renderTools(); }
+export function refreshToolbox() { renderTools(); }
 
 function renderTools() {
-  const host = document.getElementById('toolgrid');
+  const host = document.getElementById('tbbody');
+  if (!host) return;
   host.textContent = '';
   const doc = editorDocFor(currentKey);
-  const mode = window.__msMode();
+  // ⚠ Guarded, because the palette is rendered during boot and these hooks are assigned at the
+  // BOTTOM of app.js. Unguarded, the first render throws, the panel stays empty, and nothing in
+  // the page says why — which is exactly how it behaved the first time.
+  const mode = window.__msMode ? window.__msMode() : null;
 
-  section(host, 'Transform', TOOL_MODES.map(([id, title, help]) =>
-    tile(title, help, true, () => window.__msSetMode(id), mode === id)));
+  toolboxSection(host, 'Transform', TOOL_MODES.map(([id, title, help]) => ({
+    title, help, icon: id, on: mode === id, onPick: () => { window.__msSetMode(id); renderTools(); },
+  })));
 
-  section(host, 'Add mass', Object.keys(SEG_SCHEMA).map((kind) =>
-    tile(kind, SEG_HELP[kind] || '', !!doc, () => addPart(doc, 'segs', SEG_SCHEMA, kind))));
+  // ⚠ The two lists come from the SCHEMA, never from a list of names written here. A kind added
+  // to SEG_SCHEMA or ADORN_SCHEMA gets a button on the next reload with nothing else edited,
+  // which is what stopped the picker drifting from the format when barrel and sawtooth landed.
+  toolboxSection(host, 'Add mass', Object.keys(SEG_SCHEMA).map((kind) => ({
+    title: kind, help: SEG_HELP[kind] || '', enabled: !!doc,
+    onPick: () => addPart(doc, 'segs', SEG_SCHEMA, kind),
+  })));
 
-  section(host, 'Add adornment', Object.keys(ADORN_SCHEMA).map((kind) =>
-    tile(kind, ADORN_HELP[kind] || '', !!doc, () => addPart(doc, 'adorn', ADORN_SCHEMA, kind))));
+  toolboxSection(host, 'Add adornment', Object.keys(ADORN_SCHEMA).map((kind) => ({
+    title: kind, help: ADORN_HELP[kind] || '', enabled: !!doc,
+    onPick: () => addPart(doc, 'adorn', ADORN_SCHEMA, kind),
+  })));
 }
 
 // The same defaults the rail's add-rows use, so a piece added from either place arrives
@@ -507,9 +510,10 @@ export function renderEditor(host, key, redraw) {
     const m = window.__msModel(key);
     const note = el('div', 'dim');
     note.textContent = m && m.type !== 'authored'
-      ? 'This is a hand-written arm in windshield.js — not editable here. Create a new authored model, or port it (see the README).'
+      ? 'This is a hand-written arm in windshield.js. Fork it to get an editable copy of its mass, or start a new model below.'
       : 'No authored source for this model.';
     host.append(note);
+    if (m && m.type !== 'authored') host.append(forkRow(key, m, redraw));
     host.append(newModelRow(redraw));
     return;
   }
@@ -599,6 +603,47 @@ export function renderEditor(host, key, redraw) {
   for (const w of v.warnings) msgs.append(el('div', 'warn', '! ' + w));
   host.append(msgs);
   host.append(newModelRow(redraw));
+}
+
+// ── FORKING AN ARM ──────────────────────────────────────────────────────────
+// The answer to "can I edit this building?" for the 172 that are code. The arm cannot be edited,
+// but its captured MASS can be turned back into an authored document, and then you can add
+// shapes to it, move them, retexture them and save.
+//
+// ⚠ A FORK IS A STARTING POINT, NOT A COPY. Capture is lossy in three ways that all matter here
+// (see client/shared/model-port.js): no adornments but masts, no per-box texture seed, and one
+// frozen entrance facing — which is the thing that ended the port of the city. So the fork gets
+// its OWN id and binds to nothing that exists, and it deliberately does not claim `portedFrom`,
+// which is the field that would make it override the arm. The original building is untouched
+// until you bind the fork to it yourself.
+function forkRow(key, m, redraw) {
+  const row = el('div', 'addrow');
+  const b = el('button', '', 'Fork to editable');
+  b.title = 'Capture this arm\'s mass into a new authored model you can edit. Adornments, per-box texture seeds and the other three entrance facings are NOT captured — the copy is a starting point.';
+  b.onclick = async () => {
+    const bar = $('esave');
+    // portModel takes the renderer as an argument; in node that is the stubbed windshield, here
+    // it is the real one this page already imported.
+    const { doc, errors } = portModel({ shapeForModel }, key, m, Number(window.__msSeed?.() ?? 3));
+    if (errors) {
+      bar.className = 'err';
+      bar.textContent = 'cannot be expressed in the authored format — ' + errors[0];
+      return;
+    }
+    const id = doc.id + '_fork';
+    doc.id = id;
+    // Its own name, bound to nothing: an authored model that reuses the arm's key is invisible
+    // (the registry merge keeps the arm), which would look exactly like the fork having failed.
+    doc.bind = [{ by: 'name', key: id }];
+    delete doc.portedFrom;
+    doc.note = 'Forked from the hand-written ' + m.type + ' arm in the Modelshop. Mass only: adornments other than masts, per-box texture seeds and the other entrance facings were not captured.';
+    docs.set(id + '.json', doc);
+    keyToFile.set('named:' + id, id + '.json');
+    await doSave(id + '.json', doc, redraw);
+    window.__msReselect('named:' + id);
+  };
+  row.append(b);
+  return row;
 }
 
 function newModelRow(redraw) {

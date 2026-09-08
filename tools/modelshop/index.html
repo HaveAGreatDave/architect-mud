@@ -26,6 +26,23 @@
   #hud { position: absolute; left: 10px; bottom: 46px; color: var(--ms-dim); font-size: 11px; pointer-events: none; text-shadow: 0 1px 3px #000; }
   #modelname { color: var(--ms-accent); font-size: 12px; padding: 0 4px; text-shadow: 0 1px 3px #000; }
 
+  /* THE TOOL PALETTE. A floating panel rather than a dialog, because a dialog is modal and a
+     tool palette is the one surface you want open WHILE you work. Dragged by its head, closed
+     with the x, brought back with the toolbar button or T. Its position and whether it is open
+     are remembered per browser, so it stays where you put it. */
+  #toolbox { position: absolute; z-index: 40; width: 168px; background: var(--ms-panel); border: 1px solid var(--ms-line); border-radius: 4px; box-shadow: 0 6px 22px #0009; user-select: none; }
+  #toolbox[hidden] { display: none; }
+  #tbhead { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 8px; cursor: move; border-bottom: 1px solid var(--ms-line); font-size: 11px; color: var(--ms-dim); }
+  #tbhead b { flex: 1; font-weight: normal; letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }
+  #tbbody { padding: 6px; }
+  #tbbody .grp { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--ms-dim); margin: 4px 0 3px; }
+  #tbbody .icons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+  .ic { display: flex; align-items: center; justify-content: center; padding: 0; height: 27px; background: #1b2129; border: 1px solid var(--ms-line); border-radius: 3px; cursor: pointer; color: var(--ms-ink); }
+  .ic:hover { border-color: #3d4b5a; }
+  .ic.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #16222b; }
+  .ic.off { opacity: .35; cursor: not-allowed; }
+  .ic svg { display: block; }
+
   #bar { padding: 6px 10px; border-top: 1px solid var(--ms-line); background: var(--ms-panel); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 11px; }
   label { color: var(--ms-dim); display: inline-flex; gap: 5px; align-items: center; }
   input[type=range] { width: 96px; }
@@ -104,15 +121,6 @@
   #palgrid .pk span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* the tool picker */
-  #toolgrid { flex: 1; overflow: auto; padding: 4px 0 12px; }
-  #toolgrid .grp { padding: 10px 14px 4px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
-  #toolgrid .wrapg { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 5px; padding: 4px 14px; }
-  #toolgrid .tk { text-align: left; padding: 7px 9px; border: 1px solid var(--ms-line); border-radius: 4px; background: #10141a; cursor: pointer; }
-  #toolgrid .tk:hover { border-color: var(--ms-accent); }
-  #toolgrid .tk.on { border-color: var(--ms-accent); background: #16222b; }
-  #toolgrid .tk b { display: block; color: var(--ms-ink); font-weight: normal; }
-  #toolgrid .tk i { display: block; color: var(--ms-dim); font-style: normal; font-size: 10px; padding-top: 2px; line-height: 1.35; }
-  #toolgrid .tk.off { opacity: .45; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -130,6 +138,10 @@
       <button id="frame" title="Frame the model again">Frame <kbd>F</kbd></button>
     </div>
     <div id="hud"></div>
+<div id="toolbox">
+  <div id="tbhead"><b>Tools</b><span class="dim" title="T toggles this panel">T</span><button id="tbclose" class="mini" title="Close — the Tools button brings it back">x</button></div>
+  <div id="tbbody"></div>
+</div>
     <div id="bar">
       <button id="preset-cockpit" class="on">Cockpit</button>
       <button id="preset-cab">Cab</button>
@@ -178,17 +190,6 @@
     </section>
   </div>
 </div>
-
-<dialog id="tooldlg">
-  <div id="browser">
-    <div id="bhead">
-      <b style="flex:1">Tools</b>
-      <span class="dim">click to use · <kbd>T</kbd> opens this</span>
-      <button id="toolclose">Close</button>
-    </div>
-    <div id="toolgrid"></div>
-  </div>
-</dialog>
 
 <dialog id="paldlg">
   <div id="browser">

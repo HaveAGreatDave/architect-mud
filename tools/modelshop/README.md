@@ -20,7 +20,7 @@ which starts it for you the way the Map Studio link does.
 | | |
 |---|---|
 | middle-drag | **locked orbit** — the model stays pinned at the centre |
-| drag empty space | the same orbit, unlocked |
+| drag empty space | the same orbit |
 | shift+middle, or right-drag | pan |
 | wheel | zoom |
 | click a piece | select it, and its card in the rail |
@@ -29,7 +29,7 @@ which starts it for you the way the Map Studio link does.
 | <kbd>Shift</kbd>+drag | the vertical of whatever transform is active |
 | <kbd>D</kbd> / <kbd>Del</kbd> / <kbd>Esc</kbd> | duplicate / remove / deselect |
 | <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | undo / redo |
-| <kbd>O</kbd> / <kbd>T</kbd> | the model browser · the tool picker |
+| <kbd>O</kbd> / <kbd>T</kbd> | the model browser · show or hide the tool palette |
 | <kbd>F</kbd> | re-frame |
 
 **Every model arrives framed.** The framing is SOLVED, not guessed: the model own bounds go to
@@ -62,14 +62,44 @@ for its type, and the switch falls through to the default shop arm. A second cal
 second chance to forget the branch. Scale and rotate are horizontal drags with Shift for height;
 height can never be a free drag because there is no depth cue to judge it against.
 
-## The tool picker
+## The tool palette
 
-<kbd>T</kbd>, or the Tools button. Three transform modes, four mass primitives and nine
-adornments is sixteen things to reach for, and they used to live in two unlabelled dropdowns
-at the bottom of a scrolling rail. The dialog names all of them **and what each is for** —
-the descriptions are the point, not the layout. Every entry drives the existing control;
-none of it is a second implementation, and both paths share one `defaultPart()` so a piece
-added from either arrives the same size.
+A floating panel, not a dialog — it was a modal picker first, and a modal is a thing you open,
+take one action from and dismiss, which is exactly wrong for the surface you choose a tool from
+*while* you work. It stays open over the viewport, drags by its head to anywhere on the stage,
+closes with its x and comes back with the **Tools** button or <kbd>T</kbd>. Where you put it and
+whether it is open are remembered per browser.
+
+Every tool is an icon with a tooltip carrying the name and the sentence the labelled tile used to
+show. That is what lets the panel be small enough to leave open: sixteen labelled tiles is a panel
+the size of the rail.
+
+Its two lists are read from the schema, never from a list of names in the panel — a kind added to
+`SEG_SCHEMA` or `ADORN_SCHEMA` gets a button with nothing else edited. Add-mass and add-adornment
+tools grey out on a hand-written arm, and the tooltip says why. A piece added here and a piece
+added from the rail share one `defaultPart()`, so both arrive the same size.
+
+## Forking an arm into something editable
+
+The answer to "can I edit this building?" for the 172 models that are code. The arm itself cannot
+be edited — but its captured **mass** can be turned back into an authored document, and then you
+can add shapes to it, move them, retexture them and save. **Fork to editable**, on any code arm.
+
+⚠ **A fork is a starting point, not a copy.** Capture is lossy in three ways that all matter:
+
+- **no adornments but masts** — every adornment no-ops under `SHAPE_SINK` by design;
+- **no per-box texture seed** — the walls will be jittered differently;
+- **one entrance facing**, frozen at capture. This is the finding that ended the port of the city:
+  79 arms that were byte-identical at the capture conditions all broke when the facing changed.
+
+So the fork takes its own id (`<arm>_fork`), binds to a name nothing carries yet, and deliberately
+does **not** claim `portedFrom` — the field that would make it override the arm. The building in
+the game is untouched until you bind the fork to it yourself, with the bind picker.
+
+Of the 172 arms, 138 can be expressed at all; the other 34 hold entrance-face-only mass and the
+fork refuses them by name rather than producing a wrong building. The inversion is
+[client/shared/model-port.js](../../client/shared/model-port.js), shared with
+`scripts/shapes/autoport.mjs` so the tool and the build cannot disagree about what a port is.
 
 ## The four mass kinds
 
@@ -224,6 +254,27 @@ plane, so the thing you are looking at is the thing you are editing.
   blurs — the last is what stops a model that costs 40 gradients reaching a skyline.
 
 ## Orbit is heading, and pitch is eye height
+
+⚠ **A vertical drag moves on a SPHERE, never up a line.** Raising the eye while holding the
+distance is a crane: the camera climbs and the subject stays as far away in plan, so it flattens
+and slides instead of turning under you. The orbit holds the *radius* about the subject's own
+mid-height instead, so rising pulls the camera in over it exactly as going round holds it at a
+constant distance, and `lockCentre` re-solves the horizon every frame so the subject stays pinned.
+
+Two limits, and both exist because there is no pitch term to take up the slack:
+
+- **The camera never gets inside the model.** `dist` is the *depth* distance, so holding the radius
+  shrinks it as the eye rises — and a rig is about three tiles long once the preview has scaled it
+  up, so the top of an unlimited arc puts the camera half a tile from a three-tile object and the
+  near end of the deck projects several times the size of the far one. That read as the truck being
+  stretched, and it is why the orbit looked right on buildings and wrong on vehicles: a building is
+  tall and about as deep as it is wide, so its fit distance already covered it. The orbit now keeps
+  its radius until that would take it closer than three times the subject's own radius, and climbs
+  on a wider arc past that.
+- **The arc stops at 55°.** A true plan view is not something this renderer can draw; pretending
+  otherwise is what the shearing at the top of the arc was.
+
+
 
 There is no pitch term in this projection at all: `proj` puts a point at
 `horizonY + depth · (EH − wz) / f`. Tipping the view down **is** raising the eye, and that

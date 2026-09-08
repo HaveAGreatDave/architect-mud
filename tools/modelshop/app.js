@@ -7,6 +7,7 @@
 //
 // ⚠ Quoting rule, from CLAUDE.md: inside a template literal, quote identifiers with
 // 'single quotes', never backticks. Most markup here is built through the DOM instead.
+import { initToolbox, toggleToolbox } from './toolbox.js';
 import {
   shapeModelRegistry, renderModelPreview, shapeForModel, shapeWireList,
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,
@@ -16,7 +17,7 @@ import {
 } from '/client/game/js/panels/windshield.js';
 import {
   initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty, renderPalette,
-  pushUndoFor, undo, redo, openToolPicker,
+  pushUndoFor, undo, redo, openToolPicker, refreshToolbox,
 } from './editor.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,6 +34,11 @@ const SCALES = [[1, 1], [2, 1], [1, 2], [2, 3]];
 const VEHICLES = [
   ...VEHICLE_CLASSES.filter((c) => c !== 'truck').map((cls) => ({ key: 'vehicle:' + cls, vehicle: { cls, variant: '' }, m: { type: cls } })),
   ...TRUCK_VARIANTS.map((v) => ({ key: 'vehicle:truck/' + v, vehicle: { cls: 'truck', variant: v }, m: { type: 'truck ' + v } })),
+  // ⚠ THE VIPER IS NOT A CLASS. `aircraftFaces` takes `armed` as a channel of its own, so the
+  // attack helicopter is 'heli' with a flag rather than a tenth entry in VEHICLE_CLASSES — and
+  // it was missing from this list entirely, which is how the one airframe with a bespoke mesh
+  // ended up being the one you could not look at.
+  { key: 'vehicle:heli/viper', vehicle: { cls: 'heli', variant: '', armed: true }, m: { type: 'viper' } },
 ];
 const MODELS = [...shapeModelRegistry(), ...VEHICLES];
 const entryOf = (key) => MODELS.find((r) => r.key === key) || null;
@@ -163,7 +169,7 @@ function buildingBounds(m) {
 function currentBounds() {
   if (isVehicle(state.key)) {
     const v = entryOf(state.key).vehicle;
-    const b = vehicleBounds(v.cls, false, v.variant);
+    const b = vehicleBounds(v.cls, !!v.armed, v.variant);
     const sm = state.vehSizeMul || 1;
     return { halfW: b.halfW * sm, height: b.height * sm, baseH: b.baseH * sm };
   }
@@ -190,6 +196,38 @@ function lockCentre() {
   const zMid = (b.baseH || 0) + b.height / 2;
   state.panY = H * 0.08 - H * 0.55 * (state.eye - zMid) / Math.max(0.05, state.dist);
 }
+
+// ── HOW CLOSE AN ORBIT MAY GET, AND HOW HIGH ────────────────────────────────
+// This projection has no pitch: the camera never tilts, so a high eye is not a rotated view but
+// an extreme oblique one, and two things go wrong at the top of an arc.
+//
+// The camera walks INSIDE a long subject. `dist` is the depth distance, so holding the orbit
+// radius shrinks it as the eye rises — and a rig is about three tiles long once the preview has
+// scaled it up, so at the top of the arc the camera sits half a tile from a three-tile object
+// and the near end of the deck projects several times the size of the far end. That reads as the
+// truck being stretched, which is why the orbit looked broken on vehicles and fine on buildings:
+// a building is tall and roughly as deep as it is wide, so its fit distance already covers it.
+//
+// So the orbit keeps its radius until that would take it closer than a tight fit on the subject,
+// and past that point it climbs on a wider arc instead. The subject stays framed and the camera
+// never ends up inside it.
+function minOrbitDist() {
+  const view = $('view');
+  const b = currentBounds();
+  // Two floors, and the second is the one that matters for a long subject. A screen fit says how
+  // far back the whole thing is visible from; it says nothing about the camera being INSIDE the
+  // object, which is what a rig three tiles long and half a tile tall gets you. So the camera also
+  // stays back at three times the subject radius, which is where the near end and the far end of a
+// long object are within about a third of each other in scale rather than five times apart.
+  const fit = previewFit(b, Math.max(1, view.width), Math.max(1, view.height), 1.15).dist;
+  return Math.max(fit, (b.halfW || 0) * 3);
+}
+
+// And a ceiling on the arc. Even from a correct distance the picture shears as the eye rises,
+// because there is no pitch to take up the difference — a true plan view is not something this
+// renderer can draw, and pretending otherwise is what the distortion at the top of the arc was.
+// 55° is where it still reads as a raised three-quarter view.
+const ORBIT_MAX_ELEV = 0.96;
 
 // The cab stays a deliberate close crop rather than a fit — being too close to see all of
 // it is the whole point of that seat.
@@ -245,6 +283,7 @@ function renderBrowser(filter) {
 function select(key) {
   state.key = key;
   vehSaveMsg = '';
+  refreshToolbox();
   selectedSeg = -1;
   invalidateEdit(key);
   $('modelname').textContent = bare(key);
@@ -618,6 +657,23 @@ function initViewport() {
   const view = $('view');
   let act = null;   // { kind:'orbit'|'pan'|'edit', ... }
 
+  // Where the camera is in SPHERICAL terms about the subject, captured at grab time. An orbit
+  // moves on this sphere; a drag that changed eye and distance separately is a crane, not an
+  // orbit. See the note on orbitTo below.
+  const orbitGrab = (sx, sy, k, locked) => {
+    const b = currentBounds();
+    const zMid = (b.baseH || 0) + b.height / 2;
+    const dz = state.eye - zMid;
+    return {
+      kind: 'orbit', locked, sx, sy, k, heading: state.heading, zMid,
+      radius: Math.max(0.2, Math.hypot(state.dist, dz)),
+      elev: Math.atan2(dz, Math.max(0.05, state.dist)),
+      // Solved once per grab rather than per frame: the subject does not change size mid-drag,
+      // and re-solving it under the mouse would make the floor itself move.
+      minDist: Math.min(state.dist, minOrbitDist()),
+    };
+  };
+
   const local = (ev) => {
     const r = view.getBoundingClientRect();
     const k = view.width / Math.max(1, r.width);
@@ -634,7 +690,7 @@ function initViewport() {
     // too, because muscle memory differs and it costs nothing.
     if (ev.button === 1 && !ev.shiftKey) {
       ev.preventDefault();
-      act = { kind: 'orbit', locked: true, sx, sy, k, heading: state.heading, eye: state.eye };
+      act = orbitGrab(sx, sy, k, true);
       view.classList.add('grabbing');
       return;
     }
@@ -668,7 +724,10 @@ function initViewport() {
       return;
     }
     if (best) { selectedSeg = best.i; draw(); return; }   // a code arm: select, cannot edit
-    act = { kind: 'orbit', sx, sy, k, heading: state.heading, eye: state.eye };
+    // An empty-space drag orbits the same way the middle button does, locked included. It used
+    // to be the unlocked version, which with a real orbit would slide the model off the frame
+    // as the camera rose — the thing locking exists to stop.
+    act = orbitGrab(sx, sy, k, true);
     view.classList.add('grabbing');
   });
 
@@ -680,12 +739,18 @@ function initViewport() {
 
     if (act.kind === 'orbit') {
       state.heading = (act.heading + dsx * 0.35 + 360000) % 360;
-      // Vertical drag arcs the eye. There is no pitch term in this projection — see the
-      // README — so raising the eye IS looking down, and clamping at 0 keeps the camera
-      // from going under the ground it is standing on.
-      state.eye = Math.max(0, act.eye - dsy * 0.02);
-      // A LOCKED orbit keeps the subject pinned: the horizon shift is re-solved every frame,
-      // so raising the eye circles the model instead of sliding it off the bottom.
+      // ⚠ VERTICAL DRAG MOVES ON THE SPHERE, never up a line. Raising the eye while holding the
+      // distance is a CRANE: the camera climbs and the model stays the same distance away in
+      // plan, so it flattens out and slides rather than turning under you. An orbit holds the
+      // RADIUS instead — rising pulls the camera in over the subject, exactly as going round
+      // holds it at a constant distance — so a full drag looks over the roof and back down.
+      //
+      // There is still no pitch term in this projection (see the README): the eye height IS the
+      // look-down. So the elevation angle is turned back into the two numbers the camera has,
+      // and `lockCentre` re-solves the horizon so the subject stays pinned while it moves.
+      const elev = Math.max(-0.32, Math.min(ORBIT_MAX_ELEV, act.elev - dsy * 0.004));
+      state.dist = Math.max(act.minDist, act.radius * Math.cos(elev));
+      state.eye = Math.max(0, act.zMid + act.radius * Math.sin(elev));
       if (act.locked) lockCentre();
       draw();
       return;
@@ -711,6 +776,9 @@ function initViewport() {
   // which looks exactly like broken selection code and is not.
   window.__msDebug = () => ({
     mode: state.mode,
+    // The camera as three numbers, so an orbit can be checked as arithmetic rather than
+    // by eye: a drag that holds the radius is an orbit, one that does not is a crane.
+    cam: { heading: state.heading, dist: state.dist, eye: state.eye, panY: state.panY },
     act: act && { kind: act.kind, i: act.i },
     hasDoc: !!editorDocFor(state.key),
     hasCam: !!lastCam,
@@ -825,6 +893,7 @@ $('wire').onclick = () => { state.wire = !state.wire; $('wire').classList.toggle
 
 function setMode(mode) {
   state.mode = mode;
+  refreshToolbox();
   for (const m of ['move', 'scale', 'rotate']) $('mode-' + m).classList.toggle('on', m === mode);
   draw();
 }
@@ -843,7 +912,7 @@ function preset(which) {
     // The preview therefore picks a sizeMul that gives the model a sensible world size and
     // frames THAT. Its real size is still what the sim uses; only the preview is scaled.
     const v = entryOf(state.key).vehicle;
-    const b = vehicleBounds(v.cls, false, v.variant);
+    const b = vehicleBounds(v.cls, !!v.armed, v.variant);
     state.vehSizeMul = 1.2 / b.height;
     // ⚠ Padded, because the PAINTED craft is bigger than its face list: the prop disc, the
     // lamp glows and the ground shadow are all drawn outside the vertices vehicleBounds can
@@ -878,7 +947,9 @@ $('open').onclick = () => { renderBrowser($('search').value); $('browserdlg').sh
 $('bclose').onclick = () => $('browserdlg').close();
 $('search').oninput = () => renderBrowser($('search').value);
 $('tools-open').onclick = () => openToolPicker();
-$('toolclose').onclick = () => $('tooldlg').close();
+// The palette is a live panel, so it has to be told when the thing it describes changes: a
+// different model can make the add-mass tools legal or not, and a mode change lights a button.
+initToolbox(() => {});
 // The picker reaches back for these three rather than importing app state, which would be
 // a module cycle: it needs the live mode, a way to set it, and a way to repaint after adding.
 window.__msMode = () => state.mode;
@@ -925,7 +996,7 @@ addEventListener('keydown', (ev) => {
   else if (k === 'r') setMode('rotate');
   else if (k === 'f') preset(state.preset);
   else if (k === 'o') { ev.preventDefault(); $('open').click(); }
-  else if (k === 't') { ev.preventDefault(); openToolPicker(); }
+  else if (k === 't') { ev.preventDefault(); toggleToolbox(); }
   else if (k === 'escape') { selectedSeg = -1; draw(); }
   else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {
     ev.preventDefault();
@@ -947,6 +1018,9 @@ window.__msRegister = (key) => {
   MODELS.sort((a, b) => a.key.localeCompare(b.key));
 };
 window.__msReselect = (key) => { window.__msRegister(key); select(key); };
+// The seed the viewport is showing, so a fork captures the arm at the shape you are looking at
+// rather than at a default the tool never draws.
+window.__msSeed = () => state.seed;
 window.__msUnregister = (key) => {
   const i = MODELS.findIndex((r) => r.key === key);
   if (i >= 0) MODELS.splice(i, 1);
@@ -968,3 +1042,7 @@ preset('cockpit');
 // immediately and a server that is not answering degrades to read-only rather than blank.
 initEditor({ state, onChange: draw }).then(() => { invalidateEdit(state.key); draw(); })
   .catch((e) => { $('esave').className = 'err'; $('esave').textContent = 'no write path: ' + e.message; });
+
+// The palette is filled LAST, after the window hooks it reads (__msMode) are assigned above.
+// Rendering it earlier leaves the active tool unlit until the first mode change.
+refreshToolbox();
