@@ -295,4 +295,73 @@ export function runPhases({ frames = 40, W = 1280, H = 720, radius = R } = {}) {
   return { rows, counts, rebuilds, glFaces: b.glFaces };
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; }
+// ── DOES IT LOOK LIKE THE SAME BUILDING? ────────────────────────────────────
+//
+// The spike answered this once, by eye and by hand, and the answer did not survive as anything
+// re-runnable — so "mean colour difference 6.8-12.7%" became a number in a README that nothing
+// could check. This is that measurement as a function.
+//
+// ⚠ IT COMPARES ONE BUILDING, ALONE, FROM A FIXED SEAT, and that restriction is the whole point.
+// A whole-frame diff of a city measures COVERAGE, not fidelity: with the flag on, GL draws the
+// entire map window while the 2-D pass drops everything off the side of the canvas or behind a
+// nearer block, and the lights reach twenty-two tiles instead of eight. Every one of those is an
+// improvement and all of them would land in the number as error. One building on an empty map
+// draws the same set in both renderers, so what is left is shading, texture and geometry.
+//
+// The mask is taken from a THIRD render with no building at all: the pixels where the 2-D frame
+// differs from the empty one are the building, and nothing else is measured.
+//
+// ⚠ AND THE CLOCK IS FROZEN, or none of it means anything. Two renders of the SAME empty scene
+// differ by ninety-eight thousand pixels, because the clouds drift, the birds fly and the water
+// moves — every one of them off `performance.now()`. A pixel comparison across a moving sky
+// measures the sky. `framecost` froze the clock for the same reason and this borrows the trick.
+export async function runFidelity({ keys = null, hours = [13, 23], W = 640, H = 360 } = {}) {
+  const realNow = performance.now.bind(performance);
+  performance.now = () => 1e6;
+  try {
+  const el = document.createElement('canvas');
+  el.id = '__fid'; el.width = W; el.height = H;
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:640px;height:360px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const R = 16, N = 33;
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const map = (bt) => Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
+    bt && x === R && y === R - 2 ? { kind: 'land', biome: 'citycore', bt, ent: 'south', flr: 4 }
+      : { kind: 'land', biome: 'citycore', flr: 0 })));
+  const types = keys || ['shop', 'office', 'apartment', 'warehouse', 'club', 'police', 'hotel', 'clinic'];
+  const rows = [];
+  for (const bt of types) {
+    for (const hour of hours) {
+      const view = { cls: 'truck', phase: 'cruise', height: 0, eyeH: 0.24, worldBlend: 1, hour, weather: 'clear', speed: 0, heading: 0, mapOffset: { x: 0, y: -0.4 } };
+      RENDER_TUNE.gl = 0;
+      paintWindshield('__fid', { ...view, map: map(null) }); paintWindshield('__fid', { ...view, map: map(null) });
+      const bare = shot();
+      paintWindshield('__fid', { ...view, map: map(bt) }); paintWindshield('__fid', { ...view, map: map(bt) });
+      const two = shot();
+      RENDER_TUNE.gl = 1;
+      paintWindshield('__fid', { ...view, map: map(bt) }); paintWindshield('__fid', { ...view, map: map(bt) });
+      const three = shot();
+      let n = 0, sum = 0, over = 0, worst = 0;
+      for (let i = 0; i < bare.length; i += 4) {
+        const d0 = Math.abs(two[i] - bare[i]) + Math.abs(two[i + 1] - bare[i + 1]) + Math.abs(two[i + 2] - bare[i + 2]);
+        if (d0 < 12) continue;                      // not the building
+        const d = (Math.abs(three[i] - two[i]) + Math.abs(three[i + 1] - two[i + 1]) + Math.abs(three[i + 2] - two[i + 2])) / 3;
+        n++; sum += d; if (d > 16) over++; if (d > worst) worst = d;
+      }
+      rows.push({ model: bt, hour, px: n, meanPct: n ? +(sum / n / 255 * 100).toFixed(1) : null,
+        overPct: n ? +(over / n * 100).toFixed(1) : null, worst: Math.round(worst) });
+    }
+  }
+  RENDER_TUNE.gl = 0; uninstall(); holder.remove();
+  const lit = rows.filter((r) => r.px > 200);
+  const mean = lit.length ? +(lit.reduce((a, r) => a + r.meanPct, 0) / lit.length).toFixed(1) : null;
+  console.table(rows);
+  console.log(`   mean colour difference over the building: ${mean}% across ${lit.length} cases`);
+  return { rows, mean };
+  } finally { performance.now = realNow; }
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; }

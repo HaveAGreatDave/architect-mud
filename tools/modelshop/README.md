@@ -427,6 +427,42 @@ so with the sprite sink installed `glowPool` sheds at the tier a blinking beacon
 window bloom's eight-tile cull opens to twenty-two. Both are GL-only: with the flag off the ladder
 is exactly what it was, and `framecost` says so to the call.
 
+### The fidelity pass — 1.0%
+
+`__glFidelity()` in the console is the spike's "does it look like the same city" question as a
+function, because the first answer to it did not survive as anything re-runnable: **6.8–12.7% mean
+colour difference** became a number in a README that nothing could check. It is **1.0%** now, over
+eight models × day and night.
+
+⚠ **IT COMPARES ONE BUILDING, ALONE, FROM A FIXED SEAT.** A whole-frame diff of a city measures
+COVERAGE, not fidelity: with the flag on GL draws the entire map window while the 2-D pass drops
+everything off the side of the canvas or behind a nearer block, and the lights reach twenty-two
+tiles instead of eight. Every one of those is an improvement and all of them would land in the
+number as error. The mask comes from a third render with no building at all.
+
+⚠ **AND THE CLOCK IS FROZEN, or none of it means anything.** Two renders of the same EMPTY scene
+differ by ninety-eight thousand pixels, because the clouds drift, the birds fly and the water moves.
+A pixel comparison across a moving sky measures the sky. `framecost` froze the clock for the same
+reason and this borrows the trick.
+
+What the pass closed, in order of how much it was worth:
+
+- **The far edge staggers now.** The 2-D fade gives each tile its own moment to dissolve, up to
+  three tiles inside the draw limit, so a row does not give up its opacity in unison — a wall of
+  haze moving toward you rather than distance. The mesh faded on the unstaggered edge, which put
+  the row back in step in the renderer that was meant to be the better one. The jitter is one
+  expression (`hazeJitter`) with two readers and rides the vertex as its own attribute.
+- **A barrel roof carries the painter's own shade.** It is the one mass primitive that does its own
+  lighting — each panel filled with `base` scaled by where it sits on the arc, no texture, no vertex
+  ramp — and handing the mesh one flat `base` for the GL light to shade is a different lighting
+  model on the same roof. It came out paler and stepped, and it was the worst case in the sweep at
+  **3.0%** against 1.2% everywhere else. ⚠ `flat` is a LIGHTING answer, not a kind: a barrel roof is
+  MASS that happens to shade itself, and it has to stay mass so `gl:mesh` goes on comparing it
+  against the captured shape.
+
+What is left, and it is one thing: **`emitFlat`'s hairline stroke**. A vent and a sign board carry a
+1px outline that a triangle cannot cheaply reproduce. It is inside the noise of the number above.
+
 ### And one hole that is only half closed
 
 ⚠ **A painter's queue hides things by painting over them**, so the moment GLASS 2 takes the walls

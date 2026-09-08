@@ -115,7 +115,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const W = host.width, H = host.height;
   if (!W || !H) return null;
   const g = sceneGL(id, W, H);
-  if (!g.view) return null;
+  // No WebGL2 on this machine, or the driver took the context away. Either way the pass draws
+  // nothing and must SAY so — the caller has already suppressed the 2-D mass on the strength of
+  // this pass existing. The scene is dropped so a restored context rebuilds from scratch.
+  if (!g.view) { scenes.delete(id); return null; }
+  if (g.view.lost && g.view.lost()) { scenes.delete(id); return null; }
 
   const key = windowKey(cells);
   // The baked textures the atlas is a COPY of, as they stand this frame. Nothing about the city
@@ -131,7 +135,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     for (const it of cells) {
       const faces = tileMesh(deps, it);
       for (const f of faces) if (f.texKey) need.add(f.texKey);
-      groups.push({ ox: it.gx, oy: it.gy, faces });
+      groups.push({ ox: it.gx, oy: it.gy, jit: it.jit || 0, faces });
       nFaces += faces.length;
     }
     // The atlas is rebuilt on the SET OF SURFACES, not on the set of buildings. Driving down a

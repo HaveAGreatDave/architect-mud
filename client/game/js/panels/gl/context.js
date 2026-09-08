@@ -18,8 +18,9 @@
 import { viewProjMatrix } from './camera.js';
 import { createSpriteLayer } from './sprites.js';
 
-// Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1.
-const STRIDE = 14;
+// Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
+// haze jitter 1.
+const STRIDE = 15;
 
 const VERT = `#version 300 es
 in vec3 aPos;
@@ -29,6 +30,7 @@ in vec2 aUV;
 in float aRamp;
 in float aAlpha;
 in float aFlat;
+in float aJit;
 uniform mat4 uViewProj;
 out vec3 vNormal;
 out vec3 vColor;
@@ -37,6 +39,7 @@ out float vRamp;
 out float vDepth;
 out float vAlpha;
 out float vFlat;
+out float vJit;
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
   gl_Position = clip;
@@ -46,6 +49,7 @@ void main() {
   vRamp = aRamp;
   vAlpha = aAlpha;
   vFlat = aFlat;
+  vJit = aJit;
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
 
@@ -61,6 +65,7 @@ in float vRamp;
 in float vDepth;
 in float vAlpha;
 in float vFlat;
+in float vJit;
 uniform sampler2D uAtlas;
 uniform float uTextured;
 uniform vec3 uKeyDir;
@@ -105,7 +110,10 @@ void main() {
   // popping in — and this buffer is composited onto that same frame, so a mass that stayed opaque
   // to its last tile would paint a hard edge over the haze the rest of the picture dissolves into.
   // Premultiplied, because the canvas is.
-  float a = (1.0 - smoothstep(uHazeNear, uHazeFar, vDepth)) * clamp(vAlpha, 0.0, 1.0);
+  // ⚠ EACH TILE DISSOLVES AT ITS OWN MOMENT, which is what the 2-D pass does and what stops a row
+  // of buildings giving up its opacity in unison — a wall of haze moving toward you rather than
+  // distance. The number is the tile's own, handed over rather than recomputed.
+  float a = (1.0 - smoothstep(uHazeNear - vJit, uHazeFar - vJit, vDepth)) * clamp(vAlpha, 0.0, 1.0);
   outColor = vec4(mix(base, uFog, fog) * a, a);
 }`;
 
@@ -124,6 +132,12 @@ function compile(gl, type, src, label) {
 export function createGLView(canvas) {
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, depth: true });
   if (!gl) return null;
+  // ⚠ A LOST CONTEXT IS SILENT. Every call keeps returning, nothing throws, and the canvas simply
+  // stops changing — which with MASS_OFF set is a city of floating lights and no buildings. The
+  // default listener also makes the loss PERMANENT, so preventDefault is what leaves a restore
+  // possible at all; the pass asks `lost()` each frame and hands the world back to the 2-D
+  // renderer the moment the answer is yes.
+  canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
 
   const prog = gl.createProgram();
   gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
@@ -137,6 +151,7 @@ export function createGLView(canvas) {
     color: gl.getAttribLocation(prog, 'aColor'),
     uv: gl.getAttribLocation(prog, 'aUV'),
     ramp: gl.getAttribLocation(prog, 'aRamp'),
+    jit: gl.getAttribLocation(prog, 'aJit'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     flat: gl.getAttribLocation(prog, 'aFlat'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
@@ -213,7 +228,11 @@ export function createGLView(canvas) {
         const u0 = rc[0], v0 = rc[1], du = rc[2] - rc[0], dv = rc[3] - rc[1];
         const cr = r / 255, cg = g / 255, cb = b / 255;
         const fa = f.alpha == null ? 1 : f.alpha;
-        const flat = f.kind === 'flat' ? 1 : 0;
+        // ⚠ `flat` IS A LIGHTING ANSWER, NOT A KIND. Most flat-shaded faces are the adornment
+        // surfaces and carry kind 'flat'; a barrel roof is MASS that happens to do its own shading,
+        // and it has to stay mass so the mesh gate goes on comparing it against the captured shape.
+        const flat = (f.flat != null ? !!f.flat : f.kind === 'flat') ? 1 : 0;
+        const jit = grp.jit || 0;
         // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
         // its light as a gradient down each wall, so a shader that wants the same picture needs to
         // know where in the wall it is. A horizontal face has no extent and takes the top end.
@@ -231,6 +250,7 @@ export function createGLView(canvas) {
             data[o + 11] = (z1 - p[2]) / dz;
             data[o + 12] = fa;
             data[o + 13] = flat;
+            data[o + 14] = jit;
             o += STRIDE;
           }
         }
@@ -253,6 +273,7 @@ export function createGLView(canvas) {
     if (loc.ramp >= 0) { gl.enableVertexAttribArray(loc.ramp); gl.vertexAttribPointer(loc.ramp, 1, gl.FLOAT, false, S, 44); }
     if (loc.alpha >= 0) { gl.enableVertexAttribArray(loc.alpha); gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, S, 48); }
     if (loc.flat >= 0) { gl.enableVertexAttribArray(loc.flat); gl.vertexAttribPointer(loc.flat, 1, gl.FLOAT, false, S, 52); }
+    if (loc.jit >= 0) { gl.enableVertexAttribArray(loc.jit); gl.vertexAttribPointer(loc.jit, 1, gl.FLOAT, false, S, 56); }
     gl.bindVertexArray(null);
     return count;
   }
@@ -318,5 +339,5 @@ export function createGLView(canvas) {
     return L.draw(cam, canvas.width, canvas.height);
   }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, setAtlas, get triangles() { return count / 3; } };
+  return { gl, upload, uploadGroups, draw, drawSprites, setAtlas, lost: () => gl.isContextLost(), get triangles() { return count / 3; } };
 }

@@ -8742,11 +8742,17 @@ function drawBarrelRoof(ctx, cam, F, cxL, hl, hw, wallTop, archH, NF, alpha, bas
   if (MESH_SINK) {
     const W = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return [wx, wy, z]; };
     const lxB = (t) => cxL + hl * Math.cos(t), zB = (t) => wallTop + archH * Math.sin(t);
+    // ⚠ THE PAINTER'S OWN SHADE, AND `flat` SO NOTHING SHADES IT TWICE. A barrel is the one mass
+    // primitive that does its own lighting: each panel is filled with `base` scaled by where it sits
+    // on the arc, no texture and no vertex ramp. Handing the mesh one flat `base` and letting the
+    // GL light do the shading is a different lighting model on the same roof — it came out paler and
+    // stepped, and it was the worst case in the fidelity sweep at 3.0% against 1.2% everywhere else.
+    const shadeRgb = (k) => [Math.min(255, base[0] * k), Math.min(255, base[1] * k), Math.min(255, base[2] * k)];
     for (let k = 0; k < NF; k++) {
       const t0 = k / NF * Math.PI, t1 = (k + 1) / NF * Math.PI, tm = (t0 + t1) / 2;
       // The panel normal is the arc normal, turned into world by the same basis the frame gives.
       const nlx = Math.cos(tm), nlz = Math.sin(tm);
-      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, rgbOverride: base,
+      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, flat: true, rgbOverride: shadeRgb(0.55 + 0.42 * Math.sin(tm)),
         p: [W(lxB(t0), -hw, zB(t0)), W(lxB(t0), hw, zB(t0)), W(lxB(t1), hw, zB(t1)), W(lxB(t1), -hw, zB(t1))],
         n: [nlx * RX / (Math.hypot(RX, RY) || 1), nlx * RY / (Math.hypot(RX, RY) || 1), nlz] });
     }
@@ -8754,7 +8760,7 @@ function drawBarrelRoof(ctx, cam, F, cxL, hl, hw, wallTop, archH, NF, alpha, bas
       const pts = [W(cxL + hl, sgn * hw, wallTop)];
       for (let k = 0; k <= NF; k++) { const t = k / NF * Math.PI; pts.push(W(lxB(t), sgn * hw, zB(t))); }
       const nl2 = Math.hypot(FX, FY) || 1;
-      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: base, p: pts, n: [sgn * FX / nl2, sgn * FY / nl2, 0] });
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, flat: true, rgbOverride: shadeRgb(sgn > 0 ? 0.74 : 0.5), p: pts, n: [sgn * FX / nl2, sgn * FY / nl2, 0] });
     }
     return;
   }
@@ -20498,6 +20504,13 @@ const MASS_EXCEPT = new Set(['statue', 'gate', 'sign', 'pylons', 'strip', 'bay',
 // GL collection above it — a seed that disagreed would put a different building on the GPU from
 // the one whose lights are painted over it.
 function tileSeed(wx, wy) { return (wx + 512) * 73 + (wy + 512) * 149; }
+// How far INSIDE the draw limit this tile starts to dissolve. A whole row fading in unison reads
+// as a wall of haze moving toward you rather than as distance, so each tile gives up its last few
+// tiles of opacity at its own moment. Named because the GL pass needs the same number: a mesh that
+// faded on the unstaggered edge would put the row back in step, which is the artefact this exists
+// to prevent, showing up only in the renderer that was supposed to be the better one.
+const HAZE_STAGGER = 3;
+function hazeJitter(wx, wy) { return frac((wx + 512) * 1.37 + (wy + 512) * 2.19) * HAZE_STAGGER; }
 function massTile(c) { return !!c.bt && !MASS_EXCEPT.has(c.mark) && c.kind !== 'nofly' && !c.cur; }
 
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
@@ -20558,6 +20571,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const m = modelFor(c);
       if (m) GL_CELLS.push({
         gx: rx - R, gy: ry - R, c, m, seed,
+        jit: hazeJitter(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy)),
         h: floorHeight(c, seed),
         fh: (BUILDING_FOOT + frac(seed + 2) * 0.06) * RENDER_TUNE.bldgFoot,
         E: faceVec(c.ent),
@@ -20626,8 +20640,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // part" at slightly different distances instead of together. Inward-only (FAR − jit), so nothing
     // needs map data past the FAR cull, and a single building's own translucent window is unchanged
     // (still HAZE_BAND wide) — mid-distance landmarks stay solid, only WHICH tile each fades at shifts.
-    const STAGGER = 3;
-    const jit = c.mark === 'yacht' ? 0 : frac((Math.round((rx - R) + wcx) + 512) * 1.37 + (Math.round((ry - R) + wcy) + 512) * 2.19) * STAGGER;
+    const jit = c.mark === 'yacht' ? 0 : hazeJitter(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy));
     // The Echelon escapes the worldBlend gate: she lives ONLY in this Mode-7 pass (no flat airport
     // scene stands in for her), so she must stay fully drawn even parked on her pad (worldBlend 0) —
     // otherwise she vanishes on the deck and pops in only as you climb through the crossfade. Every
@@ -21126,7 +21139,14 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     pBegin('world:gl');
     try {
       const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK });
+      // ⚠ AND A PASS THAT DID NOT DRAW HANDS THE WORLD BACK. The mass was suppressed on the strength
+      // of this pass existing, so "it returned nothing" is not a quiet outcome — it is a city of
+      // floating lights standing on no buildings. A machine with no WebGL2 and a driver that took
+      // the context away both arrive here without throwing, which is why the catch below is not
+      // enough on its own. One frame is wrong; the flag then puts it back on the 2-D renderer for
+      // good, exactly as a throw does.
       if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
+      else { console.error('[windshield] the GL world pass drew nothing — falling back to 2-D'); RENDER_TUNE.gl = 0; }
     }
     catch (e) { console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
