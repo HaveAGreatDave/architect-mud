@@ -320,7 +320,7 @@ function paintViewport() {
       // Kept rather than written straight to the HUD, because drawHud runs after this and would
       // overwrite it — which reads as the GL pass having silently done nothing.
       glNote = r.error ? ('GL: ' + r.error)
-        : 'GL — ' + r.faces + ' faces, ' + Math.round(r.triangles) + ' triangles, depth-buffered (no sort, no textures, no adornments)';
+        : 'GL — ' + r.faces + ' faces, ' + Math.round(r.triangles) + ' triangles, ' + r.tiles + ' textures in a ' + r.atlas + ' atlas (depth-buffered, no sort, no adornments)';
       return;
     }
     glHide();

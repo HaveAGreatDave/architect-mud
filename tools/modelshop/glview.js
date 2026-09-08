@@ -14,7 +14,8 @@
 // an element — which is exactly the shape a real port would take: GL underneath for the world, 2-D
 // on top for the HUD.
 import { createGLView } from '/client/game/js/panels/gl/context.js';
-import { captureModelMesh, wallPaletteInfo } from '/client/game/js/panels/windshield.js';
+import { buildAtlas, faceUVs } from '/client/game/js/panels/gl/atlas.js';
+import { captureModelMesh, wallPaletteInfo, wallTexMixed, roofTex, glLightState } from '/client/game/js/panels/windshield.js';
 
 let view = null, canvas = null, palette = null;
 
@@ -38,12 +39,30 @@ function ensureCanvas(host) {
   return canvas;
 }
 
-// The colour a face would be painted. GLASS derives colour AND material from one palette key; the
-// spike takes the colour and leaves the material for later, which is why a GL building reads as the
-// right building in the wrong finish — flat where the 2-D one is brick.
-function colourise(faces) {
+// The surface a face would be painted with. GLASS derives colour AND material from one palette
+// key — `wallTexMixed` for a wall, `roofTex` for a roof, both already baked and cached — so the
+// GL path asks for exactly those canvases and packs them into one atlas. Nothing here draws a
+// texture; it collects the ones the renderer has already made.
+//
+// ⚠ ROOFS COME FROM A DIFFERENT GENERATOR, and asking only for the wall gives every roof in the
+// city the generic gravel tile — which is the face a flight sim spends the whole flight looking
+// down at. Both are keyed here, and the key carries which one it is.
+function surfaced(faces, night) {
   const pal = paletteMap();
-  return faces.map((f) => ({ ...f, rgb: pal.get(f.pal) || [120, 126, 134] }));
+  const NB = Math.max(0, Math.min(1, (night - 0.30) / 0.20));
+  const tiles = new Map();
+  const keyed = faces.map((f) => {
+    const roof = f.kind === 'roof';
+    const key = (roof ? 'r:' : 'w:') + f.pal;
+    if (f.pal && !tiles.has(key)) {
+      const canvas = roof ? roofTex(f.pal, night) : wallTexMixed(f.pal, NB);
+      if (canvas && canvas.width) tiles.set(key, { key, canvas });
+    }
+    return { ...f, texKey: f.pal ? key : null, rgb: f.rgbOverride || pal.get(f.pal) || [120, 126, 134], uv: faceUVs(f) };
+  });
+  const atlas = buildAtlas([...tiles.values()]);
+  for (const f of keyed) f.rect = atlas && f.texKey ? atlas.rect.get(f.texKey) : null;
+  return { faces: keyed, atlas };
 }
 
 export function glAvailable() {
@@ -73,16 +92,25 @@ export function glDraw(host, m, res, opts = {}) {
   // frame comes back empty. `dx`/`dy` off the preview result are where the 2-D pass put it, and
   // using those is what keeps the two pictures at one place as well as at one camera.
   const ox = res && res.dx || 0, oy = res && res.dy || 0;
-  const mesh = colourise(captureModelMesh(m, opts.mesh || {}))
-    .map((f) => ({ ...f, p: f.p.map((p) => [p[0] + ox, p[1] + oy, p[2]]) }));
+  const built = surfaced(captureModelMesh(m, opts.mesh || {}), (opts.mesh && opts.mesh.night) || 0);
+  const mesh = built.faces.map((f) => ({ ...f, p: f.p.map((p) => [p[0] + ox, p[1] + oy, p[2]]) }));
+  if (built.atlas) view.setAtlas(built.atlas.canvas);
   view.upload(mesh);
   // ⚠ The camera arrives sized for the 2-D canvas. Its focal lengths are in PIXELS of that canvas,
   // so a GL canvas at a different backing scale needs them scaled to match or the two pictures are
   // the same view at two zooms — which would look exactly like a camera bug.
   const k = cv.width / Math.max(1, cam.W);
   const scaled = { ...cam, W: cv.width, FL: cam.FL * k, depth: cam.depth * k, horizonY: cam.horizonY * k };
-  const tris = view.draw(scaled, opts.draw || {});
-  return { faces: mesh.length, triangles: tris / 3 };
+  // The light the sim would arm, asked for rather than guessed at — see glLightState.
+  const L = glLightState((opts.mesh && opts.mesh.night) || 0);
+  const u = (c) => [c[0] / 255, c[1] / 255, c[2] / 255];
+  const tris = view.draw(scaled, {
+    key: u(L.key), shadow: u(L.shadow), skyTint: u(L.sky), str: L.str,
+    keyDir: [L.dir[0], L.dir[1], 0.35],
+    ...(opts.draw || {}),
+  });
+  return { faces: mesh.length, triangles: tris / 3, tiles: built.atlas ? built.atlas.count : 0,
+    atlas: built.atlas ? built.atlas.size.join("x") : null };
 }
 
 export function glHide() { if (canvas) canvas.hidden = true; }

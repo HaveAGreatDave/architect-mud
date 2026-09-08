@@ -7025,7 +7025,10 @@ export function wallTexMixed(biome, NB) {
   }
   return e.c;
 }
-function roofTex(biome, night) {
+// Exported for the GL atlas. The roof is a SECOND generator from wallTex (see the note above it),
+// so a renderer that wants the same surfaces has to ask for both — asking only for the wall gives
+// every roof in the city the generic gravel tile.
+export function roofTex(biome, night) {
   const tr = TR();
   return getTex('roof:' + biome + ':' + tr, () => {
     const S = Math.round(16 * tr), c = texCanvas(S, S), g = c.getContext('2d');
@@ -12873,6 +12876,25 @@ export function captureModelMesh(m, opts = {}) {
     for (const q of MESH_SINK) for (const p of q.p) p[1] -= MESH_DY;
     return MESH_SINK;
   } finally { MESH_SINK = prevMesh; }
+}
+
+// The vertex-light palette a frame would arm, for a renderer that has to reproduce the shading
+// rather than approximate it. Same expression drawWorldObjects uses — the day/night lerp of
+// RENDER_TUNE's own three colours plus the key direction — so the GL path cannot drift into its
+// own idea of what a lit wall looks like.
+//
+// ⚠ THE RAMP MATTERS AS MUCH AS THE COLOUR. wallLit does not tint a wall flat: it lays a warm
+// top overlay and a darker base overlay at alphas that both depend on the key dot, which is what
+// makes a wall read as standing in light rather than as being painted a lighter colour.
+export function glLightState(night = 0, sunDir = null) {
+  const keyUp = !!sunDir;
+  return {
+    dir: [keyUp ? sunDir[0] : -0.707, keyUp ? sunDir[1] : -0.707],
+    str: RENDER_TUNE.vlight ?? 1,
+    sky: mix(hexRgb(RENDER_TUNE.vlSkyDay), hexRgb(RENDER_TUNE.vlSkyNight), night),
+    key: mix(hexRgb(RENDER_TUNE.vlKeyDay), hexRgb(RENDER_TUNE.vlKeyNight), night),
+    shadow: mix(hexRgb(RENDER_TUNE.vlShadowDay), hexRgb(RENDER_TUNE.vlShadowNight), night),
+  };
 }
 
 export function shapeModelRegistry() {

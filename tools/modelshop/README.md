@@ -120,9 +120,22 @@ The warehouse read 83.7% until barrel roofs were added to the mesh sink — the 
 fidelity gap turning out to be one fact seen twice, which is the sort of agreement that makes a
 measurement worth trusting.
 
-⚠ **What the spike deliberately is not.** No textures (a GL building reads as the right building in
-the wrong finish), no adornments, no ground, no weather, and not wired into `paintWindshield` at
-all. It answers whether the same city can be drawn with a depth buffer from the same seat, and stops.
+**And it wears the right surfaces.** GLASS already bakes every texture it uses — one 16×32 canvas
+per palette per day/night, nine procedural painters, the window grid on top — so the GL path asks
+for those exact canvases (`wallTexMixed` for a wall, `roofTex` for a roof, because the roof is a
+second generator) and packs them into one atlas. A draw call binds one texture, so per-face binds
+would make a skyline several hundred draw calls and throw away the only thing being proved.
+[gl/atlas.js](../../client/game/js/panels/gl/atlas.js) also carries GLASS's own vertex-light ramp
+into the shader — `wallLit`'s two overlays, per fragment instead of as a canvas gradient.
+
+With textures and that light, the two renderers agree to a **mean colour difference of 6.8–12.7%**
+over the shared silhouette. The ramp is what closed the worst case: Halcyon was 21% with a flat tint.
+What is left is the fog term, the exact alpha compositing and texture filtering — porting detail,
+not spike questions.
+
+⚠ **What the spike deliberately is not.** No adornments, no ground, no weather, no near tier, and not
+wired into `paintWindshield` at all. It answers whether the same city can be drawn with a depth
+buffer from the same seat, and stops.
 
 ⚠ **Three ways it drew nothing before it drew anything**, each with no error to go on, and each now
 written into the file it happened in: `renderModelPreview` returns a *wrapper* (`{cam, dx, dy}`), so
