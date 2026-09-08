@@ -59,7 +59,7 @@ export function editorRecordFor(key) {
 
 export async function initEditor(opts) {
   state = opts.state; onChange = opts.onChange;
-  await reload();
+  await Promise.all([reload(), loadBindables()]);
 }
 
 async function reload() {
@@ -121,6 +121,99 @@ export function renderPalette(filter) {
     }
     host.append(wrap);
   }
+}
+
+// ── WHERE THE MODEL APPEARS ─────────────────────────────────────────────────
+// `bind` is the field that decides whether a model is ever seen, and it was the one thing
+// you still had to hand-edit. It is also the easiest thing in the format to get wrong:
+// modelFor prefers a building's NAME over its TYPE, and 408 of the 416 building tiles in
+// Coldwater carry a name — so a type bind draws on almost nothing. The worked example
+// shipped bound to a type whose three tiles are all named: invisible in the game, and
+// healthy in every other gate.
+//
+// So this is a picker over the REAL targets with their REAL tile counts, and it says out
+// loud when a bind reaches nothing. Counted from content/zones by the server.
+let BINDABLES = { types: [], names: [], buildingTiles: 0, namedTiles: 0 };
+export async function loadBindables() {
+  try { BINDABLES = await fetch('/api/bindables').then((r) => r.json()); }
+  catch { /* degrade to free text — the tool still works without the world */ }
+}
+
+// How many tiles this bind would actually draw on. A type bind only reaches tiles with no
+// name of their own, OR whose name no model claims; the client knows the registry, so it
+// answers that half here rather than the server guessing.
+function reachOf(b) {
+  if (!b || !b.key) return null;
+  if (b.by === 'name') {
+    const row = BINDABLES.names.find((n) => n.key === b.key);
+    if (!row) return { tiles: 0, why: 'no building in the world carries this name' };
+    const slug = 'named:' + b.key.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const m = window.__msModel(slug);
+    if (m && m.type !== 'authored') return { tiles: 0, why: 'a hand-written ' + m.type + ' arm already claims this name' };
+    return { tiles: row.tiles };
+  }
+  const row = BINDABLES.types.find((t) => t.key === b.key);
+  if (!row) return { tiles: 0, why: 'no building in the world carries this type' };
+  const m = window.__msModel('type:' + b.key);
+  if (m && m.type !== 'authored') return { tiles: 0, why: 'a hand-written ' + m.type + ' arm already claims this type' };
+  if (!row.unnamed) return { tiles: 0, why: 'all ' + row.tiles + ' of its tiles are named, and a name beats a type' };
+  return { tiles: row.unnamed };
+}
+
+function bindRow(doc, i, onEdit) {
+  const b = doc.bind[i];
+  const row = el('div', 'bindrow');
+
+  const by = el('select');
+  for (const v of ['name', 'type']) { const o = el('option', null, v); o.value = v; by.append(o); }
+  by.value = b.by || 'type';
+  by.onchange = () => { b.by = by.value; b.key = ''; onEdit('bind'); };
+
+  const key = el('input'); key.type = 'text'; key.value = b.key || '';
+  key.setAttribute('list', b.by === 'name' ? 'bindnames' : 'bindtypes');
+  key.oninput = () => { b.key = key.value; onEdit('bind'); };
+
+  const rm = el('button', 'mini', '✕');
+  rm.title = 'remove this binding';
+  rm.onclick = () => { doc.bind.splice(i, 1); onEdit('bind'); };
+
+  row.append(by, key, rm);
+  const r = reachOf(b);
+  const note = el('div', r && r.tiles ? 'dim' : 'warn');
+  note.textContent = !b.key ? 'pick a building'
+    : r.tiles ? r.tiles + ' tile' + (r.tiles === 1 ? '' : 's') + ' would draw this model'
+      : 'reaches nothing — ' + r.why;
+  const wrap = el('div');
+  wrap.append(row, note);
+  return wrap;
+}
+
+export function bindEditor(doc, onEdit) {
+  const host = el('div');
+  host.append(el('h3', null, 'Appears on'));
+  doc.bind = doc.bind || [];
+
+  // Datalists for both kinds, built once, labelled with the tile counts so the choice is
+  // informed rather than a guess at a spelling.
+  for (const [id, rows, label] of [['bindtypes', BINDABLES.types, (t) => t.key], ['bindnames', BINDABLES.names, (n) => n.key]]) {
+    if (document.getElementById(id)) continue;
+    const dl = el('datalist'); dl.id = id;
+    for (const r of rows) {
+      const o = el('option');
+      o.value = label(r);
+      o.label = r.tiles + ' tiles';
+      dl.append(o);
+    }
+    document.body.append(dl);
+  }
+
+  doc.bind.forEach((_, i) => host.append(bindRow(doc, i, onEdit)));
+  const add = el('button', '', 'add binding');
+  add.onclick = () => { doc.bind.push({ by: 'name', key: '' }); onEdit('bind'); };
+  const addrow = el('div', 'addrow');
+  addrow.append(add);
+  host.append(addrow);
+  return host;
 }
 
 // ── UNDO ────────────────────────────────────────────────────────────────────
@@ -403,6 +496,8 @@ export function renderEditor(host, key, redraw) {
     document.body.append(dl);
   }
   host.append(paletteField(() => doc.pal, (v) => { if (v) doc.pal = v; else delete doc.pal; }, onEdit));
+
+  host.append(bindEditor(doc, onEdit));
 
   host.append(el('h3', null, 'Segments — paint order'));
   doc.segs = doc.segs || [];

@@ -58,6 +58,25 @@ their material** — brick, glass, corrugated metal, art-deco limestone, and thi
 grouping and the swatches come from `wallPaletteInfo()`, so the tool holds no second copy of
 those sets. A key that is not in the table turns amber rather than silently rendering grey.
 
+## Where a model appears
+
+`bind` decides whether a model is ever seen, and it was the last field you had to hand-edit.
+It is also the easiest thing in the format to get wrong, so it is now a picker over the real
+targets with their real tile counts — served from `content/zones` — and it says out loud when
+a binding reaches nothing:
+
+- *"3 tiles would draw this model"*
+- *"reaches nothing — all 3 of its tiles are named, and a name beats a type"*
+- *"reaches nothing — a hand-written luxtower arm already claims this name"*
+- *"reaches nothing — no building in the world carries this name"*
+
+That first warning is the worked example describing its own defect. **Bind by NAME**: 408 of
+the 416 building tiles carry one, and a name beats a type.
+
+⚠ `portedFrom` and `pixdiff` are deliberately NOT editable here. They are a claim that a
+model was measured against the arm it replaced, and `autoport` writes them after measuring.
+A text box would let somebody assert a port that never happened.
+
 ## Saving, exporting, importing
 
 **Save** writes the file and rewrites the bake. **Export** downloads the model as JSON.

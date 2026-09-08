@@ -27,6 +27,7 @@
 // and it is why the one interesting route here is a static file server.
 import { createServer } from 'node:http';
 import { readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, sep } from 'node:path';
 // The validator and the compile the BUILD uses, not a second opinion — see the write path below.
@@ -101,6 +102,45 @@ function resolveServed(path) {
   return null;
 }
 
+// Scanned once and cached: ~15k zone files, and the answer only changes when the world does.
+// Restart the tool after a world edit — it is a local tool, and a stat-per-file watcher would
+// cost more than it is worth.
+let _bindables = null;
+function bindables() {
+  if (_bindables) return _bindables;
+  const dir = join(ROOT, 'content', 'zones');
+  const types = new Map(), names = new Map();
+  let building = 0, named = 0;
+  try {
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      let z;
+      try { z = JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { continue; }
+      const bt = z.flags?.building_type;
+      if (!bt) continue;
+      building++;
+      const bn = z.flags.building_name || null;
+      if (bn) named++;
+      const t = types.get(bt) || { key: bt, tiles: 0, unnamed: 0 };
+      t.tiles++; if (!bn) t.unnamed++;
+      types.set(bt, t);
+      if (bn) {
+        const n = names.get(bn) || { key: bn, tiles: 0, type: bt };
+        n.tiles++;
+        names.set(bn, n);
+      }
+    }
+  } catch { /* no content tree — the editor degrades to a free-text bind */ }
+  const bySize = (a, b) => b.tiles - a.tiles || a.key.localeCompare(b.key);
+  _bindables = {
+    types: [...types.values()].sort(bySize),
+    names: [...names.values()].sort(bySize),
+    buildingTiles: building,
+    namedTiles: named,
+  };
+  return _bindables;
+}
+
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -135,6 +175,19 @@ const server = createServer(async (req, res) => {
     // `shapes:smoke` later. Doing it here means the two can never be out of step by hand.
     if (req.method === 'GET' && path === '/api/models') {
       return json(res, 200, { models: readModelFiles(MODEL_DIR) });
+    }
+
+    // ── WHAT A MODEL CAN BIND TO ────────────────────────────────────────────
+    // The `bind` field decides whether a model is ever seen, and it is the single easiest
+    // thing to get wrong: `modelFor` prefers a building's NAME over its TYPE, and 408 of the
+    // 416 building tiles in Coldwater carry a name — so a type bind draws on almost nothing.
+    // The worked example shipped bound to a type whose three tiles are all named, invisible
+    // in the game and healthy in every gate.
+    //
+    // So the editor offers the real targets with their real tile counts, instead of a text
+    // box. Counted from content/zones, which is the same tree the deploy reads.
+    if (req.method === 'GET' && path === '/api/bindables') {
+      return json(res, 200, bindables());
     }
 
     if ((req.method === 'PUT' || req.method === 'DELETE') && path === '/api/models') {
