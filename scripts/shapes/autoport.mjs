@@ -17,7 +17,7 @@
 //   · PER-BOX SEED. draw3DBoxAt takes a seed that picks wall-texture jitter; the sink does not
 //     record it. The authored renderer uses `seed + index`, so a ported building's walls are
 //     textured differently even when its geometry is identical.
-//   · BARREL and SAWTOOTH roofs, `frontOnly` mass, and MIXED triples (a scalar that depends on
+//   · `frontOnly` mass and MIXED triples (a scalar that depends on
 //     both footprint and storey height — the nine models that derive a vertical from a span).
 //     None of these is authorable, so those arms are not portable and the survey says so.
 //
@@ -56,11 +56,16 @@ const round = (n) => Number(n.toFixed(6));
 
 // One captured segment → one authored segment, or a reason it cannot be one.
 function portSeg(s, basis) {
-  if (s.kind !== 'box' && s.kind !== 'drum') return { reason: `${s.kind} roofs are not authorable yet` };
+  if (!SEG_SCHEMA[s.kind]) return { reason: `${s.kind} is not an authorable kind` };
   if (s.frontOnly) return { reason: 'entrance-face-only mass has no authored equivalent' };
   const def = SEG_SCHEMA[s.kind];
   const out = { kind: s.kind }, scale = {};
   for (const [f, defTag] of Object.entries(def.geom)) {
+    // A barrel's and a sawtooth's z1 is DERIVED by the compile (z0 + the rise), and the
+    // capture's own z1 for them is a MIXED triple because the two halves sit on different
+    // bases. Reading it back as an authored field would reject every one of them for a
+    // value nobody authored.
+    if (f === 'z1' && (s.kind === 'barrel' || s.kind === 'sawtooth')) continue;
     const capField = f === 'hw' ? 'hwRaw' : f === 'fd' ? 'fdRaw' : f;
     const t = s[capField];
     if (!t) continue;
@@ -142,7 +147,7 @@ async function survey(ws, { write = false, limit = 1 } = {}) {
   const portable = rows.filter((r) => r.ok);
   const faithful = portable.filter((r) => r.worst <= limit / 100);
   console.log(`autoport survey — ${rows.length} hand-written arms`);
-  console.log(`  ${portable.length} can be EXPRESSED as authored boxes and drums`);
+  console.log(`  ${portable.length} can be EXPRESSED in the authored format`);
   console.log(`  ${rows.length - portable.length} cannot, and stay as code:`);
   const why = {};
   for (const r of rows.filter((x) => !x.ok)) {

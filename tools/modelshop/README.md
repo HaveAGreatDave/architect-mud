@@ -28,7 +28,8 @@ which starts it for you the way the Map Studio link does.
 | <kbd>Shift</kbd>+drag | the vertical of whatever transform is active |
 | <kbd>D</kbd> / <kbd>Del</kbd> / <kbd>Esc</kbd> | duplicate / remove / deselect |
 | <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | undo / redo |
-| <kbd>O</kbd> | the model browser · <kbd>F</kbd> re-frame |
+| <kbd>O</kbd> / <kbd>T</kbd> | the model browser · the tool picker |
+| <kbd>F</kbd> | re-frame |
 
 **Every model arrives framed.** The framing is SOLVED, not guessed: the model own bounds go to
 `previewFit()`, which returns the distance that fills the picture on whichever axis is tight. It
@@ -59,6 +60,34 @@ a *building*: `modelOf()` returns a stub record for a vehicle key, `drawTypeMode
 for its type, and the switch falls through to the default shop arm. A second call site is a
 second chance to forget the branch. Scale and rotate are horizontal drags with Shift for height;
 height can never be a free drag because there is no depth cue to judge it against.
+
+## The tool picker
+
+<kbd>T</kbd>, or the Tools button. Three transform modes, four mass primitives and nine
+adornments is sixteen things to reach for, and they used to live in two unlabelled dropdowns
+at the bottom of a scrolling rail. The dialog names all of them **and what each is for** —
+the descriptions are the point, not the layout. Every entry drives the existing control;
+none of it is a second implementation, and both paths share one `defaultPart()` so a piece
+added from either arrives the same size.
+
+## The four mass kinds
+
+`box`, `drum`, `barrel` and `sawtooth` — every mass primitive the renderer has.
+
+⚠ A barrel's `archH` defaults to the **footprint** basis, not the height one. Its rise is
+proportional to its span; tagging it `h` would make a wide shed grow a taller arch when
+somebody adds a storey.
+
+⚠ A barrel's `base` is a real authored colour, not one derived from `pal`. It is the one
+colour the LOD renderer cannot work out from a palette key — the capture records it for
+exactly that reason — so deriving it would quietly repaint every roof.
+
+A barrel's and a sawtooth's **top is derived** (`z0` plus the rise) rather than authored,
+which keeps bounds, framing, LOD ranking and the cage uniform across all four kinds instead
+of two of them being special cases everywhere.
+
+Adding them moved the port survey: **138 of 172 arms are now expressible**, up from 129, and
+the only remaining reason an arm cannot be expressed is entrance-face-only mass.
 
 ## Textures
 

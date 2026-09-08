@@ -15,7 +15,7 @@ import {
 } from '/client/game/js/panels/windshield.js';
 import {
   initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty, renderPalette,
-  pushUndoFor, undo, redo,
+  pushUndoFor, undo, redo, openToolPicker,
 } from './editor.js';
 
 const $ = (id) => document.getElementById(id);
@@ -762,6 +762,13 @@ $('frame').onclick = () => preset(state.preset);
 $('open').onclick = () => { renderBrowser($('search').value); $('browserdlg').showModal(); $('search').select(); };
 $('bclose').onclick = () => $('browserdlg').close();
 $('search').oninput = () => renderBrowser($('search').value);
+$('tools-open').onclick = () => openToolPicker();
+$('toolclose').onclick = () => $('tooldlg').close();
+// The picker reaches back for these three rather than importing app state, which would be
+// a module cycle: it needs the live mode, a way to set it, and a way to repaint after adding.
+window.__msMode = () => state.mode;
+window.__msSetMode = (m) => setMode(m);
+window.__msRedraw = () => { invalidateEdit(state.key); draw(); };
 $('palclose').onclick = () => $('paldlg').close();
 $('palsearch').oninput = () => renderPalette($('palsearch').value);
 
@@ -803,6 +810,7 @@ addEventListener('keydown', (ev) => {
   else if (k === 'r') setMode('rotate');
   else if (k === 'f') preset(state.preset);
   else if (k === 'o') { ev.preventDefault(); $('open').click(); }
+  else if (k === 't') { ev.preventDefault(); openToolPicker(); }
   else if (k === 'escape') { selectedSeg = -1; draw(); }
   else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {
     ev.preventDefault();

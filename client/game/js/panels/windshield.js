@@ -18958,6 +18958,16 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
       const skin = (fc) => { const k = 0.5 + fc.nl * 0.55; return `rgba(${base[0] * k | 0},${base[1] * k | 0},${base[2] * k | 0},0.97)`; };
       const capCol = s.cap ? `rgba(${base[0] * 0.8 | 0},${base[1] * 0.8 | 0},${base[2] * 0.8 | 0},0.97)` : null;
       drawFacetDrum(ctx, cam, wx, wy, z0, z1, V(s.rb), V(s.rt), Math.max(5, s.n || 12), alpha, skin, capCol);
+    } else if (s.kind === 'barrel') {
+      // ⚠ This primitive takes its LOCAL FRAME as a closure rather than world coordinates,
+      // which is why the placed centre is bound into F here and the barrel's own `cxL`
+      // offset stays local. Same construction drawModelLOD uses.
+      const F = (lx, ly) => facePt(wx, wy, lx, ly, E);
+      drawBarrelRoof(ctx, cam, F, V(s.cxL), V(s.hl), V(s.hw), z0, V(s.archH),
+        Math.max(4, s.nf || 10), alpha, s.base || WALL_COL[s.pal || m.pal] || [90, 96, 104]);
+    } else if (s.kind === 'sawtooth') {
+      sawtoothRoof(ctx, cam, wx, wy, E, V(s.hx), V(s.hy), z0, V(s.rh),
+        Math.max(1, s.teeth || 4), s.roofc || '#4b5158', s.glassc || '#7d9ab0', s.edge || '#2b2f34', alpha);
     }
   });
 

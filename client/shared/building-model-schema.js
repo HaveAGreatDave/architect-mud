@@ -35,13 +35,11 @@
 // ADORN_SCHEMA's keys. An adornment added here and forgotten there would otherwise be a
 // field that silently never draws.
 
-// ── Phase 2 draws boxes and drums only ──────────────────────────────────────
-// Between them they are the overwhelming majority of the captured mass in the game
-// (~500 boxes, 39 drums) and their argument lists are unambiguous. `barrel` and
-// `sawtooth` are deliberately absent: a barrel roof takes its LOCAL FRAME as a closure
-// and a sawtooth takes three authored colour arrays, so both carry real surface for a
-// subtle bug and neither blocks authoring a building. Adding them later is additive —
-// nothing in the format has to change.
+// ── The four mass kinds ─────────────────────────────────────────────────────
+// Every mass primitive the renderer has: a box, a faceted drum, a barrel roof and a
+// sawtooth monitor. Field names are the PRIMITIVE's own argument names throughout, so
+// each block reads directly against draw3DBoxAt, drawFacetDrum, drawBarrelRoof and
+// sawtoothRoof, and there is no translation table to get wrong.
 export const SEG_SCHEMA = {
   box: {
     geom: { cx: 'fh', cy: 'fh', hw: 'fh', fd: 'fh', z0: 'h', z1: 'h' },
@@ -53,7 +51,37 @@ export const SEG_SCHEMA = {
     required: ['rb', 'z0', 'z1'],
     plain: { pal: 'string', cap: 'boolean', n: 'int' },
   },
+  // A half-cylinder over a shed. `cx`/`cy` place the ANCHOR and `cxL` offsets the barrel
+  // inside its own local frame, exactly as the primitive takes them.
+  //
+  // ⚠ `archH` defaults to the FOOTPRINT basis, not the height one. A barrel roof's rise is
+  // proportional to its span — it is one of the nine models the capture doc names as deriving
+  // a vertical from `fh`, and tagging it `h` would make a wide shed grow a taller arch when
+  // somebody adds a storey.
+  //
+  // ⚠ `base` is a real authored field rather than a colour derived from `pal`. It is the one
+  // colour the LOD renderer cannot work out from a palette key — the capture records it for
+  // exactly that reason — so deriving it here would quietly repaint every ported roof.
+  barrel: {
+    geom: { cx: 'fh', cy: 'fh', cxL: 'fh', hl: 'fh', hw: 'fh', z0: 'h', archH: 'fh' },
+    required: ['hl', 'hw', 'z0', 'archH'],
+    plain: { pal: 'string', nf: 'int', base: 'rgb' },
+  },
+  // A north-light monitor roof: `teeth` sloped panels, each with a vertical glazed face.
+  // Its three colours are authored because the primitive takes them as colours, not as a
+  // palette — `roofc` and `glassc` are fills and `edge` is the stroke between them.
+  sawtooth: {
+    geom: { cx: 'fh', cy: 'fh', hx: 'fh', hy: 'fh', z0: 'h', rh: 'h' },
+    required: ['hx', 'hy', 'z0', 'rh'],
+    plain: { pal: 'string', teeth: 'int', roofc: 'string', glassc: 'string', edge: 'string' },
+  },
 };
+
+// Kinds whose top is DERIVED rather than authored, and from what. A barrel's roof is its
+// wall top plus the arch rise; a sawtooth's is its deck plus the tooth rise. Emitting the
+// derived `z1` keeps every downstream consumer — bounds, framing, the LOD ranking, the cage
+// — uniform across all four kinds instead of each one special-casing two of them.
+const DERIVED_Z1 = { barrel: 'archH', sawtooth: 'rh' };
 
 // ── Adornments ──────────────────────────────────────────────────────────────
 // Each entry is one existing helper in windshield.js, with that helper's own argument
@@ -117,6 +145,8 @@ export function compilePart(part, schema, basis, warnings = [], where = '') {
     out[f === 'hw' ? 'hwRaw' : f === 'fd' ? 'fdRaw' : f] = t;
   }
   for (const f of Object.keys(def.plain)) if (part[f] != null) out[f] = part[f];
+  const rise = DERIVED_Z1[part.kind];
+  if (rise && out.z0 && out[rise]) out.z1 = out.z0.map((v, i) => round(v + out[rise][i]));
   return out;
 }
 
@@ -167,8 +197,11 @@ function checkPart(where, part, schema, errors, basis) {
       }
     } else if (k in def.plain) {
       const want = def.plain[k];
-      const ok = want === 'int' ? Number.isInteger(v) : want === 'number' ? isNum(v) : typeof v === want;
-      if (!ok) errors.push(`${where}: '${k}' must be ${want}, got ${typeof v}`);
+      const ok = want === 'int' ? Number.isInteger(v)
+        : want === 'number' ? isNum(v)
+          : want === 'rgb' ? (Array.isArray(v) && v.length === 3 && v.every((c) => Number.isInteger(c) && c >= 0 && c <= 255))
+            : typeof v === want;
+      if (!ok) errors.push(`${where}: '${k}' must be ${want === 'rgb' ? 'three integers 0-255' : want}, got ${JSON.stringify(v)}`);
     } else {
       // Not a warning. An unread key is the failure mode this whole codebase keeps
       // hitting — `effects` on every mutation, read by nothing, for months.

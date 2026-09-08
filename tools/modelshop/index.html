@@ -102,6 +102,17 @@
   #palgrid .pk.on { border-color: var(--ms-accent); color: var(--ms-accent); }
   #palgrid .pk i { width: 15px; height: 15px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; }
   #palgrid .pk span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* the tool picker */
+  #toolgrid { flex: 1; overflow: auto; padding: 4px 0 12px; }
+  #toolgrid .grp { padding: 10px 14px 4px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+  #toolgrid .wrapg { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 5px; padding: 4px 14px; }
+  #toolgrid .tk { text-align: left; padding: 7px 9px; border: 1px solid var(--ms-line); border-radius: 4px; background: #10141a; cursor: pointer; }
+  #toolgrid .tk:hover { border-color: var(--ms-accent); }
+  #toolgrid .tk.on { border-color: var(--ms-accent); background: #16222b; }
+  #toolgrid .tk b { display: block; color: var(--ms-ink); font-weight: normal; }
+  #toolgrid .tk i { display: block; color: var(--ms-dim); font-style: normal; font-size: 10px; padding-top: 2px; line-height: 1.35; }
+  #toolgrid .tk.off { opacity: .45; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -115,6 +126,7 @@
       <button id="mode-move" class="on" title="Move the selected piece — drag on the ground, Shift+drag for height">Move <kbd>G</kbd></button>
       <button id="mode-scale" title="Scale the selected piece — drag for width, Shift+drag for height">Scale <kbd>S</kbd></button>
       <button id="mode-rotate" title="Rotate the selected piece about its own axis">Rotate <kbd>R</kbd></button>
+      <button id="tools-open" title="Every mode and every primitive, with what each one is for">Tools <kbd>T</kbd></button>
       <button id="frame" title="Frame the model again">Frame <kbd>F</kbd></button>
     </div>
     <div id="hud"></div>
@@ -166,6 +178,17 @@
     </section>
   </div>
 </div>
+
+<dialog id="tooldlg">
+  <div id="browser">
+    <div id="bhead">
+      <b style="flex:1">Tools</b>
+      <span class="dim">click to use · <kbd>T</kbd> opens this</span>
+      <button id="toolclose">Close</button>
+    </div>
+    <div id="toolgrid"></div>
+  </div>
+</dialog>
 
 <dialog id="paldlg">
   <div id="browser">

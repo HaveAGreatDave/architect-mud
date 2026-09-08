@@ -286,6 +286,91 @@ export const undo = () => restore(undoStack, redoStack);
 export const redo = () => restore(redoStack, undoStack);
 export const undoDepth = () => undoStack.length;
 
+// ── THE TOOL PICKER ─────────────────────────────────────────────────────────
+// Three transform modes, four mass primitives and nine adornments is sixteen things you
+// can reach for, and until now they lived in two dropdowns at the bottom of a scrolling
+// rail with nothing to say what any of them was. This is one dialog that names all of them
+// and what each is FOR — the descriptions are the point, not the layout.
+//
+// Every entry does what the existing control does; nothing here is a second implementation.
+const TOOL_MODES = [
+  ['move', 'Move', 'Drag a piece across the ground. Shift+drag lifts it, keeping its height.'],
+  ['scale', 'Scale', 'Drag right to widen, left to narrow. Shift+drag changes height, growing from the base.'],
+  ['rotate', 'Rotate', 'Spin a piece about its own axis. A drum has no yaw — it is a solid of revolution.'],
+];
+const SEG_HELP = {
+  box: 'A rectangular block. The workhorse: walls, podiums, setbacks, awnings. Takes a yaw.',
+  drum: 'A faceted cylinder, optionally tapered. Tanks, silos, chimneys, round shafts.',
+  barrel: 'A half-cylinder roof over a shed. Its rise scales with its SPAN, not with storeys.',
+  sawtooth: 'A north-light monitor roof: sloped panels each with a vertical glazed face.',
+};
+const ADORN_HELP = {
+  mast: 'A guyed antenna mast with an aviation light. Recorded as a spar, so it never becomes collision.',
+  dish: 'A rooftop satellite dish.',
+  blinkLight: 'A small blinking beacon. The cheapest adornment there is.',
+  glowPool: 'A soft pool of light on the ground or a roof. Furnace mouths, doorways, ruin glow.',
+  helideck: 'A landing deck with paint and edge glow.',
+  latticeTower: 'An open lattice mast, tapering.',
+  neonBlade: 'A vertical neon sign board. Paints the building name unless you give it a label.',
+  marqueeBand: 'A lit band across the entrance face.',
+  awning: 'A shopfront awning — wide across the front, shallow into the street.',
+};
+
+export function openToolPicker() { renderTools(); document.getElementById('tooldlg').showModal(); }
+
+function tile(title, help, enabled, onPick, on) {
+  const b = el('button', 'tk' + (on ? ' on' : '') + (enabled ? '' : ' off'));
+  b.append(el('b', null, title), el('i', null, help));
+  if (enabled) b.onclick = () => { onPick(); document.getElementById('tooldlg').close(); };
+  else b.title = 'Select an authored model first — a hand-written arm cannot be edited here.';
+  return b;
+}
+
+function section(host, name, tiles) {
+  host.append(el('div', 'grp', name));
+  const w = el('div', 'wrapg');
+  for (const t of tiles) w.append(t);
+  host.append(w);
+}
+
+function renderTools() {
+  const host = document.getElementById('toolgrid');
+  host.textContent = '';
+  const doc = editorDocFor(currentKey);
+  const mode = window.__msMode();
+
+  section(host, 'Transform', TOOL_MODES.map(([id, title, help]) =>
+    tile(title, help, true, () => window.__msSetMode(id), mode === id)));
+
+  section(host, 'Add mass', Object.keys(SEG_SCHEMA).map((kind) =>
+    tile(kind, SEG_HELP[kind] || '', !!doc, () => addPart(doc, 'segs', SEG_SCHEMA, kind))));
+
+  section(host, 'Add adornment', Object.keys(ADORN_SCHEMA).map((kind) =>
+    tile(kind, ADORN_HELP[kind] || '', !!doc, () => addPart(doc, 'adorn', ADORN_SCHEMA, kind))));
+}
+
+// The same defaults the rail's add-rows use, so a piece added from either place arrives
+// the same size — visible immediately rather than a zero-sized nothing to guess out of.
+export function defaultPart(schema, kind) {
+  const part = { kind };
+  for (const f of schema[kind].required) {
+    part[f] = f === 'z1' ? 0.8 : f === 'z0' ? 0 : f === 'z' ? 0.5
+      : f === 'archH' || f === 'rh' ? 0.15 : 0.2;
+  }
+  if (kind === 'sawtooth') { part.teeth = 4; part.roofc = '#4b5158'; part.glassc = '#7d9ab0'; part.edge = '#2b2f34'; }
+  if (kind === 'barrel') { part.nf = 10; part.base = [120, 112, 100]; }
+  return part;
+}
+
+function addPart(doc, list, schema, kind) {
+  if (!doc) return;
+  pushUndoFor(currentKey, 'add');
+  doc[list] = doc[list] || [];
+  doc[list].push(defaultPart(schema, kind));
+  dirty.add(keyToFile.get(currentKey));
+  window.__msRedraw();
+}
+
 // ── the form ────────────────────────────────────────────────────────────────
 // Generated from the schema, never hand-written per field. A field added to SEG_SCHEMA is
 // editable here immediately, and one that is not in the schema cannot be typed in by
@@ -405,12 +490,9 @@ function addRow(list, schema, onEdit, verb) {
   for (const k of Object.keys(schema)) { const o = el('option', null, k); o.value = k; sel.append(o); }
   const b = el('button', null, verb);
   b.onclick = () => {
-    const kind = sel.value;
-    const part = { kind };
-    // Sensible starting numbers, so a new part is visible immediately rather than a
-    // zero-sized nothing an author has to guess their way out of.
-    for (const f of schema[kind].required) part[f] = f === 'z1' ? 0.8 : f === 'z0' ? 0 : f === 'z' ? 0.5 : 0.2;
-    list.push(part); onEdit();
+    // One place decides what a new piece starts as, so the rail and the tool picker
+    // cannot disagree about it.
+    list.push(defaultPart(schema, sel.value)); onEdit('add');
   };
   row.append(sel, b);
   return row;
