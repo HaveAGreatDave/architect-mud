@@ -36,7 +36,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
-import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta } from './aircraft3d.js';
+import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta } from './aircraft3d.js';
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
@@ -18992,12 +18992,18 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
 // needs both — so this is renderModelPreview's sibling, with the same option shape and the
 // same rule: it calls the REAL renderer rather than a preview copy of it.
 //
-// ⚠ VEHICLES ARE READ-ONLY IN THE MODELSHOP, and the reason is structural rather than a
-// missing feature. A building can be authored as data because `SHAPE_SINK` gives a lossless
-// mass capture and the schema round-trips it. A vehicle mesh is parametric code in
-// aircraft3d.js (FW_PARAMS, TRUCK_SHAPES, buildCessna…) with no capture and no authored
-// format, so there is nothing for an editor to write. Showing them is still worth it: until
-// now the only way to look at an airframe was to fly it.
+// ⚠ A VEHICLE IS TUNED AS PARAMETERS, NEVER CAPTURED AS MASS — the split is structural.
+// A building can be authored as data because `SHAPE_SINK` gives a lossless mass capture and
+// the schema round-trips it. A vehicle has no capture at all: its mesh is built by code in
+// aircraft3d.js off two tables of plain numbers (FW_PARAMS, TRUCK_SHAPES), so what an editor
+// can change is the NUMBERS and not the shapes. `setVehicleParams` is that seam, re-exported
+// here so the Modelshop reaches one module. The hand-authored meshes (buildCessna, buildCub,
+// the Viper) have no row and are look-only, which is the honest answer for a mesh nobody
+// generated. See `tools/modelshop/README.md` for what the tool does with it.
+export { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds };
+// Which of the ten preview subjects is actually generated from a row, and which table it is in.
+// A class absent from this map renders and cannot be tuned — that is the hand-authored set.
+export const VEHICLE_PARAM_TABLE = { prop: 'fw', heavy: 'fw', gunship: 'fw', divebomber: 'fw', locust: 'fw' };
 export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck'];
 // Framing derived from the subject, exactly as a building's is derived from its roof. These
 // craft differ in size by seven times — CONTACT_SIZE runs 0.030 for a rig to 0.21 for the

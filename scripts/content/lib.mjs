@@ -331,7 +331,7 @@ export function isRuntimeResidueId(table, id) {
 // they have no table and never reach the database: `npm run models:bake` compiles them into
 // client/shared/building-models.js, which the renderer imports. The CODEX pipeline must therefore
 // leave them alone, and `shapes:smoke` owns their gate instead of `content:lint`.
-export const NON_TABLE_DIRS = new Set(['map', 'building_models']);
+export const NON_TABLE_DIRS = new Set(['map', 'building_models', 'vehicle_models']);
 
 // ── Asset refs ──────────────────────────────────────────────────────────────
 //

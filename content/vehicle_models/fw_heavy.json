@@ -1,0 +1,96 @@
+{
+  "id": "heavy",
+  "kind": "fw",
+  "params": {
+    "bellyFlat": 0.55,
+    "bodyTube": 0.56,
+    "boxy": 0.06,
+    "dih": -0.05,
+    "engines": [
+      -0.6,
+      -0.34,
+      0.34,
+      0.6
+    ],
+    "extraF": [
+      1.14,
+      1.11,
+      1.06,
+      0.98,
+      0.88,
+      0.78,
+      0.7,
+      0.62,
+      0.56,
+      0.4,
+      -0.18,
+      -0.55,
+      -0.95
+    ],
+    "finF0": -0.74,
+    "finF1": -0.98,
+    "finF2": -1.06,
+    "finH": 0.66,
+    "fins": [
+      0
+    ],
+    "fr": 0.205,
+    "fv": 0.215,
+    "glaze": {
+      "art": "leviathan",
+      "f0": 0.78,
+      "f1": 0.62,
+      "ks": [
+        3,
+        8
+      ],
+      "wsF": 0.74,
+      "wsKs": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    "hB": -1.02,
+    "hF": -0.8,
+    "hSpan": 0.46,
+    "hTipB": -1.04,
+    "hTipF": -0.86,
+    "heavyGear": true,
+    "hump": {
+      "f0": 0.42,
+      "f1": 0.98,
+      "h": 0.055
+    },
+    "nacF": 0.26,
+    "nacH": -0.03,
+    "nacR": 0.095,
+    "noseBlunt": 2.2,
+    "noseCowl": 0.1,
+    "noseDroopK": 0.6,
+    "noseF": 1.15,
+    "noseGearAt": 0.839,
+    "noseVFloor": 0.6,
+    "noseVTaper": 1.1,
+    "noseZ": -0.03,
+    "pylons": true,
+    "sides": 24,
+    "span": 1.05,
+    "tailF": -1.12,
+    "tailUp": 0.145,
+    "visor": {
+      "hingeAt": 0.487,
+      "maxAng": 1.2,
+      "ramp": 0.5
+    },
+    "wRootB": -0.14,
+    "wRootF": 0.34,
+    "wTipB": -0.1,
+    "wTipF": 0.2,
+    "wingH": 0.2
+  }
+}
+

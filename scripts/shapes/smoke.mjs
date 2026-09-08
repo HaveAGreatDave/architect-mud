@@ -414,6 +414,52 @@ async function main() {
     problems.push(`could not read client/shared/building-shapes.js (${e.message}). Run: npm run shapes:bake`);
   }
 
+  // ── AUTHORED VEHICLE ROWS ──
+  // Two questions, and the same reason they live here rather than in content:lint: a vehicle row
+  // never reaches the database either. It is baked into a client module, so its gate belongs beside
+  // the renderer that reads it.
+  let vehicleLine = 'Vehicle rows: none.';
+  try {
+    const { bakeVehicles, readVehicleFiles, renderModule } = await import('./bake-vehicles.mjs');
+    const { rows, errors } = bakeVehicles(readVehicleFiles());
+    for (const e of errors) problems.push(`vehicle row — ${e}`);
+    if (!errors.length) {
+      // 1. STALE BAKE. Compared as the rendered MODULE rather than row by row, because the file is
+      // what aircraft3d.js imports and a formatting change in the bake is drift too.
+      const { readFileSync: rf } = await import('node:fs');
+      const onDisk = rf(new URL('../../client/shared/vehicle-models.js', import.meta.url), 'utf8');
+      if (onDisk.replace(/\r\n/g, '\n') !== renderModule({ rows }).replace(/\r\n/g, '\n')) {
+        problems.push('stale vehicle bake — client/shared/vehicle-models.js differs from content/vehicle_models/. Run: npm run vehicles:bake');
+      }
+      // 2. THE ROW ACTUALLY REACHES THE MESH. A file can be valid, bake cleanly and still be
+      // authored for a class nothing builds — so ask the renderer for the row it would use and
+      // fail if it is not the one on disk. This is the vehicle half of the orphan check.
+      const veh = await import('../../client/game/js/panels/aircraft3d.js');
+      for (const kind of ['fw', 'truck']) {
+        for (const id of Object.keys(rows[kind])) {
+          const live = veh.vehicleParamBase(kind, id);
+          if (JSON.stringify(live) !== JSON.stringify(rows[kind][id])) {
+            problems.push(`vehicle row ${kind}/${id} is authored but the renderer builds from something else`);
+          }
+        }
+      }
+      // 3. THE ROW STILL BUILDS A MESH. The schema can only say a value is JSON — a string where
+      // a number belongs is legal JSON and legal content, and it reaches the builder as NaN,
+      // which paints nothing and throws nothing. Same rule as the adornments' NaN gate: build
+      // every authored vehicle and fail on a single non-finite vertex.
+      for (const [kind, id] of [...Object.keys(rows.fw).map((k) => ['fw', k]), ...Object.keys(rows.truck).map((k) => ['truck', k])]) {
+        const faces = kind === 'truck' ? veh.aircraftFaces('truck', 1, false, id) : veh.aircraftFaces(id, 1);
+        if (!faces.length) { problems.push(`vehicle row ${kind}/${id} builds no faces at all`); continue; }
+        const bad = faces.some((f) => f.p.some((pt) => pt.some((n) => !Number.isFinite(n))));
+        if (bad) problems.push(`vehicle row ${kind}/${id} builds a mesh with non-finite vertices — a field is the wrong type`);
+      }
+      const n = Object.keys(rows.fw).length + Object.keys(rows.truck).length;
+      vehicleLine = `Vehicle rows: ${n} authored (${Object.keys(rows.fw).length} fixed-wing, ${Object.keys(rows.truck).length} truck); bake current.`;
+    }
+  } catch (e) {
+    problems.push(`vehicle rows — ${e.message}`);
+  }
+
   // ── AUTHORED MODELS ──
   // The same three questions the code arms get, asked of the data half. They are here rather than
   // in content:lint because an authored model never reaches the database — models:bake compiles it
@@ -538,6 +584,7 @@ async function main() {
   const at = (d) => models.reduce((s, { m }) => s + ws.shapeLodFaces(m, d), 0) / models.length;
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
+  console.log('  ' + vehicleLine);
   console.log('  ' + authoredLine);
   if (diffLine) console.log('  ' + diffLine);
   if (authoredReach) console.log('  ' + authoredReach);

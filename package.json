@@ -40,6 +40,7 @@
     "voice:smoke": "node scripts/voice/smoke.mjs",
     "shapes:bake": "node scripts/shapes/bake.mjs",
     "models:bake": "node scripts/shapes/bake-models.mjs",
+    "vehicles:bake": "node scripts/shapes/bake-vehicles.mjs",
     "models:diff": "node scripts/shapes/modeldiff.mjs",
     "models:survey": "node scripts/shapes/autoport.mjs --survey",
     "content:status": "node scripts/content/status.mjs",

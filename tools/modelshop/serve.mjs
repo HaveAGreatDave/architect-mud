@@ -33,6 +33,8 @@ import { dirname, join, normalize, sep } from 'node:path';
 // The validator and the compile the BUILD uses, not a second opinion — see the write path below.
 import { validateModel } from '../../client/shared/building-model-schema.js';
 import { bakeModels, readModelFiles, renderModule, OUT as BAKE_OUT } from '../../scripts/shapes/bake-models.mjs';
+import { bakeVehicles, readVehicleFiles, renderModule as renderVehicleModule } from '../../scripts/shapes/bake-vehicles.mjs';
+import { validateVehicleRow, vehicleFileName } from '../../client/shared/vehicle-model-schema.js';
 // The canonical serialiser every content file in this repo is written with. Object keys sort,
 // ARRAY ORDER IS PRESERVED — which matters here, because a segment list is a paint order.
 import { canonicalJson } from '../../scripts/content/lib.mjs';
@@ -40,6 +42,8 @@ import { canonicalJson } from '../../scripts/content/lib.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const MODEL_DIR = join(ROOT, 'content', 'building_models');
+const VEHICLE_DIR = join(ROOT, 'content', 'vehicle_models');
+const VEHICLE_BAKE_OUT = join(ROOT, 'client', 'shared', 'vehicle-models.js');
 const PORT = Number(process.argv[2]) || 5181;
 
 const send = (res, code, body, type = 'application/json') => {
@@ -229,6 +233,43 @@ const server = createServer(async (req, res) => {
       }
       await writeFile(BAKE_OUT, renderModule(models), 'utf8');
       return json(res, 200, { ok: true, file, warnings: bakeWarnings, bindings: Object.keys(models).length });
+    }
+
+    // ── THE VEHICLE ROWS ────────────────────────────────────────────────────
+    // The same write path as a building model and deliberately the same shape — validate before
+    // landing, re-bake from the DIRECTORY, roll back a refused write — because the two failures
+    // are the same failure: a tool that can author what the push gate rejects.
+    //
+    // What is different is how little there is. A vehicle row carries no geometry, so there is
+    // nothing to compile and no collision across files to check; the bake's own duplicate and
+    // missing-row checks are the whole of it.
+    if (req.method === 'GET' && path === '/api/vehicles') {
+      return json(res, 200, { rows: readVehicleFiles(VEHICLE_DIR) });
+    }
+
+    if (req.method === 'PUT' && path === '/api/vehicles') {
+      const body = await readJson(req);
+      const doc = body.doc;
+      const pre = validateVehicleRow(doc, '<posted>');
+      if (pre.errors.length) return json(res, 400, { errors: pre.errors, warnings: pre.warnings });
+      // The filename is DERIVED from the row rather than posted with it. A vehicle row is
+      // addressed by what it is, so letting a client name the file is letting it author a row
+      // under a name the bake would then refuse.
+      const file = vehicleFileName(doc.kind, doc.id);
+      const target = join(VEHICLE_DIR, file);
+      let prior = null;
+      try { prior = await readFile(target, 'utf8'); } catch { /* new row */ }
+
+      await mkdir(VEHICLE_DIR, { recursive: true });
+      await writeFile(target, canonicalJson(doc) + '\n', 'utf8');
+      const { rows, errors, warnings } = bakeVehicles(readVehicleFiles(VEHICLE_DIR));
+      if (errors.length) {
+        if (prior != null) await writeFile(target, prior, 'utf8');
+        else await unlink(target).catch(() => {});
+        return json(res, 409, { errors, warnings, saved: false, rolledBack: true });
+      }
+      await writeFile(VEHICLE_BAKE_OUT, renderVehicleModule({ rows }), 'utf8');
+      return json(res, 200, { ok: true, file, warnings });
     }
 
     if (req.method === 'GET' && path.startsWith('/client/')) {

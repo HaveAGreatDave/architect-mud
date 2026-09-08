@@ -1,0 +1,74 @@
+{
+  "id": "prop",
+  "kind": "fw",
+  "params": {
+    "bodyTube": 0.62,
+    "boxy": 0.86,
+    "dih": 0.01,
+    "dorsal": -0.24,
+    "engines": [
+      -0.42,
+      0.42
+    ],
+    "extraF": [
+      0.84,
+      0.7,
+      0.62,
+      0.48,
+      0.34
+    ],
+    "finF0": -0.63,
+    "finF1": -0.88,
+    "finF2": -0.94,
+    "finH": 0.6,
+    "fins": [
+      0
+    ],
+    "fr": 0.13,
+    "fv": 0.135,
+    "gear": true,
+    "gearStyle": "oleo",
+    "glaze": {
+      "art": "mule",
+      "f0": 0.7,
+      "f1": 0.3,
+      "ks": [
+        0,
+        5
+      ],
+      "wsF": 0.63,
+      "wsKs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "hB": -0.89,
+    "hF": -0.7,
+    "hSpan": 0.4,
+    "hTipB": -0.91,
+    "hTipF": -0.75,
+    "nacF": 0.06,
+    "nacH": 0.11,
+    "nacHalf": 0.28,
+    "noseBlunt": 2.2,
+    "noseDroopK": 0.7,
+    "noseF": 1,
+    "noseVTaper": 1.6,
+    "noseZ": -0.05,
+    "prop": "wing",
+    "span": 1.02,
+    "struts": true,
+    "tailF": -0.92,
+    "tailUp": 0.075,
+    "wRootB": -0.1,
+    "wRootF": 0.36,
+    "wTipB": -0.06,
+    "wTipF": 0.26,
+    "wingH": 0.161
+  }
+}
+

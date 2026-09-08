@@ -12,6 +12,7 @@ import {
   shapeConstantWarnings, shapeAdornCost, shapeLinearityError, shapeIsSeedVariant,
   ADORN_RICH, ADORN_NEAR, buildingScaleFor,
   renderVehiclePreview, VEHICLE_CLASSES, TRUCK_VARIANTS, vehicleBounds, previewFit,
+  VEHICLE_PARAM_TABLE, vehicleParamBase, setVehicleParams, clearVehicleParams,
 } from '/client/game/js/panels/windshield.js';
 import {
   initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty, renderPalette,
@@ -27,8 +28,8 @@ const SCALES = [[1, 1], [2, 1], [1, 2], [2, 3]];
 
 // Buildings AND vehicles. They are two different renderers — a building is a drawTypeModel
 // arm, a vehicle is a face list from aircraft3d — so an entry carries which one it is and
-// the viewport branches once. Vehicles are read-only: their meshes are parametric code with
-// no capture and no authored format, so there is nothing for the editor to write.
+// the viewport branches once. A vehicle is not authored as mass: it has no capture, and what
+// there is to change is the PARAMETER ROW its mesh is generated from (see the tuner below).
 const VEHICLES = [
   ...VEHICLE_CLASSES.filter((c) => c !== 'truck').map((cls) => ({ key: 'vehicle:' + cls, vehicle: { cls, variant: '' }, m: { type: cls } })),
   ...TRUCK_VARIANTS.map((v) => ({ key: 'vehicle:truck/' + v, vehicle: { cls: 'truck', variant: v }, m: { type: 'truck ' + v } })),
@@ -243,6 +244,7 @@ function renderBrowser(filter) {
 
 function select(key) {
   state.key = key;
+  vehSaveMsg = '';
   selectedSeg = -1;
   invalidateEdit(key);
   $('modelname').textContent = bare(key);
@@ -310,18 +312,17 @@ function draw() {
 // A vehicle: the same camera controls, no editing, and the rail says why.
 function drawVehicleRail() {
   const v = entryOf(state.key).vehicle;
-  $('hud').textContent = 'middle-drag to orbit · shift+middle or right-drag to pan · wheel to zoom — vehicles are read-only';
+  $('hud').textContent = 'middle-drag to orbit · shift+middle or right-drag to pan · wheel to zoom — a vehicle is tuned as parameters';
   const meta = $('meta'); meta.textContent = '';
   row(meta, 'key', state.key);
   row(meta, 'class', v.cls);
   if (v.variant) row(meta, 'variant', v.variant);
   row(meta, 'family', familyOf(state.key, null));
-  row(meta, 'mesh', 'aircraft3d.js (parametric code)');
+  const ref = vehRowOf(v);
+  row(meta, 'mesh', ref ? 'aircraft3d.js ' + ref.kind + '/' + ref.id : 'aircraft3d.js (hand-authored)');
   for (const id of ['scales', 'bake', 'checks', 'diffimgs', 'diffnum']) $(id).textContent = '';
   const ed = $('editor'); ed.textContent = '';
-  const note = document.createElement('div'); note.className = 'dim';
-  note.textContent = 'Vehicle meshes are parametric code in aircraft3d.js — there is no capture and no authored format for them, so there is nothing here to edit. Buildings are editable.';
-  ed.append(note);
+  drawVehicleTuner(ed, v);
   $('scaleread').textContent = '';
 }
 
@@ -357,6 +358,120 @@ function drawScales() {
       renderModelPreview(c, previewOpts({ fh: BASIS.fh * sf, h: BASIS.h * sh, dist: f.dist, eyeH: f.eyeH, panX: 0, panY: 0, wire: false }));
     } catch { /* the main viewport already reports the throw, in full */ }
   });
+}
+
+// ── THE VEHICLE TUNER ────────────────────────────────────────────
+// Five airframes and four trucks are generated from a row of plain numbers, so those nine can be
+// reshaped here. The rest — the Mayfly, the Cub, both helis, the wreck — are hand-authored
+// meshes with no row, and the panel says so rather than showing an empty form.
+//
+// A change is live at once and SAVED on request. setVehicleParams writes into the running module
+// so the viewport answers immediately; Save writes content/vehicle_models/<kind>_<id>.json and
+// re-bakes, which is the same two steps a building model takes and for the same reason — the
+// module the renderer imports must never disagree with the file the repo holds.
+//
+// ⚠ THE FILE IS THE WHOLE ROW, never the patch. A row is small and complete, and a file that said
+// only what differs would need a base to differ FROM, which is the FW_DEFAULT spread the format
+// deliberately resolved away.
+//
+// Only the SCALARS are exposed. A row also carries lists and sub-objects — engine stations, the
+// glazing spec, the canopy — and a text box over a nested object is a way to paste in something
+// that throws inside the mesh builder three frames later.
+const vehPatch = new Map();          // '<kind>/<id>' -> the fields changed from the shipping row
+// What the last save said. It is state rather than a line appended to the panel because saving
+// redraws the panel, and a message appended to the old one is gone before it can be read.
+let vehSaveMsg = '';
+const vehRowOf = (v) => (VEHICLE_PARAM_TABLE[v.cls] ? { kind: VEHICLE_PARAM_TABLE[v.cls], id: v.cls }
+  : v.cls === 'truck' ? { kind: 'truck', id: v.variant } : null);
+
+function applyVehPatch(ref) {
+  const key = ref.kind + '/' + ref.id;
+  const patch = vehPatch.get(key);
+  setVehicleParams(ref.kind, ref.id, patch && Object.keys(patch).length ? patch : null);
+  draw();
+}
+
+function drawVehicleTuner(host, v) {
+  const ref = vehRowOf(v);
+  const note = document.createElement('div'); note.className = 'dim';
+  if (!ref) {
+    note.textContent = 'This mesh is hand-authored in aircraft3d.js rather than generated from a parameter row, so there is nothing here to tune. The five fixed-wing classes and the four trucks are.';
+    host.append(note); return;
+  }
+  const base = vehicleParamBase(ref.kind, ref.id) || {};
+  const patch = vehPatch.get(ref.kind + '/' + ref.id) || {};
+  note.textContent = 'Tuning ' + ref.kind + '/' + ref.id + ' — Save writes content/vehicle_models/' + ref.kind + '_' + ref.id + '.json and re-bakes.';
+  host.append(note);
+
+  const keys = Object.keys(base).filter((k) => typeof base[k] === 'number' || typeof base[k] === 'boolean').sort();
+  for (const k of keys) {
+    const cur = k in patch ? patch[k] : base[k];
+    const d = document.createElement('div'); d.className = 'fld';
+    const lab = document.createElement('label'); lab.textContent = k; lab.style.flex = '0 0 74px';
+    lab.title = 'ships as ' + base[k];
+    const inp = document.createElement('input');
+    if (typeof base[k] === 'boolean') {
+      inp.type = 'checkbox'; inp.checked = !!cur; inp.style.flex = '0 0 auto';
+    } else {
+      inp.type = 'number'; inp.step = '0.005'; inp.value = String(cur);
+    }
+    if (k in patch) inp.classList.add('warn');
+    const commit = () => {
+      const val = inp.type === 'checkbox' ? inp.checked : Number(inp.value);
+      if (inp.type === 'number' && !Number.isFinite(val)) return;
+      const p = { ...(vehPatch.get(ref.kind + '/' + ref.id) || {}) };
+      // Back to the shipping value is a DELETION, not a patch that happens to match — otherwise
+      // the field stays flagged as changed and Reset has something to undo that is not a change.
+      if (val === base[k]) delete p[k]; else p[k] = val;
+      vehPatch.set(ref.kind + '/' + ref.id, p);
+      applyVehPatch(ref);
+    };
+    inp.onchange = commit;
+    d.append(lab, inp); host.append(d);
+  }
+
+  const changed = Object.keys(patch).length;
+  const bar = document.createElement('div'); bar.className = 'row'; bar.style.marginTop = '6px';
+  const b = document.createElement('button'); b.textContent = 'Reset this row';
+  b.disabled = !changed;
+  b.onclick = () => { vehPatch.delete(ref.kind + '/' + ref.id); applyVehPatch(ref); };
+  const all = document.createElement('button'); all.textContent = 'Reset all vehicles';
+  all.onclick = () => { vehPatch.clear(); clearVehicleParams(); draw(); };
+  const save = document.createElement('button'); save.textContent = 'Save row';
+  save.disabled = !changed;
+  save.onclick = () => saveVehicleRow(ref);
+  bar.append(b, save, all); host.append(bar);
+  const n = document.createElement('div'); n.className = 'dim';
+  n.textContent = changed ? changed + ' field(s) changed from the shipping row' : 'unchanged';
+  host.append(n);
+  if (vehSaveMsg) {
+    const m = document.createElement('div'); m.className = 'dim'; m.textContent = vehSaveMsg; host.append(m);
+  }
+}
+
+// The row as it stands, posted whole. The server derives the filename from it, validates with the
+// same validator the bake runs, and rolls the write back if the re-bake refuses it — so a refusal
+// here is a message, never a half-written content directory.
+async function saveVehicleRow(ref) {
+  const base = vehicleParamBase(ref.kind, ref.id) || {};
+  const patch = vehPatch.get(ref.kind + '/' + ref.id) || {};
+  const doc = { id: ref.id, kind: ref.kind, params: { ...base, ...patch } };
+  vehSaveMsg = 'saving…'; draw();
+  try {
+    const r = await fetch('/api/vehicles', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ doc }),
+    });
+    const j = await r.json();
+    if (!r.ok) { vehSaveMsg = (j.errors || [r.statusText]).join(' · '); draw(); return; }
+    // ⚠ THE PATCH IS KEPT, NOT CLEARED. This page imported the baked module once, so
+    // vehicleParamBase still hands back the values that were baked when it loaded. Clearing the
+    // patch would show those old numbers under a mesh built from the new ones, which is the tool
+    // disagreeing with itself; the fields stay flagged until a reload makes the file the baseline.
+    vehSaveMsg = 'saved to content/vehicle_models/' + j.file + ' and re-baked — reload to make it the baseline';
+    draw();
+  } catch (e) {
+    vehSaveMsg = 'save failed: ' + e.message; draw();
+  }
 }
 
 // ── the readouts ────────────────────────────────────────────────────────────

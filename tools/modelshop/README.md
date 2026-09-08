@@ -1,9 +1,10 @@
 # The Modelshop
 
 **STATUS: BUILT — an inspector, an authored model format, a differ, and an editor with a
-3-D viewport (orbit/pan/zoom, move/scale/rotate, keyboard). Buildings are editable; vehicles
-are shown read-only. Phase 5, the port of the hand-written arms, was attempted, measured and
-abandoned on the evidence — the tooling for it ships, the ports do not.**
+3-D viewport (orbit/pan/zoom, move/scale/rotate, keyboard). Buildings are edited as geometry;
+the nine generated vehicles are edited as parameters, and both save to content. Phase 5, the
+port of the hand-written building arms, was attempted, measured and abandoned on the evidence —
+the tooling for it ships, the ports do not.**
 
 ```bash
 npm run modelshop          # http://localhost:5181
@@ -145,11 +146,38 @@ The browser groups by family, and the first signal is the codebase's own: the ar
 namespaced by the place that owns them (`asc_`, `trm_`, `sw_`, `dw_`), which sorts 52 models
 for free. A prefix earns a group by having members, so a new region groups itself.
 
-**Vehicles are in the tool but read-only.** An aircraft or a truck is a face list from
+**A vehicle is edited as parameters, never as mass.** An aircraft or a truck is a face list from
 `aircraftFaces` painted by `drawAircraftModel` — a second renderer, wired up here as
-`renderVehiclePreview`. They cannot be edited because their meshes are parametric code in
-aircraft3d.js with no capture and no authored format: there is nothing for an editor to write.
-Showing them is still worth it, since until now the only way to look at an airframe was to fly it.
+`renderVehiclePreview`. There is no capture for it and no geometry to author, but the mesh is
+*generated* from a row of plain numbers, so the row is what the tool edits.
+
+Nine of the fourteen subjects have one: five fixed-wing classes (`prop`, `gunship`, `heavy`,
+`locust`, `divebomber`) and the four trucks. The rest — the Mayfly, the Cub, both helicopters
+and the wreck — are meshes somebody drew rather than proportions somebody set, and the panel says
+so instead of showing an empty form. **They must never be given a row**: a file that changes
+nothing is worse than no file.
+
+Rows live in `content/vehicle_models/<kind>_<id>.json` and are baked by `npm run vehicles:bake`
+into `client/shared/vehicle-models.js`, which is what aircraft3d.js imports. Same shape as the
+building models and for the same reasons — the renderer runs in a browser, there is no build step,
+and a mesh is built on the hot path.
+
+Three things worth knowing before you touch it:
+
+- ⚠ **A change busts the mesh cache, and has to.** `aircraftFaces` memoises on
+  cls+detail+armed+variant and nothing in that key says which parameters built it, so without the
+  flush the first build of a class wins for the session and every slider after it does nothing.
+- ⚠ **A fixed-wing file is the RESOLVED row, not a patch over `FW_DEFAULT`.** The code table
+  spread the defaults into each class; a file that did the same could not tell you a Warthog's
+  span, only that it differs. `FW_DEFAULT` stays in aircraft3d.js as the starting point for a new
+  class and the fallback for a class with no row.
+- ⚠ **The schema can only say a value is JSON.** A string where a number belongs is legal JSON and
+  reaches the mesh builder as `NaN`, which paints nothing and throws nothing — the same failure
+  the adornments had. So `shapes:smoke` builds every authored vehicle and fails on one non-finite
+  vertex.
+
+The move from code tables to content changed no geometry: all fourteen meshes are byte-identical
+to the ones that shipped before it, which is the check to re-run if this is ever refactored again.
 
 ⚠ **`fh` and `h` are derived, never set.** They were two sliders, which meant the preview could
 show a footprint and a storey stack the game never produces. `buildingScaleFor()` in windshield.js

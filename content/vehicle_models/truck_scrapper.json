@@ -1,0 +1,20 @@
+{
+  "id": "scrapper",
+  "kind": "truck",
+  "params": {
+    "aero": 0,
+    "axles": 1,
+    "cab": 0.22,
+    "deck": 0.38,
+    "hi": 0.225,
+    "lamps": 0.25,
+    "nose": 0,
+    "rig": "cage",
+    "skirt": 0,
+    "sleeper": 0,
+    "stacks": 0,
+    "trim": 0.05,
+    "w": 0.14
+  }
+}
+
