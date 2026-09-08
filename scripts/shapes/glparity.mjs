@@ -68,6 +68,43 @@ for (const heading of HEADINGS) {
   }
 }
 
+// ── AND THE SAME CAMERA FROM THE WINDOW'S FRAME ─────────────────────────────
+//
+// The GL mesh is not built where GLASS draws — it is built at the MAP WINDOW tile, because the
+// camera-relative position moves a fraction of a tile every frame you drive and a mesh built at it
+// would be rebuilt on every frame. The sub-tile offset is applied to the CAMERA instead, through
+// the `fx`/`fy` terms the chase camera already had.
+//
+// ⚠ WHICH IS A SECOND CAMERA CLAIM, AND IT GETS THE SAME TREATMENT AS THE FIRST. If the shift is
+// wrong the whole city stands a fraction of a tile from where it collides, which is a difference
+// no screenshot would show and every ground probe would feel.
+const OFFSETS = [{ x: 0.5, y: -0.25 }, { x: -0.37, y: 0.81 }, { x: 3.2, y: -7.6 }];
+let shifted = 0;
+for (const heading of HEADINGS) {
+  for (const chase of CHASES) {
+    for (const off of OFFSETS) {
+      const v = { heading, height: 0, eyeH: 0.24, map: null, mapOffset: off };
+      const cam = makeCam(W, HORIZON, DEPTH, v, chase || undefined);
+      // Exactly what glWorldPass does before it draws.
+      const camAt = { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy };
+      const m = viewProjMatrix(camAt, H);
+      for (const [x, y, z] of PTS) {
+        const a = cam.proj(x, y, z);
+        if (a.f <= 0.061) continue;
+        // The mesh carries the WINDOW tile, which is the camera-relative one plus the offset.
+        const b = projectThrough(m, x + cam.ox, y + cam.oy, z, W, H);
+        checks++; shifted++;
+        const px = Math.max(Math.abs(a.sx - b.sx), Math.abs(a.sy - b.sy));
+        if (px > worst.px) { worst.px = px; worst.where = `shifted hdg ${heading} off ${off.x},${off.y}`; }
+        if (px > TOL_PX || Math.abs(a.f - b.f) > TOL_F) {
+          bad++;
+          if (bad <= 6) console.log(`  ✗ window frame: hdg ${heading} offset ${off.x},${off.y} pt (${x},${y},${z}): proj (${a.sx.toFixed(4)}, ${a.sy.toFixed(4)}) vs gl (${b.sx.toFixed(4)}, ${b.sy.toFixed(4)})`);
+        }
+      }
+    }
+  }
+}
+
 if (bad) {
   console.error(`✗ glparity: ${bad} of ${checks} projections disagree — the GL camera is not GLASS's camera.`);
   process.exit(1);
@@ -75,3 +112,4 @@ if (bad) {
 console.log(`✓ glparity: ${checks} projections identical to cam.proj across `
   + `${HEADINGS.length} headings × ${EYES.length} eye heights × ${PITCHES.length} pitches × ${CHASES.length} chase offsets `
   + `(worst disagreement ${worst.px.toExponential(1)} px).`);
+console.log(`  …of which ${shifted} were drawn from the MAP WINDOW's frame with the sub-tile offset moved onto the camera.`);

@@ -18,13 +18,19 @@
 // with the machine, so what belongs in a commit message is the RATIO and the conditions.
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
-import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled } from '/client/game/js/panels/windshield.js';
+import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
 
 // The same shape of city the headless budget uses: a road with a crossroads, a terrace either side,
 // bigger stuff behind, and towers out past the LOD ring.
-function scene(withBuildings) {
+// ⚠ THE RADIUS IS A PARAMETER, because a truck asks for a 33-tile window and an aeroplane asks for
+// 73, and the GL buffer holds the WHOLE window — so the aircraft case is four times the geometry
+// and is the one that decides whether a rebuild is a hitch. The city pattern is written against
+// the window centre, so it fills whatever size it is given.
+function scene(withBuildings, r = R) {
+  const n = r * 2 + 1;
+  const R = r, N = n;
   return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
     if (x === R && y === R - 3) return { kind: 'land', biome: 'citycore', road: 1, rd: 'nesw', flr: 0, pw: 1 };
     if (x === R) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1, sl: y % 3 === 0 ? 1 : 0 };
@@ -227,7 +233,7 @@ export async function runStage1({ frames = 20, W = 1280, H = 720 } = {}) {
   // composited canvas is not preserved, so reading it back after the fact reports an empty city.
   paintWindshield('__stage1', { ...view, heading: 45 });
   const last = glLastFrame();
-  const glCanvas = holder.querySelector('canvas.ws-gl');
+  const glCanvas = last && last.canvas;
   RENDER_TUNE.gl = 0;
   uninstall();
   holder.remove();
@@ -239,4 +245,54 @@ export async function runStage1({ frames = 20, W = 1280, H = 720 } = {}) {
   };
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; }
+// ── WHERE DOES THE TIME GO WHEN THE MASS LEAVES? ────────────────────────────
+// Stage one moved the walls to the GPU and bought about a fifth of the frame, which is a lot
+// less than the isolated benchmark implies — the arms still RUN, and only their mass is
+// suppressed. So before stage two moves anything else, this asks the renderer own profiler which
+// phase is actually left, with the flag off and on, on one scene.
+//
+// ⚠ THE PHASES ARE INCLUSIVE. `world:build` contains everything the arms do; a child is inside
+// its parent number and the columns must not be summed.
+export function runPhases({ frames = 40, W = 1280, H = 720, radius = R } = {}) {
+  const el = document.createElement('canvas');
+  el.id = '__phases'; el.width = W; el.height = H;
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:1280px;height:720px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const map = scene(true, radius);
+  const view = { cls: 'prop', phase: 'cruise', height: 0.5, worldBlend: 1, hour: 13, weather: 'clear', speed: 0.4, map };
+  // The profiler accumulates; frames are counted here rather than through perfTick, which prints
+  // and RESETS on its own two-second clock and would silently halve a long run.
+  const run = (gl) => {
+    RENDER_TUNE.gl = gl;
+    setWindshieldProfiler(false);
+    for (let i = 0; i < 8; i++) paintWindshield('__phases', { ...view, heading: (i * 9) % 360 });   // warm caches, meshes, atlases
+    setWindshieldProfiler(true);
+    for (let i = 0; i < frames; i++) paintWindshield('__phases', { ...view, heading: (i * 9) % 360 });
+    const s = perfSnapshot();
+    setWindshieldProfiler(false);
+    const last = glLastFrame();
+    return { t: s.t, n: s.n, builds: last ? last.builds : 0, glFaces: last ? last.faces : 0 };
+  };
+  const a = run(0), b = run(1);
+  // A buffer rebuilt on every frame draws the same picture as one rebuilt once, so this is the only
+  // way to see the difference: `builds` over `frames` should be a small number, not `frames`.
+  const rebuilds = b.builds - a.builds;
+  RENDER_TUNE.gl = 0; uninstall(); holder.remove();
+  const keys = [...new Set([...Object.keys(a.t), ...Object.keys(b.t)])];
+  const rows = keys.map((k) => ({
+    phase: k,
+    '2-D ms': +((a.t[k] || 0) / frames).toFixed(3),
+    'GL ms': +((b.t[k] || 0) / frames).toFixed(3),
+    delta: +(((b.t[k] || 0) - (a.t[k] || 0)) / frames).toFixed(3),
+  })).sort((x, y) => y['2-D ms'] - x['2-D ms']);
+  const counts = [...new Set([...Object.keys(a.n), ...Object.keys(b.n)])].map((k) => ({
+    count: k, '2-D': +((a.n[k] || 0) / frames).toFixed(0), GL: +((b.n[k] || 0) / frames).toFixed(0),
+  }));
+  console.table(rows); console.table(counts);
+  console.log(`   GL: ${b.glFaces} faces, ${rebuilds} buffer rebuild(s) over ${frames} frames`);
+  return { rows, counts, rebuilds, glFaces: b.glFaces };
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; }

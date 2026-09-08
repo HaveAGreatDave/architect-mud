@@ -7040,6 +7040,15 @@ export function wallTexMixed(biome, NB) {
   }
   return e.c;
 }
+// THE STATE OF THE BAKED WALL TEXTURES, AS A STRING.
+//
+// `wallTexMixed` does not return a texture per blend — it returns ONE canvas per palette and
+// REDRAWS it in place as the day/night mix crosses a step, and the `texRes` slider resizes every
+// baked variant underneath it. Both are invisible to anything that copied those pixels somewhere
+// else, which is exactly what a GL atlas does. So this is the epoch that copy is keyed on, built
+// from the same two things the redraw is: a stale atlas is a city stuck at yesterday's dusk.
+export function texEpoch(NB) { return Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS) + ':' + TR(); }
+
 // Exported for the GL atlas. The roof is a SECOND generator from wallTex (see the note above it),
 // so a renderer that wants the same surfaces has to ask for both — asking only for the wall gives
 // every roof in the city the generic gravel tile.
@@ -7707,6 +7716,11 @@ export function setWindshieldProfiler(on) {
   return PERF.on ? 'flight-sim profiler ON — table every 2s' : 'flight-sim profiler OFF';
 }
 export function perfEnabled() { return PERF.on; }
+// The table `perfTick` prints, as data. A measurement harness has to compare two runs against
+// each other, and a console.table cannot be subtracted from another console.table — every
+// question of the form "where did the time GO when I turned this on" needs both numbers at once.
+// A copy, so nothing outside can hold a reference into the live accumulator.
+export function perfSnapshot() { return { frames: PERF.frames, t: { ...PERF.t }, n: { ...PERF.n } }; }
 // ── HOW MANY BUILDINGS THE OCCLUDER PASS THREW AWAY THIS FRAME ───────────────
 // A test seam, not instrumentation, and the same argument `rasterCount` makes in model-raster.js:
 // a building culled when it should have drawn is a hole in the city that nothing can see from
@@ -20105,6 +20119,21 @@ function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   }
 }
 
+// ── WHICH TILES EXTRUDE A BUILDING ──────────────────────────────────────────
+// The set GL draws, and the one thing the paint loop below says by its ORDER rather than by a
+// test: every branch it takes before reaching `modelFor` is guarded by `!c.bt` EXCEPT these, so a
+// `bt` tile that matches one of them is drawn as something else entirely — a depot bay you drive
+// into, a Curtain wall, a no-fly marker — and must not also arrive as a box. `truck_depot` is the
+// one that is not hypothetical: a bay carries a building type AND a mark.
+const MASS_EXCEPT = new Set(['statue', 'gate', 'sign', 'pylons', 'strip', 'bay', 'yacht']);
+
+// A tile's seed, from the WORLD tile and never the array index, so a building keeps its shape as
+// the map window recentres. Named because two passes need the same answer: the painter, and the
+// GL collection above it — a seed that disagreed would put a different building on the GPU from
+// the one whose lights are painted over it.
+function tileSeed(wx, wy) { return (wx + 512) * 73 + (wy + 512) * 149; }
+function massTile(c) { return !!c.bt && !MASS_EXCEPT.has(c.mark) && c.kind !== 'nofly' && !c.cur; }
+
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
 function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // The pixel-identity guarantee, asserted rather than assumed: no paint path may ever leave a
@@ -20127,10 +20156,40 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // unaffected — the min keeps the aircraft's 34 exactly as it was.
   const winR = (map.length - 1) / 2;
   const FAR = Math.min(VISIBLE_FAR_F, Math.max(6, winR - 1));
+  // The band a building dissolves over at the draw limit, so distant blocks ghost up out of the
+  // horizon rather than pop in. At function scope because the GL pass needs it too: a mass that
+  // stayed opaque to its last tile would paint a hard edge over the haze the 2-D frame around it
+  // dissolves into. (4→5: a slightly softer shoulder on the emergence fade.)
+  const HAZE_BAND = 5;
   const wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [], wildF = v._wildFill;
+  // ── GLASS 2: THE MASS GOES TO THE GPU ────────────────────────────────────
+  // Collected here, at the very top of the sweep, because everything below this line is a CAMERA
+  // question and none of them may reach the vertex buffer. The near clip, the far cull, the haze
+  // fade, the lateral frustum test and the occluder pre-pass all change their minds as the heading
+  // turns — so a buffer keyed on what survives them is a buffer rebuilt on every frame of every
+  // turn, which is the whole cost it exists to avoid. What GL gets is the MAP WINDOW: it holds
+  // still until the server recentres it, and a GPU discards what is off screen or behind something
+  // for nothing, where a rebuild costs milliseconds.
+  //
+  // ⚠ AND THE POSITION IS THE WINDOW TILE, NOT THE CAMERA-RELATIVE ONE. `dx` below is `(rx - R) -
+  // cam.ox` and moves a fraction of a tile every frame you drive; a mesh built at it is stale
+  // before it is uploaded. Where the camera stands inside its tile goes to the pass as a camera
+  // term instead, where it costs one matrix.
+  const glOn = !!TUNE.gl && !!GL_HOOK;
+  GL_CELLS = glOn ? [] : null;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx]; if (!c) continue;
+    if (GL_CELLS && massTile(c)) {
+      const seed = tileSeed(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy));
+      const m = modelFor(c);
+      if (m) GL_CELLS.push({
+        gx: rx - R, gy: ry - R, c, m, seed,
+        h: floorHeight(c, seed),
+        fh: (BUILDING_FOOT + frac(seed + 2) * 0.06) * RENDER_TUNE.bldgFoot,
+        E: faceVec(c.ent),
+      });
+    }
     // Empty gap between regions: the Mode-7 floor (fillOffMap) already paints it wildlands or sea. Scatter the
     // matching desert dressing over the LAND fill so a long leg reads as real badlands, not bare tint; sea fill
     // (waves carry it) and our own tile stay clear. Real tiles keep their original skip rules below.
@@ -20188,7 +20247,6 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // very edge = no abrupt pop-in/out) yet crosses back to solid FASTER through the inner half than
     // linear would — so mid-distance blocks stay opaque (no see-through) even with the band widened
     // from 3→4. The visible-translucent window is still only ~1 tile; the extra reach is soft shoulders.
-    const HAZE_BAND = 5;   // 4→5: a slightly softer shoulder on the emergence fade
     // Per-building STAGGER so a whole block-face doesn't cross the horizon fade in lockstep and pop in
     // as one solid wall (the "buildings appear all at once" look). Jitter each building's fade edge
     // INWARD by up to STAGGER tiles off a stable world-position hash — so neighbours ghost up "part by
@@ -20216,7 +20274,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // — that check the flag.
     const off = !!(TUNE.frustum && c.bt && !c.mark && offCanvasLaterally(cam, dx, dy, _frameW));
     if (off && PERF.on) PERF.n.offscreen++;
-    items.push({ dx, dy, f, c, alpha, off, seed: (wx + 512) * 73 + (wy + 512) * 149, wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
+    items.push({ dx, dy, f, c, alpha, off, seed: tileSeed(wx, wy), wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
   // Occlusion pre-pass: walk NEAR→FAR (the reverse of the paint order) building a span buffer, and
@@ -20450,13 +20508,6 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     key: mix(hexRgb(RENDER_TUNE.vlKeyDay), hexRgb(RENDER_TUNE.vlKeyNight), night),
     shadow: mix(hexRgb(RENDER_TUNE.vlShadowDay), hexRgb(RENDER_TUNE.vlShadowNight), night),
   } : null;
-  // ── GLASS 2, STAGE ONE: THE MASS GOES TO THE GPU ─────────────────────────
-  // The arms still run — this is not a second renderer running instead, it is the same frame with
-  // its heaviest pass moved. MASS_OFF is the seam that makes it possible and it is not new: the
-  // distance LOD has always drawn a far building's neon without its walls this way.
-  const glOn = !!TUNE.gl && !!GL_HOOK;
-  GL_CELLS = glOn ? [] : null;
-  if (glOn) MASS_OFF = true;
   beginFaces();
   for (const it of items) {
     // Fully hidden behind a nearer building (see the occlusion pre-pass), or entirely off the side
@@ -20562,11 +20613,6 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // the same mass; a non-building tile falls back to the shared biome archetype set
     // (industrial stacks, freight containers, cooling towers, broken ruins, neon marquee, …).
     const m = modelFor(it.c);
-    // GLASS 2: this building's mass is on the GPU, so the arm runs for its lights alone. The
-    // collection happens here rather than in a second loop because `m`, the footprint, the storey
-    // height, the seed and the entrance are all resolved exactly once, and a second resolution is
-    // a second chance for the two renderers to disagree about which building stands where.
-    if (GL_CELLS && m) GL_CELLS.push({ dx: it.dx, dy: it.dy, c: it.c, m, fh, h, seed: it.seed, E: face });
     // Emit THIS building's faces into the SHARED world sink (opened before the loop): its sub-parts
     // depth-sort against each other AND against every other building's faces, so a tower/marquee
     // can't over-paint nearer geometry of the same building OR of a neighbour (the "see-through"
@@ -20575,9 +20621,17 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // rather than by running its arm — same mass at the handover, dissolving to one box by lodFar.
     // drawModelLOD returns false when a model has no usable capture, in which case we run the real
     // arm as before, so a capture failure costs framerate and never correctness.
+    // ── GLASS 2: IS THIS BUILDING'S MASS ON THE GPU? ──────────────────────────
+    // Per building, and never as one global flag over the loop. GL only takes tiles that resolve to
+    // a MODEL; a building type with no model of its own — `luxtower` is one — falls through to the
+    // shared biome archetype below and has no mesh over there at all, so a blanket suppression
+    // deleted every one of them from the city while every counter went on reporting a full frame.
+    const glMass = !!GL_CELLS && !!m;
     const lodN = TUNE.lodNear || 0;
     let drewLod = false;
-    if (m && lodN > 0 && it.f > lodN) {
+    // The distance LOD is a cheaper way to lay MASS, so it has nothing to offer a building whose
+    // mass is already drawn — and running it would draw those walls twice.
+    if (m && !glMass && lodN > 0 && it.f > lodN) {
       const lodF = Math.max(lodN + 0.001, TUNE.lodFar || 32);
       const detail = clamp(1 - (it.f - lodN) / (lodF - lodN), 0, 1);
       drewLod = drawModelLOD(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, face, detail);
@@ -20600,10 +20654,20 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // that only reads at arm's length. The try/finally mirrors the LOD branch above and exists
       // for the same reason: an arm that throws must not leave the global raised, or every
       // building drawn after it in this frame would silently paint near detail at any distance.
-      const near = (TUNE.detailNear || 0) > 0 && it.f < TUNE.detailNear;
-      if (near) ADORN_TIER = ADORN_NEAR;
-      try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd); }
-      finally { if (near) ADORN_TIER = ADORN_RICH; }
+      //
+      // With the mass on the GPU the arm still runs, for its lights and signs alone — and it runs at
+      // the SAME adornment tier the distance LOD would have chosen, because that thinning is a
+      // judgement about what is worth drawing at that range and has nothing to do with which
+      // renderer laid the walls. `lodAdorn` 0 keeps its meaning: past lodNear, nothing but mass.
+      const glTier = glMass && lodN > 0 && it.f > lodN ? (TUNE.lodAdorn | 0) : -1;
+      if (glTier !== 0) {
+        const near = (TUNE.detailNear || 0) > 0 && it.f < TUNE.detailNear;
+        if (glTier > 0) ADORN_TIER = Math.min(glTier, ADORN_RICH);
+        else if (near) ADORN_TIER = ADORN_NEAR;
+        MASS_OFF = glMass;
+        try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd); }
+        finally { ADORN_TIER = ADORN_RICH; MASS_OFF = false; }
+      }
     }
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
@@ -20655,14 +20719,21 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR);
   }
   pEnd();                      // ── end world:build (queueing) ──
-  // ── GLASS 2: paint the mass, then let the 2-D flush paint everything else over it ──
-  // Order matters and is the whole arrangement: GL owns a canvas UNDER the 2-D one and clears it,
-  // so it must draw before the lights that belong on top of it are flushed. `MASS_OFF` is dropped
-  // here rather than in the loop because the loop's own branches restore it in their finallys.
+  // ── GLASS 2: THE MASS, COMPOSITED WHERE THE MASS WAS ──────────────────────
+  // Here, and not by stacking canvases. The 2-D pass paints an opaque sky and an opaque ground over
+  // the whole frame, so a GL canvas beneath it is drawn perfectly and covered completely; put it on
+  // top instead and the mass hides every light, sign and marquee, which are painted before it and
+  // belong in front of it. There is no z-order between two elements that is the painter's order.
+  // One blit at this exact point is: after the ground, before the flush that puts the lights on.
+  //
+  // The blit rides the CURRENT transform, which is the bank rotation and the turbulence shudder the
+  // whole world is drawn under — so the GL camera never has to know about either.
   if (GL_CELLS) {
-    MASS_OFF = false;
     pBegin('world:gl');
-    try { GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID }); }
+    try {
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE });
+      if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
+    }
     catch (e) { console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
     GL_CELLS = null;

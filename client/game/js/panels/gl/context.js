@@ -60,6 +60,9 @@ uniform float uFogFar;
 uniform float uVLight;
 uniform vec3 uSky;
 uniform float uStr;
+uniform float uFogAmt;
+uniform float uHazeNear;
+uniform float uHazeFar;
 out vec4 outColor;
 void main() {
   vec3 n = normalize(vNormal);
@@ -77,8 +80,16 @@ void main() {
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
   vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(vRamp, 0.0, 1.0));
   vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0));
-  float fog = clamp((vDepth - uFogNear) / max(0.001, uFogFar - uFogNear), 0.0, 1.0);
-  outColor = vec4(mix(base, uFog, fog), 1.0);
+  // GLASS's own fog curve, squared, scaled by the same amount its slider sets — see fogWeight.
+  float ff = clamp((vDepth - uFogNear) / max(0.001, uFogFar - uFogNear), 0.0, 1.0);
+  float fog = ff * ff * uFogAmt;
+  // ⚠ AND THE FAR EDGE DISSOLVES RATHER THAN ENDING. The 2-D pass fades a building out over the
+  // last few tiles of its draw distance, so distant blocks ghost up out of the horizon instead of
+  // popping in — and this buffer is composited onto that same frame, so a mass that stayed opaque
+  // to its last tile would paint a hard edge over the haze the rest of the picture dissolves into.
+  // Premultiplied, because the canvas is.
+  float a = 1.0 - smoothstep(uHazeNear, uHazeFar, vDepth);
+  outColor = vec4(mix(base, uFog, fog) * a, a);
 }`;
 
 function compile(gl, type, src, label) {
@@ -116,6 +127,9 @@ export function createGLView(canvas) {
     fog: gl.getUniformLocation(prog, 'uFog'),
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
     fogFar: gl.getUniformLocation(prog, 'uFogFar'),
+    fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
+    hazeNear: gl.getUniformLocation(prog, 'uHazeNear'),
+    hazeFar: gl.getUniformLocation(prog, 'uHazeFar'),
     vlight: gl.getUniformLocation(prog, 'uVLight'),
     atlas: gl.getUniformLocation(prog, 'uAtlas'),
     textured: gl.getUniformLocation(prog, 'uTextured'),
@@ -149,25 +163,47 @@ export function createGLView(canvas) {
   // ⚠ QUADS ARE FANNED, NOT ASSUMED TO BE FOUR-SIDED. A drum cap is an N-gon and a clipped roof is a
   // 3-to-5-gon, so anything that indexed 0,1,2 / 0,2,3 would quietly drop the rest of a cylinder's
   // lid. Every face here is convex, which is what makes a fan correct rather than merely convenient.
-  function upload(faces) {
-    const data = [];
-    for (const f of faces) {
-      const [r, g, b] = f.rgb || [128, 128, 128];
-      const n = f.n || [0, 0, 1];
-      // The UV a face was given, mapped into its rect in the atlas. A face with neither keeps a
-      // degenerate rect and samples one texel, which is what an untextured face wants.
-      const uv = f.uv || null, rc = f.rect || [0, 0, 0, 0];
-      // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
-      // its light as a gradient down each wall, so a shader that wants the same picture needs to
-      // know where in the wall it is. A horizontal face has no extent and takes the top end.
-      let z0 = Infinity, z1 = -Infinity;
-      for (const p of f.p) { if (p[2] < z0) z0 = p[2]; if (p[2] > z1) z1 = p[2]; }
-      const dz = (z1 - z0) || 1;
-      for (let i = 1; i + 1 < f.p.length; i++) {
-        for (const k of [0, i, i + 1]) {
-          const p = f.p[k], t = uv ? uv[k] : [0, 0];
-          data.push(p[0], p[1], p[2], n[0], n[1], n[2], r / 255, g / 255, b / 255,
-            rc[0] + (rc[2] - rc[0]) * t[0], rc[1] + (rc[3] - rc[1]) * t[1], (z1 - p[2]) / dz);
+  // ⚠ THE MESH ARRIVES AS GROUPS, EACH WITH AN OFFSET, AND IS NEVER COPIED TO MOVE IT. A city is one
+  // building geometry repeated at many tiles: placing it by rewriting every vertex allocates an
+  // array per face and a point per vertex, and it is a rebuild of the whole buffer that pays for it.
+  // The offset is added here, on the way into the vertex data, where the number was going to be
+  // written anyway.
+  //
+  // ⚠ AND IT FILLS A TYPED ARRAY DIRECTLY. A plain array of a hundred and forty thousand numbers,
+  // grown by `push` and then converted, was most of an eleven-millisecond rebuild on an aircraft
+  // window — which is a dropped frame every time the map recentres, and invisible in a steady shot.
+  function uploadGroups(groups, rectOf) {
+    let verts = 0;
+    for (const g of groups) for (const f of g.faces) verts += (f.p.length - 2) * 3;
+    const data = new Float32Array(verts * 12);
+    let o = 0;
+    for (const grp of groups) {
+      const ox = grp.ox || 0, oy = grp.oy || 0;
+      for (const f of grp.faces) {
+        const [r, g, b] = f.rgb || [128, 128, 128];
+        const n = f.n || [0, 0, 1];
+        // The UV a face was given, mapped into its rect in the atlas. A face with neither keeps a
+        // degenerate rect and samples one texel, which is what an untextured face wants.
+        const uv = f.uv || null, rc = (rectOf ? rectOf(f) : f.rect) || [0, 0, 0, 0];
+        const u0 = rc[0], v0 = rc[1], du = rc[2] - rc[0], dv = rc[3] - rc[1];
+        const cr = r / 255, cg = g / 255, cb = b / 255;
+        // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
+        // its light as a gradient down each wall, so a shader that wants the same picture needs to
+        // know where in the wall it is. A horizontal face has no extent and takes the top end.
+        let z0 = Infinity, z1 = -Infinity;
+        for (const p of f.p) { if (p[2] < z0) z0 = p[2]; if (p[2] > z1) z1 = p[2]; }
+        const dz = (z1 - z0) || 1;
+        for (let i = 1; i + 1 < f.p.length; i++) {
+          for (let e = 0; e < 3; e++) {
+            const k = e === 0 ? 0 : i + e - 1;
+            const p = f.p[k], t = uv ? uv[k] : null;
+            data[o] = p[0] + ox; data[o + 1] = p[1] + oy; data[o + 2] = p[2];
+            data[o + 3] = n[0]; data[o + 4] = n[1]; data[o + 5] = n[2];
+            data[o + 6] = cr; data[o + 7] = cg; data[o + 8] = cb;
+            data[o + 9] = u0 + du * (t ? t[0] : 0); data[o + 10] = v0 + dv * (t ? t[1] : 0);
+            data[o + 11] = (z1 - p[2]) / dz;
+            o += 12;
+          }
         }
       }
     }
@@ -176,10 +212,10 @@ export function createGLView(canvas) {
     // written to take GLASS's own world coordinates (x east, y north, z up) and do the swap itself,
     // in the same expression `proj` uses. Swapping here fed it y where it wanted wz, which projects
     // every vertex somewhere off screen: a full buffer, a clean draw call, and an empty frame.
-    count = data.length / 12;
+    count = verts;
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     const S = 12 * 4;
     gl.enableVertexAttribArray(loc.pos); gl.vertexAttribPointer(loc.pos, 3, gl.FLOAT, false, S, 0);
     gl.enableVertexAttribArray(loc.normal); gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, S, 12);
@@ -189,6 +225,8 @@ export function createGLView(canvas) {
     gl.bindVertexArray(null);
     return count;
   }
+  // One mesh at the origin, the way the model preview and the bench hand it over.
+  function upload(faces) { return uploadGroups([{ faces }], null); }
 
   function draw(cam, opts = {}) {
     const W = canvas.width, H = canvas.height;
@@ -200,8 +238,13 @@ export function createGLView(canvas) {
     // delete exactly the surfaces a cab looks up at.
     gl.disable(gl.CULL_FACE);
     const sky = opts.sky || [0.09, 0.11, 0.14];
-    gl.clearColor(sky[0], sky[1], sky[2], opts.clearAlpha == null ? 1 : opts.clearAlpha);
+    // ⚠ PREMULTIPLIED, WHICH IS WHAT THE CANVAS IS. A transparent clear carrying a colour is not a
+    // valid premultiplied pixel and fringes; a fully faded fragment must contribute nothing at all.
+    const ca = opts.clearAlpha == null ? 1 : opts.clearAlpha;
+    gl.clearColor(sky[0] * ca, sky[1] * ca, sky[2] * ca, ca);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (!count) return 0;
 
     gl.useProgram(prog);
@@ -214,9 +257,15 @@ export function createGLView(canvas) {
     gl.uniform3f(loc.shadow, sh[0], sh[1], sh[2]);
     gl.uniform3f(loc.sky, skyC[0], skyC[1], skyC[2]);
     gl.uniform1f(loc.str, opts.str == null ? 1 : opts.str);
-    gl.uniform3f(loc.fog, sky[0], sky[1], sky[2]);
-    gl.uniform1f(loc.fogNear, opts.fogNear == null ? 18 : opts.fogNear);
-    gl.uniform1f(loc.fogFar, opts.fogFar == null ? 40 : opts.fogFar);
+    const fogC = opts.fog || sky;
+    gl.uniform3f(loc.fog, fogC[0], fogC[1], fogC[2]);
+    gl.uniform1f(loc.fogNear, opts.fogNear == null ? 6 : opts.fogNear);
+    gl.uniform1f(loc.fogFar, opts.fogFar == null ? 34 : opts.fogFar);
+    gl.uniform1f(loc.fogAmt, opts.fogAmt == null ? 0 : opts.fogAmt);
+    // No haze band given means none: the far edge stays solid, which is what the model preview and
+    // the bench want. A world pass always gives one.
+    gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e6 : opts.hazeNear);
+    gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e6 + 1 : opts.hazeFar);
     gl.uniform1f(loc.vlight, opts.vlight == null ? 1 : opts.vlight);
     const textured = hasAtlas && opts.textured !== false;
     gl.uniform1f(loc.textured, textured ? 1 : 0);
@@ -227,5 +276,5 @@ export function createGLView(canvas) {
     return count;
   }
 
-  return { gl, upload, draw, setAtlas, get triangles() { return count / 3; } };
+  return { gl, upload, uploadGroups, draw, setAtlas, get triangles() { return count / 3; } };
 }

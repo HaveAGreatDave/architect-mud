@@ -150,6 +150,83 @@ stalls properly. Tiling the city outward put the extra geometry outside the frus
 measured against an empty scene and subtracted. The first run of a session is still noisy; take the
 second.
 
+## GLASS 2 in the game
+
+The spike answered its four questions, so the pass is wired into `paintWindshield` behind
+`RENDER_TUNE.gl` — the **GLASS 2 (WebGL)** slider in the flight-sim render knobs, or `__wsTune.gl = 1`
+from a console. Off is the absence of a code path: no canvas is made, no context is asked for, and
+`shapes:framecost` is unchanged to the call.
+
+On, the city's **mass** is drawn in WebGL2 and every light, sign, adornment, marquee, ground pass
+and HUD is still painted by GLASS over the top. The seam is `MASS_OFF`, which is not new — it is how
+the distance LOD has always drawn a far building's neon without its walls.
+
+Measured end to end, `__glPhases()` and `__glStage1()` in the console. A truck asks for a 33-tile map
+window and an aeroplane for 73, and the GL buffer holds the whole window, so both are worth reading:
+
+| | 2-D | GLASS 2 |
+|---|---|---|
+| the whole frame, 33-tile window | **5.7 ms** | **2.4 ms** (−58%) |
+| `world:build` (queueing) | 4.34 ms | 1.78 ms |
+| `world:flush` (the sort + paint) | 2.21 ms | 0.56 ms |
+| `world:gl` (draw + composite) | — | 0.13 ms |
+| the whole frame, 73-tile window | 21.8 ms | 13.6 ms |
+| a buffer rebuild, 1,964 faces | — | **0 ms** (11.1 ms before the fill was fixed) |
+| buffer rebuilds over 48 steady frames | — | **1** |
+
+⚠ **THE BUFFER IS THE WHOLE THING, AND THREE SEPARATE MISTAKES REBUILT IT EVERY FRAME.** A city is
+static geometry; the entire argument for a vertex buffer is that it is uploaded before the first
+frame rather than during it. Each of these drew a perfect picture and threw the argument away, and
+none of them could be seen — only `glLastFrame().builds`, which the pass now reports, tells them
+apart from a buffer uploaded once.
+
+- **The key was order-sensitive.** Cells arrive far-to-near, so the same city seen nine degrees
+  round is the same set in a different order. Sorted now.
+- **The mesh was built at the camera-relative position.** `dx` is `(rx − R) − cam.ox` and moves a
+  fraction of a tile every frame you drive, so the mesh was stale before it was uploaded. It is
+  built at the MAP WINDOW tile instead, which holds still until the server recentres, and the
+  sub-tile offset goes onto the camera through the `fx`/`fy` terms the chase camera already had —
+  no new matrix, and no new code in the file the parity gate holds still. `gl:parity` checks that
+  shift too: 420 of its 3,231 projections are drawn from the window's frame.
+- **The set was whatever survived the 2-D culls.** The lateral frustum test and the occluder
+  pre-pass both change their minds as the heading turns. The GL set is now the whole window,
+  collected at the top of the sweep before any camera question is asked — a GPU discards what is
+  off screen or behind something for nothing, and a rebuild costs milliseconds.
+
+⚠ **AND A REBUILD IS NOT RARE ENOUGH TO BE ALLOWED TO BE EXPENSIVE.** The map window recentres as you
+drive, and the dynamic-resolution dial resizes the canvas under it — each one a full rebuild. At an
+aircraft's window that was **11.1 ms**, a dropped frame invisible in any steady measurement. Two
+things, both in how the vertex data is written rather than in what it holds: the buffer is filled
+into a `Float32Array` directly instead of `push`ing a hundred and forty thousand numbers into a
+plain array and converting, and a tile is handed over as its SHARED face list plus an offset rather
+than as a copy of every face moved into place. A rebuild now measures at zero.
+
+⚠ **AND TWO WAYS IT DREW A CITY NOBODY COULD SEE.** Both passed every counter in the harness.
+
+- **A canvas under the 2-D one is invisible**, because the 2-D pass paints an opaque sky and an
+  opaque ground over the whole frame. Putting it on top is not the fix either: the mass would then
+  cover every light and sign, which are painted before it and belong in front of it. Neither
+  stacking order is the painter's order, so the GL canvas never joins the document at all — the
+  pass draws into it and `drawWorldObjects` blits it at exactly the point the mass used to be
+  queued, after the ground and before the flush. The blit rides the current transform, so the bank
+  rotation and the turbulence shudder come free and the GL camera never learns about either.
+- **`MASS_OFF` was global over the loop**, and GL only takes tiles that resolve to a MODEL. A
+  building type with no model of its own — `luxtower` is one — falls through to the shared biome
+  archetype, has no mesh on the GPU, and was deleted from the city. It is per building now.
+
+**And the far edge dissolves.** The 2-D pass fades a building out over the last five tiles of its
+draw distance so distant blocks ghost up out of the horizon, and that distance is a property of the
+WINDOW — 15 tiles from a cab, 34 from a cockpit — not a constant. The GL buffer is composited onto
+that same frame, so mass that stayed opaque to its last tile painted a hard edge over the haze the
+rest of the picture dissolves into; the shader takes the draw distance, the fade band, and GLASS's
+own fog colour, amount and 6..34 curve, and writes premultiplied alpha. One thing is deliberately
+not carried over: the 2-D fade staggers each tile by up to three tiles so a row does not dissolve in
+unison, and the GL edge is the unstaggered one.
+
+Still on the 2-D side and unchanged: adornments, neon, ground, weather, actors, the HUD. The arms
+still RUN, for their lights alone — which is where the remaining frame time is, and what stage two
+is about.
+
 ## Forking an arm into something editable
 
 The answer to "can I edit this building?" for the 172 models that are code. The arm itself cannot
