@@ -19714,6 +19714,62 @@ const ARM_DETAIL = {
   power: D_INDUSTRIAL,
 };
 
+// ── THE TRIM NOBODY HAS TO AUTHOR ───────────────────────────────────────────
+//
+// 156 of the 173 models have no trim, and they are spread across 139 DISTINCT ARMS — four models
+// under the biggest one. There is no leverage in hand-authoring that: it is 139 lists, each of
+// which has to be written against one arm's own heights and setbacks, and a number read wrong is
+// a coping band floating in the air over the building it belongs to.
+//
+// So it is DERIVED instead. The captured shape already knows exactly where every roof in the city
+// is — `shapeForModel` is what the collision, the shadows, the occluder hulls and the cold open
+// all read — so a coping band taken off it cannot float, whatever arm drew the building. One rule,
+// every model, and a hand-written list still wins wherever somebody has bothered to write one.
+//
+// ⚠ IT RESOLVES TO ABSOLUTE NUMBERS RATHER THAN PASSING THE TRIPLES THROUGH. `draw3DBoxAt` CLAMPS
+// a half-width to 0.44, so a wide segment's wall is not where its `hwRaw` says it is — and a coping
+// authored from the unclamped triple would stand a foot out from the building. The clamp can only
+// be applied to a resolved number, which is why this takes fh and h.
+//
+// Three refusals, each of them the timid direction. A segment with a YAW is skipped, because the
+// band is axis-aligned and the box is not. A segment whose footprint is not square is skipped,
+// because a parapet is one half-width and a rectangle has two. And only the top few by bulk get
+// one, because coping on every crate in a yard is not detail, it is noise.
+const DERIVED_MAX = 2;             // how many segments of one building get a band
+const _derived = new WeakMap();
+function derivedTrim(m, fh, h, seed) {
+  let byScale = _derived.get(m);
+  if (!byScale) { byScale = new Map(); _derived.set(m, byScale); }
+  const k = fh + ':' + h + ':' + seed;
+  let list = byScale.get(k);
+  if (list) return list;
+  list = [];
+  const segs = shapeForModel(m, seed);
+  if (segs && segs.length) {
+    const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
+    const order = lodOrder(segs).byIndex.slice(0, DERIVED_MAX);
+    for (const r of order) {
+      const sg = r.s;
+      if (sg.kind !== 'box' || sg.roof === false || (sg.yaw || 0)) continue;
+      const hw = Math.min(V(sg.hwRaw), 0.44);
+      const fd = Math.min(sg.fdRaw ? V(sg.fdRaw) : hw, 0.44);
+      if (!(hw > 0.03) || Math.abs(hw - fd) > 0.02) continue;
+      const z1 = V(sg.z1), z0 = V(sg.z0);
+      if (!(z1 > z0)) continue;
+      list.push({
+        kind: 'parapet',
+        cx: [0, 0, V(sg.cx)], cy: [0, 0, V(sg.cy)],
+        z: [0, 0, z1],
+        half: [0, 0, hw * 1.03],
+        hh: [0, 0, clamp((z1 - z0) * 0.045, 0.008, 0.05)],
+        pal: sg.pal || m.pal,
+      });
+    }
+  }
+  byScale.set(k, list);
+  return list;
+}
+
 // ── THE DETAIL LAYER, FOR ANY MODEL ─────────────────────────────────────────
 //
 // ⚠ IT IS NOT A PROPERTY OF AUTHORED MODELS, and living inside drawAuthoredModel made it look
@@ -19723,7 +19779,6 @@ const ARM_DETAIL = {
 // untouched. That is the whole shape of the quality pass: the arms stay hand-written and the trim
 // they never had is data.
 function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
-  const list = (m.detail && m.detail.length) ? m.detail : ARM_DETAIL[m.type];
   // ⚠ THE NEAR TIER, NOT THE RICH ONE, AND THAT IS THE WHOLE COST STORY. Trim is the cheapest kind
   // of canvas work — flat fills, no gradient, no blur — and there is a lot of it, so drawing it on
   // every building at every range is a rise the 2-D renderer has to pay for on a city it was
@@ -19734,7 +19789,17 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   // The mesh is the other half of that bargain and is not gated: `captureModelMesh` forces this tier
   // precisely so GLASS 2 carries every part at every distance, where a depth buffer draws them for
   // nothing. Trim is a GLASS 2 feature that the 2-D renderer also shows you when you are beside it.
-  if (!list || !list.length || SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;
+  // ⚠ THE GUARDS COME FIRST, AND HAVING THEM SECOND COST TWELVE TIMES THE MESH. The derived list
+  // below asks `shapeForModel`, which CAPTURES — it runs this very arm again with SHAPE_SINK set —
+  // so building the list before the SHAPE_SINK test makes a capture re-enter itself for as long as
+  // the cache is cold. It terminates and it draws the right picture, which is why it showed up as a
+  // face count and not as a hang: 8,435 mesh faces became 101,400.
+  if (SHAPE_SINK || ADORN_TIER < ADORN_NEAR) return;
+  // Authored first, then the arm's own list, then the band derived off the captured shape. Each
+  // step down is a wider net and a plainer answer, and the last one reaches every building.
+  const list = (m.detail && m.detail.length) ? m.detail
+    : (ARM_DETAIL[m.type] || derivedTrim(m, fh, h, seed));
+  if (!list.length) return;
   const th = Math.atan2(-E[0], E[1]);
   const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
   const hostF = cam.proj(dx, dy, 0).f;
@@ -20177,8 +20242,17 @@ function drawSlabAt(ctx, cam, dx, dy, halfX, halfY, z0, z1, pal, seed, night, al
 // Faces a model's ADORNMENTS alone would queue — the cost of keeping a LOD building lit. Counted by
 // running the real adornments-only pass, not estimated, because the answer decides whether the
 // near-lossless LOD is affordable. Diagnostic; used by shapes:smoke.
+// ⚠ AND IT COUNTS THE SPRITES, WHICH IS THE HALF THAT WAS INVISIBLE. `grads` and `blurs` are
+// operations on the STUB CTX, so they see a neon blade (which sets shadowBlur) and a marquee, and
+// they cannot see a glow at all: `glowPool` blits a bitmap that `glowSprite` built ONCE, on its own
+// canvas, cached per colour for the life of the process. A building lit only by glows and beacons
+// therefore measured as completely dark — which is how a quality scoreboard came to report 109 of
+// 173 models as emitting nothing after dark when some of them were lit. The sprite sink is the
+// exact answer for those three, so the cost runs with it installed and counts what it collects.
 export function shapeAdornCost(m, tier = ADORN_RICH, night = 0.9, camF = 4) {
   const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+  const savedSprites = SPRITE_SINK;
+  SPRITE_SINK = [];
   SHAPE_STUB_COST.grads = 0; SHAPE_STUB_COST.blurs = 0;
   // `camF` stands in for camera distance, which is what decides whether a neon sign earns its blur.
   const cam = camF === 4 ? SHAPE_STUB_CAM : { ...SHAPE_STUB_CAM, proj: (x, y, z) => ({ sx: x * 100, sy: -z * 100, f: camF }) };
@@ -20187,9 +20261,10 @@ export function shapeAdornCost(m, tier = ADORN_RICH, night = 0.9, camF = 4) {
     drawTypeModel(SHAPE_STUB_CTX, cam, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SIGN');
     // The closures are where the gradients and blurs live, so they have to actually run.
     flushFaces();
-    return { faces: 0, grads: SHAPE_STUB_COST.grads, blurs: SHAPE_STUB_COST.blurs };
-  } catch { return { faces: 0, grads: 0, blurs: 0 }; } finally {
+    return { faces: 0, grads: SHAPE_STUB_COST.grads, blurs: SHAPE_STUB_COST.blurs, sprites: SPRITE_SINK.length };
+  } catch { return { faces: 0, grads: 0, blurs: 0, sprites: 0 }; } finally {
     MASS_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+    SPRITE_SINK = savedSprites;
   }
 }
 

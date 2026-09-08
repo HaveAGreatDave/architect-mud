@@ -269,16 +269,53 @@ run on taste: taste works one building at a time and cannot answer *which twenty
 that batch help*. Each property is read off something the renderer already produces, never off a
 field an author sets — a metric you satisfy by writing `quality: 5` measures nothing.
 
-| | what it reads | at the start |
-|---|---|---|
-| a roof face | the mesh | 172 of 173 |
-| a light at night | `shapeAdornCost` runs the arm and counts gradients and blurs | **64 of 173** |
-| more than one wall palette | the mesh | 146 of 173 |
-| any trim | `flat` faces in the mesh, or an authored `detail` list | **8 of 173** |
+| | what it reads | at the start | now |
+|---|---|---|---|
+| a roof face | the mesh | 172 of 173 | 172 |
+| a light at night | a light SPRITE, a gradient or a blur, from `shapeAdornCost` | 159 of 173 | 159 |
+| more than one wall palette | the mesh | 146 of 173 | 146 |
+| any trim | `flat` faces in the mesh, or a `detail` list | **8 of 173** | **143** |
+| all four | | 5 of 173 | **107** |
+
+⚠ **THE FIRST VERSION OF THE LIGHT METRIC WAS WRONG, AND WRONG IN THE DIRECTION THAT INVENTS WORK.**
+It counted gradients and blurs on the stub ctx, which sees a neon blade (it sets `shadowBlur`) and
+cannot see a glow at all: `glowPool` blits a bitmap `glowSprite` built ONCE, on its own canvas,
+cached per colour for the life of the process. So a building lit only by glows and beacons measured
+as completely dark, and the scoreboard reported **109 of 173 emitting nothing after dark** when the
+real figure is 14. `shapeAdornCost` now runs with the sprite sink installed and counts what lands
+in it. The 14 that are left are mostly things that should be dark — a thorn wall, a dam, a
+standpipe, a container yard.
 
 It is a REPORT, not a gate, and deliberately so: a gate here would fail the day somebody adds a
 model and go on failing until they finished it, which is the pressure that produces a building
 nobody wanted to make. `--fail-under N` is there for the day the pass is done.
+
+### The trim nobody has to author
+
+156 of the 173 models had no trim, and they are spread across **139 distinct arms** — four models
+under the biggest one. There is no leverage in hand-authoring that: 139 lists, each written against
+one arm's own heights and setbacks, and a number read wrong is a coping band floating in the air
+over the building it belongs to.
+
+So it is DERIVED. The captured shape already knows exactly where every roof in the city is —
+`shapeForModel` is what the collision, the shadows, the occluder hulls and the cold open all read —
+so a coping band taken off it cannot float, whatever arm drew the building. That took trim from 17
+models to 143 and "all four" from 8 to 107, for +0.36% of frame cost.
+
+⚠ **It resolves to absolute numbers rather than passing the triples through**, because
+`draw3DBoxAt` CLAMPS a half-width to 0.44 — a coping taken from the unclamped `hwRaw` would stand a
+foot out from a wide building — and a clamp can only be applied to a resolved number.
+
+⚠ **And the guards have to come before the list is built.** The derived list asks `shapeForModel`,
+which CAPTURES: it runs the very same arm again with `SHAPE_SINK` set. Building the list before the
+`SHAPE_SINK` test made a capture re-enter itself for as long as the cache was cold — it terminates,
+and it draws the right picture, which is why it showed up as a face count and not as a hang. 8,435
+mesh faces became 101,400.
+
+Three refusals, each the timid direction: a segment with a YAW is skipped (the band is
+axis-aligned and the box is not), a non-square footprint is skipped (a parapet is one half-width
+and a rectangle has two), and only the top two by bulk get one, because coping on every crate in a
+yard is not detail, it is noise. Those refusals are the 30 models still without trim.
 
 **Trim is keyed on the ARM, not the record.** A `detail` list is geometry hung on a building, so it
 has to know where that building's surfaces are — and what decides that is the arm. `type:office`,

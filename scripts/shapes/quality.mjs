@@ -36,8 +36,13 @@ const failUnder = (() => {
 //
 //  roof     a roof face in the mesh. Ten models have no top at all, which from a cockpit is the
 //           one surface you spend the whole flight looking down at.
-//  lit      the adornment pass builds a gradient or a blur at night. That is what a light IS in
-//           this renderer — `shapeAdornCost` counts them, and it counts them by running the arm.
+//  lit      the adornment pass emits a light sprite, builds a gradient, or sets a blur at night.
+//           ⚠ ALL THREE, and the first draft had only the last two — which measures a neon blade
+//           (shadowBlur) and cannot see a glow at all, because `glowPool` blits a bitmap that was
+//           built once on its own canvas and cached per colour. A building lit only by glows and
+//           beacons therefore read as completely dark, and the first run of this reported 109 of
+//           173 emitting nothing after dark. `shapeAdornCost` now runs with the sprite sink
+//           installed and counts what lands in it.
 //  ground   at least two distinct wall palettes. A shopfront under brick, a blank party wall, a
 //           dark plinth: the cheapest thing that stops a building reading as one extruded colour.
 //  trim     any adornment SURFACE — the panels, sills, louvres, coping and reveals that reach the
@@ -54,7 +59,7 @@ function grade(m) {
   let lights = 0;
   try {
     const cost = ws.shapeAdornCost(m, 2, 0.9, 4);
-    lights = (cost.grads || 0) + (cost.blurs || 0);
+    lights = (cost.grads || 0) + (cost.blurs || 0) + (cost.sprites || 0);
   } catch { lights = 0; }
 
   const detail = Array.isArray(m.detail) ? m.detail.length : 0;
