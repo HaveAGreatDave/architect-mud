@@ -19795,8 +19795,15 @@ const ARM_DETAIL = {
 //
 // Three refusals, each of them the timid direction. A segment with a YAW is skipped, because the
 // band is axis-aligned and the box is not. A segment whose footprint is not square is skipped,
-// because a parapet is one half-width and a rectangle has two. And only the top few by bulk get
-// one, because coping on every crate in a yard is not detail, it is noise.
+// because a parapet is one half-width and a rectangle has two. And only the HIGHEST few get one,
+// because coping on every crate in a yard is not detail, it is noise.
+//
+// ⚠ HIGHEST, AND THE FIRST CUT TOOK `lodOrder().byIndex.slice(0, 2)` THINKING IT WAS RANKED. It is
+// not: `byIndex` is re-sorted into SOURCE ORDER before it is returned (the bulk ranking survives as
+// each entry's `at`), so slicing it takes the first two segments an arm happens to draw — which for
+// most arms is the plinth and the ground-floor box. Every building in the city got a coping band
+// round its ANKLES, which reads exactly as somebody described it: the buildings look like they are
+// coming up out of the ground. A roofline is a height, so this sorts on height.
 const DERIVED_MAX = 2;             // how many segments of one building get a band
 const _derived = new WeakMap();
 function derivedTrim(m, fh, h, seed) {
@@ -19809,15 +19816,18 @@ function derivedTrim(m, fh, h, seed) {
   const segs = shapeForModel(m, seed);
   if (segs && segs.length) {
     const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
-    const order = lodOrder(segs).byIndex.slice(0, DERIVED_MAX);
-    for (const r of order) {
-      const sg = r.s;
+    const cand = [];
+    for (const sg of segs) {
       if (sg.kind !== 'box' || sg.roof === false || (sg.yaw || 0)) continue;
       const hw = Math.min(V(sg.hwRaw), 0.44);
       const fd = Math.min(sg.fdRaw ? V(sg.fdRaw) : hw, 0.44);
       if (!(hw > 0.03) || Math.abs(hw - fd) > 0.02) continue;
       const z1 = V(sg.z1), z0 = V(sg.z0);
       if (!(z1 > z0)) continue;
+      cand.push({ sg, hw, z0, z1 });
+    }
+    cand.sort((a, b) => b.z1 - a.z1);
+    for (const { sg, hw, z0, z1 } of cand.slice(0, DERIVED_MAX)) {
       list.push({
         kind: 'parapet',
         cx: [0, 0, V(sg.cx)], cy: [0, 0, V(sg.cy)],

@@ -339,8 +339,15 @@ mesh faces became 101,400.
 
 Three refusals, each the timid direction: a segment with a YAW is skipped (the band is
 axis-aligned and the box is not), a non-square footprint is skipped (a parapet is one half-width
-and a rectangle has two), and only the top two by bulk get one, because coping on every crate in a
-yard is not detail, it is noise. Those refusals are the 30 models still without trim.
+and a rectangle has two), and only the two HIGHEST get one, because coping on every crate in a
+yard is not detail, it is noise.
+
+⚠ **Highest — and the first cut took `lodOrder().byIndex.slice(0, 2)` believing it was ranked.** It
+is not: `byIndex` is re-sorted into SOURCE order before it is returned, and the bulk ranking
+survives only as each entry's `at`. So the slice took the first two segments an arm happens to
+draw, which for most arms is the plinth and the ground-floor box — and every building in the city
+got a coping band round its ANKLES. It reads exactly as it was reported: the buildings look like
+they are coming up out of the ground. A roofline is a height, so the sort is on height.
 
 **Trim is keyed on the ARM, not the record.** A `detail` list is geometry hung on a building, so it
 has to know where that building's surfaces are — and what decides that is the arm. `type:office`,
