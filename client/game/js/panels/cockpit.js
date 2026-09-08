@@ -16,14 +16,25 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glLastError, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
 // hook is never called and no context is asked for. It is imported HERE rather than from
 // windshield.js because that file is also loaded by the cold open and by the headless smoke suite,
 // neither of which has a GPU — this panel is the first place in the client that certainly does.
-import { installGL } from './gl/install.js';
+import { installGL, glCapabilities, glLastFrame } from './gl/install.js';
 installGL();
+// ⚠ ONE CALL THAT SAYS WHY. GLASS 2 switches ITSELF off on any failure and the frame after that
+// looks entirely normal, so "I turned it on and the view went" arrives with the console line long
+// scrolled away. `__glass2()` in the browser console reports what the machine can do, whether the
+// pass is installed, what the flag is, what the last frame drew, and what it last died of.
+if (typeof window !== 'undefined') {
+  window.__glass2 = () => {
+    let caps = null;
+    try { caps = glCapabilities(); } catch (e) { caps = { error: String(e && e.message || e) }; }
+    return { caps, installed: glWorldInstalled(), gl: RENDER_TUNE.gl, frame: glLastFrame(), lastError: glLastError() };
+  };
+}
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';

@@ -165,6 +165,18 @@ The flag is shared by every seat that has not overridden it, so **the truck cab 
 same switch** — the cab has no ⚙ panel of its own. A view can pin its own answer with
 `tune: { gl: 1 }`, since `gl` is in `VIEW_TUNABLE`.
 
+⚠ **`__glass2()` in the GAME console says why it went quiet.** GLASS 2 switches ITSELF off on any
+failure and the very next frame looks entirely normal, so "I turned it on and the view went" always
+arrives with the console line long scrolled away. One call reports what the machine can do, whether
+the pass is installed, what the flag is now, what the last frame drew, and what it last died of.
+
+⚠ **And a throw can no longer take the sim with it.** `paintWindshield` is called from the flight
+loop, so an exception in the world pass does not merely spoil a frame — it kills the loop, and the
+pane stops painting, stops resizing and stops responding, which is what "the 3-D window will not
+load" looks like from outside. With the flag on, a throw switches the pass off and finishes the
+frame in 2-D. With the flag OFF it still rethrows, deliberately: swallowing there would hide a real
+bug in the renderer that ships.
+
 In the Modelshop (`npm run modelshop`, :5181) the console carries the measurements: `__glCaps()`
 for what the machine can do, `__glPhases()` for where the frame goes with the flag off and on,
 `__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are, and

@@ -1689,7 +1689,21 @@ export function paintWindshield(id, view) {
     // every glow, bloom and beacon collect itself into an array nobody draws — so one bad frame
     // becomes a permanently broken 2-D renderer with the flag already back at 0, which is exactly
     // how it was found. A finally turns that back into one bad frame.
+    //
+    // ⚠ AND WITH GLASS 2 ON, A THROW IS SWALLOWED RATHER THAN RETHROWN. This function is called
+    // from the sim's rAF handler, so an exception here does not just spoil a frame: it takes the
+    // loop with it, and the pane stops painting, stops resizing and stops responding — which is
+    // what "the 3-D window will not load" looks like from outside. An experimental renderer behind
+    // a flag must never be able to do that, so when the flag is on the pass is turned OFF and the
+    // frame finishes in 2-D. ⚠ With the flag off it RETHROWS, deliberately: swallowing there would
+    // hide a real bug in the renderer that ships.
     try { drawWorldObjects(ctx, cam, vw, sky, now, sunFx); }
+    catch (e) {
+      if (!TUNE.gl) throw e;
+      GL_LAST_ERROR = { where: 'world pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() };
+      console.error('[windshield] GLASS 2 threw inside the world pass — switching it off and finishing in 2-D', e);
+      RENDER_TUNE.gl = 0;
+    }
     finally { GL_CELLS = null; SPRITE_SINK = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; }
     if (worldBlend > 0.02) {
       // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
@@ -7538,6 +7552,11 @@ let LIGHT_TALLY = null;
 // computes, so a light is the same size in both renderers by construction rather than by matching
 // two formulas — and scaled to DEVICE pixels here, because the GL canvas has no CSS-pixel idea.
 let SPRITE_SINK = null;
+// The last thing GLASS 2 died of, kept because it switches itself off and the frame after it
+// looks completely normal — so by the time anybody asks, the console line has scrolled away and
+// there is nothing left to point at. `__glass2()` in the game reads this.
+let GL_LAST_ERROR = null;
+export function glLastError() { return GL_LAST_ERROR; }
 const _rgbTriple = new Map();
 function rgbTriple(c) {
   let v = _rgbTriple.get(c);
@@ -21170,9 +21189,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // enough on its own. One frame is wrong; the flag then puts it back on the 2-D renderer for
       // good, exactly as a throw does.
       if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
-      else { console.error('[windshield] the GL world pass drew nothing — falling back to 2-D'); RENDER_TUNE.gl = 0; }
+      else { GL_LAST_ERROR = { where: 'gl pass', message: 'drew nothing — no context, a lost context, or a zero-sized host', at: Date.now() }; console.error('[windshield] the GL world pass drew nothing — falling back to 2-D'); RENDER_TUNE.gl = 0; }
     }
-    catch (e) { console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
+    catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
     GL_CELLS = null; SPRITE_SINK = null;
   }
