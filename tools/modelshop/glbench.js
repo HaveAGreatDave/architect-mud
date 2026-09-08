@@ -364,4 +364,54 @@ export async function runFidelity({ keys = null, hours = [13, 23], W = 640, H = 
   } finally { performance.now = realNow; }
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glCaps = glCapabilities; }
+// ── DOES GLASS 2 TOUCH THE GROUND? ──────────────────────────────────────────
+//
+// It should not: the pass draws building MASS and lights, and the Mode-7 floor is painted before
+// the blit and never suppressed. But "the terrain looks wrong with it on" is a report that arrives
+// naturally — the flag changes the picture, so everything in the picture falls under suspicion —
+// and the only way to answer it is to measure the ground on its own.
+//
+// The split is the point: the building mask comes from a 2-D pair with and without buildings, and
+// everything OUTSIDE it is ground. Then the same frame is compared flag-off against flag-on, and
+// the two halves are reported separately. Ground differing and buildings differing are completely
+// different findings and a whole-frame number tells them apart not at all.
+export function runTerrain({ W = 800, H = 400 } = {}) {
+  const el = document.createElement('canvas');
+  el.id = '__terrain'; el.width = W; el.height = H;
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const realNow = performance.now.bind(performance);
+  performance.now = () => 1e6;                       // see runFidelity: a moving sky is not a finding
+  try {
+    const R = 16, N = 33;
+    const mk = (withB) => Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      if (x === R) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (y === R - 4) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ew', flr: 0, pw: 1 };
+      if (withB && x === R - 2 && y % 3 === 0) return { kind: 'land', biome: 'citycore', bt: 'office', ent: 'east', flr: 6 };
+      if (withB && x === R + 2 && y % 3 === 1) return { kind: 'land', biome: 'citycore', bt: 'shop', ent: 'west', flr: 3 };
+      if (x > R + 5) return { kind: 'land', biome: 'grass', flr: 0 };
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+    const v = { cls: 'heli', phase: 'cruise', height: 0.18, worldBlend: 1, hour: 18, weather: 'clear', speed: 0.3, heading: 0, mapOffset: { x: 0.1, y: -0.2 }, pitch: 4, bank: -6 };
+    const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+    const paint = (g, m) => { RENDER_TUNE.gl = g; paintWindshield('__terrain', { ...v, map: m }); paintWindshield('__terrain', { ...v, map: m }); return shot(); };
+    const bare = paint(0, mk(false)), two = paint(0, mk(true)), three = paint(1, mk(true));
+    let gN = 0, gSum = 0, gBad = 0, bN = 0, bSum = 0;
+    for (let i = 0; i < bare.length; i += 4) {
+      const isB = Math.abs(two[i] - bare[i]) + Math.abs(two[i + 1] - bare[i + 1]) + Math.abs(two[i + 2] - bare[i + 2]) >= 12;
+      const d = (Math.abs(three[i] - two[i]) + Math.abs(three[i + 1] - two[i + 1]) + Math.abs(three[i + 2] - two[i + 2])) / 3;
+      if (isB) { bN++; bSum += d; } else { gN++; gSum += d; if (d > 16) gBad++; }
+    }
+    const out = {
+      groundPx: gN, groundMeanPct: +(gSum / gN / 255 * 100).toFixed(2), groundBadPct: +(gBad / gN * 100).toFixed(2),
+      buildingPx: bN, buildingMeanPct: +(bSum / bN / 255 * 100).toFixed(2),
+    };
+    console.log(`   ground ${out.groundMeanPct}% over ${gN} px · buildings ${out.buildingMeanPct}% over ${bN} px`);
+    return out;
+  } finally { RENDER_TUNE.gl = 0; performance.now = realNow; uninstall(); holder.remove(); }
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; }

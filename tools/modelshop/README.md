@@ -532,6 +532,19 @@ are checked against the standard rather than against this GPU, but "falls back c
 2 ever measures SLOWER somewhere, the first knob to try is `antialias` in `createGLView`: the 2-D
 canvas has no MSAA, so the GL path is buying smoother edges nobody asked for at full-frame cost.
 
+### Does it touch the ground? No — 0.02%
+
+`__glTerrain()` answers the question that arrives naturally the first time somebody flies with the
+flag on: the picture changed, so everything in the picture falls under suspicion, and "the terrain
+looks wrong" is the report. The Mode-7 floor is painted before the blit and never suppressed, so it
+should be untouched — and it is, to **0.02% mean over 307,729 ground pixels**, with 0.04% of them
+differing by more than 16/255. The buildings in the same frame differ by 3.78%.
+
+The split is the whole value. The building mask comes from a 2-D pair with and without buildings,
+and everything outside it is ground; then the same frame is compared flag-off against flag-on and
+the two halves are reported separately. *Ground differing* and *buildings differing* are completely
+different findings, and a whole-frame number tells them apart not at all.
+
 ### What stands on the ground
 
 ⚠ **A painter's queue hides things by painting over them**, so the moment GLASS 2 takes the walls
