@@ -19321,6 +19321,118 @@ function drawModelLOD(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, E, detail)
 // Boxes and drums only, deliberately — see scripts/shapes/model-schema.mjs for why barrel and
 // sawtooth are not authorable yet. An unknown kind is skipped rather than thrown on: a bad bake
 // must not be able to blank every building queued behind this one in the frame.
+// ── THE DETAIL LAYER ────────────────────────────────────────────────────────
+//
+// Pipe runs, vents, air-conditioning boxes, balconies, parapets, sign boards — the small stuff a
+// building is actually made of, authored as data (see DETAIL_SCHEMA) rather than written into an
+// arm. Every one of them paints flat quads through emitFlat and nothing else.
+//
+// ⚠ THREE RULES, AND THEY ARE THE SAME THREE THE NEAR TIER ALREADY LIVES BY.
+//
+// It is ADORNMENT. A detail part must never reach SHAPE_SINK: captured mass becomes CFIT
+// collision, the truck ground probe, the shadows, the occlusion hulls and the cold-open skyline,
+// which keeps the nine bulkiest segments and RANKS them — so forty pipes would re-rank every
+// silhouette in the city and let a player fly into a downpipe.
+//
+// It is SCREEN-SIZE GATED, per kind. `px` in the schema is the height in pixels below which the
+// part is not queued at all, and that gate is what makes ten times the parts affordable: they
+// cost nothing at the range where they cannot be seen. A parapet reads from twenty tiles and a
+// vent reads from three, which is why the floor is per kind rather than one number.
+//
+// And it is MOUNTED. A part standing on a surface takes that surface as its host (see mountedOn),
+// so an AC unit on a roof cannot sort behind the roof it stands on.
+const DETAIL_LIFT = 0.02;   // a hair proud of the face it is bolted to, the same trick marqueeBand uses
+
+// The on-screen height of a world-z span at this distance, which is what the gate tests. Derived
+// from the projection rather than guessed: `depth·dz/f` is exactly what proj does to a height.
+function detailPx(cam, f, dz) { return Math.abs(cam.depth * dz / Math.max(0.06, f)); }
+
+// A flat quad in the model frame, with the shading a face of that orientation would get.
+function detailQuad(ctx, cam, F, pts, fill, alpha, opts) { emitFlat(ctx, cam, pts.map(([lx, ly, z]) => { const [wx, wy] = F(lx, ly); return [wx, wy, z]; }), fill, alpha, opts); }
+
+const AUTHORED_DETAIL = {
+  // A pipe: two flat strips at right angles, which reads as a round pipe from any angle a wall is
+  // seen from and costs two quads instead of a drum.
+  pipe: (c, d) => {
+    const r = c.V(d.r), z0 = c.V(d.z0), z1 = c.V(d.z1);
+    const col = shadeOf(d.pal || c.pal, 0.86), lit = shadeOf(d.pal || c.pal, 1.06);
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - r, c.ly, z1], [c.lx + r, c.ly, z1], [c.lx + r, c.ly, z0], [c.lx - r, c.ly, z0]], col, c.alpha, { lift: DETAIL_LIFT });
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx, c.ly - r, z1], [c.lx, c.ly + r, z1], [c.lx, c.ly + r, z0], [c.lx, c.ly - r, z0]], lit, c.alpha, { lift: DETAIL_LIFT * 1.5 });
+  },
+  // A mechanical box: a top and one side, which is all of it that is ever visible from outside.
+  acUnit: (c, d) => {
+    const w = c.V(d.w), dp = d.d ? c.V(d.d) : w * 0.7, hh = d.hh ? c.V(d.hh) : w * 0.55, z = c.V(d.z);
+    const top = shadeOf(d.pal || c.pal, 1.1), side = shadeOf(d.pal || c.pal, 0.72);
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - w, c.ly - dp, z + hh], [c.lx + w, c.ly - dp, z + hh], [c.lx + w, c.ly + dp, z + hh], [c.lx - w, c.ly + dp, z + hh]], top, c.alpha, {});
+    for (const [sx, sy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const ax = sx ? c.lx + sx * w : c.lx - w, ay = sy ? c.ly + sy * dp : c.ly - dp;
+      const bx = sx ? c.lx + sx * w : c.lx + w, by = sy ? c.ly + sy * dp : c.ly + dp;
+      detailQuad(c.ctx, c.cam, c.F, [[ax, ay, z + hh], [bx, by, z + hh], [bx, by, z], [ax, ay, z]], side, c.alpha, { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]] });
+    }
+  },
+  // A louvred panel: one quad and three lines, flat on the face.
+  vent: (c, d) => {
+    const w = c.V(d.w), hh = d.hh ? c.V(d.hh) : w, z = c.V(d.z);
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - w, c.ly, z + hh], [c.lx + w, c.ly, z + hh], [c.lx + w, c.ly, z - hh], [c.lx - w, c.ly, z - hh]],
+      shadeOf(d.pal || c.pal, 0.6), c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.35)", lw: 1 });
+    for (let i = 1; i <= 3; i++) {
+      const zz = z - hh + (2 * hh) * (i / 4);
+      detailQuad(c.ctx, c.cam, c.F, [[c.lx - w * 0.9, c.ly, zz], [c.lx + w * 0.9, c.ly, zz], [c.lx + w * 0.9, c.ly, zz - hh * 0.08], [c.lx - w * 0.9, c.ly, zz - hh * 0.08]],
+        shadeOf(d.pal || c.pal, 0.42), c.alpha, { lift: DETAIL_LIFT * 1.4 });
+    }
+  },
+  // A balcony: a slab out from the face, and a rail above it drawn as one thin band.
+  balcony: (c, d) => {
+    const half = c.V(d.half), out = c.V(d.out), z = c.V(d.z), rail = d.rail ? c.V(d.rail) : 0;
+    const slab = shadeOf(d.pal || c.pal, 0.95), under = shadeOf(d.pal || c.pal, 0.5);
+    const y0 = c.ly, y1 = c.ly + out;
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - half, y0, z], [c.lx + half, y0, z], [c.lx + half, y1, z], [c.lx - half, y1, z]], slab, c.alpha, {});
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - half, y1, z], [c.lx + half, y1, z], [c.lx + half, y1, z - out * 0.18], [c.lx - half, y1, z - out * 0.18]], under, c.alpha, {});
+    if (rail > 0) {
+      detailQuad(c.ctx, c.cam, c.F, [[c.lx - half, y1, z + rail], [c.lx + half, y1, z + rail], [c.lx + half, y1, z + rail * 0.72], [c.lx - half, y1, z + rail * 0.72]],
+        shadeOf(d.pal || c.pal, 1.15), c.alpha * 0.9, {});
+    }
+  },
+  // A coping band round the top of a mass. The cheapest thing on this list and the one that does
+  // most: a bare lid is the single commonest reason a roof reads as unfinished from the air.
+  parapet: (c, d) => {
+    const half = c.V(d.half), z = c.V(d.z), hh = d.hh ? c.V(d.hh) : half * 0.12;
+    const cap = shadeOf(d.pal || c.pal, 1.18), face = shadeOf(d.pal || c.pal, 0.78);
+    for (const [sx, sy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const ax = sx ? c.lx + sx * half : c.lx - half, ay = sy ? c.ly + sy * half : c.ly - half;
+      const bx = sx ? c.lx + sx * half : c.lx + half, by = sy ? c.ly + sy * half : c.ly + half;
+      detailQuad(c.ctx, c.cam, c.F, [[ax, ay, z + hh], [bx, by, z + hh], [bx, by, z], [ax, ay, z]], face, c.alpha, { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]] });
+      detailQuad(c.ctx, c.cam, c.F, [[ax, ay, z + hh], [bx, by, z + hh], [bx - sx * hh, by - sy * hh, z + hh], [ax - sx * hh, ay - sy * hh, z + hh]], cap, c.alpha, {});
+    }
+  },
+  // A painted sign board bolted to a wall — not neonBlade, which is a lit blade on its own mast.
+  signBoard: (c, d) => {
+    const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z);
+    const pts = [[c.lx - half, c.ly, z + hh], [c.lx + half, c.ly, z + hh], [c.lx + half, c.ly, z - hh], [c.lx - half, c.ly, z - hh]];
+    detailQuad(c.ctx, c.cam, c.F, pts, d.color || "#141018", c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.5)", lw: 1 });
+    if (d.label) {
+      // Painted INTO the surface, never billboarded — the house rule for all world text.
+      const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
+      if (w.every((q) => q.f > 0.12)) {
+        emitDeco(w, () => drawSurfaceText(c.ctx, w[0], w[1], w[2], w[3], bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.color || "#e8dcc8", c.night ? 1 : 0, false, true), false, c.alpha), DETAIL_LIFT * 2);
+      }
+    }
+  },
+};
+export const AUTHORED_DETAIL_KINDS = Object.keys(AUTHORED_DETAIL);
+// ⚠ WRITTEN OUT TWICE ON PURPOSE, and checked by value. windshield.js cannot import the schema
+// module from scripts/, so the per-kind screen floors live here and in DETAIL_SCHEMA, and
+// shapes:smoke compares them — a kind whose floor is only in one of them either never draws or
+// draws at every distance, and both are silent.
+export const DETAIL_PX = { pipe: 6, acUnit: 8, vent: 6, balcony: 10, parapet: 8, signBoard: 9 };
+
+// A palette key to a shaded CSS colour. One place, so a detail part and the wall behind it cannot
+// disagree about what the building is made of.
+function shadeOf(pal, k) {
+  const c = WALL_COL[pal] || [110, 116, 124];
+  return `rgb(${Math.min(255, c[0] * k) | 0},${Math.min(255, c[1] * k) | 0},${Math.min(255, c[2] * k) | 0})`;
+}
+
 const AUTHORED_ADORN = {
   mast: (c, a) => mast(c.ctx, c.cam, c.x, c.y, c.V(a.z0), c.V(a.z1), c.alpha, c.now, c.seed),
   dish: (c, a) => dish(c.ctx, c.cam, c.x, c.y, c.V(a.z), a.s ?? 90, c.alpha),
@@ -19373,6 +19485,25 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
         Math.max(1, s.teeth || 4), s.roofc || '#4b5158', s.glassc || '#7d9ab0', s.edge || '#2b2f34', alpha);
     }
   });
+
+  // ── THE DETAIL LAYER ──
+  // Before the adornments, because a pipe is part of the wall and a beacon is not, and because
+  // the gate below wants the same host distance the mass was drawn at.
+  if (m.detail && m.detail.length && !SHAPE_SINK && ADORN_TIER >= ADORN_RICH) {
+    const hostF = cam.proj(dx, dy, 0).f;
+    const dc = { ctx, cam, V, E, th, seed, night, alpha, now, pal: m.pal, name: m.name || m.id, lx: 0, ly: 0,
+      F: (lx, ly) => facePt(dx, dy, lx, ly, E) };
+    for (const d of m.detail) {
+      const fn = AUTHORED_DETAIL[d.kind];
+      if (!fn) continue;
+      // ⚠ THE SCREEN-SIZE GATE, and it is the whole reason ten times the parts is affordable.
+      // A part smaller than its own floor is not drawn — not drawn cheaply, not queued at all.
+      const dz = Math.max(0.02, Math.abs(V(d.hh || d.rail || d.r || d.half || [0, 0, 0.05])) * 2);
+      if (detailPx(cam, hostF, dz) < (DETAIL_PX[d.kind] || 6)) continue;
+      dc.lx = V(d.cx); dc.ly = V(d.cy);
+      fn(dc, d);
+    }
+  }
 
   if (!m.adorn || !m.adorn.length) return;
   // `neon` is the model's own sign colour, used when an adornment does not name one — the same

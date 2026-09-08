@@ -486,7 +486,7 @@ async function main() {
   let authoredReach = null;
   try {
     const { bakeModels, readModelFiles } = await import('./bake-models.mjs');
-    const { ADORN_SCHEMA } = await import('../../client/shared/building-model-schema.js');
+    const { ADORN_SCHEMA, DETAIL_SCHEMA } = await import('../../client/shared/building-model-schema.js');
     const files = readModelFiles();
     const { models: fresh, errors } = bakeModels(files);
     for (const e of errors) problems.push(`authored model — ${e}`);
@@ -521,6 +521,20 @@ async function main() {
     if (schemaKinds !== rendererKinds) {
       problems.push('adornment drift — model-schema.mjs knows [' + schemaKinds + '] and windshield.js draws ['
         + rendererKinds + ']. A kind in only one of them is a field that validates and never paints.');
+    }
+    // ── AND THE SAME FOR DETAIL, WHICH IS WRITTEN OUT TWICE FOR THE SAME REASON ──
+    // windshield.js cannot import the schema module, so the detail vocabulary and its per-kind
+    // screen-size floors exist in both files. A kind in only one either never draws or has no
+    // floor and draws at every distance, and both failures are silent.
+    const dSchema = Object.keys(DETAIL_SCHEMA).sort().join(',');
+    const dRenderer = [...ws.AUTHORED_DETAIL_KINDS].sort().join(',');
+    if (dSchema !== dRenderer) {
+      problems.push('detail drift — the schema knows [' + dSchema + '] and windshield.js draws [' + dRenderer + '].');
+    }
+    for (const k of Object.keys(DETAIL_SCHEMA)) {
+      if (DETAIL_SCHEMA[k].px !== ws.DETAIL_PX[k]) {
+        problems.push(`detail '${k}': the schema floors it at ${DETAIL_SCHEMA[k].px}px and the renderer at ${ws.DETAIL_PX[k]}px`);
+      }
     }
     // 4. THE ADORNMENTS ACTUALLY REACH THE CAMERA. See authoredAdornSmoke in windshield.js —
     // an adornment drawn at a non-finite position paints nothing and throws nothing, so every

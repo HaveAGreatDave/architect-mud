@@ -89,6 +89,50 @@ const DERIVED_Z1 = { barrel: 'archH', sawtooth: 'rh' };
 // an authored model's CAPTURE is unaffected by anything in this list — which is what
 // keeps collision, shadows, occlusion, LOD and the cold open identical whether a model
 // wears neon or not.
+// ── THE DETAIL VOCABULARY ───────────────────────────────────────────────────
+//
+// The small stuff a building is actually made of: pipe runs, vents, air-conditioning boxes,
+// balconies, parapets, sign boards. It is what stands between a box with a texture on it and the
+// reference bar, and there was no way to author any of it — the format had four mass kinds and
+// nine adornments, and nothing in between.
+//
+// ⚠ DETAIL IS ADORNMENT, NEVER MASS, and that is a correctness rule rather than a category. Every
+// mass primitive is recorded by SHAPE_SINK and becomes CFIT collision, the truck ground probe,
+// the ground shadows, the occlusion hulls and the cold-open skyline — which keeps the NINE
+// bulkiest segments and ranks them. Forty pipes in the mass list would re-rank every silhouette
+// in the city and let a player fly into a downpipe. So a detail part paints flat quads through
+// emitFlat, is invisible to the sink, and `shapes:smoke` compares a capture with detail against
+// one without by value.
+//
+// It reuses the adornment machinery exactly — the same affine geometry tags, the same compile,
+// the same generated form in the Modelshop — because a second coordinate system is a second set
+// of traps, and this one has already been walked through twice.
+//
+// `px` is the per-kind screen-size floor in pixels: below it the part is not queued at all. That
+// is what makes ten times the parts affordable at range, and it is per KIND rather than global
+// because a parapet reads from twenty tiles and a vent reads from three.
+export const DETAIL_SCHEMA = {
+  // A vertical pipe run with brackets, down a face. The commonest thing on any industrial wall.
+  pipe: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h', r: 'fh' }, required: ['z0', 'z1', 'r'],
+    plain: { pal: 'string', face: 'string' }, px: 6 },
+  // A rooftop or wall-mounted mechanical box: condensers, plant, the thing on every flat roof.
+  acUnit: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', d: 'fh', hh: 'h' }, required: ['z', 'w'],
+    plain: { pal: 'string' }, px: 8 },
+  // A louvred vent panel, flat against a face.
+  vent: { geom: { cx: 'fh', cy: 'fh', z: 'h', w: 'fh', hh: 'h' }, required: ['z', 'w'],
+    plain: { pal: 'string', face: 'string' }, px: 6 },
+  // A balcony slab with an optional railing, projecting from a face.
+  balcony: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', out: 'fh', rail: 'h' }, required: ['z', 'half', 'out'],
+    plain: { pal: 'string', face: 'string' }, px: 10 },
+  // A coping band round the top of a mass: the difference between a roof and a bare lid.
+  parapet: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half'],
+    plain: { pal: 'string' }, px: 8 },
+  // A flat sign board on a face. Not neonBlade: that is a lit blade standing proud on its own
+  // mast, this is a painted panel bolted to a wall, and most signage in a city is the second one.
+  signBoard: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
+    plain: { color: 'string', label: 'string', face: 'string' }, px: 9 },
+};
+
 export const ADORN_SCHEMA = {
   mast: { geom: { cx: 'fh', cy: 'fh', z0: 'h', z1: 'h' }, required: ['z0', 'z1'], plain: {} },
   dish: { geom: { cx: 'fh', cy: 'fh', z: 'h' }, required: ['z'], plain: { s: 'number' } },
@@ -164,6 +208,10 @@ export function compileModel(doc, file = '<model>') {
     pal: doc.pal || null,
     segs: (doc.segs || []).map((s, i) => compilePart(s, SEG_SCHEMA, basis, warnings, `${file} segs[${i}]`)).filter(Boolean),
     adorn: (doc.adorn || []).map((a, i) => compilePart(a, ADORN_SCHEMA, basis, warnings, `${file} adorn[${i}]`)).filter(Boolean),
+    // The third list. `repeat` is expanded HERE rather than at draw time, so the renderer sees a
+    // plain list and the count is checked once by the build instead of every frame — and a model
+    // with a thousand balconies is a validation error rather than a slow city.
+    detail: expandDetail(doc.detail || [], basis, warnings, file),
   };
   if (doc.neon) rec.neon = doc.neon;
   // Both reach the runtime record because both are read there: `portedFrom` decides whether
@@ -178,6 +226,31 @@ export function compileModel(doc, file = '<model>') {
   // claiming something false, and the port gate would rightly fail it.
   if (doc.replaces) rec.replaces = doc.replaces;
   return { rec, warnings, bindings: (doc.bind || []).map((b) => bindKey(b)) };
+}
+
+// ⚠ `repeat` IS AN OPERATOR, NOT A CONVENIENCE. Balconies every floor, a colonnade, a row of
+// vents: one entry rather than twelve near-identical ones, which is the difference between a file
+// an author can read and a file they can only generate. It also hands the renderer a natural
+// batching unit — the members share a fill and cannot overlap each other.
+const REPEAT_MAX = 64;
+function expandDetail(list, basis, warnings, file) {
+  const out = [];
+  list.forEach((d, i) => {
+    if (d && d.kind === 'repeat') {
+      const n = Math.max(0, Math.min(REPEAT_MAX, d.count | 0));
+      const step = d.step || {};
+      for (let k = 0; k < n; k++) {
+        const part = { ...(d.of || {}) };
+        for (const f of Object.keys(step)) part[f] = (part[f] || 0) + step[f] * k;
+        const c = compilePart(part, DETAIL_SCHEMA, basis, warnings, `${file} detail[${i}]#${k}`);
+        if (c) out.push(c);
+      }
+      return;
+    }
+    const c = compilePart(d, DETAIL_SCHEMA, basis, warnings, `${file} detail[${i}]`);
+    if (c) out.push(c);
+  });
+  return out;
 }
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -262,6 +335,25 @@ export function validateModel(doc, file = '<model>') {
     if (!Array.isArray(doc.adorn)) errors.push(`${file}: 'adorn' must be an array`);
     else doc.adorn.forEach((a, i) => checkPart(`${file} adorn[${i}]`, a, ADORN_SCHEMA, errors, basis));
   }
+  if (doc.detail != null) {
+    if (!Array.isArray(doc.detail)) errors.push(`${file}: 'detail' must be an array`);
+    else doc.detail.forEach((d, i) => {
+      if (d && d.kind === 'repeat') {
+        // A repeat is checked as its OWN shape and then as the part it produces, because the two
+        // fail differently: a missing count is an operator error, a bad field is a part error.
+        const n = d.count | 0;
+        if (!(n > 0)) errors.push(`${file} detail[${i}]: a repeat needs a positive count`);
+        if (n > REPEAT_MAX) errors.push(`${file} detail[${i}]: a repeat of ${n} exceeds the ${REPEAT_MAX} cap — that is a wall of geometry, not a detail`);
+        if (!d.of || typeof d.of !== 'object') errors.push(`${file} detail[${i}]: a repeat needs an 'of' part to repeat`);
+        else checkPart(`${file} detail[${i}].of`, d.of, DETAIL_SCHEMA, errors, basis);
+        if (d.step != null && (typeof d.step !== 'object' || Array.isArray(d.step))) {
+          errors.push(`${file} detail[${i}]: 'step' must be an object of field deltas`);
+        }
+        return;
+      }
+      checkPart(`${file} detail[${i}]`, d, DETAIL_SCHEMA, errors, basis);
+    });
+  }
 
   // The bind is what puts the model in front of a player. A model with none is authored,
   // baked, renderable and unreachable — so it is a warning you can see rather than a
@@ -290,7 +382,7 @@ export function validateModel(doc, file = '<model>') {
     // itself, and the directory is what says these are models. An authored key with no reader is
     // the failure this codebase keeps rediscovering (see `effects` in systems-mutations.md), so it
     // is gone rather than tolerated.
-    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces'].includes(k)) {
+    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'detail', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces'].includes(k)) {
       errors.push(`${file}: unknown top-level key '${k}'`);
     }
   }
