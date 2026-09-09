@@ -695,4 +695,125 @@ export function runSign({ W = 640, H = 360, RAD = 12, seats = SIGN_SEATS } = {})
   return { rows, worst };
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; }
+
+// ── WHERE DOES THE FRAME GO, NOW THAT MOST OF IT IS ON THE GPU? ──────────────
+//
+// `__glFrame()`. Every other bench here answers "is this one thing faithful" or "what does this
+// one thing cost". This one answers the question you ask before deciding what to port NEXT, and
+// it exists because that question was got wrong three times running on ad-hoc scenes.
+//
+// ⚠ THE SCENE COMES FROM THE WHOLE REGISTRY, NEVER FROM HAND-PICKED NAMES. A city built from
+// eight chosen models reported the 2-D adornment queue at 1,597 faces a frame, and that number
+// was used to call the queue the last big thing left to port. Swept properly it is 43 — because
+// one of those eight was The Meridian Lobby, whose gargoyles alone are 44% of every face all 173
+// models emit. Picking the names by hand picks the answer.
+//
+// ⚠ PIN THE RESOLUTION DIAL, OR A SLOW FRAME MEASURES FAST. `resFloor: 1` and `perfDS: 0`. Left
+// alone the dial sheds resolution exactly where the frame is expensive, so a storm measured
+// CHEAPER than clear sky and night cheaper than day — the dial being read as the renderer. The
+// fidelity runs freeze the clock for the same reason; a timing run cannot, so it pins the dial
+// by hand instead.
+//
+// ⚠ AND IT REPORTS A SPREAD, WHICH IS THE POINT. Medians here move by two to three times between
+// runs on one machine — warm-up, the driver, and whatever else has the GPU. A single number
+// invites a decision it cannot support: the same seat gave the occluder pre-pass an 8.4 ms COST
+// and a 6.7 ms SAVING in two consecutive runs. Independent medians with the spread printed beside
+// them is what says whether a difference is real. If the spread straddles the thing you are
+// trying to measure, the answer is "measure again", not "port it".
+const FRAME_SEATS = [
+  { tag: 'cab, sparse', R: 14, density: 0.06, hour: 2, cls: 'truck' },
+  { tag: 'cab, dense', R: 14, density: 0.18, hour: 2, cls: 'truck' },
+  { tag: 'cab, dense day', R: 14, density: 0.18, hour: 13, cls: 'truck' },
+  { tag: 'air, sparse', R: 36, density: 0.02, hour: 2, cls: 'prop' },
+  { tag: 'air, dense', R: 36, density: 0.05, hour: 2, cls: 'prop' },
+];
+
+export function runFrame({ W = 640, H = 360, reps = 3, frames = 20, warm = 8 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__frame'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+
+  // Deterministic, unlike the clock: the canvas2d call count is the same every run, so it is the
+  // half of this report that can be compared against a number written down last month.
+  const realGet = HTMLCanvasElement.prototype.getContext;
+  let calls = null;
+  HTMLCanvasElement.prototype.getContext = function (t, o) {
+    const ctx = realGet.call(this, t, o);
+    if (this.id !== '__frame' || t !== '2d') return ctx;
+    return new Proxy(ctx, {
+      get(o2, k) { const v = o2[k]; if (typeof v !== 'function') return v; return (...a) => { if (calls) calls.n++; return v.apply(o2, a); }; },
+      set(o2, k, v) { o2[k] = v; return true; },
+    });
+  };
+
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0, n = 0;
+    const m = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        n++;
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6), ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+    m._buildings = n;
+    return m;
+  };
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+
+  const rows = [];
+  try {
+    for (const seat of FRAME_SEATS) {
+      const built = mk(seat.R, seat.density), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      const once = (map) => {
+        const v = view(map);
+        for (let i = 0; i < warm; i++) paintWindshield('__frame', v);
+        const t = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield('__frame', v); t.push(performance.now() - t0); }
+        return mid(t);
+      };
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+      const bs = [], rs = [];
+      for (let r = 0; r < reps; r++) { bs.push(once(built)); rs.push(once(bare)); }
+      // The call count comes from ONE painted frame, after every lazy cache is warm.
+      paintWindshield('__frame', view(built));
+      calls = { n: 0 }; paintWindshield('__frame', view(built)); const nCalls = calls.n; calls = null;
+      const L = glLastFrame() || {};
+      RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+      const b = mid(bs), r0 = mid(rs);
+      rows.push({
+        seat: seat.tag, window: seat.R * 2 + 1, buildings: built._buildings,
+        ms: +b.toFixed(2),
+        spread: Math.min(...bs).toFixed(1) + '-' + Math.max(...bs).toFixed(1),
+        bareMs: +r0.toFixed(2), cityMs: +(b - r0).toFixed(2),
+        calls2d: nCalls, glFaces: L.faces || 0, lights: L.lights || 0, decals: L.decals || 0,
+      });
+    }
+  } finally {
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+    HTMLCanvasElement.prototype.getContext = realGet;
+    uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   ⚠ ms moves with warm-up and the driver — read the spread before believing a difference.');
+  console.log('   calls2d is deterministic and is the number to compare across days.');
+  return rows;
+}
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; }

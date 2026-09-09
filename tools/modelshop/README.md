@@ -181,8 +181,8 @@ In the Modelshop (`npm run modelshop`, :5181) the console carries the measuremen
 for what the machine can do, `__glPhases()` for where the frame goes with the flag off and on,
 `__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are,
 `__glFloor()` and `__glFloorCost()` for the same two questions about the ground, `__glSign()` for
-whether the buildings still have their names on them, and `__glBench()` for the original ceiling
-question.
+whether the buildings still have their names on them, `__glFrame()` for where the whole frame goes
+now, and `__glBench()` for the original ceiling question.
 
 
 The spike answered its four questions, so the pass is wired into `paintWindshield` behind
@@ -585,6 +585,52 @@ captures four facings rather than the canonical one.
 **72 cases, 55 of them exactly 0, worst 0.020%** — a few letters trimmed off the end of a board by the
 parapet that is genuinely in front of them — against **0.062% with the geometry bug put back**, which is
 the only reason to trust the number.
+### The frame, and the trap in measuring it — `__glFrame()`
+
+Every other bench here asks whether one thing is faithful, or what one thing costs. This one asks
+the question you ask before deciding what to port NEXT — and it exists because that question was
+got wrong three times running, each time on an ad-hoc scene, and each time the answer looked
+convincing.
+
+⚠ **The scene comes from the whole registry, never from hand-picked names.** A city built from
+eight chosen models put the 2-D adornment queue at 1,597 faces a frame, and that number was used to
+call the queue the last big thing left to port. Swept properly it is **43** — because one of those
+eight was The Meridian Lobby, whose gargoyles alone are **44% of every face all 173 models emit**.
+Across the registry the whole queue is 861 faces, mean 5 a model, and **63 models emit none at all**.
+Picking the names by hand picks the answer.
+
+⚠ **Pin the resolution dial, or a slow frame measures fast.** The dial sheds resolution exactly
+where the frame is expensive, so on a loose dial a storm measured CHEAPER than clear sky and night
+cheaper than day — the dial being read as the renderer. The fidelity runs freeze the clock for the
+same reason; a timing run cannot, so this pins `resFloor: 1` and `perfDS: 0` by hand.
+
+⚠ **And a call count is not a millisecond.** `drawSkyline` is 492 of the `1,800 canvas calls left
+in a frame and looks like the obvious next port; it is two filled 241-point polylines, and timed on
+its own over 200 reps its median is **0 ms**. Storm weather is 1,477 calls and does not move the
+frame either. The remaining 2-D calls are cheap path construction, which is why the report carries
+both numbers and why `calls2d` is the one to compare across days — it is deterministic, and the
+clock is not.
+
+⚠ **It reports a SPREAD, and that is the point.** Medians move by two to three times between runs
+on one machine. A single number invites a decision it cannot support: the same seat gave the
+occluder pre-pass an **8.4 ms cost** and a **6.7 ms saving** in two consecutive runs, which is how
+a plan to delete it nearly got made. If the spread straddles what you are trying to measure, the
+answer is measure again, not port it.
+
+With the dial pinned, five seats, 640×360:
+
+| seat | window | buildings | ms | bare | the city | calls2d |
+|---|---|---|---|---|---|---|
+| cab, sparse | 29 | 36 | 2.8 | 1.7 | 1.1 | 1,840 |
+| cab, dense | 29 | 118 | 3.6 | 1.7 | 1.9 | 2,017 |
+| cab, dense day | 29 | 118 | 3.2 | 1.4 | 1.8 | 1,804 |
+| air, sparse | 73 | 105 | 6.5 | 6.7 | `0 | 2,295 |
+| air, dense | 73 | 240 | 8.3 | 4.6 | 3.7 | 2,032 |
+
+**The city is now the small half of its own frame**, and what is left on the 2-D canvas is an
+overlay: the distant ridge, the sky and cloud layers, weather, the dash, the glass and the badges.
+Those should stay there. They have no ordering problem to solve, they do not measure, and the HUD
+needs text — moving it means building a glyph atlas to replace something that already works.
 ### Hardware coverage
 
 `glCapabilities()` in the console answers "will this machine run it", from a throwaway context it

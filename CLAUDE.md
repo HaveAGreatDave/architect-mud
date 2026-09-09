@@ -446,6 +446,29 @@ four rather than the canonical one. **72 cases, 55 of them exactly 0, worst 0.02
 trimmed off the end of a board by the parapet that is genuinely in front of them — against **0.062% with
 the geometry bug put back**, which is the only reason to trust the number.
 
+⚠ **AND THE WORLD IS DONE, WHICH IS A DIFFERENT CLAIM FROM "GLASS 1 IS RETIRED".** `windshield.js`
+cannot be retired and should not be: it runs the 173 arms that PRODUCE the mesh, the lights and the
+decals, it owns the scene, the occluder field, LOD and collision, and it draws the overlay. GLASS 2
+is the rasteriser underneath it. By that measure the world has arrived — with the dial pinned, a cab
+frame is **2.8-3.6 ms** and an aircraft frame **6.5-8.3 ms** at 640×360, the city is the SMALL half
+of its own frame (1.1-3.7 ms of it), and the 2-D adornment queue is **43 faces**. What is left on the
+canvas is an overlay — the distant ridge, sky and cloud layers, weather, the dash, the glass, the
+badges — and it should stay: no ordering problem to solve, no measurable cost, and the HUD needs
+text, so moving it means building a glyph atlas to replace something that already works.
+
+⚠ **AND THE THREE WAYS MEASURING THAT WENT WRONG ARE WORTH MORE THAN THE ANSWER.** `__glFrame()` in
+the Modelshop exists because the "what do we port next" question was got wrong three times running,
+convincingly each time. **A city built from hand-picked models picks the answer** — eight chosen
+names put the 2-D queue at 1,597 faces a frame and named it the last big thing left, and one of the
+eight was The Meridian Lobby, whose gargoyles alone are 44% of every face all 173 models emit; swept
+across the registry the whole queue is 861 faces, mean 5 a model, 63 models emitting none. **A loose
+resolution dial reads as the renderer** — it sheds resolution exactly where the frame is expensive,
+so a storm measured cheaper than clear sky and night cheaper than day. And **a call count is not a
+millisecond**: `drawSkyline` is 492 of the `1,800 calls left in a frame and is two filled 241-point
+polylines whose median over 200 reps is **0 ms**; storm weather is 1,477 calls and does not move the
+frame either. ⚠ The harness reports a SPREAD for the same reason — the same seat gave the occluder
+pre-pass an 8.4 ms COST and a 6.7 ms SAVING in two consecutive runs, which is how a plan to delete it
+nearly got made. A difference inside the spread is not a finding.
 ⚠ **HARDWARE COVERAGE IS CHECKED AGAINST THE STANDARD, NOT AGAINST THIS GPU.** `glCapabilities()` answers "will this machine run it" from a throwaway context. The pass wants 8 vertex attributes against a WebGL2 guarantee of 16 and 13 varying components against 60 — neither is close. ⚠ **The texture page is the one that can bite**: the guarantee is only `MAX_TEXTURE_SIZE ≥ 2048` and every surface in the city at `texRes: 2` wants **2048×4096**, which on a floor-spec device is an `INVALID_VALUE` and nothing else — no throw, no warning, a city wearing a black texture. `buildAtlas` takes the device limit and refuses a page that will not fit, dropping to flat palette colours with one warning; the packing also balances on the CELL rather than the count, which brings the `texRes: 1` worst case to 2048×2048. A typical frame is a 256×512 page. ⚠ **Other hardware is still untested** — every number here is one machine with a discrete NVIDIA card, and "falls back correctly" is not "is fast on an integrated GPU". If it ever measures SLOWER somewhere, the first knob is `antialias` in `createGLView`: the 2-D canvas has no MSAA, so GL is buying smoother edges nobody asked for at full-frame cost.
 
 ⚠ **AND A PASS THAT DID NOT DRAW HANDS THE WORLD BACK.** The mass is suppressed on the strength of the GL pass existing, so "it returned nothing" is not a quiet outcome — it is a city of floating lights standing on no buildings. A machine with **no WebGL2** and a driver that **took the context away** both arrive there WITHOUT THROWING, so the catch was never enough; the pass answers null and the flag goes back to 0, exactly as a throw does. The context-lost listener calls `preventDefault` (the default makes the loss permanent) and `lost()` is asked every frame.
