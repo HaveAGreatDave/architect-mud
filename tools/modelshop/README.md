@@ -179,8 +179,9 @@ bug in the renderer that ships.
 
 In the Modelshop (`npm run modelshop`, :5181) the console carries the measurements: `__glCaps()`
 for what the machine can do, `__glPhases()` for where the frame goes with the flag off and on,
-`__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are, and
-`__glBench()` for the original ceiling question.
+`__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are,
+`__glFloor()` and `__glFloorCost()` for the same two questions about the ground, and `__glBench()` for
+the original ceiling question.
 
 
 The spike answered its four questions, so the pass is wired into `paintWindshield` behind
@@ -500,6 +501,48 @@ What the pass closed, in order of how much it was worth:
 
 What is left, and it is one thing: **`emitFlat`'s hairline stroke**. A vent and a sign board carry a
 1px outline that a triangle cannot cheaply reproduce. It is inside the noise of the number above.
+
+### The floor — 2.3%, and 26x
+
+`__glFloor()` is the fidelity question pointed at the ground, and it is deliberately NOT shaped
+like `__glFidelity()`. That one masks a single building out of the frame, because a whole-frame diff
+of a city measures coverage rather than shading. The floor IS the whole frame below the horizon, so
+here the whole frame is the subject and the two sides are the same renderer with the ground drawn
+two ways: GLASS 2 over the 2-D Mode-7 raster, and GLASS 2 over the shader.
+
+Sixteen scenes — city, park, scrub, redrock, open sea, off-map wildlands, a road and a town, each
+by day and by night. **Worst 2.30% of pixels differing by more than 24 levels; mean colour
+difference 0.10–0.72%.**
+
+`__glFloorCost()` is the other half, and it is why the port was worth doing at all. On a 640×360 cab
+frame, ms per frame:
+
+| scene | GLASS 1 | GLASS 2, 2-D floor | GLASS 2, GPU floor |
+|---|---|---|---|
+| city | 32.9 | 34.4 | **1.3** |
+| town | 68.0 | 43.9 | **15.6** |
+| open sea | 65.4 | 69.1 | **0.6** |
+| road at night | 31.0 | 30.7 | **2.2** |
+
+⚠ **Read the middle column.** Moving the city’s mass, trim, lights and signage to the GPU bought
+almost nothing on three of those four scenes, and that is not a disappointment — it is the shape of
+the frame. The Mode-7 raster is a fixed per-pixel software loop that costs the same over an empty
+desert as over a city, so until it moved it WAS the frame and every other saving was hiding behind
+it. Absolute numbers move with the machine; the ratio is the finding.
+
+⚠ **AND FREEZING THE CLOCK IS WHAT MAKES THE FIDELITY RUN MEAN ANYTHING** — for two reasons, not
+the one `__glFidelity()` names. The first is the sky: clouds drift, birds fly, water moves. The
+second is that `performance.now()` also drives the **dynamic resolution dial** and `PERF_DS`, both of
+which are per-CANVAS state that `sceneFor` caches by element id and keeps across a page reload.
+Measured on a live clock, two canvases shed resolution at different rates, the comparison silently
+starts holding a 576-wide frame against a 640-wide one, and every scene reports a fidelity
+regression that is really a scale mismatch. That produced a confident "road scenes are 35% wrong"
+finding that was never true. A frozen clock pins `frameMs` at 0, which pins the dial at 1 and
+`PERF_DS` at 0.
+
+⚠ **The canvas also needs an explicit CSS size.** Without one its layout size follows its width
+ATTRIBUTE, which `paintWindshield` rewrites every frame — so the harness resizes the canvas from
+whatever the last frame made it and spirals down instead of measuring.
 
 ### Hardware coverage
 

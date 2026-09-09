@@ -74,7 +74,8 @@ export function installGL(hostFor) {
       captureModelMesh, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
     }, {
       sprites: opts.sprites, cssW: opts.cssW, cssH: opts.cssH,
-      curtain: opts.curtain, decals: opts.decals, scatter: opts.scatter, now: opts.now,
+      curtain: opts.curtain, decals: opts.decals, scatter: opts.scatter, ground: opts.ground,
+      floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       night: opts.night, nb: opts.nb,
       draw: {

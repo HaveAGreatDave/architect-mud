@@ -20,6 +20,8 @@ import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
 import { createDecalLayer } from './decals.js';
 import { createBillboardLayer } from './billboards.js';
+import { createGroundLayer } from './ground.js';
+import { createFloorLayer } from './floor.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1.
@@ -386,6 +388,21 @@ export function createGLView(canvas) {
     return L.draw(cam, canvas.width, canvas.height, cssH, fog);
   }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, setAtlas, lost: () => gl.isContextLost(),
+  // The road surface. Lazy like the others; a view over open water never compiles it.
+  let grd = null;
+  const groundLayer = () => (grd || (grd = createGroundLayer(gl)));
+  function drawGround(cam, quads, cssH, opts) {
+    if (!quads || !quads.length) return 0;
+    const L = groundLayer();
+    L.upload(quads);
+    return L.draw(cam, cssH || canvas.height, opts);
+  }
+
+  // The ground itself. Lazy, and only ever built when RENDER_TUNE.glFloor asks for it.
+  let flr = null;
+  const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
+  function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
+
+  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, drawGround, drawFloor, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; } };
 }

@@ -414,4 +414,158 @@ export function runTerrain({ W = 800, H = 400 } = {}) {
   } finally { RENDER_TUNE.gl = 0; performance.now = realNow; uninstall(); holder.remove(); }
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; }
+
+// ── IS THE GPU FLOOR THE SAME GROUND? ────────────────────────────────────────
+//
+// `__glFloor()` — the floor's own fidelity question, and it is NOT runFidelity's. That one masks a
+// single building out of the frame, because a whole-frame diff would measure coverage rather than
+// shading. The floor IS the whole frame below the horizon, so here the whole frame is the subject
+// and the two sides are the SAME renderer with the ground drawn two ways: GLASS 2 over the 2-D
+// Mode-7 raster, and GLASS 2 over the shader. Nothing else moves.
+//
+// ⚠ FREEZE THE CLOCK, AND NOT ONLY FOR THE SKY. `performance.now` is also what drives the dynamic
+// resolution dial and `PERF_DS`, and both are per-CANVAS state that `sceneFor` caches by element id
+// and keeps across a page reload. Measured on a live clock the two canvases shed resolution at
+// different rates, the comparison silently starts holding a 576-wide frame against a 640-wide one,
+// and every scene reports a fidelity regression that is really a scale mismatch. That cost most of
+// an afternoon and produced a "road scenes are 35% wrong" finding that was never true. A frozen
+// clock pins frameMs at 0, which pins resTarget at 1 and PERF_DS at 0 — so the dial is held by the
+// same trick that already holds the weather.
+//
+// ⚠ AND THE CANVAS GETS AN EXPLICIT CSS SIZE. Without one its layout size follows its width
+// ATTRIBUTE, which paintWindshield rewrites — so on a hidpi display every frame resizes the canvas
+// from the size the last frame gave it, and the harness spirals instead of measuring.
+const FLOOR_SCENES = (R) => ({
+  city: () => ({ kind: 'land', biome: 'citycore', flr: 0 }),
+  park: () => ({ kind: 'land', biome: 'parkland', flr: 0 }),
+  scrub: () => ({ kind: 'land', biome: 'scrub', flr: 0 }),
+  redrock: () => ({ kind: 'land', biome: 'redrock', flr: 0 }),
+  // Water dead ahead, land behind: the swell, the glitter path, the surf band and the shore emboss
+  // are all placed against waterness, so a coast has to be IN the frame for any of them to be read.
+  sea: (x, y) => (y <= R ? { kind: 'water', biome: 'water' } : { kind: 'land', biome: 'parkland', flr: 0 }),
+  // Unbuilt tiles ahead, so what gets measured is fillOffMap's wildlands extension.
+  offmap: (x, y) => (y > R - 4 ? { kind: 'land', biome: 'scrub', flr: 0 } : null),
+  road: (x, y) => {
+    const dx = x - R;
+    if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+    if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+    if ((x + y) % 4 === 0) return { kind: 'land', biome: 'parkland', flr: 0 };
+    return { kind: 'land', biome: 'citycore', flr: 0 };
+  },
+  town: (x, y) => {
+    const dx = x - R;
+    if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+    if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+    return { kind: 'land', biome: 'citycore', bt: 'shop', bn: 'S' + x + '_' + y, ent: 'west', flr: 3 };
+  },
+});
+
+export function runFloor({ W = 640, H = 360, R = 20, hours = [13, 2] } = {}) {
+  const realNow = performance.now.bind(performance);
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const mk = (id) => {
+    const c = document.createElement('canvas');
+    c.id = id; c.width = W; c.height = H;
+    c.style.width = W + 'px'; c.style.height = H + 'px';
+    holder.append(c); return c;
+  };
+  const a2 = mk('__floor2d'), aG = mk('__floorGL');
+  document.body.append(holder);
+  // The hook hands back whichever canvas is being painted, so one install serves both.
+  let live = a2;
+  const uninstall = installGL(() => live);
+  performance.now = () => 1e6;
+  const N = R * 2 + 1, S = FLOOR_SCENES(R);
+  const rows = [];
+  try {
+    for (const [name, fn] of Object.entries(S)) {
+      for (const hour of hours) {
+        const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => fn(x, y)));
+        const view = {
+          cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour,
+          weather: 'clear', speed: 0.4, map, heading: 0, mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        };
+        RENDER_TUNE.gl = 1;
+        // Painted twice on each side: the first frame builds every lazy cache the renderer has.
+        live = a2; RENDER_TUNE.glFloor = 0;
+        paintWindshield('__floor2d', view); paintWindshield('__floor2d', view);
+        live = aG; RENDER_TUNE.glFloor = 1;
+        paintWindshield('__floorGL', view); paintWindshield('__floorGL', view);
+        RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
+        if (a2.width !== aG.width || a2.height !== aG.height) {
+          rows.push({ scene: name + '@' + hour, badPct: 'SIZE ' + a2.width + '/' + aG.width, meanPct: '-' });
+          continue;
+        }
+        const A = a2.getContext('2d').getImageData(0, 0, a2.width, a2.height).data;
+        const B = aG.getContext('2d').getImageData(0, 0, aG.width, aG.height).data;
+        let bad = 0, sum = 0, n = 0;
+        for (let i = 0; i < A.length; i += 4) {
+          const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
+          n++; sum += d; if (d > 24) bad++;
+        }
+        rows.push({ scene: name + '@' + hour, badPct: +(bad / n * 100).toFixed(2), meanPct: +(sum / n / 255 * 100).toFixed(2) });
+      }
+    }
+  } finally {
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0; performance.now = realNow; uninstall(); holder.remove();
+  }
+  const worst = rows.reduce((m, r) => (typeof r.badPct === 'number' && r.badPct > m ? r.badPct : m), 0);
+  console.table(rows);
+  console.log('   worst scene ' + worst + '% of pixels differing by more than 24 levels, over ' + rows.length + ' scenes');
+  return { rows, worst };
+}
+
+// ── AND WHAT DOES THE GROUND COST? ───────────────────────────────────────────
+//
+// `__glFloorCost()`. The Mode-7 raster is a fixed per-pixel software loop and it is the single
+// biggest thing in the frame — which is the whole reason `PERF_DS` exists — so the number that
+// matters is wall clock, and unlike the fidelity run this one cannot freeze the clock.
+//
+// ⚠ SO THE RESOLUTION DIAL IS PINNED BY HAND INSTEAD (`resFloor: 1`, `perfDS: 0`). Left alone, the
+// slow renderer sheds resolution and the fast one does not, and the comparison flatters whichever
+// side is already losing: it measures the dial rather than the floor.
+export function runFloorCost({ W = 640, H = 360, R = 20, frames = 40 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__floorCost'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const N = R * 2 + 1, S = FLOOR_SCENES(R);
+  const rows = [];
+  const perf = RENDER_TUNE.perfDS;
+  try {
+    RENDER_TUNE.perfDS = 0;
+    for (const name of ['city', 'town', 'sea', 'road']) {
+      const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => S[name](x, y)));
+      const view = {
+        cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour: 13,
+        weather: 'clear', speed: 0.4, map, heading: 0, mapCenter: { x: 100, y: 100 },
+        mapOffset: { x: 0.2, y: -0.3 }, resFloor: 1,
+      };
+      const run = (g, f) => {
+        RENDER_TUNE.gl = g; RENDER_TUNE.glFloor = f;
+        for (let i = 0; i < 12; i++) paintWindshield('__floorCost', view);
+        const t0 = performance.now();
+        // The heading walks, so nothing measures a frame whose every cache is already warm for
+        // exactly that camera - which is not a frame anybody ever flies.
+        for (let i = 0; i < frames; i++) paintWindshield('__floorCost', { ...view, heading: i * 0.7 });
+        return +((performance.now() - t0) / frames).toFixed(2);
+      };
+      const g1 = run(0, 0), g2 = run(1, 0), g2f = run(1, 1);
+      rows.push({
+        scene: name, 'GLASS 1': g1, 'GLASS 2, 2-D floor': g2, 'GLASS 2, GPU floor': g2f,
+        speedup: +(g1 / Math.max(0.01, g2f)).toFixed(1) + 'x',
+      });
+    }
+  } finally {
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0; RENDER_TUNE.perfDS = perf; uninstall(); holder.remove();
+  }
+  console.table(rows);
+  console.log('   ms per frame at ' + W + 'x' + H + '; the middle column is why the floor had to follow the mass');
+  return rows;
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; }

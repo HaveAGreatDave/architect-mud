@@ -187,6 +187,25 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     ? { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy }
     : cam;
   g.view.draw(camAt, { ...(opts.draw || {}), cssH });
+  // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
+  // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
+  // It cost an afternoon: the result looked like a floor (the backstop wash showed through the
+  // cleared canvas), it was smoothly graded and uniformly dark, and it ignored a debug uniform
+  // wired straight into its own fragment output, which is what finally gave it away.
+  //
+  // Drawing it after costs nothing, because the floor WRITES depth and TESTS it: where a building
+  // is nearer the floor loses the fragment, which is the same picture the other order would have
+  // given if the clear had not been in the way.
+  const floor = g.view.drawFloor(opts.floor);
+  // ⚠ AFTER THE FLOOR AND IN THE WINDOW FRAME. The road quads are recorded at their map-window
+  // tile exactly as the mesh is, so they take the SHIFTED camera; handing them the plain one
+  // would slide the kerbs a fraction of a tile off the buildings standing on them. They also
+  // stand ON the floor rather than being it — see the eps ladder in windshield.js.
+  const ground = g.view.drawGround(camAt, opts.ground, cssH, {
+    // No haze band: the per-quad alpha already carries drawGroundSurfaces own far fade, and
+    // applying the window dissolve on top would fade the road twice.
+    fog: opts.fogBand,
+  });
   // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window
   // tiles so it can be cached; a light is collected fresh every frame from the arm that owns it,
   // in the camera-relative coordinates the arm works in. So it takes the plain camera, and the
@@ -199,6 +218,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
   // the anchor depth and a billboard that did not would be a different bush at every distance.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand);
-  return { faces: g.faces || 0, builds, lights, curtains, decals, scatter, canvas: g.canvas };
+  return { faces: g.faces || 0, builds, lights, curtains, decals, scatter, ground, floor, canvas: g.canvas };
 }
 

@@ -173,6 +173,13 @@ export const RENDER_TUNE = {
   // is not "is fast on an integrated GPU", and the first knob if it ever measures slower
   // somewhere is `antialias` in createGLView: the 2-D canvas has no MSAA, so GL is buying
   // smoother edges nobody asked for at full-frame cost.
+  // ── THE GROUND, ON THE GPU ──
+  // 1 = drawMode7Floor hands its per-tile LUT and its camera to a fragment shader instead of
+  // rastering the floor itself. Off by default because the port is INCOMPLETE: the base, the
+  // coast warp, the materials and the haze are there; water, the arid ripple, the near grain and
+  // the aerial-perspective wash are not. Over dry land it matches; over sea it does not, and a
+  // flag is how that stays honest.
+  glFloor: 0,
   gl: 1,
   mount: 1,
   shapeShadow: 1,
@@ -1677,6 +1684,10 @@ export function paintWindshield(id, view) {
     if (worldBlend > 0.02) {
       ctx.save(); ctx.globalAlpha = worldBlend;
       pBegin('surfaces');
+      // Opened only when GLASS 2 will actually run: with no hook installed the pass never reads
+      // it, and a sink left filling for nobody is the "city of floating lights" failure again.
+      GROUND_MESH = (TUNE.gl && GL_HOOK) ? [] : null;
+      GROUND_FULL = !!(GROUND_MESH && TUNE.glFloor);
       drawGroundSurfaces(ctx, cam, vw, sky, now);
       // THE HEADLIGHTS ON THE ROAD ITSELF. Between the ground and the buildings on purpose: the beam
       // is on the ground plane, so anything that stands up out of it must be able to occlude it.
@@ -1728,7 +1739,7 @@ export function paintWindshield(id, view) {
       console.error('[windshield] GLASS 2 threw inside the world pass — switching it off and finishing in 2-D', e);
       RENDER_TUNE.gl = 0;
     }
-    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
+    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
     if (worldBlend > 0.02) {
       // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
       // ground, projected through the world camera — so parked in a depot bay it was drawn
@@ -4875,6 +4886,31 @@ function rememberOffLand(LUT, R, wcy, st) {
 // caller that synthesises its own map per frame (the truck corridor) simply never hits — no
 // regression, since that is what every caller did before.
 let _lutSlot = null;   // fallback slot for callers with no scene state
+// The LUT as two RGBA planes for the floor shader. groundLUT already caches on the map, the
+// window centre, the sun and the sky and hands back the SAME object when nothing has moved — so
+// the cheapest correct key is that object`s own identity, and a frame standing still re-uploads
+// nothing. Hillshade is a multiplier around 1, so it is stored halved and doubled on the way out.
+let _floorTexCache = { lut: null, n: 0, lut0: null, lut1: null, tag: 0 };
+let _floorTexTag = 0;
+function floorLutBytes(LUT, mh) {
+  if (_floorTexCache.lut === LUT && _floorTexCache.n === mh) return _floorTexCache;
+  const n = mh, a0 = new Uint8Array(n * n * 4), a1 = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) {
+    const row = LUT[y];
+    for (let x = 0; x < n; x++) {
+      const e = (row && row[x]) || null, o = (y * n + x) * 4;
+      if (!e) { a0[o] = 40; a0[o + 1] = 60; a0[o + 2] = 90; a0[o + 3] = 255; a1[o + 1] = 128; continue; }
+      a0[o] = e[0] | 0; a0[o + 1] = e[1] | 0; a0[o + 2] = e[2] | 0;
+      a0[o + 3] = Math.max(0, Math.min(255, Math.round((e[3] || 0) * 255)));
+      a1[o] = Math.max(0, Math.min(255, Math.round((e[4] || 0) * 255)));
+      a1[o + 1] = Math.max(0, Math.min(255, Math.round((e[5] == null ? 1 : e[5]) * 0.5 * 255)));
+      a1[o + 2] = Math.max(0, Math.min(255, Math.round((e[6] || 0) * 255)));
+      a1[o + 3] = 255;
+    }
+  }
+  _floorTexCache = { lut: LUT, n, lut0: a0, lut1: a1, tag: ++_floorTexTag };
+  return _floorTexCache;
+}
 function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
   const store = st || (_lutSlot = _lutSlot || {});
   const c = store._lut;
@@ -5030,6 +5066,32 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   const rotor = isHeli ? clamp(((v.propSpin || 0) - 0.1) / 0.9, 0, 1) : 0;
   const heliDown = isHeli && !onDeck ? clamp(1 - (v.height || 0) / 0.16, 0, 1) * rotor : 0;
   const dcx = off ? off.x : 0, dcy = off ? off.y : 0;
+  // ── HANDED TO THE GPU INSTEAD OF RASTERED ──────────────────────────────────
+  // Every term below is the one the texel loop was about to use; nothing is re-derived, because a
+  // floor drawn from a slightly different camera is a floor the buildings do not stand on.
+  // ⚠ IT SITS HERE, AT THE BOTTOM OF THE SETUP, AND NOT AT THE TOP. The swell scroll, the sun
+  // and moon bearings and the rotor downwash are all computed in the twenty lines above it, and an
+  // early return placed before them hands the shader a sea with no glitter and a heli with no
+  // wash - which looks exactly like the shader not implementing them.
+  if (TUNE.glFloor && GL_HOOK && LUT) {
+    FLOOR_STATE = {
+      ...floorLutBytes(LUT, mh),
+      EH, horizonY, depth, cx, halfW: W / 2, LAT, sinh, cosh, ax, ay,
+      dpr: _frameDpr, viewH: H * _frameDpr, R,
+      hor: [hor[0] / 255, hor[1] / 255, hor[2] / 255], hz, hazeMax, nm,
+      freq: FREQ, cwarp: cwarpOn ? cwarp : 0, wcx, wcy, seamEB: M7_SEAM_EB,
+      // The N64 fog band is the BUILDING pass's own, shared here so the ground and the skyline
+      // dissolve at one rate rather than two.
+      fogAmt: FOG, fogNear: FOG_NEAR, fogFar: FOG_FAR, fogCol: [fogR / 255, fogG / 255, fogB / 255],
+      t, ssx: ssX, ssy: ssY,
+      sunDir: sun && sun.dir ? sun.dir : [0, 0], sunElev: sun ? (sun.elev || 0) : 0,
+      moonDir: sun && sun.moonDir ? sun.moonDir : [0, 0], moonElev: sun ? (sun.moonElev || 0) : 0,
+      night: sun ? (sun.night || 0) : 0,
+      heliDown, rotor, dcx, dcy,
+      debug: RENDER_TUNE.glFloorDebug | 0,
+    };
+    return;
+  }
   for (let by = 0; by < usedH; by++) {
     const p = Math.max(0.004, (yTop + by * DS - horizonY) / depth);
     const d = EH / p;
@@ -7500,6 +7562,17 @@ let GROUND_SINK = null;
 // for why a probe cannot do this job: a tree whose base is clear of a tower while its canopy
 // leans across it is the common case, and the probe answers it "draw".
 let SCATTER_SINK = null;
+// The ROAD SURFACE, collected as flat world quads instead of filled on the canvas. Measured with
+// scripts/shapes/armcost.mjs: with the mass on the GPU, 97% of the calls a frame still makes are
+// path construction, and `stripeA` — the helper under every road surface, pavement, lane line and
+// dash — is roughly twelve thousand of them. Buildings, by then, cost almost nothing.
+let GROUND_MESH = null;
+// THE SURFACE MOVES ONLY WHEN THE FLOOR DOES. With the 2-D raster underneath, the GL canvas is
+// transparent over the ground, so a road left on the canvas shows through exactly as it always
+// has; move it early and the kerb strokes drawn on top of it get blitted over instead.
+let GROUND_FULL = false;
+// What drawMode7Floor would have rastered, as uniforms plus two LUT planes. See gl/floor.js.
+let FLOOR_STATE = null;
 // A species is baked ONCE, at this depth. propS is k/f, so the same shape at depth f is this
 // drawing scaled by 1/f — which is what lets one texture serve every distance.
 const BB_F = 1;
@@ -7826,6 +7899,21 @@ function cssRgb(c) {
   if (_cssRgb.size > 4096) _cssRgb.clear();
   _cssRgb.set(c, v);
   return v;
+}
+// cssRgb RETURNS A TRIPLE AND DROPS THE ALPHA, and most of what lies flat on the ground is
+// painted with one - a kerb at rgba(...,0.55) comes out solid on the GPU, which reads as a road
+// whose every line has just been repainted. Parsed here rather than by widening cssRgb, whose
+// callers all want the opaque colour.
+function styleRgbA(style) {
+  const rgb = cssRgb(style);
+  if (!rgb) return null;
+  const str = String(style), ai = str.indexOf('rgba(');
+  let a = 1;
+  if (ai >= 0) {
+    const parts = str.slice(ai + 5, str.indexOf(')', ai)).split(',');
+    if (parts.length > 3) { const pv = parseFloat(parts[3]); a = Number.isFinite(pv) ? Math.max(0, Math.min(1, pv)) : 1; }
+  }
+  return { rgb, a };
 }
 function cssRgbRaw(c) {
   if (c[0] === '#') {
@@ -12347,7 +12435,9 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     // haze at the horizon instead of a hard line snapping in. The fade reaches zero AT the limit,
     // whatever the limit turns out to be, so no window size can leave an edge behind.
     ctx.globalAlpha = baseAlpha * clamp((FAR - f) / 6, 0, 1);
-    const corner = (sx, sy) => cam.proj(dx + sx * 0.5, dy + sy * 0.5, 0);
+    // The world point rides along with the projected one: a kerb is a stroke between two corners,
+    // and on the GPU it is a quad between the same two corners.
+    const corner = (sx, sy) => { const p = cam.proj(dx + sx * 0.5, dy + sy * 0.5, 0); p.wx = (rx - R) + sx * 0.5; p.wy = (ry - R) + sy * 0.5; return p; };
     const P0 = corner(-1, -1), P1 = corner(1, -1), P2 = corner(1, 1), P3 = corner(-1, 1);
     // Solid fill — hard, opaque, no fade. Runway concrete reads a touch lighter than road tar.
     // A `ft:'dust'` field paints as graded dirt instead: warm ochre with a cheap per-tile jitter
@@ -12370,13 +12460,44 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     ctx.fillStyle = dust ? DUST[Math.floor(_vn2h(wx, wy) * 3) % 3]
       : worn ? WORN[Math.floor(_vn2h(wx, wy) * 4) % 4]
       : surf === 'field' ? '#3a3e46' : '#2b2f36';
-    ctx.beginPath(); ctx.moveTo(P0.sx, P0.sy); ctx.lineTo(P1.sx, P1.sy); ctx.lineTo(P2.sx, P2.sy); ctx.lineTo(P3.sx, P3.sy); ctx.closePath(); ctx.fill();
+    // THE TARMAC HAS TO TRAVEL WITH THE PAINT ON IT. Until the floor moved to the GPU it did not:
+    // the GL canvas is blitted over everything the 2-D pass has drawn so far, and it was
+    // transparent over the ground, so the road underneath simply showed through. An opaque floor
+    // above it hides the surface and leaves the lane markings hanging in the grass - which is
+    // exactly what a road scene measured as, 3.6% against the 2-D floor and 35% against this one.
+    // In the MAP WINDOW's frame, like the markings: dx/dy are camera-relative, so the sub-tile
+    // offset goes back on.
+    if (GROUND_FULL) {
+      const WQ = (sx, sy, z) => [(rx - R) + sx * 0.5, (ry - R) + sy * 0.5, z];
+      const sq = styleRgbA(ctx.fillStyle);
+      if (sq) GROUND_MESH.push({ p: [WQ(-1, -1, SURF_EPS), WQ(1, -1, SURF_EPS), WQ(1, 1, SURF_EPS), WQ(-1, 1, SURF_EPS)],
+        rgb: sq.rgb, a: sq.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha) });
+    } else {
+      ctx.beginPath(); ctx.moveTo(P0.sx, P0.sy); ctx.lineTo(P1.sx, P1.sy); ctx.lineTo(P2.sx, P2.sy); ctx.lineTo(P3.sx, P3.sy); ctx.closePath(); ctx.fill();
+    }
     // Hard kerb edge: stroke each boundary that faces a non-matching surface.
     const nN = kindOf(at(rx, ry - 1)) === surf, nS = kindOf(at(rx, ry + 1)) === surf;
     const nW = kindOf(at(rx - 1, ry)) === surf, nE = kindOf(at(rx + 1, ry)) === surf;
     ctx.strokeStyle = dust ? 'rgba(150,124,74,0.55)' : surf === 'field' ? 'rgba(224,228,234,0.8)' : 'rgba(198,203,209,0.7)';
     ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
-    const edge = (a, b) => { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); };
+    // A 1.5 px stroke is a SCREEN width and a quad is a WORLD one, so the half-width is solved for
+    // the tile's own distance: sx = cx + FL*(l/f), so 0.75 px is 0.75*f/FL tiles across. Clamped at
+    // both ends, because a tile at the near plane would want a kerb wider than the road and one at
+    // the far edge a kerb thinner than a pixel, which aliases into a dotted line.
+    const KHW = Math.max(0.004, Math.min(0.05, 0.75 * Math.max(f, 0.2) / cam.FL));
+    const edge = (a, b) => {
+      if (GROUND_FULL) {
+        const ex = b.wx - a.wx, ey = b.wy - a.wy, L = Math.hypot(ex, ey) || 1;
+        const nx = -ey / L * KHW, ny = ex / L * KHW;
+        const sk = styleRgbA(ctx.strokeStyle);
+        if (sk) GROUND_MESH.push({
+          p: [[a.wx + nx, a.wy + ny, ROAD_EPS], [b.wx + nx, b.wy + ny, ROAD_EPS],
+              [b.wx - nx, b.wy - ny, ROAD_EPS], [a.wx - nx, a.wy - ny, ROAD_EPS]],
+          rgb: sk.rgb, a: sk.a * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha) });
+        return;
+      }
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    };
     // A road running at an angle to the grid gets NO kerb. The test above asks "is my neighbour the
     // same surface", which on a diagonal band answers no along a staircase of tile edges — and a
     // stroked staircase is the single most obvious way to make a curve look like a mistake. Out
@@ -12404,6 +12525,24 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     const RK = RA ? (c.rw || 0.5) / 0.5 : 1;
     const stripeA = (A, off, hw, aLo, aHi, style) => {
       const Px = A[1], Py = -A[0];
+      // ⚠ RECORDED IN THE MAP WINDOW’S FRAME, not the camera’s. `dx`/`dy` are already camera-
+      // relative, so the sub-tile offset is added back — the same frame the building mesh is
+      // built in, which is what lets one shifted camera draw both and keeps a kerb under the wall
+      // that stands on it.
+      if (GROUND_MESH) {
+        // The alpha matters as much as the colour here - see styleRgbA.
+        const sp = styleRgbA(style);
+        const gc = sp && sp.rgb, sa = sp ? sp.a : 1;
+        // A gradient or a pattern has no single colour; those fall through and paint as they did.
+        if (gc) {
+          const Wp = (a, o) => [dx + cam.ox + A[0] * a + Px * o, dy + cam.oy + A[1] * a + Py * o, ROAD_EPS];
+          // ctx.globalAlpha is the per-tile distance fade the caller already set; folding it in here
+          // is what makes the GPU road the same road rather than a brighter one.
+          GROUND_MESH.push({ p: [Wp(aLo, off - hw), Wp(aLo, off + hw), Wp(aHi, off + hw), Wp(aHi, off - hw)],
+            rgb: gc, a: sa * (ctx.globalAlpha == null ? 1 : ctx.globalAlpha) });
+          return;
+        }
+      }
       const q = (a, o) => cam.proj(dx + A[0] * a + Px * o, dy + A[1] * a + Py * o, 0);
       const c0 = q(aLo, off - hw), c1 = q(aLo, off + hw), c2 = q(aHi, off + hw), c3 = q(aHi, off - hw);
       if ([c0, c1, c2, c3].some(p => p.f <= 0.05)) return;
@@ -21491,7 +21630,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     pBegin('world:gl');
     try {
       const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, worldBlend: WORLD_BLEND,
-        curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, now,
+        curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         fogNear: FOG_NEAR, fogFar: FOG_FAR,
         // The frame's own CSS size, because that is the unit `cam.horizonY` and `cam.depth` are in.
         // The GL canvas is in DEVICE pixels, and dividing one by the other to recover this rounds.
@@ -21507,7 +21646,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
-    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null;
+    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; FLOOR_STATE = null;
   }
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
@@ -23067,6 +23206,18 @@ function convexHull2D(pts) {
 // clamp draw3DBoxAt applies internally — so every wide model already cast a shadow wider than the
 // building. And the cast height was the storey stack `h`, not the model's real roof, so an office
 // tower drawn to 1.7h threw a shadow sized for 1.0h. Both come out right from the segments.
+// A shadow lies ON the road, so on the depth buffer it needs a hair of lift or the two coplanar
+// surfaces stipple against each other. Same reasoning as FACE_EPS, same order of magnitude.
+// ⚠ THREE SURFACES SHARE THE GROUND PLANE, so they need an order rather than a coin toss. The
+// floor is the plane itself at 0; the road is painted ON the floor; a shadow falls ON the road.
+// Coplanar in a depth buffer is a stipple, and once the floor became real geometry the road began
+// fighting it — a 3.6% scene went to 35% the moment the ground stopped being a 2-D backdrop.
+// FOUR SURFACES, NOT THREE: the tarmac is not the markings painted on it. The tile fill and the
+// lane paint were one thing while both were canvas strokes in one queue; on a depth buffer the
+// paint has to beat the surface it is painted on, so the surface takes a step of its own.
+const SURF_EPS = 0.0008;
+const ROAD_EPS = 0.002;
+const SHADOW_EPS = 0.004;
 function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E) {
   let corners = null, topZ = h;
   if (segs && segs.length) {
@@ -23080,6 +23231,25 @@ function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E) {
   if (!corners) corners = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];   // footprint square (building-local)
   const sd = sun.shadowDir, off = clamp(topZ * sun.len, 0.15, 3.5);
   const ox = sd[0] * off, oy = sd[1] * off;   // where the roof lands on the ground, cast from the top
+  // ⚠ ON THE GPU THE HULL IS TAKEN IN WORLD SPACE, and that is exact rather than convenient: a
+  // shadow is a PLANAR convex polygon on z=0, and a planar convex polygon stays convex under a
+  // projective transform — so the hull of the projected corners and the projection of the world
+  // hull are the same shape. Taking it in the world skips two projections per corner and, more
+  // usefully, removes the near-plane bail: a building whose footprint straddles the eye kept its
+  // whole shadow off the frame here, where the GPU simply clips it.
+  if (GROUND_MESH) {
+    const wp = [];
+    for (const [cx, cy] of corners) wp.push([dx + cam.ox + cx, dy + cam.oy + cy]);
+    for (const [cx, cy] of corners) wp.push([dx + cam.ox + cx + ox, dy + cam.oy + cy + oy]);
+    const wh = convexHull2D(wp);
+    if (wh.length >= 3) GROUND_MESH.push({
+      // Lifted a hair off the road it lies on. Two coplanar surfaces z-fight into a stipple, and
+      // this is the same fix FACE_EPS is for on a wall-mounted part.
+      p: wh.map(([px, py]) => [px, py, SHADOW_EPS]),
+      rgb: [8, 10, 14], a: clamp(sun.alpha * alpha, 0, 0.4), over: true,
+    });
+    return;
+  }
   const scr = [];
   for (const [cx, cy] of corners) { const p = cam.proj(dx + cx, dy + cy, 0); if (p.f <= 0.06) return; scr.push([p.sx, p.sy]); }
   for (const [cx, cy] of corners) { const p = cam.proj(dx + cx + ox, dy + cy + oy, 0); if (p.f <= 0.06) return; scr.push([p.sx, p.sy]); }
