@@ -7858,10 +7858,15 @@ function groundHidden(cam, dx, dy, f) {
 // what a bake wants.
 const _markBakes = new Map();
 const MARK_BAKE_PAD = 6;
-function markBillboard(cam, dx, dy, topZ, halfW, key, paint) {
+// `nearF` is how close the quad may be trusted. The single depth is an approximation whose error
+// is the object’s own depth against its distance, so a thin thing is exact almost immediately and
+// a shed you drive THROUGH never is. Inside it the caller falls back to the canvas, where being
+// near also means almost nothing can get between you and it.
+function markBillboard(cam, dx, dy, topZ, halfW, key, paint, nearF = 1.5) {
   if (!SCATTER_SINK) return false;
   const base = cam.proj(dx, dy, 0), crown = cam.proj(dx, dy, topZ);
   if (!(base.f > 0.12)) return true;                       // behind the eye: nothing to draw, and nothing to fall back to
+  if (base.f < nearF) return false;
   const rPx = halfW * cam.FL / Math.max(0.25, base.f);
   const x0 = Math.floor(base.sx - rPx - MARK_BAKE_PAD), x1 = Math.ceil(base.sx + rPx + MARK_BAKE_PAD);
   const y0 = Math.floor(crown.sy - MARK_BAKE_PAD), y1 = Math.ceil(base.sy + MARK_BAKE_PAD);
@@ -8966,18 +8971,27 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
         const aA = lerp3(wbA, wfA, 0.45), aB = lerp3(wbB, wfB, 0.45);
         gq([wbA, wbB, aB, aA], tone(footCol, m, nlS), [s0, s0, s45, s45]);
         gq([aA, aB, wfB, wfA], tone(footCol, m, nlS), [s45, s45, s1, s1]);
-        // ⚠ THE FACE DETAIL STAYS ON THE CANVAS, and that is a decision rather than an omission.
-        // The strata, the gully and the rim line are STROKES — a hairline is not geometry, and a
-        // one-pixel line has no width to give a triangle. They keep their own near gate and clip
-        // to the same projected face they always did, so what is left on the 2-D queue is a few
-        // hundred pixels of hairline rather than the whole massif.
-        // ⚠ AND THE HAIRLINES PROBE THEIR OWN QUAD. Left alone they are the whole leak the mass
-        // just stopped being - 746 px of a 1,559 px massif, because a stroke queued after the
-        // composite crosses a building as readily as a wall did. This is the one place in the
-        // file where the probe can be EXACT rather than generous: the face has already been
-        // projected, so the box handed over is the segment itself and not an estimate of it.
-        if (facing && !(GL_CELLS && decoHidden(upper))) add(dU, () => {
-          if (fine) {
+        // ⚠ THE RIM LINE IS GEOMETRY AFTER ALL. Its own comment says it reads at any distance — a
+        // hard bright edge along the very top is what sells a drop rather than a slope — so left
+        // on the canvas it was the most visible stroke on the massif crossing whatever stood in
+        // front of it. A line has no width to give a triangle, but it has a SCREEN width, and
+        // that solves for a world one exactly as the kerbs do: 1.4 px is 1.4 * f / FL tiles down
+        // the face at this distance.
+        if (facing) {
+          const rth = Math.max(0.004, Math.min(0.06, 1.4 * tA.f / cam.FL));
+          const rimA = [wtA[0], wtA[1], wtA[2] - rth], rimB = [wtB[0], wtB[1], wtB[2] - rth];
+          const rimCol = tone(capBase, m, 1.34), rc = gcol(rimCol);
+          gq([wtA, wtB, rimB, rimA], rimCol, [rc, rc, rc, rc]);
+        }
+        // ⚠ AND THE FINE DETAIL KEEPS A NEARER GATE THAN GLASS 1 GIVES IT. Strata and a gully are
+        // hairlines clipped to the face, and a stroke queued after the composite crosses a
+        // building as readily as a wall did: they were the whole 214 px that survived the mass
+        // moving to the GPU. They probe their own projected quad, which is the one place in this
+        // file where the probe is EXACT rather than generous — and an all-or-nothing answer still
+        // draws a segment straddling a gap whole. Past ten tiles they are two shades of the same
+        // rock, so GL stops paying for them there. `fine` is untouched: GLASS 1 is unchanged.
+        if (facing && fine && cen.f < 10 && !(GL_CELLS && decoHidden(upper))) add(dU, () => {
+          {
             ctx.save(); trace(upper); ctx.clip();
             const on = (Pp, zs) => {
               const zb = Pp.h * BENCH, t = clamp((Pp.h - zs) / Math.max(1e-4, Pp.h - zb), 0, 1);
@@ -8996,8 +9010,6 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
             ctx.stroke();
             ctx.restore();
           }
-          ctx.strokeStyle = tone(capBase, m, 1.34); ctx.lineWidth = 1.4;
-          ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.stroke();
         });
         continue;
       }
@@ -21660,7 +21672,13 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (it.c.mark === 'strip') { if (markHidden(cam, it.dx, it.dy, 0.30, 0.55)) continue; emitFace(od, () => drawStripMarks(ctx, cam, it.dx, it.dy, it.c.strip, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, it.seed)); continue; }
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
-    if (it.c.mark === 'bay') { if (markHidden(cam, it.dx, it.dy, 0.62, 0.60)) continue; emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
+    if (it.c.mark === 'bay') {
+      const art = (g) => drawVehicleBay(g, cam, it.dx, it.dy, it.c, night, alpha, now);
+      // Five tiles: a bay is a whole tile deep and you drive INTO it, so the anchor depth is only
+      // the shed’s depth once the shed is small. Inside that, the canvas.
+      if (markBillboard(cam, it.dx, it.dy, 0.95, 0.75, 'lm:bay:' + it.wx + ',' + it.wy, art, 5)) continue;
+      if (markHidden(cam, it.dx, it.dy, 0.62, 0.60)) continue;
+      emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
     if (it.c.mark === 'yacht') {
       // Normally she's drawn on her own tile (with a sub-tile glide while under way). While we're
       // PARKED on her deck (our own tile AND on the ground) we pin her AFT HELIPAD (yacht-local
