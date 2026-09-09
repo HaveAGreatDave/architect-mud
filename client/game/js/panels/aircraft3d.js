@@ -2330,10 +2330,20 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   // (fades in on throttle, fades out first on shutdown). A soft fade near zero avoids a hard pop.
   const dFade = clampN(disc * 3.5, 0, 1);
   if (dFade > 0.01) {
+    // ⚠ THE SEGMENT COUNT IS SOLVED FOR THE DISC’S SCREEN SIZE, and a fixed sixteen is what
+    // "the propeller has blockiness around it, lighter than the rest of the view" was. From the
+    // pilot’s seat this disc is drawn at H * 0.62 — a 223 px radius on a 360 px frame — and a
+    // 16-gon at that radius has an 87 px flat edge, filled with a pale wash. It reads as a
+    // faceted lighter shape sitting over the windscreen, which is exactly what was reported.
+    // The error that matters is the SAGITTA, not the chord: r(1 - cos(pi/N)), so holding it under
+    // 0.4 px needs N >= pi * sqrt(r / 0.8) — about 52 segments head-on in a cockpit and about 22
+    // for a contact’s prop across the valley, which is the point of solving it rather than
+    // picking a bigger constant. One path, one fill, one stroke, whatever N is.
+    const NS = Math.max(16, Math.min(96, Math.ceil(Math.PI * Math.sqrt(Math.max(1, rpx) / 0.8))));
     const rim = [];
-    for (let i = 0; i < 16; i++) { const q = at(i / 16 * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
+    for (let i = 0; i < NS; i++) { const q = at(i / NS * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
     ctx.beginPath(); ctx.moveTo(rim[0].sx, rim[0].sy);
-    for (let i = 1; i < 16; i++) ctx.lineTo(rim[i].sx, rim[i].sy);
+    for (let i = 1; i < NS; i++) ctx.lineTo(rim[i].sx, rim[i].sy);
     ctx.closePath();
     ctx.fillStyle = `rgba(205,216,226,${dFade * (0.06 + disc * 0.09)})`; ctx.fill();
     ctx.strokeStyle = `rgba(228,238,246,${dFade * (0.14 + disc * 0.16)})`; ctx.lineWidth = 1; ctx.stroke();
