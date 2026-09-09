@@ -15219,10 +15219,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   const nx = -uy / len * wpx, ny = ux / len * wpx;           // perpendicular half-width offset
   const P = [[b.sx + nx, b.sy + ny], [t.sx + nx, t.sy + ny], [t.sx - nx, t.sy - ny], [b.sx - nx, b.sy - ny]];
   const glow = glowEarned(night, (b.f + t.f) / 2);   // the bloom is the expensive half of neon
-  // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
-  // a back-corner blade's average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
-  // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
-  emitDeco([b, t], () => {
+  const paint = (ctx) => {
     const trace = () => { ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
     ctx.save();
     ctx.globalAlpha = alpha * (night ? 0.92 : 0.84); ctx.fillStyle = '#120d12'; trace(); ctx.fill();   // backing board
@@ -15243,7 +15240,26 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
       }
     }
     ctx.restore();
-  });
+  };
+  // ⚠ AND IT GOES ON THE DEPTH BUFFER IF THERE IS ONE, BECAUSE IT IS A SIGN ON A POLE AND THE
+  // PROBE CANNOT SEE IT. `decoHidden` asks whether the whole surface is behind something and
+  // answers "draw" when any part of it clears — which is right for a board on a wall and wrong
+  // for a blade standing proud of a roofline, where the anchor clears a warehouse in front while
+  // the blade itself does not. Measured behind a nine-storey warehouse: 201 leaked pixels on
+  // GLASS 2 at night against 0 on the canvas, where the painter’s queue buried it for free.
+  //
+  // ⚠ IT IS A BILLBOARD AND NOT A WORLD QUAD, which is why it goes to the scatter layer rather
+  // than to decals. Its half-width is in SCREEN pixels (`wpx`, clamped 2..9) — the blade keeps a
+  // legible thickness at any distance instead of dwindling to a hairline — so there are no world
+  // corners to hand over. `markBillboard` bakes it at the live camera exactly as the landmarks
+  // and the air contacts do, and hands back false when it cannot (too near, or the camera inside
+  // it), which is what keeps the canvas path below as the fallback rather than as a second copy.
+  const halfWTiles = wpx * ((b.f + t.f) / 2) / cam.FL;
+  if (markBillboard(cam, dx, dy, h1, halfWTiles, "nb:" + dx + "," + dy + ":" + (label || "") + ":" + color + ":" + (night ? 1 : 0), paint)) return;
+  // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
+  // a back-corner blade’s average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
+  // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
+  emitDeco([b, t], () => paint(ctx));
 }
 // A projecting LIT marquee — a SOLID triangular prism (the old marquee blade, filled in) that juts out
 // from the wall along the outward normal `N`. Its horizontal cross-section is a TRIANGLE with three
