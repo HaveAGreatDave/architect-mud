@@ -8260,6 +8260,14 @@ function mountedOn(depth, fn) {
 }
 function beginFaces() { FACE_SINK = []; }
 function emitFace(depth, fn) {
+  const _E = (typeof window !== "undefined") && window.__emitDbg;
+  if (_E) {
+    const fr = (new Error()).stack.split(String.fromCharCode(10)).slice(2, 10)
+      .map((l) => { const m = l.match(/at ([A-Za-z0-9_.$<>]+)/); return m ? m[1] : "?"; });
+    const keep = fr.filter((f) => f !== "?" && !/^(emitFace|emitDeco|emitFlat|Proxy|Object|Module)/.test(f));
+    const k = (keep.length ? keep : fr).slice(0, 2).join(" < ");
+    _E[k] = (_E[k] | 0) + 1;
+  }
   const d = MOUNT_D == null ? depth : Math.min(depth, MOUNT_D - MOUNT_EPS);
   if (FACE_SINK) { FACE_SINK.push({ d, fn }); if (PERF.on) PERF.n.faces++; } else fn();
 }
@@ -14732,7 +14740,20 @@ function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna m
   if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'spar', dx, dy, wz0: h0, wz1: h1 }); return; }
   if (ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const a = cam.proj(dx, dy, h0), b = cam.proj(dx, dy, h1);
-  if (a.f > 0.1 && b.f > 0.1) emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+  if (a.f > 0.1 && b.f > 0.1) {
+    const paint = (g) => { g.globalAlpha = alpha; g.strokeStyle = 'rgba(184,192,206,0.8)'; g.lineWidth = 1.1; g.beginPath(); g.moveTo(a.sx, a.sy); g.lineTo(b.sx, b.sy); g.stroke(); g.globalAlpha = 1; };
+    // ⚠ ON THE DEPTH BUFFER IF THERE IS ONE, for the reason the lattice tower and the neon blade
+    // are: `decoHidden` answers per SURFACE, and a mast anchored on a roof behind a warehouse
+    // still has its tip in clear air, so it answers "draw" for the whole wire. Measured on The
+    // Dynamo behind an eleven-storey warehouse: 25 leaked pixels at night and 48 by day, against
+    // 0 on the canvas, where the painter’s queue buried it.
+    // ⚠ A BAKE AND NOT THE MESH — this is a 1.1-PIXEL STROKE, not geometry. It has a screen width
+    // and no world thickness, so there is nothing to hand a triangle list.
+    // ⚠ The box can be tiny: `sx` carries no height term in this projection, so a, b and the ground
+    // point share an x exactly and the line is vertical on screen. The 6px pad does the work.
+    const mKey = "mst:" + dx + "," + dy + ":" + h0 + "," + h1;
+    if (!markBillboard(cam, dx, dy, h1, 0.01, mKey, paint)) emitDeco([a, b], () => paint(ctx));
+  }
   blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
 }
 function dish(ctx, cam, dx, dy, wz, s0, alpha) {   // rooftop satellite dish
@@ -18789,7 +18810,17 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         };
         // Interior at the pavilion's CENTRE depth → sorts behind the near (semi-transparent) glass
         // facets and in front of the far ones, so it reads as a lit lounge seen through the glass.
-        emitFace(cam.proj(lx, ly, lH * 0.4).f, () => {
+        // ⚠ THE PROBE IS NOT OPTIONAL, and this is the trap emitDeco exists to close: a caller
+        // that wants a DEPTH of its own reaches for emitFace and loses the occlusion test on the
+        // way past. It cost the two largest signs in the game their test once already. The lit
+        // lounge behind the glass is the same mistake — with the mass on the GPU nothing can paint
+        // over it, so the terminal interior showed through whatever stood in front of it. Measured
+        // behind an eleven-storey warehouse: 53 leaked pixels at night, 76 by day, against 0 on the
+        // canvas. Keeping emitFace and asking decoHidden by hand holds the depth EXACTLY where it
+        // was (the pavilion’s centre, so it sorts between the near and far glass) and adds nothing
+        // but the question.
+        const loungeD = cam.proj(lx, ly, lH * 0.4);
+        if (!decoHidden([loungeD])) emitFace(loungeD.f, () => {
           ctx.globalAlpha = alpha;
           const fp = cam.proj(lx, ly, 0.02);
           if (fp.f > 0.1) { const r = clamp(24 / fp.f, 6, 40), rg = ctx.createRadialGradient(fp.sx, fp.sy, 1, fp.sx, fp.sy, r); rg.addColorStop(0, 'rgba(255,222,166,0.55)'); rg.addColorStop(1, 'rgba(255,222,166,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(fp.sx, fp.sy, r, 0, 7); ctx.fill(); }   // warm floor pool
@@ -18815,7 +18846,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
           const P = (llx, lly, z) => { const [wx, wy] = F(llx, lly); return cam.proj(wx, wy, z); };
           const odw = hw * 0.58, oTop = wallTop * 0.82, inset = hw * 0.55;
           const o = [P(hxL - odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, oTop), P(hxL - odw, hw + 0.003, oTop)];
-          if (o.every(p => p.f > 0.1)) emitFace(o.reduce((s, p) => s + p.f, 0) / 4 - 0.002, () => {   // just proud of the wall → reads as cut into it
+          // ⚠ Same missing probe as the lounge above, and the same fix. The MEAN depth minus a hair
+          // is what makes this opening read as cut INTO the wall rather than stuck on it, so the
+          // depth stays exactly as it was and all that is added is the question.
+          if (o.every(p => p.f > 0.1) && !decoHidden(o)) emitFace(o.reduce((s, p) => s + p.f, 0) / 4 - 0.002, () => {   // just proud of the wall → reads as cut into it
             const trace = (pp) => { ctx.beginPath(); pp.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); };
             ctx.globalAlpha = alpha;
             ctx.fillStyle = night ? 'rgba(46,40,30,0.96)' : 'rgba(16,18,22,0.97)'; trace(o); ctx.fill();   // dark opening
