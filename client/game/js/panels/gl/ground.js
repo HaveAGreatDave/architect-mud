@@ -185,6 +185,37 @@ export function createGroundLayer(gl) {
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e9 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e9 : opts.hazeFar);
     gl.enable(gl.DEPTH_TEST);
+    // ── ⚠ THE EPS LADDER IS A WORLD LIFT AND THE DEPTH BUFFER IS NOT LINEAR ───
+    //
+    // Everything on this layer lies on the ground and is held off the floor shader by a lift in
+    // WORLD z — SURF_EPS 0.0008, ROAD_EPS 0.002, BEAM_EPS 0.003, SHADOW_EPS 0.004. A depth buffer
+    // does not store distance, it stores 1/distance, so what those lifts are worth collapses as
+    // 1/f². Measured on a 24-bit buffer at near 0.06 / far 400, in depth-buffer units:
+    //
+    //     tiles      road 0.002   shadow 0.004   surface 0.0008
+    //         4          126           251             50
+    //        10           20            40              8
+    //        20            5             10              2
+    //        40            1.3            2.5            0.5
+    //        80            0.3            0.6            0.1
+    //
+    // Under about one unit the test cannot tell the quad from the floor it lies on, so the road
+    // and the shadows z-fight — which reads as the road blinking between light levels and shadows
+    // coming and going. It never showed from a cab, where the road in front of you is five to
+    // thirty tiles out; it shows the moment the external view zooms back, because that pushes the
+    // whole scene further away and every lift in the ladder is worth less.
+    //
+    // A polygon offset is the fix rather than a bigger number: it biases in DEPTH-BUFFER units and
+    // scales with the polygon's own slope, so it is worth the same at four tiles and at eighty, and
+    // a ground plane seen nearly edge-on — the case that fails hardest — is exactly the case the
+    // slope term is for. ⚠ The ladder stays: it still orders these surfaces AGAINST EACH OTHER,
+    // where they are all at the same distance and the lift is still meaningful. This only settles
+    // the whole layer against the floor underneath it.
+    // ⚠ And it works because these quads let the rasteriser interpolate their depth. Polygon offset
+    // is ignored for a shader that writes gl_FragDepth, which the floor does — so the floor keeps
+    // its own exact depth and the layer above is biased toward the eye off it.
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(-1, -2);
     gl.depthMask(true);         // the road is a surface — see the ⚠ at the top
     gl.disable(gl.CULL_FACE);   // a road is looked at from above and from a cab at kerb height
     gl.enable(gl.BLEND);
@@ -203,6 +234,7 @@ export function createGroundLayer(gl) {
     }
     if (count > splitB) gl.drawArrays(gl.TRIANGLES, splitB, count - splitB);
     gl.depthMask(true);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.bindVertexArray(null);
     return count / 6;
   }
