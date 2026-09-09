@@ -939,7 +939,25 @@ export function paintWindshield(id, view) {
   const resCeil = Math.max(1, superTo / baseDpr);
   const resTarget = clamp(1 - ((st.frameMs || 16) - 20) / 44, resFloor, resCeil);   // full res ≤20ms (50fps); ramps to the 0.6 floor by ~46ms — engages EARLIER so it defends a 60fps target before the frame time has already collapsed. Above 1 only where a caller asked for supersampling AND the frames are cheap.
   st.resScale = st.resScale ? st.resScale + (resTarget - st.resScale) * 0.08 : resTarget;
-  const dpr = baseDpr * (Math.round(st.resScale * 10) / 10);
+  // ── AND THE STEP NEEDS HYSTERESIS, OR IT DITHERS ON THE EDGE ───────────────
+  //
+  // The 0.1 quantisation above is here so the backing store re-allocates only when the dial
+  // crosses a step rather than on every ±1px of drift — the comment says so. But re-rounding a
+  // moving average every frame does not give you that: a frame time that parks near a boundary
+  // puts `resScale` either side of it and the canvas resizes back and forth for as long as the
+  // load holds. Simulated on a hitchy 30 ms frame it settles between THREE levels (1.0, 0.9,
+  // 0.8) and changes eight times in three hundred frames — about twice a second — and every one
+  // of those re-renders the whole scene at a different sample density. On lane markings and
+  // kerbs, which are thin hard edges, that reads as the road blinking between light levels.
+  //
+  // ⚠ The dial is not oscillating and this is not a damping problem: the two EMAs are already
+  // well behaved and the value moves smoothly. It is the ROUNDING that is bistable, so damping
+  // it harder would only make the blink slower. What it needs is to remember which step it is
+  // on and refuse to leave until the dial has genuinely gone past it — a deadband wider than
+  // the dither and narrower than a step.
+  const wantStep = Math.round(st.resScale * 10) / 10;
+  if (st.resStep == null || Math.abs(st.resScale - st.resStep) > 0.075) st.resStep = wantStep;
+  const dpr = baseDpr * st.resStep;
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
   const now = performance.now();
   const raw = st.last ? (now - st.last) : 16;
