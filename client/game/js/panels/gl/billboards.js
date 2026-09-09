@@ -117,14 +117,32 @@ export function createBillboardLayer(gl) {
   const texes = new Map();
   let batches = [];
 
-  function textureFor(key, img) {
+  // ⚠ `fresh` IS FOR A BAKE THAT IS NOT THE SAME PICTURE TWICE. Scatter is keyed on what a species
+  // LOOKS like, so one cactus texture serves every cactus for the life of the page and the cache is
+  // the whole point. A landmark baked at the real camera changes with every frame — it is drawn
+  // through the live projection so that its pixels land where the 2-D pass would have put them —
+  // and a key-cached texture would freeze the first frame it was ever seen from and hold it. Same
+  // texture object, re-uploaded; the key still batches, so nothing else about the layer changes.
+  function textureFor(key, img, fresh, flipY) {
     let t = texes.get(key);
-    if (t) return t;
+    if (t) {
+      if (fresh) {
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        if (flipY) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        if (flipY) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      }
+      return t;
+    }
     if (texes.size >= MAX_TEX) { const [k0, t0] = texes.entries().next().value; gl.deleteTexture(t0); texes.delete(k0); }
     t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    if (flipY) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    if (flipY) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     // Scatter is nearly always MINIFIED — a bush baked at 34px drawn at six — so linear is the
     // right filter here, unlike the wall textures, which are magnified and go blurry on it.
@@ -140,7 +158,7 @@ export function createBillboardLayer(gl) {
     const byKey = new Map();
     for (const b of list) {
       if (!b || !b.img || !(b.w > 0) || !(b.h > 0)) continue;
-      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, items: [] });
+      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, items: [] });
       a.items.push(b);
     }
     let quads = 0;
@@ -165,7 +183,7 @@ export function createBillboardLayer(gl) {
         put(b, L, T, 0, 0); put(b, R, B, 1, 1); put(b, L, B, 0, 1);
       }
       const n = a.items.length * 6;
-      batches.push({ tex: textureFor(key, a.img), first, count: n });
+      batches.push({ tex: textureFor(key, a.img, a.fresh, a.flipY), first, count: n });
       first += n;
     }
     gl.bindVertexArray(vao);

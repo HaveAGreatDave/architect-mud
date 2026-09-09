@@ -7831,6 +7831,68 @@ function groundHidden(cam, dx, dy, f) {
 // and culling may only ever get timider. Err TALL: a taller box is harder to cover.
 // ⚠ AND ONLY WHEN GL OWNS THE MASS (GL_CELLS). With the 2-D renderer the queue is still the
 // answer and it is exact, so a probe there could only ever delete something correctly drawn.
+// A LANDMARK, BAKED AT THE REAL CAMERA, ON THE DEPTH BUFFER.
+//
+// markHidden below restores the occlusion a landmark had under the painter, and it can only ever
+// restore SOME of it: it answers per surface, so a statue whose head clears a four-storey roof is
+// drawn whole. Measured, that is exactly what happens — the field is right and the probe is right
+// and the statue really does peek over, so the all-or-nothing answer draws all of it. There is no
+// threshold that fixes that, because the question is per pixel.
+//
+// So the artwork goes on a quad instead, the way a marquee and a bush already do. The difference
+// from scatter is the camera: a cactus is baked once through a STUB camera at a stub depth,
+// because propS is k/f and one drawing serves every distance. A statue is real geometry seen in
+// perspective, so it is baked through the LIVE camera, every frame, translated into the canvas —
+// which makes the baked pixels the same pixels the 2-D pass would have painted, and the quad
+// hands them to the depth buffer instead of to the queue.
+//
+// ⚠ ONE DEPTH FOR THE WHOLE OBJECT, and that is what decides which landmarks come here. The quad
+// is tested at its ANCHOR, so a compact thing you look AT is exact and an extended thing you
+// stand INSIDE is not: the depot bay is a shed you drive through and the airstrip marks lie flat
+// on the ground, so both keep the probe. A statue, a gate, a stand of pylons and a no-fly marker
+// are none of those.
+//
+// ⚠ AND EVERY SINK IS CLOSED WHILE IT PAINTS. The arm is the same arm; left open it would collect
+// its own glows into the sprite layer at the wrong place, and its faces into a queue that has
+// already been read. Inside the bake FACE_SINK is null, so emitFace paints immediately, which is
+// what a bake wants.
+const _markBakes = new Map();
+const MARK_BAKE_PAD = 6;
+function markBillboard(cam, dx, dy, topZ, halfW, key, paint) {
+  if (!SCATTER_SINK) return false;
+  const base = cam.proj(dx, dy, 0), crown = cam.proj(dx, dy, topZ);
+  if (!(base.f > 0.12)) return true;                       // behind the eye: nothing to draw, and nothing to fall back to
+  const rPx = halfW * cam.FL / Math.max(0.25, base.f);
+  const x0 = Math.floor(base.sx - rPx - MARK_BAKE_PAD), x1 = Math.ceil(base.sx + rPx + MARK_BAKE_PAD);
+  const y0 = Math.floor(crown.sy - MARK_BAKE_PAD), y1 = Math.ceil(base.sy + MARK_BAKE_PAD);
+  const w = x1 - x0, h = y1 - y0;
+  // Absurdly large means the camera is inside it; fall back to the canvas rather than bake a
+  // screenful into a texture every frame.
+  if (!(w > 1 && h > 1) || w > 900 || h > 900) return false;
+  let cv = _markBakes.get(key);
+  if (!cv) { cv = document.createElement("canvas"); _markBakes.set(key, cv); }
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const g = cv.getContext("2d");
+  g.clearRect(0, 0, w, h);
+  g.save(); g.translate(-x0, -y0);
+  const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH;
+  SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null;
+  try { paint(g); }
+  finally {
+    SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM;
+    g.restore();
+  }
+  SCATTER_SINK.push({ key, img: cv, fresh: true, x: dx, y: dy, z: 0,
+  // ⚠ THE ANCHOR IS MEASURED FROM THE QUAD’S BOTTOM, AND v = 0 IS ITS BOTTOM EDGE. That is the
+  // layer’s convention, not a canvas’s, and getting it wrong is not obviously a UV bug from the
+  // outside: a bake painted top-down and handed over with the anchor measured from the top comes
+  // back MIRRORED and displaced by its own height, which reads as a pylon standing on its head
+  // half a tile too low. The flip is asked for on UPLOAD rather than baked in with a negative
+  // transform, because a mirrored ctx mirrors fillText too and a road sign is mostly lettering.
+    w, h, ax: base.sx - x0, ay: y1 - base.sy, flipY: true, alpha: 1 });
+  return true;
+}
+
 function markHidden(cam, dx, dy, topZ, halfW) {
   if (!GL_CELLS) return false;
   const base = cam.proj(dx, dy, 0), crown = cam.proj(dx, dy, topZ);
@@ -21568,10 +21630,30 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // is to not pay for it at all, not to pay and then not show it.
     if (it.off || (occluded && occluded.has(it))) continue;
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
-    if (it.c.mark === 'statue') { if (markHidden(cam, it.dx, it.dy, 1.45, 0.30)) continue; emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
-    if (it.c.mark === 'gate') { if (markHidden(cam, it.dx, it.dy, 1.85, 0.48)) continue; emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
-    if (it.c.mark === 'sign') { if (markHidden(cam, it.dx, it.dy, 1.20, 0.30)) continue; emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, now)); continue; }
-    if (it.c.mark === 'pylons') { if (markHidden(cam, it.dx, it.dy, 2.25, 0.48)) continue; emitFace(od, () => drawPylons(ctx, cam, it.dx, it.dy, night, alpha, it.seed)); continue; }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
+    if (it.c.mark === 'statue') {
+      const art = (g) => drawStatue(g, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now);
+      if (markBillboard(cam, it.dx, it.dy, 1.6, 0.40, 'lm:statue:' + it.wx + ',' + it.wy, art)) continue;
+      if (markHidden(cam, it.dx, it.dy, 1.45, 0.30)) continue;
+      emitFace(od, () => art(ctx)); continue;
+    }   // town-square monument + fountain
+    if (it.c.mark === 'gate') {
+      const art = (g) => drawSouthGate(g, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now);
+      if (markBillboard(cam, it.dx, it.dy, 2.1, 0.62, 'lm:gate:' + it.wx + ',' + it.wy, art)) continue;
+      if (markHidden(cam, it.dx, it.dy, 1.85, 0.48)) continue;
+      emitFace(od, () => art(ctx)); continue;
+    }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
+    if (it.c.mark === 'sign') {
+      const art = (g) => drawRoadSign(g, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, now);
+      if (markBillboard(cam, it.dx, it.dy, 1.5, 0.42, 'lm:sign:' + it.wx + ',' + it.wy, art)) continue;
+      if (markHidden(cam, it.dx, it.dy, 1.20, 0.30)) continue;
+      emitFace(od, () => art(ctx)); continue;
+    }
+    if (it.c.mark === 'pylons') {
+      const art = (g) => drawPylons(g, cam, it.dx, it.dy, night, alpha, it.seed);
+      if (markBillboard(cam, it.dx, it.dy, 2.5, 0.62, 'lm:pylons:' + it.wx + ',' + it.wy, art)) continue;
+      if (markHidden(cam, it.dx, it.dy, 2.25, 0.48)) continue;
+      emitFace(od, () => art(ctx)); continue;
+    }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
     // A dust airstrip's drums and threshold bars — see drawStripMarks. `continue` is deliberate:
     // the tile is still a road underneath (the ground pass has already painted it), and there is no
     // mass here to extrude on top of it.
@@ -21598,7 +21680,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       continue;
     }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
     // The extents are the box's own arguments two tokens along, not a guess.
-    if (it.c.kind === 'nofly') { if (markHidden(cam, it.dx, it.dy, 0.65, 0.36)) continue; emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
+    if (it.c.kind === 'nofly') {
+      const art = (g) => draw3DBox(g, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7);
+      if (markBillboard(cam, it.dx, it.dy, 0.8, 0.45, 'lm:nofly:' + it.wx + ',' + it.wy, art)) continue;
+      if (markHidden(cam, it.dx, it.dy, 0.65, 0.36)) continue;
+      emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
     // The Curtain energy wall on a land-edge tile.
     // ⚠ COLLECTED DURING THE SWEEP, NOT AT FLUSH. `emitFace` DEFERS the call to flushFaces(), and
     // the GL composite runs BEFORE that — so a sink filled from inside the queued closure is still
