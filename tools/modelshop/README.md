@@ -180,8 +180,9 @@ bug in the renderer that ships.
 In the Modelshop (`npm run modelshop`, :5181) the console carries the measurements: `__glCaps()`
 for what the machine can do, `__glPhases()` for where the frame goes with the flag off and on,
 `__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are,
-`__glFloor()` and `__glFloorCost()` for the same two questions about the ground, and `__glBench()` for
-the original ceiling question.
+`__glFloor()` and `__glFloorCost()` for the same two questions about the ground, `__glSign()` for
+whether the buildings still have their names on them, and `__glBench()` for the original ceiling
+question.
 
 
 The spike answered its four questions, so the pass is wired into `paintWindshield` behind
@@ -544,6 +545,46 @@ finding that was never true. A frozen clock pins `frameMs` at 0, which pins the 
 ATTRIBUTE, which `paintWindshield` rewrites every frame — so the harness resizes the canvas from
 whatever the last frame made it and spirals down instead of measuring.
 
+### The signage — 0.007%, and 481 draws to one
+
+World text is a name across a parapet, a stencilled bay number, a price board on a wall. It was the
+last thing GLASS 1 still drew in the world, and it drew each sign as **eight affine strips**, because
+a 2-D canvas cannot map a texture through a perspective divide and has to fake it by subdivision. On
+the GPU it is one quad through the same `gl/decals.js` the marquees already use, so the artwork is
+still painted by the same 2-D code and there is only ever one idea of what a sign looks like. On a
+35%-built cab frame the 2-D side goes **481 `drawImage` → 1** (the GL blit), 480 `transform` → 0, 488
+`save` → 8, and 50,691 canvas calls → 48,771.
+
+⚠ **No call site grew a world-space twin of the quad it already had.** Every one of them builds a
+sign in model coordinates, projects four corners and hands the SCREEN points over — so `makeCam` now
+returns `unproj`, the full inverse of `proj`, which is available because every projected point already
+carries its own `f`. It answers **null under pitch** (where `sy` carries a height term it does not undo)
+and the helper falls back to the 2-D blit rather than putting a sign on the wrong wall.
+
+⚠ **AND THE FAILURE MODE IS SILENCE, WHICH IS WHY `__glSign()` EXISTS.** A sign is paint on a wall,
+exactly coplanar with it: a tie in the depth test loses, and the lettering is simply not there. No
+error, no warning, no gap in the picture — a building with no name, which looks exactly like a
+building that never had one. The 2-D queue could not fail that way, because `DECO_LIFT` sorts an
+adornment 0.6 tiles in front of its own host and it drew whatever it was standing behind — and that
+lift had been **covering for a real geometry bug** nobody could have seen: The Dry Goods letters its
+false front on a plane a tenth of a footprint INSIDE the board. `unproj` takes a `pull` for the
+coplanar case (it slides a corner along its own view ray, so the projection does not move and only the
+depth does — `FACE_EPS`’s job, done in the one place that knows which ray the point is on); the inset
+was fixed at the model, where it was wrong.
+
+Nine lettered models, each alone on empty ground — the two sides being the same renderer with
+`RENDER_TUNE.glSign` 0 and 1, so nothing else moves and every pixel of difference IS the lettering.
+
+⚠ **Square on is not enough, and that is where the first draft of this stopped.** Head-on, a sign clears
+its own facade or it does not. At a grazing angle the building’s own parapet, cornice and porch cross the
+lettering plane, so the inset that matters is the one along the view RAY rather than along the wall
+normal — a different number at every heading. The sweep carries head-on at two distances by day and by
+night, plus all four entrance facings seen from three tiles off the axis, the same reason `gl:mesh`
+captures four facings rather than the canonical one.
+
+**72 cases, 55 of them exactly 0, worst 0.020%** — a few letters trimmed off the end of a board by the
+parapet that is genuinely in front of them — against **0.062% with the geometry bug put back**, which is
+the only reason to trust the number.
 ### Hardware coverage
 
 `glCapabilities()` in the console answers "will this machine run it", from a throwaway context it

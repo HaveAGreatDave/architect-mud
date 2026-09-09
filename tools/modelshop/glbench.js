@@ -585,4 +585,114 @@ export function runFloorCost({ W = 640, H = 360, R = 20, frames = 40 } = {}) {
   return rows;
 }
 
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; }
+// ── AND IS THE NAME STILL ON THE BUILDING? ───────────────────────────────────
+//
+// __glSign(). World text — a name across a parapet, a stencilled bay number, a price board — was
+// the last thing GLASS 1 still drew in the world, at eight affine strips a sign because a 2-D
+// canvas cannot map a texture through a perspective divide. On the GPU it is one depth-tested
+// quad, which is cheaper and correct per pixel where the probe was correct per surface.
+//
+// ⚠ AND ITS FAILURE MODE IS SILENCE, WHICH IS WHY THIS EXISTS. A sign is PAINT ON A WALL, exactly
+// coplanar with it, so a tie in the depth test loses and the lettering is simply not there: no
+// error, no warning, no gap in the picture, just a building with no name — which looks exactly
+// like a building that never had one. The 2-D queue could not fail that way, because DECO_LIFT
+// sorts an adornment 0.6 tiles in front of its own host and it drew whatever it was standing
+// behind. So the two sides here are the SAME renderer with the signage drawn two ways
+// (RENDER_TUNE.glSign), which is __glFloor's shape and for the same reason: nothing else moves,
+// so every pixel of difference IS the lettering.
+//
+// ⚠ ONE SIGNED BUILDING, ALONE, ON EMPTY GROUND. Every subject is a model whose arm letters
+// itself, and nothing stands anywhere near it — a whole-frame diff of a city would measure how
+// much of the name a nearer building correctly covers, which is the improvement rather than the
+// error. It found the bug it was written for: The Dry Goods letters its false front on a plane a
+// tenth of a footprint INSIDE the board, and the lift had covered for that since it was written.
+//
+// ⚠ FREEZE THE CLOCK, for the reasons written out over __glFloor — it drives the resolution dial
+// and PERF_DS as well as the sky, both are per-canvas state cached across a page reload, and two
+// canvases measured on a live clock quietly end up different sizes.
+const SIGN_SUBJECTS = [
+  ['the dry goods', { bt: 'shop', bn: 'The Dry Goods', flr: 3 }],
+  ['the assay', { bt: 'shop', bn: 'The Assay', flr: 3 }],
+  ['the last load', { bt: 'shop', bn: 'The Last Load', flr: 2 }],
+  ['ration nine', { bt: 'shop', bn: 'Ration Nine', flr: 2 }],
+  ['the meridian', { bt: 'shop', bn: 'The Meridian Lobby', flr: 8 }],
+  ['buzzard field', { bt: 'shop', bn: 'Buzzard Field', flr: 2 }],
+  ["the coyote's rest", { bt: 'shop', bn: "The Coyote's Rest", flr: 2 }],
+  ['the layover', { bt: 'shop', bn: 'The Layover', flr: 2 }],
+  ['adequate!', { bt: 'dept_store', flr: 4 }],
+];
+
+// ⚠ SQUARE ON IS NOT ENOUGH, AND THAT IS WHERE THE FIRST DRAFT OF THIS STOPPED. Head-on, a sign
+// clears its own facade or it does not. At a GRAZING angle the building's own parapet, cornice and
+// porch cross in front of the lettering plane, so the inset that matters is the one along the view
+// RAY rather than the one along the wall normal — which is a different number at every heading. So
+// the sweep carries four entrance facings seen from three tiles off the axis, the same reason
+// gl:mesh captures all four rather than the canonical one.
+const SIGN_SEATS = [
+  { tag: '3T day', ent: 'south', off: 0, dist: 3, hour: 13 },
+  { tag: '3T night', ent: 'south', off: 0, dist: 3, hour: 2 },
+  { tag: '6T day', ent: 'south', off: 0, dist: 6, hour: 13 },
+  { tag: '6T night', ent: 'south', off: 0, dist: 6, hour: 2 },
+  { tag: 'oblique S', ent: 'south', off: 3, dist: 4, hour: 13 },
+  { tag: 'oblique E', ent: 'east', off: 3, dist: 4, hour: 13 },
+  { tag: 'oblique W', ent: 'west', off: 3, dist: 4, hour: 13 },
+  { tag: 'oblique N', ent: 'north', off: 3, dist: 4, hour: 13 },
+];
+
+export function runSign({ W = 640, H = 360, RAD = 12, seats = SIGN_SEATS } = {}) {
+  const realNow = performance.now.bind(performance);
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const mk = (id) => {
+    const c = document.createElement('canvas');
+    c.id = id; c.width = W; c.height = H;
+    c.style.width = W + 'px'; c.style.height = H + 'px';
+    holder.append(c); return c;
+  };
+  const a2 = mk('__sign2d'), aG = mk('__signGL');
+  document.body.append(holder);
+  let live = a2;
+  const uninstall = installGL(() => live);
+  performance.now = () => 1e6;
+  const N = RAD * 2 + 1;
+  const rows = [];
+  try {
+    for (const [tag, cell] of SIGN_SUBJECTS) {
+      for (const seat of seats) {
+        const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
+          (x === RAD + seat.off && y === RAD - seat.dist)
+            ? { kind: 'land', biome: 'citycore', ...cell, ent: seat.ent }
+            : { kind: 'land', biome: 'citycore', flr: 0 }));
+        const view = { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour: seat.hour,
+          weather: 'clear', speed: 0.4, map, heading: 0, mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 } };
+        RENDER_TUNE.gl = 1;
+        // Painted twice on each side: the first frame builds every lazy cache the renderer has.
+        live = a2; RENDER_TUNE.glSign = 0;
+        paintWindshield('__sign2d', view); paintWindshield('__sign2d', view);
+        live = aG; RENDER_TUNE.glSign = 1;
+        paintWindshield('__signGL', view); paintWindshield('__signGL', view);
+        RENDER_TUNE.gl = 0;
+        if (a2.width !== aG.width || a2.height !== aG.height) {
+          rows.push({ subject: tag, seat: seat.tag, badPct: 'SIZE ' + a2.width + '/' + aG.width });
+          continue;
+        }
+        const A = a2.getContext('2d').getImageData(0, 0, a2.width, a2.height).data;
+        const B = aG.getContext('2d').getImageData(0, 0, aG.width, aG.height).data;
+        let bad = 0, n = 0;
+        for (let i = 0; i < A.length; i += 4) {
+          const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
+          n++; if (d > 24) bad++;
+        }
+        rows.push({ subject: tag, seat: seat.tag, badPct: +(bad / n * 100).toFixed(3) });
+      }
+    }
+  } finally {
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glSign = 1; performance.now = realNow; uninstall(); holder.remove();
+  }
+  const worst = rows.reduce((m, r) => (typeof r.badPct === 'number' && r.badPct > m ? r.badPct : m), 0);
+  console.table(rows.filter((r) => typeof r.badPct !== 'number' || r.badPct > 0));
+  console.log('   worst subject ' + worst + '% of pixels differing by more than 24 levels, over ' + rows.length + ' cases');
+  return { rows, worst };
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; }

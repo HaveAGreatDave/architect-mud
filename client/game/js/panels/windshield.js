@@ -190,6 +190,22 @@ export const RENDER_TUNE = {
   // the city bought nothing until the ground followed, because a fixed per-pixel software raster
   // that costs the same over an empty desert as over a city WAS the frame.
   glFloor: 1,
+  // ── WORLD TEXT ON THE DEPTH BUFFER, AND WHY IT GETS ITS OWN TERM ──────────
+  //
+  // A name across a parapet, a stencilled bay number, a price board: the last thing GLASS 1 still
+  // drew in the world, at eight affine strips a sign because a 2-D canvas cannot map a texture
+  // through a perspective divide. On the GPU it is one depth-tested quad — cheaper, and correct
+  // per pixel where the probe was correct per surface. 0 puts the strips back.
+  //
+  // ⚠ ITS FAILURE MODE IS SILENCE, WHICH IS THE WHOLE REASON FOR THE FLAG. A sign is PAINT ON A
+  // WALL, exactly coplanar with it: a tie in the depth test loses and the lettering is simply not
+  // there. No error, no warning, no gap in the picture — the building just has no name, which
+  // looks exactly like a building that never had one. The 2-D queue could not fail that way,
+  // because DECO_LIFT sorts an adornment 0.6 tiles in front of its own host and it drew whatever
+  // it was standing behind. `__glSign()` in the Modelshop is that A/B, and it is what found the
+  // one real casualty: The Dry Goods letters its false front on a plane a tenth of a footprint
+  // INSIDE the board, and the lift had covered for it since the model was written.
+  glSign: 1,
   gl: 1,
   mount: 1,
   shapeShadow: 1,
@@ -7576,11 +7592,38 @@ export function makeCam(W, horizonY, depth, v, chase) {
     // Under pitch the depth carries a height term, so the clip plane has to as well.
     rawF = (dxx, dyy, wz) => ((dxx + back * sinh - fx) * sinh - (dyy - back * cosh - fy) * cosh) * cp - ((wz || 0) - EH) * sp;
   }
+  // AND THE FULL INVERSE OF proj, WHICH IS WHAT LETS WORLD TEXT REACH THE GPU. Two dozen callers
+  // build a sign’s quad, project its four corners and hand the SCREEN points to drawSurfaceText —
+  // there is no world quad left by the time anything could use one. There does not need to be:
+  // proj is invertible and every projected point already carries its own `f`.
+  //   l  = (sx - cx) * f / FL          wz = EH - (sy - horizonY) * f / depth
+  // and (f, l) go back to (dx, dy) by the same two lines worldFL uses.
+  // ⚠ UNPITCHED ONLY, and it says so by answering null. Under pitch sy carries a height term
+  // (uu = u·cp + f0·sp) that this does not undo, and a silently wrong answer would put a sign on
+  // the wrong wall rather than fail. Only the Modelshop passes a camera pitch today.
+  // ⚠ And f is CLAMPED to 0.06 by proj, so a point at or behind the eye cannot be recovered —
+  // every caller already gates on f > 0.12, which is comfortably clear of it.
+  // ⚠ AND IT TAKES A `pull`, WHICH IS THE WHOLE REASON THE SIGNS DRAW AT ALL. Paint on a wall is
+  // COPLANAR with the wall. A painter’s queue puts it in front by sorting; a depth buffer compares,
+  // and a tie is not a win — the sign z-fights its own building and loses, which reads as the
+  // lettering simply not being there. Subtracting a little ground distance and keeping the SAME
+  // screen point slides the corner along its own view ray toward the eye: `sx` and `sy` are both
+  // ratios in f, so scaling l and (EH − wz) with it leaves the projection bit-for-bit where it was
+  // and only the depth moves. Same job FACE_EPS does for a bolted-on part, done in the one place
+  // that knows which ray the point is on.
+  const unproj = pitch ? () => null : (p, pull) => {
+    if (!p || !(p.f > 0.06)) return null;
+    const f = Math.max(0.06, p.f - (pull || 0)), l = (p.sx - cx) * f / FL;
+    const wz = EH - (p.sy - horizonY) * f / depth;
+    const bx = f * sinh + l * cosh, by = -f * cosh + l * sinh;
+    return [bx - back * sinh + fx, by + back * cosh + fy, wz];
+  };
+
   // W/horizonY/depth ride along because they ARE the camera: this projection is a pinhole whose
   // focal lengths are FL (lateral) and depth (vertical) and whose principal point is (W/2, horizonY).
   // A second renderer cannot reproduce the picture without them, and deriving them again elsewhere
   // is how two cameras start disagreeing by a pixel that nobody can trace.
-  return { R, sinh, cosh, ox, oy, proj, projFL, worldFL, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  return { R, sinh, cosh, ox, oy, proj, projFL, worldFL, unproj, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -15086,6 +15129,47 @@ function bakeSignText(label, color, dn, vertical, solid, tight) {
 // `vertical` runs the strips down the column (letters top→bottom) vs across the band. Must be
 // called INSIDE an emitFace closure — it is pure screen-space drawing and composes onto the
 // current (DPR) transform via ctx.transform, never setTransform, so it stays in world scale.
+// WORLD TEXT, ON THE DEPTH BUFFER.
+//
+// Every sign painted onto a surface in this game — a frieze, a parapet, a false front, a price
+// board, a stencilled bay number — is a baked canvas mapped onto a real quad, which is exactly
+// what decals.js already draws for the marquees. It was still the largest thing GLASS 1 drew in
+// the world: 328 drawImage calls a frame on a dense city window, eight affine strips per sign,
+// because a 2-D canvas cannot map a texture through a perspective divide and has to fake it by
+// subdivision. On the GPU it is one quad and the divide is free, so it is also more correct.
+//
+// ⚠ IT MUST BE CALLED AT EMIT TIME, NOT FROM INSIDE THE emitDeco CLOSURE. That closure runs at
+// flush, after the composite has read and cleared DECAL_SINK — the same trap the Curtain, the
+// scatter, the cliff and the contacts each hit. So this helper takes the points and does the
+// probing itself, and falls back to queueing the 2-D blit when there is no sink to fill.
+//
+// ⚠ The quad comes back through cam.unproj, so no caller has to grow a world-space twin of a
+// screen-space one it already computed. See makeCam: it answers null under pitch and this falls
+// back rather than guessing.
+function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT) {
+  const draw = () => drawSurfaceText(ctx, pts[0], pts[1], pts[2], pts[3], tex, vertical, alpha);
+  if (!DECAL_SINK || !tex || SHAPE_SINK || ADORN_TIER < ADORN_RICH || !TUNE.glSign) { emitDeco(pts, draw, lift); return; }
+  if (decoHidden(pts)) return;
+  const w = cam.unproj ? pts.map((p) => cam.unproj(p, FACE_EPS)) : null;
+  if (!w || w.some((q) => !q)) { emitDeco(pts, draw, lift); return; }
+  // Keyed on the baked canvas itself: bakeSignText caches by label+colour+night, so the same
+  // words on twenty shopfronts are one texture and one draw call.
+  // ⚠ `vertical` DOES NOT REORDER THE QUAD. It looks as though it should - one flag named for an
+  // axis, next to four corners - and it is only ever about HOW the 2-D path fakes the mapping:
+  // both modes send TL to (0,0) and BL to (0,1), and vertical merely subdivides down the column
+  // instead of across the band because the strips have to follow the direction the quad
+  // foreshortens in. A perspective divide has no strips, so there is nothing to follow.
+  DECAL_SINK.push({ key: signTexKey(tex), img: tex, alpha, p: w });
+}
+// A stable id per baked canvas, so the decal layer can batch by texture. WeakMap because the
+// canvases are owned by bakeSignText’s own cache and must not be kept alive by this one.
+const _signTexIds = new WeakMap();
+let _signTexN = 0;
+function signTexKey(tex) {
+  let id = _signTexIds.get(tex);
+  if (id == null) { id = ++_signTexN; _signTexIds.set(tex, id); }
+  return "st:" + id;
+}
 function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH || !tex) return;   // adornment — `!tex` because bakeSignText ran at EMIT time (possibly under a cheap LOD tier, returning null) while this closure runs at FLUSH time, by which point ADORN_TIER is back to RICH and the tier guard alone would let a null texture through
   const W = tex.width, H = tex.height, S = 8;
@@ -17927,7 +18011,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         if (frontVis) {
           const nhw = fh * 0.66, [nlx, nly] = F(-nhw, fh * 1.11), [nrx, nry] = F(nhw, fh * 1.11);
           const TL = cam.proj(nlx, nly, friZ1 - h * 0.012), TR = cam.proj(nrx, nry, friZ1 - h * 0.012), BR = cam.proj(nrx, nry, friZ0 + h * 0.012), BL = cam.proj(nlx, nly, friZ0 + h * 0.012);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const nam = bakeSignText('THE MERIDIAN', '#e8c878', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, nam, false, alpha)); }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const nam = bakeSignText('THE MERIDIAN', '#e8c878', night ? 1 : 0, false); emitSurfaceText(ctx, cam, [TL, TR, BR, BL], nam, false, alpha); }
         } }
       // 3) Vertical pilaster ribs standing proud of the shaft — corners + mid-face (front-centre skipped for the
       //    entrance bay), so the deco piers read from any camera angle (each box is backface-culled per face).
@@ -18270,7 +18354,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         // hand-lettered NO MANIFESTS board bolted beside the bay (surface text on the gable)
         { const bz0 = oTop + wallTop * 0.02, bz1 = oTop + wallTop * 0.16, bhw = hw * 0.5;
           const TL = P(-bhw, hw + 0.006, bz1), TR = P(bhw, hw + 0.006, bz1), BR = P(bhw, hw + 0.006, bz0), BL = P(-bhw, hw + 0.006, bz0);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('BUZZARD FIELD', '#e8c25a', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); } }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('BUZZARD FIELD', '#e8c25a', night ? 1 : 0, false); emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha); } }
         if (night) { const [obx, oby] = F(0, hw); glowPool(ctx, cam, obx, oby, wallTop * 0.3, '255,200,132', 13, alpha * 0.34); }
       }
       // 3) STILTED SPOTTER'S SHACK — a tin box on four legs standing back-right, clear of the shed.
@@ -18326,7 +18410,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
           const t = now || 0, buzz = (Math.sin(t * 0.03) + Math.sin(t * 0.017) > -0.7) ? 0.74 + 0.26 * Math.abs(Math.sin(t * 0.05)) : 0.14;
           const live = bakeSignText('C YOT ’S R ST', m.neon || '#ff6a3a', night ? 1 : 0, false);   // dead tubes → blank cells
-          emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, live, false, alpha * buzz));
+          emitSurfaceText(ctx, cam, [TL, TR, BR, BL], live, false, alpha * buzz);
         }
         if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, bodyTop * 0.5, '255,190,110', 12, alpha * 0.4); }   // warm windows
       }
@@ -18405,7 +18489,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const bz0 = h * 0.58, bz1 = h * 0.8, bhw = fh * 0.3;
         const [blx, bly] = F(fh * 0.86 - bhw, fh * 0.9 + 0.05), [brx, bry] = F(fh * 0.86 + bhw, fh * 0.9 + 0.05);
         const TL = cam.proj(blx, bly, bz1), TR = cam.proj(brx, bry, bz1), BR = cam.proj(brx, bry, bz0), BL = cam.proj(blx, bly, bz0);
-        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const t = now || 0, buzz = (Math.sin(t * 0.02) > -0.6) ? 0.85 : 0.2; const tex = bakeSignText('VA ANCY', '#ff8fb0', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * buzz)); } }
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const t = now || 0, buzz = (Math.sin(t * 0.02) > -0.6) ? 0.85 : 0.2; const tex = bakeSignText('VA ANCY', '#ff8fb0', night ? 1 : 0, false); emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha * buzz); } }
       // 4) A porch light kept burning like a habit.
       { const [lx, ly] = F(-fh * 0.95, fh * 1.14); glowPool(ctx, cam, lx, ly, wallTop * 0.7, '255,206,140', 6, alpha * (night ? 0.5 : 0.28)); }
       // ONE LONG WALK PAST EVERY DOOR, which is the whole plan of a lodging house and the reason
@@ -18421,7 +18505,16 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // one whose boards are still true: a squared false-front parapet lettered in white, a canvas
       // awning on posts over a swept boardwalk, barrels either side of the door, warm goods-lit windows.
       const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
-      const bodyTop = h * 0.62, frontTop = h * 1.22, FR = fh * 1.0;
+      const bodyTop = h * 0.62, frontTop = h * 1.22;
+      // ⚠ THE LETTERING PLANE IS THE FALSE FRONT’S OWN FACE, SOLVED RATHER THAN GUESSED. It was
+      // `fh * 1.0` — a plausible number that is not where that board is: the parapet box below is
+      // centred fh*0.2 forward of the tile and reaches min(fh*0.92, 0.44) beyond that, so the name
+      // was painted about a tenth of a footprint INSIDE the wall it is supposed to be painted on.
+      // A painter’s queue never noticed, because DECO_LIFT sorts an adornment 0.6 tiles in front of
+      // its own host and it drew anyway; a depth buffer compares, the board wins, and the widest
+      // shopfront on Main Street loses its name. The clamp has to be re-applied here for the same
+      // reason every other consumer of a raw half-width re-applies it.
+      const FR = fh * 0.2 + Math.min(fh * 0.92, 0.44);
       // 1) Body + the FALSE FRONT — a taller squared parapet pulled forward to the entrance face.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, 0, bodyTop, pal, seed, night, alpha, true);
       // THE SHAKE ROOF BEHIND THE FALSE FRONT. The front is a flat board wall and everything behind
@@ -18449,7 +18542,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (frontVis) {
         const bz0 = frontTop * 0.62, bz1 = frontTop * 0.86, bhw = fh * 0.84;
         const TL = P(-bhw, FR + 0.006, bz1), TR = P(bhw, FR + 0.006, bz1), BR = P(bhw, FR + 0.006, bz0), BL = P(-bhw, FR + 0.006, bz0);
-        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE DRY GOODS', '#f2ead6', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE DRY GOODS', '#f2ead6', night ? 1 : 0, false); emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha); }
         if (night) { const [wx, wy] = F(-fh * 0.4, fh * 0.96); glowPool(ctx, cam, wx, wy, bodyTop * 0.52, '255,198,124', 11, alpha * 0.42); }   // goods-lit window
       }
       if (night) glowPool(ctx, cam, dx, dy, bodyTop * 0.6, '255,208,132', 12, alpha * 0.18);
@@ -18482,7 +18575,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
                                                ['WE DO NOT ASK WHERE', '#9aa4a8', frontTop * 0.5, frontTop * 0.6, 1.04]]) {
           const w = bhw * hwm;
           const TL = P(-w, FR + 0.006, z1), TR = P(w, FR + 0.006, z1), BR = P(w, FR + 0.006, z0), BL = P(-w, FR + 0.006, z0);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText(txt, col, night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText(txt, col, night ? 1 : 0, false); emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha); }
         }
       }
       if (night) glowPool(ctx, cam, dx, dy, bodyTop * 0.7, '150,200,224', 10, alpha * 0.16);
@@ -18593,7 +18686,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         // THE LAST LOA — freehand, and then they gave up on the second D.
         { const bz0 = oTop + h * 0.1, bz1 = oTop + h * 0.22, bhw = hw * 0.66;
           const TL = P(-bhw, hw + 0.006, bz1), TR = P(bhw, hw + 0.006, bz1), BR = P(bhw, hw + 0.006, bz0), BL = P(-bhw, hw + 0.006, bz0);
-          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE LAST LOA', m.neon || '#ffb14a', night ? 1 : 0, false); emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); } }
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE LAST LOA', m.neon || '#ffb14a', night ? 1 : 0, false); emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha); } }
         if (night) { const [bx, by] = F(0, hw); glowPool(ctx, cam, bx, by, wallTop * 0.34, '255,200,132', 12, alpha * 0.36); }
       }
       // 3) TWO TRAILERS on their legs alongside, grass grown up through the axles.
@@ -19483,7 +19576,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const TL = cam.proj(lx, ly, z1), TR = cam.proj(rx, ry, z1), BR = cam.proj(rx, ry, z0), BL = cam.proj(lx, ly, z0);
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
           const tex = bakeSignText('9', '#d8d2c0', night ? 1 : 0, false);
-          emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * 0.9));
+          emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha * 0.9);
         }
         marqueeBand(ctx, cam, dx, dy, E, fh * 0.96, wallTop * 0.74, m.neon || '#ffb43a', night, alpha, 'RATION NINE');
       }
@@ -19509,7 +19602,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const BR = cam.proj(brx, bry, banZ0 + body * 0.012), BL = cam.proj(blx, bly, banZ0 + body * 0.012);
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
           const tex = bakeSignText('ADEQUATE!', m.neon || '#ff8a2e', night ? 1 : 0, false);
-          emitDeco([TL, TR, BR, BL], () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha));
+          emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha);
         }
         const [nx, ny] = F(fh * 0.70, fh * 1.02); neonBlade(ctx, cam, nx, ny, body * 0.88, body + h * 0.34, m.neon || '#ff8a2e', night, alpha);
       }
@@ -20453,7 +20546,7 @@ const AUTHORED_DETAIL = {
       // Painted INTO the surface, never billboarded — the house rule for all world text.
       const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
       if (w.every((q) => q.f > 0.12)) {
-        emitDeco(w, () => drawSurfaceText(c.ctx, w[0], w[1], w[2], w[3], bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.color || "#e8dcc8", c.night ? 1 : 0, false, true), false, c.alpha), DETAIL_LIFT * 2);
+        emitSurfaceText(c.ctx, c.cam, w, bakeSignText(d.label === "$name" ? (c.name || "") : d.label, d.color || "#e8dcc8", c.night ? 1 : 0, false, true), false, c.alpha, DETAIL_LIFT * 2);
       }
     }
   },

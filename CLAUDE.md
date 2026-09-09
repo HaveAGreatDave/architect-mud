@@ -416,6 +416,36 @@ is the gate for that class: every `uXxx` a shader uses must be declared in that 
 name the JS asks the linker for by string must exist — a missing uniform location is `null`,
 `gl.uniform1f(null, x)` is a legal no-op, and the shader reads zero for ever.
 
+⚠ **AND WORLD TEXT IS ON THE DEPTH BUFFER TOO (`RENDER_TUNE.glSign`, 0 puts the strips back).** A name
+across a parapet, a stencilled bay number, a price board painted on a wall: the last thing GLASS 1
+still drew in the world, at **eight affine strips a sign** because a 2-D canvas cannot map a texture
+through a perspective divide and has to fake it by subdivision. On the GPU it is one quad through the
+same `gl/decals.js` the marquees use, so the artwork is still baked by the same 2-D code and there is
+only ever one idea of what a sign looks like. On a 35%-built cab frame: **481 `drawImage` calls → 1**
+(the GL blit), 480 `transform` → 0, 488 `save` → 8, and 50,691 canvas calls → 48,771. ⚠ **No caller
+grew a world-space twin of its quad** — `cam.unproj` is the full inverse of `proj` and every projected
+point already carries its own `f`; it answers **null under pitch** rather than guessing, and the one
+site whose probe points differ from its drawn quad was deliberately left on the 2-D path.
+
+⚠ **AND ITS FAILURE MODE IS SILENCE, WHICH IS WHY IT HAS ITS OWN TERM AND ITS OWN MEASUREMENT.** A sign
+is PAINT ON A WALL, exactly coplanar with it, so a tie in the depth test loses and the lettering is
+simply **not there** — no error, no warning, no gap in the picture, just a building with no name, which
+looks exactly like a building that never had one. The 2-D queue could not fail that way: `DECO_LIFT`
+sorts an adornment 0.6 tiles in front of its own host, so it drew whatever it was standing behind, and
+**that lift had been covering for a real geometry bug** — The Dry Goods letters its false front on a
+plane a tenth of a footprint INSIDE the board it is painted on, and nobody could have seen it. `cam.unproj`
+takes a `pull` that slides a corner along its own view ray toward the eye (`sx` and `sy` are both ratios
+in `f`, so the projection does not move and only the depth does — `FACE_EPS`’s job, done where the ray
+is known); the inset itself was fixed at the model. `__glSign()` in the Modelshop is the A/B — the same
+renderer with the signage drawn two ways, so nothing else moves and every pixel of difference IS the
+lettering. ⚠ **Square on is not enough**, and that is where its first draft stopped: at a GRAZING angle a
+building’s own parapet and cornice cross the lettering PLANE, so the inset that matters is the one along
+the view ray rather than along the wall normal, and it is a different number at every heading — the sweep
+carries all four entrance facings from three tiles off the axis for the same reason `gl:mesh` captures
+four rather than the canonical one. **72 cases, 55 of them exactly 0, worst 0.020%** — a few letters
+trimmed off the end of a board by the parapet that is genuinely in front of them — against **0.062% with
+the geometry bug put back**, which is the only reason to trust the number.
+
 ⚠ **HARDWARE COVERAGE IS CHECKED AGAINST THE STANDARD, NOT AGAINST THIS GPU.** `glCapabilities()` answers "will this machine run it" from a throwaway context. The pass wants 8 vertex attributes against a WebGL2 guarantee of 16 and 13 varying components against 60 — neither is close. ⚠ **The texture page is the one that can bite**: the guarantee is only `MAX_TEXTURE_SIZE ≥ 2048` and every surface in the city at `texRes: 2` wants **2048×4096**, which on a floor-spec device is an `INVALID_VALUE` and nothing else — no throw, no warning, a city wearing a black texture. `buildAtlas` takes the device limit and refuses a page that will not fit, dropping to flat palette colours with one warning; the packing also balances on the CELL rather than the count, which brings the `texRes: 1` worst case to 2048×2048. A typical frame is a 256×512 page. ⚠ **Other hardware is still untested** — every number here is one machine with a discrete NVIDIA card, and "falls back correctly" is not "is fast on an integrated GPU". If it ever measures SLOWER somewhere, the first knob is `antialias` in `createGLView`: the 2-D canvas has no MSAA, so GL is buying smoother edges nobody asked for at full-frame cost.
 
 ⚠ **AND A PASS THAT DID NOT DRAW HANDS THE WORLD BACK.** The mass is suppressed on the strength of the GL pass existing, so "it returned nothing" is not a quiet outcome — it is a city of floating lights standing on no buildings. A machine with **no WebGL2** and a driver that **took the context away** both arrive there WITHOUT THROWING, so the catch was never enough; the pass answers null and the flag goes back to 0, exactly as a throw does. The context-lost listener calls `preventDefault` (the default makes the loss permanent) and `lost()` is asked every frame.
