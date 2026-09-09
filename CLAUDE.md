@@ -20,10 +20,40 @@ queued and flushed back-to-front because there is no depth buffer, and geometry 
 itself as affine `[a·fh + b·h + c]` data through `SHAPE_SINK`. Its only two viewers are the
 cockpit canopy and the truck windscreen, which is where the name comes from.
 
-So the three names nest: **THOMAS** is the platform, **GLASS** is its renderer, **Architect** is
-the game. `tools/modelshop` is GLASS's model editor, the way `tools/studio` is the map editor.
+`tools/modelshop` is GLASS's model editor, the way `tools/studio` is the map editor.
 
 ⚠ **Grepping for THOMAS misleads.** The only place the string appears is the dev panel's boot splash (`client/devpanel/index.html`, `client/devpanel/js/bootstrap.js`), which reads as if it names the dev panel. It doesn't — it names the platform the splash is booting.
+
+### SIREN is the synthesizer, ORACLE is the voice inside it
+
+**SIREN** — **S**ources, **I**ndex, **R**esonance, **E**nvelopes & **N**oise — is the audio
+synthesizer in `client/shared/audio-engine.js`: `buildLayer` and everything that feeds it. A cue is
+an array of LAYERS, each one a carrier oscillator and/or noise with an ADSR, a biquad, optional
+drive, and up to two FM operators in series. Around it sit the 32-voice pool with priority
+stealing, the tracker music player, the sampler, the generated-IR reverb, and the four buses.
+`Index` is the FM modulation index — the parameter the whole synth turns on.
+
+**ORACLE** — **O**rthography, **R**esonance, **A**ccent, **C**adence, **L**exicon & **E**mphasis —
+is the formant speech synth, in the same file. Not a sampler and not a wavetable: a glottal
+`PeriodicWave` source through a four-formant bank with a nasal antiformant, a separate noise path
+for fricatives and stop bursts, a 27k-word lexicon over letter-to-sound rules, RP/GA accents, and
+a prosody layer that falls at a full stop and rises at a question mark. It reads broadcasts, the
+Architect, the library, and Read Aloud.
+
+⚠ **ORACLE lives inside SIREN's file and does not use SIREN's layer builder.** It shares `driveCurve`, the noise
+buffer and the buses, and it builds its own node graph — it never calls `buildLayer`. So an FM
+feature added to the synth does NOT reach the voice, and the reverse. That assumption cost real
+time before it was written down.
+
+So the names nest: **THOMAS** is the platform, **GLASS** draws it, **SIREN** sounds it, **ORACLE**
+speaks it, and **Architect** is the game.
+
+⚠ **Grepping for SIREN or ORACLE finds only the file headers** — worse for SIREN, which is
+already a domain noun here (the emergency siren, the dive siren, the cockpit warnings: ~26
+case-sensitive hits that have nothing to do with the synth). Like THOMAS, these name a system
+rather than an identifier, and nothing in the code is called either. The synth's own vocabulary is
+`buildLayer`, `layer.fm`, `voices`; the voice's is `Speech`, `pronounceWord`, `PH`, `voiceFromName`.
+The dev panel's **Voice Lab** tab is ORACLE's tuning surface, the way the Modelshop is GLASS's.
 
 ## Key Docs
 

@@ -1,8 +1,23 @@
 /**
- * Procedural SNES-style Audio engine. Real Web Audio API playback — music,
- * SFX, ambience — synthesized entirely in-browser, no samples. Wholly
- * separate from the text-based "Sound" system (server/engine/sounds.js);
- * never merge the two.
+ * SIREN — Sources, Index, Resonance, Envelopes & Noise.
+ *
+ * The synthesizer. Real Web Audio API playback — music, SFX, ambience —
+ * synthesized entirely in-browser, no samples. Wholly separate from the
+ * text-based "Sound" system (server/engine/sounds.js); never merge the two.
+ *
+ * `Index` is the FM modulation index, the parameter the whole synth turns on.
+ *
+ * ⚠ GREPPING FOR "SIREN" IS USELESS HERE. The word is already a domain noun in
+ * this game — the emergency siren, the dive siren, the cockpit warnings — with
+ * ~26 case-sensitive hits in plugins/emergency, plugins/flight, esp.js and
+ * engine-audio.js, none of which have anything to do with the synth. Like THOMAS,
+ * this names a system and never an identifier: the code's own vocabulary is
+ * buildLayer, layer.fm, voices and busFor.
+ *
+ * ⚠ ORACLE, the formant VOICE, lives further down this file and does NOT use
+ * SIREN's layer builder. It shares driveCurve, the noise buffer, the resonator
+ * bank and the buses, then builds its own node graph — it never calls buildLayer.
+ * An FM feature added here does not reach the voice, and the reverse.
  *
  * Dual-mode like client/shared/tagHelpers.js: attaches to window/globalThis
  * so it works as a plain <script> include in both the devpanel (classic
@@ -407,6 +422,43 @@
 
   const OSC_WAVES = ['sine', 'square', 'sawtooth', 'triangle'];
 
+  // ── ONE SOURCE, MANY RESONATORS, SUMMED ───────────────────────────────────
+  //
+  // The topology formant synthesis needs and a serial filter cannot express. A
+  // layer's ordinary `filter` is one biquad in the signal path; this is N
+  // bandpasses side by side, each fed the SAME source and mixed back together.
+  //
+  // The difference is not academic. Four serial filters are a narrower and
+  // narrower band until nothing is left; four PARALLEL ones are four resonances
+  // in one sound, which is what a vocal tract does and what makes a vowel a vowel.
+  // Modelling it as four separate layers would give four independent oscillators —
+  // four voices, not one voice through four resonators.
+  //
+  // ORACLE has always built this by hand for its formants. It is here so the
+  // layer synth can have it too (`layer.formants`), and so there is ONE
+  // implementation rather than a second one written from the same idea later.
+  // Handles come back because ORACLE glides its bands across an utterance; a
+  // static caller can ignore them.
+  function buildResonatorBank(source, dest, bands) {
+    const out = [];
+    for (const b of bands) {
+      const freq = typeof b === 'number' ? b : b.freq;
+      if (!(freq > 0)) continue;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = freq;
+      // A bandpass sharp enough to be physically correct starts to whistle on a
+      // source with no breath noise to fill in between the harmonics, which is
+      // why ORACLE clamps its own Q rather than deriving it freely.
+      bp.Q.value = (typeof b === 'object' && b.q) || 6;
+      const g = ctx.createGain();
+      g.gain.value = (typeof b === 'object' && b.gain != null) ? b.gain : 1;
+      source.connect(bp).connect(g).connect(dest);
+      out.push({ filter: bp, gain: g });
+    }
+    return out;
+  }
+
   // Waveshaper curves, cached by drive. A curve is a 2,048-float array and this
   // runs on the cue path — every layer of every sound — so building one per note
   // would allocate about 8 KB a footstep. Quantised to 0.05 because nobody can
@@ -604,7 +656,17 @@
       mixPoint = shaper;
     }
 
-    if (layer.filter) {
+    // FORMANTS — a parallel resonator bank instead of the single filter, using
+    // the same primitive ORACLE builds its vowels from. This is the one thing the
+    // layer synth genuinely could not do: give a synthesised sound the shape of a
+    // throat, so a pad can sit somewhere between an instrument and a vowel.
+    // `[700, 1220, 2600]` is roughly an /ɑ/; move F1 and F2 and you move the vowel.
+    // Takes bare numbers or {freq, q, gain}, and overrides `filter` when present.
+    if (Array.isArray(layer.formants) && layer.formants.length) {
+      const sum = ctx.createGain();
+      buildResonatorBank(mixPoint, sum, layer.formants);
+      mixPoint = sum;
+    } else if (layer.filter) {
       const filter = ctx.createBiquadFilter();
       filter.type = layer.filter.type || 'lowpass';
       filter.Q.value = layer.filter.q ?? 1;
@@ -1514,7 +1576,18 @@
     else _sampleCache.clear();
   }
 
-  // ── Formant speech: procedural TV-narrator readout ──────────────────────────
+  // ── ORACLE — Orthography, Resonance, Accent, Cadence, Lexicon & Emphasis ────
+  //
+  // The voice. A formant speech synth: a glottal PeriodicWave through a
+  // four-formant bank with a nasal antiformant, a separate noise path for
+  // fricatives and stop bursts, a 27k-word lexicon over letter-to-sound rules,
+  // RP/GA accents, and prosody that falls at a full stop and rises at a question
+  // mark. It reads broadcasts, the Architect, the library and Read Aloud. Its
+  // tuning surface is the dev panel's Voice Lab tab.
+  //
+  // ⚠ ORACLE lives inside SIREN's file and does NOT use its layer builder — see the
+  // header. It does share the resonator bank below, which is what its vowels are.
+  //
   // Two stages: text→phoneme (dictionary + rules) and phoneme→formant synthesis.
   // Each narrator's name seeds a deterministic voice. Rides the 'tv' bus, so TV
   // volume, the tv-enable toggle, and mute-when-hidden already apply. Sounds like
@@ -1804,7 +1877,31 @@
 
     // Pronounce a word: initialism → hand-dict → CMU → inflectional suffix →
     // compound → letter rules.
+    // ⚠ DEGEMINATION BELONGS ON THE OUTPUT, not in the letter rules. The doubled
+    // consonants are made where two phoneme sequences are JOINED — `tableland` is
+    // the dictionary's `table` (…AX L) plus its `land` (L AE N…), and `funnelled`
+    // is `funnel` plus the -ed suffix. The letter rules never see either. A first
+    // cut put the filter inside g2p and changed nothing at all, which is worth
+    // recording: the same word can arrive by a dictionary hit, a compound, a
+    // suffix rule or a guess, and only the exit is common to all of them.
+    //
+    // English has no geminate inside a word. `tableland` was "table-l-and" and
+    // `rubbly` "rub-b-ly" — and those two are terrain words appearing 287 and 157
+    // times in room prose, so Read Aloud said them wrong in hundreds of rooms.
+    // 126 words in the game's own vocabulary carried the fault; the `merrin` entry
+    // in DICT is the same bug, patched once by hand.
+    //
+    // Consonants only. An adjacent identical VOWEL pair has a different cause (the
+    // -ia/-ya spellings: `fascia` → F AE S S AX AX) and collapsing it here would
+    // hide that rather than fix it. Across a hyphen too, correctly: "hand-drawn"
+    // is said /hændrɔːn/, with one d.
+    const DEGEM_VOWEL = /^(AA|AE|AH|AO|AW|AY|EH|ER|EY|IH|IY|OW|OY|UH|UW|AX|ERR|OWR)$/;
     function pronounceWord(w){
+      const ph = pronounceWordRaw(w);
+      if (!Array.isArray(ph) || ph.length < 2) return ph;
+      return ph.filter((p, i) => i === 0 || p !== ph[i - 1] || DEGEM_VOWEL.test(p));
+    }
+    function pronounceWordRaw(w){
       // ── Initialisms ────────────────────────────────────────────────────────
       // Checked FIRST, and off the raw token, because the case is the evidence
       // and the next line destroys it.
@@ -2015,7 +2112,7 @@
         }
         i++;
       }
-      return out;
+return out;
     }
 
     // Numbers & number-symbols → words, so the voice can actually SAY them (digits are otherwise
@@ -2234,7 +2331,7 @@
     // Every number in here was arrived at by measurement plus a guess at how the
     // guess would SOUND, which is the one thing measurement can't settle. Gathering
     // them in one live object means they can be turned by ear in the voice lab
-    // (client/devpanel/voice-lab.html) instead of by edit-reload-listen, and it
+    // (the dev panel's Voice Lab tab) instead of by edit-reload-listen, and it
     // makes the set of things that are opinions rather than physics explicit.
     // Read at speak() time, so a change applies to the very next line.
     const TUNING = {
@@ -2751,7 +2848,13 @@
       const c = ensureContext(); if (!c) return;
       if (c.state === 'suspended') c.resume();
       cancel();
-      const V = voiceFromName(opt.seed || text);
+      // `opt.voice` overrides individual parameters on top of whatever the seed
+      // rolled. Nothing in the game passes it — this exists so a voice can be
+      // AUDITIONED. Character comes from hashing a name, so before this the only
+      // way to hear what `drive` or `growl` sound like was to type seeds until one
+      // happened to roll them, which is not tuning, it is fishing. The dev panel's
+      // voice lab drives this; the values it prints go straight into NAMED_VOICES.
+      const V = Object.assign(voiceFromName(opt.seed || text), opt.voice || null);
       const F0 = V.f0, ringAmt = V.ring, fshift = V.fshift;
       // ⚠ NO CHARACTER ON THE ACCESSIBILITY CHANNEL. Drive and growl are texture:
       // clipping and period doubling both make a voice more interesting and less
@@ -2883,11 +2986,46 @@
       // them on one clock and what `cancel()` stops. An oscillator started by hand
       // here would run on past a cancelled line with nothing holding a reference
       // to stop it — a permanent tone under the game with no way to reach it.
-      let growlOsc = null;
+      // GLOTTAL FM. `growl` began as one hardcoded sub-harmonic — a modulator at
+      // F0/2, which is period doubling and reads as creak. Ratio, index and
+      // waveform turn that one effect into a family, and the member worth having
+      // is a NON-INTEGER ratio: the partials stop being harmonics of anything and
+      // the voice goes inharmonic.
+      //
+      // WHY THAT IS NOT THE RING MODULATOR ALREADY HERE. `ring` is amplitude
+      // modulation on the OUTPUT, after the formant bank — it modulates a finished
+      // voice, and reads as a voice with a box on it. This is FM on the SOURCE,
+      // before the tract: the formants still shape it correctly, so it reads as a
+      // throat producing something a throat should not. Different mechanism,
+      // different place in the chain, different thing to hear.
+      //
+      //   growlRatio  modulator frequency as a multiple of F0.
+      //               0.5 sub-harmonic — creak, fry (the original, and the default)
+      //               1   harmonic — brightens rather than roughens
+      //               1.414, 2.41 inharmonic — machine, wrong, not-a-person
+      //   growl       modulation index, scaled by F0 so a low and a high voice
+      //               are modulated by the same musical interval
+      //   growlWave   modulator waveform; square/saw are far harsher sidebands
+      //   growl2      a SECOND modulator, in PARALLEL, at its own ratio
+      //
+      // ⚠ Parallel, where buildLayer's op2 is in series, and the difference is the
+      // goal rather than an inconsistency: series compounds into one richer
+      // spectrum, parallel puts two competing periodicities into the source, which
+      // is what diplophonia — two pitches from one throat — actually is.
+      let growlOsc = null, growl2Osc = null;
       if (growlAmt > 0) {
-        growlOsc = c.createOscillator(); growlOsc.type = 'sine'; growlOsc.frequency.value = F0 * 0.5;
+        growlOsc = c.createOscillator();
+        growlOsc.type = OSC_WAVES.includes(V.growlWave) ? V.growlWave : 'sine';
+        growlOsc.frequency.value = F0 * (V.growlRatio ?? 0.5);
         const growlG = c.createGain(); growlG.gain.value = F0 * growlAmt;
         growlOsc.connect(growlG).connect(glot.frequency);
+        if (V.growl2 > 0) {
+          growl2Osc = c.createOscillator();
+          growl2Osc.type = OSC_WAVES.includes(V.growl2Wave) ? V.growl2Wave : 'sine';
+          growl2Osc.frequency.value = F0 * (V.growl2Ratio ?? 1.5);
+          const g2 = c.createGain(); g2.gain.value = F0 * V.growl2;
+          growl2Osc.connect(g2).connect(glot.frequency);
+        }
       }
       const shim = c.createOscillator(); shim.type = 'sine'; shim.frequency.value = 5.1;
       const shimG = c.createGain(); shimG.gain.value = 0.05; shim.connect(shimG).connect(master.gain);
@@ -2909,14 +3047,16 @@
       // where it stops sounding like a resonance and starts sounding like a bell.
       const F_BW = [90, 130, 200, 280];
       const qFor = (f, k) => Math.max(3, Math.min(16, f / F_BW[k]));
-      const forms = [], fgain = [];
-      [0,1,2,3].forEach(k => {
-        const bp = c.createBiquadFilter(); bp.type = 'bandpass';
-        bp.frequency.value = k === 3 ? 3600 : 500; bp.Q.value = qFor(bp.frequency.value, k);
-        const g = c.createGain(); g.gain.value = k === 0 ? 1 : 0.4;
-        tilt.connect(bp).connect(g).connect(voiced);
-        forms.push(bp); fgain.push(g);
-      });
+      // Built through the SHARED bank (see buildResonatorBank up in the synth), so
+      // the voice's vowels and a layer's `formants` are one implementation rather
+      // than two written from the same idea. The handles come back because this
+      // caller does something a static layer never does: it glides every band
+      // across the utterance, phoneme to phoneme.
+      const bank = buildResonatorBank(tilt, voiced, [0,1,2,3].map(k => {
+        const f = k === 3 ? 3600 : 500;
+        return { freq: f, q: qFor(f, k), gain: k === 0 ? 1 : 0.4 };
+      }));
+      const forms = bank.map(b => b.filter), fgain = bank.map(b => b.gain);
 
       // ── Cascade-derived formant amplitudes ───────────────────────────────────
       // A real vocal tract is a CASCADE — one tube, whose poles all shape the same
@@ -3409,6 +3549,7 @@
       }
       const src = [glot, nz, lfo, jit, jit2, shim];
       if (growlOsc) src.push(growlOsc);
+      if (growl2Osc) src.push(growl2Osc);
       src.forEach(n => n.start(t0));
       src.forEach(n => n.stop(end+0.1));
       live = src;
@@ -3454,7 +3595,7 @@
     speak: (text, opt) => Speech.speak(text, opt),
     cancelSpeech: () => Speech.cancel(),
     // Live tunables — see the TUNING block in Speech. Mutate and the next line
-    // spoken picks it up. Used by the voice lab (client/devpanel/voice-lab.html)
+    // spoken picks it up. Used by the voice lab (the dev panel's Voice Lab tab)
     // and read by tv.js for the inter-line gap.
     voiceTuning: Speech.tuning,
     _phonemesFor: (text, opt) => Speech.phonemesFor(text, opt),

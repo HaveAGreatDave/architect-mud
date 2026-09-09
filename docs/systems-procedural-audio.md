@@ -21,7 +21,7 @@ they're the same machinery with nothing culinary about them.
 | [`client/shared/procedural-sfx.js`](../client/shared/procedural-sfx.js) | **everything acoustic** — tables, generators, the seeded RNG. Dual-mode (window + ESM import) |
 | [`plugins/audio/index.js`](../plugins/audio/index.js) | the routing: semantic event → parameters + seed → the wire |
 | [`client/game/js/dispatch.js`](../client/game/js/dispatch.js) | `audio_sfx_proc` — rebuilds the cue from the seed and plays it |
-| [`client/shared/audio-engine.js`](../client/shared/audio-engine.js) | the synth |
+| [`client/shared/audio-engine.js`](../client/shared/audio-engine.js) | **SIREN**, the synth — and **ORACLE**, the voice, further down the same file |
 
 **Almost no new synthesis.** `AudioEngine.buildLayer` already did audio-rate FM, filtered noise,
 pitch bends, tremolo and ADSR; this system mostly just decides the numbers, and emits the same
@@ -176,6 +176,116 @@ F0, so a low voice and a high one growl by the same musical interval.
 
 Both are minority traits (about a third, and about a seventh), for the same reason two
 thirds of the cast get no breath: a trait everybody has marks nobody out.
+
+### The synth was doubling consonants
+
+English has no geminate inside a word, and the voice produced one wherever two phoneme
+sequences were **joined** — a compound's two halves, or a stem and its suffix.
+
+| said | was | is |
+|---|---|---|
+| `tableland` **287×** | "table-**l**-and" | `T EY B AX L AE N D` |
+| `rubbly` **157×** | "rub-**b**-ly" | `R AH B L AY` |
+
+Those two are terrain words in hundreds of room descriptions, so Read Aloud said them
+wrong in most of the map. **126 words** in the game's own vocabulary carried the fault —
+`flattest`, `funnelled`, `stencilled`, `panelling`, `whippet`, `hand-drawn`, and every
+invented name with a written double letter (`marrick`, `sarraf`). The `merrin` entry in
+`DICT` is the same bug, found by ear and patched one word at a time.
+
+⚠ **The fix belongs at pronounceWord's EXIT, not in the letter rules.** A first attempt
+put it in `g2p` and changed nothing whatsoever, which is the useful part: none of these
+words reach the letter rules. `tableland` is the dictionary's `table` plus its `land`;
+`funnelled` is `funnel` plus a suffix rule. A word can arrive by a dictionary hit, a
+compound, a suffix rule or a guess, and **only the exit is common to all four**.
+
+⚠ **Consonants only.** An adjacent identical vowel pair has a different cause (the -ia/-ya
+spellings) and collapsing it here would hide that family rather than fix it. Note that only
+*some* vowel runs even reach this filter — `fascia`, `cassius`, `aurelia` are produced
+downstream of `pronounceWord` and are unaffected either way, so a guard written on one of
+those passes regardless of what the filter does. The smoke uses `priya`, which does reach it.
+
+#### Finding the rest
+
+`npm run voice:suspects` ranks the words the synth is most likely saying wrong. It cannot
+tell whether a pronunciation is *right* — that needs an ear — so it looks for output that is
+wrong on its face, using the signatures the `DICT` comments already describe: doubled
+consonants, a reduced vowel butted against another vowel ("pure noise", per the `kiyo`
+entry), a polysyllable with no stress, and syllable counts far off the spelling.
+
+Ranked by how often the word is actually spoken, because that is what made `auggie` — 236
+occurrences — matter and a name in one room's description not. It went 126 → 73 with the
+degemination fix. The remainder is a shortlist for the voice lab; a confirmed bad one gets
+a line in `DICT`.
+
+### The dictionary did not contain the game
+
+32% of the words in the game's own names and descriptions — **663 of 2,041**, including
+essentially every character and place name — were absent from the shipped CMUdict subset
+and fell through to the letter-to-sound guesser.
+
+The cause is in the generator's own header, and it was not a mistake at the time: the
+subset was curated as common English minus junk, "upstream is ~134k entries, **most of
+them proper nouns** the narrator will never say". True for a generic narrator, false for
+one who says *Delacroix* and *Coldwater* all day.
+
+Sweeping the whole content tree against upstream splits the gap cleanly:
+
+| | |
+|---|---|
+| **1,634** | real words upstream carries — simply curated out |
+| 1,722 | true coinages (*marrick*, *kesh*, *slagworks*) that no dictionary can help |
+
+The 1,634 are now added by `gameWords()` in the build script, alongside the existing
+`EXTRA` contractions list and for the same stated reason. **Names *and* descriptions**,
+because Read Aloud speaks the whole log — the words most likely to be mispronounced are in
+room prose, to the player who most depends on the voice working.
+
+The guesser was decent and still plainly wrong on a good share of them: `waders` came out
+"wadders", `odell` as "oddle", `canteen` stressed on the first syllable, `vestibule`
+without its /j/. Five are pinned in the smoke, and all five fail against the old file.
+
+⚠ **The curation is never re-derived, only added to**, and the regeneration is verified as
+additive: 0 words removed and **0 existing pronunciations changed**. Cost is 410 → 436 KB,
+which is **+13 KB on the wire** after gzip, against a file every client loads once.
+
+### Glottal FM, and being able to hear it
+
+⚠ **The FM work went into `buildLayer`, and the voice does not use it.** The formant synth
+builds its own oscillator graph; the only thing genuinely shared is `driveCurve`. What
+transferred was the technique, not the code, and it transferred once: `growl` was a single
+hardcoded modulator at F0/2.
+
+`growlRatio`, `growlWave` and a second parallel modulator turn that into a family:
+
+| ratio | what it is |
+|---|---|
+| 0.5 | sub-harmonic — creak, fry (the original, still the default) |
+| 1 | harmonic — brightens rather than roughens |
+| 1.414, 2.41 | **inharmonic** — machine, wrong, not-a-person |
+
+**This is not the ring modulator already present**, and the difference is where it sits.
+`ring` is amplitude modulation on the **output**, after the formant bank — it modulates a
+finished voice and reads as a voice with a box on it. Glottal FM is on the **source**,
+before the tract, so the formants still shape it correctly: it reads as a throat producing
+something a throat should not.
+
+⚠ **The second modulator is PARALLEL where `buildLayer`'s `op2` is series**, and that is
+the goal rather than an inconsistency. Series compounds into one richer spectrum; parallel
+puts two competing periodicities into the source, which is what diplophonia — two pitches
+from one throat — actually is.
+
+#### You could not hear any of this
+
+Character is hashed from a **name**, so before the override existed the only way to hear
+what `drive` or `growl` sounded like was to type seeds until one rolled them. That is
+fishing, not tuning — and two character parameters had already shipped that way.
+
+`speak(text, { voice: {…} })` overrides individual parameters on top of the seed. Nothing
+in the game passes it; it exists for the dev panel's **voice lab**, which now carries a
+per-voice panel beside the global tuning knobs and prints only what differs from the seed,
+in the shape a `NAMED_VOICES` entry takes. Ranges there are deliberately wider than the
+roll, because the point is to hear the edges.
 
 ### RP grew a linking-r and a GOAT
 

@@ -398,6 +398,40 @@ function driveCurveOf(d) {
   A.setSpace('outdoor', { instant: true });
 }
 
+// ── the resonator bank: one source, many filters, IN PARALLEL ────────────────
+// The one topology the layer synth could not express, and the reason the voice
+// had to build its own graph. Four SERIAL filters are a narrower and narrower band
+// until nothing is left; four PARALLEL ones are four resonances in one sound.
+// Modelling it as four layers would give four independent oscillators — four
+// voices rather than one voice through four resonators, which is the mistake this
+// exists to make impossible.
+{
+  const g = build({ waveform: 'sawtooth', freq: 110, formants: [700, 1220, 2600] });
+  const bands = nodes.filter(n => n.kind === 'filter' && n.type === 'bandpass');
+  check('formants build one filter per band', bands.length === 3, `${bands.length}`);
+  check('…at the frequencies asked for',
+    [700, 1220, 2600].every((f, i) => near(bands[i].frequency.value, f)),
+    bands.map(b => b.frequency.value).join(', '));
+  // PARALLEL is the whole point: every band must be fed by the SAME node, and none
+  // of them may feed another. Serial would pass this if we only counted filters.
+  const feeders = bands.map(b => nodes.filter(n => n.out.includes(b)));
+  check('…each fed from the same single source',
+    feeders.every(f => f.length === 1) && new Set(feeders.map(f => f[0])).size === 1,
+    'bands are not sharing one source');
+  check('…and no band feeds another', !bands.some(b => b.out.some(o => bands.includes(o))),
+    'the bank is wired in series');
+  // ONE voice out, not three: the bank sums into a single node.
+  const sinks = bands.map(b => b.out.flatMap(o => o.out ?? []));
+  check('…and they sum back into one node',
+    new Set(sinks.flat()).size === 1, 'the bank does not converge');
+  check('one oscillator, not one per band',
+    g.oscs.length === 1, `${g.oscs.length} oscillators — this is four voices, not one voice`);
+  // Back-compat: a layer with no formants is untouched, and `formants` overrides.
+  check('a layer without formants builds no bandpass bank',
+    !build({ waveform: 'sine', freq: 220, filter: { type: 'lowpass', freq: 900 } })
+      .oscs.some(() => false) && nodes.filter(n => n.kind === 'filter' && n.type === 'bandpass').length === 0);
+}
+
 // ── the accessibility bus stays dry ──────────────────────────────────────────
 // Read Aloud speaks through `channel: 'ui'`, which used to route to the sfx bus.
 // The moment that bus grew a reverb send, a player relying on the log reader
@@ -502,6 +536,75 @@ function driveCurveOf(d) {
     check('Read Aloud is never driven', !nodes.some(n => n.kind === 'shaper'));
     check('…and never growls', nodes.filter(n => n.kind === 'osc').length === 5,
       `${nodes.filter(n => n.kind === 'osc').length} oscillators`);
+  }
+
+  // ── glottal FM, and the override that makes it auditionable ───────────────
+  // `growl` began as one hardcoded F0/2 sub-harmonic. Ratio, index and waveform
+  // make it a family, and the member worth having is a NON-INTEGER ratio, which
+  // takes the source inharmonic. That is not the ring modulator already present:
+  // ring is AM on the OUTPUT, after the formant bank; this is FM on the SOURCE,
+  // before it, so the tract still shapes it and it reads as a throat doing
+  // something wrong rather than a voice with a box on it.
+  {
+    // Modulators are the oscillators whose gain feeds the glottal oscillator's
+    // frequency — found by walking, because "the third oscillator" would be true
+    // today and false the moment the builder reorders.
+    const glottalMods = (voice) => {
+      nodes = [];
+      A.speak('hello there', { seed: 'lab', voice });
+      const oscs = nodes.filter(n => n.kind === 'osc');
+      const glot = oscs.find(o => o.frequency.log.length > 3) || oscs[0];
+      return nodes.filter(n => n.kind === 'gain')
+        .filter(g => g.out.some(d => d && d._name === 'frequency' && d._owner === glot))
+        .map(g => oscs.find(o => o.out.includes(g)))
+        .filter(Boolean);
+    };
+    const F0 = A._voiceFor('lab').f0;
+    // The two jitter LFOs are always there; a growl modulator is a third.
+    const base = glottalMods({ growl: 0 });
+    check('an unmodulated voice has only its jitter LFOs', base.length === 2, `${base.length}`);
+
+    const def = glottalMods({ growl: 0.08 });
+    check('growl adds one modulator', def.length === 3);
+    check('…at F0/2 by default, exactly as it was hardcoded',
+      near(def[2].frequency.value, F0 * 0.5, 1e-9), `${def[2].frequency.value} vs ${F0 * 0.5}`);
+
+    const inh = glottalMods({ growl: 0.08, growlRatio: 1.414 });
+    check('a non-integer ratio takes the source inharmonic',
+      near(inh[2].frequency.value, F0 * 1.414, 1e-9), `${inh[2].frequency.value} vs ${F0 * 1.414}`);
+    check('growlWave reaches the modulator',
+      glottalMods({ growl: 0.08, growlWave: 'square' })[2].type === 'square');
+    check('…and a nonsense wave falls back rather than throwing',
+      glottalMods({ growl: 0.08, growlWave: 'bagpipe' })[2].type === 'sine');
+
+    // ⚠ PARALLEL, not series. buildLayer's op2 modulates the modulator, which
+    // compounds into one richer spectrum; here the goal is two competing
+    // periodicities in the source, which is what diplophonia is. Both modulators
+    // must therefore feed the CARRIER, not each other.
+    const bi = glottalMods({ growl: 0.08, growl2: 0.06, growl2Ratio: 1.5 });
+    check('a second modulator is added', bi.length === 4, `${bi.length}`);
+    check('…in parallel, both feeding the glottal source',
+      near(bi[2].frequency.value, F0 * 0.5, 1e-9) && near(bi[3].frequency.value, F0 * 1.5, 1e-9),
+      bi.map(m => m.frequency.value).join(', '));
+
+    // ⚠ The trap that nearly shipped with growl: a source built by hand is a
+    // source nobody can stop. Both modulators must be in the array that cancel()
+    // stops, or a cancelled line leaves a tone running with no reference to it.
+    nodes = [];
+    A.speak('hello there', { seed: 'lab', voice: { growl: 0.08, growl2: 0.06 } });
+    const oscs = nodes.filter(n => n.kind === 'osc');
+    check('every modulator is started and stopped with the voice',
+      oscs.every(o => o.started != null && o.stopped != null),
+      `${oscs.filter(o => o.stopped == null).length} left running`);
+
+    // The override itself — the whole reason the lab can audition any of this.
+    // Read off the growl modulator rather than the carrier: it is F0 × ratio, so
+    // forcing F0 moves it by the same factor, and it is found by the same walk as
+    // every check above rather than by guessing which oscillator is the carrier.
+    const forced = glottalMods({ f0: 200, growl: 0.08 });
+    check('an explicit voice override beats what the seed rolled',
+      near(forced[2].frequency.value, 200 * 0.5, 1e-9),
+      `modulator at ${forced[2].frequency.value}, seed F0 is ${F0}`);
   }
 
   // ── the pitch contour ─────────────────────────────────────────────────────
