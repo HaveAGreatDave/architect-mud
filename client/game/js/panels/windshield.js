@@ -173,13 +173,23 @@ export const RENDER_TUNE = {
   // is not "is fast on an integrated GPU", and the first knob if it ever measures slower
   // somewhere is `antialias` in createGLView: the 2-D canvas has no MSAA, so GL is buying
   // smoother edges nobody asked for at full-frame cost.
-  // ── THE GROUND, ON THE GPU ──
+  // ── THE GROUND, ON THE GPU, AND ON BY DEFAULT ──
   // 1 = drawMode7Floor hands its per-tile LUT and its camera to a fragment shader instead of
-  // rastering the floor itself. Off by default because the port is INCOMPLETE: the base, the
-  // coast warp, the materials and the haze are there; water, the arid ripple, the near grain and
-  // the aerial-perspective wash are not. Over dry land it matches; over sea it does not, and a
-  // flag is how that stays honest.
-  glFloor: 0,
+  // rastering the floor itself. 0 puts the software raster back.
+  //
+  // The port is complete — every term, including the ones this comment used to list as missing:
+  // water with its swell, glitter, surf and shore emboss, the arid ripple, the near-field grain,
+  // the aerial-perspective wash, the rotor downwash and the N64 fog band. `__glFloor()` in the
+  // Modelshop measures it over twenty scenes — every biome by day and by night, plus the four
+  // SEAT cases (headlights, and an own-ship shadow parked, airborne and under a heli) — and the
+  // worst is 2.30% of pixels differing by more than 24 levels, on a daylight road.
+  //
+  // ⚠ AND IT IS THE FLAG THAT ACTUALLY PAYS. `__glFloorCost()` on a 640x360 cab frame: a city
+  // costs 32.9 ms on GLASS 1, 34.4 with the mass on the GPU and the raster still under it, and
+  // 1.3 with this on. Open sea is 65.4 / 69.1 / 0.6. The middle column is the finding — moving
+  // the city bought nothing until the ground followed, because a fixed per-pixel software raster
+  // that costs the same over an empty desert as over a city WAS the frame.
+  glFloor: 1,
   gl: 1,
   mount: 1,
   shapeShadow: 1,
@@ -5092,7 +5102,14 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   // and moon bearings and the rotor downwash are all computed in the twenty lines above it, and an
   // early return placed before them hands the shader a sea with no glitter and a heli with no
   // wash - which looks exactly like the shader not implementing them.
-  if (TUNE.glFloor && GL_HOOK && LUT) {
+  // ⚠ GATED ON `gl` AS WELL AS `glFloor`, AND THAT IS THE WHOLE FAIL-SAFE. Every way GLASS 2 can
+  // fail - no WebGL2, a lost context, a shader that will not compile, a pass that returns nothing -
+  // ends at `RENDER_TUNE.gl = 0`, and this function runs BEFORE the pass each frame. Without the
+  // `TUNE.gl` term it would go on returning early for ever on a machine that cannot draw the
+  // replacement: not a degraded floor, NO floor, permanently, on exactly the hardware that has no
+  // way to tell you why. Harmless while glFloor defaulted to 0 and load-bearing the moment it did
+  // not.
+  if (TUNE.gl && TUNE.glFloor && GL_HOOK && LUT) {
     FLOOR_STATE = {
       ...floorLutBytes(LUT, mh),
       EH, horizonY, depth, cx, halfW: W / 2, LAT, sinh, cosh, ax, ay,

@@ -25,8 +25,14 @@
 // simply fall in different places. That is a grain, not a position: nothing in the world stands on
 // it and no other term reads it.
 //
-// ⚠ WHAT IT STILL DOES NOT DO: nothing. Every term in `drawMode7Floor` is here. It stays behind
-// `RENDER_TUNE.glFloor` until it has been flown as well as measured.
+// ⚠ WHAT IT STILL DOES NOT DO: nothing. Every term in `drawMode7Floor` is here, and it is the
+// DEFAULT — `RENDER_TUNE.glFloor = 0` puts the software raster back. Measured over twenty scenes
+// by `__glFloor()`: worst 2.30% of pixels differing, mean colour 0.10–0.72%. Worth 32.9 ms → 1.3
+// on a city cab frame and 65.4 → 0.6 over open sea.
+//
+// ⚠ THE FAIL-SAFE IS IN windshield.js, NOT HERE. Every way this can fail to draw ends at
+// `RENDER_TUNE.gl = 0`, and `drawMode7Floor` tests THAT as well as `glFloor` before it returns
+// early — otherwise a machine with no WebGL2 gets no ground at all rather than a slower one.
 
 // A screen-filling triangle rather than a quad: no diagonal seam, one fewer vertex, and the
 // interpolators do not care. The vertex shader synthesises it from gl_VertexID, so there is no
