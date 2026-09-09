@@ -15066,22 +15066,46 @@ function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // stroke-only silhouette, not solid mass
   const S = 3, H = 4;
   const corner = (i, z) => { const t = (z - z0) / (z1 - z0), r = r0 + (r1 - r0) * t, a = i / S * Math.PI * 2 + 0.5; return [dx + Math.cos(a) * r, dy + Math.sin(a) * r, z]; };
-  const seg = (A, B, w, c) => {
-    const a = cam.proj(A[0], A[1], A[2]), b = cam.proj(B[0], B[1], B[2]);
-    if (a.f <= 0.1 || b.f <= 0.1) return;
-    emitDeco([a, b], () => { ctx.globalAlpha = alpha; ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }, 0.03);
-  };
-  const leg = 'rgba(202,208,222,0.9)', brace = 'rgba(150,120,210,0.72)';
-  for (let i = 0; i < S; i++) seg(corner(i, z0), corner(i, z1), 1.3, leg);                                  // 3 legs
-  for (let k = 0; k < H; k++) {
-    const za = z0 + (z1 - z0) * (k / H), zb = z0 + (z1 - z0) * ((k + 1) / H);
-    for (let i = 0; i < S; i++) {
-      const j = (i + 1) % S;
-      seg(corner(i, za), corner(j, za), 0.9, brace);                                                        // horizontal belt
-      seg(corner(i, za), corner(j, zb), 0.8, brace); seg(corner(j, za), corner(i, zb), 0.8, brace);         // X-brace (the triangles)
+  // ⚠ THE WHOLE TOWER IS ONE BAKE IF THERE IS A DEPTH BUFFER TO PUT IT ON. Thirty-nine stroked
+  // segments went through emitDeco individually, and `decoHidden` answers per SURFACE: a leg whose
+  // top clears the warehouse in front of it answers "draw" for its whole length, so on the canvas
+  // the painter's queue buried the rest and on GLASS 2 — composited before the 2-D pass, with
+  // nothing able to paint over it — the lattice hung across the building in front. Measured behind
+  // a nine-storey warehouse: 121 leaked pixels at night, 106 by day, against 0 on the canvas.
+  //
+  // ⚠ A BAKE AND NOT THE MESH: every one of these is a STROKE 0.8-1.3 screen pixels wide, which is
+  // what makes a lattice read as a lattice at four hundred metres instead of dissolving. A stroke
+  // has no world thickness and there is nothing to hand a triangle list, so it goes to the scatter
+  // layer through markBillboard, the same seam the neon blades, the landmarks and the air contacts
+  // use. It also collapses 39 queue entries into one, which is why the frame gets cheaper rather
+  // than dearer for the fix.
+  //
+  // ⚠ The fallback keeps the ORIGINAL per-segment emitDeco, lift and all — same sorting, same
+  // probe, byte for byte — so a camera too close to bake (or the 2-D renderer) is unchanged.
+  const segsInto = (g, direct) => {
+    const seg = (A, B, w, c) => {
+      const a = cam.proj(A[0], A[1], A[2]), b = cam.proj(B[0], B[1], B[2]);
+      if (a.f <= 0.1 || b.f <= 0.1) return;
+      const stroke = () => { g.globalAlpha = alpha; g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(a.sx, a.sy); g.lineTo(b.sx, b.sy); g.stroke(); g.globalAlpha = 1; };
+      if (direct) stroke(); else emitDeco([a, b], stroke, 0.03);
+    };
+    const leg = 'rgba(202,208,222,0.9)', brace = 'rgba(150,120,210,0.72)';
+    for (let i = 0; i < S; i++) seg(corner(i, z0), corner(i, z1), 1.3, leg);                                  // 3 legs
+    for (let k = 0; k < H; k++) {
+      const za = z0 + (z1 - z0) * (k / H), zb = z0 + (z1 - z0) * ((k + 1) / H);
+      for (let i = 0; i < S; i++) {
+        const j = (i + 1) % S;
+        seg(corner(i, za), corner(j, za), 0.9, brace);                                                        // horizontal belt
+        seg(corner(i, za), corner(j, zb), 0.8, brace); seg(corner(j, za), corner(i, zb), 0.8, brace);         // X-brace (the triangles)
+      }
     }
-  }
-  for (let i = 0; i < S; i++) seg(corner(i, z1), corner((i + 1) % S, z1), 0.9, brace);                      // top belt
+    for (let i = 0; i < S; i++) seg(corner(i, z1), corner((i + 1) % S, z1), 0.9, brace);                      // top belt
+  };
+  // ⚠ The half-width is the tower's own radius with room to spare: a corner NEARER than the tile
+  // centre throws the same world offset further across the screen, so the silhouette is wider than
+  // r·FL/f and a box sized exactly on r clips its own legs.
+  const ltKey = 'lt:' + dx + ',' + dy + ':' + z0 + ',' + z1 + ':' + r0 + ',' + r1;
+  if (!markBillboard(cam, dx, dy, z1, Math.max(r0, r1) * 1.6, ltKey, (g) => segsInto(g, true))) segsInto(ctx, false);
   blinkLight(ctx, cam, dx, dy, z1, '255,80,80', now, seed, alpha, 1.8);                                     // aviation beacon
 }
 // ── Surface text: procedural sign art painted INTO a face ─────────────────────
