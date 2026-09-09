@@ -1,4 +1,13 @@
-// THE ROAD SURFACE, AS GEOMETRY.
+// THE ROAD SURFACE, AS GEOMETRY — AND EVERYTHING ELSE THAT IS A COLOURED POLYGON.
+//
+// It began as the road and it is no longer only the road: the headlight pool rides here as an
+// additive range, building shadows as a translucent one, and a CLIFF MASSIF as ordinary depth-
+// writing geometry. Nothing about this layer was ever specific to z = 0 — it takes a polygon, a
+// colour and an alpha, which is what all four of those are. A massif could not go in the mesh
+// (that is captured once and a cliff is coloured per frame off the sun, the night and a world
+// noise) and could not go behind an occlusion probe (it spreads about 1.8 tiles either side of
+// its own tile, so any box wide enough to hold it reaches into the gaps between buildings), so
+// it comes here instead, where a stream is the honest shape and the depth buffer does the rest.
 //
 // Measured with scripts/shapes/armcost.mjs: once GLASS 2 owns the city's mass, 97% of the canvas
 // calls a frame still makes are path construction, and the single biggest producer is the ground —
@@ -136,13 +145,22 @@ export function createGroundLayer(gl) {
     let o = 0;
     for (const q of quads) {
       const p = q.p, c = q.rgb, qa = q.a == null ? 1 : q.a;
-      const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
-      const put = (v) => { data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
-        data[o + 3] = r; data[o + 4] = g; data[o + 5] = b; data[o + 6] = qa; o += STRIDE; };
+      // ⚠ COLOUR IS PER VERTEX IN THE BUFFER AND USUALLY PER QUAD IN THE CALLER, and the two are
+      // not in tension — a road has one colour and writes it four times. `rgbs` is for the caller
+      // that needs the other: a cliff face is painted with a vertical GRADIENT, which is the one
+      // thing a flat quad cannot say and the reason a massif could not follow the road onto this
+      // layer. Interpolating between the top and bottom vertices is what a gradient IS.
+      const cs = q.rgbs;
+      const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
+      const put = (v, i) => {
+        const k = cs && cs[i];
+        data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2];
+        data[o + 3] = k ? k[0] / 255 : r; data[o + 4] = k ? k[1] / 255 : g; data[o + 5] = k ? k[2] / 255 : b;
+        data[o + 6] = qa; o += STRIDE;
+      };
       // A fan, because a shadow is the convex hull of a footprint and its offset copy and can
       // carry up to eight corners; a road quad is the four-point case of the same loop.
-      for (let i = 1; i + 1 < p.length; i++) { put(p[0]); put(p[i]); put(p[i + 1]); }
-
+      for (let i = 1; i + 1 < p.length; i++) { put(p[0], 0); put(p[i], i); put(p[i + 1], i + 1); }
     }
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);

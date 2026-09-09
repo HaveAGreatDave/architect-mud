@@ -8713,6 +8713,30 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
   // file with enough internal faces for that order to matter.
   const parts = [];
   const add = (d, fn) => parts.push({ d, fn });
+  // ── THE MASSIF, WHEN GLASS 2 OWNS THE CITY ────────────────────────────────
+  // A cliff is the last MASS in the world pass still queued through the painter, and with the
+  // buildings on the GPU that queue flushes after the composite: a massif behind a block drew
+  // straight over it, 246 px of 326 measured against GLASS 1’s one. It cannot go in the mesh
+  // (that is captured once and this is coloured per frame off the sun, the night and a world
+  // noise) and it cannot go behind a probe (it spreads ~1.8 tiles either side of its own tile,
+  // so any box wide enough to hold it reaches into the gaps between buildings). It goes on the
+  // GROUND layer instead, which already streams flat coloured polygons every frame with depth
+  // WRITE on — nothing about that layer was ever specific to z = 0.
+  // ⚠ THE GRADIENT IS THE WHOLE REASON IT NEEDED A NEW ROUTE. A rock face is painted with a
+  // vertical createLinearGradient, which is exactly what emitFlat and MESH_SINK refuse. The
+  // ground layer carries colour PER VERTEX, so a gradient is two colours on the two edges —
+  // and a three-stop one is two quads meeting at the middle stop.
+  // ⚠ The stops are placed in SCREEN y and the split here is in WORLD space, which is the same
+  // line only for a face square to the eye. On a rock band a fraction of a tile tall the error
+  // is under a pixel, and it buys the whole massif a depth test.
+  const gmesh = GROUND_MESH;
+  const gq = (wpts, fill, cols) => {
+    const st = styleRgbA(fill);
+    if (!st) return;
+    gmesh.push({ p: wpts.map((w) => [w[0] + cam.ox, w[1] + cam.oy, w[2]]),
+      rgb: st.rgb, rgbs: cols || null, a: st.a });
+  };
+  const gcol = (fill) => { const st = styleRgbA(fill); return st ? st.rgb : [120, 120, 120]; };
   const trace = (pts) => { ctx.beginPath(); ctx.moveTo(pts[0].sx, pts[0].sy); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy); ctx.closePath(); };
   const fillPoly = (pts, fill) => {
     trace(pts); ctx.fillStyle = fill; ctx.fill();
@@ -8779,6 +8803,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
       const m = mott((ctr.wx + a.wx + b.wx) / 3, (ctr.wy + a.wy + b.wy) / 3);
       const under = cam.EH != null && cam.EH < (ctr.h + a.h + b.h) / 3;
       const fill = under ? tone(innerBase, m, 0.5) : tone(capBase, m, nl);
+      if (gmesh) { gq([[ctr.x, ctr.y, ctr.h], [a.x, a.y, a.h], [b.x, b.y, b.h]], fill); continue; }
       const tri = [pc, pa, pb];
       add(d, () => { fillPoly(tri, fill); fogPoly(tri, d); });
     }
@@ -8852,11 +8877,68 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
       };
       const tA = pt(A, 0), tB = pt(B, 0), bA = pt(A, 1), bB = pt(B, 1), fA = pt(A, 2), fB = pt(B, 2);
       if (Math.min(tA.f, tB.f, bA.f, bB.f, fA.f, fB.f) <= 0.02) continue;   // the outward flare can push a foot behind the near plane
+      // The same three positions as world points, so the GPU route can have them.
+      const wpt = (Pp, band) => {
+        const push = band === 0 ? 0 : band === 1 ? Pp.fl * 0.24 : Pp.fl;
+        const z = band === 0 ? Pp.h : band === 1 ? Pp.h * BENCH : 0;
+        return [Pp.x + Pp.ox * push, Pp.y + Pp.oy * push, z];
+      };
 
       const mwx = (A.wx + B.wx) / 2, mwy = (A.wy + B.wy) / 2, m = mott(mwx, mwy);
       const upper = [tA, tB, bB, bA], lower = [bA, bB, fB, fA];
       const dU = (tA.f + tB.f + bA.f + bB.f) / 4, dL = (bA.f + bB.f + fA.f + fB.f) / 4;
 
+      if (gmesh) {
+        const wtA = wpt(A, 0), wtB = wpt(B, 0), wbA = wpt(A, 1), wbB = wpt(B, 1);
+        const wfA = wpt(A, 2), wfB = wpt(B, 2);
+        const lerp3 = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+        // The face: caprock band, then the long fall into shadow. Two quads for three stops.
+        const c0 = gcol(tone(faceCol, m, nlF * 1.16)), c02 = gcol(tone(faceCol, m, nlF));
+        const c1 = gcol(tone(faceCol, m, nlF * 0.66));
+        const mA = lerp3(wtA, wbA, 0.2), mB = lerp3(wtB, wbB, 0.2);
+        gq([wtA, wtB, mB, mA], tone(faceCol, m, nlF), [c0, c0, c02, c02]);
+        gq([mA, mB, wbB, wbA], tone(faceCol, m, nlF), [c02, c02, c1, c1]);
+        // The apron: the face’s shadow where it starts, out into the light where it lands.
+        const s0 = gcol(tone(faceCol, m, nlF * 0.6)), s45 = gcol(tone(footCol, m, nlS * 0.86));
+        const s1 = gcol(tone(footCol, m, nlS));
+        const aA = lerp3(wbA, wfA, 0.45), aB = lerp3(wbB, wfB, 0.45);
+        gq([wbA, wbB, aB, aA], tone(footCol, m, nlS), [s0, s0, s45, s45]);
+        gq([aA, aB, wfB, wfA], tone(footCol, m, nlS), [s45, s45, s1, s1]);
+        // ⚠ THE FACE DETAIL STAYS ON THE CANVAS, and that is a decision rather than an omission.
+        // The strata, the gully and the rim line are STROKES — a hairline is not geometry, and a
+        // one-pixel line has no width to give a triangle. They keep their own near gate and clip
+        // to the same projected face they always did, so what is left on the 2-D queue is a few
+        // hundred pixels of hairline rather than the whole massif.
+        // ⚠ AND THE HAIRLINES PROBE THEIR OWN QUAD. Left alone they are the whole leak the mass
+        // just stopped being - 746 px of a 1,559 px massif, because a stroke queued after the
+        // composite crosses a building as readily as a wall did. This is the one place in the
+        // file where the probe can be EXACT rather than generous: the face has already been
+        // projected, so the box handed over is the segment itself and not an estimate of it.
+        if (facing && !(GL_CELLS && decoHidden(upper))) add(dU, () => {
+          if (fine) {
+            ctx.save(); trace(upper); ctx.clip();
+            const on = (Pp, zs) => {
+              const zb = Pp.h * BENCH, t = clamp((Pp.h - zs) / Math.max(1e-4, Pp.h - zb), 0, 1);
+              return cam.proj(Pp.x + Pp.ox * Pp.fl * 0.24 * t, Pp.y + Pp.oy * Pp.fl * 0.24 * t, Pp.h + (zb - Pp.h) * t);
+            };
+            ctx.strokeStyle = tone(faceCol, m, nlF * 0.74); ctx.lineWidth = 1;
+            for (const zf of [0.58, 0.72, 0.86]) {
+              const sa = on(A, CLIFF_H * zf), sb = on(B, CLIFF_H * zf);
+              ctx.beginPath(); ctx.moveTo(sa.sx, sa.sy); ctx.lineTo(sb.sx, sb.sy); ctx.stroke();
+            }
+            const u = 0.22 + 0.56 * vnoise2(mwx * 1.9 + 61.4, mwy * 1.9 - 23.8);
+            ctx.strokeStyle = tone(faceCol, m, nlF * 0.5); ctx.lineWidth = 1.3;
+            ctx.beginPath();
+            ctx.moveTo(tA.sx + (tB.sx - tA.sx) * u, tA.sy + (tB.sy - tA.sy) * u);
+            ctx.lineTo(bA.sx + (bB.sx - bA.sx) * u, bA.sy + (bB.sy - bA.sy) * u);
+            ctx.stroke();
+            ctx.restore();
+          }
+          ctx.strokeStyle = tone(capBase, m, 1.34); ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.stroke();
+        });
+        continue;
+      }
       add(dU, () => {
         const g = ctx.createLinearGradient(0, (tA.sy + tB.sy) / 2, 0, (bA.sy + bB.sy) / 2);
         g.addColorStop(0, tone(faceCol, m, nlF * 1.16));      // the caprock band, hardest and brightest
@@ -21547,7 +21629,14 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // BUILDS REAL FACES (it collects `parts` and depth-sorts them itself), so it belongs in the
     // mesh with the rest of the mass rather than behind any probe.
     if (it.c.hi && !it.c.bt) {
-      emitFace(od, () => drawCliffMass(ctx, cam, it.dx, it.dy, it.c.cf || '', bi, it.seed, night, alpha, sun, it.wx, it.wy));
+      const massif = () => drawCliffMass(ctx, cam, it.dx, it.dy, it.c.cf || '', bi, it.seed, night, alpha, sun, it.wx, it.wy);
+      // ⚠ CALLED DIRECTLY WHEN THE GROUND SINK IS OPEN, never through emitFace. emitFace defers
+      // its closure to flushFaces(), which runs AFTER the GL composite has already read the sink —
+      // so an arm that fills a sink from inside a queued closure fills it too late, every time,
+      // and reaches the GPU never. The Curtain hit this first and the scatter hit it second;
+      // emitScatterFace is the same two lines for the same reason. Its own rim-line strokes still
+      // queue, because from here FACE_SINK is open and they belong on top of the blit.
+      if (GROUND_MESH) massif(); else emitFace(od, massif);
       continue;
     }
     if (bi === 'park' && !it.c.bt) { emitGroundFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
