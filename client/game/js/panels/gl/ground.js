@@ -106,21 +106,32 @@ export function createGroundLayer(gl) {
   const vao = gl.createVertexArray();
   const buf = gl.createBuffer();
   let data = new Float32Array(0);
-  let count = 0, splitAt = 0;
+  let count = 0, splitA = 0, splitB = 0;
+
+  const tris = (list) => list.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
 
   // ⚠ FILLED STRAIGHT INTO THE TYPED ARRAY. The mass rebuild cost 11.1 ms until it stopped building
   // plain arrays and converting them; at twelve thousand quads a frame this path cannot afford that
   // mistake a second time.
-  // ⚠ TWO RANGES, NOT ONE LIST. The road SURFACE writes depth because it is a surface; a
-  // building’s shadow lies ON that surface and is translucent, so writing depth from it would let
-  // its own dark alpha occlude whatever shares its plane. Base first, overlay after, one depth
-  // mask each — which is also the order they are painted in on the canvas today.
+  // ⚠ THREE RANGES, NOT ONE LIST, AND THE ORDER IS THE CANVAS'S. Everything here shares the ground
+  // plane, so what separates them is not depth but what they DO to what is already there:
+  //
+  //   base — the road SURFACE, which writes depth because it is a surface
+  //   add  — a headlight pool, which is light landing on that surface ('lighter' on the canvas)
+  //   over — a shadow, which is translucent dark laid on top of both
+  //
+  // Base first, then light, then shadow, is exactly the sequence the 2-D pass paints in:
+  // drawGroundSurfaces, drawHeadlightBeam, then the shadows the building loop casts. Get it
+  // backwards and a building's shadow stops falling across the beam.
+  // Only the base writes depth: a translucent quad that wrote it would let its own dark alpha
+  // occlude whatever else shares its plane.
   function upload(quads) {
-    const base = [], over = [];
-    for (const q of quads) (q.over ? over : base).push(q);
-    quads = base.concat(over);
-    splitAt = base.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
-    count = quads.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
+    const base = [], add = [], over = [];
+    for (const q of quads) (q.add ? add : q.over ? over : base).push(q);
+    quads = base.concat(add, over);
+    splitA = tris(base);
+    splitB = splitA + tris(add);
+    count = tris(quads);
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 1 << 16));
     let o = 0;
     for (const q of quads) {
@@ -161,8 +172,19 @@ export function createGroundLayer(gl) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
-    if (splitAt) { gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, splitAt); }
-    if (count > splitAt) { gl.depthMask(false); gl.drawArrays(gl.TRIANGLES, splitAt, count - splitAt); gl.depthMask(true); }
+    if (splitA) { gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, splitA); }
+    gl.depthMask(false);
+    if (splitB > splitA) {
+      // ⚠ ADDITIVE, AND THE ALPHA RIDES ALONG. The fragment output is premultiplied, so under
+      // ONE/ONE the colour adds and so does the coverage — which it has to, because this buffer is
+      // BLITTED source-over onto the 2-D frame and a pool of light over open ground would
+      // otherwise composite onto nothing and vanish. Same compromise the Curtain makes.
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.drawArrays(gl.TRIANGLES, splitA, splitB - splitA);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    }
+    if (count > splitB) gl.drawArrays(gl.TRIANGLES, splitB, count - splitB);
+    gl.depthMask(true);
     gl.bindVertexArray(null);
     return count / 6;
   }

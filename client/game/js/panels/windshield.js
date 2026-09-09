@@ -1688,6 +1688,7 @@ export function paintWindshield(id, view) {
       // it, and a sink left filling for nobody is the "city of floating lights" failure again.
       GROUND_MESH = (TUNE.gl && GL_HOOK) ? [] : null;
       GROUND_FULL = !!(GROUND_MESH && TUNE.glFloor);
+      OWN_SHADOWS = GROUND_FULL ? [] : null;
       drawGroundSurfaces(ctx, cam, vw, sky, now);
       // THE HEADLIGHTS ON THE ROAD ITSELF. Between the ground and the buildings on purpose: the beam
       // is on the ground plane, so anything that stands up out of it must be able to occlude it.
@@ -1739,7 +1740,7 @@ export function paintWindshield(id, view) {
       console.error('[windshield] GLASS 2 threw inside the world pass — switching it off and finishing in 2-D', e);
       RENDER_TUNE.gl = 0;
     }
-    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
+    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
     if (worldBlend > 0.02) {
       // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
       // ground, projected through the world camera — so parked in a depot bay it was drawn
@@ -3941,6 +3942,12 @@ function drawHeadlightBeam(ctx, cam, gloom, now) {
   const str = clamp((gloom - 0.18) / 0.82, 0, 1);
   if (str < 0.03) return;
   const flick = 0.94 + 0.06 * Math.sin(now * 0.019) * Math.sin(now * 0.033);
+  // THE POOL GOES WITH THE ROAD IT LIES ON. It is painted before the GL canvas is blitted, so
+  // once the floor above it is opaque the beam is simply gone — the same way the tarmac went,
+  // and invisible in every daylight scene because nothing switches the lamps on. Only when the
+  // GPU owns the floor: with the 2-D raster underneath, the blit is transparent here and the
+  // canvas pool shows through exactly as it always has.
+  const mesh = GROUND_FULL ? GROUND_MESH : null;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < HL_SEG; i++) {
@@ -3954,6 +3961,14 @@ function drawHeadlightBeam(ctx, cam, gloom, now) {
     const fall = (1 - t0) * (1 - t0);
     const a = 0.52 * str * flick * fall;
     if (a < 0.004) continue;
+    if (mesh) {
+      // Warm tungsten, as below, and ADDITIVE — the ground layer draws this range under
+      // ONE/ONE, which is what ctx 'lighter' is.
+      const W2 = (aa, sd) => { const w = cam.worldFL(aa, sd); return [w[0], w[1], BEAM_EPS]; };
+      mesh.push({ p: [W2(a0, -w0), W2(a0, w0), W2(a1, w1), W2(a1, -w1)],
+        rgb: [255, 242, 206], a, add: true });
+      continue;
+    }
     const p = [cam.projFL(a0, -w0, 0.004), cam.projFL(a0, w0, 0.004),
                cam.projFL(a1, w1, 0.004), cam.projFL(a1, -w1, 0.004)];
     if (p.some((q) => q.f <= 0.06)) continue;
@@ -7467,6 +7482,19 @@ export function makeCam(W, horizonY, depth, v, chase) {
   // become camera-relative; it was spelled `cam.back` at each of those sites, which is the same
   // number right up until the camera leaves the heading axis. Exactly `back` when unused.
   const fwdOff = back - fFwd;
+  // AND THE INVERSE OF projFL, ON THE GROUND PLANE. Anything drawn in the camera own
+  // forward/lateral frame — the headlight pool is the one that matters — has no world position
+  // of its own, and GLASS 2 needs one: the ground mesh is built at MAP-WINDOW tiles so that one
+  // shifted camera can draw the road and the buildings standing on it from the same numbers.
+  // Solving it here rather than at the call site is the same argument `rawF` makes three lines up
+  // — a projection and its inverse belong to the same object, or they drift.
+  // NOTE it is pitch-independent by construction: where a point IS does not depend on how the
+  // camera is tilted, only where it lands, so this is the same solve under both closures.
+  const worldFL = (aa, sd) => {
+    const f = aa + back - fFwd, l = sd - fSide;
+    const bx = f * sinh + l * cosh, by = -f * cosh + l * sinh;
+    return [bx - back * sinh + fx + ox, by + back * cosh + fy + oy];
+  };
   // The chase offset shifts everything `back` tiles forward of the camera (f += back); lateral
   // is unchanged. up raises the eye height (EH), tipping the nose of the view down onto the craft.
   // ── ⚠ PITCH: THE AXIS GLASS NEVER HAD ──────────────────────────────────────
@@ -7531,7 +7559,7 @@ export function makeCam(W, horizonY, depth, v, chase) {
   // focal lengths are FL (lateral) and depth (vertical) and whose principal point is (W/2, horizonY).
   // A second renderer cannot reproduce the picture without them, and deriving them again elsewhere
   // is how two cameras start disagreeing by a pixel that nobody can trace.
-  return { R, sinh, cosh, ox, oy, proj, projFL, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  return { R, sinh, cosh, ox, oy, proj, projFL, worldFL, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -7571,6 +7599,13 @@ let GROUND_MESH = null;
 // transparent over the ground, so a road left on the canvas shows through exactly as it always
 // has; move it early and the kerb strokes drawn on top of it get blitted over instead.
 let GROUND_FULL = false;
+// THE OWN SHIP SHADOW CANNOT REACH DECAL_SINK DIRECTLY, and the reason is ordering rather than
+// taste: it is painted outside the worldBlend block (a parked craft reads as planted the instant
+// you embark) and therefore BEFORE drawWorldObjects opens the sinks. Filling a sink that is still
+// null is the flush-timing trap the Curtain and the scatter each hit once. So it is stashed here
+// and pushed when the sink opens — one frame, one variable, cleared in the same finally as the
+// rest.
+let OWN_SHADOWS = null;
 // What drawMode7Floor would have rastered, as uniforms plus two LUT planes. See gl/floor.js.
 let FLOOR_STATE = null;
 // A species is baked ONCE, at this depth. propS is k/f, so the same shape at depth f is this
@@ -21032,6 +21067,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   SPRITE_SINK = glOn ? [] : null;
   CURTAIN_SINK = glOn ? [] : null;
   DECAL_SINK = glOn ? [] : null;
+  // …and the shadow the ground pass already baked, now that there is somewhere to put it.
+  if (DECAL_SINK && OWN_SHADOWS) { for (const d of OWN_SHADOWS) DECAL_SINK.push(d); OWN_SHADOWS.length = 0; }
   // Only when GL owns the mass. With the 2-D renderer the painter queue already orders these
   // against the walls, and moving them would change a picture that is correct today.
   GROUND_SINK = glOn ? [] : null;
@@ -21646,7 +21683,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
-    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; FLOOR_STATE = null;
+    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; FLOOR_STATE = null;
   }
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
@@ -23217,6 +23254,9 @@ function convexHull2D(pts) {
 // paint has to beat the surface it is painted on, so the surface takes a step of its own.
 const SURF_EPS = 0.0008;
 const ROAD_EPS = 0.002;
+// The headlight pool is LIGHT ON the road, so it sits above the paint and below the shadows
+// that fall across it — the same order the canvas paints them in.
+const BEAM_EPS = 0.003;
 const SHADOW_EPS = 0.004;
 function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E) {
   let corners = null, topZ = h;
@@ -23285,6 +23325,56 @@ function shadowScale(cls) { return 0.42 * (CONTACT_SIZE[cls] || SHADOW_REF) / SH
 // the diffuse smear a craft casts from altitude. The blur radius tracks the shadow's on-screen
 // size (via cam.FL / forward-distance) so a near shadow softens more px than a far one and the
 // look holds across the whole depth range.
+// THE SILHOUETTE, BAKED, so a depth buffer can have it.
+//
+// The pool of light in front of a truck ports as flat quads because that is what it already was.
+// This does not: the penumbra is a canvas blur filter, and the blur IS the height gauge — the
+// gap and the softness growing together is how you read altitude off it. Flat polygons would
+// lose exactly the part that carries the information.
+//
+// So it is baked instead, and mapped onto a ground quad through the decal layer, which already
+// does textured depth-tested quads for the marquees. The 2-D code still paints it: there is one
+// idea of what a shadow looks like, drawn once into a canvas rather than once per frame onto the
+// screen.
+//
+// It caches because the SHAPE does not depend on where the craft is or which way it points —
+// rotation and scale live in the quad corners, so the key is the airframe and the softness and
+// nothing else, and a cruise holds one texture for the whole flight.
+// ⚠ THE BUCKET IS THE POST-CLAMP SOFTNESS, not the caller own. The 2-D blur is clamped to
+// [0.6, 30] SCREEN px, which a texture cannot express — bake the raw value and a near shadow is
+// over-blurred exactly where it is largest. Resolving the clamp first and keying on the result
+// reproduces it, at the cost of a few more buckets.
+const SHADOW_BAKE = 128;                  // px; ±1.15 local units across, which is the widest silhouette plus room for the blur
+const SHADOW_EXT = 1.15;
+const _shadowBakes = new Map();
+function shadowSprite(cls, softQ) {
+  const key = 'ownshadow:' + cls + ':' + softQ;
+  let c = _shadowBakes.get(key);
+  if (c) return { key, img: c };
+  c = document.createElement("canvas"); c.width = c.height = SHADOW_BAKE;
+  const g = c.getContext("2d");
+  const K = SHADOW_BAKE / (2 * SHADOW_EXT);        // px per local unit
+  const soft = softQ / 16;
+  // The screen blur is (px per tile x L x soft x 0.55) and one local unit is (px per tile x L),
+  // so in local units the radius is soft x 0.55 whatever the distance — which is the whole
+  // reason one bake serves every range.
+  if (soft > 0.01) g.filter = "blur(" + (soft * 0.55 * K).toFixed(1) + "px)";
+  g.fillStyle = "rgb(6,8,12)";
+  const poly = (pts) => {
+    g.beginPath();
+    pts.forEach(([f, sd], i) => { const x = SHADOW_BAKE / 2 + sd * K, y = SHADOW_BAKE / 2 - f * K;
+      if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+    g.closePath(); g.fill();
+  };
+  if (cls === 'heli') {
+    const disc = [];
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; disc.push([Math.cos(a) * 0.95, Math.sin(a) * 0.95]); }
+    poly(disc); poly([[0.62, 0], [0.1, 0.16], [-0.7, 0.12], [-0.7, -0.12], [0.1, -0.16]]);
+  } else for (const p of SHADOW_PLANE) poly(p);
+  _shadowBakes.set(key, c);
+  return { key, img: c };
+}
+
 function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls, soft = 0) {
   const cs = Math.cos(hr), sn = Math.sin(hr);
   // craft-local (fwd,side) → world ground (z=0) → screen. forward = (sin,-cos), right = (cos,sin).
@@ -23296,15 +23386,22 @@ function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls, soft = 0) {
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy);
     ctx.closePath(); ctx.fill();
   };
+  const cc = cam.proj(gx, gy, 0);
+  const pxPerTile = cc.f > 0.1 ? cam.FL / cc.f : 40;   // screen px per world tile at the shadow's distance
+  // The clamp resolved back into a softness, so the bake below can key on it — see shadowSprite.
+  const softEff = soft > 0.01 ? clamp(pxPerTile * L * soft * 0.55, 0.6, 30) / Math.max(1e-3, pxPerTile * L * 0.55) : 0;
+  if (OWN_SHADOWS) {
+    const sp = shadowSprite(cls, Math.max(0, Math.min(16, Math.round(softEff * 16))));
+    const E = SHADOW_EXT * L;
+    const P = (f, sd) => [gx + f * sn + sd * cs, gy - f * cs + sd * sn, SHADOW_EPS];
+    OWN_SHADOWS.push({ key: sp.key, img: sp.img, alpha,
+      p: [P(E, -E), P(E, E), P(-E, E), P(-E, -E)] });
+    return;
+  }
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.fillStyle = 'rgb(6,8,12)';
-  if (soft > 0.01) {
-    const c = cam.proj(gx, gy, 0);
-    const pxPerTile = c.f > 0.1 ? cam.FL / c.f : 40;   // screen px per world tile at the shadow's distance
-    const blurPx = clamp(pxPerTile * L * soft * 0.55, 0.6, 30);
-    ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
-  }
+  if (soft > 0.01) ctx.filter = `blur(${clamp(pxPerTile * L * soft * 0.55, 0.6, 30).toFixed(1)}px)`;
   if (cls === 'heli') {   // rotor disc + a stubby body
     const disc = [], body = [[0.62, 0], [0.1, 0.16], [-0.7, 0.12], [-0.7, -0.12], [0.1, -0.16]];
     for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; disc.push([Math.cos(a) * 0.95, Math.sin(a) * 0.95]); }

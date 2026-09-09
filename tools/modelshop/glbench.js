@@ -460,6 +460,18 @@ const FLOOR_SCENES = (R) => ({
   },
 });
 
+// Two cases the map alone cannot reach, because what they exercise is the SEAT rather than the
+// ground: the things GLASS 1 still paints on the canvas underneath the blit. Both were found by
+// looking for what else is drawn between drawGroundSurfaces and drawWorldObjects, not by noticing
+// them in a picture — the headlight pool only exists at night with the lamps on, and the own-ship
+// shadow only reaches the screen from an external camera.
+const FLOOR_SEATS = [
+  { tag: 'headlights', scene: 'road', hour: 2, view: { landingLight: true } },
+  { tag: 'ownshadow-air', scene: 'scrub', hour: 8, view: { external: true, cls: 'prop', height: 0.05 } },
+  { tag: 'ownshadow-parked', scene: 'scrub', hour: 12, view: { external: true, cls: 'prop', phase: 'ground', height: 0 } },
+  { tag: 'ownshadow-heli', scene: 'scrub', hour: 8, view: { external: true, cls: 'heli', height: 0.04 } },
+];
+
 export function runFloor({ W = 640, H = 360, R = 20, hours = [13, 2] } = {}) {
   const realNow = performance.now.bind(performance);
   const holder = document.createElement('div');
@@ -478,13 +490,18 @@ export function runFloor({ W = 640, H = 360, R = 20, hours = [13, 2] } = {}) {
   performance.now = () => 1e6;
   const N = R * 2 + 1, S = FLOOR_SCENES(R);
   const rows = [];
+  const cases = [];
+  for (const name of Object.keys(S)) for (const hour of hours) cases.push({ tag: name + '@' + hour, scene: name, hour, view: null });
+  for (const s of FLOOR_SEATS) cases.push(s);
   try {
-    for (const [name, fn] of Object.entries(S)) {
-      for (const hour of hours) {
+    {
+      for (const { tag, scene, hour, view: seat } of cases) {
+        const fn = S[scene];
         const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => fn(x, y)));
         const view = {
           cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour,
           weather: 'clear', speed: 0.4, map, heading: 0, mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+          ...(seat || {}),
         };
         RENDER_TUNE.gl = 1;
         // Painted twice on each side: the first frame builds every lazy cache the renderer has.
@@ -494,7 +511,7 @@ export function runFloor({ W = 640, H = 360, R = 20, hours = [13, 2] } = {}) {
         paintWindshield('__floorGL', view); paintWindshield('__floorGL', view);
         RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0;
         if (a2.width !== aG.width || a2.height !== aG.height) {
-          rows.push({ scene: name + '@' + hour, badPct: 'SIZE ' + a2.width + '/' + aG.width, meanPct: '-' });
+          rows.push({ scene: tag, badPct: 'SIZE ' + a2.width + '/' + aG.width, meanPct: '-' });
           continue;
         }
         const A = a2.getContext('2d').getImageData(0, 0, a2.width, a2.height).data;
@@ -504,7 +521,7 @@ export function runFloor({ W = 640, H = 360, R = 20, hours = [13, 2] } = {}) {
           const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
           n++; sum += d; if (d > 24) bad++;
         }
-        rows.push({ scene: name + '@' + hour, badPct: +(bad / n * 100).toFixed(2), meanPct: +(sum / n / 255 * 100).toFixed(2) });
+        rows.push({ scene: tag, badPct: +(bad / n * 100).toFixed(2), meanPct: +(sum / n / 255 * 100).toFixed(2) });
       }
     }
   } finally {
