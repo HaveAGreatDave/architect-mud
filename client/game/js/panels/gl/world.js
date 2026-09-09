@@ -66,7 +66,10 @@ function sceneGL(id, w, h) {
 // full mesh rebuild on every frame of every turn, which is the whole cost the buffer exists to
 // avoid, and it is invisible: the picture is correct throughout.
 function windowKey(cells) {
-  const parts = cells.map((it) => it.gx + ',' + it.gy + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + (it.c.flr || 0));
+  // ⚠ bt/bn decide WHICH model this is and meshParams decides what that model was BUILT AS.
+  // Both halves are needed: the first cannot see a reseeded variant, the second cannot see a
+  // different building that happens to share a footprint and a height.
+  const parts = cells.map((it) => it.gx + ',' + it.gy + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it));
   parts.sort();
   return parts.join(';');
 }
@@ -87,10 +90,58 @@ function windowKey(cells) {
 // makes a NEW record for every edit rather than patching one, so a WeakMap sees the edit and a
 // name-keyed cache would serve the pre-edit shape for ever.
 const meshCache = new WeakMap();
+// EVERYTHING A TILE’S MESH IS BUILT FROM, AS ONE STRING. Two things need to agree about this and
+// they used to say it separately: the per-tile mesh cache below, and `windowKey`, which decides
+// whether the whole vertex buffer is stale. The buffer’s half named the tile, its type, its name
+// and its floors; the mesh is built from the FOOTPRINT, the HEIGHT, the SEED and the ENTRANCE.
+// ⚠ Seed is the one that bites. Twenty-three of the 173 models are seed-variant — they build
+// DIFFERENT GEOMETRY for a different seed — and seed also feeds `fh` and `floorHeight`. So a tile
+// whose seed changed while its type, name and floor count did not left the GPU holding the old
+// building: no rebuild, because nothing in the key had moved. It then popped to the new shape at
+// whatever unrelated moment next changed the key, which reads as a building that changes size at
+// random while you fly. `shapeForModel(m, seed)` is also where the ground shadow’s hull comes
+// from, so the same staleness shows up as a shadow that changes with it.
+// ── AND A WAY TO CATCH IT IN THE ACTUAL GAME ────────────────────────────────
+//
+// A building that changes size while you fly past it is invisible to every gate in this repo:
+// each of them renders a scene somebody wrote down, and the scenes somebody writes down are
+// never the one that breaks. Three synthetic cities in a row gave a confident wrong answer
+// about this pass before anybody thought to record a real flight.
+//
+// __glChurnStart() in the console, fly for a while, then __glChurn(). It answers the only
+// question that matters here: did any building in view change what its mesh is BUILT FROM —
+// its footprint, its storey height, its seed or its facing — while you were watching it. A
+// building should report one set of parameters for its whole life; two means the geometry was
+// rebuilt as something else, and the value it prints says which of the four moved.
+//
+// ⚠ IT KEYS ON THE BUILDING’S NAME, which is exact in Coldwater (408 of the 416 building tiles
+// carry one and they do not repeat) and WRONG in a synthetic city that puts the same model on
+// forty tiles — there each tile has its own seed, so one name honestly reports forty builds. If
+// you are reading this against a generated map rather than the world, that is what the number is.
+//
+// ⚠ Off by default and it costs nothing when off: the recording walk is behind a null check,
+// and nothing allocates until somebody asks.
+let CHURN = null;
+if (typeof window !== 'undefined') {
+  window.__glChurnStart = () => { CHURN = new Map(); return String.fromCharCode(114) + "ecording — fly for a bit, then call __glChurn()"; };
+  window.__glChurn = () => {
+    if (!CHURN) return "not recording — call __glChurnStart() first";
+    const rows = [];
+    for (const [name, set] of CHURN) if (set.size > 1) rows.push({ building: name, builtAs: set.size, saw: [...set] });
+    rows.sort((a, b) => b.builtAs - a.builtAs);
+    const seen = CHURN.size; CHURN = null;
+    const note = "each row is one building that was built more than one way; in the real world a"
+      + " name is one tile, so anything above 1 is the bug. On a generated map repeats are normal.";
+    return rows.length ? { changed: rows.length, of: seen, note, rows }
+      : { changed: 0, of: seen, note: "no building changed its footprint, height, seed or facing" };
+  };
+}
+const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1];
+
 function tileMesh(deps, it) {
   let byParam = meshCache.get(it.m);
   if (!byParam) { byParam = new Map(); meshCache.set(it.m, byParam); }
-  const k = it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1];
+  const k = meshParams(it);
   let faces = byParam.get(k);
   if (!faces) {
     let mesh;
@@ -135,6 +186,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   if (g.view.lost && g.view.lost()) { scenes.delete(id); return null; }
 
   const key = windowKey(cells);
+  if (CHURN) for (const it of cells) {
+    const n = it.c.bn || it.c.bt || '?';
+    let set = CHURN.get(n); if (!set) CHURN.set(n, set = new Set());
+    set.add(meshParams(it));
+  }
   // The baked textures the atlas is a COPY of, as they stand this frame. Nothing about the city
   // has to change for them to: crossing a dusk step redraws every wall canvas in place.
   const epoch = deps.texEpoch ? deps.texEpoch(opts.nb || 0) : '';
