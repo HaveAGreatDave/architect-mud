@@ -1689,6 +1689,7 @@ export function paintWindshield(id, view) {
       GROUND_MESH = (TUNE.gl && GL_HOOK) ? [] : null;
       GROUND_FULL = !!(GROUND_MESH && TUNE.glFloor);
       OWN_SHADOWS = GROUND_FULL ? [] : null;
+      LATE_BILLBOARDS = (TUNE.gl && GL_HOOK) ? [] : null;
       drawGroundSurfaces(ctx, cam, vw, sky, now);
       // THE HEADLIGHTS ON THE ROAD ITSELF. Between the ground and the buildings on purpose: the beam
       // is on the ground plane, so anything that stands up out of it must be able to occlude it.
@@ -1733,6 +1734,9 @@ export function paintWindshield(id, view) {
     // a flag must never be able to do that, so when the flag is on the pass is turned OFF and the
     // frame finishes in 2-D. ⚠ With the flag off it RETHROWS, deliberately: swallowing there would
     // hide a real bug in the renderer that ships.
+    // Baked BEFORE the world pass so the models can reach a sink that pass opens and then clears;
+    // the contacts themselves are drawn further down, where they always were.
+    if (vw.contacts && TUNE.gl && GL_HOOK) { try { bakeContacts(cam, vw, W, H, sunFx, now); } catch { /* a bogey is not worth a frame */ } }
     try { drawWorldObjects(ctx, cam, vw, sky, now, sunFx); }
     catch (e) {
       if (!TUNE.gl) throw e;
@@ -1740,7 +1744,7 @@ export function paintWindshield(id, view) {
       console.error('[windshield] GLASS 2 threw inside the world pass — switching it off and finishing in 2-D', e);
       RENDER_TUNE.gl = 0;
     }
-    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
+    finally { GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null; MASS_OFF = false; FLAT_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = null; }
     if (worldBlend > 0.02) {
       // ⚠ NOT UNDER A ROOF. A bolt is world GEOMETRY — a channel from the cloud base to the
       // ground, projected through the world camera — so parked in a depot bay it was drawn
@@ -7606,6 +7610,11 @@ let GROUND_FULL = false;
 // and pushed when the sink opens — one frame, one variable, cleared in the same finally as the
 // rest.
 let OWN_SHADOWS = null;
+// AND THE CONTACTS, FOR THE MIRROR-IMAGE REASON. The shadow is painted too EARLY (before the
+// sinks open) and a contact is painted too LATE — drawContacts runs after drawWorldObjects has
+// composited and cleared everything. So the models are baked in a pass of their own before the
+// world pass and wait here for a sink to exist.
+let LATE_BILLBOARDS = null;
 // What drawMode7Floor would have rastered, as uniforms plus two LUT planes. See gl/floor.js.
 let FLOOR_STATE = null;
 // A species is baked ONCE, at this depth. propS is k/f, so the same shape at depth f is this
@@ -10991,6 +11000,76 @@ function inferContactCtrl(c, now) {
   _contactRoll.set(c.id, { bank, ail, t: now });
   return { aileron: ail, rudder: clamp(0.5 * ail, -1, 1) };   // fin kicks into the bogey's roll (coordinated turn)
 }
+// ── AIR TRAFFIC, ON THE DEPTH BUFFER ────────────────────────────────────────
+//
+// A contact is drawn AFTER the GL canvas is blitted, so it paints over the whole city. The stand-in
+// for that is `occludedByBuilding` and it is only asked for GROUND contacts — the comment beside it
+// says why, and is right: something in the air is very often legitimately above a roofline the span
+// buffer has no opinion about, and answering that question with a boolean would blink aircraft in
+// and out. So an airborne bogey behind a tower has never been occluded by anything, in EITHER
+// renderer. This is not a GLASS 2 regression; it is a thing GLASS 1 could not do.
+//
+// It bakes at the LIVE camera, like a landmark: the mesh, the livery, the lamps, the rotor wash and
+// the damage are all `drawAircraftModel`, and none of that is re-implemented — the same call paints
+// into a canvas instead of onto the windscreen, and the quad hands the result to the depth buffer.
+//
+// ⚠ IT RUNS BEFORE THE WORLD PASS, not where the contacts are drawn. `drawContacts` is called long
+// after drawWorldObjects has composited and cleared every sink, so a bake made there reaches the
+// GPU never — the same flush-timing trap the Curtain, the scatter and the cliff each hit. The bake
+// is a pass of its own and the drawing pass reads what it left.
+//
+// ⚠ AND THE HUD STAYS ON THE CANVAS. A chevron for an off-screen bogey, the designation box and
+// its readout are not in the world — they are drawn over it, and they must not be occluded by the
+// city they are describing.
+function bakeContacts(cam, v, W, H, sun, now) {
+  const cs = v && v.contacts;
+  if (!LATE_BILLBOARDS || !cs || !cs.length) return;
+  for (const c of cs) {
+    c._glbb = null;
+    if (c.id != null) c.ctrl = inferContactCtrl(c, now);
+    let baseWz;
+    if (c.groundZ != null) {
+      const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1);
+      const drop = SIZE * CONTACT_VS * (-modelLowestH(c.cls, c.pitch, c.bank, 1, !!c.armed));
+      baseWz = c.groundZ + drop + (c.altDiff || 0) * CONTACT_ALT_K;
+    } else baseWz = cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
+    const pc = cam.proj(c.dx, c.dy, baseWz);
+    if (!(pc.f > 0.12) || pc.sx < -40 || pc.sx > W + 40 || pc.sy < -40 || pc.sy > H + 40) continue;
+    // The model’s screen size, as the occlusion test already derives it. The box is that with
+    // room either side; an over-wide box costs transparent texels and nothing else.
+    const sz = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1) * cam.FL / Math.max(0.25, pc.f);
+    const wPad = sz * 1.8 + 10, upPad = sz * CONTACT_VS * 1.9 + 10, dnPad = sz * 1.1 + 10;
+    const x0 = Math.floor(pc.sx - wPad), x1 = Math.ceil(pc.sx + wPad);
+    const y0 = Math.floor(pc.sy - upPad), y1 = Math.ceil(pc.sy + dnPad);
+    const bw = x1 - x0, bh = y1 - y0;
+    // Too big to be a card: at that size it fills the frame and its own depth extent matters, so
+    // leave it to the canvas exactly as before.
+    if (!(bw > 1 && bh > 1) || bw > 700 || bh > 700) continue;
+    const key = "ct:" + (c.id != null ? c.id : (c.reg || "b") + ":" + Math.round(c.dx * 8) + "," + Math.round(c.dy * 8));
+    let cv = _markBakes.get(key);
+    if (!cv) { cv = document.createElement("canvas"); _markBakes.set(key, cv); }
+    if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+    const g = cv.getContext("2d");
+    g.clearRect(0, 0, bw, bh);
+    g.save(); g.translate(-x0, -y0);
+    const sS = SCATTER_SINK, sF = FACE_SINK, sG = GROUND_SINK, sP = SPRITE_SINK, sD = DECAL_SINK, sM = GROUND_MESH;
+    SCATTER_SINK = null; FACE_SINK = null; GROUND_SINK = null; SPRITE_SINK = null; DECAL_SINK = null; GROUND_MESH = null;
+    let bb = null;
+    try { bb = drawAircraftModel(g, cam, c, baseWz, sun, now); }
+    catch { bb = null; }
+    finally {
+      SCATTER_SINK = sS; FACE_SINK = sF; GROUND_SINK = sG; SPRITE_SINK = sP; DECAL_SINK = sD; GROUND_MESH = sM;
+      g.restore();
+    }
+    LATE_BILLBOARDS.push({ key, img: cv, fresh: true, flipY: true, x: c.dx, y: c.dy, z: baseWz,
+      w: bw, h: bh, ax: pc.sx - x0, ay: y1 - pc.sy,
+      alpha: clamp(1.5 - pc.f / 12, 0.35, 1) });
+    // Back into screen coordinates for the designation box, which is still drawn on the canvas.
+    c._glbb = bb ? { minx: bb.minx + x0, maxx: bb.maxx + x0, miny: bb.miny + y0, maxy: bb.maxy + y0 } : null;
+    c._glDrawn = true;
+  }
+}
+
 function drawContacts(ctx, cam, v, W, H, sun, now) {
   const cs = v.contacts; if (!cs || !cs.length) return;
   ctx.save();
@@ -11023,13 +11102,21 @@ function drawContacts(ctx, cam, v, W, H, sun, now) {
     // judged on its centreline.
     // The chevron is deliberately still drawn for an occluded contact by the branch above only when
     // it is off screen; a hidden one is hidden, which is the point.
-    if (c.onGround || c.band === 'ground') {
+    // ⚠ THE PROBE IS SKIPPED FOR A CONTACT THE DEPTH BUFFER ALREADY HOLDS, and that is the point
+    // of the whole exercise: a boolean drops a rig whole the moment its box is covered, and the
+    // buffer hides the half of it that is actually behind the shed.
+    if (!c._glDrawn && (c.onGround || c.band === 'ground')) {
       const sz = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1) * cam.FL / Math.max(0.25, pc.f);
       if (occludedByBuilding(pc.sx, pc.sy - sz * CONTACT_VS, pc.sy, pc.f, sz)) continue;
     }
-    ctx.globalAlpha = clamp(1.5 - pc.f / 12, 0.35, 1);    // fade into the haze with distance
-    const bb = drawAircraftModel(ctx, cam, c, baseWz, sun, now);
-    ctx.globalAlpha = 1;
+    // Already on the depth buffer, baked before the world pass — draw only what belongs on top.
+    let bb;
+    if (c._glDrawn) { bb = c._glbb; c._glDrawn = false; }
+    else {
+      ctx.globalAlpha = clamp(1.5 - pc.f / 12, 0.35, 1);    // fade into the haze with distance
+      bb = drawAircraftModel(ctx, cam, c, baseWz, sun, now);
+      ctx.globalAlpha = 1;
+    }
     if (c.designated && bb) {
       const cx = (bb.minx + bb.maxx) / 2, cy = (bb.miny + bb.maxy) / 2;
       const b = Math.max(11, Math.max(bb.maxx - bb.minx, bb.maxy - bb.miny) / 2 + 5);
@@ -21292,6 +21379,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // against the walls, and moving them would change a picture that is correct today.
   GROUND_SINK = glOn ? [] : null;
   SCATTER_SINK = glOn ? [] : null;
+  // ⚠ AFTER THE ASSIGNMENT, not beside the shadow’s drain a few lines up. SCATTER_SINK is set
+  // LAST of the sinks, so draining into it any earlier reads the null left by the previous
+  // frame’s finally and silently throws every contact away.
+  if (SCATTER_SINK && LATE_BILLBOARDS) { for (const b of LATE_BILLBOARDS) SCATTER_SINK.push(b); LATE_BILLBOARDS.length = 0; }
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx]; if (!c) continue;
     if (GL_CELLS && massTile(c)) {
@@ -21950,7 +22041,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); RENDER_TUNE.gl = 0; }
     pEnd();
-    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; FLOOR_STATE = null;
+    GL_CELLS = null; GL_TAKEN = null; SPRITE_SINK = null; CURTAIN_SINK = null; DECAL_SINK = null; GROUND_SINK = null; SCATTER_SINK = null; GROUND_MESH = null; GROUND_FULL = false; OWN_SHADOWS = null; LATE_BILLBOARDS = null; FLOOR_STATE = null;
   }
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
