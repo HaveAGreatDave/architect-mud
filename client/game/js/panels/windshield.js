@@ -8259,14 +8259,34 @@ function mountedOn(depth, fn) {
   try { return fn(); } finally { MOUNT_D = prev; }
 }
 function beginFaces() { FACE_SINK = []; }
+// ── WHO PUT THIS IN THE QUEUE? ──────────────────────────────────────────────
+//
+// `__emitWhoStart()` in the console, paint, then `__emitWho()`: a tally of which drawer queued
+// each face, by name. It exists because the queue cannot be read backwards. At flush time the
+// stack is `Object.fn < flushFaces` and the closure’s origin is gone, so "what is still drawing
+// through walls" is a question the finished frame cannot answer — and every guess at it today was
+// wrong. It named `latticeTower` (39 faces) in one run after the mast and the dish had been
+// blamed, patched and found innocent.
+//
+// ⚠ THE HOT-PATH COST IS ONE MODULE-LOCAL NULL CHECK. `emitFace` runs a few thousand times a
+// frame, so the flag is a module variable rather than a `window` lookup, and the stack — which is
+// the expensive part by three orders of magnitude — is only built once it is on.
+let EMIT_TALLY = null;
+if (typeof window !== 'undefined') {
+  window.__emitWhoStart = () => { EMIT_TALLY = {}; return "counting — paint a frame, then call __emitWho()"; };
+  window.__emitWho = () => {
+    if (!EMIT_TALLY) return "not counting — call __emitWhoStart() first";
+    const t = EMIT_TALLY; EMIT_TALLY = null;
+    return Object.entries(t).sort((a, b) => b[1] - a[1]).map(([k, n]) => n + "  " + k);
+  };
+}
 function emitFace(depth, fn) {
-  const _E = (typeof window !== "undefined") && window.__emitDbg;
-  if (_E) {
+  if (EMIT_TALLY) {
     const fr = (new Error()).stack.split(String.fromCharCode(10)).slice(2, 10)
       .map((l) => { const m = l.match(/at ([A-Za-z0-9_.$<>]+)/); return m ? m[1] : "?"; });
     const keep = fr.filter((f) => f !== "?" && !/^(emitFace|emitDeco|emitFlat|Proxy|Object|Module)/.test(f));
     const k = (keep.length ? keep : fr).slice(0, 2).join(" < ");
-    _E[k] = (_E[k] | 0) + 1;
+    EMIT_TALLY[k] = (EMIT_TALLY[k] | 0) + 1;
   }
   const d = MOUNT_D == null ? depth : Math.min(depth, MOUNT_D - MOUNT_EPS);
   if (FACE_SINK) { FACE_SINK.push({ d, fn }); if (PERF.on) PERF.n.faces++; } else fn();
