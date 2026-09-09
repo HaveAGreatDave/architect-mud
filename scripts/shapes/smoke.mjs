@@ -157,7 +157,7 @@ async function main() {
   // until somebody notices signage has quietly stopped appearing. See decoHidden in windshield.js.
   const deco = ws.decoOcclusionSmoke();
   for (const f of deco) problems.push(`deco   ${f}`);
-  const decoLine = `Adornment occlusion: ${deco.ran} probe cases — a light behind a wall is culled, one on the wall it is mounted to is not.`;
+  const decoLine = `Adornment occlusion: ${deco.ran} probe cases — a light behind a wall is culled, one on the wall it is mounted to is not, and a landmark is probed only when GLASS 2 owns the mass.`;
 
   // ── HIGH GROUND ──
   // The cliff massif is the only mass in the sim that is TERRAIN, and it is the only one you can

@@ -7811,6 +7811,37 @@ function groundHidden(cam, dx, dy, f) {
   return decoHidden([p], propS(34, f, 3, 64) * 0.95);
 }
 
+// A LANDMARK IS THE ONE THING IN THE WORLD PASS WITH NO OCCLUSION TEST AT ALL. A statue, a
+// gate, a stand of dead pylons, a depot bay: each is queued through raw emitFace, because the
+// painter's order was the whole answer — they sorted among the buildings and a nearer one
+// painted over them. With the mass on the GPU that queue flushes AFTER the composite, so every
+// one of them draws straight through the city. Measured behind a wall of 24-storey towers: the
+// silhouette in the open is 72-269 px and 74-124% of it comes through, against GLASS 1 exactly
+// zero. It is not a few pixels at an edge; it is the whole object.
+//
+// They cannot go in the mesh: drawPylons is a lattice of strokes with no mass primitive in it at
+// all, and the statue is one box under four raw fills, so there is nothing for MESH_SINK to
+// record and nothing MASS_OFF could suppress. Porting them means redrawing the art, which is a
+// different job from restoring what GLASS 1 already did.
+//
+// So they get the probe every other 2-D adornment already lives with, on the same terms.
+// ⚠ THE BOX SPANS THE WHOLE OBJECT, ground corners AND top, because decoHidden hides only
+// when the ENTIRE box is covered — so a pylon whose head clears the roofline in front of it
+// still draws. Probing the ground point alone is the mistake emitLightRunner was split to avoid,
+// and culling may only ever get timider. Err TALL: a taller box is harder to cover.
+// ⚠ AND ONLY WHEN GL OWNS THE MASS (GL_CELLS). With the 2-D renderer the queue is still the
+// answer and it is exact, so a probe there could only ever delete something correctly drawn.
+function markHidden(cam, dx, dy, topZ, halfW) {
+  if (!GL_CELLS) return false;
+  const w = halfW;
+  const pts = [];
+  for (const [ax, ay] of [[-w, -w], [w, -w], [w, w], [-w, w]]) {
+    pts.push(cam.proj(dx + ax, dy + ay, 0));
+    pts.push(cam.proj(dx + ax, dy + ay, topZ));
+  }
+  return decoHidden(pts);
+}
+
 function emitDeco(pts, fn, lift = DECO_LIFT, rPx = 0) {
   if (decoHidden(pts, rPx)) return;
   emitFace(Math.min(...pts.map((p) => p.f)) - lift, fn);
@@ -7840,8 +7871,30 @@ export function decoOcclusionSmoke() {
   if (!decoHidden([at(10)])) out.push('an adornment behind its own near wall still drew — OCC_BIAS has grown past a host half-depth');
   OCC_FIELD = field(Infinity);
   if (decoHidden([at(10)])) out.push('open sky was read as an occluder');
+
+  // ── AND THE SAME QUESTION FOR A LANDMARK ──────────────────────────────────
+  // A statue, a gate, a stand of pylons and a depot bay are the only things in the world pass
+  // that reach the queue through raw emitFace, so with the mass on the GPU they had no
+  // occlusion test at all and drew whole through the city. markHidden is that test. Two
+  // properties are worth pinning, because both fail silently: it must abstain entirely when
+  // GLASS 1 owns the mass (the painter's order is exact there, so a probe could only ever
+  // delete something correctly drawn), and it must span the object's HEIGHT rather than its
+  // ground point (a pylon whose head clears the roofline in front of it still draws).
+  const stubCam = { proj: (dx, dy, wz) => ({ sx: 40 + dx * 4, sy: 40 - wz * 10, f: 10 }) };
+  const savedCells = GL_CELLS;
+  OCC_FIELD = field(2);
+  GL_CELLS = null;
+  if (markHidden(stubCam, 0, 0, 1.5, 0.3)) out.push('a landmark was culled with GLASS 1 owning the mass — the painter queue is exact and the probe must abstain');
+  GL_CELLS = [];
+  if (!markHidden(stubCam, 0, 0, 1.5, 0.3)) out.push('a landmark behind a wall a whole tile nearer still drew — the bug markHidden exists for');
+  // A field that covers the ground but not the crown: the box must NOT be called hidden.
+  const tall = field(2); for (let i = 0; i < 3 * gw; i++) tall.d[i] = 40;   // top rows open sky
+  OCC_FIELD = tall;
+  if (markHidden(stubCam, 0, 0, 1.5, 0.3)) out.push('a landmark whose crown clears the building in front of it was culled — the probe must span its height');
+  GL_CELLS = savedCells;
+
   OCC_FIELD = savedField; DECO_OCC = savedOn;
-  out.ran = 6;
+  out.ran = 9;
   return out;
 }
 // N64 distance fog, shared by the Mode-7 floor and the building pass so the horizon dissolves as ONE
@@ -21423,17 +21476,17 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // is to not pay for it at all, not to pay and then not show it.
     if (it.off || (occluded && occluded.has(it))) continue;
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
-    if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
-    if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
-    if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, now)); continue; }
-    if (it.c.mark === 'pylons') { emitFace(od, () => drawPylons(ctx, cam, it.dx, it.dy, night, alpha, it.seed)); continue; }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
+    if (it.c.mark === 'statue') { if (markHidden(cam, it.dx, it.dy, 1.45, 0.30)) continue; emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
+    if (it.c.mark === 'gate') { if (markHidden(cam, it.dx, it.dy, 1.85, 0.48)) continue; emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
+    if (it.c.mark === 'sign') { if (markHidden(cam, it.dx, it.dy, 1.20, 0.30)) continue; emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, now)); continue; }
+    if (it.c.mark === 'pylons') { if (markHidden(cam, it.dx, it.dy, 2.25, 0.48)) continue; emitFace(od, () => drawPylons(ctx, cam, it.dx, it.dy, night, alpha, it.seed)); continue; }   // THE LONG HAUL — the stand of dead pylons an interchange splits around
     // A dust airstrip's drums and threshold bars — see drawStripMarks. `continue` is deliberate:
     // the tile is still a road underneath (the ground pass has already painted it), and there is no
     // mass here to extrude on top of it.
-    if (it.c.mark === 'strip') { emitFace(od, () => drawStripMarks(ctx, cam, it.dx, it.dy, it.c.strip, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, it.seed)); continue; }
+    if (it.c.mark === 'strip') { if (markHidden(cam, it.dx, it.dy, 0.30, 0.55)) continue; emitFace(od, () => drawStripMarks(ctx, cam, it.dx, it.dy, it.c.strip, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha, it.seed)); continue; }
     // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
     // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
-    if (it.c.mark === 'bay') { emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
+    if (it.c.mark === 'bay') { if (markHidden(cam, it.dx, it.dy, 0.62, 0.60)) continue; emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
     if (it.c.mark === 'yacht') {
       // Normally she's drawn on her own tile (with a sub-tile glide while under way). While we're
       // PARKED on her deck (our own tile AND on the ground) we pin her AFT HELIPAD (yacht-local
