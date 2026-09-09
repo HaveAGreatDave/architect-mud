@@ -631,6 +631,34 @@ With the dial pinned, five seats, 640×360:
 overlay: the distant ridge, the sky and cloud layers, weather, the dash, the glass and the badges.
 Those should stay there. They have no ordering problem to solve, they do not measure, and the HUD
 needs text — moving it means building a glyph atlas to replace something that already works.
+### Two things a bench in this file cannot see
+
+Both cost most of a day in September 2026, chasing three symptoms a player reported — buildings
+changing size, roads blinking between light levels, and frame hitches — none of which any gate in
+this repo could reproduce.
+
+⚠ **A STATIC CAMERA HIDES EVERY STALE-CACHE BUG.** The GL vertex buffer is uploaded once and
+reused, so a bench that paints the same frame forty times is measuring the one condition where a
+cache can never be wrong. `windowKey` — the test for whether that buffer still matches the world —
+was built from `gx, gy, bt, bn, flr` while the mesh is built from `fh, h, seed, E`, so a tile whose
+SEED changed kept its old geometry with no rebuild, then popped at whatever unrelated moment next
+changed the key. Twenty-three of the 173 models are seed-variant, which is why it was specific
+buildings and not most of them. Every number in this file was measured standing still, and the bug
+only exists while you move.
+
+⚠ **AND A HARNESS THAT PINS THE DIAL CANNOT SEE THE DIAL.** Every timing run here sets
+`resFloor: 1` and `perfDS: 0`, for the good reason at the top of this section — a loose dial sheds
+resolution exactly where the frame is expensive and gets read as the renderer. But it also switches
+OFF the thing that turned out to be the second bug: the 0.1 resolution step had no hysteresis, so a
+frame time parked near a boundary resized the canvas back and forth about twice a second, and each
+re-render at a different sample density read as the road blinking between light levels. Four
+separate headless reproductions came back perfectly flat because the harness had the bug disabled.
+
+**The instrument that did find them reads real frames**: `__glChurnStart()` / `__glChurn()` in the
+game console (see `client/game/js/panels/gl/world.js`) reports every building that got built more
+than one way while you flew. A clean run is `{ changed: 0 }`, and that is what confirmed the first
+fix. When a gate renders a scene somebody wrote down, the scene somebody wrote down is never the
+one that breaks.
 ### Hardware coverage
 
 `glCapabilities()` in the console answers "will this machine run it", from a throwaway context it
