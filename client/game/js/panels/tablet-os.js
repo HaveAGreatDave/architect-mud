@@ -3646,15 +3646,42 @@ let _narrateKeepOnClose = false;  // set by Minimize, consumed by close()
 // a span carrying its index and the narrator walks the same array, so the
 // highlight can never drift out of step with the voice — two separate splits
 // would desynchronise the moment either regex changed.
+// ⚠ PARAGRAPHS FIRST, and this used to collapse them on its own first line.
+// `.replace(/\s+/g, ' ')` over the whole chapter turned every blank line into a
+// space, which broke two things at once.
+//
+// The visible one: renderNarratableBody splits on blank lines and calls this
+// PER PARAGRAPH, while the narration loop called it on the whole chapter — so the
+// two disagreed whenever a paragraph did not end in terminal punctuation. A
+// heading, or interrupted dialogue ending in a dash (which Victorian prose does
+// constantly), joined across the break for the voice and did not for the render:
+// one utterance against two spans, and the highlight was then off by one FOR THE
+// REST OF THE CHAPTER. Splitting here the same way the renderer does makes the two
+// agree by construction rather than by both being written carefully.
+//
+// The audible one: a paragraph break is a real pause when anybody reads aloud, and
+// the loop had no way to know where one was. `paraEnd` is attached to the returned
+// array so every existing caller keeps treating it as a plain list of strings — a
+// comic passes its own array and simply has no such property, which is correct,
+// because blocks are not paragraphs.
 function narrateSplit(text) {
-  return String(text || '')
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+/)
-    // A Victorian clause-pile can run 400 characters; break those on commas so no
-    // single utterance is a 40-second sprint.
-    .flatMap(s => s.length > 220 ? s.split(/(?<=,)\s+/) : [s])
-    .map(s => s.trim())
-    .filter(s => /[a-z0-9]/i.test(s));
+  const parts = [];
+  const paraEnd = new Set();
+  for (const para of String(text || '').split(/\n{2,}/)) {
+    const sentences = para
+      .replace(/\s+/g, ' ')
+      .split(/(?<=[.!?])\s+/)
+      // A Victorian clause-pile can run 400 characters; break those on commas so no
+      // single utterance is a 40-second sprint.
+      .flatMap(s => s.length > 220 ? s.split(/(?<=,)\s+/) : [s])
+      .map(s => s.trim())
+      .filter(s => /[a-z0-9]/i.test(s));
+    if (!sentences.length) continue;
+    parts.push(...sentences);
+    paraEnd.add(parts.length - 1);
+  }
+  parts.paraEnd = paraEnd;
+  return parts;
 }
 
 function narrateStop() {
@@ -3745,8 +3772,18 @@ function narrateNext() {
   // A beat of air between sentences, so it reads rather than gabbles. Measured
   // from the real length where we have it (muted voice → 0 → fall back to the
   // estimate, so a silent read still turns the page).
+  //
+  // A PARAGRAPH IS A LONGER BEAT THAN A SENTENCE. Anybody reading aloud stops
+  // properly at one, and running two paragraphs together at the same 200ms is most
+  // of what makes a long read feel like it is being recited at you rather than
+  // read to you. It sits between the sentence gap and the 1s chapter break above,
+  // because that is where a paragraph sits: bigger than a sentence, smaller than
+  // a chapter. Comics have no paragraphs and no `paraEnd`, and fall through to the
+  // sentence gap.
   const NARRATE_GAP_MS = 200;
-  _narrate.timer = setTimeout(narrateNext, (spoken || budget) * 1000 + NARRATE_GAP_MS);
+  const PARA_GAP_MS = 650;
+  const gap = parts.paraEnd?.has(i) ? PARA_GAP_MS : NARRATE_GAP_MS;
+  _narrate.timer = setTimeout(narrateNext, (spoken || budget) * 1000 + gap);
 }
 
 // Body prose with every utterance individually addressable, so the narrator can
