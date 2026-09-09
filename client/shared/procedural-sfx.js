@@ -590,7 +590,18 @@
     pluck:     { ratio: 2,    index: 1.8, indexEnd: 0.20, bright: 1.6, decay: 0.85, stretch: 1.9, hammer: 0.04, wave: 'sawtooth' },
     // Tonewheel-ish organ. No collapse at all (index sits where it starts) and
     // a long flat sustain, which is what makes it read as blown rather than hit.
-    organ:     { ratio: 1,    index: 0.5, indexEnd: 0.45, bright: 0.4, decay: 0.9, stretch: 1.1, hammer: 0,    wave: 'sine' },
+    //
+    // `sustain` is the held level, and it is what makes this voice possible at
+    // all. Every other row here is STRUCK: the sound is over on its own schedule
+    // and how long a finger sat there is not a question the note asks. A blown
+    // voice is the opposite — the note lasts exactly as long as you hold it — and
+    // until the panel could release a voice, the organ was a sustained instrument
+    // in a struck-only harness, decaying under your hands with a `decay` number
+    // standing in for a key nobody was reading.
+    //
+    // The presence of this key is the whole switch: a row without it takes the
+    // struck envelope below, which is byte-for-byte what all five rows took before.
+    organ:     { ratio: 1,    index: 0.5, indexEnd: 0.45, bright: 0.4, decay: 0.9, stretch: 1.1, hammer: 0,    wave: 'sine', sustain: 0.62, attack: 0.035 },
   };
 
   const SEMITONE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
@@ -606,7 +617,41 @@
     return 440 * Math.pow(2, (((parseInt(m[2], 10) + 1) * 12 + SEMITONE[m[1]]) - 69) / 12);
   }
 
-  function note({ instrument = 'piano', note: n = 'C4', velocity = 0.75 } = {}) {
+  // ── One kind of instrument ───────────────────────────────────────────────────
+  //
+  // There were two instrument systems that could not share a voice: this table
+  // (five voices, in code, ratio-relative, velocity reaching the timbre) and
+  // `audio_instruments` in the DB (synth rows, absolute Hz, velocity reaching
+  // only the level). A song could not use `piano` and a playable instrument
+  // could not be authored without editing this file.
+  //
+  // `ratio`/`index`/`bright` closed the mechanical half of that: a row here is
+  // now expressible as an ordinary layer config, so `note()` takes EITHER a named
+  // code voice or a config somebody authored in the dev panel, and the tracker
+  // can reach the code voices by name. One shape, two places to keep it.
+  //
+  // What a code voice still has that a config does not is `stretch` — decay that
+  // scales with pitch — because that is per-note and a config is per-instrument.
+  // A tracker step has its own length anyway, so it loses nothing it was using.
+  function voiceConfig(name) {
+    const ins = INSTRUMENTS[name];
+    if (!ins) return null;
+    return {
+      waveform: ins.wave,
+      fm: { ratio: ins.ratio, index: ins.index / ins.ratio, indexEnd: ins.indexEnd / ins.ratio,
+        time: ins.decay * 0.25, bright: ins.bright },
+      adsr: ins.sustain > 0
+        ? { a: ins.attack ?? 0.02, d: Math.min(0.18, ins.decay * 0.2), s: ins.sustain, r: 0.13 }
+        : { a: 0.002, d: ins.decay, s: 0, r: ins.decay * 0.35 },
+      gain: 0.25,
+    };
+  }
+
+  function note({ instrument = 'piano', note: n = 'C4', velocity = 0.75, config = null } = {}) {
+    // An authored config takes the generic path: no pitch-stretched decay and no
+    // hammer, because neither is expressible in a config and pretending otherwise
+    // would make an authored instrument quietly not the thing that was authored.
+    if (config) return noteFromConfig(config, n, velocity);
     const ins = INSTRUMENTS[instrument] || INSTRUMENTS.piano;
     const freq = noteFreq(n);
     if (freq == null) return null;
@@ -623,11 +668,28 @@
     // multiply — the layer builder already sweeps the index for us.
     const idx = ins.index * (1 + (v - 0.5) * ins.bright);
 
-    return def(`note_${instrument}`, decay + 0.2, [
+    // Struck vs blown. A struck voice decays to nothing on its own schedule and
+    // the panel fires and forgets it; a blown one holds at `sustain` until the key
+    // comes up, so its decay is a short settle onto that level rather than the
+    // whole life of the note. The struck branch is unchanged.
+    const held = ins.sustain > 0;
+    const env = held
+      ? { a: ins.attack ?? 0.02, d: Math.min(0.18, decay * 0.2), s: ins.sustain, r: 0.13 }
+      : { a: 0.002, d: decay, s: 0, r: decay * 0.35 };
+
+    const cue = def(`note_${instrument}`, decay + 0.2, [
       // Carrier + collapsing modulator: the note itself.
+      //
+      // Written in the RATIO/INDEX spelling rather than in absolute Hz, which is
+      // the change that finally lets these five voices be ordinary instrument
+      // configs — the same shape `audio_instruments` rows are in, so a code voice
+      // and an authored one are one kind of thing. `index` divides by `ratio`
+      // because the engine's index is against the MODULATOR and the old `depth`
+      // here was against the carrier; that division is what makes the two
+      // spellings identical rather than merely similar, and regress asserts it.
       { waveform: ins.wave, freq,
-        fm: { rate: freq * ins.ratio, depth: freq * idx, depthTo: freq * ins.indexEnd, time: decay * 0.25 },
-        adsr: { a: 0.002, d: decay, s: 0, r: decay * 0.35 },
+        fm: { ratio: ins.ratio, index: idx / ins.ratio, indexEnd: ins.indexEnd / ins.ratio, time: decay * 0.25 },
+        adsr: env,
         gain: (0.10 + 0.20 * v) },
       // Mechanism. A few milliseconds of filtered noise riding the attack. Only
       // for voices that genuinely have a mechanism you're meant to hear — on a
@@ -637,6 +699,26 @@
         adsr: { a: 0.001, d: 0.02, s: 0, r: 0.02 },
         gain: ins.hammer * (0.3 + 0.7 * v) },
     ], 6);
+    // The player of the cue has to know whether to keep a handle for the keyup,
+    // and the acoustics are this file's property — so the answer travels ON the
+    // cue rather than making the panel import the table and ask a second time.
+    if (held) cue.sustained = true;
+    return cue;
+  }
+
+  // A note from an AUTHORED instrument config — a dev-panel row, or a code voice
+  // that has been through voiceConfig(). The config decides the timbre; this only
+  // supplies the two things a config cannot know, which are the pitch and how
+  // hard it was struck.
+  function noteFromConfig(config, n, velocity) {
+    const freq = noteFreq(n);
+    if (freq == null) return null;
+    const v = clamp01(velocity);
+    const adsr = config.adsr || { a: 0.005, d: 0.6, s: 0, r: 0.2 };
+    const layer = { ...config, freq, velocity: v, gain: (config.gain ?? 0.25) * (0.4 + 0.6 * v) };
+    const cue = def('note_authored', (adsr.d ?? 0.6) + (adsr.r ?? 0.2) + 0.1, [layer], 6);
+    if ((adsr.s ?? 0) > 0) cue.sustained = true;
+    return cue;
   }
 
   // ── FOOTSTEP ─────────────────────────────────────────────────────────────────
@@ -936,33 +1018,119 @@
     ], 3), LOCK_LEVEL);
   }
 
+  // ── COMBAT ───────────────────────────────────────────────────────────────────
+  //
+  // Combat was the largest silent surface in the game: one authored cue on crits
+  // and one on kills, so an ordinary exchange — the thing a player spends most of
+  // their time doing — made no sound at all.
+  //
+  // Almost all of it is reuse, and deliberately so. A blade in a body IS `chop`
+  // on wet meat, because at the resolution of a sound effect those are the same
+  // event; a club is `impact` on the soft surface; an energy weapon on flesh is
+  // `sizzle`, which is grim and also exactly right. The mapping lives in the
+  // audio plugin, which owns the world's vocabulary — this file never learns what
+  // `edged` means.
+  //
+  // Two things genuinely had no generator, and both are here rather than faked:
+  //
+  //   whiff    — a MISS. The most common event in any fight, and the one that
+  //              makes the layer feel broken when it is silent. It is not a quiet
+  //              impact: nothing was struck, so there is no body and no ring,
+  //              only moving air.
+  //   gunshot  — firearms are a large share of combat and a gunshot is not a
+  //              loud thud. The crack is a shock front, not a struck object.
+
+  // A swing that hits nothing. Bandpassed noise whose centre falls as the weapon
+  // passes — the whole cue is that fall, which is why there is no tone layer at
+  // all. `weight` is the mass being swung: a fist is a short high hiss, a
+  // sledgehammer is a low woof you hear across the room.
+  function whiff({ weight = 0.35, intensity = 0.5 } = {}) {
+    const w = clamp01(weight);
+    const i = clamp01(intensity);
+    const top = vary(lerp(2600, 900, w), 0.12);
+    const dur = vary(lerp(0.11, 0.22, w), 0.15);
+    return def('combat_whiff', dur + 0.08, [
+      { noiseMix: 1,
+        // Down, always. A rising sweep reads as something arriving; this is
+        // something leaving, and the direction is most of what sells it.
+        filter: { type: 'bandpass', freq: top, q: vary(1.5, 0.2), to: top * vary(0.34, 0.12), time: dur * 0.8 },
+        adsr: { a: vary(0.012, 0.3), d: dur * 0.7, s: 0, r: dur * 0.4 },
+        gain: vary(0.055 + 0.05 * i, 0.18) },
+    ], 4);
+  }
+
+  // A firearm discharging. Three things at once, and the order matters more than
+  // any single number: a broadband CRACK with effectively no attack, a low body
+  // that falls hard (the pressure wave, and what carries down a street), and a
+  // short tail of room. `calibre` runs a light pistol (0) to something shoulder-
+  // fired (1) — it moves the body down and the crack out of the way.
+  function gunshot({ calibre = 0.4, intensity = 0.7, suppressed = false } = {}) {
+    const c = clamp01(calibre);
+    const i = clamp01(intensity);
+    const sup = suppressed ? 0.32 : 1;
+    const body = vary(lerp(180, 78, c), 0.1);
+    const tail = vary(lerp(0.11, 0.26, c), 0.18) * (suppressed ? 0.5 : 1);
+    return def('combat_gunshot', tail + 0.2, [
+      // The crack. No attack at all and almost no length — a shock front, not a
+      // struck object, which is why nothing here rings.
+      { noiseMix: 1,
+        filter: { type: 'highpass', freq: vary(lerp(2200, 1300, c), 0.15), q: 0.8 },
+        adsr: { a: 0, d: vary(0.018, 0.25), s: 0, r: 0.012 },
+        gain: vary((0.30 + 0.16 * i) * sup, 0.12) },
+      // The body. A collapsing modulation index over a fast pitch drop is what
+      // reads as a concussion rather than a note — the same trick the instrument
+      // table uses for a struck string, pushed past where it stays musical.
+      { waveform: 'triangle', freq: body,
+        pitchBend: { to: body * vary(0.44, 0.1), time: tail * 0.5 },
+        fm: { ratio: vary(1.9, 0.15), index: lerp(3.0, 6.5, i), indexEnd: 0.15, time: tail * 0.35 },
+        filter: { type: 'lowpass', freq: vary(lerp(900, 520, c), 0.15), q: 1.1 },
+        adsr: { a: 0, d: tail, s: 0, r: tail * 0.5 },
+        gain: vary((0.22 + 0.2 * i) * lerp(0.85, 1.25, c) * sup, 0.12) },
+      // The street answering. Not reverb — one delayed, dull, quiet slap, which
+      // is what a single hard transient actually does between buildings.
+      !suppressed && { noiseMix: 1, delay: vary(0.055, 0.3),
+        filter: { type: 'lowpass', freq: vary(1400, 0.2), q: 0.7 },
+        adsr: { a: 0.004, d: vary(0.13, 0.25), s: 0, r: 0.09 },
+        gain: vary(0.055 * (0.5 + 0.5 * i), 0.2) },
+    ], 7);
+  }
+
   // THE ENTRY POINT. Everything above is deterministic given `rnd`, so seeding
   // here is what makes the client's rebuild bit-identical to whatever the server
   // intended — and what makes a cue reproducible while someone is tuning it.
   //
   // No seed means "vary freely", which is what a purely client-side caller wants.
-  function buildActionCue({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, seed } = {}) {
+  function buildActionCue({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration, seed } = {}) {
     rnd = Number.isFinite(seed) ? mulberry32(seed) : Math.random;
     try {
-      return _build({ action, material: mat, intensity, surface: surf, vessel, heat, flow, state, powered, wet, foot });
+      return _build({ action, material: mat, intensity, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration });
     } finally {
       rnd = Math.random;   // never leave a seeded generator armed for the next caller
     }
   }
 
-  function _build({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot } = {}) {
+  function _build({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration } = {}) {
     switch (action) {
+      // Combat. `weight` is separate from `intensity` on purpose: a sledgehammer
+      // swung feebly is still a heavy thing moving, and collapsing the two makes
+      // every weak blow sound like a small weapon.
+      case 'whiff':   return whiff({ weight: weight ?? 0.35, intensity });
+      case 'gunshot': return gunshot({ calibre: calibre ?? 0.4, intensity, suppressed: state === 'suppressed' });
       // `surface` carries the surface class for a step and the door_type for a
       // door, so both reach the same one-argument entry point as everything else.
       case 'footstep': return footstep({ surface: surf, intensity, wet, foot });
       case 'door':     return door({ surface: surf, intensity, state, powered });
       case 'lock':     return lock({ surface: surf, intensity, state });
       case 'chop':    return chop({ material: mat, intensity, state });
-      case 'impact':  return impact({ surface: surf || vessel || 'metal', intensity, weight: intensity });
+      case 'impact':  return impact({ surface: surf || vessel || 'metal', intensity, weight: weight ?? intensity });
       case 'scrape':  return scrape({ surface: surf || vessel || 'metal', intensity });
       case 'stir':    return stir({ material: mat, vessel, intensity, state });
       case 'pour':    return pour({ material: mat, flow: flow ?? intensity, state });
-      case 'sizzle':  return sizzle({ material: mat, heat: heat ?? intensity, state });
+      // A pan of food sizzles for a second; an energy weapon hitting a body is
+      // over in a quarter of one. The generator already took a duration and the
+      // entry point simply never passed it — and because its burst FIELD scales
+      // with length, a short one is a handful of layers rather than twenty-one.
+      case 'sizzle':  return sizzle({ material: mat, heat: heat ?? intensity, state, ...(duration != null ? { duration } : {}) });
       case 'boil':    return boil({ material: mat, heat: heat ?? intensity, state });
       case 'stream':  return stream({ surface: surf, intensity, phase: state, duration: flow });
       case 'flatus':  return flatus({ intensity, style: state });
@@ -1040,6 +1208,10 @@
     // there is no seed (nothing is random) and the argument names are the ones a
     // caller actually has — instrument, note, velocity.
     buildNoteCue: (opts) => note(opts),
+    // A code voice as an ordinary instrument config, so the tracker (and anything
+    // else holding configs rather than names) can play one. The other half of the
+    // same bridge is buildNoteCue's `config` option, which plays an authored row.
+    voiceConfig,
     noteFreq,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

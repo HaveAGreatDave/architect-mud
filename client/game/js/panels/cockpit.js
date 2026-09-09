@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { glWorldInstalled, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
 // hook is never called and no context is asked for. It is imported HERE rather than from
@@ -32,7 +32,7 @@ if (typeof window !== 'undefined') {
   window.__glass2 = () => {
     let caps = null;
     try { caps = glCapabilities(); } catch (e) { caps = { error: String(e && e.message || e) }; }
-    return { caps, installed: glWorldInstalled(), gl: RENDER_TUNE.gl, frame: glLastFrame(), lastError: glLastError(), view: lastViewState() };
+    return { caps, installed: glWorldInstalled(), gl: RENDER_TUNE.gl, frame: glLastFrame(), lastError: glLastError(), view: lastViewState(), decision: glDecision() };
   };
 }
 import { suppressWeatherFx } from './weather-fx.js';

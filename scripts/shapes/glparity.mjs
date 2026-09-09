@@ -105,6 +105,45 @@ for (const heading of HEADINGS) {
   }
 }
 
+// ── ⚠ AND THE CANVAS IS NOT MEASURED IN THE CAMERA'S PIXELS ─────────────────
+//
+// Everything above builds both cameras from ONE `H`, which is the one thing the sim never does.
+// `makeCam` works in CSS pixels (the unit the 2-D context is transformed into), while the GL
+// canvas is a backing store in DEVICE pixels — so the pass took `host.height` and handed it to a
+// matrix whose `horizonY` and `depth` were CSS. The x row survived by accident, being `2·FL/cam.W`
+// with both terms off the camera; the y row was CSS over DEVICE and the whole vertical axis came
+// out scaled by 1/dpr with the horizon in the wrong place.
+//
+// ⚠ IT IS EXACTLY ZERO AT dpr 1, which is what every canvas in every headless test and every
+// synthetic Modelshop scene is — so nine reproductions came back clean while a player on a 1.2
+// display had his buildings 38 px up a 467 px pane, lifted off the ground AND squashed, because
+// the base and the roof were displaced by different amounts.
+const DPRS = [1, 1.2, 1.5, 2, 2.75];
+let dprChecks = 0;
+for (const dpr of DPRS) {
+  for (const heading of HEADINGS) {
+    for (const chase of CHASES) {
+      const cam = makeCam(W, HORIZON, DEPTH, { heading, height: 0, eyeH: 0.24, map: null }, chase || undefined);
+      // The matrix is built from the CAMERA's frame height; the viewport from the CANVAS's.
+      const m = viewProjMatrix(cam, H);
+      const devW = Math.round(W * dpr), devH = Math.round(H * dpr);
+      for (const [x, y, z] of PTS) {
+        const a = cam.proj(x, y, z);
+        if (a.f <= 0.061) continue;
+        const b = projectThrough(m, x, y, z, devW, devH);
+        // Back into the camera's own units, which is what the blit lands in.
+        const sx = b.sx / dpr, sy = b.sy / dpr;
+        checks++; dprChecks++;
+        const px = Math.max(Math.abs(a.sx - sx), Math.abs(a.sy - sy));
+        if (px > worst.px) { worst.px = px; worst.where = `dpr ${dpr} hdg ${heading}`; }
+        if (px > TOL_PX) {
+          bad++;
+          if (bad <= 6) console.log(`  ✗ dpr ${dpr}: hdg ${heading} pt (${x},${y},${z}): proj (${a.sx.toFixed(3)}, ${a.sy.toFixed(3)}) vs gl (${sx.toFixed(3)}, ${sy.toFixed(3)}) — ${px.toFixed(1)} px`);
+        }
+      }
+    }
+  }
+}
 if (bad) {
   console.error(`✗ glparity: ${bad} of ${checks} projections disagree — the GL camera is not GLASS's camera.`);
   process.exit(1);
@@ -112,4 +151,5 @@ if (bad) {
 console.log(`✓ glparity: ${checks} projections identical to cam.proj across `
   + `${HEADINGS.length} headings × ${EYES.length} eye heights × ${PITCHES.length} pitches × ${CHASES.length} chase offsets `
   + `(worst disagreement ${worst.px.toExponential(1)} px).`);
-console.log(`  …of which ${shifted} were drawn from the MAP WINDOW's frame with the sub-tile offset moved onto the camera.`);
+console.log(`  …of which ${shifted} were drawn from the MAP WINDOW's frame with the sub-tile offset moved onto the camera,`);
+console.log(`  and ${dprChecks} through a DEVICE-pixel viewport at dpr ${DPRS.join('/')} — the split that put the city 38 px off the ground.`);

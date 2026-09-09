@@ -8,6 +8,7 @@ import { resolveDefault } from '../../scripts/content/derive.mjs';
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
+import { registerDamageObserver } from '../../server/engine/damage-events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
 import { getZonePrecip, getWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone } from '../../server/engine/environment.js';
@@ -123,6 +124,10 @@ export function getAmbientDefByName(name) { return name ? ambientByName(name) : 
 // themes that name a sample sting instead of a tracker song. Metadata only (no
 // `data` blob); the client fetches the blob from /audio/samples/:id/data.
 export function getSampleDefByName(name) { return name ? sampleByName(name) : null; }
+// One authored instrument row. Exposed so plugins/instrument can let a piece of
+// furniture name a dev-panel instrument instead of one of the five code voices —
+// borrowing this cache rather than keeping a second copy of the same table.
+export function getInstrumentDef(id) { return id ? instruments.get(id) || null : null; }
 
 // ── Event route helper ────────────────────────────────────────────────────
 // Checks audio_event_routes for the given event name and dispatches the
@@ -258,15 +263,121 @@ function critBoost(def) {
   return { ...def, config: boosted };
 }
 
-on('enemy.attacked', ({ actor, critical }) => {
-  if (!critical) return;
+// ── COMBAT ───────────────────────────────────────────────────────────────────
+//
+// Until this, an ordinary fight was silent. `combat_hit` fired on CRITS only and
+// `combat_death` on kills, so the thing a player spends most of their time doing
+// made no sound between one lucky roll and the corpse.
+//
+// Both axes below are already authored on every weapon and every enemy
+// (`weapon_skill` and `damage_type` in tagCatalog.js), so nothing new is written
+// down anywhere: a weapon added tomorrow is audible the day it is tagged. That is
+// the same argument that puts 85 food items on ten material classes.
+//
+// WHICH AXIS, AND WHY BOTH. `damage_type` alone cannot tell a pistol from a
+// baseball bat — both are `kinetic` — so the outgoing side keys on the weapon's
+// skill class, which is exactly the distinction that matters acoustically. The
+// incoming side has no weapon to read (an enemy's attack is a damage roll, not an
+// item), so it keys on the type. Same table shape, two ways in.
+const COMBAT_WEAPON = {
+  // A blade in a body IS a chop on wet meat. The generator was written for a
+  // kitchen and the physics did not change on the way out of it.
+  blades:   { action: 'chop', material: 'wet_meat' },
+  clubs:    { action: 'impact', surface: 'none', weight: 0.85 },
+  fists:    { action: 'impact', surface: 'none', weight: 0.22 },
+  firearms: { action: 'gunshot' },
+  // Acid, flamers, the science shelf. `sizzle` is grim here and also correct.
+  //
+  // ⚠ The duration is doing real work. Left at the generator's own default this
+  // is A PAN OF FOOD: 1.5 seconds and two dozen randomised burst layers, per hit,
+  // in a fight where hits land every couple of seconds. A quarter of a second is
+  // a wound; the burst field scales with length, so it is also five layers
+  // instead of twenty-four.
+  science:  { action: 'sizzle', material: 'wet_meat', duration: 0.26 },
+};
+const COMBAT_TYPE = {
+  edged:     { action: 'chop', material: 'wet_meat' },
+  kinetic:   { action: 'impact', surface: 'none', weight: 0.6 },
+  energy:    { action: 'sizzle', material: 'wet_meat', duration: 0.26 },
+  fire:      { action: 'sizzle', material: 'fat', duration: 0.34 },
+  chemical:  { action: 'sizzle', material: 'liquid', duration: 0.3 },
+  // Deliberately absent: radiation does not make a noise when it hits you, and
+  // inventing one would be the single least honest sound in the game.
+  radiation: null,
+};
+
+// Damage → how loud and how bright. Floored well above zero because a glancing
+// blow still connected and has to be audible; saturating by ~40 so the ceiling
+// is a heavy weapon rather than a late-game one.
+const combatIntensity = (damage, critical) =>
+  Math.max(0, Math.min(1, 0.3 + (Number(damage) || 0) / 40 + (critical ? 0.2 : 0)));
+
+// A head hit with an edge finds bone. The only place the body is modelled at all
+// finer than "meat", and it is worth the one line because a head shot is already
+// the moment the game treats as special.
+function combatCue(base, { part, damage, critical }) {
+  const cue = { ...base, intensity: combatIntensity(damage, critical) };
+  if (cue.action === 'chop' && part === 'head') cue.material = 'bone';
+  // Nothing authored says how big a gun is, and nothing needs to: damage already
+  // separates a holdout from something shoulder-fired.
+  if (cue.action === 'gunshot') cue.calibre = Math.max(0, Math.min(1, ((Number(damage) || 0) - 4) / 30));
+  return cue;
+}
+
+function combatSfx(zoneId, params) {
+  if (!zoneId || !params) return;
+  sendToZone(zoneId, { type: 'audio_sfx_proc', params: { ...params, seed: (Math.random() * 0xffffffff) >>> 0 } });
+}
+
+on('enemy.attacked', ({ actor, critical, hit, damage, part, weapon }) => {
   const zoneId = actor?.current_zone;
   if (!zoneId) return;
-  if (!triggerEventRoute('enemy.attacked', zoneId, actor?.id)) {
+  // The authored override still wins, and still only on a crit — that route
+  // existed to let somebody replace the one dramatic cue, and turning it into a
+  // per-swing override would fire an authored one-shot ten times a fight.
+  if (critical && triggerEventRoute('enemy.attacked', zoneId, actor?.id)) return;
+
+  // A MISS. The most common thing that happens in a fight, and the reason this
+  // layer felt broken when it was silent — nothing was struck, so there is no
+  // body and no ring, only the weapon moving.
+  if (hit === false) {
+    combatSfx(zoneId, { action: 'whiff', weight: COMBAT_WEAPON[weapon]?.weight ?? 0.35, intensity: 0.5 });
+    return;
+  }
+  const base = COMBAT_WEAPON[weapon] || COMBAT_WEAPON.fists;
+  combatSfx(zoneId, combatCue(base, { part, damage, critical }));
+  // A crit keeps its authored flourish ON TOP of the material sound, rather than
+  // instead of it — the swing still landed on the same body.
+  if (critical) {
     const def = critBoost(sfxByName('combat_hit'));
     if (def) sendToZone(zoneId, { type: 'audio_sfx', def });
   }
 });
+
+// Being hit. A separate seam because there is no event for it: the enemy side
+// runs inside combat.js and emits nothing a plugin can hear.
+//
+// ⚠ SYNC AND QUERY-FREE BY CONTRACT (see damage-events.js) — this fires on every
+// incoming swing of every fight. Everything below is a table lookup and a socket
+// write, and it must stay that way.
+//
+// Filtered to the sources that are a CREATURE OR A PERSON hitting you. `strike`
+// is deliberately excluded: it is the shared applyStrikeToPlayer path that
+// demolition blasts, psionic backlash and mutation organs all route through, and
+// every one of those already makes its own noise. Voicing it here would double
+// them up.
+const COMBAT_SOURCES = new Set(['enemy', 'npc', 'pvp']);
+registerDamageObserver((player, hit) => {
+  if (!COMBAT_SOURCES.has(hit?.source)) return;
+  const base = COMBAT_TYPE[hit.type];
+  if (!base) return;   // radiation, or a type nobody has voiced yet
+  combatSfx(player?.current_zone, combatCue(base, hit));
+}, 'audio');
+
+// Test surface. The tables are the whole system, and the thing that goes wrong
+// with a table like this is not that it is wrong — it is that the world grows a
+// new weapon_skill or damage_type and nothing here finds out.
+export const _combat = { COMBAT_WEAPON, COMBAT_TYPE, COMBAT_SOURCES, combatCue, combatIntensity };
 
 on('enemy.killed', ({ actor }) => {
   const zoneId = actor?.current_zone;
@@ -881,6 +992,51 @@ export function footingFor(zone) {
   if (isIndoorZone(zone)) return FLOOR_STEP[zone?.flags?.floor] || DEFAULT_FLOOR;
   return 'stone';
 }
+
+// ── The room you are standing in ────────────────────────────────────────────
+//
+// The engine grew a reverb send; this decides which room it is. Nothing new is
+// authored: `flags.floor` was already seeded for all 591 interiors (for
+// footsteps), and outdoors is whatever `zoneTerrain` already answers.
+//
+// Deliberately COARSE — seven spaces, not one per room. The point of a reverb is
+// that a church is not a cupboard, and no player can hear the difference between
+// two rooms whose only disagreement is 200ms of tail. Same argument that keeps
+// 85 food items on ten material classes and every terrain on nine footings.
+//
+// A hard floor with nothing soft in it is the loud case, so the table is really
+// asking one question: how much of this room is absorbent?
+const FLOOR_SPACE = {
+  tile: 'hall', concrete: 'hall', stone: 'hall',
+  metal: 'metal',
+  boards: 'room', linoleum: 'room', dirt: 'room',
+  carpet: 'room',
+};
+
+// The two that a floor cannot tell you, because they are about the SHAPE of the
+// place rather than what it is surfaced with.
+const NAME_SPACE = [
+  [/church|chapel|cathedral|garneau|shrine|sanctuar/i, 'stone'],
+  [/sewer|drain|tunnel|culvert|conduit|under|sump|sluice/i, 'tunnel'],
+];
+
+export function spaceFor(zone) {
+  if (!zone) return 'outdoor';
+  const name = `${zone.name || ''} ${zone.id || ''}`;
+  for (const [re, space] of NAME_SPACE) if (re.test(name)) return space;
+  if (!isIndoorZone(zone)) {
+    // Outdoors is not silence. A street between buildings returns something a
+    // salt flat does not, and `building_type` on the neighbours is the wrong
+    // question to ask on a movement path — the terrain already implies it.
+    return zoneTerrain(zone) ? 'outdoor' : 'street';
+  }
+  return FLOOR_SPACE[zone?.flags?.floor] || 'room';
+}
+
+on('zone.entered', ({ actor, zone: zoneId }) => {
+  if (!actor?.id) return;
+  sendToPlayer(actor.id, { type: 'audio_space', space: spaceFor(getZone(zoneId)) });
+});
 
 // ── Making a sound you hear ten thousand times bearable ─────────────────────
 //

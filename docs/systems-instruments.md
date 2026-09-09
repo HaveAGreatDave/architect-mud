@@ -1,7 +1,21 @@
 # Musical Instruments (as built)
 
-**Status: BUILT.** One instrument in the world (the black upright in Bishop's Blend), five voices,
-one plugin, one panel.
+**Status: BUILT.** Five voices, six instruments, one plugin, one panel.
+
+| voice | instrument | where |
+|---|---|---|
+| `piano` | Black Upright Piano | Bishop's Blend |
+| `piano` | honky-tonk upright | Jolene's |
+| `rhodes` | Electric Piano | Echelon — Stern Lounge |
+| `musicbox` | Walnut Music Box | Sentimental Value Pawn |
+| `pluck` | House Guitar | The Coyote's Rest |
+| `organ` | Reed Organ | St Garneau's |
+
+Four of those were authored, tuned and placed **nowhere** for months. A voice with no furniture is a
+voice no player can reach, and nothing failed, because unreachable isn't an exception — so regress now
+checks both directions: every placed `flags.instrument` names a real voice (`voiceOf()` falls back to
+piano, so a typo is a harpsichord that sounds like an upright rather than an error), and every voice
+exists in some room. **Add a voice and place it in the same commit.**
 
 An instrument is furniture you sit down at and **actually play**, on your own keyboard, in real time,
 and the room hears it.
@@ -19,6 +33,7 @@ keydown → local voice (0 ms) → ws instrument_note → server validates → s
 | [`client/shared/procedural-sfx.js`](../client/shared/procedural-sfx.js) | the `INSTRUMENTS` table and the `note()` generator |
 | [`server/index.js`](../server/index.js) | the `instrument_note` ws route — nine lines that only `emit` |
 | `content/furniture/furn_solenne_piano.json` | the upright |
+| [`scripts/voice/fm-smoke.mjs`](../scripts/voice/fm-smoke.mjs) | the only automated coverage `buildLayer` has — runs in `pretest:regress` |
 
 ## The three decisions worth knowing
 
@@ -63,7 +78,7 @@ would be a system that makes the game worse at the thing it just became good at.
 ## The voices
 
 FM, from the synthesis `AudioEngine.buildLayer` already had. The load-bearing parameter is
-`fm.depthTo` — a **modulation index that collapses across the note**, which is exactly what reads as
+`fm.indexEnd` — a **modulation index that collapses across the note**, which is exactly what reads as
 *struck*: bright and inharmonic at the hammer, settling toward the carrier as it rings. That one
 existing sweep is why a piano cost a table row rather than a synthesiser.
 
@@ -76,7 +91,32 @@ single thing that most separates a piano from a keyboard.
 | `rhodes` | ratio **14:1** — a high inharmonic modulator over a sine is the bell in a Rhodes attack |
 | `musicbox` | non-integer ratio 3.5, very short attack, long pure ring, no body layer |
 | `pluck` | sawtooth carrier, fast decay, index falls almost immediately |
-| `organ` | index **doesn't** collapse and the sustain is flat — which is what reads as blown rather than hit |
+| `organ` | index **doesn't** collapse and the note is held, not struck — which is what reads as blown rather than hit |
+
+### Struck and blown
+
+Four of the five voices are **struck**: the note is over on its own schedule, and how long a finger
+sat on the key is not a question they ask. `strike()` fires and forgets, which is right — a note that
+ended when you lifted a piano key would be a note nobody could play a phrase with.
+
+`organ` is **blown**, and until it could be released it was a sustained instrument in a struck-only
+harness: it decayed under your hands with a `decay` number standing in for a key nobody was reading.
+A row carrying `sustain` (the held level) takes a held envelope instead, `AudioEngine.playSfx` grows
+a `{ sustain: true }` option that hands the note's ending back to the caller, and the panel keeps the
+handle until keyup. **The presence of that one key is the whole switch** — a row without it takes the
+struck envelope, byte for byte what all five took before.
+
+Two things follow, and both are about a note that never ends:
+
+- **A note-off is never rate-limited.** The bucket exists to stop somebody flooding a room with
+  sound, and a release is the opposite of that. Spend a token on it and the message you drop is the
+  one that makes the sound stop. It costs nothing to exempt — you cannot lift a key you did not press.
+- **Every exit releases.** Keyup, pointerup anywhere on the window (a finger that slides off its key
+  still has to end the note), losing keyboard focus (the browser sends no keyups for keys that were
+  down when focus left), closing the panel, and `leave()` — which broadcasts an all-notes-off, because
+  standing up, walking out and logging off are every route to the end of a performance that isn't a
+  keyup. Behind all of them the engine holds a **30-second cap**: not tuning, just the last thing
+  between a bug somewhere else and a drone nobody in the room can silence.
 
 **A piano note is one layer.** It shipped with two more — a sub-octave "soundboard" tone and a noise
 transient at the attack — and both were wrong. The sub-octave was wrong on its own terms: resonance
@@ -93,6 +133,38 @@ a C6 rings 0.8 s.
 
 The table rides the existing `interface_sfx` override plumbing as `proc:instruments`, so the voices
 are tunable in the dev panel alongside the materials and surfaces. No new table, no new endpoint.
+
+### One kind of instrument
+
+There were two instrument systems that could not share a voice: the `INSTRUMENTS` table above (five,
+in code) and `audio_instruments` in the DB (synth rows authored in the dev panel). A song could not
+use `piano`, and a playable instrument could not be created without editing a source file.
+
+`fm.ratio`/`index`/`bright` closed the mechanical half: a row here is now expressible as an ordinary
+layer config, so both directions work.
+
+- **A song can name a code voice.** An unknown instrument id in a tracker step falls back to
+  `ProceduralSFX.voiceConfig(name)`.
+- **Furniture can name an authored row.** `flags.instrument` accepts an `audio_instruments` id as well
+  as one of the five names.
+
+⚠ **The rewrite had to change no sound, and that is asserted rather than assumed.** `note()` moved from
+absolute Hz (`rate: freq × ratio`, `depth: freq × index`) to the ratio/index spelling, and the two forms
+divide by `ratio` differently — the engine's index is against the **modulator**, the old depth was
+against the **carrier**. Equal or silently retuned, with no third option. The smoke checks all five
+voices across three octaves and three velocities; `piano` is ratio 1 and would pass under a wrong
+conversion, so `rhodes` at 14:1 is the case that actually proves it.
+
+Two things a code voice still has that a config does not: `stretch` (decay scaling with pitch) and the
+hammer transient, both of which are per-note rather than per-instrument. A tracker step has its own
+length, so it loses nothing it was using.
+
+⚠ **Sample-backed rows are refused, not approximated.** A sampler note needs pitch-shifting and a base
+note, which is a different playback path from the panel's, and an instrument that silently played a
+piano would be worse than one that says no.
+
+The config reaches the room **once per sit and once per room entry**, never per note — which is what
+keeps the note relay at the ~40 bytes that made the whole design work.
 
 ### Adding a voice
 

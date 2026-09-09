@@ -630,7 +630,7 @@ wss.on("connection", (ws) => {
 		// every validation, including the rate limit, and rejects silently.
 		if (msg.type === "instrument_note") {
 			if (session.playerId)
-				emit("instrument.note", { playerId: session.playerId, note: msg.note, velocity: msg.velocity });
+				emit("instrument.note", { playerId: session.playerId, note: msg.note, velocity: msg.velocity, off: msg.off === true });
 			return;
 		}
 		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {

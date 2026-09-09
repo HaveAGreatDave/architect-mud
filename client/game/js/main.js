@@ -264,7 +264,13 @@ function setupMobilePane() {
 
 		window.visualViewport.addEventListener("resize", () => {
 			const vh = window.visualViewport.height;
-			const keyboardUp = vh < _fullVH * 0.75;
+			// ⚠ A SHRINKING VIEWPORT IS ONLY A KEYBOARD ON A DEVICE THAT HAS ONE. Docking devtools to
+			// the bottom of a desktop window shrinks the visual viewport by exactly the same shape as a
+			// soft keyboard opening, so this closed the area pane on a machine with no keyboard to open
+			// — and it only reopens if the pane happened to be open at that moment. The pane holds the
+			// flight sim, whose canvas is then 0×0, and paintWindshield returns on its first line, so
+			// the whole renderer silently stops. That reads as "the 3-D view will not load".
+			const keyboardUp = _isTouch && vh < _fullVH * 0.75;
 			if (keyboardUp) {
 				document.body.style.height = vh + "px";
 				window.scrollTo(0, window.visualViewport.offsetTop);
@@ -280,6 +286,18 @@ function setupMobilePane() {
 	}
 }
 if (_isMobile()) setupMobilePane();
+// ⚠ `_isMobile()` IS READ ONCE, AT LOAD, and `mob-pane-hidden` is `display:none !important`
+// with no media query behind it — so a window that STARTS under 720px collapses the area pane
+// and keeps it collapsed at every width afterwards, because only a tap on the handle clears it.
+// Opening devtools side-docked is how a desktop hits that: the page reloads narrow, boots into
+// the mobile layout, and the pane never comes back however wide the window gets. Restore it when
+// the viewport crosses back over the breakpoint. Non-touch only, and it only ever UN-hides — a
+// real handset keeps every bit of its behaviour, and a deliberate tap-to-close still closes.
+if (!_isTouch) {
+	window.addEventListener("resize", () => {
+		if (window.innerWidth >= 720) document.getElementById("area-pane")?.classList.remove("mob-pane-hidden");
+	});
+}
 
 listenForSettingsChanges((s) => {
 	applySettings(s);

@@ -17,6 +17,9 @@
 // city nobody can see.
 import { viewProjMatrix } from './camera.js';
 import { createSpriteLayer } from './sprites.js';
+import { createCurtainLayer } from './curtain.js';
+import { createDecalLayer } from './decals.js';
+import { createBillboardLayer } from './billboards.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
 // haze jitter 1.
@@ -80,6 +83,11 @@ uniform float uStr;
 uniform float uFogAmt;
 uniform float uHazeNear;
 uniform float uHazeFar;
+// The ground-to-air crossfade. The 2-D pass multiplies every world object by it and drops the
+// object entirely below 0.02, which is how the Mode-7 city gives way to the flat airport scene
+// as you settle onto the deck. The mass had no idea it existed and drew the real city at full
+// opacity straight over the airport, on every landing.
+uniform float uWorldBlend;
 out vec4 outColor;
 void main() {
   vec3 n = normalize(vNormal);
@@ -113,7 +121,7 @@ void main() {
   // ⚠ EACH TILE DISSOLVES AT ITS OWN MOMENT, which is what the 2-D pass does and what stops a row
   // of buildings giving up its opacity in unison — a wall of haze moving toward you rather than
   // distance. The number is the tile's own, handed over rather than recomputed.
-  float a = (1.0 - smoothstep(uHazeNear - vJit, uHazeFar - vJit, vDepth)) * clamp(vAlpha, 0.0, 1.0);
+  float a = (1.0 - smoothstep(uHazeNear - vJit, uHazeFar - vJit, vDepth)) * clamp(vAlpha, 0.0, 1.0) * uWorldBlend;
   outColor = vec4(mix(base, uFog, fog) * a, a);
 }`;
 
@@ -162,6 +170,7 @@ export function createGLView(canvas) {
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
     fogFar: gl.getUniformLocation(prog, 'uFogFar'),
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
+    worldBlend: gl.getUniformLocation(prog, 'uWorldBlend'),
     hazeNear: gl.getUniformLocation(prog, 'uHazeNear'),
     hazeFar: gl.getUniformLocation(prog, 'uHazeFar'),
     vlight: gl.getUniformLocation(prog, 'uVLight'),
@@ -300,7 +309,9 @@ export function createGLView(canvas) {
     if (!count) return 0;
 
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, H)));
+    // The camera's own frame height (CSS px), never the canvas's (device px) — see the ⚠ in
+    // world.js. Falls back to H so a caller that already works in one unit is unchanged.
+    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, opts.cssH || H)));
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
     const key = opts.key || [0.78, 0.59, 0.33], sh = opts.shadow || [0.13, 0.16, 0.21];
@@ -309,6 +320,7 @@ export function createGLView(canvas) {
     gl.uniform3f(loc.shadow, sh[0], sh[1], sh[2]);
     gl.uniform3f(loc.sky, skyC[0], skyC[1], skyC[2]);
     gl.uniform1f(loc.str, opts.str == null ? 1 : opts.str);
+    gl.uniform1f(loc.worldBlend, opts.worldBlend == null ? 1 : opts.worldBlend);
     const fogC = opts.fog || sky;
     gl.uniform3f(loc.fog, fogC[0], fogC[1], fogC[2]);
     gl.uniform1f(loc.fogNear, opts.fogNear == null ? 6 : opts.fogNear);
@@ -332,13 +344,48 @@ export function createGLView(canvas) {
   // has a light never compiles the program.
   let sprites = null;
   const spriteLayer = () => (sprites || (sprites = createSpriteLayer(gl)));
-  function drawSprites(cam, list) {
+  // ⚠ TWO HEIGHTS, AND THEY ARE NOT THE SAME NUMBER. The matrix wants the CAMERA's frame height
+  // (CSS px, what `horizonY` and `depth` are measured in — see the ⚠ in world.js); the viewport
+  // wants the CANVAS's (device px), because a sprite's radius arrives already scaled by the
+  // frame's dpr. Passing one for the other lifts every light off the building it sits on.
+  function drawSprites(cam, list, cssH) {
     if (!list || !list.length) return 0;
     const L = spriteLayer();
     L.upload(list);
-    return L.draw(cam, canvas.width, canvas.height);
+    return L.draw(cam, canvas.width, canvas.height, cssH);
   }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, setAtlas, lost: () => gl.isContextLost(),
+  // The Curtain, on the same depth buffer as the mass. Built lazily like the lights: a view that
+  // never sees the wall never compiles the program.
+  let curtain = null;
+  const curtainLayer = () => (curtain || (curtain = createCurtainLayer(gl)));
+  function drawCurtain(cam, list, cssH, now) {
+    if (!list || !list.length) return 0;
+    const L = curtainLayer();
+    L.upload(list);
+    return L.draw(cam, cssH || canvas.height, now);
+  }
+
+  // Signage, on the same depth buffer. Lazy like the others.
+  let decals = null;
+  const decalLayer = () => (decals || (decals = createDecalLayer(gl)));
+  function drawDecals(cam, list, cssH) {
+    if (!list || !list.length) return 0;
+    const L = decalLayer();
+    L.upload(list);
+    return L.draw(cam, cssH || canvas.height);
+  }
+
+  // Ground scatter, on the same depth buffer. Lazy like the others.
+  let bbs = null;
+  const bbLayer = () => (bbs || (bbs = createBillboardLayer(gl)));
+  function drawBillboards(cam, list, cssH, fog) {
+    if (!list || !list.length) return 0;
+    const L = bbLayer();
+    L.upload(list);
+    return L.draw(cam, canvas.width, canvas.height, cssH, fog);
+  }
+
+  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; } };
 }

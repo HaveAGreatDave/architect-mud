@@ -655,6 +655,18 @@ function computeZoneLoad(zoneId) {
   return load;
 }
 
+// Streetlights INSTALLED in a zone, lit or not. A streetlight only draws after
+// dark (computeZoneLoad above), so draw alone cannot tell a road with lamp
+// columns on it from open ground — by day every lit street in the city reads as
+// unwired. The dev power map wants the wiring, not the hour.
+function countStreetlights(zoneId) {
+  let n = 0;
+  for (const f of getZoneFurniture(zoneId)) {
+    if (f.object_type === 'light' && f.light_type === 'streetlight') n++;
+  }
+  return n;
+}
+
 // Lit-fixture count/lumens for a zone — the RAM form of the GROUP BY the sim
 // used to run over the whole furniture table. Uses light_on (actual), not
 // light_on_intended, matching the original.
@@ -683,6 +695,7 @@ function loadZonePowerAndLighting() {
       generatorId: z.generator_id,
       generatorType: z.generator_id ? (generatorRows.get(z.generator_id)?.generator_type ?? null) : null,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
+      streetlights: countStreetlights(z.id),
       artificialLight: computeArtificialLight(z.status, light),
       flags: zf,
       gridX: wz?.grid_x ?? null,
@@ -2786,6 +2799,7 @@ export function getPowerMap() {
     availableKw: z.availableKw,
     maxCapacityKw: z.maxCapacityKw,
     artificialLight: z.artificialLight,
+    streetlights: z.streetlights,
     generatorId: z.generatorId,
     generatorType: z.generatorType,
   }));

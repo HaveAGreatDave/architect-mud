@@ -1,0 +1,20 @@
+{
+  "description": "A seventy-three key electric piano on chrome legs at the open end of the crescent, tines under the lid and a top flat enough to set a glass on. It runs off the deck ring main. The rail heaters keep it close enough to true that nobody out here has ever complained about the tuning.",
+  "flags": {
+    "instrument": "rhodes",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_rhodes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Electric Piano",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 7400,
+  "zone_id": "zone_echelon_stern"
+}

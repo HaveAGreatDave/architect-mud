@@ -20,7 +20,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
-import { openPianoPanel, closePianoPanel, onRoomNote } from './panels/piano.js';
+import { openPianoPanel, closePianoPanel, onRoomNote, onVoiceConfig } from './panels/piano.js';
 import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
 import { openSlotsPanel } from './panels/slots.js';
 import { openCardMintPanel, cardMintStruck } from './panels/cardmint.js';
@@ -232,6 +232,18 @@ function playWelcomeVoice(handle, player) {
 // whatever per-event gain the server already set. (Poker SFX have their own
 // softening in poker-sfx.js.)
 const GAME_SFX_GAIN = 0.6;
+
+// A compass direction as a stereo position. North and south are DEAD CENTRE and
+// that is not a shortcoming: this is a headphone pan, which carries left/right
+// and cannot carry front/back at all, so a sound from ahead and a sound from
+// behind are honestly the same thing here. Diagonals get a partial pan, up and
+// down get none. Anything unknown pans nowhere rather than guessing.
+const DIR_PAN = {
+  east: 0.75, west: -0.75,
+  northeast: 0.5, southeast: 0.5, northwest: -0.5, southwest: -0.5,
+  north: 0, south: 0, up: 0, down: 0,
+};
+const panForDir = (dir) => DIR_PAN[dir] ?? 0;
 
 // ── A cadence, scheduled here rather than sent as N messages ─────────────────
 //
@@ -1174,6 +1186,9 @@ const handlers = {
   instrument_panel: (msg) => { openPianoPanel(msg); },
   instrument_note: (msg) => { onRoomNote(msg); },
   instrument_close: () => { closePianoPanel(); },
+  // An AUTHORED instrument's synth config, sent once per sit and per room entry
+  // rather than per note — which is what keeps the note relay at ~40 bytes.
+  instrument_voice: (msg) => { onVoiceConfig(msg); },
   // The card machine's face, its vend, and the pack-opening cinematic. All three
   // still echo `message` into the log — the overlay is the show, never the record,
   // so closing it (or an audio-off client) loses nothing but the presentation.
@@ -1612,7 +1627,11 @@ const handlers = {
   // for this song, so closing that surface can stop it without silencing a zone
   // theme or the player's own AMP tape — they all share one music player.
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner }); },
-  audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN); },
+  // `from`/`hops` are only present when the cue reached you from ANOTHER room
+  // (propagateAudio in server/engine/sounds.js) — the doorway it came through and
+  // the number of walls in the way. The mapping from a compass direction to a pan
+  // lives here rather than on the server, which sends the fact and not the sound.
+  audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN, { pan: panForDir(msg.from), muffle: msg.hops || 0 }); },
   // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
   // the sound here from the shared generator — same seed, same field, ~100 bytes
   // on the wire instead of the several KB a serialised burst field costs.
@@ -1643,6 +1662,9 @@ const handlers = {
     if (msg.series) { playSeries(msg.series, msg.params || {}, play); return; }
     play(msg.params || {});
   },
+  // Which room the listener is in — the reverb send. Sent on every zone change;
+  // the engine crossfades and ignores a repeat of the space it is already in.
+  audio_space: (msg) => { window.AudioEngine?.setSpace?.(msg.space); },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },

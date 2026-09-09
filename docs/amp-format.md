@@ -221,8 +221,18 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `vibrato.depth` | float | `0` | Pitch modulation depth in cents |
 | `tremolo.rate` | float | `0` | Amplitude LFO frequency in Hz (0 = off) |
 | `tremolo.depth` | float | `0` | Amplitude modulation depth (0–1) |
-| `fm.rate` | float | — | **FM modulation** — modulator frequency in Hz. Omit or `0` to disable |
-| `fm.depth` | float | `100` | Frequency deviation in Hz (FM index = `depth ÷ carrier freq`) |
+| `fm.ratio` | float | — | **FM modulation** — modulator frequency as a multiple of `freq`. The form to use for anything played at more than one pitch. Omit or `0` to disable |
+| `fm.rate` | float | — | Modulator frequency in absolute Hz. Ignored when `fm.ratio` is set |
+| `fm.index` | float | — | Modulation index (deviation ÷ modulator freq). Scale-free, so it holds across pitch |
+| `fm.depth` | float | `100` | Frequency deviation in raw Hz. Ignored when `fm.index` is set |
+| `fm.indexEnd` | float | — | Index travels here over `fm.time`. A collapsing index is what reads as struck |
+| `fm.depthTo` | float | — | The same sweep in raw Hz. Ignored when `fm.indexEnd` is set |
+| `fm.ratioTo` / `fm.rateTo` | float | — | Modulator pitch travels here (a multiple of `freq`, or absolute Hz) |
+| `fm.time` | float | `0.2` | Seconds for the index and modulator pitch to reach their targets |
+| `fm.wave` | string | `"sine"` | Modulator waveform: `sine` `square` `sawtooth` `triangle` |
+| `fm.bright` | float | — | How far a note's velocity opens the index. `0`/absent = velocity moves the level only |
+| `drive` | float | `0` | **Soft-clip distortion**, 0–1. Sits after the envelope and before the filter, so it behaves like an amplifier: a hard attack is dirtier than the tail |
+| `fm.op2` | object | — | A second operator in series — takes the same keys again |
 | `echo.mix` | float | — | **Echo** — wet/dry mix (0–1). Omit or `0` to disable |
 | `echo.delay` | float | `0.18` | Delay line length in seconds (max 2.0) |
 | `echo.feedback` | float | `0.35` | Feedback gain (0–0.95); values near 1 create long reverb tails |
@@ -231,14 +241,25 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 
 ### FM modulation
 
-`fm` wires an audio-rate modulator oscillator into the carrier's frequency input, producing classic FM synthesis timbres — bells, metallic clangour, bass stabs — depending on the ratio of `fm.rate` to `freq` and the `depth`.
+`fm` wires an audio-rate modulator oscillator into the carrier's frequency input, producing classic FM synthesis timbres — bells, metallic clangour, bass stabs — depending on the modulator's frequency relative to `freq`, and on the depth.
 
 ```json
-{ "waveform": "sine", "freq": 220, "fm": { "rate": 440, "depth": 300 },
+{ "waveform": "sine", "freq": 220, "fm": { "ratio": 2, "index": 1.4, "indexEnd": 0.1, "time": 0.3 },
   "adsr": { "a": 0.01, "d": 0.4, "s": 0, "r": 0.2 }, "gain": 0.7 }
 ```
 
-Quick-reference ratios (ratio = `fm.rate ÷ freq`):
+**Reach for `ratio`, not `rate`.** They set the same oscillator, and the choice decides whether
+the config is an instrument or one fixed sound. `rate` is absolute Hz, and a song overrides only
+`freq` per step — so an instrument played at C2 and at C6 gets the same modulator frequency both
+times, which means a different ratio, and a different timbre, at each end of the keyboard.
+`ratio` resolves against the carrier, so the spectrum scales with pitch and the voice keeps its
+identity. Absolute `rate` is right for a fixed-pitch impact and wrong for anything with notes.
+
+`index` and `depth` are the same choice one level down: `depth` is deviation in raw Hz, `index`
+is deviation ÷ modulator frequency — the quantity that stays put when the pitch moves. Set one
+or the other; `index` wins.
+
+Quick-reference ratios (`fm.ratio`, or `fm.rate ÷ freq`):
 
 | Ratio | Character |
 |---|---|
@@ -246,6 +267,56 @@ Quick-reference ratios (ratio = `fm.rate ÷ freq`):
 | 2:1 | Bright, octave-enhanced |
 | 3:1 | Metallic, bell-adjacent |
 | 7:1 or non-integer | Inharmonic, clangorous, cyberpunk |
+
+#### Sweeping the index
+
+`indexEnd` (or `depthTo` in raw Hz) is the most expressive control in the format. An index that
+**collapses** across the note is what reads as a struck object: bright and inharmonic at the
+attack, settling toward the carrier as it rings. An index that sits still is a steady buzz, and
+one that climbs reads as something being driven past its limits.
+
+`ratioTo` / `rateTo` sweep the modulator's own pitch, which is what makes an impact read as
+inharmonic rather than musical, and `time` is shared by both sweeps. A modulator authored with
+`ratio` follows its own carrier through a `pitchBend` without being told to — holding the ratio
+through a bend is what ratio means, and a modulator left behind turns the bend into a detune.
+
+```json
+{ "waveform": "sine", "freq": 261.6,
+  "fm": { "ratio": 14, "index": 1.1, "indexEnd": 0.04, "time": 0.4 },
+  "adsr": { "a": 0.002, "d": 1.9, "s": 0, "r": 0.6 }, "gain": 0.3 }
+```
+
+That is an electric piano. Ratio 14:1 is the Rhodes trick — a high inharmonic modulator over a
+sine gives the bell-in-the-attack that defines the sound — and the collapse to 0.04 is the note
+settling into a ring.
+
+#### Velocity and timbre
+
+A song step's `vol` is applied to the layer's gain **and** handed to the synth as a velocity. With
+`fm.bright` set, that velocity opens the modulation index as well — so playing harder changes what
+the note *sounds like*, not just how loud it is, which is most of what separates a piano from a
+keyboard. It scales the attack index only; the sweep target is where the note settles, and a hard
+note settles in the same place as a soft one.
+
+`bright` is centred on velocity 0.5, so a mid-velocity note is exactly the authored index and the
+config reads as written. Omit it and velocity behaves as it always has.
+
+#### A second operator
+
+`fm.op2` is one more operator in **series**: it modulates the modulator, not the carrier. Two
+operators into a carrier are just two partials; a stack is where FM stops sounding like
+oscillators and starts sounding like a material. It takes the same keys again, and its `ratio` is
+against the **note**, not against the operator below it — that is how every FM instrument is
+specified, and a ratio-of-a-ratio compounds into numbers nobody can author.
+
+```json
+{ "waveform": "sine", "freq": 110,
+  "fm": { "ratio": 1, "index": 2, "time": 0.5, "op2": { "ratio": 7, "index": 0.8, "indexEnd": 0 } } }
+```
+
+Small `op2` numbers go a long way, because the index compounds through the operator below it.
+Each operator is another oscillator per voice against a 16-voice pool, so a stack on a cue that
+fires thirty layers at once is not free — see the voice budget below.
 
 ### Echo
 

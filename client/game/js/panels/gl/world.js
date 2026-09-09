@@ -113,6 +113,19 @@ function tileMesh(deps, it) {
 // applied below.
 export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const W = host.width, H = host.height;
+  // ⚠ THE CANVAS IS IN DEVICE PIXELS AND THE CAMERA IS IN CSS PIXELS, AND THE MATRIX NEEDS THE
+  // CAMERA'S UNITS. `host.width/height` is the backing store; `cam.horizonY` and `cam.depth` come
+  // from `makeCam`, which works in the CSS pixels the 2-D context is transformed into. In
+  // `projMatrix` the x row is `2·FL / cam.W` — CSS over CSS, right by accident of both coming off
+  // the camera — while the y row is `2·depth / H` and `1 − 2·horizonY / H`, CSS over DEVICE. So
+  // the vertical axis was scaled by 1/dpr and the horizon put in the wrong place while the
+  // horizontal stayed correct: the city squashed against a ground drawn from the real camera.
+  // ⚠ AND IT IS EXACTLY INVISIBLE AT dpr 1, which is every synthetic canvas a test builds.
+  // The VIEWPORT stays in device pixels — that mapping is resolution-independent and correct.
+  const dpr = cam && cam.W ? W / cam.W : 1;
+  // Handed over by the caller when it knows (the sim always does); derived only for a caller that
+  // does not, where the rounding of a device-pixel canvas costs a fraction of a pixel.
+  const cssH = opts.cssH || (dpr > 0 ? H / dpr : H);
   if (!W || !H) return null;
   const g = sceneGL(id, W, H);
   // No WebGL2 on this machine, or the driver took the context away. Either way the pass draws
@@ -173,12 +186,19 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const camAt = (cam.ox || cam.oy)
     ? { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy }
     : cam;
-  g.view.draw(camAt, opts.draw || {});
+  g.view.draw(camAt, { ...(opts.draw || {}), cssH });
   // ⚠ THE LIGHTS ARE IN THE CAMERA'S OWN FRAME, NOT THE WINDOW'S. The mesh is built at map-window
   // tiles so it can be cached; a light is collected fresh every frame from the arm that owns it,
   // in the camera-relative coordinates the arm works in. So it takes the plain camera, and the
   // shifted one exists only for the buffer that needed shifting.
-  const lights = g.view.drawSprites(cam, opts.sprites);
-  return { faces: g.faces || 0, builds, lights, canvas: g.canvas };
+  const lights = g.view.drawSprites(cam, opts.sprites, cssH);
+  // ⚠ AFTER THE MASS, ALWAYS. It is depth-TESTED and writes none of its own, so the buildings
+  // have to be in the buffer before it is asked what stands in front of it.
+  const curtains = g.view.drawCurtain(cam, opts.curtain, cssH, opts.now);
+  const decals = g.view.drawDecals(cam, opts.decals, cssH);
+  // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
+  // the anchor depth and a billboard that did not would be a different bush at every distance.
+  const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand);
+  return { faces: g.faces || 0, builds, lights, curtains, decals, scatter, canvas: g.canvas };
 }
 

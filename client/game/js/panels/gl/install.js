@@ -73,13 +73,16 @@ export function installGL(hostFor) {
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
     }, {
-      sprites: opts.sprites,
+      sprites: opts.sprites, cssW: opts.cssW, cssH: opts.cssH,
+      curtain: opts.curtain, decals: opts.decals, scatter: opts.scatter, now: opts.now,
+      fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       night: opts.night, nb: opts.nb,
       draw: {
         // Transparent, because this buffer is BLITTED onto the 2-D frame rather than shown: every
         // pixel the skyline does not cover has to leave the sky and ground already painted there
         // alone. An opaque clear would blank the whole world and draw the city on the hole.
         clearAlpha: 0,
+        worldBlend: opts.worldBlend,
         key: u(L.key), shadow: u(L.shadow), skyTint: u(L.sky), str: L.str,
         keyDir: [dir[0], dir[1], 0.35],
         // GLASS's own N64 fog — the colour it mixes toward, the amount its slider sets, over the

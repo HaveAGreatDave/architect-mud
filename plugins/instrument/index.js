@@ -39,6 +39,7 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { on } from '../../server/engine/events.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { textMinigamesSync } from '../../server/engine/presentation.js';
+import { getInstrumentDef } from '../audio/index.js';
 
 // The voices the client knows how to build. Kept as a plain list rather than an
 // import of the shared table: this is a VALIDATION set (is `flags.instrument`
@@ -101,7 +102,27 @@ function instrumentIn(zoneId) {
 
 function voiceOf(furn) {
   const v = String(furn?.flags?.instrument || '').toLowerCase();
-  return VOICES.includes(v) ? v : 'piano';
+  if (VOICES.includes(v)) return v;
+  // An AUTHORED instrument. `flags.instrument` may name a synth row in
+  // `audio_instruments` instead of one of the five code voices, which is the
+  // whole point of the unification: a new playable instrument becomes a dev-panel
+  // row rather than an edit to procedural-sfx.js.
+  //
+  // Sample-backed rows are refused rather than approximated. A sampler note needs
+  // pitch-shifting and a base note, which is a different playback path from the
+  // one the panel uses, and a "supported" instrument that silently played a piano
+  // would be worse than one that says no.
+  return authoredVoice(v) ? v : 'piano';
+}
+
+// The DB library lives in plugins/audio; borrowing it is the same arrangement
+// plugins/pinch has with plugins/pacing, and far better than a second cache of
+// the same table that could disagree with it.
+function authoredVoice(id) {
+  if (!id) return null;
+  const row = getInstrumentDef(id);
+  if (!row || row.sample_id) return null;
+  return row;
 }
 
 function nounFor(voice) { return VOICE_NOUN[voice] || 'instrument'; }
@@ -113,6 +134,12 @@ function leave(player, { quiet = false } = {}) {
   if (!s) return false;
   seated.delete(player.id);
   sendToPlayer(player.id, { type: 'instrument_close' });
+  // Kill anything this player was still holding. A blown voice ends on a keyup,
+  // and getting up is every route to the end of a performance that ISN'T one:
+  // walking out, standing, logging off, being moved. Without this the room keeps
+  // the last chord until each listener's own 30s cap runs out, which is a long
+  // time to hear an organ played by nobody.
+  sendToZone(s.zoneId, { type: 'instrument_note', playerId: player.id, off: true, allNotes: true }, player.id);
   if (!quiet) {
     sendToZone(s.zoneId, {
       type: 'zone_event',
@@ -186,7 +213,21 @@ function sit(player, furn, voice, { quiet, panel }) {
       message: `${player.handle} sits down at the ${furn.name.toLowerCase()}.`,
     }, player.id);
   }
+  // An authored voice needs its CONFIG on every client in the room, or the note
+  // relays (which carry a name and nothing else, ~40 bytes) resolve to nothing and
+  // fall back to a piano. Sent once per sit rather than per note, which is the
+  // whole reason the wire can stay that small.
+  broadcastVoice(player.current_zone, voice);
   if (panel) openPanel(player, furn, voice);
+}
+
+// Also on entry, so somebody walking in mid-performance hears the right
+// instrument rather than the fallback for the rest of the song.
+function broadcastVoice(zoneId, voice, onlyPlayerId = null) {
+  const row = authoredVoice(voice);
+  if (!row || !zoneId) return;
+  const msg = { type: 'instrument_voice', voice, config: { ...(row.config || {}), waveform: row.waveform || 'sine' } };
+  if (onlyPlayerId) sendToPlayer(onlyPlayerId, msg); else sendToZone(zoneId, msg);
 }
 
 function openPanel(player, furn, voice) {
@@ -240,14 +281,44 @@ function strike(player, note, velocity) {
   return true;
 }
 
+// The key coming up, for a blown voice. Only the organ sends these today; a
+// struck voice has no handle to release and its panel never emits one.
+//
+// ⚠ DELIBERATELY OUTSIDE THE TOKEN BUCKET. A rate limit exists to stop somebody
+// flooding the room with SOUND, and a note-off is the opposite of that — it is
+// the message that makes a sound stop. Spend a token on it and the note you
+// dropped is the release, which leaves every other ear in the room droning until
+// its 30-second cap expires. It costs nothing to let through: you cannot lift a
+// key you did not press, so the ceiling on note-offs is the ceiling on notes.
+//
+// The seat is still re-validated, for the same reason strike() does it: somebody
+// who walked out mid-chord is the ordinary case, and their keyups arrive after
+// the move. It just ends the note rather than refusing it — leave() has already
+// told the room the performance stopped, and a swallowed release would leave the
+// last chord hanging over a room the player is no longer in.
+function lift(player, note) {
+  const s = seated.get(player.id);
+  if (!s) return false;
+  sendToZone(s.zoneId, {
+    type: 'instrument_note',
+    playerId: player.id,
+    voice: s.voice,
+    note,
+    off: true,
+    furnId: s.furnId,
+  }, player.id);
+  return true;
+}
+
 // ── Wiring ───────────────────────────────────────────────────────────────────
 
 // Notes off the thin ws route in server/index.js.
-on('instrument.note', ({ playerId, note, velocity }) => {
+on('instrument.note', ({ playerId, note, velocity, off }) => {
   const player = getLivePlayer(playerId);
   if (!player) return;
   const n = normaliseNote(note);
   if (!n) return;
+  if (off) { lift(player, n); return; }
   const v = Math.max(0.05, Math.min(1, Number(velocity) || 0.75));
   strike(player, n, v);
 });
@@ -258,6 +329,12 @@ on('instrument.note', ({ playerId, note, velocity }) => {
 on('zone.entered', ({ actor }) => {
   const s = actor && seated.get(actor.id);
   if (s && actor.current_zone !== s.zoneId) leave(actor, { quiet: true });
+  // Walking into a room whose instrument is an authored one: hand this player the
+  // config before they can possibly hear a note relayed from it. Without it a
+  // late arrival hears a piano for the rest of the performance.
+  if (!actor?.current_zone) return;
+  const furn = instrumentIn(actor.current_zone);
+  if (furn) broadcastVoice(actor.current_zone, voiceOf(furn), actor.id);
 });
 
 // `stop` stops this too, along with everything else it stops.
@@ -287,4 +364,4 @@ export const specializedActions = [
 export const commands = { play: cmdPlay };
 
 // Exported for the regression suite, which drives notes without a socket.
-export const _internals = { seated, strike, normaliseNote, takeToken, RATE, BURST, VOICES };
+export const _internals = { seated, strike, lift, normaliseNote, takeToken, RATE, BURST, VOICES };

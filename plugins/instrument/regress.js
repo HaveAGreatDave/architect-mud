@@ -10,6 +10,7 @@
 //    the same shared-vocabulary check the flatus styles get: the two files never
 //    import each other, so nothing but a test can catch a drift
 import { insertFurniture, deleteFurniture, world } from '../../server/engine/world.js';
+import { query } from '../../server/models/db.js';
 import { commands, _internals } from './index.js';
 import '../../client/shared/procedural-sfx.js';
 
@@ -20,7 +21,7 @@ export default async function regress({ check }) {
   const PID = `instrument_regress_${process.pid}`;
   const noop = () => {};
   const play = (input, p) => commands.play(input.split(/\s+/).filter(Boolean).slice(1), input, p, noop);
-  const { seated, strike, normaliseNote, takeToken, BURST } = _internals;
+  const { seated, strike, lift, normaliseNote, takeToken, BURST } = _internals;
 
   const player = { id: PID, handle: 'Pianist', current_zone: EMPTY, posture: 'standing' };
   world.players.set(PID, player);
@@ -78,6 +79,18 @@ export default async function regress({ check }) {
     s.tokens = 0; s.last = Date.now();
     check('the rate limit does bite', takeToken(s) === false);
 
+    // A NOTE-OFF MUST OUTRANK THE LIMITER. The bucket is empty right now, which
+    // is exactly the moment this matters: the message being dropped would be the
+    // one that ENDS a sound, so a rate-limited release leaves every other ear in
+    // the room holding the note until its own 30s cap expires. There is no flood
+    // risk to trade against — you cannot lift a key you did not press.
+    // Re-emptied immediately before the calls: the bucket refills against the
+    // wall clock, and 71ms between the two lines would hand back a token and
+    // turn this into a test that passes for the wrong reason on a slow machine.
+    s.tokens = 0; s.last = Date.now();
+    check('a note strike is refused with an empty bucket', strike(player, 'C4', 0.8) === false);
+    check('...but the note-off still goes out', lift(player, 'C4') === true);
+
     // Walking out ends the performance — the note path must not survive the room.
     player.current_zone = EMPTY;
     check('a note from another room is refused', strike(player, 'C4', 0.8) === false);
@@ -89,6 +102,37 @@ export default async function regress({ check }) {
     const missing = _internals.VOICES.filter(v => !table[v]);
     check('every declared voice exists in the shared table', missing.length === 0, missing.join(','));
 
+    // ── and the world actually holds one of each ──────────────────────────────
+    // Both directions, because both have been wrong.
+    //
+    // Outward: `voiceOf()` falls back to piano for anything it doesn't know, so a
+    // misspelled `flags.instrument` is not an error — it is a harpsichord that
+    // sounds like an upright, in one room, for as long as nobody stands in it.
+    //
+    // Inward: rhodes, musicbox, pluck and organ were authored, tuned, tested and
+    // placed NOWHERE for months. A voice with no furniture is a voice no player
+    // can reach, and nothing failed, because unreachable is not an exception. If
+    // you add a voice, place it in the same commit.
+    const { rows: placed } = await query(
+      "SELECT id, name, flags->>'instrument' AS voice FROM furniture WHERE flags->>'instrument' IS NOT NULL");
+    // A voice is valid if it is one of the five in code OR an authored synth row
+    // in audio_instruments — that second route is the whole point of the
+    // unification, so a check that only knew about the first would reject exactly
+    // the instruments somebody built in the dev panel.
+    const { getInstrumentDef } = await import('../audio/index.js');
+    const validVoice = (v) => _internals.VOICES.includes(v) || !!(getInstrumentDef(v) && !getInstrumentDef(v).sample_id);
+    const bogus = placed.filter(r => !validVoice(r.voice));
+    check('every placed instrument names a real voice', bogus.length === 0,
+      bogus.map(r => `${r.name}=${r.voice}`).join(', '));
+    // Sample-backed rows are refused rather than approximated: the panel has no
+    // pitch-shifting path, so one would silently play as a piano.
+    const sampled = placed.filter(r => getInstrumentDef(r.voice)?.sample_id);
+    check('no instrument is wired to a sample-backed row', sampled.length === 0,
+      sampled.map(r => r.name).join(', '));
+    const unplaced = _internals.VOICES.filter(v => !placed.some(r => r.voice === v));
+    check('every voice exists somewhere a player can reach', unplaced.length === 0,
+      `${unplaced.join(', ')} — authored but in no room`);
+
     // And the voices build a real cue rather than nothing.
     const cue = globalThis.ProceduralSFX?.buildNoteCue({ instrument: 'piano', note: 'C4', velocity: 0.8 });
     check('a note builds a playable cue', !!cue?.config?.layers?.length, JSON.stringify(cue?.config?.duration));
@@ -97,6 +141,18 @@ export default async function regress({ check }) {
     const low = globalThis.ProceduralSFX.buildNoteCue({ note: 'C2' }).config.duration;
     const high = globalThis.ProceduralSFX.buildNoteCue({ note: 'C6' }).config.duration;
     check('low notes ring longer than high ones', low > high * 2, `${low} vs ${high}`);
+
+    // Struck vs blown. The panel decides whether to keep a release handle off
+    // `cue.sustained` alone, so a voice that lost the mark would go back to
+    // decaying under the player's hands with nothing to say it had.
+    const organ = globalThis.ProceduralSFX.buildNoteCue({ instrument: 'organ', note: 'C4' });
+    check('the organ is a held voice', organ.sustained === true && organ.config.layers[0].adsr.s > 0,
+      `${organ.sustained}/${organ.config.layers[0].adsr.s}`);
+    check('a struck voice is not', !cue.sustained && cue.config.layers[0].adsr.s === 0);
+    // Only lift() is exempt from the bucket. If lift ever grew a takeToken call
+    // the check above would still pass on a full bucket, so the exemption is
+    // asserted where it is load-bearing rather than where it is convenient.
+    check('lift refuses a player who is not seated', lift({ id: 'nobody_here' }, 'C4') === false);
   } finally {
     seated.delete(PID);
     world.players.delete(PID);

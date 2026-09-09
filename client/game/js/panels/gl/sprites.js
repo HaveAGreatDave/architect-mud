@@ -151,10 +151,12 @@ export function createSpriteLayer(gl) {
     return count / 6;
   }
 
-  function draw(cam, W, H) {
+  // `H` is the CANVAS height (device px) and sizes the viewport, because `aRadius` is already in
+  // device pixels. `cssH` is the CAMERA's own frame height, which is what the matrix is built from.
+  function draw(cam, W, H, cssH) {
     if (!count) return 0;
     gl.useProgram(prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, H)));
+    gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);          // a light is the appearance of a thing, not a thing

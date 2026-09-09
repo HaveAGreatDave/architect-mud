@@ -373,7 +373,7 @@ function planTileZoneFor(zone, zoneById, mapParents) {
   const seen = new Set();
   let z = zone;
   while (z && !seen.has(z.id)) {
-    if (z.grid_x != null && z.grid_y != null) return z;
+    if (planIsPlacedTile(z)) return z;
     seen.add(z.id);
     const parentId = mapParents.get(z.map_id);
     z = parentId ? zoneById.get(parentId) : null;
@@ -386,9 +386,16 @@ function planTileZoneFor(zone, zoneById, mapParents) {
 // UNSET, and ONE such room in a region stretches its bounding box from the
 // region's own 93x52 out to 956x948 — nine hundred thousand cells for one
 // mis-parked zone. See reference/land-taxonomy.md.
+// ⚠ Shared with planTileZoneFor: an interior room parked at 0,0 is NOT a tile,
+// so folding must walk PAST it to the facade it hangs off. Returning it as its
+// own tile is what left building fronts dark on the power map while the rooms
+// behind them were lit.
+function planIsPlacedTile(z) {
+  return z.grid_x != null && z.grid_y != null
+    && !(z.grid_x === 0 && z.grid_y === 0 && (z.flags?.is_interior || z.flags?.is_apartment));
+}
 function planPlacedTiles(zones) {
-  return zones.filter(z => z.grid_x != null && z.grid_y != null
-    && !(z.grid_x === 0 && z.grid_y === 0 && (z.flags?.is_interior || z.flags?.is_apartment)));
+  return zones.filter(planIsPlacedTile);
 }
 
 // Region buckets that actually hold placed tiles, for a region <select>.

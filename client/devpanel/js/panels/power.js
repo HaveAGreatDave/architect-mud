@@ -287,6 +287,7 @@ function _buildInteriorMapHtml() {
 //
 // Interior rooms have no tile of their own, so their draw is folded onto the
 // facade you enter them through — one building, one tile, one number.
+const POWER_HOME_REGION = 'region_coldwater';
 let powerRegionId = null;       // selected region ('__unassigned' for tiles with no region)
 let powerRegionZ = null;        // selected floor (grid_z); null = pick the busiest one
 let powerRegionSel = null;      // clicked tile zone id
@@ -298,9 +299,27 @@ const POWER_STATUS_RANK = { offline: 3, overloaded: 2, powered: 1 };
 const POWER_STATUS_RGB = {
   offline: '220,40,60',
   overloaded: '255,165,0',
-  powered: '20,200,100',
+  // Muted on purpose: every wired facade paints this, so a saturated green
+  // washed the whole city and left the faults it exists to show competing with
+  // it. Desaturated, and the alpha ramp is shallower than the fault colours.
+  powered: '130,185,160',
   unpowered: '90,90,120',
 };
+// Street lighting is not a building and must not read as one: a lamp column on a
+// road is fed straight off the plant with no junction box, so it gets its own
+// neutral white rather than a dimmer shade of the building green.
+const POWER_LAMP_RGB = '236,240,246';
+// Draw is the thing this map is read for, so it is the thing that gets the
+// colour. A tile pulling any watts at all starts at a medium green that is
+// already legible against the plan base, and climbs to a bright one at the
+// region's heaviest draw — brightness IS consumption, and a served tile pulling
+// nothing stays the flat idle tone so it cannot be mistaken for a light load.
+const POWER_DRAW_LOW  = [46, 170, 104];   // any draw at all
+const POWER_DRAW_HIGH = [120, 255, 150];  // the heaviest draw in the region
+const POWER_IDLE_RGB  = '120,160,145';    // powered, drawing nothing
+function _powerDrawRgb(t) {
+  return POWER_DRAW_LOW.map((c, i) => Math.round(c + (POWER_DRAW_HIGH[i] - c) * t)).join(',');
+}
 
 function setPowerRegion(rid) {
   powerRegionId = rid;
@@ -336,7 +355,20 @@ function powerRegionSelectPlant(genId) {
 }
 
 // Every power-model zone folded onto the tile it should paint.
-// -> Map(tileZoneId -> { load, available, capacity, status, rooms: [{zone, pw}] })
+// -> Map(tileZoneId -> { load, available, capacity, status, served, rooms: [...] })
+//
+// ⚠ Being on the power model is NOT the same as being served, and painting the
+// first washed the whole region: 11,763 of the 17,267 rows are open ground wired
+// straight to a city plant (a street with a lamp on it draws 5W), so every field
+// of grass in the Basin read as a lit building. Power reaches a PLACE through a
+// junction box — that is what a building has and a road does not — so `served`
+// is what the map paints, while the row itself stays in the model so the detail
+// panel can still say what a street lamp draws.
+const POWER_SERVED_GEN = new Set(['junction_box', 'building']);
+function _powerIsOffgrid(genId) {
+  const g = powerPanelGenerators.find(x => x.id === genId);
+  return !!g && (g.flags?.offgrid || !g.city_generator_id);
+}
 function _powerByTile() {
   const zoneById = new Map(powerPanelAllZones.map(z => [z.id, z]));
   const byTile = new Map();
@@ -346,7 +378,22 @@ function _powerByTile() {
     const tile = planTileZoneFor(zone, zoneById, powerPanelMapParents);
     if (!tile) continue;
     let e = byTile.get(tile.id);
-    if (!e) byTile.set(tile.id, e = { load: 0, available: 0, capacity: 0, status: null, rooms: [] });
+    if (!e) byTile.set(tile.id, e = { load: 0, available: 0, capacity: 0, status: null, served: false, offgrid: false, lamps: 0, lampFed: false, lampOn: false, rooms: [] });
+    if (POWER_SERVED_GEN.has(pw.generatorType)) {
+      e.served = true;
+      // The Echelon runs its own engine room, so it is powered but it is not the
+      // city's problem: an off-grid box has no city plant behind it and must not
+      // land in a grid-health tally about a plant it was never wired to.
+      if (_powerIsOffgrid(pw.generatorId)) e.offgrid = true;
+    }
+    // A road is wired for street lighting and nothing else, so the LAMP COLUMNS
+    // are what mark it — never the draw. A streetlight only draws after dark, so
+    // keying on load painted the city's road grid at night and erased it by day.
+    else if (Number(pw.streetlights ?? 0) > 0) {
+      e.lamps += Number(pw.streetlights);
+      if ((pw.status || 'powered') !== 'offline') e.lampFed = true;
+      if (Number(pw.loadKw ?? 0) > 0) e.lampOn = true;
+    }
     e.load += Number(pw.loadKw ?? 0);
     e.available += Number(pw.availableKw ?? 0);
     e.capacity += Number(pw.capacityKw ?? 0);
@@ -395,7 +442,12 @@ function _buildRegionMapHtml() {
     wired: tiles.filter(z => byTile.has(z.id)).length,
   })).sort((a, b) => b.load - a.load || a.name.localeCompare(b.name));
 
-  if (!regions.some(r => r.rid === powerRegionId)) powerRegionId = regions[0].rid;
+  // Coldwater Basin first: it is where the game starts and the only region with a
+  // grid worth reading, so opening on whichever region happened to draw the most
+  // watts this tick just costs a click.
+  if (!regions.some(r => r.rid === powerRegionId)) {
+    powerRegionId = (regions.find(r => r.rid === POWER_HOME_REGION) || regions[0]).rid;
+  }
   const sel = regions.find(r => r.rid === powerRegionId);
 
   const options = regions.map(r =>
@@ -486,11 +538,13 @@ function _powerGridHealthHtml(sel, byTile, plantsByTile) {
   const demand = plants.reduce((n, p) => n + Number(p.total_demand_w ?? 0), 0);
   const headroom = capacity > 0 ? Math.max(0, 1 - demand / capacity) : 0;
 
-  const counts = { offline: 0, overloaded: 0, powered: 0, offgrid: 0 };
+  const counts = { offline: 0, overloaded: 0, powered: 0, unwired: 0, lamps: 0, offgrid: 0 };
   for (const z of sel.tiles) {
     const e = byTile.get(z.id);
-    if (e) counts[e.status] = (counts[e.status] || 0) + 1;
-    else counts.offgrid++;
+    if (e?.offgrid) counts.offgrid++;
+    else if (e?.served) counts[e.status] = (counts[e.status] || 0) + 1;
+    else if (e?.lamps > 0) counts.lamps++;
+    else if (planTileIsBuilding(z)) counts.unwired++;
   }
 
   // One sentence, so the number you act on is a word before it's a percentage.
@@ -513,7 +567,7 @@ function _powerGridHealthHtml(sel, byTile, plantsByTile) {
       ${stat('capacity', `${capacity.toFixed(0)}W`)}
       ${stat('demand', `${demand.toFixed(0)}W`)}
       ${stat('headroom', `${(headroom * 100).toFixed(0)}%`)}
-      ${stat('tiles', `${counts.powered} up · ${counts.overloaded} strained · ${counts.offline} dark · ${counts.offgrid} off-grid`)}
+      ${stat('tiles', `${counts.powered} up · ${counts.overloaded} strained · ${counts.offline} dark · ${counts.unwired} unwired · ${counts.lamps} lit street${counts.offgrid ? ` · ${counts.offgrid} off-grid` : ''}`)}
     </div>
     <div style="margin-top:8px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden">
       <div style="height:100%;width:${barPct.toFixed(1)}%;background:${barColour}"></div>
@@ -535,7 +589,8 @@ function _powerRegionGridHtml(tiles, byTile, plantsByTile) {
     const cur = byCoord.get(key);
     if (!cur || (z.grid_z ?? 0) < (cur.grid_z ?? 0)) byCoord.set(key, z);
   }
-  const peak = Math.max(0, ...tiles.map(z => byTile.get(z.id)?.load || 0));
+  // Served tiles only: a plant-fed street must not set the ramp the buildings ride.
+  const peak = Math.max(0, ...tiles.map(z => byTile.get(z.id)?.served ? byTile.get(z.id).load : 0));
 
   let html = planGridOpen(cols, cell);
   for (const [coord, z] of byCoord) {
@@ -546,18 +601,29 @@ function _powerRegionGridHtml(tiles, byTile, plantsByTile) {
       const border = planTileIsBuilding(z) ? `;box-shadow:inset 0 0 0 1px rgba(${PLAN_MAP_INK},0.85)` : '';
 
       let overlay = '';
-      if (e) {
-        // Alpha carries how much it draws; hue carries whether it's well. A
-        // powered tile pulling nothing is still powered, so the ramp has a floor
-        // rather than a separate colour. Offline is a state, not a magnitude.
+      if (e && !e.served && e.lamps > 0) {
+        // Bright and flat: how much a lamp draws is not a question anybody opens
+        // this map to ask, so it carries one value and reads as a lit street.
+        // Full while the lamps are burning, halved while they are merely wired —
+        // the road is still there at noon, and the map should still show it.
+        const a = e.lampOn ? 0.34 : e.lampFed ? 0.17 : 0.07;
+        overlay = `<div style="position:absolute;inset:0;background:rgba(${POWER_LAMP_RGB},${a})"></div>`;
+      } else if (e && e.served) {
+        // A fault outranks a magnitude: offline and overloaded keep their own
+        // colours whatever they were drawing when they went. Everything else
+        // rides the draw ramp. sqrt, so the long tail of small draws separates
+        // instead of all landing on the bottom step.
         const t = peak > 0 && e.load > 0 ? Math.sqrt(e.load / peak) : 0;
-        const alpha = e.status === 'offline' ? 0.85 : 0.18 + 0.72 * t;
-        overlay = `<div style="position:absolute;inset:0;background:rgba(${POWER_STATUS_RGB[e.status] || POWER_STATUS_RGB.powered},${alpha.toFixed(3)})"></div>`;
+        const [rgb, alpha] = e.status !== 'powered'
+          ? [POWER_STATUS_RGB[e.status] || POWER_STATUS_RGB.powered, e.status === 'offline' ? 0.85 : 0.18 + 0.72 * t]
+          : e.load > 0 ? [_powerDrawRgb(t), 0.5 + 0.45 * t]
+          : [POWER_IDLE_RGB, 0.16];
+        overlay = `<div style="position:absolute;inset:0;background:rgba(${rgb},${alpha.toFixed(3)})"></div>`;
       }
       let onClick = `powerRegionSelect(${JSON.stringify(z.id)})`;
       let lift = '';
       let tip = (z.name || z.id) + (e
-        ? `\n${e.load.toFixed(0)}W of ${e.available.toFixed(0)}W · ${e.status}${e.rooms.length > 1 ? ` · ${e.rooms.length} rooms` : ''}`
+        ? `\n${e.load.toFixed(0)}W of ${e.available.toFixed(0)}W · ${e.served ? e.status : e.lamps > 0 ? `${e.lamps} street lamp${e.lamps === 1 ? '' : 's'}, ${e.lampOn ? 'lit' : e.lampFed ? 'wired, off' : 'no power'}` : 'no junction box — grid-fed street'}${e.rooms.length > 1 ? ` · ${e.rooms.length} rooms` : ''}`
         : '\nnot on the power model');
       if (plants.length) {
         const p = plants[0];
@@ -580,11 +646,15 @@ function _powerRegionLegendHtml() {
   const sw = (rgb, a, label, ring) => `<span style="display:inline-flex;gap:4px;align-items:center"><span style="display:inline-block;width:12px;height:12px;background:rgba(${rgb},${a})${ring ? `;box-shadow:inset 0 0 0 2px ${ring}` : ''}"></span>${label}</span>`;
   return `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:10px;color:var(--text-dim)">
     ${sw('80,160,255', 0.8, 'city plant', 'rgba(110,190,255,0.95)')}
-    ${sw(POWER_STATUS_RGB.powered, 0.18, 'powered, idle')}
-    ${sw(POWER_STATUS_RGB.powered, 0.9, 'powered, heavy draw')}
+    ${sw(POWER_IDLE_RGB, 0.16, 'powered, no draw')}
+    ${sw(_powerDrawRgb(0), 0.5, 'drawing')}
+    ${sw(_powerDrawRgb(0.55), 0.75, 'heavier')}
+    ${sw(_powerDrawRgb(1), 0.95, 'heaviest in region')}
     ${sw(POWER_STATUS_RGB.overloaded, 0.7, 'overloaded')}
     ${sw(POWER_STATUS_RGB.offline, 0.85, 'offline')}
     ${sw(PLAN_MAP_INK, PLAN_TILE_BUILDING, 'not on the grid')}
+    ${sw(POWER_LAMP_RGB, 0.34, 'street lighting')}
+    <span>· unpainted ground has no junction box and no lamp</span>
     <span style="opacity:0.7">interior rooms fold onto their facade</span>
   </div>`;
 }

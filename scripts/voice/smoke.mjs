@@ -197,5 +197,54 @@ const rate = LINES.reduce((n, l) => n + A._estimateDuration(A._phonemesFor(l), S
            / LINES.reduce((n, l) => n + l.length, 0);
 check(`speech rate ${rate.toFixed(1)}ms/char is within 55–110`, rate > 55 && rate < 110);
 
+// ── RP: non-rhoticity, and the linking-r that survives it ────────────────────
+// The accent layer is a phoneme rewrite, so it belongs here with the rest of the
+// phonology rather than with the graph tests in fm-smoke. GA is asserted beside
+// every RP case, because an accent rule leaking into the DEFAULT accent changes
+// how the whole game speaks and would surface as nothing more specific than
+// "something sounds wrong".
+{
+  const rp = (t) => A._phonemesFor(t, { accent: 'rp' }).join(' ');
+  const ga = (t) => A._phonemesFor(t).join(' ');
+  const rpHas = (label, text, want) =>
+    check(`rp: ${label}`, rp(text).includes(want), `"${text}" want …${want}… got ${rp(text)}`);
+  const rpLacks = (label, text, no) =>
+    check(`rp: ${label}`, !rp(text).includes(no), `"${text}" should NOT contain ${no}, got ${rp(text)}`);
+
+  // Non-rhotic: /r/ goes unless a vowel follows it.
+  rpLacks('a final /r/ is dropped', 'far gone', 'AA R');
+  rpHas('…but a prevocalic one survives', 'very good', 'EH R');
+
+  // LINKING-R. The /r/ of "far" comes back before a vowel-initial word, and the
+  // bridge is broken by any real juncture — a full stop or a comma, not merely a
+  // word gap. That distinction is the whole reason this cannot use `isGap`, which
+  // matches every pause there is.
+  rpHas('linking-r bridges a word gap', 'far away', 'AA R _');
+  rpHas('…and mid-phrase', 'the car is here', 'AA R _');
+  rpLacks('…but not across a full stop', 'far. Away', 'AA R');
+  rpLacks('…nor across a comma', 'far, away', 'AA R');
+  // ⚠ THESE TWO ARE THE ONES THAT MEAN ANYTHING. Spaced punctuation emits its
+  // pause AND a word gap ("AA R __ _ AX"), so a buggy `isGap(phon[n])` would look
+  // at the second gap, not a vowel, and refuse the link by luck. Unspaced
+  // punctuation emits the pause alone — "far—away" is "AA R _D AX" — so the vowel
+  // sits directly after it and a rule that skipped any pause would link straight
+  // across a dash. Without these, the isGap mutation passes clean.
+  rpLacks('…nor across an unspaced dash', 'far—away', 'AA R');
+  rpLacks('…nor across an unspaced ellipsis', 'far...away', 'AA R');
+  // ⚠ INTRUSIVE-R MUST NEVER APPEAR. "law and order" has no orthographic r, and
+  // this design cannot produce one — it only ever KEEPS an /r/ the dictionary
+  // supplied. Asserted anyway, because the day somebody "improves" linking-r by
+  // inserting rather than preserving, this is the line that says no.
+  rpLacks('no intrusive-r is invented', 'law and order', 'AO R');
+
+  // GOAT: RP starts the diphthong central, GA back and rounded.
+  rpHas('GOAT is the RP diphthong', 'go home', 'OWR');
+
+  // The default accent must be untouched by every one of the above.
+  check('ga: GOAT is unchanged', ga('go home').includes('OW') && !ga('go home').includes('OWR'), ga('go home'));
+  check('ga: keeps every /r/', ga('far away').includes('AA R') && ga('far gone').includes('AA R'), ga('far gone'));
+  check('ga: is still rhotic word-finally', ga('the car is here').endsWith('IY R'), ga('the car is here'));
+}
+
 if (fails) { console.error(`\n✗ voice:smoke — ${fails} failure(s)`); process.exit(1); }
 console.log('✓ voice:smoke clean.');
