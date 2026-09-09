@@ -61,7 +61,12 @@ export function viewMatrix(cam) {
 //
 // The y row carries a term in `f` — that is the principal point being off centre, and it is why a
 // stock `perspective()` helper cannot be used here: the horizon is not in the middle of the canvas.
-export function projMatrix(cam, H, near = 0.06, far = 400) {
+// THE CLIP RANGE, NAMED ONCE. It decides how depth-buffer precision is distributed, so anything
+// reasoning about whether two coplanar surfaces can be told apart needs the same two numbers the
+// matrix was built with — and a second copy of them is a second thing to forget to change.
+export const NEAR = 0.06, FAR = 400;
+
+export function projMatrix(cam, H, near = NEAR, far = FAR) {
   const fxn = 2 * cam.FL / cam.W;
   const fyn = 2 * cam.depth / H;
   const cy0 = 1 - 2 * cam.horizonY / H;

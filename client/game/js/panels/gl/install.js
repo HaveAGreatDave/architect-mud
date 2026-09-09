@@ -10,6 +10,7 @@
 // an opinion about what a building is made of.
 import { installGLWorld, captureModelMesh, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass } from './world.js';
+import { NEAR, FAR } from './camera.js';   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
 
 // What the last GL frame actually drew. A diagnostic rather than state: reading pixels back off a
 // composited canvas is unreliable (the drawing buffer is not preserved by default), so the pass
@@ -39,7 +40,29 @@ export function glCapabilities() {
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE),
     maxAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
     maxVarying: gl.getParameter(gl.MAX_VARYING_COMPONENTS),
+    // ⚠ THE DEPTH BUFFER, AND WHAT THE GROUND LADDER IS WORTH ON IT. Everything on the ground
+    // layer is held off the floor by a lift in WORLD z — 0.0008 to 0.004 tiles — and a depth
+    // buffer stores 1/distance, so what those lifts are worth collapses as 1/f². On this machine
+    // it is 24 bits and the road survives to about forty tiles unaided; at 16 it would not reach
+    // ten, and the whole diagnosis that produced ground.js’s polygon offset was arithmetic
+    // against 24. Reported rather than assumed, because every performance and precision number
+    // in this renderer was measured on ONE discrete card.
+    depthBits: gl.getParameter(gl.DEPTH_BITS),
   };
+  // Priced in the device’s own depth-buffer steps: under about 1 the test cannot separate a
+  // road, a kerb or a shadow from the floor it lies on, and the polygon offset in ground.js is
+  // what has to carry it. That offset asks for 4 steps.
+  {
+    const A = (FAR + NEAR) / (FAR - NEAR), B = -2 * FAR * NEAR / (FAR - NEAR);
+    const winZ = (f) => ((A + B / f) + 1) / 2;
+    const lsb = 1 / (Math.pow(2, out.depthBits || 24) - 1);
+    const worth = (eps, f) => +(Math.abs(winZ(f) - winZ(f + eps)) / lsb).toFixed(2);
+    out.groundLadderSteps = {};
+    for (const f of [10, 20, 40, 80]) {
+      out.groundLadderSteps[f + ' tiles'] = { surface: worth(0.0008, f), road: worth(0.002, f), shadow: worth(0.004, f) };
+    }
+    out.polygonOffsetSteps = 4;
+  }
   out.needs = { attribs: 8, varyingComponents: 13 };
   out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents;
   out.atlasWorstCase = out.maxTexture >= 4096
