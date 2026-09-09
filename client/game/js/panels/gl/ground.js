@@ -215,7 +215,16 @@ export function createGroundLayer(gl) {
     // is ignored for a shader that writes gl_FragDepth, which the floor does — so the floor keeps
     // its own exact depth and the layer above is biased toward the eye off it.
     gl.enable(gl.POLYGON_OFFSET_FILL);
-    gl.polygonOffset(-1, -2);
+    // ⚠ UNITS ONLY, FACTOR ZERO, AND THE FACTOR IS THE DANGEROUS HALF. A polygon offset is
+    // factor·slope + units·resolution, and the slope of a ground plane seen nearly EDGE ON — a cab
+    // at kerb height, an apron running to the horizon — is enormous. A factor of −1 there is not a
+    // hair of bias, it is a large one, and a large bias toward the eye can carry the paving in
+    // front of the building standing on it.
+    // The units term is what this actually needs: a constant number of DEPTH-BUFFER steps, which is
+    // already resolution-independent and is the whole reason a polygon offset beats a world lift.
+    // Four steps is comfortably more than the 0.3 the eps ladder is worth at eighty tiles, and
+    // cannot grow with the angle.
+    gl.polygonOffset(0, -4);
     gl.depthMask(true);         // the road is a surface — see the ⚠ at the top
     gl.disable(gl.CULL_FACE);   // a road is looked at from above and from a cab at kerb height
     gl.enable(gl.BLEND);
