@@ -7833,13 +7833,23 @@ function groundHidden(cam, dx, dy, f) {
 // answer and it is exact, so a probe there could only ever delete something correctly drawn.
 function markHidden(cam, dx, dy, topZ, halfW) {
   if (!GL_CELLS) return false;
-  const w = halfW;
-  const pts = [];
-  for (const [ax, ay] of [[-w, -w], [w, -w], [w, w], [-w, w]]) {
-    pts.push(cam.proj(dx + ax, dy + ay, 0));
-    pts.push(cam.proj(dx + ax, dy + ay, topZ));
-  }
-  return decoHidden(pts);
+  const base = cam.proj(dx, dy, 0), crown = cam.proj(dx, dy, topZ);
+  if (!(base.f > 0.12)) return false;
+  // ⚠ A SCREEN BOX AT THE TILE’S OWN DEPTH, NOT THE HULL OF EIGHT PROJECTED CORNERS. The
+  // obvious version projects the box corners and takes their bounding box, and it is reliably
+  // TOO WIDE: the near corners sit closer to the eye, so they throw the same world offset
+  // further across the screen. On a cliff that inflated a 34 px silhouette into a 40 px probe,
+  // and the extra six pixels either side reached into the GAPS BETWEEN BUILDINGS — a wall of
+  // towers is 0.88-tile blocks with 0.12-tile slots between them, nine screen pixels wide at
+  // three tiles. occludedByBuilding needs EVERY cell covered, so one slot answers "visible" and
+  // the whole massif drew through a wall that hides it completely. Sized at the anchor instead,
+  // the box is the silhouette, and halfW stays a world number the way every other extent here is.
+  // ⚠ AND THE SPAN TEST DIRECTLY, NOT THROUGH decoHidden. Its radius argument is for a GLOW,
+  // so it grows the box in BOTH axes - and a few pixels of vertical slack drops the bottom edge
+  // BELOW the base of the wall in front, onto open road, where nothing covers it. Six pixels of
+  // that put every landmark back through the city while the horizontal half was correct.
+  const rPx = halfW * cam.FL / Math.max(0.25, base.f);
+  return occludedByBuilding(base.sx, crown.sy, base.sy, base.f, rPx);
 }
 
 function emitDeco(pts, fn, lift = DECO_LIFT, rPx = 0) {
@@ -7880,7 +7890,7 @@ export function decoOcclusionSmoke() {
   // GLASS 1 owns the mass (the painter's order is exact there, so a probe could only ever
   // delete something correctly drawn), and it must span the object's HEIGHT rather than its
   // ground point (a pylon whose head clears the roofline in front of it still draws).
-  const stubCam = { proj: (dx, dy, wz) => ({ sx: 40 + dx * 4, sy: 40 - wz * 10, f: 10 }) };
+  const stubCam = { FL: 40, proj: (dx, dy, wz) => ({ sx: 40 + dx * 4, sy: 40 - wz * 10, f: 10 }) };
   const savedCells = GL_CELLS;
   OCC_FIELD = field(2);
   GL_CELLS = null;
@@ -21505,7 +21515,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       });
       continue;
     }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
-    if (it.c.kind === 'nofly') { emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
+    // The extents are the box's own arguments two tokens along, not a guess.
+    if (it.c.kind === 'nofly') { if (markHidden(cam, it.dx, it.dy, 0.65, 0.36)) continue; emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
     // The Curtain energy wall on a land-edge tile.
     // ⚠ COLLECTED DURING THE SWEEP, NOT AT FLUSH. `emitFace` DEFERS the call to flushFaces(), and
     // the GL composite runs BEFORE that — so a sink filled from inside the queued closure is still
@@ -21525,6 +21536,16 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // Cliffs and the Curtain are excluded because they are world-scale masses, and a screen box
     // sized for a bush would under-measure them into being culled while still visible.
     if (!it.c.bt && !it.c.hi && !it.c.cur && groundHidden(cam, it.dx, it.dy, it.f)) continue;
+    // ⚠ AND A CLIFF STILL HAS NO OCCLUSION TEST, WHICH IS MEASURED RATHER THAN OVERLOOKED. It
+    // draws through the city exactly as the landmarks did — 246 px of 326 behind a wall of
+    // 24-storey towers, against GLASS 1 one pixel — and markHidden cannot fix it. A massif
+    // spreads about 1.8 tiles either side of its own tile, so its probe box is wider than the
+    // ONE building in front of it and reaches into the 0.12-tile slots between neighbours; the
+    // span test needs every cell covered, so it answers "visible" every time. Narrowing the box
+    // to fit does cull it, and culling may only ever get timider, so that is not the trade.
+    // The right answer is the one it is already shaped for: unlike drawPylons, drawCliffMass
+    // BUILDS REAL FACES (it collects `parts` and depth-sorts them itself), so it belongs in the
+    // mesh with the rest of the mass rather than behind any probe.
     if (it.c.hi && !it.c.bt) {
       emitFace(od, () => drawCliffMass(ctx, cam, it.dx, it.dy, it.c.cf || '', bi, it.seed, night, alpha, sun, it.wx, it.wy));
       continue;
