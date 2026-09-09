@@ -197,6 +197,57 @@ const rate = LINES.reduce((n, l) => n + A._estimateDuration(A._phonemesFor(l), S
            / LINES.reduce((n, l) => n + l.length, 0);
 check(`speech rate ${rate.toFixed(1)}ms/char is within 55–110`, rate > 55 && rate < 110);
 
+// ── no geminates ─────────────────────────────────────────────────────────────
+// English has no doubled consonant inside a word, and the synth produced them
+// wherever two phoneme sequences were JOINED — a compound's two halves, or a stem
+// and a suffix. `tableland` came out "table-l-and" and `rubbly` "rub-b-ly", and
+// those two are terrain words appearing 287 and 157 times in room prose, so Read
+// Aloud said them wrong in hundreds of rooms. 126 words in the game's own
+// vocabulary carried it (`scripts/voice/suspects.mjs` ranks them).
+//
+// ⚠ Guarded at the WORD level, not per-case: the fault is at the exit of
+// pronounceWord, and a fix put anywhere earlier misses most of it — the first
+// attempt went into the letter rules and changed nothing at all, because none of
+// these words reach the letter rules.
+lacks('a compound does not double at the join', 'tableland', 'L L');
+lacks('…nor a stem and its suffix', 'funnelled', 'L L');
+lacks('…nor -ttest', 'flattest', 'T T');
+lacks('…nor across a hyphen', 'hand-drawn', 'D D');
+lacks('…nor an invented name', 'marrick', 'R R');
+// The other direction: degemination must not eat a real repeated sound or flatten
+// an ordinary word. These are the shapes most at risk from a careless filter.
+has('a single medial consonant is untouched', 'happy', 'HH * AE P IY');
+has('…and so is a flap', 'little', 'L * IH DX AX L');
+has('…and a long vowel run survives', 'banana', 'B AX N * AE N AX');
+// ⚠ Asserts the FILTER'S SCOPE, not that this pronunciation is any good. `priya`
+// is still wrong and sits in the suspects report — the -ia/-ya vowel fault is a
+// separate bug with a separate cause. The point is that degemination must not
+// start eating vowels, because that would quietly MASK the whole family, turning a
+// visible "P R IH AX AX" into a plausible-looking "P R IH AX" that nobody fixes.
+//
+// ⚠ `priya` and not `fascia`, and the difference is worth knowing: only SOME of
+// these vowel runs reach this filter at all. `fascia`, `cassius`, `aurelia` and
+// `giardia` are unchanged whether the exemption is there or not, because their run
+// is produced downstream of pronounceWord — so a guard written on one of those
+// would pass no matter what this filter did.
+has('degemination does not touch vowels', 'priya', 'AX AX');
+
+// ── the game's own vocabulary is IN the dictionary ───────────────────────────
+// The curated subset was "common English minus junk", chosen with no reference to
+// what this game says — so 32% of the words in its names and descriptions fell to
+// the letter-to-sound guesser, including nearly every character name. The guesser
+// is decent and was still plainly wrong on a good share of them.
+//
+// These are pinned because the subset is CURATED: the build script preserves the
+// existing list and adds to it, so the way this regresses is somebody re-deriving
+// the cut and quietly dropping the additions. Every case below is a word the
+// guesser got wrong before the dictionary carried it.
+has('waders is not "wadders"',        'waders', 'W * EY');
+has('odell is a name, not "oddle"',   'odell', 'OW D * EH L');
+has('canteen stresses the second',    'canteen', 'T * IY N');
+has('vestibule keeps its /j/',        'vestibule', 'B Y UW L');
+lacks('rooke does not rhyme with kook', 'rooke', 'R * UW K');
+
 // ── RP: non-rhoticity, and the linking-r that survives it ────────────────────
 // The accent layer is a phoneme rewrite, so it belongs here with the rest of the
 // phonology rather than with the graph tests in fm-smoke. GA is asserted beside
