@@ -478,7 +478,7 @@ export function createGLView(canvas) {
   // How many billboard textures the cache is holding. Exposed because an unbounded one is not
   // visible in the picture until it starts evicting live entries, at which point it looks like
   // corrupted artwork rather than like a cache.
-  const billboardTextures = () => (billboards ? billboards.textures : 0);
+  const billboardTextures = () => (bbs ? bbs.textures : 0);
   function drawBillboards(cam, list, cssH, fog) {
     if (!list || !list.length) return 0;
     const L = bbLayer();
