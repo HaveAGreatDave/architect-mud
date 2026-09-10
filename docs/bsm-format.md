@@ -261,7 +261,7 @@ Keys are a controlled vocabulary in four groups. Dotted sub-keys let the runner 
 
 | Key | When | Notes |
 |---|---|---|
-| `intro` | sign-on / cold open | Optional time variants: `intro.morning`, `intro.afternoon`, `intro.evening`, `intro.night`. Runner prefers the current-time key, falls back to `intro`. |
+| `intro` | sign-on / cold open | Optional time variants: `intro.morning` (05–11), `intro.afternoon` (12–16), `intro.evening` (17–20), `intro.night` (21–04). Runner prefers the current-time key, falls back to `intro`. ⚠ The night band **wraps midnight**, and it did not until 2026-09-10 — `00:00–04:59` fell through to `afternoon`, so a 2am airing opened on "Afternoon, survivors" and `intro.night` could only ever reach air in its last three hours. |
 | `today.lead` | hand-off into current conditions | "Here's what you're breathing right now…" |
 | `forecast.lead` | hand-off into the 7-day walk | "Looking down the barrel of the week…" |
 | `outro` | sign-off / toss back to studio | |
@@ -302,13 +302,22 @@ Keyed to the dominant severe channel (the runner derives it from the forecast �
 
 `warn.cold` · `warn.heat` · `warn.wind` · `warn.blizzard` · `warn.storm` · `warn.generic` (fallback)
 
-These are the "gear up before you go out there" beats — they line up with the ⚠ telegraph the forecast panel already shows (see [systems-weather-extreme.md](systems-weather-extreme.md)).
+These are the "gear up before you go out there" beats. They cover the same days the forecast panel telegraphs with a ⚠ (see [systems-weather-extreme.md](systems-weather-extreme.md)), but **don't write the glyph into the line** — the panel draws it and a caster can't say it. Sell the severity with what it does to a person and what to do about it.
 
 ### 5. Forecast-walk transitions — spoken before each day ahead
 
 Keyed by lead time so the runner can say "tomorrow" vs "by the weekend":
 
 `ahead.tomorrow` (day 1) · `ahead.midweek` (days 2–4) · `ahead.weekend` (days 5–6) · `ahead.next` (generic fallback for any day)
+
+⚠ **A handover is not its own line.** `"Tomorrow:"` followed by `"{day}: rain at 40%."` is a presenter reading a chyron and then reading the slide. So an `ahead.*` line — and a `today.lead` line — is a **lead-in fragment**: no full stop, no colon, ending where a comma would go. The runner welds it onto the `sky.*` clause that follows (`wxJoinLead`), lowering that clause's first letter, and the pair airs as one utterance:
+
+```
+"Tomorrow then"  +  "A 60% chance of rain, and puddles that have opinions."
+      → Tomorrow then, a 60% chance of rain, and puddles that have opinions.
+```
+
+With no lead the clause stands alone with its capital intact, which is both the degraded path and how a file with no `ahead.*` pools still airs. An all-caps opener (`WX-9`) and a leading `{token}` are left alone; the one thing a `sky.*` line must never open on is the word **"I"**, since the weld would lowercase it.
 
 ### 6. Trend pools — chosen once by comparing the week's arc
 
@@ -332,6 +341,12 @@ The runner substitutes `{token}` from the forecast day currently being described
 | `{day}` | `today` / `tomorrow` / weekday name (later days) |
 | `{date}` | raw `MM-DD` |
 
+⚠ **`{precip}` is a CHANCE, not a quantity.** It's `precipChance`, so it reads "a 60% chance of rain" and never "60% of it".
+
+⚠ **`{day}` can never start a sentence.** Two of its three values are lowercase, so `"{day} is caustic."` airs as "today is caustic." Keep it mid-sentence — `"Sealed rainwear {day}."`
+
+⚠ **A `sky.*` line carries no `{day}` at all.** The `ahead.*`/`today.lead` fragment welded in front of it already said when. It also can't say "right now" or hardcode "today", because the pool is keyed on the weather type and the same clause is spoken for today AND for every day ahead that shares that sky. `temp.*`, `wind.*` and `humid.*` are today-only and may say "today" freely; `warn.*` keeps `{day}`, because a caster repeats the day on a warning and that repetition is the weight.
+
 **Week-level** (intro / trend / outro):
 
 | Token | Value |
@@ -349,19 +364,22 @@ Each broadcast the runner builds this beat sequence, each beat a `say` node anch
 0. `title_card` (if `@titlecard` is set)
 1. `intro[.timeofday]`
 2. `today.lead`
-3. **Today:** `sky.<type>` → `temp.<band>` → `wind.<band>` (if notable) → `humid.<band>` (if notable) → `warn.<channel>` (if today is severe)
+3. **Today:** `today.lead` **welded onto** `sky.<type>` (one line) → `temp.<band>` → `wind.<band>` (if notable) → `humid.<band>` (if notable) → `warn.<channel>` (if today is severe)
 4. `forecast.lead`
-5. **For each of days 1–6:** `ahead.<leadtime>` → `sky.<type>` → `warn.<channel>` (if severe)
+5. **For each of days 1–6:** `ahead.<leadtime>` **welded onto** `sky.<type>` (one line) → `warn.<channel>` (if severe)
 6. `trend.<arc>`
 7. `outro`
 
 Each beat becomes a `say` node anchored to `@host`, so lines render as `Weathercaster says, "…"` on-air and reach passive listeners as `[TV] "…"`. The chain has no explicit loop node — when it ends the walker restarts at `_start` on its own.
 
+**A pool won't repeat itself inside one report.** `ahead.midweek` is spoken for three days running and a `sky.<type>` pool covers however many days of the week share that sky, so a uniform pick has the caster saying an identical sentence twice in a row. `wxPick` carries a per-assembly set of what's already been said and prefers a line the report hasn't used, falling back to the whole pool once it has been through them. The set is scoped to the one report — the next airing is free to reuse everything.
+
 ## Fallbacks
 
 The report degrades gracefully so a thin file still airs:
-- Missing framing pool (`intro`/`outro`/`*.lead`) → that beat is skipped.
-- Missing `sky.<type>` → a neutral built-in (`Conditions right now: {weather}, {temp} degrees.` for today, `{day}: {weather}, around {temp} degrees.` for a forecast day) so no gap.
+- Missing framing pool (`intro`/`outro`/`forecast.lead`) → that beat is skipped.
+- Missing `today.lead`/`ahead.*` → nothing to weld, so the `sky.*` clause airs on its own with its capital intact.
+- Missing `sky.<type>` → a neutral built-in (`Right now it's {weather}, {temp} degrees.` for today, `Expect {weather}, around {temp} degrees.` for a forecast day) so no gap. Both are written to weld, so a file with leads but no sky pool still reads as one line.
 - Missing `temp`/`wind`/`humid`/`warn`/`ahead`/`trend` pool → that garnish beat is skipped.
 
 **Minimum viable file:** `@type weather`, `@host`, an `intro`, an `outro`, and a `sky.*` pool for each weather type you expect to see. Everything else is enrichment.
@@ -408,8 +426,8 @@ Sunny Calloway here with the only forecast that still bothers.
 ::endlines
 
 ::lines today.lead
-Here's what the sky's serving right now.
-Step outside and this is what's waiting for you.
+Right now, out there
+Stepping outside this minute
 ::endlines
 
 ::lines sky.clear
@@ -418,8 +436,8 @@ Not a cloud up there — just the usual haze of regret.
 ::endlines
 
 ::lines sky.rain
-Rain, {precip}% of it, because of course.
-It's coming down. Bring something that isn't you to get wet.
+A {precip}% chance of rain, because of course.
+A {precip}% chance of it coming down. Bring something that isn't you to get wet.
 ::endlines
 
 ::lines sky.blizzard
@@ -440,31 +458,31 @@ And a {wind} km/h gale to file your teeth down.
 ::endlines
 
 ::lines warn.blizzard
-⚠ Severe: {day} is a killer. Thermal gear or a will — your call.
+Whatever you had planned for {day}, cancel it. Thermal gear or a will, and that's the choice.
 ::endlines
 
 ::lines warn.cold
-⚠ Bundle up {day}. {temp} degrees will stop your heart if the muggers don't.
+Bundle up {day}. {temp} degrees will stop your heart if the muggers don't.
 ::endlines
 
 ::lines forecast.lead
-Looking down the week, and I use "looking" generously.
+Looking down the week, and I'm being generous with the word looking.
 ::endlines
 
 ::lines ahead.tomorrow
-Tomorrow:
+Tomorrow then
 ::endlines
 
 ::lines ahead.midweek
-Midweek, around {day}:
+Midweek on {day}
 ::endlines
 
 ::lines ahead.weekend
-Come the weekend:
+Out at the far end, {day}
 ::endlines
 
 ::lines trend.cooling
-Trend's downhill — we shed {hiTemp} today for {loTemp} by week's end.
+Trend's downhill. We shed {hiTemp} today for {loTemp} by week's end.
 ::endlines
 
 ::lines trend.deteriorating

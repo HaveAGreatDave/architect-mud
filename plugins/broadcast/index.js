@@ -1845,9 +1845,15 @@ function wxDayLabel(i, date) {
   try { return WX_DOW[new Date(`${date}T00:00:00Z`).getUTCDay()]; } catch { return `day ${i}`; }
 }
 function wxLeadKey(i) { return i === 1 ? 'tomorrow' : i <= 4 ? 'midweek' : i <= 6 ? 'weekend' : 'next'; }
+// ⚠ The small hours are NIGHT, and the `h < 5` arm is the whole reason this reads as a
+// ladder instead of one chained ternary. Without it midnight-to-05:00 falls past the
+// morning test into `afternoon`, so a 2am airing opened on "Afternoon, survivors" and
+// `intro.night` — a pool written as the graveyard edition — could only ever reach air
+// between 21:00 and 23:59.
 function wxTimeOfDayKey(env) {
   const h = env.hour ?? 12;
-  return h >= 5 && h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
+  if (h < 5) return 'night';
+  return h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
 }
 function wxTrendKey(fc) {
   const first = fc[0].tempC, last = fc[fc.length - 1].tempC;
@@ -1859,12 +1865,39 @@ function wxTrendKey(fc) {
   if (severeAhead) return 'deteriorating';
   return 'steady';
 }
-function wxPick(pools, ...keys) {
+// One report speaks the same pool several times over — `ahead.midweek` covers three days,
+// and a `sky.<type>` pool covers however many days of the week share that sky — so a
+// uniform pick has a presenter saying an identical sentence twice in a row. `used` is a
+// per-assembly set of the lines this report has already spoken; a pool prefers one it
+// hasn't, and falls back to the whole pool once the report has been through them all.
+function wxPick(pools, used, ...keys) {
   for (const k of keys) {
     const arr = pools[k];
-    if (Array.isArray(arr) && arr.length) return arr[Math.floor(Math.random() * arr.length)];
+    if (!Array.isArray(arr) || !arr.length) continue;
+    const fresh = used ? arr.filter(l => !used.has(l)) : arr;
+    const from = fresh.length ? fresh : arr;
+    const line = from[Math.floor(Math.random() * from.length)];
+    used?.add(line);
+    return line;
   }
   return null;
+}
+// A handover and the thing it hands to are ONE spoken line. `today.lead` and `ahead.*`
+// are lead-in fragments naming when ("Right now, out there", "Come Thursday") and a
+// `sky.*` line is the clause that hangs off one, so the runner welds them instead of
+// emitting a transition and then a sentence — which is a presenter reading a chyron and
+// then reading the slide. With no lead the clause stands alone unchanged, which is both
+// the degraded path and how a thin file still airs.
+// ⚠ The clause's first letter is lowered so it reads as a continuation, which means a
+// `sky.*` line must never open on the word "I" — everything else in this file opens on a
+// noun phrase naming the sky, which is what makes the rule safe. An all-caps opener
+// (DOOMCAST, WX-9) and a leading {token} are both left alone.
+function wxJoinLead(lead, clause) {
+  if (!lead) return clause;
+  if (!clause) return lead;
+  const head = lead.replace(/[\s.,;:!?]+$/, '');
+  const tail = /^[A-Z][^A-Z]/.test(clause) ? clause[0].toLowerCase() + clause.slice(1) : clause;
+  return `${head}, ${tail}`;
 }
 function wxFill(line, tok, unknown) {
   return line.replace(/\{(\w+)\}/g, (_, k) => {
@@ -1919,30 +1952,32 @@ function assembleWeatherGraph(pools, hostId, forecast, env, broadcastId, titleId
     const text = wxFill(src, wxTokens(day, i, week, env), unknown).trim();
     if (text) add({ type: 'say', text, style: 'raw' });
   };
+  // Scoped to this one report, so a fresh airing is free to reuse everything.
+  const spoken = new Set();
+  const pick = (...keys) => wxPick(pools, spoken, ...keys);
 
   const today = forecast[0];
-  say(wxPick(pools, `intro.${wxTimeOfDayKey(env)}`, 'intro'), today, 0);
-  say(wxPick(pools, 'today.lead'), today, 0);
+  say(pick(`intro.${wxTimeOfDayKey(env)}`, 'intro'), today, 0);
   // A hero day is reported as ITSELF — sky.acid / sky.ion — not as whatever
   // ordinary weather happens to be underneath it.
-  say(wxPick(pools, `sky.${wxSkyPool(today)}`), today, 0, 'Conditions right now: {weather}, {temp} degrees.');
-  say(wxPick(pools, `temp.${wxTempBand(today.tempC)}`), today, 0);
+  say(wxJoinLead(pick('today.lead'), pick(`sky.${wxSkyPool(today)}`) || 'Right now it\'s {weather}, {temp} degrees.'), today, 0);
+  say(pick(`temp.${wxTempBand(today.tempC)}`), today, 0);
   const twBand = wxWindBand(today.windKph);
-  if (['calm', 'windy', 'strong', 'gale'].includes(twBand)) say(wxPick(pools, `wind.${twBand}`), today, 0);
+  if (['calm', 'windy', 'strong', 'gale'].includes(twBand)) say(pick(`wind.${twBand}`), today, 0);
   const thBand = wxHumidBand(today.humidityPct);
-  if (thBand === 'dry' || thBand === 'oppressive') say(wxPick(pools, `humid.${thBand}`), today, 0);
-  if (wxIsSevere(today)) say(wxPick(pools, `warn.${wxSevereChannel(today)}`, 'warn.generic'), today, 0);
+  if (thBand === 'dry' || thBand === 'oppressive') say(pick(`humid.${thBand}`), today, 0);
+  if (wxIsSevere(today)) say(pick(`warn.${wxSevereChannel(today)}`, 'warn.generic'), today, 0);
 
-  say(wxPick(pools, 'forecast.lead'), today, 0);
+  say(pick('forecast.lead'), today, 0);
   for (let i = 1; i < forecast.length; i++) {
     const day = forecast[i];
-    say(wxPick(pools, `ahead.${wxLeadKey(i)}`, 'ahead.next'), day, i);
-    say(wxPick(pools, `sky.${wxSkyPool(day)}`), day, i, '{day}: {weather}, around {temp} degrees.');
-    if (wxIsSevere(day)) say(wxPick(pools, `warn.${wxSevereChannel(day)}`, 'warn.generic'), day, i);
+    const lead = pick(`ahead.${wxLeadKey(i)}`, 'ahead.next');
+    say(wxJoinLead(lead, pick(`sky.${wxSkyPool(day)}`) || 'Expect {weather}, around {temp} degrees.'), day, i);
+    if (wxIsSevere(day)) say(pick(`warn.${wxSevereChannel(day)}`, 'warn.generic'), day, i);
   }
 
-  say(wxPick(pools, `trend.${wxTrendKey(forecast)}`), today, 0);
-  say(wxPick(pools, 'outro'), today, 0);
+  say(pick(`trend.${wxTrendKey(forecast)}`), today, 0);
+  say(pick('outro'), today, 0);
 
   if (unknown.size) console.warn('[broadcast] weather: unknown tokens', [...unknown]);
   // When the chain ends the walker restarts at _start on its own (currentNode → null
@@ -9518,6 +9553,10 @@ export const _test = {
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
+  // The weather report had no test seam at all, which is how a two-line handover and a
+  // 2am airing greeting you with "Afternoon, survivors" both shipped: the only thing that
+  // ever ran an assembly was a player standing in front of a television.
+  assembleWeatherGraph, wxJoinLead, wxTimeOfDayKey,
   assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
   talkshowHeartbeat,   // regress drives the nightly rename by hand to prove it stays out of the DB
   talkshowDraw, splitTurns, topicPick, TALKSHOW_GUEST_CALL_LEAD,

@@ -75,6 +75,33 @@
 # picking one line per matching pool and filling {tokens}. Weather forecasts are
 # acted live: Dex must be in the studio or the channel drops to camera-idle then
 # technical difficulties. See docs/bsm-format.md#weather-broadcasts-type-weather.
+#
+# HOW THESE LAND ON AIR. A pool becomes a `Dex Rime says, "…"` line, so the whole
+# report is a man talking, and three things that read fine in a file land as a
+# teleprompter when they're spoken:
+#
+#   * A HANDOVER IS NOT ITS OWN LINE. "Tomorrow:" followed by "{day}: rain at
+#     40%." is a presenter reading a chyron and then reading the slide. So
+#     `today.lead` and `ahead.*` are LEAD-IN FRAGMENTS — no full stop, no colon,
+#     ending where a comma would go — and the runner welds one onto the `sky.*`
+#     clause that follows it, lowering that clause's first letter:
+#         "Tomorrow then" + "A 60% chance of rain, and puddles that have
+#          opinions."  →  "Tomorrow then, a 60% chance of rain, and puddles
+#          that have opinions."
+#     ⚠ Which is why a sky.* line must never open on the word "I". Open on a
+#     noun phrase naming the sky and the weld is always safe.
+#
+#   * A SKY CLAUSE CARRIES NO {day}. The lead already said when, and for today
+#     `today.lead` did. It also can't say "right now" or hardcode "today", since
+#     the same pool is spoken for today AND for every day ahead that shares
+#     that sky. `warn.*` DOES keep {day} — a caster repeats the day on a
+#     warning, and that repetition is the weight.
+#
+#   * PRECIP IS A CHANCE, NOT A QUANTITY. {precip} is `precipChance`, so it's
+#     "a 60% chance of rain", never "60% of it".
+#
+# And no glyphs: warn.* used to open on a warning triangle, which the forecast
+# panel draws and a person can't say. The urgency goes in the words.
 # ═══════════════════════════════════════════════════════════════════════════
 
 # ── Sign-on (time-of-day preferred, generic fallback) ──────────────────────
@@ -105,7 +132,7 @@ Evening. Whatever you got away with today, the night has its own terms. Dex Rime
 
 ::lines intro.night
 Still awake? Same. Dex Rime, DOOMCAST, graveyard edition. Here's the sky at this ungodly hour.
-Night owls, insomniacs, fugitives: Dex Rime here. The forecast doesn't sleep either.
+Night owls, insomniacs and fugitives, this is Dex Rime. The forecast doesn't sleep either.
 Late one. Dex Rime. Sky's awake, so I am, so here we are.
 Dex Rime, DOOMCAST, small hours edition. Nothing good happens out there at this temperature.
 If you're up, you've got a reason. Here's the sky you'll be doing it under. Dex Rime.
@@ -120,102 +147,101 @@ This is the DOOMCAST. Dex Rime. The sky doesn't negotiate, but it does announce.
 
 # ── Hand-off into current conditions ───────────────────────────────────────
 ::lines today.lead
-Here's what's waiting the second you step outside.
-Current conditions, and I do mean conditions.
-Right now, out there, this is the situation.
-Let's start with the here, the now, and the regrettable.
-Start with right now, because right now is the part you're about to walk into.
-What's outside your door, first.
-Today, then the week. Today's the one that can still get you.
+Right now, out there
+Starting with what's waiting the second you step outside
+First the here and the now
+Out your door this minute
+Today, before we get to the week
+Conditions right now, and I do mean conditions
 ::endlines
 
 # ── Sky by weather type (today AND each forecast day) ──────────────────────
 ::lines sky.clear
-Clear skies. Enjoy the exposure while the atmosphere pretends to be your friend.
+Clear skies, and enjoy the exposure while the atmosphere pretends to be your friend.
 Not a cloud in it, just wide-open sky and whatever's still falling out of it.
-{day}: clear. Suspiciously clear. Trust nothing.
-Clear. Genuinely clear. I've checked it twice because I don't trust it either.
-Nothing in the sky today but sky. Take the walk. You've earned one.
+Clear, and suspiciously so. Trust nothing.
+Clear from end to end. Checked it twice, because I don't trust it either.
+Nothing in the sky but sky. Take the walk. You've earned one.
 ::endlines
 
 ::lines sky.fog
-Fog. Visibility measured in arm's-lengths. Walk into things carefully out there.
-A thick fog's rolled in. The city's gone, and honestly it's an improvement.
-{day}: fog, {humidity}% humidity, and the distinct sense you're being followed.
+Fog, with visibility down to arm's-lengths. Walk into things carefully out there.
+Thick fog, and the city goes missing. Honestly it's an improvement.
+Fog at {humidity}% humidity, and the distinct sense you're being followed.
 Fog thick enough to lean on. Keep a hand on something you know.
-Visibility's gone. Anything could be out there, and today, statistically, something is.
+Visibility gone. Anything could be out there, and statistically, something is.
 ::endlines
 
 ::lines sky.haze
-Haze hanging over everything, that flat grey soup we call air these days.
-A dirty haze today. Breathe shallow, blink often.
-{day}: haze. The skyline's a rumour.
+Haze over everything, that flat grey soup we call air these days.
+A dirty haze the whole way through. Breathe shallow, blink often.
+Haze, and the skyline's a rumour.
 Haze sitting low. The air's carrying something and it isn't oxygen.
 Grey soup again. Old lungs, take the day off.
 ::endlines
 
 ::lines sky.cloudy
-Clouds, plural, doing that oppressive committee thing they do.
-Partly cloudy. The sky can't commit, same as everyone.
-{day}: cloud cover, {temp} degrees, mood grey.
-Cloud, broken, doing nothing in particular. A rare day off from the sky.
+Cloud, plural, doing that oppressive committee thing they do.
+Partly cloudy, and the sky can't commit, same as everyone.
+Cloud cover at {temp} degrees, mood grey.
+Broken cloud doing nothing in particular. A rare day off from the sky.
 Half-covered and unbothered. Enjoy the indifference. It's the best forecast I sell.
 ::endlines
 
 ::lines sky.overcast
-Full overcast. A lid on the whole city. No sky, just ceiling.
-Overcast and staying that way. The sun filed for absence.
-{day}: solid overcast. Bring your own light.
-Lid's on. No shadows, no sun, no idea what time it is until it's dark.
-Grey top to bottom all day. Bring your own reason to go out.
+Full overcast, a lid on the whole city. No sky, just ceiling.
+Overcast and staying that way. The sun's filed for absence.
+Solid overcast. Bring your own light.
+Lid on. No shadows, no sun, no idea what time it is until it's dark.
+Grey top to bottom. Bring your own reason to go out.
 ::endlines
 
 ::lines sky.rain
-Rain, {precip}% of it, because of course. Bring something waterproof that isn't your skin.
-It's coming down out there. Not clean rain, is it ever, but rain.
-{day}: rain at {precip}%. Puddles with opinions.
-Rain, steady, {precip}%. Not the cleansing kind. There isn't a cleansing kind anymore.
-Wet all day. Whatever leaks, it'll find it.
+A {precip}% chance of rain, because of course. Bring something waterproof that isn't your skin.
+A {precip}% chance of rain, and not clean rain. Is it ever.
+A {precip}% chance of rain, with puddles that have opinions.
+A {precip}% chance of steady rain. Not the cleansing kind. There isn't a cleansing kind anymore.
+A {precip}% chance of getting wet through, and whatever leaks, it'll find it.
 ::endlines
 
 ::lines sky.sleet
-Sleet. The worst of both worlds, arriving sideways.
-Half rain, half ice, all misery. That's sleet, and it's here.
-{day}: sleet, {temp} degrees. Dress for betrayal.
+Sleet, the worst of both worlds, arriving sideways.
+Half rain, half ice, all misery. A {precip}% chance of exactly that.
+Sleet at {temp} degrees. Dress for betrayal.
 Sleet, freezing on the way down and again on the way through your coat.
-Ice in the rain. Roads, stairs, rooftops: all of it turns on you today.
+Ice in the rain, so roads, stairs and rooftops all turn on you.
 ::endlines
 
 ::lines sky.snow
-Snow. Pretty from a window, lethal from a doorway.
-It's snowing, {temp} degrees of it settling on everything that stops moving.
-{day}: snow. Layer up or become part of the scenery.
+Snow, pretty from a window and lethal from a doorway.
+Snow at {temp} degrees, settling on everything that stops moving.
+A {precip}% chance of snow, so layer up or become part of the scenery.
 Snow, and it'll lie. {temp} degrees says it's not going anywhere.
-Snowing steadily. Warm boots or a short walk. Pick before you're out in it.
+Steady snow. Warm boots or a short walk. Pick before you're out in it.
 ::endlines
 
 ::lines sky.thunderstorm
-Thunderstorm rolling through. If you can count the gap to the thunder, you're too close.
-Lightning's on the menu. {precip}% chance of the sky picking a target.
-{day}: thunderstorms. Metal roofs, unlucky people. Stay clear of both.
-Storm cells building. Lightning's the honest part; it's the wind that gets people.
-Thunder inbound at {precip}%. If your hair stands up, you've run out of time to move.
+Thunderstorms rolling through. If you can count the gap to the thunder, you're too close.
+A {precip}% chance of thunderstorms, which is a {precip}% chance of the sky picking a target.
+Thunderstorms, so mind the metal roofs and the unlucky people. Stay clear of both.
+Storm cells building. Lightning's the honest part. It's the wind that gets people.
+A {precip}% chance of thunder. If your hair stands up, you've run out of time to move.
 ::endlines
 
 ::lines sky.blizzard
-A full blizzard. {temp} degrees, feels like {feels}, feels like the end.
+A full blizzard at {temp} degrees, and it feels like the end.
 Whiteout conditions. If you can read this, you're indoors, and you should stay that way.
-{day}: blizzard. This one kills the unprepared. Don't audition.
-Blizzard. {wind} km/h of snow going sideways at {temp} degrees. This is a stay-put day.
-Full whiteout. You will not find your way, and it will not wait for you to try.
+Blizzard, and this one kills the unprepared. Don't audition.
+Blizzard, {wind} km/h of snow going sideways at {temp} degrees. A stay-put day.
+Full whiteout. You won't find your way, and it won't wait for you to try.
 ::endlines
 
 ::lines sky.storm
-A proper storm: wind, water, and the power grid holding its breath.
-The whole system's dropped on us at once. {wind} km/h and climbing.
-{day}: storm-force everything. Tie down what you love.
-Everything at once: {wind} km/h, sheeting rain, and a grid that has opinions about all of it.
-Storm sitting right on top of us and not moving. Batten what you can reach.
+A proper storm. Wind, water, and the power grid holding its breath.
+The whole system dropping on us at once, {wind} km/h and climbing.
+Storm-force everything, so tie down what you love.
+Everything at once, {wind} km/h, sheeting rain, and a grid that has opinions about all of it.
+A storm sitting right on top of us and not moving. Batten what you can reach.
 ::endlines
 
 # ── Hero events ────────────────────────────────────────────────────────────
@@ -223,22 +249,22 @@ Storm sitting right on top of us and not moving. Batten what you can reach.
 # days the forecast knows about a week out. Dex names them plainly, because the
 # whole reason they're on the forecast at all is so people can prepare.
 ::lines sky.acid
-Acid. Not rain with a bad attitude. Acid, and it will go through a coat and then through you.
-{day} runs caustic. Sealed rainwear or four walls. There is no third answer.
-The sky's gone yellow and it means it. {precip}% chance of the worst kind of wet.
-Caustic day. Sealed gear only. A hood is not a plan, and a jacket is not a hood.
-Acid falling at {precip}%. It gets in the seams first. Check your seams.
+Acid. Not rain with a bad attitude. Acid, and it'll go through a coat and then through you.
+Caustic, so sealed rainwear or four walls. There's no third answer.
+The sky gone yellow and meaning it, on a {precip}% chance of the worst kind of wet.
+Caustic, sealed gear only. A hood isn't a plan, and a jacket isn't a hood.
+A {precip}% chance of acid. It gets in the seams first. Check your seams.
 ::endlines
 
 ::lines sky.ion
-Ion storm. The air itself goes conductive and every circuit in the city holds its breath.
-{day}: the grid drops. Not "may drop". Drops. Charge nothing, trust nothing with a battery in it.
-Static's building to a scream. If it's got a chip in it, it's already living on borrowed time.
+An ion storm. The air itself goes conductive and every circuit in the city holds its breath.
+The grid dropping. Not might drop. Drops. Charge nothing and trust nothing with a battery in it.
+Static building to a scream. If it's got a chip in it, it's already living on borrowed time.
 Charged air. Nothing with a battery survives contact, and that includes the thing you're watching this on.
-Ion conditions. The grid will drop. Have a light with a wick and a room with a door.
+Ion conditions, so have a light with a wick and a room with a door.
 ::endlines
 
-# ── Temperature bands ──────────────────────────────────────────────────────
+# ── Temperature bands (today only) ─────────────────────────────────────────
 ::lines temp.frigid
 {temp} degrees. Your extremities are officially on their own out there.
 {temp}, and that's not weather, that's a warning. Exposed skin freezes fast.
@@ -248,7 +274,7 @@ Ion conditions. The grid will drop. Have a light with a wick and a room with a d
 
 ::lines temp.cold
 A biting {temp} degrees. Every gap in your coat is a mistake you'll feel.
-{temp} and cold enough to bite. Keep moving or keep warm; pick one.
+{temp} and cold enough to bite. Keep moving or keep warm. Pick one.
 {temp} and cutting. The wind finds whatever you left open.
 {temp}. Cold enough that a wet coat becomes a real problem by hour two.
 ::endlines
@@ -264,7 +290,7 @@ Cool at {temp}, the Basin's resting face.
 A frankly suspicious {temp} degrees. Enjoy it, distrust it.
 {temp} and mild, and the atmosphere's clearly planning something. It always is.
 {temp}. Nothing wrong with it, which is itself a little unsettling.
-Mild at {temp}. Do the errands today; tomorrow may not offer.
+Mild at {temp}. Do the errands today, because tomorrow may not offer.
 ::endlines
 
 ::lines temp.warm
@@ -296,8 +322,8 @@ No wind at all, which lets whatever's in the air just sit on the city.
 
 ::lines wind.windy
 Add a {wind} km/h wind to file the warmth right off you.
-And a steady {wind} km/h blow, {windLabel}, so mind the loose signage.
-{wind} km/h steady, {windLabel}. It'll take the warmth right off you.
+There's a steady {wind} km/h behind it, so mind the loose signage.
+{wind} km/h steady, and it'll take the warmth right off you.
 ::endlines
 
 ::lines wind.strong
@@ -306,8 +332,8 @@ Strong winds at {wind} km/h. Anything not bolted down is now airborne inventory.
 ::endlines
 
 ::lines wind.gale
-A {wind} km/h gale on top, {windLabel}. Lean into it and pray your boots hold.
-{wind} km/h gale. Scaffolding, signage, anybody light. All of it's in play.
+A {wind} km/h gale on top of it. Lean into it and pray your boots hold.
+{wind} km/h of gale. Scaffolding, signage, anybody light. All of it's in play.
 ::endlines
 
 # ── Humidity (only voiced dry / oppressive) ────────────────────────────────
@@ -321,89 +347,103 @@ And {humidity}% humidity. The air's basically soup. You won't so much breathe as
 {humidity}% and heavy. Sweat won't dry, so it won't cool you. Slow down.
 ::endlines
 
-# ── Severe-weather warnings (day severity ≥ 0.45) ──────────────────────────
+# ── Severe-weather warnings (day severity >= 0.45) ─────────────────────────
+# No glyphs and no shouting. Dex sells the severity by saying what it does to a
+# person and what to do about it, which is the only part anybody can act on.
 ::lines warn.cold
-⚠ Bundle up {day}. {temp} degrees will stop your heart if the muggers don't.
-⚠ Cold warning for {day}. Thermal gear isn't optional; it's the difference.
-⚠ {day} is a cold-injury day. {temp} degrees. Fingers and toes go first, and they go quietly.
+Bundle up {day}. {temp} degrees will stop your heart if the muggers don't.
+That's a cold warning for {day}. Thermal gear isn't optional. It's the difference.
+Call {day} a cold-injury day. {temp} degrees. Fingers and toes go first, and they go quietly.
 ::endlines
 
 ::lines warn.heat
-⚠ Heat warning, {day}. {temp} degrees. Shade, water, and don't be a hero at noon.
-⚠ {day} bakes at {temp}. Heatstroke's free and quick. Decline it.
-⚠ {day}, {temp} degrees. Heat takes the fit and the young too. Nobody's exempt.
+Heat warning for {day}. {temp} degrees. Shade, water, and don't be a hero at noon.
+We bake at {temp} degrees {day}. Heatstroke's free and quick. Decline it.
+That's {temp} degrees {day}. Heat takes the fit and the young too. Nobody's exempt.
 ::endlines
 
 ::lines warn.wind
-⚠ Wind warning for {day}: {wind} km/h. Stay off the rooftops and away from the glass.
-⚠ {day}: gale-force gusts. If it can fall on you, assume it will.
-⚠ {day}: {wind} km/h. Whole sheets of the Basin come loose at that speed.
+Wind warning for {day}, {wind} km/h of it. Stay off the rooftops and away from the glass.
+Gale-force gusts {day}. If it can fall on you, assume it will.
+That's {wind} km/h {day}. Whole sheets of the Basin come loose at that speed.
 ::endlines
 
 ::lines warn.blizzard
-⚠ Severe: {day} is a killer. Thermal gear or a will. Your call.
-⚠ Blizzard warning, {day}. {feels}-degree windchill. This one takes stragglers.
-⚠ {day} is whiteout with a {feels} windchill. Do not travel. There's no errand worth it.
+Whatever you had planned for {day}, cancel it. Thermal gear or a will, and that's the whole choice.
+Blizzard warning for {day}. A {feels}-degree windchill. This one takes stragglers.
+Expect whiteout {day}, with a {feels} windchill. Don't travel. There's no errand worth it.
 ::endlines
 
 ::lines warn.storm
-⚠ Storm warning for {day}. Lightning, wind, and a grid that may not hold. Stay in.
-⚠ {day} brings the whole storm. Charge what you can now; power's not promised.
-⚠ {day}: storm cells, {wind} km/h, and a grid I would not rely on. Charge it tonight.
+Storm warning for {day}. Lightning, wind, and a grid that might not hold. Stay in.
+The whole storm lands {day}. Charge what you can now, because power isn't promised.
+Storm cells {day}, {wind} km/h, and a grid I wouldn't rely on. Charge it tonight.
 ::endlines
 
 ::lines warn.acid
-⚠⚠ ACID WARNING for {day}. This is the one that takes skin off. Sealed rainwear, or you stay in.
-⚠⚠ {day} rains acid. I'm not being colourful. Cover every inch or don't go out at all.
-⚠⚠ Caustic front {day}. It eats coats, it eats gear, and then it starts on you. You've had a week's notice.
-⚠⚠ {day} is caustic. Sealed rainwear, taped seams, or four walls. Nothing else works.
+Acid warning for {day}, and I'll say it twice if I have to. This is the one that takes skin off. Sealed rainwear, or you stay in.
+It rains acid {day}. I'm not being colourful. Cover every inch or don't go out at all.
+There's a caustic front {day}. It eats coats, it eats gear, and then it starts on you. You've had a week's notice.
+Caustic {day}. Sealed rainwear, taped seams, or four walls. Nothing else works.
 ::endlines
 
 ::lines warn.ion
-⚠⚠ ION STORM {day}. The grid goes down and stays down. Anything electronic on you gets cooked.
-⚠⚠ {day}: pulse warning. Leave the deck at home, leave the tablet in a shielded bag, and if you're chromed, sit down first.
-⚠⚠ Hard warning for {day}. Lights out citywide. Have a torch that doesn't need a circuit and a room you trust.
-⚠⚠ {day}: ion. Everything with a circuit is a write-off. Unplug what you love.
+Ion storm {day}. The grid goes down and stays down. Anything electronic on you gets cooked.
+Pulse warning for {day}. Leave the deck at home, leave the tablet in a shielded bag, and if you're chromed, sit down first.
+Hard warning for {day}. Lights out citywide. Have a torch that doesn't need a circuit and a room you trust.
+Ion conditions {day}. Everything with a circuit is a write-off. Unplug what you love.
 ::endlines
 
 ::lines warn.generic
-⚠ Take {day} seriously. The numbers say severe, and the numbers don't flatter.
-⚠ {day} scores severe. That's the instrument talking, not me.
+Take {day} seriously. The numbers say severe, and the numbers don't flatter.
+It scores severe {day}. That's the instrument talking, not me.
 ::endlines
 
 # ── Hand-off into the week ─────────────────────────────────────────────────
 ::lines forecast.lead
-Looking down the barrel of the week, and I use "looking" generously.
+Looking down the barrel of the week, and I'm being generous with the word looking.
 Now the seven-day. Brace accordingly.
 Here's the outlook, such as it is.
 Let's walk the week. Try not to make plans.
 Now the week. It doesn't get kinder.
-Seven days, in order of arrival:
+Seven days, in order of arrival.
 ::endlines
 
 # ── Forecast-day transitions ───────────────────────────────────────────────
+# Spoken immediately before that day's sky line, so these hand over and stop.
+# Short is fine. A colon is not.
 ::lines ahead.tomorrow
-Tomorrow:
-Come tomorrow:
+Tomorrow then
+For tomorrow
+Tomorrow
+Starting with tomorrow
+Which brings us to tomorrow
 ::endlines
 
 ::lines ahead.midweek
-Midweek, around {day}:
-By {day}:
+Then {day}
+By {day}
+Come {day}
+Moving into {day}
+Midweek on {day}
 ::endlines
 
 ::lines ahead.weekend
-Come the weekend:
-Toward {day}, if we get there:
+Out at the far end, {day}
+And by {day}
+Then {day}, if we get that far
+Which leaves {day}
 ::endlines
 
 ::lines ahead.next
-Then {day}:
+Then {day}
+After that, {day}
+And {day}, for whatever that's worth
 ::endlines
 
 # ── Week-arc trend ─────────────────────────────────────────────────────────
 ::lines trend.warming
-Trend's upward: {loTemp} today crawling toward {hiTemp} by week's end. Make of that what you will.
+Trend's upward, {loTemp} today crawling toward {hiTemp} by week's end. Make of that what you will.
 It warms as the week goes. {hiTemp} degrees waiting at the far side.
 Warms through the week, {loTemp} to {hiTemp}. It won't last. It never does.
 ::endlines
@@ -415,14 +455,14 @@ Cooling trend. {loTemp} degrees is where this week is dragging us.
 ::endlines
 
 ::lines trend.clearing
-The good news, and I choke saying it: the wet clears as the week runs on.
+Here's the good news, and I choke saying it. The wet clears as the week runs on.
 It dries out toward the weekend. Briefly. Don't get attached.
 Clears as it goes. Take the back half of the week for anything outdoors.
 ::endlines
 
 ::lines trend.deteriorating
 It gets worse. {severeCount} severe days ahead, {worstDay} the worst of them. Plan around it or pay for it.
-Deteriorating fast. {severeCount} days flagged severe this week. {worstDay}'s the one to fear.
+Deteriorating fast. {severeCount} days flagged severe this week, and {worstDay}'s the one to fear.
 {severeCount} severe days queued, {worstDay} the worst. Move what you can off it.
 ::endlines
 

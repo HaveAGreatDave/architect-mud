@@ -176,6 +176,71 @@ export default async function regress({ check, run, getPlayer }) {
   check('a news file with no wx pools airs no weather segment',
     !noWxTexts.some(t => /Right now:|degrees|Skip Vandermeer/.test(t)), noWxTexts.find(t => /degrees/.test(t)) || 'clean');
 
+  // ── DOOMCAST: the forecast is SPOKEN, so it is checked as speech ─────────────
+  // The weather report had no coverage at all until now — the only thing that ever ran an
+  // assembly was a player standing in front of a television, which is how a handover that
+  // aired as its own line ("Tomorrow:" and then "tomorrow: rain at 40%.") and a 2am airing
+  // opening on "Afternoon, survivors" both lived in the shipped show for months.
+  const wxJoin = _test.wxJoinLead;
+  check('a lead and its clause become ONE line', wxJoin('Tomorrow then', 'A 60% chance of rain.') === 'Tomorrow then, a 60% chance of rain.', wxJoin('Tomorrow then', 'A 60% chance of rain.'));
+  check('the weld eats the lead\'s trailing punctuation', wxJoin('Tomorrow:', 'Rain.') === 'Tomorrow, rain.', wxJoin('Tomorrow:', 'Rain.'));
+  check('a clause with no lead stands alone, capital intact', wxJoin(null, 'Rain.') === 'Rain.', wxJoin(null, 'Rain.'));
+  check('an all-caps opener survives the weld', wxJoin('Then Friday', 'WX-9 says otherwise.') === 'Then Friday, WX-9 says otherwise.', wxJoin('Then Friday', 'WX-9 says otherwise.'));
+  check('a leading {token} survives the weld', wxJoin('Then Friday', '{temp} degrees.') === 'Then Friday, {temp} degrees.', wxJoin('Then Friday', '{temp} degrees.'));
+  // ⚠ The small hours are night. Without the `h < 5` arm they fall through to afternoon.
+  check('2am is night, not afternoon', _test.wxTimeOfDayKey({ hour: 2 }) === 'night', _test.wxTimeOfDayKey({ hour: 2 }));
+  check('midnight is night', _test.wxTimeOfDayKey({ hour: 0 }) === 'night', _test.wxTimeOfDayKey({ hour: 0 }));
+  check('5am is morning', _test.wxTimeOfDayKey({ hour: 5 }) === 'morning', _test.wxTimeOfDayKey({ hour: 5 }));
+  check('11pm is still night', _test.wxTimeOfDayKey({ hour: 23 }) === 'night', _test.wxTimeOfDayKey({ hour: 23 }));
+
+  // Drive the real assembler over the real shipped pools, so the checks below are about
+  // the show that airs rather than about a fixture written to pass them.
+  // ⚠ The pools come from `content/`, not from the local DB. The DB is a dev database that
+  // drifts from the tree (413 entities differed the day this was written), so a gate on it
+  // would go red for anyone who hadn't run `content:import` and green for anyone whose DB
+  // still held the version this is meant to catch. `content/` is what CODEX deploys.
+  const wxDir = new URL('../../content/media_broadcasts/', import.meta.url);
+  let wxScript2 = null;
+  for (const f of readdirSync(wxDir)) {
+    if (!f.endsWith('.json')) continue;
+    const row = JSON.parse(readFileSync(new URL(f, wxDir), 'utf8'));
+    if (row.weather_pools?.pools) { wxScript2 = row.weather_pools; break; }
+  }
+  if (wxScript2?.pools) {
+    const fc = [
+      { date: '2226-03-02', weatherType: 'rain', tempC: 6, windKph: 24, humidityPct: 62, precipChance: 0.6, severity: 0.1 },
+      { date: '2226-03-03', weatherType: 'overcast', tempC: 5, windKph: 12, humidityPct: 60, precipChance: 0.1, severity: 0.1 },
+      { date: '2226-03-04', weatherType: 'rain', tempC: 27, windKph: 12, humidityPct: 60, precipChance: 0.9, severity: 0.9, heroEvent: 'acid_rain' },
+      { date: '2226-03-05', weatherType: 'fog', tempC: 4, windKph: 8, humidityPct: 92, precipChance: 0.1, severity: 0.1 },
+    ];
+    const wg2 = _test.assembleWeatherGraph(wxScript2.pools, wxScript2.host, fc, { hour: 2, season: 'spring', feelsLikeC: 4 }, 'bc_wx_regress', wxScript2.title);
+    const wx2 = Object.values(wg2.nodes).filter(n => n.type === 'say').map(n => n.data?.text || '');
+    check('the forecast airs as spoken lines', wx2.length >= 8, String(wx2.length));
+    check('the forecast leaves no unfilled {tokens}', !wx2.some(t => /\{\w+\}/.test(t)), wx2.find(t => /\{\w+\}/.test(t)) || 'clean');
+    // The three artifacts of a teleprompter, checked on the assembled speech rather than
+    // on the pools — a colon can be introduced by the assembler as easily as by an author.
+    check('no spoken line reads a colon aloud', !wx2.some(t => t.includes(':')), wx2.find(t => t.includes(':')) || 'clean');
+    check('no spoken line reads a glyph aloud', !wx2.some(t => /[⚠]/.test(t)), wx2.find(t => /⚠/.test(t)) || 'clean');
+    check('no spoken line starts with a lowercase day label',
+      !wx2.some(t => /^(today|tomorrow)\b/.test(t)), wx2.find(t => /^(today|tomorrow)\b/.test(t)) || 'clean');
+    // The handover is welded on, so the day and its sky are one utterance, and a bare
+    // transition never reaches air by itself.
+    check('a handover is never a line of its own',
+      !wx2.some(t => /^(Tomorrow|Then \w+|By \w+|Come \w+)[.,]?$/.test(t)), wx2.find(t => /^(Tomorrow|Then \w+|By \w+|Come \w+)[.,]?$/.test(t)) || 'clean');
+    check('tomorrow is named in the same breath as its sky',
+      wx2.some(t => /tomorrow, \w/i.test(t) || /^Tomorrow\b.*,/.test(t)), wx2.find(t => /tomorrow/i.test(t)) || 'none');
+    check('precip is spoken as a chance, never as a quantity',
+      !wx2.some(t => /%\s*of it/.test(t)), wx2.find(t => /%\s*of it/.test(t)) || 'clean');
+    // A hero day is still reported as ITSELF, welded or not.
+    check('an acid day is named as acid inside the welded line',
+      wx2.some(t => /acid|caustic/i.test(t)), 'sky.acid');
+    check('a 2am airing opens on the graveyard intro',
+      /graveyard|small hours|Still awake|Night owls|If you're up/.test(wx2[0] || ''), wx2[0] || '(none)');
+    check('the forecast still requires its host on stage', wg2._requireHost === true, String(wg2._requireHost));
+  } else {
+    check('a weather broadcast row exists to assemble', false, 'no weather_pools row');
+  }
+
   // ── Talk-show episode assembly (live-acted, procedural) ──────────────────────
   // A talk show assembles a fresh episode from ::lines pools each night and ACTS it with
   // real cast NPCs. Check the assembled graph: it attributes lines to the cast (npc_anchor),

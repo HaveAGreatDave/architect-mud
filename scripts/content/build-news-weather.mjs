@@ -20,6 +20,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { canonicalJson } from './lib.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const rd = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -59,7 +60,11 @@ for (const show of SHOWS) {
   const before = JSON.stringify(row[show.column]);
   row[show.column] = script;
   const after = JSON.stringify(row[show.column]);
-  fs.writeFileSync(p, `${JSON.stringify(row, null, 2)}\n`, 'utf8');
+  // ⚠ canonicalJson, not a plain stringify: pool keys come out of the .bsm in authoring
+  // order and the content tree stores them sorted, so a plain write reorders every pool
+  // in the row. That lands as a ~240-line diff with no line of prose changed in it, and
+  // `content:export` flips it straight back on the next run.
+  fs.writeFileSync(p, canonicalJson(row), 'utf8');
 
   const keys = Object.keys(pools).sort();
   const total = keys.reduce((s, k) => s + pools[k].length, 0);
