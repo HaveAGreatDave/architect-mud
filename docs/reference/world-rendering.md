@@ -313,6 +313,24 @@ other (the "overlapping buildings / bad culling" look on dense clusters):
   (`glowPool`/`blinkLight`/`mast`/…) — they already call `decoDepth`. For a bespoke inline glow/line,
   pass `decoDepth(<anchor point>.f)` so it sorts against neighbours too.
 
+⚠ **AND WITH GLASS 2 ON, THE QUEUE IS NO LONGER THE WHOLE ANSWER — `emitFace` ALONE MEANS "DRAWS
+THROUGH THE CITY".** A painter hides things by painting over them. The mass is composited from the
+GPU *before* the 2-D pass runs, so nothing in that queue can be painted over by a building any more:
+a surface on raw `emitFace` and nothing else is drawn in front of every tower between it and the eye.
+This is the bug that took the lights, the Curtain, the marquees and the signage onto the depth
+buffer one at a time, and the Meridian's four stone gargoyles were the last of them — hung in front
+of half the skyline from any angle that put a tower behind the cornice.
+
+**The fix is the same every time: put the surface on the depth buffer.** For a flat-coloured polygon
+that is one call — `emitFlat(ctx, cam, pts, fill, alpha)`, which records into `MESH_SINK` as
+`kind: 'flat'` (the shader takes the fill verbatim: no atlas sample, no key-light pass), answers to
+`FLAT_OFF` so the arm does not paint it as well, and still queues exactly as it used to when GL is
+off. ⚠ **A surface that moves to the mesh must stop asking where the camera is.** The mesh is
+captured ONCE, cached on the model and looked at from everywhere, so a normal flipped toward the eye
+or a face culled at capture bakes one viewpoint in for ever — orient off the object's own centre and
+cull only on the canvas path. `gl:mesh` holds every model to that by capturing all four entrance
+facings and demanding identical face counts.
+
 Rules for anyone adding to a building model:
 - **Geometry** (`draw3DBoxAt`, `drawFacetDrum`, `drawBarrelRoof`, and the shared decoration helpers —
   `glowPool`, `blinkLight`, `mast`, `neonBlade`, `verticalMarquee`, `marqueeBand`, `drawSmoke`,

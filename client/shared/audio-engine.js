@@ -2930,6 +2930,16 @@ return out;
       const comp = c.createDynamicsCompressor();
       comp.threshold.value = -22; comp.knee.value = 12; comp.ratio.value = 3;
       comp.attack.value = 0.004; comp.release.value = 0.12;
+      // ⚠ THE HEAD OF THE CHAIN, AND ITS FAILURE MODE IS A PERFECT SILENCE.
+      // `master` is where every voiced and unvoiced branch is summed, and until it
+      // reaches `out` the voice is BUILT AND MUTE: every oscillator starts, every
+      // envelope schedules, speak() returns a real duration, and not a sample is
+      // audible. This line was lost when the drive stage below replaced the old
+      // one-liner that carried the whole chain in one go —
+      // `master.connect(ringGain).connect(presence).connect(comp).connect(out)` —
+      // and nothing caught it, because the voice smoke is pure text→phoneme and
+      // never builds a node. A missing edge in an audio graph throws nothing.
+      master.connect(ringGain).connect(presence).connect(comp);
       // DRIVE — after the compressor, which is the order a transmitter actually
       // has: level is controlled first and THEN the stage that cannot pass more
       // than it can pass clips what is left. Driving before the compressor would

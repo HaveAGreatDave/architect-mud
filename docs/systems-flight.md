@@ -94,9 +94,19 @@ its **tower** stands on — opened the cockpit in the street, inside the buildin
 sitting on top of, and lifting the collective flew it up through thirty floors of apartments.
 The model now carries a floor (`state.groundFt`, 0 everywhere else, so every strip and ground pad
 is the behaviour that always shipped) and the cockpit sets it per frame from `deckFloorFt`, off the
-**same `buildingRoofFtAt` probe CFIT reads** — the deck you sit on is the deck you would have hit,
-and `pen = roofFt − altitude` is exactly 0 on the skids, so the tower under you is not a collision.
-Four things that are each a way to get it silently wrong:
+**same captured geometry CFIT reads** — the deck you sit on is the deck you would have hit.
+Five things that are each a way to get it silently wrong:
+
+- ⚠ **A DECK IS NOT AN EYE-LINE, AND THERE ARE NOW TWO INVERSES.** `altForRoofZ(z)` answers *at what
+  altitude is my EYE level with this z* — the right question for CFIT, which is what it was written
+  for. It is the wrong question for standing on something: the chase model is anchored at
+  `EHbase − eh` (`ownShipBaseWz`), so an aircraft's gear rides at `climbLift · height` with **no `eh`
+  term in it at all**. The eye is a fixed 0.24 of world-z above the skids, and on the Solenne's crown
+  that is **159 real feet** — so the first cut of this parked the helicopter eight storeys down
+  inside the tower with its canopy exactly level with the pad, which reads as "close, but low".
+  `altRestingOnZ(z)` is the second inverse, and the pad's touchdown target, its catch ceiling and
+  the parked floor all take it. `cfitheight` holds both against the curves as the renderer writes
+  them, over every model.
 
 - **The floor latches OFF and never back on.** Fly back over the tower a hundred feet below its
   parapet and a live floor would snap you UP onto the deck and set `onGround`, which suppresses the

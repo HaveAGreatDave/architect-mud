@@ -6347,6 +6347,22 @@ export function altForRoofZ(z) {
   // 3,000 ft. A roof drawn above that could otherwise never be cleared at any altitude.
   return Math.min(3000, 3000 * s * s);
 }
+// ⚠ THE SAME CURVE READ FOR THE AIRFRAME INSTEAD OF THE EYE, and the two are not the same number.
+// `altForRoofZ` answers "at what altitude is my EYE level with this z" — the right question for
+// CFIT, and for "can I see over it". It is the WRONG question for standing on something. The chase
+// model is anchored at `EHbase - eh` (ownShipBaseWz), so an aircraft's gear rides at
+// `climbLift · height` in world-z with no `eh` term in it at all: the eye is a fixed 0.24 z above
+// the skids, which on the Solenne's crown is 159 real feet. Park a helicopter at
+// `altForRoofZ(deckZ)` and it rests eight storeys down inside the tower with its eye level with the
+// deck — which is exactly what it looked like.
+//
+// Both inverses are the render curve read backwards and neither is a tuning constant: a change to
+// `eh` or `climbLift` moves the picture, the collision and the deck together.
+export function altRestingOnZ(z) {
+  const s = z / Math.max(1e-6, RENDER_TUNE.climbLift);
+  if (!(s > 0)) return 0;
+  return Math.min(3000, 3000 * s * s);   // saturates with the eye curve — `height` is min(1, √(alt/3000))
+}
 export function buildingRoofFt(wx, wy, cell) {
   return altForRoofZ(buildingHeightZ(wx, wy, cell));
 }
@@ -16346,14 +16362,44 @@ function doorReveal(ctx, cam, dx, dy, E, fh, half, z0, z1, seed, night, alpha) {
 // it), backface-culled (wings excepted). Stone: no gloss, no neon.
 function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment — the Meridian's beasts are ornament, not envelope
+  // ── DETAIL IS TIERED, AND THE MESH SITS AT THE TOP OF IT ────────────────────────────────────
+  // The beasts are on the depth buffer now (see the shading loop), and a triangle there costs what
+  // the GPU charges for one — nothing this frame can measure. So the carved detail an ornament
+  // actually needs is affordable for the first time: a smoothed spine, ribbed wings, a spinal
+  // ridge, ears, a brow and clawed digits. The capture runs at ADORN_NEAR, so GLASS 2 always gets
+  // the full beast; on the 2-D canvas it is the ordinary near-tier ladder — a truck driver standing
+  // under the cornice gets it, and a cockpit at range keeps the leaner one it always had.
+  const NEAR = ADORN_TIER >= ADORN_NEAR;
+  const NB = NEAR ? 12 : 8, NL = NEAR ? 8 : 6, NH = NEAR ? 6 : 5, SUB = NEAR ? 1 : 0;
   const om = Math.hypot(outDir[0], outDir[1]) || 1, fX = outDir[0] / om, fY = outDir[1] / om;
   const rX = fY, rY = -fX;                                                     // right = outward rotated -90°
   const L = (r, f, u) => [wx + (rX * r + fX * f) * size, wy + (rY * r + fY * f) * size, wz + u * size];
   const faces = [];
   const push = (p, opt) => faces.push(Object.assign({ p }, opt));
+  // Catmull-Rom through the authored stations, `k` extra rings between each pair. Every component
+  // is interpolated — the half-widths too — so the body thickens and thins along a curve instead of
+  // stepping between the ten poses somebody typed. This is most of what "higher poly" buys here:
+  // the old beast was faceted because its SPINE was, not because its rings were coarse.
+  const smooth = (S, k) => {
+    if (!k) return S;
+    const at = (i) => S[Math.max(0, Math.min(S.length - 1, i))];
+    const out = [];
+    for (let i = 0; i < S.length - 1; i++) {
+      const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+      for (let j = 0; j <= k; j++) {
+        const t = j / (k + 1), t2 = t * t, t3 = t2 * t;
+        out.push(p1.map((_, c) => 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t
+          + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2
+          + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
+      }
+    }
+    out.push(S[S.length - 1]);
+    return out;
+  };
   // Swept tube along a spine of stations [centreR, forward, up, halfWidth, halfHeight]; NA facets
   // around, elliptical section in the right×up plane. Optional near-pointed caps at either end.
-  const tube = (S, NA, capA, capB, opt) => {
+  const tube = (S0, NA, capA, capB, opt, sub = SUB) => {
+    const S = smooth(S0, sub);
     const ring = (st) => { const a = []; for (let k = 0; k < NA; k++) { const th = k / NA * 6.2832; a.push([st[0] + Math.cos(th) * st[3], st[1], st[2] + Math.sin(th) * st[4]]); } return a; };
     let prev = ring(S[0]);
     for (let i = 1; i < S.length; i++) {
@@ -16364,6 +16410,9 @@ function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
     if (capA) { const s = S[0], apex = [s[0], s[1] - s[3] * 0.9, s[2]], r0 = ring(s); for (let k = 0; k < NA; k++) push([r0[k], r0[(k + 1) % NA], apex], opt); }
     if (capB) { const s = S[S.length - 1], apex = [s[0], s[1] + s[3] * 0.9, s[2]], rN = ring(s); for (let k = 0; k < NA; k++) push([rN[(k + 1) % NA], rN[k], apex], opt); }
   };
+  // A thin two-sided PLATE — a webbing panel, a crest, a wing rib. Anything a chisel would leave a
+  // sharp edge on rather than a rounded mass, which a swept tube cannot make.
+  const plate = (p, opt) => push(p, Object.assign({ two: 1 }, opt));
   // ── Body: curled tail → coiled haunches → arched hunched back → craned neck → skull → snout ──
   tube([
     [0, -0.56, 0.50, 0.06, 0.06],   // tail tip, curled up behind the rump
@@ -16376,63 +16425,128 @@ function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
     [0,  0.74, 0.14, 0.14, 0.13],   // skull
     [0,  0.92, 0.10, 0.12, 0.10],   // muzzle base
     [0,  1.10, 0.05, 0.06, 0.05],   // snout tip
-  ], 8, true, true);
+  ], NB, true, true);
   // ── Bracing FORELIMBS — shoulders down-forward to claws gripping the ledge lip ──
   for (const s of [-1, 1]) tube([
     [s * 0.19, 0.26, 0.34, 0.07, 0.08],
     [s * 0.23, 0.40, 0.16, 0.06, 0.07],
     [s * 0.27, 0.54, 0.01, 0.08, 0.04],   // splayed clawed grip
-  ], 6, false, true);
+  ], NL, false, true);
   // ── Coiled HAUNCHES → hind paws on the ledge ──
   for (const s of [-1, 1]) tube([
     [s * 0.22, -0.36, 0.26, 0.10, 0.12],
     [s * 0.26, -0.24, 0.10, 0.07, 0.08],
     [s * 0.29, -0.12, 0.00, 0.09, 0.04],
-  ], 6, false, true);
+  ], NL, false, true);
   // ── Back-swept HORNS from the skull ──
   for (const s of [-1, 1]) tube([
     [s * 0.07, 0.74, 0.22, 0.045, 0.05],
     [s * 0.11, 0.68, 0.34, 0.028, 0.03],
     [s * 0.15, 0.60, 0.44, 0.010, 0.012],   // horn tip
-  ], 5, false, false);
-  // ── Folded bat WINGS — thin double-sided membranes fanning up above the shoulders ──
-  for (const s of [-1, 1]) {
-    const root = [s * 0.15, 0.16, 0.42];
-    const spar = [[s * 0.34, -0.04, 0.82], [s * 0.30, -0.20, 0.74], [s * 0.22, -0.34, 0.58], [s * 0.16, -0.36, 0.34]];
-    for (let i = 0; i < spar.length - 1; i++) push([root, spar[i], spar[i + 1]], { two: 1 });
+  ], NH, false, false);
+  // ── Pricked stone EARS, low and back on the skull ──
+  for (const s of [-1, 1]) tube([
+    [s * 0.115, 0.755, 0.13, 0.030, 0.055],
+    [s * 0.150, 0.795, 0.25, 0.010, 0.026],
+  ], NEAR ? 5 : 4, false, true);
+  // ── Heavy BROW over the eyes, and the eyes themselves — a carved recess, so they are the same
+  //    stone read darker rather than a colour the beast does not otherwise have.
+  plate([[-0.125, 0.80, 0.18], [0.125, 0.80, 0.18], [0.105, 0.885, 0.145], [-0.105, 0.885, 0.145]]);
+  for (const s of [-1, 1]) push([[s * 0.055, 0.845, 0.13], [s * 0.115, 0.845, 0.125], [s * 0.110, 0.885, 0.10], [s * 0.052, 0.885, 0.105]], { tone: 0.45 });
+  // ── Spinal RIDGE — a row of carved plates standing along the back, tallest over the hunch.
+  //    Silhouette work: it is what reads as "gargoyle" from three streets away.
+  { const SP = [[-0.46, 0.42], [-0.32, 0.50], [-0.17, 0.58], [-0.01, 0.66], [0.13, 0.62], [0.27, 0.54], [0.39, 0.43]];
+    for (let i = 0; i < SP.length; i++) {
+      const [f, u] = SP[i], hgt = 0.13 * (1 - Math.abs(i - 3) / 4.6);
+      plate([[0, f - 0.055, u], [0, f + 0.05, u], [0, f + 0.02, u + hgt], [0, f - 0.028, u + hgt]]);
+    }
   }
-  // ── Open lower JAW — a dropped wedge under the snout ──
+  // ── Clawed DIGITS on the fore-paws, hooked over the cornice lip ──
+  if (NEAR) for (const s of [-1, 1]) for (const d of [-1, 0, 1]) tube([
+    [s * 0.27 + d * 0.048, 0.545, 0.015, 0.024, 0.022],
+    [s * 0.29 + d * 0.068, 0.635, -0.020, 0.008, 0.008],
+  ], 4, false, true, undefined, 0);
+  // ── Folded bat WINGS — an arm bone to the wrist, four finger spars fanning back off it, and the
+  //    membrane webbed between them. The old wing was three triangles off one root point, which is
+  //    a shape rather than a wing; the ribs are what make it read as skin stretched over bone.
+  for (const s of [-1, 1]) {
+    const shoulder = [s * 0.15, 0.16, 0.42], wrist = [s * 0.32, -0.02, 0.84];
+    const tip = [[s * 0.37, -0.17, 0.86], [s * 0.31, -0.30, 0.72], [s * 0.24, -0.37, 0.55], [s * 0.17, -0.37, 0.33]];
+    plate([shoulder, wrist, tip[0]]);                                        // leading edge
+    for (let i = 0; i < tip.length - 1; i++) plate([wrist, tip[i], tip[i + 1]]);   // webbing between the fingers
+    plate([wrist, tip[tip.length - 1], shoulder]);                           // trailing edge back to the body
+    // The bones: a narrow raised rib along the arm and each finger, a shade proud of the membrane.
+    const rib = (a, b, w) => plate([[a[0], a[1], a[2] + w], [b[0], b[1], b[2] + w], [b[0], b[1], b[2] - w], [a[0], a[1], a[2] - w]], { tone: 1.12 });
+    rib(shoulder, wrist, 0.030);
+    if (NEAR) for (const t of tip) rib(wrist, t, 0.016);
+  }
+  // ── Open lower JAW — a dropped wedge under the snout, and a dark maw behind the teeth ──
   { const bl = [-0.10, 0.90, 0.02], br = [0.10, 0.90, 0.02], tl = [-0.05, 1.10, -0.06], tr = [0.05, 1.10, -0.06];
     push([bl, br, tr, tl]);                                     // jaw floor
-    push([[-0.10, 0.90, 0.07], [0.10, 0.90, 0.07], br, bl]); }  // jaw back
-  // ── Shade + fill (matte weathered limestone), each face depth-queued via emitFace ──
+    push([[-0.10, 0.90, 0.07], [0.10, 0.90, 0.07], br, bl], { tone: 0.40 });   // the maw, in shadow
+    if (NEAR) for (const s of [-1, 1]) for (const d of [0, 1]) {   // a few blunt stone teeth
+      const f0 = 0.94 + d * 0.08, r0 = s * (0.045 + d * 0.015);
+      push([[r0 - 0.014, f0, 0.035], [r0 + 0.014, f0, 0.035], [r0, f0 + 0.02, 0.075]], { tone: 1.25 });
+    }
+  }
+  // ── Shade + fill (matte weathered limestone), one flat quad per face ────────────────────────
+  //
+  // ⚠ THIS USED RAW `emitFace`, WHICH IS THE PAINTER'S QUEUE AND NOTHING ELSE — so with GLASS 2 the
+  // beasts drew straight through the city. A painter hides things by painting over them; the mass
+  // is composited BEFORE the 2-D pass now, so a 2-D adornment cannot be painted over by a building
+  // any more and four stone gargoyles hung in front of every tower between them and the eye. Same
+  // bug as the lights, the Curtain and the marquees, and it gets the same answer: put the surface
+  // on the depth buffer. `emitFlat` is that door — it records into `MESH_SINK` with the colour it
+  // is given (`kind: 'flat'`, so the shader takes the fill verbatim instead of texturing it and
+  // re-lighting it), answers to `FLAT_OFF` so the arm does not also paint it, and still queues
+  // exactly as before when GL is off.
+  //
+  // ⚠ WHICH MEANS THE SHADING MUST STOP ASKING WHERE THE CAMERA IS. A mesh is captured ONCE, cached
+  // on the model, and looked at from everywhere — so a normal flipped toward the eye bakes one
+  // viewpoint's lighting into every later frame. Orientation is a property of the BODY: a one-sided
+  // face points away from the centre of the beast, and a membrane is lit off |n·KL| so it reads the
+  // same from either side rather than going black when you walk round it.
   const KL = (() => { const v = [0.42, -0.34, 0.86], m = Math.hypot(v[0], v[1], v[2]); return [v[0] / m, v[1] / m, v[2] / m]; })();   // top-front key
   const camPos = [cam.ex || 0, cam.ey || 0, cam.EH];
   const ctr = L(0, 0.1, 0.30);
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  // ── THE TEXTURE OF A FLAT FACE IS ITS COLOUR ────────────────────────────────────────────────
+  // These go into the mesh as `kind: 'flat'`, which is the shader's instruction to take the fill
+  // verbatim — no atlas sample, no key-light pass. That is deliberate and it is also the whole
+  // reason it CANNOT wear a wall texture: in GLASS the palette key IS the surface, and every
+  // generator behind one paints brick courses, glazing bars or corrugation. A limestone beast wants
+  // none of those. So the surface detail is carved into the fill instead — a per-face mottle, soot
+  // gathering low where rain does not reach, and a bleached upper. All three are hashed off the
+  // face's LOCAL centroid, which is the only frame that holds still: a mesh is captured once at a
+  // displaced position and drawn from everywhere, so a world-space hash would swim as you drove
+  // past and a camera-space one would bake one viewpoint in for ever.
   const base = night ? [64, 62, 56] : [140, 134, 118];
+  const wear = 0.94 + frac(seed * 3.7 + 11) * 0.12;   // each of the four weathers differently
   for (const fc of faces) {
     const wp = fc.p.map((p) => L(p[0], p[1], p[2]));
-    const sp = wp.map((w) => cam.proj(w[0], w[1], w[2]));
-    if (sp.some((q) => q.f <= 0.08)) continue;
     const e1 = sub(wp[1], wp[0]), e2 = sub(wp[2], wp[0]);
     let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
     const nm = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nm, n[1] / nm, n[2] / nm];
     const cen = [(wp[0][0] + wp[1][0] + wp[2][0]) / 3, (wp[0][1] + wp[1][1] + wp[2][1]) / 3, (wp[0][2] + wp[1][2] + wp[2][2]) / 3];
-    if (fc.two) { if (dot(n, sub(camPos, cen)) < 0) n = [-n[0], -n[1], -n[2]]; }
-    else { if (dot(n, sub(cen, ctr)) < 0) n = [-n[0], -n[1], -n[2]]; if (dot(n, sub(camPos, cen)) <= 0) continue; }
-    let lm = 0.30 + 0.66 * Math.max(0, dot(n, KL));
-    if (n[2] < 0) lm *= 0.62;                                   // soot-stained undersides
-    lm = clamp(lm, 0.14, 1.05);
-    const af = sp.reduce((s, q) => s + q.f, 0) / sp.length, fog = fogWeight(af);
-    const r = base[0] * lm | 0, g = base[1] * lm | 0, b = base[2] * lm | 0;
-    emitFace(af, () => {
-      ctx.globalAlpha = alpha; ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.beginPath(); sp.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill();
-      if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); }
-      ctx.globalAlpha = 1;
-    });
+    if (!fc.two && dot(n, sub(cen, ctr)) < 0) n = [-n[0], -n[1], -n[2]];
+    let lm = 0.30 + 0.66 * (fc.two ? Math.abs(dot(n, KL)) : Math.max(0, dot(n, KL)));
+    if (!fc.two && n[2] < 0) lm *= 0.62;                        // soot-stained undersides (a membrane has none)
+    let lr = 0, lf = 0, lu = 0;
+    for (const p of fc.p) { lr += p[0]; lf += p[1]; lu += p[2]; }
+    lr /= fc.p.length; lf /= fc.p.length; lu /= fc.p.length;
+    lm *= 0.88 + frac(Math.abs(lr * 311.7 + lf * 517.3 + lu * 733.1) * 97 + seed) * 0.24;   // blotchy stone
+    lm *= 1 - 0.20 * clamp((0.34 - lu) / 0.34, 0, 1);           // a century of soot, collecting low
+    lm *= 1 + 0.10 * clamp(n[2], 0, 1);                          // rain-bleached where the sky can see it
+    lm *= wear * (fc.tone || 1);
+    lm = clamp(lm, 0.10, 1.15);
+    // The CANVAS still culls backfaces. The mesh takes every face: the GPU answers that itself, per
+    // pixel, and a face dropped at capture is a hole in the beast from some other angle. The near
+    // plane is no longer tested here at all — `emitFlat` CLIPS against it rather than dropping the
+    // whole face, which is strictly better for a beast you fly under, and doing it here as well
+    // would mean projecting every vertex twice.
+    if (!MESH_SINK && !fc.two && dot(n, sub(camPos, cen)) <= 0) continue;
+    emitFlat(ctx, cam, wp, `rgb(${base[0] * lm | 0},${base[1] * lm | 0},${base[2] * lm | 0})`, alpha);
   }
 }
 

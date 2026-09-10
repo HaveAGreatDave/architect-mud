@@ -36,6 +36,16 @@ const eyeAlt = (z) => {
   const s = (z - T.eh) / T.climbLift;
   return s <= 0 ? 0 : Math.min(3000, 3000 * s * s);
 };
+// ⚠ AND A DECK IS NOT AN EYE-LINE — the second half of this gate. `altForRoofZ` answers where the
+// CAMERA is, which is the right question for collision and the wrong one for standing on something:
+// a helicopter parked or set down on a rooftop pad has to put its SKIDS on the deck, and the chase
+// model is anchored at `EHbase - eh` (ownShipBaseWz) — a fixed `eh` of world-z BELOW the eye. On the
+// Solenne's crown that is 159 real feet, which parked the aircraft eight storeys down inside the
+// tower with its canopy level with the pad. `altRestingOnZ` is the second inverse, and this holds it
+// against the gear anchor as ownShipBaseWz writes it, exactly as `eyeAlt` holds the first against
+// paintWindshield. Restated rather than imported for the same reason: importing the helper would be
+// comparing a function with itself.
+const gearWz = (alt) => T.climbLift * Math.min(1, Math.sqrt(Math.max(0, alt) / 3000));
 
 const models = ws.shapeModelRegistry().filter((r) => r.key.startsWith('named:'));
 // Both archetype defaults and a named model, because they take different branches of modelTopAt:
@@ -63,6 +73,17 @@ for (const r of models) {
     rows.push({ bn, bt, cfitFt: Math.round(ftMax), eyeFt: Math.round(want), err });
     // A tenth of a foot is float noise on a squared term; anything above it is a second conversion.
     if (err > 0.1) problems.push(`${bn} as ${bt}: CFIT clears at ${ftMax.toFixed(1)} ft, the eye clears the drawn roof at ${want.toFixed(1)} ft`);
+    // The resting inverse, held against the gear anchor. Skipped past the saturation ceiling, where
+    // both curves flatten by design and neither is invertible.
+    if (zMax < T.climbLift) {
+      const rest = ws.altRestingOnZ(zMax), landed = gearWz(rest);
+      if (Math.abs(landed - zMax) > 1e-6)
+        problems.push(`${bn} as ${bt}: resting at ${rest.toFixed(1)} ft puts the gear at z ${landed.toFixed(4)}, not on the roof at ${zMax.toFixed(4)}`);
+      // And the two inverses must differ by the eye height and nothing else — the check that would
+      // have caught the deck being computed from the wrong one.
+      if (!(rest > want) && want > 0)
+        problems.push(`${bn} as ${bt}: the resting altitude (${rest.toFixed(1)}) is not above the eye-line one (${want.toFixed(1)})`);
+    }
   }
 }
 
@@ -87,5 +108,5 @@ if (problems.length) {
 
 const tall = rows.reduce((a, r) => (r.cfitFt > a.cfitFt ? r : a), rows[0] || { cfitFt: 0, bn: '-' });
 console.log(`✓ cfitheight: ${rows.length} building/type combinations over ${models.length} models, ${probes} probes — `
-  + `every one collides at exactly the altitude the eye rises above its drawn roof.`);
+  + `every one collides at exactly the altitude the eye rises above its drawn roof, and rests at exactly the one that puts its gear on it.`);
 console.log(`  Tallest is ${tall.bn} at ${tall.cfitFt} ft; a bare field is 0.`);

@@ -837,13 +837,34 @@ async function computeBounds() {
   return { minX: r.minx, maxX: r.maxx, minY: r.miny, maxY: r.maxy };
 }
 
+// ⚠ A CELL IS SIZED IN TILES, NEVER AS A FRACTION OF THE MAP — and until 2026-09-10 it was the
+// fraction: span * (0.22 + rand() * 0.18), over the extent of the WHOLE outdoor map. That reads as
+// scale-independence and is the opposite of it — every cell in the world grew whenever a region was
+// added anywhere. When Coldwater WAS the map, span was 92 and a cell came out 20-37 tiles across a
+// 93x52 region: a front with an edge that crossed you. Deadwater, Terminus and the Scarletwastes
+// (2026-08-11/12) sit far apart on a shared bounding box, which stretched span to 513, so a cell
+// became 113-205 tiles — two to four times wider than all of Coldwater, and always taller than the
+// map. Nothing broke and nothing was removed: every tile simply sat deep in the smooth middle of one
+// blob with no edge to reach it. Measured over Coldwater on a rain day, 92% of tiles read the
+// identical map-wide floor, the whole region's cloud spread was 0.018, and a tile watched for two
+// real hours moved 0.07. A solid overcast sheet, drawn by a system that still believed it was
+// drawing weather.
+const CELL_R_MIN = 20, CELL_R_RANGE = 17;   // tiles — restores the pre-expansion 20-37 tile front
+// ⚠ AND THE COUNTS BELOW WERE TUNED ON THAT SAME 93x52 MAP, so a fixed radius alone trades one flat
+// sky for an empty one: three cells of 20-37 tiles scattered over a box seventeen times the area is
+// seventeen times sparser, and most of the world carries no cell at all. Density per unit area is
+// what the counts always meant, so they scale with the area they are scattered over. Cells landing
+// on the void between regions are not waste — they drift, and weather arriving from off the edge of
+// the land is the point.
+const CELL_REF_AREA = 92 * 51;              // the map the counts were tuned on (Coldwater alone)
+
 // Build the day's systems from forecast[0]. count/intensity scale with weather
 // type + precipChance; positions/velocities are seeded so the layout and the
 // prevailing wind are reproducible for a given date.
 function systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, rand) {
   const width  = Math.max(1, bounds.maxX - bounds.minX);
   const height = Math.max(1, bounds.maxY - bounds.minY);
-  const span   = Math.max(width, height);
+  const density = Math.max(1, Math.round((width * height) / CELL_REF_AREA));
 
   // One prevailing wind for the day; each cell jitters around it. When the
   // forecast carries a wind speed, the fronts drift proportionally faster — a
@@ -859,7 +880,7 @@ function systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, r
   const pType = precipTypeForFieldTemp(tempC);
   const systems = [];
   const spawn = (type, intensity) => {
-    const radius = span * (0.22 + rand() * 0.18);   // covers a fraction of the map
+    const radius = CELL_R_MIN + rand() * CELL_R_RANGE;   // tiles, not a fraction — see CELL_R_MIN
     systems.push({
       x: bounds.minX + rand() * width,
       y: bounds.minY + rand() * height,
@@ -889,9 +910,9 @@ function systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, r
   else if (PRECIP_TYPES.has(weatherType))       { baseCloud = 0.72; cloudCells = 2; precipCells = 1 + Math.floor(rand() * 2); }
   else                                          { cloudCells = 1; }
 
-  for (let i = 0; i < cloudCells;  i++) spawn('cloud',  0.5 + rand() * 0.4);
-  for (let i = 0; i < precipCells; i++) spawn('precip', 0.5 + precipChance * 0.5);
-  for (let i = 0; i < stormCells;  i++) spawn('storm',  0.6 + precipChance * 0.4);
+  for (let i = 0; i < cloudCells  * density; i++) spawn('cloud',  0.5 + rand() * 0.4);
+  for (let i = 0; i < precipCells * density; i++) spawn('precip', 0.5 + precipChance * 0.5);
+  for (let i = 0; i < stormCells  * density; i++) spawn('storm',  0.6 + precipChance * 0.4);
 
   // The day's prevailing wind — the one that drifts every cell — so the same wind can drive the
   // flight sim's HUD wind arrow + turbulence, not a separate per-hour formula. Angle is in grid
@@ -931,7 +952,11 @@ function advectField() {
   }
 }
 
-// The shared sampler handed to the engine. O(systems); systems are single digits.
+// The shared sampler handed to the engine. O(systems) — and systems stopped being single digits on
+// 2026-09-10: a tile-sized cell over a four-region map is ~40-70 of them (see CELL_R_MIN). Measured,
+// that is still nothing here — 150k samples in 4 ms — and the two callers that sweep are the 88
+// streetlight zones on the 30s tick and the dev weather map's 2,236 tiles on a panel refresh. What
+// it is NOT free for is the WIRE: see CLIENT_CELL_RANGE in plugins/flight/state.js.
 // ⚠ 'cloudCell' IS THE CELL CONTRIBUTION ALONE, AND IT IS NOT THE SAME QUESTION AS 'cloudCover'.
 // Two readers want two different numbers. The GAME wants "how much cloud is over this tile",
 // which is the floor and the cells together — that is what a player is standing under. A DEV MAP

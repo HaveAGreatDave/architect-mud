@@ -297,5 +297,120 @@ lacks('rooke does not rhyme with kook', 'rooke', 'R * UW K');
   check('ga: is still rhotic word-finally', ga('the car is here').endsWith('IY R'), ga('the car is here'));
 }
 
+// ── THE VOICE ACTUALLY REACHES THE SPEAKERS ──────────────────────────
+//
+// ⚠ EVERY TEST ABOVE PASSES ON A VOICE NOBODY CAN HEAR. They are pure
+// text→phoneme and never build a node, so when the drive stage replaced the one
+// line that carried the whole output chain it took the head of that chain with
+// it: master, ringGain and presence were built, configured, and connected to
+// nothing. Every oscillator still started, every envelope still scheduled,
+// speak() still returned a real duration, and ORACLE was silent everywhere —
+// broadcasts, the Architect, the library, Read Aloud.
+//
+// A missing edge in an audio graph throws nothing and reports nothing. So the
+// assertion is REACHABILITY rather than any particular wiring: a source that was
+// started must either walk to ctx.destination or terminate on an AudioParam (a
+// modulator is not meant to be heard). That survives any future re-plumbing and
+// needs no update when a stage is inserted, which is the case it exists for.
+{
+  let uid = 0;
+  const edges = new Map();      // node id → Set of node ids, audio-rate only
+  const modulators = new Set(); // ids that connect into an AudioParam
+  const kinds = new Map();
+  const started = [];
+  const mkParam = (owner, name) => ({
+    _owner: owner, _param: name, _v: 0,
+    get value() { return this._v; }, set value(v) { this._v = v; },
+    setValueAtTime() { return this; }, linearRampToValueAtTime() { return this; },
+    exponentialRampToValueAtTime() { return this; }, setTargetAtTime() { return this; },
+    cancelScheduledValues() { return this; }, setValueCurveAtTime() { return this; },
+  });
+  function mkNode(kind) {
+    const id = ++uid; kinds.set(id, kind);
+    const n = {
+      _id: id, type: 'sine', buffer: null, curve: null, oversample: '', loop: false,
+      channelCount: 2, channelCountMode: 'max', channelInterpretation: 'speakers',
+      connect(t) {
+        if (t && t._param) { modulators.add(id); return t; } // modulation, not output
+        if (!edges.has(id)) edges.set(id, new Set());
+        edges.get(id).add(t._id); return t;
+      },
+      disconnect() { edges.delete(id); },
+      start() { started.push(id); }, stop() {}, setPeriodicWave() {},
+    };
+    for (const q of ['gain', 'frequency', 'detune', 'Q', 'pan', 'delayTime', 'threshold',
+      'knee', 'ratio', 'attack', 'release', 'playbackRate']) n[q] = mkParam(kind + id, q);
+    return n;
+  }
+  class GraphContext {
+    constructor() {
+      this.state = 'running'; this.sampleRate = 48000; this.currentTime = 1.5;
+      this.destination = mkNode('destination');
+    }
+    resume() { return Promise.resolve(); }
+    createGain() { return mkNode('gain'); }
+    createOscillator() { return mkNode('osc'); }
+    createBiquadFilter() { return mkNode('biquad'); }
+    createBufferSource() { return mkNode('buffersrc'); }
+    createWaveShaper() { return mkNode('shaper'); }
+    createDynamicsCompressor() { return mkNode('comp'); }
+    createConvolver() { return mkNode('convolver'); }
+    createStereoPanner() { return mkNode('panner'); }
+    createChannelMerger() { return mkNode('merger'); }
+    createDelay() { return mkNode('delay'); }
+    createPeriodicWave() { return {}; }
+    createBuffer(ch, len, sr) {
+      return { numberOfChannels: ch, length: len, sampleRate: sr, duration: len / sr,
+        getChannelData: () => new Float32Array(len) };
+    }
+  }
+  // ensureContext() reads global.AudioContext at CALL time, so installing it down
+  // here leaves every pure test above running with no context at all, as before.
+  globalThis.AudioContext = GraphContext;
+  const destId = 1; // the destination is the first node the context ever builds
+  // ⚠ A MODULATOR IS RARELY THE NODE THAT TOUCHES THE PARAM. The wiring is
+  // `jit.connect(jitG).connect(glot.frequency)`, so the oscillator sits one hop
+  // behind the gain that does the modulating — asking only whether THIS node
+  // modulates fails every jitter, shimmer and growl source in the voice.
+  const arrives = (from) => {
+    const seen = new Set([from]); const q = [from];
+    while (q.length) {
+      const n = q.pop();
+      if (n === destId || modulators.has(n)) return true;
+      for (const m of edges.get(n) || []) if (!seen.has(m)) { seen.add(m); q.push(m); }
+    }
+    return false;
+  };
+
+  // Seeds that between them roll the optional stages — drive, growl, the second
+  // growl operator — because each one re-plumbs the tail, and inserting a stage is
+  // exactly what was being done when the chain broke.
+  const SEEDS = ['broadcast', 'reader', 'Dex Rime', 'Cyd', 'Vess', 'Maresh', 'Teague'];
+  for (const seed of SEEDS) {
+    // Both channels: 'ui' is Read Aloud, which takes a different bus and zeroes
+    // drive and growl, so it is a different graph and not the same one twice.
+    for (const channel of [undefined, 'ui']) {
+      // ⚠ NEVER CLEARED. The bus graph (master, tv, ui, the reverb send) is built
+      // ONCE when the context is created, so emptying the edge map between runs cuts
+      // every voice after the first off from the speakers — the same trap
+      // fm-smoke.mjs records about its own node list. Only the started list resets.
+      started.length = 0;
+      const label = seed + (channel ? ' (ui)' : '');
+      let res = null, threw = null;
+      try { res = A.speak('The Basin is quiet tonight. Is the door closed?', { seed, channel }); }
+      catch (e) { threw = e; }
+      check('graph: ' + label + ' speaks without throwing', !threw, threw && threw.stack);
+      check('graph: ' + label + ' returns a duration', res && res.duration > 0, JSON.stringify(res));
+      check('graph: ' + label + ' starts sources', started.length > 0, 'started ' + started.length);
+      for (const src of started) {
+        check('graph: ' + label + ' — ' + kinds.get(src) + '#' + src + ' reaches the speakers',
+          arrives(src),
+          'started, and leads neither to ctx.destination nor into any AudioParam');
+      }
+    }
+  }
+  A.cancelSpeech();
+}
+
 if (fails) { console.error(`\n✗ voice:smoke — ${fails} failure(s)`); process.exit(1); }
 console.log('✓ voice:smoke clean.');

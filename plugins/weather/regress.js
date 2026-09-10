@@ -34,6 +34,37 @@ export default async function regress({ check, getPlayer }) {
     check('a storm is the cloudiest thing there is', storm >= 0.8, String(storm));
   }
 
+  // ── A cell is sized in TILES, so the map can grow without the weather growing ──
+  // Until 2026-09-10 the radius was a fraction of the whole outdoor map's extent, which reads as
+  // scale-independence and is the opposite: adding Deadwater, Terminus and the Scarletwastes
+  // stretched the shared bounding box from 92 to 513 and took every cell in the world from 20-37
+  // tiles to 113-205 — wider than all of Coldwater, so no tile ever had an edge cross it and the
+  // sky went flat. Nothing threw, no test moved, and the sole symptom was a player saying the
+  // weather had been a solid layer lately. The guard is the INVARIANT, not the number: grow the map
+  // and the cells must not notice. Their COUNT must, or a fixed radius over a bigger box just
+  // trades a flat sky for an empty one.
+  {
+    const small = { minX: 0, maxX: 92, minY: 0, maxY: 51 };            // Coldwater alone
+    const big   = { minX: 0, maxX: 513, minY: 0, maxY: 155 };          // the four-region map
+    const build = (bounds) => _testWeather.systemsForForecast(
+      'rain', 0.6, 9, 20, bounds, _testWeather.mulberry32(_testWeather.seedFromString('regress:cellsize'))
+    ).systems;
+    const a = build(small), b = build(big);
+    // ⚠ COMPARE THE SAME CELL, NEVER THE MIN/MAX OF EACH SET. The two builds spawn different
+    // COUNTS (that is the other half of this fix), so the big map draws far more samples out of
+    // the same range and its spread is wider for that reason alone — a first cut compared the
+    // extremes and failed on correct code. Cell 0 sits at an identical position in the rand
+    // stream either way (nothing before it varies with bounds), so its radius is the invariant.
+    check('cell radius does not grow with the map', Math.abs(a[0].radius - b[0].radius) < 1e-9,
+      `same seed, cell 0: ${a[0].radius.toFixed(2)} tiles over 93x52, ${b[0].radius.toFixed(2)} over 514x156`);
+    // A front you can stand at the edge of. Loose bounds: this is "is it a front or is it the sky",
+    // not a re-statement of CELL_R_MIN, which is a tuning knob and should move without failing here.
+    const hi = Math.max(...b.map(s => s.radius)), lo = Math.min(...b.map(s => s.radius));
+    check('a cell is a front, not a map-wide sheet', hi < 60 && lo > 8, `${lo.toFixed(1)}-${hi.toFixed(1)} tiles`);
+    check('cell COUNT scales with the area instead', b.length > a.length * 4,
+      `${a.length} over 93x52, ${b.length} over 514x156`);
+  }
+
   // ── The snapshot carries that floor to every consumer ─────────────────────
   // sampleWeatherAt opens at field.baseCloud and only then maxes over the cells. The flight sim
   // reads this snapshot and runs the same overlap math client-side — so a snapshot that omits the

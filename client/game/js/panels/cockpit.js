@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
-import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, modelTopZAt, altForRoofZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { glWorldInstalled, glDecision, glLastError, lastViewState, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
 // hook is never called and no context is asked for. It is imported HERE rather than from
@@ -3624,7 +3624,9 @@ function yachtProximity(F) {
 // — and now that altitude and world-z are related by the render curve (see altForRoofZ), the same
 // half-unit of z is 158 ft above a tower and a few feet above a shed. Derived per pad, so the ring
 // you fly into stays the ring that grabs you, which is the invariant this whole block is built on.
-const padCeilFt = (padZ, padFt) => Math.max(60, altForRoofZ(padZ + ROOF_CATCH_CEIL_Z) - padFt);
+// ⚠ IN THE RESTING FRAME, because that is what `padFt` is now — subtracting one curve's answer
+// from the other's is a 159 ft error on the Solenne and a few feet on a shed.
+const padCeilFt = (padZ, padFt) => Math.max(60, altRestingOnZ(padZ + ROOF_CATCH_CEIL_Z) - padFt);
 const ROOF_LAND_MS = 2800;   // guided descent from capture to skids-down
 
 // Nearest HELIPAD in the streamed window. Two shapes, one capture:
@@ -3652,11 +3654,13 @@ function padProximity(F) {
       if (dist > 4 || (best && dist >= best.dist)) continue;
       // ⚠ A GROUND PAD IS AT ZERO AND THAT IS A REAL ANSWER, not a missing one. The rooftop probe
       // returns 0 both for "no building here" and for "you are between two wings", so the old code
-      // read `padFt > 0` as the existence test. On a bare pad there is no building by definition,
-      // so the tile has to be asked first and the height second.
-      const padFt = c.bt ? buildingRoofFtAt(wx, wy, c, wx, wy) : 0;
+      // read the height as the existence test. On a bare pad there is no building by definition, so
+      // the tile has to be asked first and the height second.
+      // ⚠ AND `padFt` IS THE ALTITUDE THE SKIDS REST AT, not the one the eye is level with — this
+      // number is a touchdown target, and `altForRoofZ` put it 159 ft down inside the tower.
       const padZ = c.bt ? modelTopZAt(wx, wy, c, wx, wy) : 0;
-      if (c.bt ? padFt > 0 : !!c.pad) best = { dist, padFt, padZ, tile: [wx, wy] };
+      const padFt = altRestingOnZ(padZ);
+      if (c.bt ? padZ > 0 : !!c.pad) best = { dist, padFt, padZ, tile: [wx, wy] };
     }
   }
   return best;
@@ -3681,17 +3685,21 @@ function windowCellAt(F, wx, wy) {
 // building it is supposed to be sitting on top of. You looked out of the canopy at the lobby
 // canopy, and lifting the collective flew you up through thirty floors of apartments.
 //
-// The deck height comes from the same captured geometry CFIT reads (buildingRoofFtAt), so the
-// roof we sit on is the roof we would have hit — one number, no second idea of where the top of
-// the building is. Rotorcraft only: nothing else can be parked on a roof.
+// The deck comes from the same captured geometry CFIT reads (`modelTopZAt`, the world-z twin of
+// the probe in buildingRoofFtAt), so the roof we sit on is the roof we would have hit — one loop,
+// no second idea of where the top of the building is. Rotorcraft only: nothing else parks on a roof.
+//
+// ⚠ CONVERTED THROUGH `altRestingOnZ`, NOT `altForRoofZ`. The eye rides a fixed 0.24 z above the
+// skids, which on this crown is 159 real feet — enough to park the aircraft eight storeys down
+// inside the tower with its canopy level with the deck, which is what the first cut of this did.
 function parkedDeck(F) {
   if (!F.heli || !F.pos) return null;
   const tx = Math.round(F.pos.x), ty = Math.round(F.pos.y);
   const c = windowCellAt(F, tx, ty);
   if (!c || c.kind !== 'field' || !c.bt) return null;   // an airfield tile that is ALSO a building = a rooftop pad
-  const ft = buildingRoofFtAt(tx, ty, c, tx, ty);
-  if (!(ft > 0)) return null;
-  return { tile: [tx, ty], ft, left: false };
+  const z = modelTopZAt(tx, ty, c, tx, ty);
+  if (!(z > 0)) return null;
+  return { tile: [tx, ty], ft: altRestingOnZ(z), left: false };
 }
 
 // The floor the flight model clamps to this frame. Zero for every strip and ground pad in the
@@ -3707,8 +3715,8 @@ function deckFloorFt(F, s) {
   const d = F.padDeck;
   if (!d || d.left) return 0;
   const c = windowCellAt(F, d.tile[0], d.tile[1]);
-  const ft = c ? buildingRoofFtAt(d.tile[0], d.tile[1], c, F.pos.x, F.pos.y) : 0;
-  if (ft > 0) return ft;
+  const z = c ? modelTopZAt(d.tile[0], d.tile[1], c, F.pos.x, F.pos.y) : 0;
+  if (z > 0) return altRestingOnZ(z);
   // The probe found no roof under us. Airborne, that is the departure — off the edge, and the floor
   // below is the street. On the skids it means the probe could not answer at all (the window has
   // scrolled or has not arrived), and dropping the floor there posts the aircraft through its own

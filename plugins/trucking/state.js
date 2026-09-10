@@ -1594,11 +1594,14 @@ export function cabContext(rig, extra = {}) {
     // somebody who assumed events already arrived.
     //
     // Cheap: a cab push is not a frame (see below — it fires on tile change, on a state change, or
-    // once a second as a floor), and the field is single-digit cells of eight numbers each.
+    // once a second as a floor), and the field is a handful of cells of eight numbers each. ⚠ That
+    // "handful" is now the CROP doing the work, not the world — cells became tile-sized on
+    // 2026-09-10 and there are ~60 of them out there. Hence `rig.x, rig.y`: skyState() with no
+    // viewer ships all of them, which at a 1s floor is the most expensive push in the game.
     // Flat rather than nested, because `ctx.hour` / `ctx.weather` are the names the cab has read
     // since it was built — it was waiting for these the whole time.
     ...(() => {
-      const s = skyState();
+      const s = skyState(rig.x, rig.y);
       return { hour: s.hour, weather: s.weather, moon: s.moon, wind: s.wind, wxField: s.field, wxEvent: s.event };
     })(),
     pump: pumpAt(rig) ? { full: FUEL_FULL, credits: getLivePlayer(rig.playerId)?.credits || 0 } : null,

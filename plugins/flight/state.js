@@ -1417,7 +1417,7 @@ export function gaugePayload(live) {
     // off the same vtolOnlyField() the rosters use, so any field marked
     // vtol_only renders correctly without extra art data.
     ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: fieldName(parkedZone), helipad: vtolOnlyField(parkedZone) },
-    sky: skyState(),
+    sky: skyState(a.grid_x, a.grid_y),
     // Avionics dead (EMP hazard). The client blanks the gauges off this rather
     // than deriving it — the server owns whether your instruments work.
     avionicsOut: live.hazard?.type === 'EMP',
@@ -1427,7 +1427,9 @@ export function gaugePayload(live) {
 // Time-of-day + weather for the client windshield's out-the-window scene (also
 // reused by the hangar-bay floor, which shows the same sky through its open bay
 // door).
-export function skyState() {
+// `cx`/`cy` are the viewer's tile — the cells are cropped around it (see CLIENT_CELL_RANGE).
+// Omit them and the whole field ships, which is right for a one-off push and wrong for a tick.
+export function skyState(cx = null, cy = null) {
   try {
     const env = getEnvironmentState();
     return {
@@ -1446,7 +1448,7 @@ export function skyState() {
       // sim can render the REAL clouds/rain out the canopy at their true bearings and advect them
       // itself between packets. `tick` is the field's advect interval (s) — `vx/vy` are per that
       // tick — so the client can extrapolate positions forward and needn't be re-sent every frame.
-      field: weatherFieldForClient(env),
+      field: weatherFieldForClient(env, cx, cy),
     };
   } catch { return { hour: 12, weather: 'clear', wind: 0 }; }
 }
@@ -1480,7 +1482,19 @@ function skyWeatherToken(env) {
 // not only under a passing cell. Sending cells alone gave the canopy a sky with the floors
 // removed: roughly half the map carries no cell precip on a storm day, and a pilot crossing
 // those tiles flew through clear air over players standing in a downpour.
-function weatherFieldForClient(env) {
+//
+// ⚠ AND IT IS CROPPED TO THE VIEWER, because the cells stopped being single-digit on 2026-09-10.
+// Sizing a cell in tiles rather than as a fraction of the map (plugins/weather CELL_R_MIN) put ~60
+// small cells over the world where there had been ~4 huge ones, and this payload rides a 3s flight
+// tick and a 1s cab tick: measured, the uncropped list is 11.8 KB a push, or ~13 MB an hour per
+// pilot, on a budget docs/ops-usage-watch.md exists to defend. The renderer's own furthest read is
+// the 70-tile dome-sprite cull in windshield.js, so a cell whose EDGE cannot reach that is bytes
+// nobody can see — 14 of 68 survive the crop over a typical seat. The margin is drift between
+// pushes: at a gale the fastest cell moves 0.035 tiles in 3s, so 8 tiles is enormous headroom.
+// ⚠ Crop on the cell's EDGE (`dist < r + RANGE`), never its centre, or a big cell standing just
+// outside the range takes its overhead half of the sky with it.
+const CLIENT_CELL_RANGE = 78;   // 70 (dome-sprite cull) + 8 tiles of drift margin
+function weatherFieldForClient(env, cx = null, cy = null) {
   const snap = getWeatherFieldSnapshot();
   if (!snap || !snap.bounds || !snap.systems?.length) return null;
   const falling = env.currentPrecip && env.currentPrecip !== 'none';
@@ -1497,10 +1511,16 @@ function weatherFieldForClient(env) {
     baseCloud: snap.baseCloud || 0,
     precipFloor: falling ? (env.precipRate || 0) : 0,
     floorType: falling ? env.currentPrecip : 'none',
-    cells: snap.systems.map(s => ({
-      x: s.x, y: s.y, r: s.radius, vx: s.vx, vy: s.vy,
-      type: s.type, intensity: s.intensity, precip: s.precipType,
-    })),
+    // Rounded on the way out: a full float is 17 digits of a tile position the renderer reads at
+    // sprite resolution and re-seats from every push. 2dp on a tile, 4dp on a per-30s-tick
+    // velocity, and the list is ~45% smaller for a difference nothing downstream can resolve.
+    cells: snap.systems
+      .filter(s => cx == null || cy == null || Math.hypot(cx - s.x, cy - s.y) < s.radius + CLIENT_CELL_RANGE)
+      .map(s => ({
+        x: +s.x.toFixed(2), y: +s.y.toFixed(2), r: +s.radius.toFixed(2),
+        vx: +s.vx.toFixed(4), vy: +s.vy.toFixed(4),
+        type: s.type, intensity: +s.intensity.toFixed(3), precip: s.precipType,
+      })),
   };
 }
 
@@ -1648,7 +1668,7 @@ export function contextPayload(live) {
   return {
     type: 'flight_ctx',
     fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
-    map: mapWindow(a, FLIGHT_RADIUS, cellAt), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(),   // window centre → client keeps map+centre paired (no recenter pop)
+    map: mapWindow(a, FLIGHT_RADIUS, cellAt), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(a.grid_x, a.grid_y),   // window centre → client keeps map+centre paired (no recenter pop)
     // Everyone standing on the surface grid inside the same window, so a low pass shows the
     // street population rather than an empty city. Absolute tile coords, paired with mapX/mapY
     // exactly as `map` is. No exclusion list is needed here: this payload goes to every occupant
