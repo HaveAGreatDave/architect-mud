@@ -267,7 +267,9 @@ const _gates = new Map();
 export function regionGates(regionKey) {
   if (_gates.has(regionKey)) return _gates.get(regionKey);
   const cand = [];
+  let scanned = 0;
   for (const z of getAllZones()) {
+    scanned++;
     if (z.map_id !== 'map_world' || (z.grid_z ?? 0) !== 0) continue;
     if (z.flags?.region_id !== regionKey) continue;
     if (!isRoadCell({ flags: z.flags || {} })) continue;
@@ -306,7 +308,17 @@ export function regionGates(regionKey) {
     out.push({ ...clump[0], width: clump.length });
   }
   out.sort((p, q) => p.x - q.x || p.y - q.y);   // stable order, for the same reason
-  _gates.set(regionKey, out);
+  // ⚠ AN ANSWER DERIVED FROM AN EMPTY WORLD IS NOT AN ANSWER, AND MEMOISING IT IS PERMANENT. Ask
+  // this before the zones are loaded — a boot ordering, a plugin that reaches for a gate at module
+  // scope, a reload caught mid-swap — and the scan walks nothing, finds no mouths, and caches "this
+  // region has no way out" for the life of the process. Nothing re-derives it: the only thing that
+  // clears this map is the zone-reload hook, and a region with no gates does not produce the road
+  // whose absence would make anybody call one.
+  //
+  // The symptom is Coldwater's south road running to the rim and simply stopping, because every
+  // road in the game is anchored on a pair of these. A region that genuinely has no road mouth is a
+  // real empty answer and is still cached; a scan that saw no zones at all is not.
+  if (scanned) _gates.set(regionKey, out);
   return out;
 }
 
@@ -601,7 +613,16 @@ function anchorFor(instanceId, destKey) {
 // Cached per void+week: the road is a pure function of those, so this builds once and every rig in
 // the region reads the same object.
 const _preview = new Map();
+let _previewGen = -1;
 function previewRoute(voidKey, window) {
+  // ⚠ THIS IS THE THIRD CACHE BUILT ON THE RIM GATES, AND IT WAS THE ONE NOBODY GUARDED. Every
+  // metre of this road is anchored on a gate pair, so a gate that moves invalidates it exactly as
+  // it invalidates the network — which is why `_clearGateCache` bumps a generation and `roadnet.js`
+  // validates against the counter rather than trusting somebody to remember a second call. The
+  // reload hook clears the gates and the network follows; this map was never cleared in production
+  // at all, so it went on handing every driver in the region a road anchored to a mouth that had
+  // moved, or — worse — the null it happened to build before the world was loaded.
+  if (_previewGen !== gateGeneration()) { _preview.clear(); _previewGen = gateGeneration(); }
   const key = `${voidKey}|${window}`;
   if (_preview.has(key)) return _preview.get(key);
   const v = VOIDS[voidKey], gate = regionGates(voidKey)[0];
@@ -612,7 +633,13 @@ function previewRoute(voidKey, window) {
   const dests = destsFor(voidKey, null);
   if (dests.length) {
     const d = dests[0];
-    return _preview.set(key, buildRoad(voidKey, d.key, d.region, window, d.nodes, dests)).get(key);
+    // ⚠ AND A NULL IS NEVER CACHED. `buildRoad` answers null when the gate pair cannot be resolved,
+    // which is a statement about THIS MOMENT — the world is still loading, the reload is mid-swap —
+    // and not about the road. Stored, it is permanent: the region's approach highway never appears
+    // again, and the tarmac out of town ends at the last placed tile with open waste past it.
+    const road = buildRoad(voidKey, d.key, d.region, window, d.nodes, dests);
+    if (!road) return null;
+    return _preview.set(key, road).get(key);
   }
   if (v && gate) {
     // Each destination aimed at the exit that FACES it, not at the middle of the far region — the
@@ -632,6 +659,7 @@ function previewRoute(voidKey, window) {
         { x0: (pair?.from || gate).x, y0: (pair?.from || gate).y, x1: first.x, y1: first.y });
     }
   }
+  if (!route) return null;   // same rule as the branch above — a road we could not build yet is not a road
   _preview.set(key, route);
   return route;
 }
