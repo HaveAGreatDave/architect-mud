@@ -30,7 +30,7 @@ import { accrueGrime, grimeBand, washCost, WASH_FULL } from './filth.js';
 import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitSuffix, fitByCode, priceFor } from './fittings.js';
 import { truckLivery } from '../../client/shared/truck-livery.js';
 import { isTerminal, TERMINAL_CONDITION } from './rig.js';   // breakChance is already imported below
-import { displayRung, setDisplayRung } from '../../server/engine/presentation.js';
+import { displayRung, setDisplayRung, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
 import { HELP_GROUPS } from '../../server/engine/commands/world.js';
 import { query } from '../../server/models/db.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
@@ -3953,7 +3953,17 @@ export default async function regress({ run, check, getPlayer }) {
 
         await run('park');
         check('…and can stop', !rigs.has(player.id) && !isTextDriving(player.id));
-      } finally { if (savedRung) await setDisplayRung(player, savedRung); }
+      // ⚠ RESTORE NEVER-CHOSEN AS NEVER-CHOSEN. The falsy guard here used to mean the commonest
+      // case — a harness player who has never picked a rung — was not restored at all, so `log`
+      // stayed set on the SHARED player for every suite that runs after this one. It surfaces as
+      // four reds in `workspace` (a stove answering `list_dialog` instead of a workspace view,
+      // then a cascade), which names nothing to do with trucking. `setDisplayRung(player, undefined)`
+      // is not the fix either: it coerces to `visual`, and never-chosen is a third state the
+      // predicates deliberately answer differently. Same shape as plugins/cosmetic-machine.
+      } finally {
+        if (savedRung) await setDisplayRung(player, savedRung);
+        else { await setFlag('player', DISPLAY_MODE_FLAG, '', player).catch(() => {}); player.displayRung = undefined; }
+      }
     } finally {
       // ⚠ THE BOXES GO WITH THE TRUCKS. This block hitches a trailer and loads it on foot, and
       // deleting the tractor out from under it leaves exactly the orphan `yardSell` was just fixed
