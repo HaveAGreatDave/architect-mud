@@ -136,7 +136,6 @@ export function createBillboardLayer(gl) {
       }
       return t;
     }
-    if (texes.size >= MAX_TEX) { const [k0, t0] = texes.entries().next().value; gl.deleteTexture(t0); texes.delete(k0); }
     t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -154,6 +153,29 @@ export function createBillboardLayer(gl) {
     return t;
   }
 
+  // ⚠ EVICTION HAPPENS HERE, BEFORE ANYTHING IS ALLOCATED, AND NEVER TOUCHES A KEY THIS FRAME
+  // USES. It used to sit inside textureFor, taking the oldest-inserted entry — which is exactly
+  // the wrong one: the oldest entries are the STABLE keys (a bush, a cactus, the gate on its own
+  // tile), and by the time a later key needs room those textures are already sitting in `batches`
+  // waiting to be drawn. `gl.deleteTexture` on one of them leaves the batch pointing at a dead
+  // texture, and a dead texture samples as whatever the driver hands back.
+  //
+  // ⚠ AND IT IS NOT A THEORETICAL CAP. Three callers keyed their bakes on CAMERA-RELATIVE dx/dy
+  // (see markBillboard in windshield.js), so every mast, lattice tower and neon blade in view
+  // minted a brand-new key every frame — two hundred and fifty-six of them go by in a couple of
+  // seconds from an external camera over a city. Reported as the scatter turning bright pink, and
+  // as a gate drawn as a hovering bush.
+  function evict(live) {
+    let need = 0;
+    for (const k of live.keys()) if (!texes.has(k)) need++;
+    if (texes.size + need <= MAX_TEX) return;
+    for (const [k, t] of [...texes]) {
+      if (texes.size + need <= MAX_TEX) break;
+      if (live.has(k)) continue;                 // drawn this frame — deleting it is the bug
+      gl.deleteTexture(t); texes.delete(k);
+    }
+  }
+
   function upload(list) {
     const byKey = new Map();
     for (const b of list) {
@@ -161,6 +183,7 @@ export function createBillboardLayer(gl) {
       let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, items: [] });
       a.items.push(b);
     }
+    evict(byKey);
     let quads = 0;
     for (const a of byKey.values()) quads += a.items.length;
     const verts = quads * 6;

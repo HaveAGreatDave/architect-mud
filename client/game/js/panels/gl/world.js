@@ -409,6 +409,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
   // the anchor depth and a billboard that did not would be a different bush at every distance.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand);
-  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, scatter, ground, floor, canvas: g.canvas };
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, scatter, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, canvas: g.canvas };
 }
 

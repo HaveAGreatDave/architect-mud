@@ -475,6 +475,10 @@ export function createGLView(canvas) {
   // Ground scatter, on the same depth buffer. Lazy like the others.
   let bbs = null;
   const bbLayer = () => (bbs || (bbs = createBillboardLayer(gl)));
+  // How many billboard textures the cache is holding. Exposed because an unbounded one is not
+  // visible in the picture until it starts evicting live entries, at which point it looks like
+  // corrupted artwork rather than like a cache.
+  const billboardTextures = () => (billboards ? billboards.textures : 0);
   function drawBillboards(cam, list, cssH, fog) {
     if (!list || !list.length) return 0;
     const L = bbLayer();
@@ -497,6 +501,6 @@ export function createGLView(canvas) {
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
   function drawFloor(state) { return state ? floorLayer().draw(state) : 0; }
 
-  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
+  return { gl, upload, uploadGroups, draw, drawSprites, drawCurtain, drawDecals, drawBillboards, billboardTextures, drawGround, drawFloor, drawCloudDeck, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; } };
 }

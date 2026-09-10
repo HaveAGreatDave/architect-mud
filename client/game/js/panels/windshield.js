@@ -8023,6 +8023,18 @@ function groundHidden(cam, dx, dy, f) {
 // its own glows into the sprite layer at the wrong place, and its faces into a queue that has
 // already been read. Inside the bake FACE_SINK is null, so emitFace paints immediately, which is
 // what a bake wants.
+// ⚠ WHICH TILE IS BEING PAINTED, so a baked mark can be NAMED without the camera in the name.
+// A bake is cached by key on both sides — a canvas here, a GL texture in gl/billboards.js — and
+// three callers built their key out of `dx`/`dy`, which are CAMERA-RELATIVE and change every
+// frame the camera moves. So every mast, lattice tower and neon blade in view minted a new key
+// per frame: an unbounded canvas leak here, and over there a 256-entry texture cache turning over
+// in seconds, evicting the stable entries — the scatter species, the gate, the statue — while the
+// current frame was still holding them. It reads as the scatter going bright pink and a gate
+// drawn as a hovering bush, and only from a camera that can see a lot of masts at once.
+//
+// The world tile is the identity that holds still, so `markBillboard` prefixes it and a caller
+// only has to name what varies WITHIN a tile.
+let MARK_TILE = "";
 const _markBakes = new Map();
 const MARK_BAKE_PAD = 6;
 // `nearF` is how close the quad may be trusted. The single depth is an approximation whose error
@@ -8041,6 +8053,7 @@ function markBillboard(cam, dx, dy, topZ, halfW, key, paint, nearF = 1.5) {
   // Absurdly large means the camera is inside it; fall back to the canvas rather than bake a
   // screenful into a texture every frame.
   if (!(w > 1 && h > 1) || w > 900 || h > 900) return false;
+  key = MARK_TILE + "|" + key;
   let cv = _markBakes.get(key);
   if (!cv) { cv = document.createElement("canvas"); _markBakes.set(key, cv); }
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
@@ -14906,8 +14919,15 @@ function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna m
     // and no world thickness, so there is nothing to hand a triangle list.
     // ⚠ The box can be tiny: `sx` carries no height term in this projection, so a, b and the ground
     // point share an x exactly and the line is vertical on screen. The 6px pad does the work.
-    const mKey = "mst:" + dx + "," + dy + ":" + h0 + "," + h1;
-    if (!markBillboard(cam, dx, dy, h1, 0.01, mKey, paint)) emitDeco([a, b], () => paint(ctx));
+    // ⚠ NOT A BAKED BILLBOARD, AND THAT WAS TRIED AND TAKEN BACK OUT. `markBillboard` re-bakes at
+    // the LIVE camera every frame (`fresh: true`) — a canvas repaint plus a texImage2D upload PER
+    // INSTANCE PER FRAME. That is affordable for the landmarks it was written for, which are a
+    // handful of marks on their own tiles; it is not affordable for a part that hangs off ordinary
+    // buildings, where a cockpit can see dozens at once. Measured as a framerate below GLASS 1 in
+    // the cockpit, and it also drove the billboard texture cache over its cap, which then evicted
+    // the stable entries — the scatter species, the gate, the statue — while the frame was still
+    // holding them. Pink bushes and a gate drawn as a hovering bush, from one unmeasured change.
+    emitDeco([a, b], () => paint(ctx));
   }
   blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
 }
@@ -15280,8 +15300,15 @@ function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
   // ⚠ The half-width is the tower's own radius with room to spare: a corner NEARER than the tile
   // centre throws the same world offset further across the screen, so the silhouette is wider than
   // r·FL/f and a box sized exactly on r clips its own legs.
-  const ltKey = 'lt:' + dx + ',' + dy + ':' + z0 + ',' + z1 + ':' + r0 + ',' + r1;
-  if (!markBillboard(cam, dx, dy, z1, Math.max(r0, r1) * 1.6, ltKey, (g) => segsInto(g, true))) segsInto(ctx, false);
+    // ⚠ NOT A BAKED BILLBOARD, AND THAT WAS TRIED AND TAKEN BACK OUT. `markBillboard` re-bakes at
+    // the LIVE camera every frame (`fresh: true`) — a canvas repaint plus a texImage2D upload PER
+    // INSTANCE PER FRAME. That is affordable for the landmarks it was written for, which are a
+    // handful of marks on their own tiles; it is not affordable for a part that hangs off ordinary
+    // buildings, where a cockpit can see dozens at once. Measured as a framerate below GLASS 1 in
+    // the cockpit, and it also drove the billboard texture cache over its cap, which then evicted
+    // the stable entries — the scatter species, the gate, the statue — while the frame was still
+    // holding them. Pink bushes and a gate drawn as a hovering bush, from one unmeasured change.
+  segsInto(ctx, false);
   blinkLight(ctx, cam, dx, dy, z1, '255,80,80', now, seed, alpha, 1.8);                                     // aviation beacon
 }
 // ── Surface text: procedural sign art painted INTO a face ─────────────────────
@@ -15454,8 +15481,14 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // corners to hand over. `markBillboard` bakes it at the live camera exactly as the landmarks
   // and the air contacts do, and hands back false when it cannot (too near, or the camera inside
   // it), which is what keeps the canvas path below as the fallback rather than as a second copy.
-  const halfWTiles = wpx * ((b.f + t.f) / 2) / cam.FL;
-  if (markBillboard(cam, dx, dy, h1, halfWTiles, "nb:" + dx + "," + dy + ":" + (label || "") + ":" + color + ":" + (night ? 1 : 0), paint)) return;
+    // ⚠ NOT A BAKED BILLBOARD, AND THAT WAS TRIED AND TAKEN BACK OUT. `markBillboard` re-bakes at
+    // the LIVE camera every frame (`fresh: true`) — a canvas repaint plus a texImage2D upload PER
+    // INSTANCE PER FRAME. That is affordable for the landmarks it was written for, which are a
+    // handful of marks on their own tiles; it is not affordable for a part that hangs off ordinary
+    // buildings, where a cockpit can see dozens at once. Measured as a framerate below GLASS 1 in
+    // the cockpit, and it also drove the billboard texture cache over its cap, which then evicted
+    // the stable entries — the scatter species, the gate, the statue — while the frame was still
+    // holding them. Pink bushes and a gate drawn as a hovering bush, from one unmeasured change.
   // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
   // a back-corner blade’s average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
   // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
@@ -22415,6 +22448,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // of the canvas (see offCanvasLaterally). Skipped before anything is built or queued — the point
     // is to not pay for it at all, not to pay and then not show it.
     if (it.off || (occluded && occluded.has(it))) continue;
+    MARK_TILE = it.wx + "," + it.wy;   // see the ⚠ on MARK_TILE: a bake is named by its tile
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
     if (it.c.mark === 'statue') {
       const art = (g) => drawStatue(g, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now);
