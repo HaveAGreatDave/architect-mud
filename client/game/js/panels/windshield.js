@@ -75,6 +75,21 @@ let _obsHgt = 0;                // current view altitude fraction — drawers sh
 // variable written once per frame, immediately before the pass that reads it.
 let _hlStr = 0;
 
+// The pane the whole renderer was eyeballed against: 1200 wide by 560 tall. It is written down as
+// a ratio because two separate things need it — the scatter constants below, and the vertical
+// scale in paintWindshield, which follows the height only as far as this shape and then follows
+// the width instead (see the ⚠ on `focal`). At exactly this aspect both arms agree, so the number
+// that ships for a desktop pane is unchanged.
+const VIEW_ASPECT = 1200 / 560;
+
+// THE VERTICAL SCALE OF THE WORLD, FOR A PANE OF ANY SHAPE.
+//
+// Exported and named rather than left inline because a wrong answer here is INVISIBLE: nothing
+// throws, nothing is missing, the city is simply the wrong shape — which is how a phone shipped at
+// nearly five times the tuned stretch without anything noticing. See the ⚠ at the call site for
+// what the `min` is doing; `scripts/shapes/freecam.mjs` holds it to the reference.
+export function viewFocal(W, H) { return Math.min(H, W / VIEW_ASPECT) * 0.55; }
+
 // ── ⚠ GROUND SCATTER IS SIZED IN PIXELS, AND A PIXEL IS NOT A UNIT OF THE WORLD ────────────
 //
 // Every building in this file is projected: a wall is a world-z height run through 'cam.proj', so
@@ -1634,7 +1649,29 @@ export function paintWindshield(id, view) {
   // Perspective SCALE is a fixed focal length — independent of the horizon position,
   // so pitching (which moves the horizon) only tilts the view and never squashes the
   // world/buildings. depthGround stays for the older per-obstacle paths.
-  const vx = W / 2, depthGround = H - horizonY, focal = H * 0.55;
+  // ── ⚠ AND THE VERTICAL SCALE MUST NOT FOLLOW THE CANVAS ALONE ─────────────
+  //
+  // The two axes came from two different places: `makeCam` takes the lateral focal length off the
+  // WIDTH (`FL = (W/2)/1.15`) and the vertical scale is this `focal`, off the HEIGHT. That means
+  // the picture was stretched to whatever aspect the canvas happened to be, rather than the canvas
+  // being a window onto one world. At the 1200×560 the sim was tuned in, the two land at 522 and
+  // 308 — a deliberate wider-than-tall look — and every other shape of pane departs from it:
+  //
+  //     desktop cockpit  1000×400   0.86× the tuned ratio
+  //     desktop external 1400×800   1.22×
+  //     phone cockpit     375×471   2.70×
+  //     phone external    375×812   4.64×      ← a building nearly five times too tall
+  //
+  // So the vertical scale follows the height only up to the aspect the look was tuned at, and past
+  // that it follows the WIDTH. A taller pane then shows MORE SKY AND GROUND instead of magnifying
+  // the world into a smear, which is what a window does.
+  //
+  // ⚠ IT IS A `min`, WHICH MEANS IT CAN ONLY EVER REDUCE STRETCH AND NEVER ADD IT. At the tuned
+  // aspect the two arms are equal and this is the number that shipped, exactly — `1200/560` is not
+  // a fudge factor, it is the pane the constants above were eyeballed against, and the arithmetic
+  // reduces to `H * 0.55` for it. Wider-than-tuned panes are untouched; only the stretched ones
+  // move, and they move toward the look every other pane already has.
+  const vx = W / 2, depthGround = H - horizonY, focal = viewFocal(W, H);
   ctx.lineWidth = 1;
   const gridCol = rgb(mix(gTop, [180, 220, 200], 0.5), 0.16 + speed * 0.12);
   ctx.strokeStyle = gridCol;
@@ -5887,6 +5924,12 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_ration: [84, 84, 78],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
   ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [112, 102, 82], ty_meridian_bronze: [96, 68, 40],
+  // Sheet copper gone to verdigris — a MATERIAL rather than one building's key, because the city
+  // already had two of them and they were the same three numbers written out twice: the Meridian's
+  // ogee cupola and the Hall of Records' dome. Both now shade from here, along with the Meridian's
+  // roof decks, so a crown and the terraces under it are provably one metal instead of several
+  // greens that were each picked to look right on their own.
+  ty_verdigris: [78, 138, 118],
   // Halcyon Towers — dark smoked-teal curtain glass for the futuristic twisting spire.
   ty_halcyon: [26, 42, 62],
   // Solenne Residences — warm champagne/bronze curtain glass for the opulent tapered spire.
@@ -6489,7 +6532,7 @@ export function climbOutClear(f, lat, height) {
 const TR = () => Math.max(0.5, TUNE.texRes || 1);
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
-const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab', 'ty_reach_hangar', 'ty_reach_rust', 'ty_reach_dynamo', 'ty_reach_tank', 'ty_reefer', 'ty_stack_dk', 'ty_melt_tank', 'ty_2cell']);   // ...+ Two-Cell Supply, a shop built out of corrugated sheet   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block
+const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab', 'ty_reach_hangar', 'ty_reach_rust', 'ty_reach_dynamo', 'ty_reach_tank', 'ty_reefer', 'ty_stack_dk', 'ty_melt_tank', 'ty_2cell', 'ty_verdigris']);   // ...+ Two-Cell Supply, a shop built out of corrugated sheet   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block   // ...+ the Meridian's copper: SEAM_ROOF does the work on the deck, but a fascia that used it as a side must read as sheet and not as a window grid
 const GLASS_WALL = new Set(['ty_halcyon', 'ty_solenne', 'ty_ksab_glass', 'ty_yacht_glass']);   // …+ the Echelon's saloon glazing, which is a curtain wall lying on its side, never a tenement grid   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
 const DECO_WALL = new Set(['ty_meridian']);   // bespoke art-deco limestone: reeded vertical piers + tall paired windows + chevron spandrels (The Meridian)
 // ── STRUCTURE IS NOT A BUILDING, AND IT WAS BEING SKINNED LIKE ONE ───────────
@@ -6655,6 +6698,14 @@ const TIMBER_WALL = new Set(['ty_reach_saloon', 'ty_reach_saloon_dk', 'ty_reach_
 // different length and tone, the butt line ragged. Read from above (which is how the flight sim
 // mostly sees a roof) it is the single most recognisable wild-west surface there is.
 const SHAKE_ROOF = new Set(['ty_reach_shake', 'ty_reach_motel_roof', 'ty_reach_bath_roof']);
+// STANDING-SEAM COPPER, GONE TO VERDIGRIS. Sheet copper laid in bays with the joins folded up into
+// raised seams — the roof an expensive pre-war building has, and the reason a deco tower's crown is
+// green rather than grey. What makes it read as METAL and not as a green gravel roof is the seams:
+// a regular run of raised ribs catching the light along one edge and shadowing along the other,
+// with the patina blotching ACROSS them rather than following them, because the oxide does not care
+// where the bays are. Fresh copper is left showing at the seam crowns, where a century of feet and
+// weather keep rubbing it back to the metal.
+const SEAM_ROOF = new Set(['ty_verdigris']);
 // ── THE MATERIALS, AS PAINTERS ───────────────────────────────────────────────
 //
 // These were the bodies of the material family branches in wallTex, and they are out here because
@@ -7381,6 +7432,46 @@ export function roofTex(biome, night) {
           g.fillRect(x + off + sw - px, y - jag, px, ch + px * 2 + jag);
         }
         g.fillStyle = 'rgba(0,0,0,0.24)'; g.fillRect(0, y, S, px);   // the course above, shadowing this one
+      }
+      return c;
+    }
+    // Standing-seam copper. Bays of flat sheet, the joins folded up into raised ribs, patina
+    // blotched across the lot and the seam crowns rubbed back to bright metal.
+    if (SEAM_ROOF.has(biome)) {
+      const k = (m, t = 0) => {   // t lerps the patina toward raw copper (a warm [150,96,58])
+        const r = w[0] + (150 - w[0]) * t, gg = w[1] + (96 - w[1]) * t, b = w[2] + (58 - w[2]) * t;
+        return `rgb(${Math.min(255, r * m) | 0},${Math.min(255, gg * m) | 0},${Math.min(255, b * m) | 0})`;
+      };
+      const px = Math.max(1, tr | 0);
+      g.fillStyle = k(0.76); g.fillRect(0, 0, S, S);
+      // The patina, laid down FIRST and across the bays — the oxide does not know where the seams
+      // are, and blotching that lines up with them is the tell that reads as painted stripes.
+      const P = Math.round(14 * tr);
+      for (let i = 0; i < P; i++) {
+        const bx = frac(i * 2.7) * S, by = frac(i * 5.3) * S;
+        const bw = (2 + frac(i * 1.9) * 5) * tr, bh = (2 + frac(i * 3.1) * 4) * tr;
+        g.fillStyle = k(0.64 + frac(i * 7.7) * 0.40);
+        g.fillRect(bx | 0, by | 0, Math.max(1, bw | 0), Math.max(1, bh | 0));
+      }
+      // The bays and their seams. Each rib is lit down one side and shadowed down the other, so it
+      // reads as standing proud even at the one or two pixels a far roof gets.
+      //
+      // ⚠ THE BAY COUNT IS FIXED AND THE RIB SCALES, NOT THE OTHER WAY ROUND. The default tile is
+      // 16px (`texRes` 1) and a rib cannot be thinner than one texel, so a bay chosen as a fraction
+      // small enough to look like real seam spacing puts HALF the tile under rib — which stops
+      // reading as sheet with ribs on it and starts reading as wide painted stripes. Three bays is
+      // what 16 pixels can actually say; at texRes 2 the same three get a proportionally finer rib.
+      const bay = Math.max(5, Math.round(S / 3));
+      for (let x = 0; x < S + bay; x += bay) {
+        const i = (x / bay) | 0;
+        g.fillStyle = 'rgba(0,0,0,0.26)'; g.fillRect(x - px, 0, px, S);                 // the shadowed flank
+        g.fillStyle = k(1.02); g.fillRect(x, 0, px, S);                                 // the seam crown
+        // Rubbed back toward raw metal along the crown — short, and only on some of them. A long
+        // run of it on every seam reads as rust streaks rather than as wear.
+        if (frac(i * 4.3) > 0.45) {
+          g.fillStyle = k(0.94, 0.30 + frac(i * 8.9) * 0.22);
+          g.fillRect(x, frac(i * 6.1) * S | 0, px, Math.max(1, (2 + frac(i * 2.2) * 2) * tr | 0));
+        }
       }
       return c;
     }
@@ -8837,7 +8928,12 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
       const rp = t.map((q) => [q.sx, q.sy]), rtex = roofTex(PF ? biome.roof : biome, night);
       let rf = 0; for (const q of t) rf += q.f; rf /= t.length;
       const rfog = fogWeight(rf);
-      const flat = whole ? null : rgb(flatRoofCol(biome, night));
+      // ⚠ THE ROOF PALETTE, NOT THE BOX'S. Every other read in this block already resolves
+      // `PF ? biome.roof : biome`; this one took the raw argument, so a per-face box handed the
+      // ARRAY straight to `WALL_COL[...]`, got undefined, and fell back to the generic dark grey.
+      // Only the clipped case, so only a per-face box you drive UNDER — but that is precisely the
+      // soffit this branch exists to keep from changing colour on the frame it starts clipping.
+      const flat = whole ? null : rgb(flatRoofCol(PF ? biome.roof : biome, night));
       // A horizontal roof quad's depth collapses to its tile centre's f (f is linear in x,y, so the
       // 4-corner average of a centred box = the centre value) — so EVERY concentric roof stacked on one
       // centre (a stepped tower's cornice ledges + the setback roofs beneath them) ties at one depth and
@@ -9446,6 +9542,50 @@ export function cliffLatticeSmoke() {
   return out;
 }
 
+// A CanvasGradient's average colour: what one flat face should be when the painter used a ramp.
+//
+// It is an integral rather than "take the middle stop", because the stops are unevenly spaced by
+// design — the cab glass puts its sky reflection in the top 55% and its deep sill in the last 45% —
+// and a middle stop would report whichever one happens to be listed second. Outside the first and
+// last stop a canvas gradient holds the end colour, so those two constant runs are part of it.
+function gradAvg(stops) {
+  const cs = [];
+  for (const [o, c] of stops) { const v = cssRgb(c); if (v) cs.push([Math.max(0, Math.min(1, o)), v]); }
+  if (!cs.length) return null;
+  cs.sort((a, b) => a[0] - b[0]);
+  const acc = [0, 0, 0, 0];
+  const add = (v, w) => { for (let i = 0; i < 4; i++) acc[i] += v[i] * w; };
+  add(cs[0][1], cs[0][0]);                       // the constant run above the first stop
+  for (let i = 0; i + 1 < cs.length; i++) {
+    const w = cs[i + 1][0] - cs[i][0];
+    if (w > 0) for (let k = 0; k < 4; k++) acc[k] += (cs[i][1][k] + cs[i + 1][1][k]) / 2 * w;
+  }
+  add(cs[cs.length - 1][1], 1 - cs[cs.length - 1][0]);   // …and below the last
+  return acc;
+}
+// A drum facet's mesh skin: the fill the painter would have used, as numbers.
+//
+// `style` is either the per-facet closure or a plain fillStyle (the cap disc), and every drum
+// closure in this file reads exactly one thing off its facet — `f.nl` — so a synthetic facet is
+// enough. The two screen-y arguments are the facet's screen extent, which only ever sets a
+// gradient's endpoints; the stops it gets filled with are in 0..1 either way, so they can be zero.
+//
+// ⚠ IT FAILS BACK TO TODAY, NOT TO BLACK. A style that throws or returns something unreadable
+// yields no override, which leaves the face exactly as it shipped before this — the palette
+// texture. That is the safe direction in a browser and an invisible one in CI, so `gl:mesh` asserts
+// the override is present on every drum face of all 173 models instead.
+function drumSkin(style, nl) {
+  let fill = style;
+  if (typeof style === 'function') {
+    try { fill = style({ nl }, 0, 0); } catch { return null; }
+  }
+  const v = (fill && typeof fill === 'object' && Array.isArray(fill.stops))
+    ? gradAvg(fill.stops)
+    : cssRgb(fill);
+  if (!v) return null;
+  return { flat: true, rgbOverride: [v[0], v[1], v[2]], alpha: Math.max(0, Math.min(1, v[3])) };
+}
+
 // A faceted vertical DRUM (cylinder/cone) through the world camera — the rounded alternative to
 // draw3DBoxAt for towers/tanks that shouldn't read as a blocky box. N side facets run from world-z
 // z0→z1, radius rb (bottom)→rt (top), centred on (dx,dy). `style(f, top, bot)` returns a fillStyle
@@ -9454,29 +9594,69 @@ export function cliffLatticeSmoke() {
 // culled (same normal·view test the boxes use, chase-`back` folded in) and the rest painted far→near
 // for painter depth. `cap` optionally fills the top disc (a flat roof). No wall texture — the caller's
 // `style` owns the surface, so this is how a smooth glass/metal skin gets drawn instead of windows.
-function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
+// ⚠ `pal` IS OPTIONAL AND IT IS THE ONLY WAY A DRUM CAN SAY WHAT IT IS MADE OF. A drum's PAINT is
+// the `style` closure and its CAPTURE is the ambient `SHAPE_PAL` — two facts about one solid, with
+// nothing tying them together, so a drum shaded green by a hand-written style is recorded, meshed,
+// LOD-drawn and baked into the cold open as whatever palette its BUILDING happens to carry. On the
+// 2-D renderer that only showed up past `lodNear`; with the mass on the GPU it is what the drum
+// looks like from every distance. The Meridian's verdigris cupola was buff limestone on the GPU for
+// exactly this reason. Pass the palette whenever `style` is not derived from `SHAPE_PAL`.
+//
+// ── AND THE MESH ASKS THE STYLE, RATHER THAN GUESSING FROM THE PALETTE ───────
+//
+// `pal` fixes what the SHAPE capture records — the LOD, collision and the cold open. It cannot fix
+// what the MESH draws, because most drums have no palette to name: their colour is a literal RGB
+// ramp written into the closure, and 68 of the 78 call sites in this file are like that. So the
+// mesh calls `style` itself, once per facet, at exactly the `nl` the painter would have handed it,
+// and records the answer. No new palettes and no per-arm authoring; the drum is simply the colour
+// the arm chose, which is the whole of what a port owes it.
+//
+// ⚠ `flat: true` IS LOAD-BEARING AND rgbOverride ALONE DOES NOTHING. The mass shader is
+// `surf = mix(vColor, texture(atlas), uTextured * solid)` with `solid = 1 - flat`, and `uTextured`
+// is ONE uniform for the whole draw — so a face that keeps a `pal` and omits `flat` is textured,
+// and its override is never read at all. That is not a hypothetical: it is what the sound-stage
+// sawtooth roof did. A 2-D drum facet is one fill with no texture and no light ramp, so `flat` is
+// also simply the truth about it, the same answer the barrel roof gives.
+//
+// ⚠ THE COLOUR IS BAKED AT DAY, because `captureModelMesh` captures at `night = 0` and the mesh
+// cache is keyed on footprint/height/seed/facing and NOT on the clock — deliberately, since being
+// uploaded once is the entire argument for GLASS 2. So a drum stops crossfading into its night
+// texture and behaves like every other flat face in the mesh (trim, panels, coping, barrel roofs),
+// which is a trade of the wrong colour all day for the right colour frozen at noon. The city's own
+// point lights still land on it: that loop runs whatever `flat` says.
+function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap, pal) {
+  const P = pal || SHAPE_PAL;
   // Recorded ahead of the per-facet backface cull below — capture wants the whole solid, not the
   // half of it a stub camera happens to face.
-  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: z0, wz1: z1, rb, rt, n: N, cap: !!cap, pal: SHAPE_PAL }); return; }
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: z0, wz1: z1, rb, rt, n: N, cap: !!cap, pal: P }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
+  // ⚠ ONE KEY DIRECTION, READ BY BOTH BRANCHES. It sat below the mesh branch as a paint-only local,
+  // which is how the two renderers get to disagree about which side of a silo is lit — the exact
+  // shape of bug this whole function is being fixed for. It is a fixed direction rather than the
+  // sun, and always has been; the mesh reproduces the painter, it does not improve on it.
+  const lx = -0.7, ly = -0.7;
   if (MESH_SINK) {
     for (let i = 0; i < N; i++) {
       const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2;
+      const nx = Math.cos(am), ny = Math.sin(am);
       MESH_SINK.push({
-        kind: 'wall', pal: SHAPE_PAL, seed: 0,
+        kind: 'wall', pal: P, seed: 0,
+        ...drumSkin(style, Math.max(0, nx * lx + ny * ly)),
         p: [[dx + Math.cos(a0) * rt, dy + Math.sin(a0) * rt, z1], [dx + Math.cos(a1) * rt, dy + Math.sin(a1) * rt, z1],
             [dx + Math.cos(a1) * rb, dy + Math.sin(a1) * rb, z0], [dx + Math.cos(a0) * rb, dy + Math.sin(a0) * rb, z0]],
-        n: [Math.cos(am), Math.sin(am), 0],
+        n: [nx, ny, 0],
       });
     }
     if (cap) {
       const ring = [];
       for (let i = 0; i < N; i++) { const a = i / N * 6.2832; ring.push([dx + Math.cos(a) * rt, dy + Math.sin(a) * rt, z1]); }
-      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, p: ring, n: [0, 0, 1] });
+      // The cap is already a plain fillStyle rather than a closure — the painter fills the top disc
+      // with it and nothing else, so it needs no facet and no light dot.
+      MESH_SINK.push({ kind: 'roof', pal: P, seed: 0, ...drumSkin(cap, 0), p: ring, n: [0, 0, 1] });
     }
     return;
   }
-  const lx = -0.7, ly = -0.7, rm = (rb + rt) / 2, F = [];
+  const rm = (rb + rt) / 2, F = [];
   for (let i = 0; i < N; i++) {
     const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2, nx = Math.cos(am), ny = Math.sin(am);
     if (nx * (dx + nx * rm) + ny * (dy + ny * rm) - (nx * (cam.ex || 0) + ny * (cam.ey || 0)) >= 0) continue;   // facet faces away → cull
@@ -15181,6 +15361,25 @@ function applyRegionGrade(ctx, W, H, horizonY, g, w, now, night) {
 // because the light it hangs on those surfaces is not geometry and stays on the 2-D canvas.
 let FLAT_OFF = false;
 function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
+  // ⚠ SHAPE FIRST, AND THIS WAS THE ONE PRIMITIVE THAT HAD IT THE OTHER WAY ROUND. Every other
+  // primitive that fills a mesh tests SHAPE_SINK before MESH_SINK and returns; this tested MESH_SINK
+  // first, which matters because THE TWO CAPTURES NEST. `detailLayer`'s derived list asks
+  // `shapeForModel`, which captures by RE-RUNNING this very arm with SHAPE_SINK set — and that
+  // re-run happens at the shape capture's own displaced position, eight tiles from where the mesh
+  // capture put the building. With no guard here, every flat surface the arm emits during that
+  // re-entrant pass was pushed into the OUTER mesh at the inner pass's coordinates, then given the
+  // outer translation on the way out: the KSAB sound stage's entrance visor and The Coyote's Rest's
+  // gable ended up 18 TILES from their buildings, hanging in open air.
+  //
+  // ⚠ IT ONLY EVER FIRED ON A COLD CACHE AND ON ONE FACING, which is why nothing had seen it.
+  // `shapeForModel` memoises per model, so only the FIRST capture re-enters — and `gl:mesh` captures
+  // each model once before its four-facing sweep, so by the time the sweep ran the cache was warm
+  // and all four agreed. In the game the first capture is the one that ships: a building's mesh is
+  // built the first time it comes into view, cold, and then cached and drawn from.
+  //
+  // A flat quad is an adornment surface and contributes no mass, so returning is also simply what
+  // it should have been doing — the shape capture wants the envelope, not the trim on it.
+  if (SHAPE_SINK) return;
   // Recorded ahead of the backface cull and the near-plane clip below, for the reason every other
   // primitive records ahead of its own: a mesh is looked at from everywhere, and where the camera
   // happens to be is not a property of the building. A flat quad carries its own colour rather
@@ -15270,18 +15469,27 @@ function sawtoothRoof(ctx, cam, dx, dy, E, hx, hy, z0, rh, teeth, roofc, glassc,
     // ⚠ THE COLOUR, NOT THE CSS STRING. These four carried `css` and nothing downstream read it, so
     // every sound-stage roof came out of the mesh wearing its palette wall texture instead of the
     // roofing and glazing the painter gives it.
+    //
+    // ⚠ AND `flat`, WITHOUT WHICH THE OVERRIDE IS NEVER READ — which is what shipped, so the roof
+    // went on wearing the wall texture and the fix above looked done. The mass shader is
+    // `mix(vColor, texture(atlas), uTextured * solid)` with `solid = 1 - flat`, and `uTextured` is
+    // one uniform for the whole draw: a face that keeps its `pal` and omits `flat` is textured, and
+    // `vColor` is dead weight. The painter draws all four of these through `emitFlat` as a single
+    // plain fill with no texture and no light ramp, so `flat` is also simply true of them. They stay
+    // kind roof/wall rather than kind flat so the mass gate goes on comparing them with the capture,
+    // the same split the barrel roof makes.
     const roofRgb = cssRgb(roofc), glassRgb = cssRgb(glassc);
     for (let i = 0; i < teeth; i++) {
       const yb = -hy + i * step, yr = yb + step;
       const slope = Math.hypot(step, rh) || 1;
-      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, rgbOverride: roofRgb,
+      MESH_SINK.push({ kind: 'roof', pal: SHAPE_PAL, seed: 0, flat: true, rgbOverride: roofRgb,
         p: [L(-hx, yb, z0), L(hx, yb, z0), L(hx, yr, z0 + rh), L(-hx, yr, z0 + rh)],
         n: [-E[0] * rh / slope, -E[1] * rh / slope, step / slope] });
-      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: glassRgb,
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, flat: true, rgbOverride: glassRgb,
         p: [L(-hx, yr, z0 + rh), L(hx, yr, z0 + rh), L(hx, yr, z0), L(-hx, yr, z0)], n: [E[0], E[1], 0] });
-      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: roofRgb,
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, flat: true, rgbOverride: roofRgb,
         p: [L(hx, yb, z0), L(hx, yr, z0 + rh), L(hx, yr, z0)], n: [px, py, 0] });
-      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, rgbOverride: roofRgb,
+      MESH_SINK.push({ kind: 'wall', pal: SHAPE_PAL, seed: 0, flat: true, rgbOverride: roofRgb,
         p: [L(-hx, yb, z0), L(-hx, yr, z0 + rh), L(-hx, yr, z0)], n: [-px, -py, 0] });
     }
     return;
@@ -18085,14 +18293,31 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // Revolved by hand rather than through a mass primitive, so it records itself: without this the
       // dome is a hole in the captured envelope and the stone lantern above it stands on nothing in
       // any consumer drawing the silhouette. A tapered drum is what a hemisphere is, to a wireframe.
-      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: drum1, wz1: apex, rb: domeR, rt: domeR * 0.08, n: 12, cap: false, pal: SHAPE_PAL });
-      for (let i = 0; i <= 7; i++) {
-        const t = i / 7, z = drum1 + domeH * t, r = domeR * Math.sqrt(Math.max(0, 1 - t * t));
-        const pts = []; let ok = true;
-        for (let k = 0; k <= 20; k++) { const ang = k / 20 * Math.PI * 2, p = cam.proj(dx + Math.cos(ang) * r, dy + Math.sin(ang) * r, z); if (p.f <= 0.08) { ok = false; break; } pts.push(p); }
-        if (!ok) continue;
-        const sh = 0.72 + 0.28 * t, fill = `rgb(${Math.round(78 * sh)},${Math.round(138 * sh)},${Math.round(118 * sh)})`, dd = pts.reduce((s, p) => s + p.f, 0) / pts.length;
-        emitFace(dd, () => { ctx.globalAlpha = alpha; ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; });
+      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: drum1, wz1: apex, rb: domeR, rt: domeR * 0.08, n: 12, cap: false, pal: 'ty_verdigris' });
+      // ⚠ A DOME IS A SURFACE, NOT A STACK OF PLATES — the same fix the Meridian's cupola got, for
+      // the same reason and with the same shape. This was eight flat horizontal discs at eight
+      // heights with nothing between them, so from below the crown you looked straight between the
+      // layers and the dome read as floating rings.
+      //
+      // ⚠ AND IT WAS A HOLE IN GLASS 2 ENTIRELY. Those discs went out on a raw `emitFace` and never
+      // touched a mass primitive, so the mesh had NOTHING above the drum: measured, 0 mesh faces in
+      // the whole 1.72→2.16 span, which on the GPU is a Hall of Records with its lantern and beacon
+      // standing on open air. Bands through `drawFacetDrum` reach the mesh the way every other solid
+      // does, and carry their own colour there — see `drumSkin`.
+      //
+      // ⚠ AND IT MUST NOT RUN UNDER A CAPTURE, or eight bands record eight drums on top of the one
+      // pushed above. The push is the capture; these are the paint, and they are alternatives.
+      if (!SHAPE_SINK) {
+        const CU = WALL_COL.ty_verdigris;
+        const BANDS = 7;
+        const rAt = (t) => domeR * Math.sqrt(Math.max(0, 1 - t * t));
+        for (let i = 0; i < BANDS; i++) {
+          const t0 = i / BANDS, t1 = (i + 1) / BANDS;
+          const sh = 0.72 + 0.28 * t0;   // the old vertical gradient, lighter toward the apex
+          const style = (f) => { const k = sh * (0.82 + (f.nl || 0) * 0.36);
+            return `rgb(${Math.round(CU[0] * k)},${Math.round(CU[1] * k)},${Math.round(CU[2] * k)})`; };
+          drawFacetDrum(ctx, cam, dx, dy, drum1 + domeH * t0, drum1 + domeH * t1, rAt(t0), rAt(t1), 20, alpha, style, null, 'ty_verdigris');
+        }
       }
       // 8) Stone lantern + finial, and one amber aviation beacon on the very crown.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, apex, apex + h * 0.14, colPal, seed + 6, night, alpha, false);
@@ -18298,10 +18523,23 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       //                 street entrance under a gilt nameplate, corner pilasters + gargoyles up the shaft, a
       //                 finned deco coronet, and a stone lantern under a verdigris copper cupola. No neon.
       const trim = 'ty_archive_col', bronze = 'ty_meridian_bronze';                                     // warm limestone trim + dark bronze entrance metal
+      // ⚠ THE ROOF IS A DIFFERENT MATERIAL FROM THE WALL UNDER IT, and on a stepped tower that is
+      // most of what you see. Six of these boxes have a top a pilot looks straight down at — the two
+      // setback terraces, the crown deck, and the three cornice ledges between them — and every one
+      // of them was buff limestone, so from the air the building was one colour with a green hat on.
+      // A deco tower of this vintage is roofed in sheet copper: verdigris decks and copper flashing
+      // over the ledges, the same metal the cupola already is.
+      //
+      // The SIDES stay limestone. `facePals` resolves a spec into the box's own side order, so this
+      // changes the roof face and nothing else — no new geometry in either renderer, and the mesh
+      // carries `biome.roof` to the GPU exactly as the painter reads it here.
+      const copper = 'ty_verdigris';
+      const deck = facePals(E, { side: pal, roof: copper });                                            // a terrace: limestone walls, copper deck
+      const ledge = facePals(E, { side: trim, roof: copper });                                          // a cornice ledge: stone fascia, copper flashing
       const zPod = h * 0.24, zShaft = h * 1.04, zSet1 = h * 1.52, zSet2 = h * 1.86, zCrown = h * 2.06;
       // 1) Stepped lobby podium, capped by a broad projecting cornice ledge.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, zPod, pal, seed + 5, night, alpha, true);              // podium
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.40, zPod, zPod + h * 0.045, trim, seed + 6, night, alpha, true);   // base cornice band
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.40, zPod, zPod + h * 0.045, ledge, seed + 6, night, alpha, true);   // base cornice band
       // 1b) GRAND BRONZE STREET ENTRANCE on the frontage (E): a tall glazed-bronze portal in a fluted stone
       //     surround, a projecting marquee canopy over the sidewalk, and flanking amber torchère pylons. The
       //     front-centre pilaster (§3) is skipped so the bay reads clear between the corner piers.
@@ -18326,15 +18564,15 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         draw3DBoxAt(ctx, cam, px, py, fh * (sx && sy ? 0.13 : 0.10), zPod, zShaft + h * 0.04, trim, seed + 20 + sx * 3 + sy, night, alpha, false);
       }
       // 4) Shaft cornice ledge → first setback tier.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.13, zShaft, zShaft + h * 0.045, trim, seed + 7, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.13, zShaft, zShaft + h * 0.045, ledge, seed + 7, night, alpha, true);
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, zShaft + h * 0.045, zSet1, pal, seed + 1, night, alpha, true);
       // 5) Second cornice → upper setback tier.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.89, zSet1, zSet1 + h * 0.04, trim, seed + 8, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.89, zSet1, zSet1 + h * 0.04, ledge, seed + 8, night, alpha, true);
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.58, zSet1 + h * 0.04, zSet2, pal, seed + 2, night, alpha, true);
       // 6) Crown cornice → set-back penthouse block, ringed by a finned DECO CORONET: vertical limestone fins
       //    stepping proud of the parapet (corners peaking highest) — the crown that reads best from the air.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.64, zSet2, zSet2 + h * 0.035, trim, seed + 9, night, alpha, true);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.40, zSet2 + h * 0.035, zCrown, pal, seed + 3, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.64, zSet2, zSet2 + h * 0.035, ledge, seed + 9, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.40, zSet2 + h * 0.035, zCrown, deck, seed + 3, night, alpha, true);   // the crown deck — the roof the cupola stands on, and the one a pilot looks straight down at
       for (const [sx, sy] of [[-1,-1],[1,-1],[1,1],[-1,1],[0,-1],[1,0],[0,1],[-1,0]]) {
         const [fx, fy] = F(sx * fh * 0.42, sy * fh * 0.42);
         draw3DBoxAt(ctx, cam, fx, fy, fh * (sx && sy ? 0.06 : 0.05), zSet2 + h * 0.02, zCrown + h * (sx && sy ? 0.11 : 0.06), trim, seed + 50 + sx * 3 + sy, night, alpha, true);
@@ -18344,10 +18582,14 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const lantZ0 = zCrown, lantZ1 = zCrown + h * 0.16, lantR = fh * 0.26;
       const stoneRGB = WALL_COL[trim] || [150, 142, 124];
       const lantStyle = (f) => { const s = (night ? 0.44 : 0.78) + f.nl * 0.5; return `rgba(${stoneRGB[0]*s|0},${stoneRGB[1]*s|0},${stoneRGB[2]*s|0},0.97)`; };
-      drawFacetDrum(ctx, cam, dx, dy, lantZ0, lantZ1, lantR * 1.04, lantR, 8, alpha, lantStyle, null);
+      drawFacetDrum(ctx, cam, dx, dy, lantZ0, lantZ1, lantR * 1.04, lantR, 8, alpha, lantStyle, null, trim);   // ⚠ `lantStyle` shades from the TRIM palette, so the capture has to be told that too — see drawFacetDrum
       const cupH = h * 0.30, cupR = lantR * 1.12, apex = lantZ1 + cupH;
       // Records itself for the same reason the Hall of Records' dome does — see there.
-      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: lantZ1, wz1: apex, rb: cupR, rt: cupR * 0.08, n: 12, cap: false, pal: SHAPE_PAL });
+      // ⚠ AND IN COPPER, NOT IN `SHAPE_PAL`. This recorded the building's own limestone, so every
+      // reader downstream of capture — the distance LOD, the cold-open skyline, and now the GLASS 2
+      // mesh, which is the shipping renderer — drew the Meridian's verdigris crown as buff stone.
+      // Only the near 2-D painter ever knew it was green, because only the painter runs the bands.
+      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: lantZ1, wz1: apex, rb: cupR, rt: cupR * 0.08, n: 12, cap: false, pal: copper });
       // ⚠ A DOME IS A SURFACE, NOT A STACK OF PLATES. This was nine flat horizontal discs at nine
       // heights, with nothing between them — so from any angle below the crown you looked straight
       // between the layers and the cupola read as floating rings rather than a solid roof. The
@@ -18362,7 +18604,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // where the collision, the distance LOD and the cold open expect one. The push above is the
       // capture; these are the paint, and they are alternatives rather than a sequence.
       if (!SHAPE_SINK) {
-        const CU = [78, 138, 118];   // verdigris copper, the same base tone the discs used
+        const CU = WALL_COL[copper];   // ⚠ READ, not restated: the decks below are roofed in this palette, and two hand-matched greens drift the moment either is tuned
         const rAt = (t) => cupR * Math.pow(Math.max(0, 1 - t * t), 0.7);
         const BANDS = 8;
         for (let i = 0; i < BANDS; i++) {
@@ -18370,7 +18612,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
           const sh = 0.68 + 0.32 * t0;   // the old vertical gradient, lighter toward the apex
           const style = (f) => { const k = sh * (0.82 + (f.nl || 0) * 0.36);
             return `rgb(${Math.round(CU[0] * k)},${Math.round(CU[1] * k)},${Math.round(CU[2] * k)})`; };
-          drawFacetDrum(ctx, cam, dx, dy, lantZ1 + cupH * t0, lantZ1 + cupH * t1, rAt(t0), rAt(t1), 12, alpha, style, null);
+          drawFacetDrum(ctx, cam, dx, dy, lantZ1 + cupH * t0, lantZ1 + cupH * t1, rAt(t0), rAt(t1), 12, alpha, style, null, copper);   // the mesh runs THESE, not the push above — see the ⚠ on drawFacetDrum
         }
       }
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.05, apex, apex + h * 0.12, trim, seed + 4, night, alpha, false);   // stone finial
@@ -20070,7 +20312,17 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
 // a Proxy: a Proxy that auto-returns functions would silently swallow a genuine typo, whereas this
 // throws loudly the first time an arm reaches for something new — which is exactly when we want to
 // hear about it.
-const SHAPE_STUB_GRAD = { addColorStop() {} };
+// ⚠ IT RECORDS ITS STOPS, because a gradient is the one thing a caller can hand back that is not a
+// colour, and three drum skins do exactly that — Chrome Court's mirror steel, the control tower's
+// cab glass and the hangar lounge. The mesh needs one colour per face and had no way to ask for it,
+// so those three fell back to their building's wall texture: a mirror-steel tower wearing a window
+// grid. Every mesh capture runs against THIS ctx (see captureModelMesh) in node and in the browser
+// alike, so recording here is the whole of it. Shared and reset per gradient, which is safe because
+// a style builds one, fills it and returns — nothing interleaves.
+const SHAPE_STUB_GRAD = {
+  stops: [],
+  addColorStop(o, c) { this.stops.push([o, c]); },
+};
 // Counts the two canvas operations that actually cost real time — building a gradient, and setting
 // shadowBlur (a software blur pass per draw). Face count turned out to be a poor proxy for cost, so
 // the bake measures the expensive ops directly instead.
@@ -20085,9 +20337,9 @@ const SHAPE_STUB_CTX = {
   fillRect() {}, strokeRect() {}, clearRect() {}, fillText() {}, strokeText() {},
   translate() {}, rotate() {}, scale() {}, setTransform() {}, resetTransform() {}, transform() {},
   drawImage() {}, measureText() { return { width: 0 }; },
-  createLinearGradient() { SHAPE_STUB_COST.grads++; return SHAPE_STUB_GRAD; },
-  createRadialGradient() { SHAPE_STUB_COST.grads++; return SHAPE_STUB_GRAD; },
-  createConicGradient() { SHAPE_STUB_COST.grads++; return SHAPE_STUB_GRAD; }, createPattern() { return null; },
+  createLinearGradient() { SHAPE_STUB_COST.grads++; SHAPE_STUB_GRAD.stops = []; return SHAPE_STUB_GRAD; },
+  createRadialGradient() { SHAPE_STUB_COST.grads++; SHAPE_STUB_GRAD.stops = []; return SHAPE_STUB_GRAD; },
+  createConicGradient() { SHAPE_STUB_COST.grads++; SHAPE_STUB_GRAD.stops = []; return SHAPE_STUB_GRAD; }, createPattern() { return null; },
 };
 // shadowBlur is a plain property everywhere else, so count it with a setter rather than a method.
 Object.defineProperty(SHAPE_STUB_CTX, 'shadowBlur', {
@@ -21142,6 +21394,188 @@ const D_CHROME = [
   { kind: 'antennaCluster', z: [0, 2.40, 0], r: [0.20, 0, 0], hh: [0, 0.24, 0], n: 5 },
 ];
 
+// ── THE SECOND BATCH: THE ARMS THAT SERVE MORE THAN ONE BUILDING ────────────
+//
+// Every table below was authored against `shapeForModel`'s own numbers for that arm rather than
+// against a reading of its code, which is what stops a coping band floating over its building.
+//
+// ⚠ AND `half`/`cy` IS THE BOX'S OWN FOOTPRINT MULTIPLIER, CAPPED AT 1.0. `draw3DBoxAt` clamps a
+// half-width to 0.44, so a box authored at `fh * 1.15` genuinely has its wall at 1.1 fh-units by
+// the time fh reaches 0.4 — author the part at 1.15 and it hangs off the side. Author UNDER the
+// clamp and it is at worst a few centimetres inside a wall, which nothing can see.
+//
+// ⚠ AND NONE OF THEM CARRIES A `signBoard`. Thirteen of these fifteen arms already sign themselves
+// with a `neonBlade` or a `marqueeBand`, so a board would be a second sign on the same frontage —
+// and the two that do not (a boarded-up unit, a wharf shed) are buildings that should not be
+// signed at all. Signage is an arm's business; trim is this table's.
+
+// A shut-up shopfront: a slab to 0.78h at fh*0.86, a band across it to 0.88h at fh*0.94, a roller
+// shutter over the window and a plywood board above. That band is the ONLY roof-bearing box in the
+// arm, so it is the only place coping can go; the rest is the service run nobody came back for.
+const D_VACANT = [
+  { kind: 'parapet', z: [0, 0.88, 0], half: [0.94, 0, 0], hh: [0, 0.022, 0] },
+  { kind: 'conduit', cy: [0.86, 0, 0], z: [0, 0.66, 0], half: [0.66, 0, 0], r: [0.012, 0, 0] },
+  { kind: 'cableRun', cy: [0.86, 0, 0], z: [0, 0.72, 0], half: [0.78, 0, 0], sag: [0, 0.055, 0], r: [0.009, 0, 0] },
+  { kind: 'vent', cx: [0.72, 0, 0], cy: [0.86, 0, 0], z: [0, 0.30, 0], w: [0.10, 0, 0], hh: [0, 0.045, 0] },
+];
+
+// One grimy box to 0.62h at fh*0.9, with a neon blade over the door and a kitchen vent already
+// smoking out of the left flank. A rattling window unit on the roof, an extract grille, and the
+// conduit and dropped cable that say nobody has paid an electrician in a decade.
+const D_DIVEBAR = [
+  { kind: 'parapet', z: [0, 0.62, 0], half: [0.90, 0, 0], hh: [0, 0.028, 0] },
+  { kind: 'acUnit', cx: [-0.42, 0, 0], cy: [0.22, 0, 0], z: [0, 0.62, 0], w: [0.10, 0, 0], d: [0.08, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'vent', cx: [0.60, 0, 0], cy: [0.90, 0, 0], z: [0, 0.40, 0], w: [0.11, 0, 0], hh: [0, 0.050, 0] },
+  { kind: 'conduit', cy: [0.90, 0, 0], z: [0, 0.50, 0], half: [0.70, 0, 0], r: [0.012, 0, 0] },
+  { kind: 'cableRun', cy: [0.90, 0, 0], z: [0, 0.555, 0], half: [0.80, 0, 0], sag: [0, 0.040, 0], r: [0.009, 0, 0] },
+  { kind: 'pipe', cx: [-0.78, 0, 0], cy: [0.90, 0, 0], z0: [0, 0.03, 0], z1: [0, 0.60, 0], r: [0.017, 0, 0] },
+];
+
+// A single smart box to 0.98h at fh*0.8. Kept deliberately spare — a boutique that bristles with
+// plant stops reading as expensive, the same argument D_CLINIC makes.
+const D_BOUTIQUE = [
+  { kind: 'parapet', z: [0, 0.98, 0], half: [0.80, 0, 0], hh: [0, 0.032, 0] },
+  { kind: 'acUnit', cx: [0.34, 0, 0], cy: [-0.24, 0, 0], z: [0, 0.98, 0], w: [0.075, 0, 0], d: [0.060, 0, 0], hh: [0, 0.032, 0] },
+  { kind: 'conduit', cy: [0.80, 0, 0], z: [0, 0.86, 0], half: [0.60, 0, 0], r: [0.009, 0, 0] },
+  { kind: 'vent', cx: [-0.60, 0, 0], cy: [0.80, 0, 0], z: [0, 0.72, 0], w: [0.070, 0, 0], hh: [0, 0.032, 0] },
+];
+
+// A box to 0.72h at fh*1.1 — exactly the clamp at fh 0.4, hence the parapet at 1.0 — with a door
+// awning at 0.1–0.2h. The shutter goes ABOVE that awning, which is what a pawnbroker's window
+// looks like from the street after closing.
+const D_PAWN = [
+  { kind: 'parapet', z: [0, 0.72, 0], half: [1.00, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'shutter', cx: [0.50, 0, 0], cy: [1.00, 0, 0], z: [0, 0.40, 0], half: [0.34, 0, 0], hh: [0, 0.10, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.60, 0], half: [0.86, 0, 0], r: [0.011, 0, 0] },
+  { kind: 'vent', cx: [-0.62, 0, 0], cy: [1.00, 0, 0], z: [0, 0.52, 0], w: [0.080, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'acUnit', cx: [-0.30, 0, 0], cy: [-0.30, 0, 0], z: [0, 0.72, 0], w: [0.085, 0, 0], d: [0.065, 0, 0], hh: [0, 0.036, 0] },
+];
+
+// A box to 0.7h at fh*1.15 under a cornice to 0.82h at fh*1.24 — both over the clamp, so the coping
+// is authored at 1.0. The centre door is fh*0.46 wide, so the two shutters sit outboard of it.
+const D_ARMORY = [
+  { kind: 'parapet', z: [0, 0.82, 0], half: [1.00, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'shutter', cx: [0.72, 0, 0], cy: [1.00, 0, 0], z: [0, 0.42, 0], half: [0.24, 0, 0], hh: [0, 0.11, 0] },
+  { kind: 'shutter', cx: [-0.72, 0, 0], cy: [1.00, 0, 0], z: [0, 0.42, 0], half: [0.24, 0, 0], hh: [0, 0.11, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.62, 0], half: [0.82, 0, 0], r: [0.011, 0, 0] },
+  { kind: 'acUnit', cx: [0.28, 0, 0], cy: [0.24, 0, 0], z: [0, 0.82, 0], w: [0.080, 0, 0], d: [0.065, 0, 0], hh: [0, 0.034, 0] },
+];
+
+// A shed to 0.6h at fh*1.08, a canopy across the front at 0.42–0.5h, and three dock doors under it.
+// ⚠ NO WALL VENT: the canopy spans the whole frontage at exactly the height one would want, so it
+// would be a grille inside a soffit. The plant goes on the roof instead.
+const D_FORWARDER = [
+  { kind: 'parapet', z: [0, 0.60, 0], half: [1.00, 0, 0], hh: [0, 0.026, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.555, 0], half: [0.90, 0, 0], r: [0.012, 0, 0] },
+  { kind: 'acUnit', cx: [-0.50, 0, 0], cy: [-0.30, 0, 0], z: [0, 0.60, 0], w: [0.10, 0, 0], d: [0.080, 0, 0], hh: [0, 0.042, 0] },
+  { kind: 'acUnit', cx: [0.44, 0, 0], cy: [0.20, 0, 0], z: [0, 0.60, 0], w: [0.08, 0, 0], d: [0.065, 0, 0], hh: [0, 0.034, 0] },
+  { kind: 'pipe', cx: [-0.96, 0, 0], cy: [1.00, 0, 0], z0: [0, 0.03, 0], z1: [0, 0.58, 0], r: [0.016, 0, 0] },
+];
+
+// ── AND THE THIN ONES, WHERE A TABLE IS WORTH THE MOST ──────────────────────
+//
+// These arms serve one building each, and every one of them was a box and a lid: five walls, a
+// roof and the eight faces of the derived coping band. That is where trim buys the most picture
+// per face, which is why they are here alongside the arms that serve four.
+
+// The Embassy Hotel & Bar: ONE box to 1.55h at fh*0.98, and the tallest thing in the game that had
+// no trim at all. A guest slab that height wants the escape and the balconies its neighbours have.
+const D_EMBASSY = [
+  { kind: 'parapet', z: [0, 1.55, 0], half: [0.98, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'fireEscape', cx: [0.42, 0, 0], cy: [0.98, 0, 0], z0: [0, 0.30, 0], z1: [0, 1.40, 0], half: [0.26, 0, 0], out: [0.16, 0, 0], flights: 5 },
+  { kind: 'balcony', cx: [-0.44, 0, 0], cy: [0.98, 0, 0], z: [0, 0.72, 0], half: [0.24, 0, 0], out: [0.14, 0, 0], rail: [0, 0.05, 0] },
+  { kind: 'balcony', cx: [-0.44, 0, 0], cy: [0.98, 0, 0], z: [0, 1.08, 0], half: [0.24, 0, 0], out: [0.14, 0, 0], rail: [0, 0.05, 0] },
+  { kind: 'roofTank', cx: [0.50, 0, 0], cy: [-0.40, 0, 0], z: [0, 1.55, 0], r: [0.17, 0, 0], hh: [0, 0.085, 0] },
+  { kind: 'acUnit', cx: [-0.36, 0, 0], cy: [-0.30, 0, 0], z: [0, 1.55, 0], w: [0.10, 0, 0], d: [0.080, 0, 0], hh: [0, 0.045, 0] },
+  { kind: 'conduit', cy: [0.98, 0, 0], z: [0, 0.26, 0], half: [0.80, 0, 0], r: [0.012, 0, 0] },
+];
+
+// The Cherry Pit and the generic nightclub box: one slab to 0.8h at fh*1.05, with twin neon blades
+// standing off the roofline at cx ±0.4. The roof plant is set behind them so it never fouls one.
+const D_CLUBBOX = [
+  { kind: 'parapet', z: [0, 0.80, 0], half: [1.00, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'acUnit', cx: [-0.50, 0, 0], cy: [-0.34, 0, 0], z: [0, 0.80, 0], w: [0.11, 0, 0], d: [0.085, 0, 0], hh: [0, 0.045, 0] },
+  { kind: 'acUnit', cx: [0.52, 0, 0], cy: [-0.20, 0, 0], z: [0, 0.80, 0], w: [0.085, 0, 0], d: [0.070, 0, 0], hh: [0, 0.036, 0] },
+  { kind: 'vent', cx: [-0.74, 0, 0], cy: [1.00, 0, 0], z: [0, 0.44, 0], w: [0.12, 0, 0], hh: [0, 0.055, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.68, 0], half: [0.86, 0, 0], r: [0.012, 0, 0] },
+  { kind: 'cableRun', cy: [1.00, 0, 0], z: [0, 0.735, 0], half: [0.90, 0, 0], sag: [0, 0.045, 0], r: [0.009, 0, 0] },
+];
+
+// A corner bar: one box to 0.95h at fh*0.82 with an awning at 0.22–0.34h. The downpipe runs the
+// full height at the near corner, which is the cheapest thing that stops a flat wall reading flat.
+const D_BARBOX = [
+  { kind: 'parapet', z: [0, 0.95, 0], half: [0.82, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'acUnit', cx: [-0.34, 0, 0], cy: [-0.24, 0, 0], z: [0, 0.95, 0], w: [0.085, 0, 0], d: [0.070, 0, 0], hh: [0, 0.036, 0] },
+  { kind: 'vent', cx: [0.56, 0, 0], cy: [0.82, 0, 0], z: [0, 0.62, 0], w: [0.085, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'conduit', cy: [0.82, 0, 0], z: [0, 0.78, 0], half: [0.64, 0, 0], r: [0.011, 0, 0] },
+  { kind: 'pipe', cx: [-0.72, 0, 0], cy: [0.82, 0, 0], z0: [0, 0.03, 0], z1: [0, 0.92, 0], r: [0.016, 0, 0] },
+];
+
+// A low block to 0.56h at fh*1.1 with a glazed front to 0.459h. Three dryer vents in a row above
+// the glazing, which is the one detail that says laundromat and nothing else.
+const D_LAUNDRY = [
+  { kind: 'parapet', z: [0, 0.56, 0], half: [1.00, 0, 0], hh: [0, 0.024, 0] },
+  { kind: 'vent', cx: [-0.80, 0, 0], cy: [1.00, 0, 0], z: [0, 0.50, 0], w: [0.10, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'vent', cx: [-0.50, 0, 0], cy: [1.00, 0, 0], z: [0, 0.50, 0], w: [0.10, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'vent', cx: [-0.20, 0, 0], cy: [1.00, 0, 0], z: [0, 0.50, 0], w: [0.10, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'acUnit', cx: [0.50, 0, 0], cy: [-0.30, 0, 0], z: [0, 0.56, 0], w: [0.10, 0, 0], d: [0.080, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.548, 0], half: [0.90, 0, 0], r: [0.011, 0, 0] },
+];
+
+// A podium to 0.24h at fh*1.2 under a guest tower to 1.4h at fh*1.0. The podium coping is authored
+// at 1.06 so it reads as a LEDGE between the tower wall (1.0) and the podium edge (the clamp) —
+// and kept low, because the arm lands its marquee band at 0.27h directly above it. The balconies
+// go on the right-hand bays; the neon blade is at cx −0.55.
+const D_HOTELBOX = [
+  { kind: 'parapet', z: [0, 0.24, 0], half: [1.06, 0, 0], hh: [0, 0.018, 0] },
+  { kind: 'parapet', z: [0, 1.40, 0], half: [1.00, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'balcony', cx: [0.40, 0, 0], cy: [1.00, 0, 0], z: [0, 0.62, 0], half: [0.26, 0, 0], out: [0.13, 0, 0], rail: [0, 0.05, 0] },
+  { kind: 'balcony', cx: [0.40, 0, 0], cy: [1.00, 0, 0], z: [0, 0.94, 0], half: [0.26, 0, 0], out: [0.13, 0, 0], rail: [0, 0.05, 0] },
+  { kind: 'balcony', cx: [0.40, 0, 0], cy: [1.00, 0, 0], z: [0, 1.26, 0], half: [0.26, 0, 0], out: [0.13, 0, 0], rail: [0, 0.05, 0] },
+  { kind: 'roofTank', cx: [-0.42, 0, 0], cy: [-0.40, 0, 0], z: [0, 1.40, 0], r: [0.16, 0, 0], hh: [0, 0.080, 0] },
+  { kind: 'acUnit', cx: [0.34, 0, 0], cy: [-0.32, 0, 0], z: [0, 1.40, 0], w: [0.090, 0, 0], d: [0.070, 0, 0], hh: [0, 0.040, 0] },
+];
+
+// A box to 0.7h at fh*1.15 under a broad cornice to 0.9h at fh*1.22 — both over the clamp, so the
+// coping is at 1.0. Plenty of plant, because a casino is a building with a lot of air in it.
+const D_CASINOBOX = [
+  { kind: 'parapet', z: [0, 0.90, 0], half: [1.00, 0, 0], hh: [0, 0.032, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.66, 0], half: [0.88, 0, 0], r: [0.012, 0, 0] },
+  { kind: 'acUnit', cx: [-0.44, 0, 0], cy: [-0.30, 0, 0], z: [0, 0.90, 0], w: [0.10, 0, 0], d: [0.080, 0, 0], hh: [0, 0.042, 0] },
+  { kind: 'acUnit', cx: [0.44, 0, 0], cy: [-0.34, 0, 0], z: [0, 0.90, 0], w: [0.085, 0, 0], d: [0.070, 0, 0], hh: [0, 0.035, 0] },
+  { kind: 'vent', cx: [0.78, 0, 0], cy: [1.00, 0, 0], z: [0, 0.44, 0], w: [0.10, 0, 0], hh: [0, 0.045, 0] },
+];
+
+// A box to 0.85h at fh*0.95 with a service canopy at 0.16–0.26h and a loading-dock canopy at
+// 0.42–0.5h that a truck backs under. The downpipe is outboard of both (they reach fh*0.7 and
+// fh*1.02 respectively) so it never runs down the inside of a soffit.
+const D_FREIGHT_OFFICE = [
+  { kind: 'parapet', z: [0, 0.85, 0], half: [0.95, 0, 0], hh: [0, 0.030, 0] },
+  { kind: 'acUnit', cx: [-0.40, 0, 0], cy: [-0.30, 0, 0], z: [0, 0.85, 0], w: [0.090, 0, 0], d: [0.070, 0, 0], hh: [0, 0.038, 0] },
+  { kind: 'conduit', cy: [0.95, 0, 0], z: [0, 0.74, 0], half: [0.76, 0, 0], r: [0.011, 0, 0] },
+  { kind: 'vent', cx: [0.66, 0, 0], cy: [0.95, 0, 0], z: [0, 0.58, 0], w: [0.080, 0, 0], hh: [0, 0.038, 0] },
+  { kind: 'pipe', cx: [-0.84, 0, 0], cy: [0.95, 0, 0], z0: [0, 0.03, 0], z1: [0, 0.82, 0], r: [0.015, 0, 0] },
+];
+
+// A shed to 0.55h at fh*1.08 between two steel columns at cx ±0.8 that carry on to 0.85h. Two big
+// extract grilles either side of centre, sized for a shop that is making something.
+const D_FABRICATION = [
+  { kind: 'parapet', z: [0, 0.55, 0], half: [1.00, 0, 0], hh: [0, 0.024, 0] },
+  { kind: 'vent', cx: [0.50, 0, 0], cy: [1.00, 0, 0], z: [0, 0.40, 0], w: [0.13, 0, 0], hh: [0, 0.060, 0] },
+  { kind: 'vent', cx: [-0.50, 0, 0], cy: [1.00, 0, 0], z: [0, 0.40, 0], w: [0.13, 0, 0], hh: [0, 0.060, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.52, 0], half: [0.90, 0, 0], r: [0.013, 0, 0] },
+  { kind: 'acUnit', cy: [-0.34, 0, 0], z: [0, 0.55, 0], w: [0.11, 0, 0], d: [0.090, 0, 0], hh: [0, 0.045, 0] },
+];
+
+// A deck to 0.44h at fh*1.02 with one steel mast beside it. Low, so everything is at eye height
+// from a boat: the run of conduit, the slack shore cable, and the winch house on the deck.
+const D_WHARF = [
+  { kind: 'parapet', z: [0, 0.44, 0], half: [1.00, 0, 0], hh: [0, 0.020, 0] },
+  { kind: 'conduit', cy: [1.00, 0, 0], z: [0, 0.38, 0], half: [0.88, 0, 0], r: [0.012, 0, 0] },
+  { kind: 'cableRun', cy: [1.00, 0, 0], z: [0, 0.41, 0], half: [0.92, 0, 0], sag: [0, 0.035, 0], r: [0.009, 0, 0] },
+  { kind: 'acUnit', cx: [0.50, 0, 0], cy: [0.20, 0, 0], z: [0, 0.44, 0], w: [0.10, 0, 0], d: [0.080, 0, 0], hh: [0, 0.040, 0] },
+];
+
 const ARM_DETAIL = {
   office: D_OFFICE,
   police: D_CIVIC,
@@ -21154,6 +21588,24 @@ const ARM_DETAIL = {
   truck_depot: D_TRUCK_DEPOT,
   diner: D_DINER,
   chrome: D_CHROME,
+  // The second batch. Six arms that each draw more than one building, and nine that draw one
+  // apiece and were a box and a lid before this.
+  vacantunit: D_VACANT,
+  divebar: D_DIVEBAR,
+  boutique: D_BOUTIQUE,
+  pawn: D_PAWN,
+  armory: D_ARMORY,
+  freight_forwarder: D_FORWARDER,
+  embassy: D_EMBASSY,
+  strip: D_CLUBBOX,
+  club: D_CLUBBOX,
+  bar: D_BARBOX,
+  laundromat: D_LAUNDRY,
+  hotel: D_HOTELBOX,
+  casino: D_CASINOBOX,
+  freight_office: D_FREIGHT_OFFICE,
+  fabrication: D_FABRICATION,
+  wharf: D_WHARF,
 };
 
 // ── THE TRIM NOBODY HAS TO AUTHOR ───────────────────────────────────────────

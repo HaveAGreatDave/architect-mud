@@ -11,7 +11,7 @@
 // game by a hair that nobody would ever trace back to here.
 //
 // So: same inputs, with and without the new fields present, compared with Object.is.
-import { makeCam } from '../../client/game/js/panels/windshield.js';
+import { makeCam, viewFocal } from '../../client/game/js/panels/windshield.js';
 
 const HEADINGS = [0, 17, 45, 90, 128.5, 180, 233.75, 270, 359.9];
 const BACKS = [0, 0.4, 1.6, 3.2];
@@ -279,3 +279,39 @@ for (const heading of HEADINGS) {
 
 console.log(`  ${pbad || bad ? "✗" : "✓"} pitch — unpitched cameras are bit-identical, and a pitched one tilts`);
 if (pbad) process.exit(1);
+
+// ── THE PANE'S SHAPE MUST NOT BE THE WORLD'S SHAPE ──────────────────────────
+//
+// `makeCam` takes the LATERAL focal length off the width — `FL = (W/2)/1.15` — and paintWindshield
+// supplies the VERTICAL one separately. While that second number came off the height alone, the
+// two scales were independent and the picture was stretched to whatever aspect the canvas happened
+// to be. Nothing catches that: no throw, no gap, no missing surface — the city is simply the wrong
+// shape, which is how a phone in the external view shipped at 4.6x the tuned stretch.
+//
+// The tuned pane is 1200x560. These hold `viewFocal` to it.
+{
+  let bad = 0;
+  const ck = (c, m) => { if (!c) { console.error(`  ✗ aspect: ${m}`); bad++; } };
+  // The lateral scale, as makeCam derives it — asked of the real camera rather than restated here,
+  // so this cannot pass while the two halves disagree.
+  const fl = (W) => makeCam(W, 100, 100, { heading: 0, map: null }).FL;
+  const ratio = (W, H) => viewFocal(W, H) / fl(W);
+  const REF = ratio(1200, 560);
+
+  // 1. At the pane it was tuned in, the answer is the one that shipped — exactly, not nearly.
+  ck(Object.is(viewFocal(1200, 560), 560 * 0.55), 'the reference pane is not bit-identical to H*0.55');
+  // 2. A pane WIDER than the reference is untouched: this may only ever remove stretch, never add.
+  for (const [W, H] of [[1400, 400], [1000, 300], [1920, 600]]) {
+    ck(Object.is(viewFocal(W, H), H * 0.55), `a wider-than-tuned pane ${W}x${H} was changed`);
+  }
+  // 3. A pane TALLER than the reference keeps the reference proportions rather than stretching.
+  for (const [W, H] of [[375, 471], [375, 812], [500, 900], [1200, 1400]]) {
+    ck(Math.abs(ratio(W, H) - REF) < 1e-12, `a tall pane ${W}x${H} does not hold the tuned ratio`);
+  }
+  // 4. And the general statement of both: nothing anywhere is stretched past the tuned look.
+  for (let W = 240; W <= 2000; W += 37) for (let H = 200; H <= 1600; H += 53) {
+    ck(ratio(W, H) <= REF + 1e-12, `${W}x${H} projects taller than the tuned ratio`);
+  }
+  console.log(`  ${bad ? '✗' : '✓'} aspect — the world keeps its tuned proportions on every pane shape`);
+  if (bad) process.exit(1);
+}

@@ -1826,7 +1826,12 @@ function ensureFlightSimStyles() {
       border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
     .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     /* Orbit-camera reset (⟲) — only meaningful in external view, so hidden until then. Sits just left of ◎ EXT. */
-    .fsim-orbitreset{ display:none; position:absolute; top:6px; right:132px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+    /* ⚠ CLEAR OF THE VIEW BUTTON, WHICH IT WAS NOT. The row is right-anchored, so a button's slot
+       is 'right' plus its own width: the view button sits at right:92 and is 52 wide, so it runs to
+       right:144 — and this sat at right:132, twelve pixels underneath it. Both are only ever shown
+       together (this one is external-view-only, and that is the view the button switches out of),
+       so the orbit reset was permanently half-buried under the corner of ◎ EXT. */
+    .fsim-orbitreset{ display:none; position:absolute; top:6px; right:150px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; height:22px; width:24px; padding:0; font-size:13px; line-height:20px; text-align:center; cursor:pointer; }
     .fsim-orbitreset:hover{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     body.fsim-external .fsim-orbitreset{ display:block; }
@@ -2211,9 +2216,13 @@ function ensureFlightSimStyles() {
     @media (max-width: 720px){
       /* Give the out-the-window view as much height as we can; the instrument band and the
          stick band below it stay compact so the window dominates the screen. */
-      .fsim-view{ height: clamp(240px, 58vh, 560px); }
-      .fsim-glass{ height: 128px; }                     /* compact instrument + control band */
-      .fsim-ctl{ height: 104px; }                       /* compact stick band */
+      .fsim-view{ height: clamp(260px, 64vh, 620px); }
+      .fsim-glass{ height: 104px; }                     /* compact instrument + control band */
+      /* ⚠ 'min-height' AND 'height', BECAUSE THE BASE RULE SETS THE ONE THIS DOES NOT. '.fsim-ctl'
+         carries 'min-height:120px', which a plain 'height:104px' here loses to — so the compact
+         stick band was 120px on every phone that has ever run this, and the 104 was decoration.
+         Measured at 375×812 before the fix: the band reported 120. */
+      .fsim-ctl{ height: 92px; min-height: 0; }         /* compact stick band */
       /* Drop the flavour radio + maker's-plate placard, and the nav-map screen + PFD: that
          leaves TWO clear gauges (the engine/fuel dial cluster + the big speed/alt overlay) and
          hands the whole bottom band to just the flight stick. */
@@ -2223,11 +2232,54 @@ function ensureFlightSimStyles() {
       .fsim-yoke{ flex:1 1 auto; }                      /* just the flight stick fills the bottom band */
       .fsim-yoke-svg{ left:7%; top:2%; width:86%; height:96%; transform-origin:50% 58%; }   /* dropped into its own band, clear of the gauges */
       .fsim-climbmark{ top:60%; }
-      /* big readable speed + altitude, over the view (normally external-view only) */
-      .fsim-extg{ display:flex; right:8px; bottom:8px; gap:5px; }
+      /* ── ⚠ THE READOUTS GO TO THE TOP, BECAUSE THE BOTTOM IS WHERE THE HANDS ARE ──────────
+         Big readable speed + altitude, over the view (normally external-view only). They were
+         pinned bottom-right, which on a phone is the same 120 × 70 patch of glass as the RIGHT
+         RUDDER PEDAL: measured at 375×812 the two overlapped by 54 × 38 px, so a thumb reaching
+         for right rudder pressed a number instead. Nothing else lives under the button row, and a
+         gauge you only ever READ is exactly the thing to put where nobody needs to touch. */
+      .fsim-extg{ display:flex; right:8px; top:38px; bottom:auto; gap:5px; }
       .fsim-extg-row{ min-width:0; padding:3px 10px; gap:6px; }
       .fsim-extg-row b{ font-size:24px; min-width:50px; }
       .fsim-extg-lbl, .fsim-extg-u{ font-size:11px; }
+
+      /* ── THE OUTSIDE VIEW, ON A PHONE ────────────────────────────────────────────────────
+         Out here every control is an overlay on one full-screen pane, and the desktop placement
+         assumes a pane wide enough to lay them out side by side. At 375 px they land on top of
+         each other — measured, before this: the throttle cluster (x 8-178) under the stick pad
+         (118-258), both rudder pedals straddling the stick (75-301), and the readouts (247-367)
+         over the right pedal AND the corner of the pad. Four controls and a gauge in one 150 px
+         strip, which is the "cluttered and not particularly useful" this fixes.
+         One thumb per corner instead: THROTTLE LEFT · STICK CENTRE · RUDDER RIGHT · numbers up
+         top. The pedals stop flanking the stick — that reads well on a desktop pane and there is
+         simply not the width for it here, and a control you cannot press is worth less than one
+         that has moved. */
+      body.fsim-external .fsim-glass{ left:4px; bottom:4px; height:118px; }
+      /* A basis narrower than the cluster's content, which does NOT squeeze the starter (it is a
+         fixed 52 px circle) — it takes the slack out of the flap/trim row beside it, 170 → 146. */
+      body.fsim-external .fsim-rightctl{ flex:0 0 104px; }
+      /* ⚠ THE STICK MOVES OFF CENTRE, THE THROTTLE DOES NOT GET SMALLER. The cluster is 146 px
+         wide because that is what its contents measure — a 56 px lever beside a 52 px starter and
+         a 84 px flap/trim row — and the ways to make it narrower all cost touch target: shrink the
+         children, or scale the whole thing, which takes the 52 px starter under the size a thumb
+         can reliably hit. A phone has 375 px and three controls that each need a real hit area, so
+         the answer is to stop pretending the stick has the whole width to be centred in. It gets
+         the lane between the throttle and the pedals instead, which is 44 px right of centre and
+         reads as deliberate rather than as a collision. */
+      body.fsim-external .fsim-ctl{ bottom:6px; height:100px; padding-left:44px; }
+      body.fsim-external .fsim-yoke,
+      body.fsim-external #fsim-root.fsim-painted .fsim-yoke{ flex:0 0 112px; }
+      /* The stick GRAPHIC overhangs its grab pad by design (the pad is deliberately narrow so it
+         cannot swallow the pedals). At 159% it overhung to x 84-294 here, which is across the
+         throttle at one end and the pedals at the other — visible clutter even though the SVG
+         takes no pointers. Out here it sits exactly on its own pad and overhangs nothing. */
+      body.fsim-external .fsim-yoke-svg{ left:0; width:100%; height:126%; }
+      body.fsim-external .fsim-pedals{ left:auto; right:6px; transform:none; bottom:10px; gap:10px; }
+      body.fsim-external .fsim-pedal{ width:34px; height:34px; }
+      /* The weapons / spray / hopper strip clears the shortened throttle overlay (118 + 4 = 122),
+         not the 150 px one it was written against. */
+      body.fsim-external .fsim-weap,
+      body.fsim-external .fsim-spraybtn, body.fsim-external .fsim-hopbtn{ bottom:130px; }
     }`;
   document.head.appendChild(s);
 }

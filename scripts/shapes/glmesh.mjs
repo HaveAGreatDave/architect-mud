@@ -37,6 +37,39 @@ for (const { key, m } of ws.shapeModelRegistry()) {
   if (!mesh.length) { problems.push(`${key}: no mesh at all`); continue; }
   flats += mesh.length - mesh.filter((q) => q.kind !== 'flat').length;
 
+  // ── TRIM STAYS ON ITS BUILDING ──────────────────────────────────────────
+  //
+  // The mass faces are compared against the captured shape below, and the flat ones deliberately
+  // are not — they are the adornment surfaces and the shape does not carry them. That left the one
+  // thing an adornment can do wrong with nothing watching: leave the building entirely. It is the
+  // documented authoring hazard ("a coping band floating over its building") and it was also a real
+  // renderer bug — the KSAB sound stage and The Coyote's Rest put trim EIGHTEEN TILES out, because
+  // `emitFlat` tested MESH_SINK before SHAPE_SINK and the two captures nest.
+  //
+  // ⚠ IT HAS TO BE THE FIRST CAPTURE OF THE MODEL, WHICH IS WHY IT IS HERE AND NOT IN A PASS OF ITS
+  // OWN. That bug only fires on a COLD `shapeForModel` cache, because only the first capture
+  // re-enters the arm. Anything appended after the loop below runs warm and sees nothing wrong —
+  // which is exactly how the four-facing sweep at the bottom of this file missed it for months.
+  //
+  // The tolerance is set off what legitimately projects: a balcony and a fire escape reach 0.064
+  // tiles past the wall they hang on, a roof tank stands 0.121 above its roof, and the widest
+  // authored part in the city is 0.1. Half a tile is far above all of it and two orders below a
+  // part that has come off.
+  {
+    const mass = mesh.filter((f) => f.kind !== 'flat');
+    if (mass.length) {
+      let X = 0, Y = 0, Z = 0;
+      for (const f of mass) for (const p of f.p) { X = Math.max(X, Math.abs(p[0])); Y = Math.max(Y, Math.abs(p[1])); Z = Math.max(Z, p[2]); }
+      let outXY = 0, outZ = 0;
+      for (const f of mesh) if (f.kind === 'flat') for (const p of f.p) {
+        outXY = Math.max(outXY, Math.abs(p[0]) - X, Math.abs(p[1]) - Y);
+        outZ = Math.max(outZ, p[2] - Z);
+      }
+      if (outXY > 0.5) problems.push(`${key}: an adornment surface reaches ${outXY.toFixed(2)} tiles outside the model's own mass — it has come off the building`);
+      if (outZ > 0.6) problems.push(`${key}: an adornment surface stands ${outZ.toFixed(2)} tiles above the model's own roof`);
+    }
+  }
+
   // The captured shape, resolved at the same basis the mesh was built at.
   const segs = ws.shapeForModel(m, SEED) || [];
   const V = (p) => p[0] * FH + p[1] * H + p[2];
@@ -126,6 +159,48 @@ for (const { key, m } of ws.shapeModelRegistry()) {
     else if (sig.byKind !== ref.byKind) problems.push(`${key}: facing ${FACE_NAME[i]} is ${sig.byKind}, facing north is ${ref.byKind}`);
     else if (Math.abs(sig.z1 - ref.z1) > 1e-3 || Math.abs(sig.z0 - ref.z0) > 1e-3) problems.push(`${key}: facing ${FACE_NAME[i]} spans ${sig.z0.toFixed(4)}..${sig.z1.toFixed(4)}, facing north ${ref.z0.toFixed(4)}..${ref.z1.toFixed(4)}`);
     else if (Math.abs(sig.r - ref.r) > 0.05) problems.push(`${key}: facing ${FACE_NAME[i]} reaches ${sig.r.toFixed(3)}, facing north ${ref.r.toFixed(3)}`);
+  }
+}
+
+// ── A DRUM CARRIES THE COLOUR ITS ARM CHOSE ─────────────────────────────────
+//
+// A drum's paint is a `style` closure and its capture was the ambient palette, so on the GPU every
+// silo, tank, stack, kiln and cupola in the city wore its BUILDING's wall texture — a stainless pot
+// on a brick palette is brick. `drawFacetDrum` now asks the style and records the answer as an
+// `rgbOverride` + `flat`, and this is the gate on that, because the failure mode is a picture that
+// looks fine in isolation: `drumSkin` falls back to the palette when a style cannot be read, which
+// is the safe direction in a browser and an invisible one everywhere else.
+//
+// ⚠ `flat` IS CHECKED WITH THE OVERRIDE AND NOT INSTEAD OF IT. The mass shader samples the atlas
+// whenever `solid` is 1, so a face carrying an override and no `flat` has the override ignored
+// entirely — which is what the sound-stage sawtooth roof does. Half the fix is not the fix.
+//
+// The count is taken from `shapeForModel`, which records one drum per solid with its facet count,
+// so it is the arm's own statement of how many facets there should be rather than a number this
+// file invents. A dome painted as bands captures as ONE drum and meshes as many, so the assertion
+// is a floor, not an equality.
+// ⚠ THE FLAT RULE IS THE SHADER'S, NOT A GUESS AT IT. `context.js` packs
+// `f.flat != null ? !!f.flat : f.kind === 'flat'`, so a `kind: 'flat'` face is already unlit
+// without the field. Testing `f.flat` alone reports every adornment surface in the city — 854 of
+// them on the first run — which is a gate that fails on the thing it was written to protect.
+const isFlat = (f) => (f.flat != null ? !!f.flat : f.kind === 'flat');
+const V = (p, fh, h) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : p);
+const palettes = new Set(ws.wallPaletteInfo().map((r) => r.key));
+for (const { key, m } of ws.shapeModelRegistry()) {
+  const mesh = ws.captureModelMesh(m, { fh: FH, h: H, seed: SEED });
+  for (const f of mesh) {
+    if (f.rgbOverride && !isFlat(f)) { problems.push(`${key}: a ${f.kind} face carries an rgbOverride but is not flat, so the shader samples the atlas and the override is never read`); break; }
+  }
+  const drums = (ws.shapeForModel(m, SEED) || []).filter((s) => s.kind === 'drum');
+  if (!drums.length) continue;
+  const want = drums.reduce((a, d) => a + Math.max(5, d.n || 12) + (d.cap ? 1 : 0), 0);
+  const got = mesh.filter((f) => isFlat(f) && f.rgbOverride).length;
+  if (got < want) problems.push(`${key}: ${drums.length} drum(s) want at least ${want} faces carrying flat+rgbOverride, the mesh has ${got} — a drum fell back to its building's wall texture`);
+  // And the drum's captured palette must exist, or the LOD and the cold open draw it in the
+  // fallback grey while the mesh draws it correctly — the same disagreement one layer over.
+  for (const d of drums) {
+    if (d.pal && !palettes.has(d.pal)) problems.push(`${key}: a drum is captured as palette '${d.pal}', which is not in WALL_COL`);
+    if (!(V(d.wz1, FH, H) > V(d.wz0, FH, H))) problems.push(`${key}: a captured drum has no height`);
   }
 }
 

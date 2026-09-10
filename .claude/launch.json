@@ -18,6 +18,13 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/studio/serve.mjs", "5180"],
       "port": 5180
+    },
+
+    {
+      "name": "modelshop",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/modelshop/serve.mjs"],
+      "port": 5181
     }
   ]
 }
