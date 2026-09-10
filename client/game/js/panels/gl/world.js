@@ -22,7 +22,7 @@
 // order-sensitive key, a mesh built at the camera-relative position, and a set taken from what
 // survived the camera culls. `glLastFrame().builds` is the number, and over a turning camera it
 // should be 1.
-import { createGLView } from './context.js';
+import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, faceUVs } from './atlas.js';
 
 const scenes = new Map();
@@ -31,6 +31,84 @@ const scenes = new Map();
 // outside whether that is what is happening — a buffer rebuilt every frame draws exactly the same
 // picture as one rebuilt once. So the pass counts, and `glLastFrame().builds` is the number.
 let builds = 0;
+
+// ── THE CITY LIGHTS ITS OWN WALLS ───────────────────────────────────────────
+//
+// The mass shader takes point lights, and the list to give it already exists: `SPRITE_SINK` is
+// every light in the frame, collected by the arms that own them, as a world point + a colour +
+// an alpha. Up to now that list only ever drew DISCS. Handing the same entries to the wall
+// shader costs no new authoring, no new content and no second idea of where a light is.
+//
+// ⚠ HOW FAR A LIGHT REACHES COMES FROM HOW BRIGHT IT IS, NOT FROM HOW BIG ITS BLOOM IS DRAWN,
+// and the first cut had that backwards. A sprite carries a radius in SCREEN pixels, so converting
+// it back through the projection looks like the obvious answer — and it is an answer to the wrong
+// question. That radius is `clamp(k / f, lo, hi)`: a clamped screen size, chosen so a halo looks
+// right on a canvas, carrying almost nothing about how much light the source puts out. Measured,
+// it resolved every sign in the city to about half a tile of reach and the whole feature moved
+// ZERO pixels on a building lit by two neon signs — a wash the size of the mounting bracket.
+// Brightness is the quantity that decides reach, it needs no camera at all, and it cannot go wrong
+// at a device pixel ratio the way the projection round-trip can.
+//
+// ⚠ THE SELECTION IS A SCREEN QUESTION AND THE REACH IS NOT, and they are scored separately for
+// that reason. Twelve slots against a hundred and twenty lights in a dense frame, so what has to
+// be ranked is how much of the PICTURE each wash covers — `reach / distance`, weighted by how
+// bright it is. A light that reaches three tiles from forty tiles away covers nothing.
+//
+// ⚠ AND THE POSITIONS ARE IN THE WRONG FRAME BY DEFAULT. The mass is built at MAP-WINDOW tiles
+// so the buffer can be cached, and the camera is shifted by `ox/oy` to compensate; a sprite is
+// collected fresh each frame in camera-relative tiles and takes the plain camera. Those are the
+// two frames `drawSprites` is deliberately given the unshifted camera for, so a light crossing
+// into the shader has to be moved into the mesh own frame: `p_window = p_camera + (ox, oy)`.
+// A missed shift is a sub-tile error that reads as the wash sitting beside its sign.
+
+// ⚠ FOUR LOOK NUMBERS, EXPORTED SO THEY CAN BE SWEPT RATHER THAN ARGUED ABOUT. `__glLights()` in
+// the Modelshop walks them and reports what share of the wall pixels each setting actually moves,
+// which is how the first three got their values — the defaults below are the row that was chosen,
+// not a starting guess that nobody went back to.
+//
+//   minR  — what the faintest light still reaches, in tiles
+//   span  — how much further the brightest one reaches, over root brightness (root, because the
+//           interesting range is the dim half: linear puts every ordinary sign at the bottom)
+//   gain  — how bright the wash is, against a base in 0..1
+//   wrap  — how far round the light reaches; 0 is exactly lambert. See the ⚠ in context.js: a
+//           sign is mounted FLUSH on its wall, so a pure cosine is ~0 for the commonest case.
+export const LIGHT_TUNE = { minR: 0.8, span: 3.2, gain: 1.5, wrap: 0.6 };
+
+// ⚠ AND IT IS SCALED BY THE NIGHT, WHICH IS NOT THE SAME AS BEING LEFT TO THE SPRITE ALPHAS.
+// GLASS goes on drawing signage by day, dimmed — so without this the wash goes on landing too, and
+// a shopfront measured a pink cast over 19,000 pixels of its own wall AT NOON, mean 8/255. A sign
+// does not visibly light a sunlit wall, so `night` (1 at midnight, 0.5 at dusk, 0 by day, the same
+// scalar every arm shades against) multiplies the gain and the whole term is exactly zero at midday
+// rather than merely small.
+function pickLights(cam, sprites, night) {
+  if (!sprites || !sprites.length || !cam) return null;
+  const nightGain = LIGHT_TUNE.gain * Math.min(1, Math.max(0, night));
+  if (!(nightGain > 0.01)) return null;
+  const { sinh, cosh, back, fx = 0, fy = 0 } = cam;
+  const tx = back * sinh - fx, ty = -back * cosh - fy;
+  const ox = cam.ox || 0, oy = cam.oy || 0;
+  const out = [];
+  for (const s of sprites) {
+    if (!(s.a > 0.02)) continue;
+    const bx = s.x + tx, by = s.y + ty;
+    const f = bx * sinh - by * cosh;
+    if (!(f > 0.2)) continue;             // behind the eye, or on it
+    const c = s.rgb || [255, 255, 255];
+    // Brightness as the light own colour weighted the way an eye weights it, times its alpha.
+    const I = Math.min(1, (c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1) / 255 * s.a);
+    const r = LIGHT_TUNE.minR + LIGHT_TUNE.span * Math.sqrt(I);
+    const k = s.a * nightGain;
+    out.push({
+      p: [s.x + ox, s.y + oy, s.z],
+      rgb: [c[0] / 255 * k, c[1] / 255 * k, c[2] / 255 * k],
+      r,
+      score: I * r / f,
+    });
+  }
+  if (!out.length) return null;
+  if (out.length > MAX_LIGHTS) { out.sort((p, q) => q.score - p.score); out.length = MAX_LIGHTS; }
+  return out;
+}
 
 function sceneGL(id, w, h) {
   let g = scenes.get(id);
@@ -242,7 +320,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const camAt = (cam.ox || cam.oy)
     ? { ...cam, fx: (cam.fx || 0) + cam.ox, fy: (cam.fy || 0) + cam.oy }
     : cam;
-  g.view.draw(camAt, { ...(opts.draw || {}), cssH });
+  // ⚠ COMPUTED FROM THE PLAIN CAMERA AND HANDED TO THE SHIFTED ONE — see pickLights.
+  const lightList = opts.glLights === 0 ? null : pickLights(cam, opts.sprites, opts.night || 0);
+  g.view.draw(camAt, { ...(opts.draw || {}), lights: lightList, lightWrap: LIGHT_TUNE.wrap, cssH });
   // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
   // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
   // It cost an afternoon: the result looked like a floor (the backstop wash showed through the
@@ -274,6 +354,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
   // the anchor depth and a billboard that did not would be a different bush at every distance.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand);
-  return { faces: g.faces || 0, builds, lights, curtains, decals, scatter, ground, floor, canvas: g.canvas };
+  return { faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, scatter, ground, floor, canvas: g.canvas };
 }
 

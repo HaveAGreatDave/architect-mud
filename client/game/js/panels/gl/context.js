@@ -45,6 +45,7 @@ out float vDepth;
 out float vAlpha;
 out float vFlat;
 out float vJit;
+out vec3 vWorld;
 void main() {
   vec4 clip = uViewProj * vec4(aPos, 1.0);
   gl_Position = clip;
@@ -55,12 +56,15 @@ void main() {
   vAlpha = aAlpha;
   vFlat = aFlat;
   vJit = aJit;
+  vWorld = aPos;                // the city own lights need a position to fall off FROM
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
 
 // The shading GLASS already does, per fragment instead of per face: a key-light dot that warms the
 // lit side and cools the shadow side, and a distance fade into the sky. `uKey`/`uSky`/`uShadow` are
 // RENDER_TUNE's own vertex-light palette, handed in rather than restated.
+export const MAX_LIGHTS = 12;   // uniform slots, and the per-fragment loop bound
+
 const FRAG = `#version 300 es
 precision highp float;
 in vec3 vNormal;
@@ -71,6 +75,7 @@ in float vDepth;
 in float vAlpha;
 in float vFlat;
 in float vJit;
+in vec3 vWorld;
 uniform sampler2D uAtlas;
 uniform float uTextured;
 uniform vec3 uKeyDir;
@@ -90,6 +95,25 @@ uniform float uHazeFar;
 // as you settle onto the deck. The mass had no idea it existed and drew the real city at full
 // opacity straight over the airport, on every landing.
 uniform float uWorldBlend;
+// ── THE CITY LIGHTS ITS OWN WALLS ───────────────────────────────────────────
+//
+// Every light in GLASS is already collected as a world point, a colour and an alpha — that is what
+// the sprite layer draws. Up to now they were purely EMISSIVE: a neon sign was a bright shape in
+// front of a wall that had no idea it was there, lit only by one key direction for the whole city.
+// Feeding the same list in here costs no new authoring and no new content, and it is the difference
+// between a sign hanging in front of a building and a sign bolted to one.
+//
+// ⚠ DIFFUSE ONLY, AND DELIBERATELY WEAK. This must read as a wash on the wall nearest the sign, not
+// as a second sun: GLASS is a flat, chunky renderer and a specular highlight would look like a
+// different game. The falloff is linear in distance rather than inverse-square for the same reason —
+// inverse-square is physically right and blows out everything within a metre of a light.
+// ⚠ AND IT NEVER DARKENS. The term is added after the key shading, so a scene with no lights is
+// bit-identical to what shipped before — which is what makes this safe to leave on by default.
+uniform int uNLight;
+uniform vec3 uLightP[GLASS_MAX_LIGHTS];
+uniform vec3 uLightC[GLASS_MAX_LIGHTS];
+uniform float uLightR[GLASS_MAX_LIGHTS];
+uniform float uLightWrap;
 out vec4 outColor;
 void main() {
   vec3 n = normalize(vNormal);
@@ -112,6 +136,23 @@ void main() {
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
   vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(vRamp, 0.0, 1.0));
   vec3 base = mix(surf, shaded, clamp(uVLight, 0.0, 1.0) * solid);
+  // The city own lights, added on top of the key shading.
+  for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
+    if (i >= uNLight) break;
+    vec3 d = uLightP[i] - vWorld;
+    float dist = length(d);
+    float att = clamp(1.0 - dist / max(0.001, uLightR[i]), 0.0, 1.0);
+    if (att <= 0.0) continue;
+    // ⚠ WRAPPED, AND MEASURED INTO IT RATHER THAN CHOSEN. Straight lambert is the obvious term and
+    // it lights almost nothing here: the commonest light in GLASS is a sign mounted FLUSH on the
+    // wall behind it, so the direction from that wall to the light is nearly perpendicular to its
+    // own normal and the cosine is ~0. Measured, a pure cosine moved 0.5% of the wall pixels in a
+    // dense night frame — a feature that draws nothing and looks like restraint. 'uLightWrap' is
+    // how far round the light reaches; 0 is exactly lambert, so the term the shader shipped with
+    // is still expressible and still in the file.
+    float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uLightWrap) / (1.0 + uLightWrap));
+    base += uLightC[i] * (att * att * diff);
+  }
   // GLASS's own fog curve, squared, scaled by the same amount its slider sets — see fogWeight.
   float ff = clamp((vDepth - uFogNear) / max(0.001, uFogFar - uFogNear), 0.0, 1.0);
   float fog = ff * ff * uFogAmt;
@@ -126,6 +167,10 @@ void main() {
   float a = (1.0 - smoothstep(uHazeNear - vJit, uHazeFar - vJit, vDepth)) * clamp(vAlpha, 0.0, 1.0) * uWorldBlend;
   outColor = vec4(mix(base, uFog, fog) * a, a);
 }`;
+
+// The shader source carries a symbolic bound so the loop limit and the array sizes cannot drift
+// apart; there is one number and the GLSL is stamped from it.
+const withLights = (src) => src.split("GLASS_MAX_LIGHTS").join(String(MAX_LIGHTS));
 
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
@@ -150,8 +195,8 @@ export function createGLView(canvas) {
   canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
 
   const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, withLights(VERT), 'vertex'));
+  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, withLights(FRAG), 'fragment'));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(prog));
 
@@ -180,7 +225,20 @@ export function createGLView(canvas) {
     textured: gl.getUniformLocation(prog, 'uTextured'),
     sky: gl.getUniformLocation(prog, 'uSky'),
     str: gl.getUniformLocation(prog, 'uStr'),
+    // ⚠ AN ARRAY IS ASKED FOR WITHOUT ITS SUBSCRIPT, which GL answers with element 0's location
+    // and `uniform3fv` then fills from. 'uLightP[0]' would work too and would be a name no
+    // shader in the file declares, which is the thing gl:glsl exists to refuse.
+    nLight: gl.getUniformLocation(prog, 'uNLight'),
+    lightP: gl.getUniformLocation(prog, 'uLightP'),
+    lightC: gl.getUniformLocation(prog, 'uLightC'),
+    lightR: gl.getUniformLocation(prog, 'uLightR'),
+    lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
   };
+
+  // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
+  // a fresh Float32Array per light per frame is garbage on the hot path.
+  const lightP = new Float32Array(MAX_LIGHTS * 3), lightC = new Float32Array(MAX_LIGHTS * 3);
+  const lightR = new Float32Array(MAX_LIGHTS);
 
   const vao = gl.createVertexArray();
   const buf = gl.createBuffer();
@@ -333,6 +391,22 @@ export function createGLView(canvas) {
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e6 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e6 + 1 : opts.hazeFar);
     gl.uniform1f(loc.vlight, opts.vlight == null ? 1 : opts.vlight);
+    // The city's own lights. `opts.lights` is a list of { p: [x, y, z], rgb: [r, g, b], r }, already
+    // in the same camera-relative tile frame the vertices are, and already the strongest few — see
+    // world.js for why the selection lives there and not here.
+    const lights = opts.lights || [];
+    const nL = Math.min(lights.length, MAX_LIGHTS);
+    for (let i = 0; i < nL; i++) {
+      const L = lights[i];
+      lightP[i * 3] = L.p[0]; lightP[i * 3 + 1] = L.p[1]; lightP[i * 3 + 2] = L.p[2];
+      lightC[i * 3] = L.rgb[0]; lightC[i * 3 + 1] = L.rgb[1]; lightC[i * 3 + 2] = L.rgb[2];
+      lightR[i] = L.r;
+    }
+    gl.uniform1i(loc.nLight, nL);
+    if (nL) {
+      gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform1fv(loc.lightR, lightR);
+      gl.uniform1f(loc.lightWrap, opts.lightWrap == null ? 0 : opts.lightWrap);
+    }
     const textured = hasAtlas && opts.textured !== false;
     gl.uniform1f(loc.textured, textured ? 1 : 0);
     if (textured) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(loc.atlas, 0); }

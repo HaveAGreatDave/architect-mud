@@ -207,6 +207,16 @@ export const RENDER_TUNE = {
   // one real casualty: The Dry Goods letters its false front on a plane a tenth of a footprint
   // INSIDE the board, and the lift had covered for it since the model was written.
   glSign: 1,
+  // Every light this frame collected, fed to the MASS shader as well as to the sprite layer, so a
+  // neon sign washes the wall it is bolted to. Nothing new is authored and nothing new is
+  // collected — `SPRITE_SINK` is the same list the glows are drawn from — and the term is ADDED
+  // after the key shading, so a frame with no lights in it is unchanged pixel for pixel. 0 puts
+  // the city back on one key direction and its own emissive signage.
+  //
+  // ⚠ THE FLAG IS FOR THE FILL COST, NOT FOR THE LOOK. Twelve lights is twelve per-fragment
+  // distance tests on every pixel of every wall, which is exactly the kind of thing that is free
+  // on the machine it was written on and is not free on an integrated GPU.
+  glLights: 1,
   gl: 1,
   mount: 1,
   shapeShadow: 1,
@@ -22616,7 +22626,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
     pBegin('world:gl');
     try {
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, light: LIGHT_STATE, sprites: SPRITE_SINK, glLights: TUNE.glLights, worldBlend: WORLD_BLEND,
         curtain: CURTAIN_SINK, decals: DECAL_SINK, scatter: SCATTER_SINK, ground: GROUND_MESH, floor: FLOOR_STATE, now,
         fogNear: FOG_NEAR, fogFar: FOG_FAR,
         // The frame's own CSS size, because that is the unit `cam.horizonY` and `cam.depth` are in.

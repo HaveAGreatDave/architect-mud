@@ -10,7 +10,8 @@
 // an opinion about what a building is made of.
 import { installGLWorld, captureModelMesh, wallTexMixed, roofTex, texEpoch, wallPaletteInfo, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass } from './world.js';
-import { NEAR, FAR } from './camera.js';   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
+import { NEAR, FAR } from './camera.js';
+import { MAX_LIGHTS } from './context.js';   // the uniform budget the light pass asks for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
 
 // What the last GL frame actually drew. A diagnostic rather than state: reading pixels back off a
 // composited canvas is unreliable (the drawing buffer is not preserved by default), so the pass
@@ -63,7 +64,14 @@ export function glCapabilities() {
     }
     out.polygonOffsetSteps = 4;
   }
-  out.needs = { attribs: 8, varyingComponents: 13 };
+  // ⚠ THESE ARE COUNTED BY HAND AND HAVE TO BE RECOUNTED WHEN A SHADER GAINS A VARYING. The mass
+  // pass carries vNormal 3 + vColor 3 + vUV 2 + vRamp 1 + vDepth 1 + vAlpha 1 + vFlat 1 + vJit 1 +
+  // vWorld 3 = 16, against a WebGL2 guarantee of 60. It is not close, which is exactly why the
+  // number is easy to leave stale — nothing fails when it is wrong, the report just stops being
+  // the answer to "will this machine run it".
+  // Point lights add uniforms rather than varyings: 3 arrays of MAX_LIGHTS plus a count and a wrap,
+  // 37 vectors against a guarantee of 224.
+  out.needs = { attribs: 8, varyingComponents: 16, fragUniformVectors: 3 * MAX_LIGHTS + 1 };
   out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents;
   out.atlasWorstCase = out.maxTexture >= 4096
     ? 'every surface fits, textured'
@@ -96,7 +104,7 @@ export function installGL(hostFor) {
     return (lastStats = glWorldPass(opts.id || host.id || 'ws', host, cells, cam, {
       captureModelMesh, wallTexMixed, roofTex, texEpoch, palette: paletteMap(),
     }, {
-      sprites: opts.sprites, cssW: opts.cssW, cssH: opts.cssH,
+      sprites: opts.sprites, glLights: opts.glLights, cssW: opts.cssW, cssH: opts.cssH,
       curtain: opts.curtain, decals: opts.decals, scatter: opts.scatter, ground: opts.ground,
       floor: opts.floor, now: opts.now,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,

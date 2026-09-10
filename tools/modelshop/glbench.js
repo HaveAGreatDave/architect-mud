@@ -18,6 +18,7 @@
 // with the machine, so what belongs in a commit message is the RATIO and the conditions.
 import { createGLView } from '/client/game/js/panels/gl/context.js';
 import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/gl/install.js';
+import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
 import { paintWindshield, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
@@ -816,4 +817,182 @@ export function runFrame({ W = 640, H = 360, reps = 3, frames = 20, warm = 8 } =
   console.log('   calls2d is deterministic and is the number to compare across days.');
   return rows;
 }
-if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; }
+// ── DOES A SIGN LIGHT THE WALL IT IS BOLTED TO? ─────────────────────────────
+//
+// `__glLights()`. The mass shader takes the frame own light list now, so a neon sign washes the
+// facade behind it instead of hanging in front of a wall that has never heard of it. Two
+// questions, and they need two different runs.
+//
+// ⚠ FIRST, DID IT REACH ANY PIXELS AT ALL — because the failure mode is silence, exactly as it
+// was for the signage. A uniform location that came back null is a legal no-op, a light list that
+// arrived in the wrong frame falls off the building, and a reach that resolves too small lights
+// nothing. Every one of those draws the city correctly and looks like the feature being subtle.
+// So the first half is a PIXEL DIFF of the same frame with the flag off and on, over the mask of
+// what the buildings cover, with the clock frozen (the sky drifts, and a diff across a moving sky
+// measures the sky).
+//
+// ⚠ SECOND, WHAT IT COSTS, which is a fill question and not a geometry one: twelve lights is
+// twelve distance tests on every wall pixel, so the number moves with resolution and with how
+// much of the frame is building. Measured on the same seats __glFrame uses, with the resolution
+// dial pinned for the reason given there.
+const LIGHT_SEATS = [
+  { tag: 'cab, dense night', R: 14, density: 0.18, hour: 2, cls: 'truck' },
+  { tag: 'cab, dense day', R: 14, density: 0.18, hour: 13, cls: 'truck' },
+  { tag: 'air, dense night', R: 36, density: 0.05, hour: 2, cls: 'prop' },
+];
+
+// The settings swept. An empty `set` is whatever LIGHT_TUNE currently holds, so the shipping row is
+// always in the table beside the alternatives rather than being a number in a comment somebody
+// wrote down once.
+const LIGHT_SWEEP = [
+  { tag: 'lambert (wrap 0)', set: { wrap: 0 } },
+  { tag: 'shipping', set: {} },
+  { tag: 'wrap 1.0', set: { wrap: 1 } },
+  { tag: 'span x1.5', set: { span: 4.8 } },
+  { tag: 'minR 2.0', set: { minR: 2 } },
+  { tag: 'gain x1.5', set: { gain: 2.25 } },
+];
+
+export function runLights({ W = 640, H = 360, frames = 30, warm = 10 } = {}) {
+  const named = shapeModelRegistry().filter((r) => r.key.startsWith("named:"));
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__lights'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const shot = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const mid = (a) => { const b = [...a].sort((p, q) => p - q); return b[b.length >> 1]; };
+
+  const mk = (R, density) => {
+    const N = R * 2 + 1;
+    let k = 0, n = 0;
+    const m = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+      const dx = x - R;
+      if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
+      if (Math.abs(dx) <= 2) return { kind: 'land', biome: 'citycore', flr: 0, pw: 1 };
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (density && (h % 1000) / 1000 < density) {
+        const r = named[(k++) % named.length];
+        n++;
+        return { kind: 'land', biome: 'citycore', bt: 'shop', bn: r.name || r.key.slice(6), ent: dx < 0 ? 'east' : 'west', flr: 2 + ((h >> 8) % 3) };
+      }
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+    m._buildings = n;
+    return m;
+  };
+
+  const rows = [], swept = [];
+  const realNow = performance.now.bind(performance);
+  try {
+    for (const seat of LIGHT_SEATS) {
+      // ⚠ A SEAT OF ITS OWN, BECAUSE A FROZEN CLOCK CANNOT SETTLE A SCENE. `sceneFor(id)` keeps
+      // smoothed per-view state and advances it by dt — which under a stubbed `performance.now` is
+      // ZERO for ever, so the aeroplane seat inherited the truck seat that ran before it and its
+      // with-buildings and without-buildings frames came back IDENTICAL. That reads as wallPx 0 and
+      // litPct null, which looks exactly like the lights doing nothing rather than like the harness
+      // measuring the wrong camera. It was right on the first call of a fresh page and wrong on
+      // every one after, which is the worst way for a harness to be wrong.
+      const ID = '__lights' + LIGHT_SEATS.indexOf(seat) + '_' + (runLights.n = (runLights.n || 0) + 1);
+      el.id = ID;
+      const built = mk(seat.R, seat.density), bare = mk(seat.R, 0);
+      const view = (map) => ({
+        cls: seat.cls, phase: 'cruise', worldBlend: 1,
+        height: seat.cls === 'prop' ? 0.5 : 0, eyeH: seat.cls === 'prop' ? undefined : 0.12,
+        hour: seat.hour, weather: 'clear', speed: 0.4, map, heading: 0,
+        mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+        resFloor: 1, tune: { gl: 1, perfDS: 0 },
+      });
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+
+      // ── the picture, clock frozen ──
+      performance.now = () => 1e6;
+      const paint2 = (v) => { paintWindshield(ID, v); paintWindshield(ID, v); };
+      RENDER_TUNE.glLights = 0;
+      paint2(view(bare)); const empty = shot();
+      paint2(view(built)); const off = shot();
+      // ⚠ THE MASK IS THE BUILDINGS, TAKEN FROM A THIRD RENDER WITH NONE IN IT. Measured against the
+      // whole frame the answer would be divided by a sky and a road the lights are not allowed to
+      // touch, and it would fall as the window got bigger — a fidelity number measuring coverage,
+      // which is the trap runFidelity above is written around.
+      const isWall = new Uint8Array(off.length >> 2);
+      let mask = 0;
+      for (let i = 0; i < off.length; i += 4) {
+        const d0 = Math.abs(off[i] - empty[i]) + Math.abs(off[i + 1] - empty[i + 1]) + Math.abs(off[i + 2] - empty[i + 2]);
+        if (d0 >= 12) { isWall[i >> 2] = 1; mask++; }
+      }
+      RENDER_TUNE.glLights = 1;
+      const held = { ...LIGHT_TUNE };
+      const sweep = [];
+      let stats = {};
+      for (const cfg of LIGHT_SWEEP) {
+        Object.assign(LIGHT_TUNE, held, cfg.set);
+        paint2(view(built));
+        const on = shot();
+        if (!sweep.length) stats = glLastFrame() || {};
+        let moved = 0, sum = 0, worst = 0;
+        for (let i = 0; i < off.length; i += 4) {
+          if (!isWall[i >> 2]) continue;
+          const d = (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2])) / 3;
+          if (d >= 2) { moved++; sum += d; }
+          if (d > worst) worst = d;
+        }
+        sweep.push({ seat: seat.tag, setting: cfg.tag, wallPx: mask,
+          litPct: mask ? +(moved / mask * 100).toFixed(1) : null,
+          meanOnLit: moved ? +(sum / moved / 255 * 100).toFixed(1) : null,
+          worst: Math.round(worst) });
+      }
+      Object.assign(LIGHT_TUNE, held);
+      performance.now = realNow;
+      swept.push(...sweep);
+      const chosen = sweep.find((r) => r.setting === 'shipping') || sweep[0];
+
+      // ── the cost, clock real ──
+      //
+      // ⚠ ALTERNATED, AND THE BEST OF EACH SIDE IS TAKEN, NOT THE MEDIAN OF THE PAIR. A first cut ran
+      // off, on, off, on and took the median of each side, which for two samples is the LARGER — so
+      // any drift across the sequence (thermal, GC, whatever else has the GPU) landed entirely on
+      // whichever side ran last. It reported the lights costing 2.4-2.6 ms on the DAY seat, where
+      // the night scale means there are no lights at all and both sides run identical work. A number
+      // that big out of a case that is provably free is the whole reason to distrust the other two.
+      // The minimum is the least-disturbed run of each side, which is the standard way out.
+      const run = (g) => {
+        RENDER_TUNE.glLights = g;
+        const v = view(built);
+        for (let i = 0; i < warm; i++) paintWindshield(ID, v);
+        const t = [];
+        for (let i = 0; i < frames; i++) { const t0 = performance.now(); paintWindshield(ID, { ...v, heading: i * 0.7 }); t.push(performance.now() - t0); }
+        return mid(t);
+      };
+      const offs = [], ons = [];
+      for (let r = 0; r < 3; r++) { offs.push(run(0)); ons.push(run(1)); }
+      const msOff = Math.min(...offs), msOn = Math.min(...ons);
+      RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0; RENDER_TUNE.glLights = 1;
+
+      const L = stats.lit || [];
+      const rr = L.map((x) => x.r).sort((a, b) => a - b);
+      rows.push({
+        seat: seat.tag, buildings: built._buildings,
+        sprites: stats.lights || 0, lit: L.length,
+        rTiles: rr.length ? rr[0].toFixed(2) + '-' + rr[rr.length - 1].toFixed(2) : '-',
+        wallPx: mask, litPct: chosen.litPct, meanOnLit: chosen.meanOnLit, worst: chosen.worst,
+        msOff: +msOff.toFixed(2), msOn: +msOn.toFixed(2), fill: +(msOn - msOff).toFixed(2),
+        spread: offs.map((x) => x.toFixed(1)).join('/') + ' vs ' + ons.map((x) => x.toFixed(1)).join('/'),
+      });
+    }
+  } finally {
+    performance.now = realNow;
+    RENDER_TUNE.gl = 0; RENDER_TUNE.glFloor = 0; RENDER_TUNE.glLights = 1;
+    uninstall(); holder.remove();
+  }
+  console.table(swept);
+  console.table(rows);
+  console.log('   litPct is the share of WALL pixels the lights actually changed — a zero there is the silent failure, whatever the frame looks like.');
+  console.log('   fill is msOn - msOff on two independent medians; if it is inside the run-to-run spread, measure again.');
+  return { rows, swept };
+}
+
+if (typeof window !== 'undefined') { window.__glBench = runBench; window.__glStage1 = runStage1; window.__glPhases = runPhases; window.__glFidelity = runFidelity; window.__glTerrain = runTerrain; window.__glCaps = glCapabilities; window.__glFloor = runFloor; window.__glFloorCost = runFloorCost; window.__glSign = runSign; window.__glFrame = runFrame; window.__glLights = runLights; }

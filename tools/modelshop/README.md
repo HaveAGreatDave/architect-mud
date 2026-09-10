@@ -181,7 +181,8 @@ In the Modelshop (`npm run modelshop`, :5181) the console carries the measuremen
 for what the machine can do, `__glPhases()` for where the frame goes with the flag off and on,
 `__glStage1()` for the end-to-end saving, `__glFidelity()` for how close the two pictures are,
 `__glFloor()` and `__glFloorCost()` for the same two questions about the ground, `__glSign()` for
-whether the buildings still have their names on them, `__glFrame()` for where the whole frame goes
+whether the buildings still have their names on them, `__glLights()` for whether a sign lights the
+wall it is bolted to, `__glFrame()` for where the whole frame goes
 now, and `__glBench()` for the original ceiling question.
 
 
@@ -631,6 +632,62 @@ With the dial pinned, five seats, 640×360:
 overlay: the distant ridge, the sky and cloud layers, weather, the dash, the glass and the badges.
 Those should stay there. They have no ordering problem to solve, they do not measure, and the HUD
 needs text — moving it means building a glyph atlas to replace something that already works.
+### Does a sign light the wall it is bolted to? — `__glLights()`
+
+The mass shader takes the frame's own light list, so a neon sign washes the facade behind it. Two
+questions, and they need two different runs.
+
+⚠ **First, did it reach any pixels at all** — because the failure mode here is silence, exactly as
+it is for the signage. A uniform location that came back `null` is a legal no-op, a light list that
+arrived in the wrong frame falls off the building, and a reach that resolves too small lights
+nothing. Every one of those draws the city correctly and looks like the feature being subtle. So the
+first half is a pixel diff of one frame with the flag off and on, over a mask of what the buildings
+cover, with the clock frozen — a diff across a drifting sky measures the sky.
+
+⚠ **That half found the real bug.** The first cut recovered a world radius from the sprite's SCREEN
+radius, through the same projection the sprite quad is expanded by — which is arithmetically right
+and answers the wrong question. `r` is `clamp(k / f, lo, hi)`: a clamped screen size, chosen so a
+halo looks right on a canvas, carrying almost nothing about how much light the source puts out. It
+resolved every sign in the city to about half a tile of reach, and on The Cherry Pit — a building
+with two neon signs on its parapet — the feature moved **0 pixels**. Reach comes off BRIGHTNESS now,
+which needs no camera at all and cannot go wrong at a device pixel ratio.
+
+⚠ **Second, what it costs**, which is a fill question rather than a geometry one: twelve lights is
+twelve distance tests on every wall pixel. ⚠ **And the harness got that wrong first, in the way that
+matters.** It ran off, on, off, on and took the median of each side, which for two samples is the
+LARGER — so any drift across the sequence landed entirely on whichever side ran last. It reported
+the lights costing **2.4–2.6 ms on the DAY seat**, where the night scale means there are no lights at
+all and both sides run identical work. A number that big out of a case that is provably free is the
+reason to distrust the other two. Alternated three times, taking the minimum of each side, the day
+control reads ±0.4 ms and both lit seats read inside it.
+
+⚠ **And a frozen clock cannot settle a scene.** `sceneFor(id)` keeps smoothed per-view state and
+advances it by dt, which under a stubbed `performance.now` is zero for ever — so the aeroplane seat
+inherited the truck seat that ran before it, and its with-buildings and without-buildings frames came
+back IDENTICAL. That reads as `wallPx 0`, which looks exactly like the lights doing nothing rather
+than like the harness measuring the wrong camera; it was right on the first call of a fresh page and
+wrong on every one after. Each seat takes an id of its own.
+
+At 640×360, with `LIGHT_TUNE` at its shipping row:
+
+| seat | buildings | lights | reach (tiles) | wall px | moved | mean on moved | worst |
+|---|---|---|---|---|---|---|---|
+| cab, dense night | 118 | 12 of 89 | 2.5–3.3 | 7,947 | 43.0% | 10/255 | 70 |
+| cab, dense day | 118 | 0 of 36 | — | 8,993 | 0% | — | 0 |
+| air, dense night | 240 | 12 of 127 | 2.2–3.3 | 5,786 | 23.5% | 5.4/255 | 85 |
+
+The run also sweeps `LIGHT_TUNE` — lambert against the shipping wrap, a wider span, a bigger floor,
+more gain — so the row that ships is always in the table beside the alternatives rather than being a
+number somebody wrote in a comment once and never went back to.
+
+⚠ **Selection and reach are scored on different things, and conflating them cost most of the
+effect.** There are twelve uniform slots against a hundred and twenty-odd lights in a dense frame,
+so what has to be ranked is how much of the PICTURE each wash covers — reach over distance, weighted
+by brightness. Ranking on the sprite's own screen radius instead (which is what the first cut did,
+back when reach was derived from it) picks whatever is drawn biggest rather than whatever lights the
+most wall: the same frame went from 25.6% of its wall pixels moved to **43%** on the fix, at the same
+twelve lights and the same cost.
+
 ### Two things a bench in this file cannot see
 
 Both cost most of a day in September 2026, chasing three symptoms a player reported — buildings
