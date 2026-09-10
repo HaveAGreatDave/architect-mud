@@ -20678,6 +20678,46 @@ const AUTHORED_DETAIL = {
       Q([[ax, ay, zt], [bx, by, zt], [bx, by, zb], [ax, ay, zb]], body, c.alpha, { cullN: [sx * c.E[1] + sy * c.E[0], sy * c.E[1] - sx * c.E[0]] });
     }
   },
+  // A cable, sagging. Eight short quads following a parabola — zero at the ends, `sag` at the
+  // middle — which is close enough to a catenary at this size that nothing could tell, and is one
+  // multiply instead of a cosh. The one curve in a city made of straight lines.
+  cableRun: (c, d) => {
+    const half = c.V(d.half), sag = c.V(d.sag), z = c.V(d.z), r = c.V(d.r), y = faceY(c.ly);
+    const col = shadeOf(d.pal || c.pal, 0.26);
+    const N = 8;
+    let px = c.lx - half, pz = z;
+    for (let i = 1; i <= N; i++) {
+      const t = i / N, x = c.lx - half + 2 * half * t, zz = z - sag * 4 * t * (1 - t);
+      detailQuad(c.ctx, c.cam, c.F, [[px, y, pz + r], [x, y, zz + r], [x, y, zz - r], [px, y, pz - r]], col, c.alpha, { lift: DETAIL_LIFT });
+      px = x; pz = zz;
+    }
+  },
+  // A roller shutter, slats and all: the ground floor of a street that is shut, which at the
+  // hours this game is mostly played is most of it.
+  shutter: (c, d) => {
+    const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z), y = faceY(c.ly);
+    const body = shadeOf(d.pal || c.pal, 0.5), slat = shadeOf(d.pal || c.pal, 0.64);
+    detailQuad(c.ctx, c.cam, c.F, [[c.lx - half, y, z + hh], [c.lx + half, y, z + hh], [c.lx + half, y, z - hh], [c.lx - half, y, z - hh]],
+      body, c.alpha, { lift: DETAIL_LIFT, stroke: "rgba(0,0,0,0.42)", lw: 1 });
+    const yy = y + (y < 0 ? -FACE_EPS : FACE_EPS);
+    for (let i = 1; i < 7; i++) {
+      const zz = z - hh + (2 * hh) * (i / 7);
+      detailQuad(c.ctx, c.cam, c.F, [[c.lx - half * 0.96, yy, zz], [c.lx + half * 0.96, yy, zz], [c.lx + half * 0.96, yy, zz - hh * 0.06], [c.lx - half * 0.96, yy, zz - hh * 0.06]],
+        slat, c.alpha, { lift: DETAIL_LIFT * 1.4 });
+    }
+  },
+  // A spray of aerials on a roof, at mixed heights and angles off one anchor. Seeded off the
+  // index rather than random, so a building keeps the same skyline every frame.
+  antennaCluster: (c, d) => {
+    const r = c.V(d.r), hh = c.V(d.hh), z = c.V(d.z), n = clamp(Math.round(d.n || 5), 2, 9);
+    const col = shadeOf(d.pal || c.pal, 0.95);
+    for (let i = 0; i < n; i++) {
+      const a2 = (i / n) * Math.PI * 2 + 0.7, rr = r * (0.3 + 0.7 * (((i * 7) % 5) / 5));
+      const ax = c.lx + Math.cos(a2) * rr, ay = c.ly + Math.sin(a2) * rr;
+      const t = Math.max(r * 0.045, 0.004), hgt = hh * (0.45 + 0.55 * (((i * 3) % 4) / 4));
+      detailQuad(c.ctx, c.cam, c.F, [[ax - t, ay, z + hgt], [ax + t, ay, z + hgt], [ax + t, ay, z], [ax - t, ay, z]], col, c.alpha * 0.95, {});
+    }
+  },
   // A pipe run ACROSS a face: the same two crossed strips `pipe` uses, turned on their side.
   conduit: (c, d) => {
     const r = c.V(d.r), half = c.V(d.half), z = c.V(d.z), y = faceY(c.ly);
@@ -20808,11 +20848,51 @@ const D_INDUSTRIAL = [
   { kind: 'vent', cx: [-0.80, 0, 0], cy: [0.56, 0, 0], z: [0, 0.30, 0], w: [0.16, 0, 0], hh: [0, 0.070, 0] },
 ];
 
+// A tenement, read off its own arm rather than guessed at: podium to 0.2h, the residential slab
+// to 1.02h at fh*0.98, the set-back top to 1.18h at fh*0.64. So the escape and the plant hang on
+// the slab face at 0.98, the tank stands on the slab roof at 1.02h clear of the set-back, and the
+// aerials go up off the top box at 1.18h — placed away from F(fh*0.3, 0), where the optional
+// penthouse stands.
+const D_APARTMENT = [
+  { kind: 'fireEscape', cx: [0.40, 0, 0], cy: [0.98, 0, 0], z0: [0, 0.24, 0], z1: [0, 0.98, 0], half: [0.24, 0, 0], out: [0.15, 0, 0], flights: 4 },
+  { kind: 'acUnit', cx: [-0.46, 0, 0], cy: [0.98, 0, 0], z: [0, 0.38, 0], w: [0.085, 0, 0], d: [0.065, 0, 0], hh: [0, 0.036, 0] },
+  { kind: 'acUnit', cx: [-0.22, 0, 0], cy: [0.98, 0, 0], z: [0, 0.66, 0], w: [0.075, 0, 0], d: [0.058, 0, 0], hh: [0, 0.032, 0] },
+  { kind: 'cableRun', cy: [0.98, 0, 0], z: [0, 0.92, 0], half: [0.86, 0, 0], sag: [0, 0.05, 0], r: [0.011, 0, 0] },
+  { kind: 'roofTank', cx: [-0.62, 0, 0], cy: [-0.42, 0, 0], z: [0, 1.02, 0], r: [0.16, 0, 0], hh: [0, 0.08, 0] },
+  { kind: 'antennaCluster', cx: [-0.30, 0, 0], cy: [-0.26, 0, 0], z: [0, 1.18, 0], r: [0.2, 0, 0], hh: [0, 0.18, 0], n: 6 },
+];
+
+// A shed: ribbed walls to 0.5h at fh*1.12 (which the 0.44 clamp trims, so a part authored at 1.12
+// stands a hair proud rather than sunk — the right side to be wrong on), a barrel over the top.
+// No shutter here: the arm already draws three roller doors of its own. Ducting, louvres, a cable
+// and a mast cluster low on the ridge.
+const D_WAREHOUSE = [
+  { kind: 'conduit', cy: [1.12, 0, 0], z: [0, 0.42, 0], half: [0.9, 0, 0], r: [0.022, 0, 0] },
+  { kind: 'conduit', cy: [1.12, 0, 0], z: [0, 0.35, 0], half: [0.62, 0, 0], r: [0.016, 0, 0] },
+  { kind: 'pipe', cx: [-0.92, 0, 0], cy: [1.12, 0, 0], z0: [0, 0.02, 0], z1: [0, 0.44, 0], r: [0.026, 0, 0] },
+  { kind: 'vent', cx: [0.66, 0, 0], cy: [1.12, 0, 0], z: [0, 0.30, 0], w: [0.13, 0, 0], hh: [0, 0.052, 0] },
+  { kind: 'cableRun', cy: [1.12, 0, 0], z: [0, 0.47, 0], half: [1.0, 0, 0], sag: [0, 0.035, 0], r: [0.010, 0, 0] },
+  { kind: 'antennaCluster', cx: [0.5, 0, 0], cy: [-0.2, 0, 0], z: [0, 0.52, 0], r: [0.16, 0, 0], hh: [0, 0.13, 0], n: 4 },
+];
+
+// A near-black slab to 1.05h at fh*1.02 under a crown band to 1.2h at fh*1.1. The street face gets
+// a shuttered side door and a cable; the crown carries the aerials. Deliberately sparse on plant —
+// a club that bristles with air handling reads as a warehouse with a queue outside.
+const D_NIGHTCLUB = [
+  { kind: 'shutter', cx: [-0.58, 0, 0], cy: [1.02, 0, 0], z: [0, 0.17, 0], half: [0.24, 0, 0], hh: [0, 0.155, 0] },
+  { kind: 'cableRun', cy: [1.02, 0, 0], z: [0, 0.62, 0], half: [0.9, 0, 0], sag: [0, 0.06, 0], r: [0.012, 0, 0] },
+  { kind: 'conduit', cy: [1.02, 0, 0], z: [0, 0.44, 0], half: [0.7, 0, 0], r: [0.017, 0, 0] },
+  { kind: 'antennaCluster', cx: [0.32, 0, 0], cy: [0.24, 0, 0], z: [0, 1.20, 0], r: [0.22, 0, 0], hh: [0, 0.2, 0], n: 5 },
+];
+
 const ARM_DETAIL = {
   office: D_OFFICE,
   police: D_CIVIC,
   clinic: D_CLINIC,
   power: D_INDUSTRIAL,
+  apartment: D_APARTMENT,
+  warehouse: D_WAREHOUSE,
+  nightclub: D_NIGHTCLUB,
 };
 
 // ── THE TRIM NOBODY HAS TO AUTHOR ───────────────────────────────────────────

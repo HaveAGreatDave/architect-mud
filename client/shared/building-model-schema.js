@@ -138,6 +138,16 @@ export const DETAIL_SCHEMA = {
   // the air a flat roof is the biggest surface on the building and usually the emptiest.
   roofTank: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r', 'hh'],
     plain: { pal: 'string' }, px: 9 },
+  // A sagging cable strung across a face. The one silhouette that says this city more than any
+  // other: a curve, in a place made entirely of straight lines.
+  cableRun: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', sag: 'h', r: 'fh' }, required: ['z', 'half', 'sag', 'r'],
+    plain: { pal: 'string', face: 'string' }, px: 7 },
+  // A roller shutter: the ground floor of a street that is closed, which is most of them.
+  shutter: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', hh: 'h' }, required: ['z', 'half', 'hh'],
+    plain: { pal: 'string', face: 'string' }, px: 9 },
+  // A spray of aerials on a roof. Read from the air, which is where this game looks from.
+  antennaCluster: { geom: { cx: 'fh', cy: 'fh', z: 'h', r: 'fh', hh: 'h' }, required: ['z', 'r', 'hh'],
+    plain: { pal: 'string', n: 'number' }, px: 7 },
   // A pipe run ACROSS a face rather than down it. Same two crossed strips as `pipe`, turned:
   // a service riser is vertical and everything it feeds is horizontal.
   conduit: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', r: 'fh' }, required: ['z', 'half', 'r'],
