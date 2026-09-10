@@ -20885,6 +20885,57 @@ const D_NIGHTCLUB = [
   { kind: 'antennaCluster', cx: [0.32, 0, 0], cy: [0.24, 0, 0], z: [0, 1.20, 0], r: [0.22, 0, 0], hh: [0, 0.2, 0], n: 5 },
 ];
 
+// ── THE FOUR THE DERIVED BAND CANNOT REACH ──────────────────────────────────
+//
+// derivedTrim refuses a segment with a yaw, one whose footprint is not square, and everything
+// but the highest few — all three the timid direction. That is why eight models still had no
+// trim at all, and six of them are refused for a good reason rather than an oversight: an
+// airfield shed and a diner are BARREL-roofed, a depot is a yard with walls round it, and Chrome
+// Court is a decagon. None of them wants a square coping band. They want the things a building
+// of that sort actually carries.
+//
+// The other two keep nothing on purpose: the thorn wall is grown rather than built, and the
+// glasshouse is glass.
+
+// An airfield shed: a barrel roof over ribbed steel at top*0.52, with the glazed lounge pavilion
+// beside it at top*0.5. Ducting and a louvre on the shed, a cable across it, and the aerial
+// cluster on the pavilion, which is the flat roof of the two.
+const D_HANGAR = [
+  { kind: 'conduit', cx: [-0.55, 0, 0], cy: [0.5, 0, 0], z: [0, 0.20, 0], half: [0.42, 0, 0], r: [0.018, 0, 0] },
+  { kind: 'vent', cx: [-0.82, 0, 0], cy: [0.5, 0, 0], z: [0, 0.14, 0], w: [0.085, 0, 0], hh: [0, 0.034, 0] },
+  { kind: 'cableRun', cx: [-0.55, 0, 0], cy: [0.5, 0, 0], z: [0, 0.26, 0], half: [0.46, 0, 0], sag: [0, 0.018, 0], r: [0.008, 0, 0] },
+  { kind: 'antennaCluster', cx: [0.42, 0, 0], cy: [0.48, 0, 0], z: [0, 0.29, 0], r: [0.14, 0, 0], hh: [0, 0.12, 0], n: 4 },
+];
+
+// A depot is a yard with walls round it — hw fh*1.10, wallTop 0.62h — so everything goes on the
+// outside of the wall, and the mast cluster sits on top of it rather than on a roof there is none of.
+const D_TRUCK_DEPOT = [
+  { kind: 'conduit', cy: [1.10, 0, 0], z: [0, 0.50, 0], half: [0.85, 0, 0], r: [0.020, 0, 0] },
+  { kind: 'pipe', cx: [-0.90, 0, 0], cy: [1.10, 0, 0], z0: [0, 0.02, 0], z1: [0, 0.55, 0], r: [0.024, 0, 0] },
+  { kind: 'vent', cx: [0.80, 0, 0], cy: [1.10, 0, 0], z: [0, 0.40, 0], w: [0.10, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'antennaCluster', cx: [0.55, 0, 0], cy: [-0.50, 0, 0], z: [0, 0.64, 0], r: [0.15, 0, 0], hh: [0, 0.12, 0], n: 4 },
+];
+
+// A diner: a box to 0.52h under a curved skin, and it already carries an awning at 0.22h–0.33h
+// and a rooftop blade of its own — so the ducting goes ABOVE the awning and nothing goes on the
+// barrel, where it would sit inside the curve rather than on it.
+const D_DINER = [
+  { kind: 'conduit', cy: [1.12, 0, 0], z: [0, 0.45, 0], half: [0.80, 0, 0], r: [0.015, 0, 0] },
+  { kind: 'vent', cx: [-0.86, 0, 0], cy: [1.12, 0, 0], z: [0, 0.37, 0], w: [0.085, 0, 0], hh: [0, 0.032, 0] },
+  { kind: 'cableRun', cy: [1.12, 0, 0], z: [0, 0.50, 0], half: [0.95, 0, 0], sag: [0, 0.028, 0], r: [0.009, 0, 0] },
+];
+
+// Chrome Court is a decagon — a podium to 0.22h at fh*0.88, a shaft tapering to fh*0.4 at 2.35h.
+// Square coping on a round tower is exactly what derivedTrim refuses, and rightly, but a BAND at
+// each of the two places the silhouette changes reads correctly on a ten-sided drum at any
+// distance a player sees one from. Nothing else: it is the ritzy address in town, and a tower
+// that bristles with plant is not.
+const D_CHROME = [
+  { kind: 'parapet', z: [0, 0.22, 0], half: [0.86, 0, 0], hh: [0, 0.040, 0] },
+  { kind: 'parapet', z: [0, 2.35, 0], half: [0.42, 0, 0], hh: [0, 0.050, 0] },
+  { kind: 'antennaCluster', z: [0, 2.40, 0], r: [0.20, 0, 0], hh: [0, 0.24, 0], n: 5 },
+];
+
 const ARM_DETAIL = {
   office: D_OFFICE,
   police: D_CIVIC,
@@ -20893,6 +20944,10 @@ const ARM_DETAIL = {
   apartment: D_APARTMENT,
   warehouse: D_WAREHOUSE,
   nightclub: D_NIGHTCLUB,
+  hangar: D_HANGAR,
+  truck_depot: D_TRUCK_DEPOT,
+  diner: D_DINER,
+  chrome: D_CHROME,
 };
 
 // ── THE TRIM NOBODY HAS TO AUTHOR ───────────────────────────────────────────
